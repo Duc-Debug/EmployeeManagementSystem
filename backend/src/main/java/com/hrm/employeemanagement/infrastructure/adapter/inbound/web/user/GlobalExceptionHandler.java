@@ -36,17 +36,6 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    private final SaveAuditLogPort saveAuditLogPort;
-
-    public GlobalExceptionHandler() {
-        this.saveAuditLogPort = null;
-    }
-
-    @Autowired
-    public GlobalExceptionHandler(@Autowired(required = false) SaveAuditLogPort saveAuditLogPort) {
-        this.saveAuditLogPort = saveAuditLogPort;
-    }
-
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleUserNotFound(UserNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -124,13 +113,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
-        Long currentUserId = resolveCurrentUserId();
-        if (saveAuditLogPort != null) {
-            try {
-                saveAuditLogPort.save(AuditLog.create(currentUserId, "ACCESS_DENIED", "users", null));
-            } catch (Exception ignored) {
-            }
-        }
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error("Bạn không có quyền truy cập chức năng này"));
     }
@@ -173,17 +155,5 @@ public class GlobalExceptionHandler {
         log.error("Unhandled internal server exception occurred: ", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("Đã xảy ra lỗi hệ thống. Vui lòng liên hệ quản trị viên hoặc thử lại sau."));
-    }
-
-    private Long resolveCurrentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() != null) {
-            if (auth.getPrincipal() instanceof User user) {
-                return user.getIdValue();
-            } else if (auth.getPrincipal() instanceof UserPrincipal userPrincipal) {
-                return userPrincipal.getId();
-            }
-        }
-        return null;
     }
 }
