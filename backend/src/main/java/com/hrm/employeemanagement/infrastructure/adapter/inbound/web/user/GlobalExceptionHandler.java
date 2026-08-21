@@ -1,16 +1,24 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyActiveException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
+import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
+import com.hrm.employeemanagement.infrastructure.security.UserPrincipal;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -19,6 +27,17 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private final SaveAuditLogPort saveAuditLogPort;
+
+    public GlobalExceptionHandler() {
+        this.saveAuditLogPort = null;
+    }
+
+    @Autowired
+    public GlobalExceptionHandler(@Autowired(required = false) SaveAuditLogPort saveAuditLogPort) {
+        this.saveAuditLogPort = saveAuditLogPort;
+    }
 
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleUserNotFound(UserNotFoundException ex) {
@@ -42,6 +61,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleBusinessRuleViolation(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
+        Long currentUserId = resolveCurrentUserId();
+        if (saveAuditLogPort != null) {
+            try {
+                saveAuditLogPort.save(AuditLog.create(currentUserId, "ACCESS_DENIED", "users", null));
+            } catch (Exception ignored) {
+            }
+        }
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error("Bạn không có quyền truy cập chức năng này"));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
@@ -69,5 +101,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("Lỗi hệ thống: " + ex.getMessage()));
+    }
+
+    private Long resolveCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() != null) {
+            if (auth.getPrincipal() instanceof User user) {
+                return user.getIdValue();
+            } else if (auth.getPrincipal() instanceof UserPrincipal userPrincipal) {
+                return userPrincipal.getId();
+            }
+        }
+        return null;
     }
 }
