@@ -1,8 +1,10 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.DepartmentJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.UserJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataDepartmentRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataRoleRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataUserRepository;
@@ -35,6 +37,9 @@ class DataInitializerTest {
     private SpringDataRoleRepository roleRepository;
 
     @Mock
+    private SpringDataDepartmentRepository departmentRepository;
+
+    @Mock
     private SpringDataUserRepository userRepository;
 
     @Mock
@@ -47,16 +52,17 @@ class DataInitializerTest {
 
     @BeforeEach
     void setUp() {
-        dataInitializer = new DataInitializer(roleRepository, userRepository, employeeRepository, passwordEncoder);
+        dataInitializer = new DataInitializer(roleRepository, departmentRepository, userRepository, employeeRepository, passwordEncoder);
         dataInitializer.setInitialAdminEnabled(true);
         dataInitializer.setInitialAdminUsername("admin");
 
         lenient().when(roleRepository.findByCode(any(String.class))).thenReturn(Optional.of(new RoleJpaEntity(1L, "VT-01", "Vai tro")));
+        lenient().when(departmentRepository.findByCode("PB-01")).thenReturn(Optional.of(new DepartmentJpaEntity(1L, "PB-01", "Ban giám đốc", null)));
     }
 
     @Test
-    @DisplayName("Khởi tạo Admin thành công khi cung cấp password từ biến môi trường")
-    void testRun_ProvisionsAdminWithEnvPassword() throws Exception {
+    @DisplayName("Khởi tạo Admin & Employee liên kết Department thành công khi cung cấp password từ biến môi trường")
+    void testRun_ProvisionsAdminAndEmployeeWithEnvPassword() throws Exception {
         dataInitializer.setInitialAdminPassword("StrongEnvPassword123!");
 
         RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
@@ -77,7 +83,10 @@ class DataInitializerTest {
         assertEquals("encoded_strong_password", userCaptor.getValue().getPasswordHash());
         assertTrue(userCaptor.getValue().getIsActive());
 
-        verify(employeeRepository).save(any(EmployeeJpaEntity.class));
+        ArgumentCaptor<EmployeeJpaEntity> empCaptor = ArgumentCaptor.forClass(EmployeeJpaEntity.class);
+        verify(employeeRepository).save(empCaptor.capture());
+        assertEquals(1L, empCaptor.getValue().getUserId());
+        assertEquals(1L, empCaptor.getValue().getDepartmentId());
     }
 
     @Test
@@ -103,14 +112,22 @@ class DataInitializerTest {
     }
 
     @Test
-    @DisplayName("Bỏ qua khởi tạo khi đã có tài khoản Admin trong hệ thống")
-    void testRun_SkipsProvisioningWhenAdminAlreadyExists() throws Exception {
-        when(userRepository.countActiveAdmins()).thenReturn(1L);
+    @DisplayName("Tự phục hồi (Self-Healing): Khi Admin User đã tồn tại nhưng Employee Profile bị thiếu, hệ thống tự động tạo Employee")
+    void testRun_SelfHealing_CreatesMissingEmployeeWhenUserExists() throws Exception {
+        RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
+        UserJpaEntity existingAdmin = new UserJpaEntity(1L, "admin", "encoded_hash", adminRole, true);
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(existingAdmin));
+        when(employeeRepository.findByUserId(1L)).thenReturn(Optional.empty()); // Thiếu employee
 
         dataInitializer.run();
 
+        // Không tạo lại User
         verify(userRepository, never()).save(any(UserJpaEntity.class));
-        verify(employeeRepository, never()).save(any(EmployeeJpaEntity.class));
+        // Nhưng tạo bù Employee profile và liên kết Department
+        ArgumentCaptor<EmployeeJpaEntity> empCaptor = ArgumentCaptor.forClass(EmployeeJpaEntity.class);
+        verify(employeeRepository).save(empCaptor.capture());
+        assertEquals(1L, empCaptor.getValue().getUserId());
+        assertEquals(1L, empCaptor.getValue().getDepartmentId());
     }
 
     @Test

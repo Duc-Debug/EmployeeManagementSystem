@@ -63,3 +63,7 @@ INSERT INTO roles (id, code, name) VALUES
 (5, 'VT-05', 'Nhân sự'),
 (6, 'VT-06', 'Quản trị viên'),
 (7, 'VT-07', 'Nhân viên công ty');
+
+-- 7. Seed default Root Department (Ban giám đốc)
+INSERT INTO departments (id, code, name, parent_id) VALUES
+(1, 'PB-01', 'Ban giám đốc', NULL);
