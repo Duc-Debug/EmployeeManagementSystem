@@ -37,7 +37,7 @@ class AuthControllerTest {
     void setUp() {
         AuthController authController = new AuthController(authenticateUserUseCase, new LoginRateLimiter());
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new UserExceptionHandler())
                 .build();
     }
 

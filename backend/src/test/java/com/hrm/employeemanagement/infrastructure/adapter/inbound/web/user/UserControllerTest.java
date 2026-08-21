@@ -64,7 +64,7 @@ class UserControllerTest {
         );
         mockMvc = MockMvcBuilders.standaloneSetup(userController)
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new UserExceptionHandler())
                 .build();
     }
 
