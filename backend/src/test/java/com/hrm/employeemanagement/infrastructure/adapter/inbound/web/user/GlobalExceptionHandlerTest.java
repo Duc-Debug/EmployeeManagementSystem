@@ -17,6 +17,7 @@ import java.sql.SQLException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GlobalExceptionHandlerTest {
 
@@ -105,5 +106,21 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertFalse(response.getBody().isSuccess());
         assertEquals("Tài khoản này hiện đã bị khóa", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("Ánh xạ Generic Exception thành HTTP 500 với thông điệp an toàn, không làm lộ chi tiết hệ thống / SQL")
+    void testHandleGenericException_MasksSensitiveDetails_Returns500() {
+        RuntimeException sensitiveEx = new RuntimeException("SELECT * FROM users WHERE password_hash = 'secret' failed: table corruption at /var/lib/mysql");
+
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleGenericException(sensitiveEx);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
+        // Không được làm lộ nội dung truy vấn SQL hoặc đường dẫn hệ thống nhạy cảm
+        assertFalse(response.getBody().getMessage().contains("SELECT * FROM users"));
+        assertFalse(response.getBody().getMessage().contains("/var/lib/mysql"));
+        // Phải trả về thông điệp tổng quát an toàn
+        assertEquals("Đã xảy ra lỗi hệ thống. Vui lòng liên hệ quản trị viên hoặc thử lại sau.", response.getBody().getMessage());
     }
 }
