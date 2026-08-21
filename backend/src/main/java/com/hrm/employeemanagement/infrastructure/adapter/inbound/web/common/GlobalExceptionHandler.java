@@ -5,6 +5,8 @@ import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyExcep
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -18,7 +20,9 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Xử lý lỗi không tìm thấy (404 NOT FOUND)
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // 1. Handle OrgUnitNotFoundException (404 NOT FOUND)
     @ExceptionHandler(OrgUnitNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(OrgUnitNotFoundException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -28,7 +32,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    // 2. Xử lý lỗi trùng mã đơn vị (409 CONFLICT)
+    // 2. Handle DuplicateUnitCodeException (409 CONFLICT)
     @ExceptionHandler(DuplicateUnitCodeException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateCode(DuplicateUnitCodeException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -38,7 +42,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
-    // 3. Xử lý lỗi vòng lặp Cây tổ chức (400 BAD REQUEST)
+    // 3. Handle CyclicDependencyException (400 BAD REQUEST)
     @ExceptionHandler(CyclicDependencyException.class)
     public ResponseEntity<ErrorResponse> handleCyclicDependency(CyclicDependencyException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -48,7 +52,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 4. Xử lý lỗi nút cha bị khóa/INACTIVE (400 BAD REQUEST)
+    // 4. Handle InactiveParentException (400 BAD REQUEST)
     @ExceptionHandler(InactiveParentException.class)
     public ResponseEntity<ErrorResponse> handleInactiveParent(InactiveParentException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -58,7 +62,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 5. Xử lý các Domain Exception khác chưa phân loại
+    // 5. Handle Generic DomainException (400 BAD REQUEST)
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleGenericDomainException(DomainException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -68,7 +72,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 6. Xử lý lỗi Validation DTO (@Valid Request Body)
+    // 6. Handle DTO Validation Exceptions (@Valid Request Body)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -80,12 +84,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 
-    // 7. Catch-all lỗi hệ thống chung (500 INTERNAL SERVER ERROR)
+    // 7. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
+        log.error("Unhandled internal server error occurred", ex);
+
         ErrorResponse response = ErrorResponse.of(
                 "INTERNAL_SERVER_ERROR",
-                "An unexpected error occurred: " + ex.getMessage(),
+                "An unexpected error occurred.",
                 HttpStatus.INTERNAL_SERVER_ERROR.value());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
