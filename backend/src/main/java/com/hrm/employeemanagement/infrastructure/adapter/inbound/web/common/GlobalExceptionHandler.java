@@ -5,6 +5,7 @@ import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyExcep
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.stream.Collectors;
@@ -74,7 +76,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 6. Handle DTO Validation Exceptions (@Valid Request Body - Consistent ErrorResponse Schema)
+    // 6. Handle DTO Validation Exceptions (@Valid Request Body)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
         String detailMessage = ex.getBindingResult().getAllErrors().stream()
@@ -92,7 +94,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 7. Handle MethodArgumentTypeMismatchException (e.g. GET /org-units/abc where id expects Long)
+    // 7. Handle ConstraintViolationException (@PathVariable / @RequestParam validation in @Validated Controllers)
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PARAMETER",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 8. Handle HandlerMethodValidationException (Spring Boot 3.2+ method parameter validation)
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleHandlerMethodValidation(HandlerMethodValidationException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PARAMETER",
+                "Validation failed for method parameters",
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 9. Handle MethodArgumentTypeMismatchException (e.g. GET /org-units/abc where id expects Long)
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -102,7 +124,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 8. Handle HttpMessageNotReadableException (e.g. Malformed JSON or invalid Enum value)
+    // 10. Handle HttpMessageNotReadableException (Malformed JSON or invalid Enum value)
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -112,7 +134,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 9. Handle MissingServletRequestParameterException (e.g. Missing required query parameter)
+    // 11. Handle MissingServletRequestParameterException (Missing required query parameter)
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -122,7 +144,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 10. Handle IllegalArgumentException from Value Objects/Argument Validation
+    // 12. Handle IllegalArgumentException from Value Objects / Technical Argument Validation
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -132,7 +154,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 11. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR - Security Best Practice)
+    // 13. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
         log.error("Unhandled internal server error occurred", ex);

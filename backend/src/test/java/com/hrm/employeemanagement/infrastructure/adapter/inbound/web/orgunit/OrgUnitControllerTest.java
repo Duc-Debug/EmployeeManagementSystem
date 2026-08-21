@@ -139,4 +139,14 @@ class OrgUnitControllerTest {
                 .andExpect(jsonPath("$.code").value("ORG_UNIT_NOT_FOUND"))
                 .andExpect(jsonPath("$.status").value(404));
     }
+
+    @Test
+    @DisplayName("PUT /api/v1/org-units/abc should return HTTP 400 Bad Request for PathVariable type mismatch")
+    void shouldReturn400BadRequestWhenPathVariableTypeMismatch() throws Exception {
+        mockMvc.perform(put("/api/v1/org-units/abc")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"unitName\":\"Test\",\"unitType\":\"CENTER\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    }
 }

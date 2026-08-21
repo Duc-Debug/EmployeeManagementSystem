@@ -10,33 +10,33 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class OrgUnitUseCaseConfig {
-    @Bean
+    @Bean("orgUnitService")
     public OrgUnitService orgUnitService(LoadOrgUnitPort loadOrgUnitPort, SaveOrgUnitPort saveOrgUnitPort) {
         return new OrgUnitService(loadOrgUnitPort, saveOrgUnitPort);
     }
 
-    @Bean
+    @Bean("transactionalCreateOrgUnitUseCase")
     public CreateOrgUnitUseCase createOrgUnitUseCase(OrgUnitService orgUnitService) {
         return new TransactionalCreateOrgUnitUseCase(orgUnitService);
     }
 
-    @Bean
+    @Bean("transactionalUpdateOrgUnitUseCase")
     public UpdateOrgUnitUseCase updateOrgUnitUseCase(OrgUnitService orgUnitService) {
         return new TransactionalUpdateOrgUnitUseCase(orgUnitService);
     }
 
-    @Bean
+    @Bean("transactionalMoveOrgUnitUseCase")
     public MoveOrgUnitUseCase moveOrgUnitUseCase(OrgUnitService orgUnitService) {
         return new TransactionalMoveOrgUnitUseCase(orgUnitService);
     }
 
-    @Bean
+    @Bean("transactionalDeactivateOrgUnitUseCase")
     public DeactivateOrgUnitUseCase deactivateOrgUnitUseCase(OrgUnitService orgUnitService) {
         return new TransactionalDeactivateOrgUnitUseCase(orgUnitService);
     }
 
-    @Bean
+    @Bean("getOrgTreeUseCase")
     public GetOrgTreeUseCase getOrgTreeUseCase(OrgUnitService orgUnitService) {
-        return orgUnitService; // Read-only query không cần transaction write
+        return orgUnitService;
     }
 }
