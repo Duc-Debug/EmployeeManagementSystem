@@ -44,7 +44,7 @@ public class DepartmentRepositoryAdapter implements LoadDepartmentPort {
                 entity.getId() != null ? new DepartmentId(entity.getId()) : null,
                 entity.getCode(),
                 entity.getName(),
-                entity.getParentId()
+                entity.getParentId() != null ? new DepartmentId(entity.getParentId()) : null
         );
     }
 }

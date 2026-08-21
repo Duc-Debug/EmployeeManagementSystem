@@ -79,7 +79,7 @@ public class UserPersistenceMapper {
                 entity.getFullName(),
                 entity.getIsOutsourced(),
                 entity.getStandardHoursPerWeek(),
-                entity.getStatus()
+                com.hrm.employeemanagement.domain.employee.EmployeeStatus.fromString(entity.getStatus())
         );
     }
 
@@ -93,7 +93,7 @@ public class UserPersistenceMapper {
                 domain.getFullName(),
                 domain.getIsOutsourced(),
                 domain.getStandardHoursPerWeek(),
-                domain.getStatus()
+                domain.getStatusValue()
         );
     }
 
@@ -104,7 +104,7 @@ public class UserPersistenceMapper {
         target.setFullName(domain.getFullName());
         target.setIsOutsourced(domain.getIsOutsourced());
         target.setStandardHoursPerWeek(domain.getStandardHoursPerWeek());
-        target.setStatus(domain.getStatus());
+        target.setStatus(domain.getStatusValue());
     }
 
     public AuditLog toDomain(AuditLogJpaEntity entity) {

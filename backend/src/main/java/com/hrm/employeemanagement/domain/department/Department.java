@@ -8,9 +8,9 @@ public class Department {
     private final DepartmentId id;
     private final String code;
     private final String name;
-    private final Long parentId;
+    private final DepartmentId parentId;
 
-    public Department(DepartmentId id, String code, String name, Long parentId) {
+    public Department(DepartmentId id, String code, String name, DepartmentId parentId) {
         this.id = id;
         this.code = code;
         this.name = name;
@@ -33,7 +33,11 @@ public class Department {
         return name;
     }
 
-    public Long getParentId() {
+    public DepartmentId getParentId() {
         return parentId;
+    }
+
+    public Long getParentIdValue() {
+        return parentId != null ? parentId.value() : null;
     }
 }

@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUser
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
+import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        AuthController authController = new AuthController(authenticateUserUseCase);
+        AuthController authController = new AuthController(authenticateUserUseCase, new LoginRateLimiter());
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -94,5 +95,32 @@ class AuthControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("đã bị khóa")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/login trả về 429 Too Many Requests khi thử sai liên tiếp quá 5 lần")
+    void testLogin_RateLimiting_Returns429After5Failures() throws Exception {
+        LoginRequest request = new LoginRequest();
+        request.setUsername("brute_user");
+        request.setPassword("wrong");
+
+        when(authenticateUserUseCase.login(any(LoginCommand.class)))
+                .thenThrow(new InvalidCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác"));
+
+        // Fail 5 times
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // 6th attempt should be blocked with 429 Too Many Requests
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(containsString("quá nhiều lần")));
     }
 }

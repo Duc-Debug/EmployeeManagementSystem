@@ -84,8 +84,7 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
         Employee employee = Employee.createNew(savedUser.getId(), command.departmentId(), command.employeeCode(), command.fullName());
         Employee savedEmployee = saveEmployeePort.save(employee);
 
-        savedUser.setEmployeeId(savedEmployee.getId());
-        saveUserPort.save(savedUser);
+        savedUser.linkEmployee(savedEmployee.getId());
 
         // Audit logging
         saveAuditLogPort.save(AuditLog.create(currentAdminId, "CREATE_USER", "users", savedUser.getIdValue()));
@@ -144,7 +143,7 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
 
         Employee employee = loadEmployeePort.findByUserId(updatedUser.getId()).orElse(null);
         if (employee != null && command.departmentId() != null) {
-            employee.setDepartmentId(command.departmentId());
+            employee.assignToDepartment(command.departmentId());
             saveEmployeePort.save(employee);
         }
 

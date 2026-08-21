@@ -110,12 +110,17 @@ public class User {
         return version;
     }
 
+    public User linkEmployee(EmployeeId employeeId) {
+        this.employeeId = Objects.requireNonNull(employeeId, "EmployeeId không được null");
+        return this;
+    }
+
     public void setId(UserId id) {
         this.id = id;
     }
 
     public void setEmployeeId(EmployeeId employeeId) {
-        this.employeeId = employeeId;
+        linkEmployee(employeeId);
     }
 
     public void setVersion(Long version) {

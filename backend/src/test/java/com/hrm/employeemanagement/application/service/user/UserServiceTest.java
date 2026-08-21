@@ -16,6 +16,7 @@ import com.hrm.employeemanagement.domain.department.Department;
 import com.hrm.employeemanagement.domain.department.DepartmentId;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
@@ -109,7 +110,7 @@ class UserServiceTest {
         User createdUser = new User(new UserId(1L), "john_doe", "encoded_pass", staffRole, UserStatus.ACTIVE, null);
         when(saveUserPort.save(any(User.class))).thenReturn(createdUser);
 
-        Employee createdEmployee = new Employee(new EmployeeId(100L), new UserId(1L), 10L, "EMP-001", "John Doe", false, 40, "ACTIVE");
+        Employee createdEmployee = new Employee(new EmployeeId(100L), new UserId(1L), 10L, "EMP-001", "John Doe", false, 40, EmployeeStatus.ACTIVE);
         when(saveEmployeePort.save(any(Employee.class))).thenReturn(createdEmployee);
 
         Department dept = new Department(new DepartmentId(10L), "PB-10", "Phòng Kỹ thuật", null);
@@ -124,7 +125,7 @@ class UserServiceTest {
         assertEquals(10L, result.getDepartmentId());
         assertEquals("Phòng Kỹ thuật", result.getDepartmentName());
 
-        verify(saveUserPort, times(2)).save(any(User.class));
+        verify(saveUserPort, times(1)).save(any(User.class));
         verify(saveEmployeePort, times(1)).save(any(Employee.class));
         verify(saveAuditLogPort, times(1)).save(any());
         verify(loadDepartmentPort, times(1)).findById(new DepartmentId(10L));
@@ -239,7 +240,7 @@ class UserServiceTest {
     @DisplayName("Cập nhật vai trò và bộ phận thành công kèm resolve departmentName")
     void testUpdateUserRole_Success() {
         User user = new User(new UserId(2L), "user2", "hash", staffRole, UserStatus.ACTIVE, new EmployeeId(20L));
-        Employee employee = new Employee(new EmployeeId(20L), new UserId(2L), 5L, "EMP-002", "User 2", false, 40, "ACTIVE");
+        Employee employee = new Employee(new EmployeeId(20L), new UserId(2L), 5L, "EMP-002", "User 2", false, 40, EmployeeStatus.ACTIVE);
 
         UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-02", 15L);
         Role pmRole = new Role(new RoleId(3L), RoleCode.VT_02, "Quản lý dự án");
@@ -290,8 +291,8 @@ class UserServiceTest {
         when(loadUserPort.findAll(0, 20)).thenReturn(List.of(u1, u2));
         when(loadUserPort.count()).thenReturn(2L);
 
-        Employee e1 = new Employee(new EmployeeId(10L), new UserId(1L), 5L, "E-1", "Employee 1", false, 40, "ACTIVE");
-        Employee e2 = new Employee(new EmployeeId(20L), new UserId(2L), 5L, "E-2", "Employee 2", false, 40, "ACTIVE");
+        Employee e1 = new Employee(new EmployeeId(10L), new UserId(1L), 5L, "E-1", "Employee 1", false, 40, EmployeeStatus.ACTIVE);
+        Employee e2 = new Employee(new EmployeeId(20L), new UserId(2L), 5L, "E-2", "Employee 2", false, 40, EmployeeStatus.ACTIVE);
         when(loadEmployeePort.findAllByUserIdIn(List.of(new UserId(1L), new UserId(2L)))).thenReturn(List.of(e1, e2));
 
         Department dept5 = new Department(new DepartmentId(5L), "PB-05", "Phòng Nhân Sự", null);
@@ -315,7 +316,7 @@ class UserServiceTest {
     @DisplayName("Lấy thông tin người dùng theo ID thành công kèm resolve departmentName")
     void testGetUserById_Success() {
         User user = new User(new UserId(5L), "user5", "hash", staffRole, UserStatus.ACTIVE, new EmployeeId(50L));
-        Employee emp = new Employee(new EmployeeId(50L), new UserId(5L), 8L, "EMP-005", "User Five", false, 40, "ACTIVE");
+        Employee emp = new Employee(new EmployeeId(50L), new UserId(5L), 8L, "EMP-005", "User Five", false, 40, EmployeeStatus.ACTIVE);
         Department dept = new Department(new DepartmentId(8L), "PB-08", "Ban Giám Đốc", null);
 
         when(loadUserPort.findById(new UserId(5L))).thenReturn(Optional.of(user));
