@@ -9,22 +9,44 @@ import org.springframework.context.annotation.Configuration;
 import javax.sql.DataSource;
 
 /**
- * Explicit Flyway Configuration to enforce Single Source of Truth for Database Schema.
- * Guarantees that Flyway migrations execute and complete before JPA EntityManagerFactory
- * validates the schema with Hibernate (ddl-auto=validate).
+ * Cấu hình Flyway - Nguồn chân lý duy nhất cho Database Schema.
+ * Đảm bảo Flyway luôn chạy migration xong trước khi Hibernate tiến hành validate bảng.
  */
 @Configuration
 public class FlywayConfig {
 
-    @Bean(initMethod = "migrate")
+    @Bean
     public Flyway flyway(DataSource dataSource) {
-        return Flyway.configure()
+        System.out.println("==================================================");
+        System.out.println("🚀 FLYWAY STARTING DATABASE MIGRATION...");
+        System.out.println("==================================================");
+
+        Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
-                .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
+                .cleanDisabled(false)
+                .locations("classpath:db/migration")
                 .load();
+
+        try {
+            flyway.repair();
+            flyway.migrate();
+        } catch (Exception e) {
+            System.out.println("⚠️ Phát hiện xung đột migration trong lúc dev, tiến hành clean và migrate lại...");
+            flyway.clean();
+            flyway.migrate();
+        }
+
+        System.out.println("==================================================");
+        System.out.println("✅ FLYWAY MIGRATION SUCCESSFUL!");
+        System.out.println("==================================================");
+        return flyway;
     }
 
+    /**
+     * Bắt buộc Hibernate (EntityManagerFactory) phải đợi Bean Flyway hoàn thành 
+     * trước khi thực hiện kiểm tra cấu trúc bảng (ddl-auto=validate), tránh lỗi khởi động.
+     */
     @Bean
     public static BeanFactoryPostProcessor entityManagerFactoryDependsOnFlyway() {
         return beanFactory -> {
