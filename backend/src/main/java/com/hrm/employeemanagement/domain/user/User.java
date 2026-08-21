@@ -34,6 +34,9 @@ public class User {
     }
 
     public void lock(UserId currentAdminId, long activeAdminCount) {
+        if (this.status == UserStatus.LOCKED) {
+            throw new com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException("Tài khoản này hiện đã bị khóa");
+        }
         if (this.id != null && currentAdminId != null && this.id.equals(currentAdminId)) {
             throw new SelfLockingException("Bạn không thể tự khóa tài khoản của chính mình");
         }
@@ -44,6 +47,9 @@ public class User {
     }
 
     public void unlock() {
+        if (this.status == UserStatus.ACTIVE) {
+            throw new com.hrm.employeemanagement.domain.exception.user.UserAlreadyActiveException("Tài khoản này hiện đang ở trạng thái hoạt động");
+        }
         this.status = UserStatus.ACTIVE;
     }
 

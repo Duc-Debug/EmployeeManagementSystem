@@ -3,6 +3,8 @@ package com.hrm.employeemanagement.domain.user;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
+import com.hrm.employeemanagement.domain.exception.user.UserAlreadyActiveException;
+import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;
@@ -44,7 +46,17 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("Khóa tài khoản thành công khi có nhiều hơn 1 Quản trị viên active")
+    @DisplayName("Báo lỗi khi khóa tài khoản đã bị khóa trước đó (NCL-01-CN-002-TC-03)")
+    void testLockAlreadyLockedUser_ThrowsException() {
+        User staffUser = new User(new UserId(3L), "staff", "hash", staffRole, UserStatus.LOCKED, new EmployeeId(3L));
+
+        assertThrows(UserAlreadyLockedException.class, () -> {
+            staffUser.lock(new UserId(1L), 2);
+        });
+    }
+
+    @Test
+    @DisplayName("Khóa tài khoản thành công khi không vi phạm quy tắc an toàn")
     void testLockUserSuccess() {
         User staffUser = new User(new UserId(3L), "staff", "hash", staffRole, UserStatus.ACTIVE, new EmployeeId(3L));
 
@@ -55,7 +67,17 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("Mở lại tài khoản thành công")
+    @DisplayName("Báo lỗi khi mở khóa tài khoản đang ở trạng thái hoạt động")
+    void testUnlockAlreadyActiveUser_ThrowsException() {
+        User staffUser = new User(new UserId(3L), "staff", "hash", staffRole, UserStatus.ACTIVE, new EmployeeId(3L));
+
+        assertThrows(UserAlreadyActiveException.class, () -> {
+            staffUser.unlock();
+        });
+    }
+
+    @Test
+    @DisplayName("Mở lại tài khoản thành công khi đang bị khóa")
     void testUnlockUserSuccess() {
         User staffUser = new User(new UserId(3L), "staff", "hash", staffRole, UserStatus.LOCKED, new EmployeeId(3L));
 

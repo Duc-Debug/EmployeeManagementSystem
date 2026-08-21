@@ -3,6 +3,8 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
+import com.hrm.employeemanagement.domain.exception.user.UserAlreadyActiveException;
+import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
@@ -36,7 +38,7 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Dữ liệu vừa bị cập nhật bởi một người dùng khác. Vui lòng tải lại trang và thử lại."));
     }
 
-    @ExceptionHandler({SelfLockingException.class, LastAdminProtectionException.class, IllegalArgumentException.class})
+    @ExceptionHandler({SelfLockingException.class, LastAdminProtectionException.class, UserAlreadyLockedException.class, UserAlreadyActiveException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiResponse<Void>> handleBusinessRuleViolation(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage()));

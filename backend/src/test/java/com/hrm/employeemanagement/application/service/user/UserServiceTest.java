@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
+import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
@@ -163,6 +164,20 @@ class UserServiceTest {
         assertThrows(LastAdminProtectionException.class, () -> {
             userService.toggleUserStatus(2L, true, 1L);
         });
+    }
+
+    @Test
+    @DisplayName("Khóa tài khoản thất bại khi tài khoản đã bị khóa trước đó (NCL-01-CN-002-TC-03)")
+    void testToggleUserStatus_AlreadyLocked_ThrowsException() {
+        User lockedUser = new User(new UserId(2L), "locked_staff", "hash", staffRole, UserStatus.LOCKED, new EmployeeId(20L));
+
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(lockedUser));
+
+        assertThrows(UserAlreadyLockedException.class, () -> {
+            userService.toggleUserStatus(2L, true, 1L);
+        });
+
+        verify(saveUserPort, never()).save(any());
     }
 
     @Test

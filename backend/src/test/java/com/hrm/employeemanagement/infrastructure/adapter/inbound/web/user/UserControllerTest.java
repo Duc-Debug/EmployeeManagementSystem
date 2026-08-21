@@ -143,6 +143,18 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("PATCH /api/v1/users/{id}/status trả về 400 Bad Request khi khóa tài khoản đã bị khóa (NCL-01-CN-002-TC-03)")
+    void testToggleUserStatus_AlreadyLocked_Returns400() throws Exception {
+        when(toggleUserStatusUseCase.toggleUserStatus(eq(2L), eq(true), nullable(Long.class)))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException("Tài khoản này hiện đã bị khóa"));
+
+        mockMvc.perform(patch("/api/v1/users/2/status?lock=true"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(containsString("hiện đã bị khóa")));
+    }
+
+    @Test
     @DisplayName("PUT /api/v1/users/{id}/role trả về 200 OK khi cập nhật thành công")
     void testUpdateUserRole_Success() throws Exception {
         UpdateUserRoleRequest request = new UpdateUserRoleRequest();
