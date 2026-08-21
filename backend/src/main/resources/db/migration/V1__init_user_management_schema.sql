@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
--- 6. Seed initial 7 Roles
+-- 6. Seed initial 7 System Roles
 INSERT INTO roles (id, code, name) VALUES
 (1, 'VT-01', 'Ban giám đốc'),
 (2, 'VT-02', 'Quản lý dự án'),
@@ -63,7 +63,3 @@ INSERT INTO roles (id, code, name) VALUES
 (5, 'VT-05', 'Nhân sự'),
 (6, 'VT-06', 'Quản trị viên'),
 (7, 'VT-07', 'Nhân viên công ty');
-
--- 7. Seed initial Admin User (password: admin123)
-INSERT INTO users (id, username, password_hash, role_id, is_active, version) VALUES
-(1, 'admin', '$2a$10$E2upv7arXnmsp0aX4u8xO.4f.FwT3QyqJ2n2b0M2sE3Lg5S/Yp0i6', 6, TRUE, 0);
