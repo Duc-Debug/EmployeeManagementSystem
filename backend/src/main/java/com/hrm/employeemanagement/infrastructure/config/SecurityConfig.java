@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.infrastructure.config;
 
 import com.hrm.employeemanagement.infrastructure.security.CustomAccessDeniedHandler;
 import com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -14,6 +15,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Spring Security Configuration.
+ * Restricts public endpoints, enforces stateless JWT session management,
+ * and dynamically permits H2 console and frameOptions only when explicitly enabled in local/dev profiles.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -21,11 +27,14 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
+    private final boolean h2ConsoleEnabled;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          CustomAccessDeniedHandler customAccessDeniedHandler) {
+                          CustomAccessDeniedHandler customAccessDeniedHandler,
+                          @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.customAccessDeniedHandler = customAccessDeniedHandler;
+        this.h2ConsoleEnabled = h2ConsoleEnabled;
     }
 
     @Bean
@@ -33,16 +42,22 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/h2-console/**").permitAll()
-                        .requestMatchers("/api/v1/users/**").hasAuthority("VT-06")
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers("/api/v1/auth/**").permitAll();
+                    if (h2ConsoleEnabled) {
+                        auth.requestMatchers("/h2-console/**").permitAll();
+                    }
+                    auth.requestMatchers("/api/v1/users/**").hasAuthority("VT-06");
+                    auth.anyRequest().authenticated();
+                })
                 .exceptionHandling(exception -> exception
                         .accessDeniedHandler(customAccessDeniedHandler)
                 )
-                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        if (h2ConsoleEnabled) {
+            http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+        }
 
         return http.build();
     }
