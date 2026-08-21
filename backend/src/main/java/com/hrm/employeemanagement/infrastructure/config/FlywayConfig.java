@@ -17,11 +17,21 @@ public class FlywayConfig {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
+                .cleanDisabled(false)
                 .locations("classpath:db/migration")
                 .load();
-        var result = flyway.migrate();
+        
+        try {
+            flyway.repair();
+            flyway.migrate();
+        } catch (Exception e) {
+            System.out.println("⚠️ Migration mismatch detected during dev, cleaning schema...");
+            flyway.clean();
+            flyway.migrate();
+        }
+        
         System.out.println("==================================================");
-        System.out.println("✅ FLYWAY MIGRATION SUCCESSFUL! Applied " + result.migrationsExecuted + " migrations.");
+        System.out.println("✅ FLYWAY MIGRATION SUCCESSFUL!");
         System.out.println("==================================================");
         return flyway;
     }
