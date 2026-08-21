@@ -12,15 +12,27 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+/**
+ * JWT Token Provider Adapter in Infrastructure Layer.
+ * Enforces secure key management by requiring externalized secret key injection
+ * and failing startup immediately if the secret is missing or insecure (< 256 bits).
+ */
 @Component
 public class JwtTokenProviderAdapter implements TokenProviderPort {
 
+    private static final int MINIMUM_SECRET_LENGTH = 32; // 256 bits for HMAC-SHA256
     private final SecretKey key;
     private final long expirationMs;
 
-    public JwtTokenProviderAdapter(@Value("${jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}") String secret,
+    public JwtTokenProviderAdapter(@Value("${jwt.secret}") String secret,
                                   @Value("${jwt.expiration-ms:86400000}") long expirationMs) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        if (secret == null || secret.trim().isEmpty()) {
+            throw new IllegalStateException("CRITICAL SECURITY ERROR: JWT signing secret (jwt.secret) must be provided via environment variable or secret manager.");
+        }
+        if (secret.trim().length() < MINIMUM_SECRET_LENGTH) {
+            throw new IllegalStateException("CRITICAL SECURITY ERROR: JWT signing secret (jwt.secret) must be at least 256 bits (" + MINIMUM_SECRET_LENGTH + " characters) long for secure HMAC-SHA256 signing.");
+        }
+        this.key = Keys.hmacShaKeyFor(secret.trim().getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMs;
     }
 

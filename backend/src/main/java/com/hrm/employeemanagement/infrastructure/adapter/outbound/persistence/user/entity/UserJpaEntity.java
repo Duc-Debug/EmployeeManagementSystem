@@ -30,11 +30,16 @@ public class UserJpaEntity {
     }
 
     public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive) {
+        this(id, username, passwordHash, role, isActive, null);
+    }
+
+    public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive, Long version) {
         this.id = id;
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
         this.isActive = isActive;
+        this.version = version;
     }
 
     public Long getId() {

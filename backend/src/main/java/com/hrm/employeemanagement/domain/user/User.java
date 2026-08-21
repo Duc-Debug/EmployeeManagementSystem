@@ -19,18 +19,24 @@ public class User {
     private Role role;
     private UserStatus status;
     private EmployeeId employeeId;
+    private Long version;
 
     public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId) {
+        this(id, username, passwordHash, role, status, employeeId, null);
+    }
+
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, Long version) {
         this.id = id;
         this.username = Objects.requireNonNull(username, "Username không được null");
         this.passwordHash = Objects.requireNonNull(passwordHash, "PasswordHash không được null");
         this.role = Objects.requireNonNull(role, "Role không được null");
         this.status = status != null ? status : UserStatus.ACTIVE;
         this.employeeId = employeeId;
+        this.version = version;
     }
 
     public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId) {
-        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId);
+        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId, null);
     }
 
     public void lock(UserId currentAdminId, long activeAdminCount) {
@@ -100,11 +106,19 @@ public class User {
         return employeeId != null ? employeeId.value() : null;
     }
 
+    public Long getVersion() {
+        return version;
+    }
+
     public void setId(UserId id) {
         this.id = id;
     }
 
     public void setEmployeeId(EmployeeId employeeId) {
         this.employeeId = employeeId;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }

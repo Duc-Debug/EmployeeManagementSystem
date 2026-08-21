@@ -17,7 +17,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Dedicated Mapper between Domain Models and JPA Entities.
- * Enforces clean separation of concerns and prevents inline mapping bloat in Adapters.
+ * Enforces clean separation of concerns, preserves @Version across persistence lifecycle,
+ * and enables direct in-place updates on managed JPA entities.
  */
 @Component
 public class UserPersistenceMapper {
@@ -28,18 +29,31 @@ public class UserPersistenceMapper {
         UserStatus status = Boolean.TRUE.equals(entity.getIsActive()) ? UserStatus.ACTIVE : UserStatus.LOCKED;
         UserId userId = entity.getId() != null ? new UserId(entity.getId()) : null;
         EmployeeId empId = employeeId != null ? new EmployeeId(employeeId) : null;
-        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId);
+        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId, entity.getVersion());
     }
 
     public UserJpaEntity toJpaEntity(User domain, RoleJpaEntity roleJpa) {
         if (domain == null) return null;
-        return new UserJpaEntity(
+        UserJpaEntity entity = new UserJpaEntity(
                 domain.getIdValue(),
                 domain.getUsername(),
                 domain.getPasswordHash(),
                 roleJpa,
                 domain.isActive()
         );
+        entity.setVersion(domain.getVersion());
+        return entity;
+    }
+
+    public void updateJpaEntity(UserJpaEntity target, User domain, RoleJpaEntity roleJpa) {
+        if (target == null || domain == null) return;
+        target.setUsername(domain.getUsername());
+        target.setPasswordHash(domain.getPasswordHash());
+        target.setRole(roleJpa);
+        target.setIsActive(domain.isActive());
+        if (domain.getVersion() != null) {
+            target.setVersion(domain.getVersion());
+        }
     }
 
     public Role toDomain(RoleJpaEntity entity) {
@@ -81,6 +95,16 @@ public class UserPersistenceMapper {
                 domain.getStandardHoursPerWeek(),
                 domain.getStatus()
         );
+    }
+
+    public void updateJpaEntity(EmployeeJpaEntity target, Employee domain) {
+        if (target == null || domain == null) return;
+        target.setDepartmentId(domain.getDepartmentId());
+        target.setEmployeeCode(domain.getEmployeeCode());
+        target.setFullName(domain.getFullName());
+        target.setIsOutsourced(domain.getIsOutsourced());
+        target.setStandardHoursPerWeek(domain.getStandardHoursPerWeek());
+        target.setStatus(domain.getStatus());
     }
 
     public AuditLog toDomain(AuditLogJpaEntity entity) {
