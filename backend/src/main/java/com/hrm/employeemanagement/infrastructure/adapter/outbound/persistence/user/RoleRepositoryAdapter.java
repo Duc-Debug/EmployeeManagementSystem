@@ -45,4 +45,11 @@ public class RoleRepositoryAdapter implements LoadRolePort {
         RoleJpaEntity saved = springDataRoleRepository.save(entity);
         return mapper.toDomain(saved);
     }
+
+    @Override
+    public void lockRoleForUpdate(RoleCode code) {
+        if (code != null) {
+            springDataRoleRepository.findByCodeWithLock(code.getCode());
+        }
+    }
 }

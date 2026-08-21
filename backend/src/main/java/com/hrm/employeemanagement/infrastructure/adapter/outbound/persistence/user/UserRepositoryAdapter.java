@@ -38,8 +38,19 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
         RoleJpaEntity roleJpa = springDataRoleRepository.findByCode(user.getRole().getCode().getCode())
                 .orElseGet(() -> springDataRoleRepository.save(new RoleJpaEntity(null, user.getRole().getCode().getCode(), user.getRole().getName())));
 
-        UserJpaEntity entity = mapper.toJpaEntity(user, roleJpa);
-        UserJpaEntity savedEntity = springDataUserRepository.save(entity);
+        UserJpaEntity savedEntity;
+        if (user.getIdValue() != null) {
+            UserJpaEntity existingEntity = springDataUserRepository.findById(user.getIdValue())
+                    .orElseGet(() -> mapper.toJpaEntity(user, roleJpa));
+            existingEntity.setUsername(user.getUsername());
+            existingEntity.setPasswordHash(user.getPasswordHash());
+            existingEntity.setRole(roleJpa);
+            existingEntity.setIsActive(user.isActive());
+            savedEntity = springDataUserRepository.save(existingEntity);
+        } else {
+            UserJpaEntity entity = mapper.toJpaEntity(user, roleJpa);
+            savedEntity = springDataUserRepository.save(entity);
+        }
 
         Long empId = user.getEmployeeIdValue();
         if (empId == null) {

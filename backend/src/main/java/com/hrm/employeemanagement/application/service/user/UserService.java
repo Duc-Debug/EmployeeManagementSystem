@@ -9,7 +9,12 @@ import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCa
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
-import com.hrm.employeemanagement.application.port.outbound.user.*;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
@@ -23,10 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Pure Java 100% Application Service (No Spring Annotations allowed).
- * Implements Inbound Use Case ports and interacts with Outbound Ports.
- */
 public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, GetUserListUseCase {
 
     private final LoadUserPort loadUserPort;
@@ -63,8 +64,8 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
         Role role = loadRolePort.findByCode(roleCode)
                 .orElseGet(() -> loadRolePort.save(new Role(null, roleCode, roleCode.getName())));
 
-        String encodedPassword = passwordEncoder.encode(command.password());
-        User user = User.createNew(command.username(), encodedPassword, role, null);
+        String hashedPassword = passwordEncoder.encode(command.password());
+        User user = User.createNew(command.username(), hashedPassword, role, null);
         User savedUser = saveUserPort.save(user);
 
         // Link Employee profile
@@ -85,6 +86,11 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
         UserId uId = new UserId(userId);
         User user = loadUserPort.findById(uId)
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        // Acquire pessimistic lock on Admin role row to serialize concurrent transactions affecting active admin count
+        if (lock && user.isSystemAdmin()) {
+            loadRolePort.lockRoleForUpdate(RoleCode.VT_06);
+        }
 
         long activeAdminCount = loadUserPort.countActiveAdmins();
         UserId adminId = currentAdminId != null ? new UserId(currentAdminId) : null;
@@ -112,6 +118,11 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
         Role newRole = loadRolePort.findByCode(newRoleCode)
                 .orElseGet(() -> loadRolePort.save(new Role(null, newRoleCode, newRoleCode.getName())));
 
+        // Acquire pessimistic lock on Admin role row to serialize concurrent transactions when demoting an admin
+        if (user.isSystemAdmin() && !newRole.isSystemAdmin()) {
+            loadRolePort.lockRoleForUpdate(RoleCode.VT_06);
+        }
+
         long activeAdminCount = loadUserPort.countActiveAdmins();
         user.changeRole(newRole, activeAdminCount);
 
@@ -130,29 +141,30 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
 
     @Override
     public PageResult<UserResult> getUsers(int page, int size) {
-        int validatedPage = Math.max(page, 0);
-        int validatedSize = Math.min(Math.max(size, 1), 100); // MAX_PAGE_SIZE = 100
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), 100);
 
-        List<User> users = loadUserPort.findAll(validatedPage, validatedSize);
+        List<User> users = loadUserPort.findAll(safePage, safeSize);
         long totalElements = loadUserPort.count();
 
-        // Batch Resolving: Avoid N+1 Query Problem by using WHERE user_id IN (...)
         List<UserId> userIds = users.stream().map(User::getId).filter(java.util.Objects::nonNull).toList();
-        Map<UserId, Employee> employeeMap = loadEmployeePort.findAllByUserIdIn(userIds).stream()
-                .collect(Collectors.toMap(Employee::getUserId, emp -> emp, (e1, e2) -> e1));
+        List<Employee> employees = loadEmployeePort.findAllByUserIdIn(userIds);
+        Map<Long, Employee> employeeMap = employees.stream()
+                .filter(e -> e.getUserIdValue() != null)
+                .collect(Collectors.toMap(Employee::getUserIdValue, e -> e, (existing, replacing) -> existing));
 
-        List<UserResult> userResults = users.stream()
-                .map(user -> mapToUserResult(user, employeeMap.get(user.getId())))
+        List<UserResult> content = users.stream()
+                .map(u -> mapToUserResult(u, employeeMap.get(u.getIdValue())))
                 .toList();
 
-        return new PageResult<>(userResults, validatedPage, validatedSize, totalElements);
+        return new PageResult<>(content, safePage, safeSize, totalElements);
     }
 
     @Override
-    public UserResult getUserById(Long id) {
-        UserId uId = new UserId(id);
+    public UserResult getUserById(Long userId) {
+        UserId uId = new UserId(userId);
         User user = loadUserPort.findById(uId)
-                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + id));
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + userId));
         Employee employee = loadEmployeePort.findByUserId(user.getId()).orElse(null);
         return mapToUserResult(user, employee);
     }
@@ -167,7 +179,7 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
                 employee != null ? employee.getIdValue() : null,
                 employee != null ? employee.getFullName() : null,
                 employee != null ? employee.getDepartmentId() : null,
-                employee != null ? "Department #" + employee.getDepartmentId() : null
+                null
         );
     }
 }

@@ -12,4 +12,5 @@ public interface LoadRolePort {
     Optional<Role> findByCode(RoleCode code);
     List<Role> findAll();
     Role save(Role role);
+    void lockRoleForUpdate(RoleCode code);
 }

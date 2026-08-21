@@ -29,6 +29,10 @@ public class Role {
         return name;
     }
 
+    public boolean isSystemAdmin() {
+        return code == RoleCode.VT_06;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

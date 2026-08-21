@@ -25,8 +25,22 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
 
     @Override
     public Employee save(Employee employee) {
-        EmployeeJpaEntity entity = mapper.toJpaEntity(employee);
-        EmployeeJpaEntity saved = springDataEmployeeRepository.save(entity);
+        EmployeeJpaEntity saved;
+        if (employee.getIdValue() != null) {
+            EmployeeJpaEntity existing = springDataEmployeeRepository.findById(employee.getIdValue())
+                    .orElseGet(() -> mapper.toJpaEntity(employee));
+            existing.setUserId(employee.getUserIdValue());
+            existing.setDepartmentId(employee.getDepartmentId());
+            existing.setEmployeeCode(employee.getEmployeeCode());
+            existing.setFullName(employee.getFullName());
+            existing.setIsOutsourced(employee.getIsOutsourced());
+            existing.setStandardHoursPerWeek(employee.getStandardHoursPerWeek());
+            existing.setStatus(employee.getStatus());
+            saved = springDataEmployeeRepository.save(existing);
+        } else {
+            EmployeeJpaEntity entity = mapper.toJpaEntity(employee);
+            saved = springDataEmployeeRepository.save(entity);
+        }
         return mapper.toDomain(saved);
     }
 

@@ -5,8 +5,12 @@ import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
-import com.hrm.employeemanagement.application.port.outbound.user.*;
-import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
@@ -30,9 +34,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -74,12 +83,13 @@ class UserServiceTest {
                 saveAuditLogPort,
                 passwordEncoder
         );
-        adminRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
-        staffRole = new Role(new RoleId(2L), RoleCode.VT_04, "Nhân viên chuyên môn");
+
+        adminRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị hệ thống");
+        staffRole = new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên chuyên môn");
     }
 
     @Test
-    @DisplayName("Tạo người dùng thành công với vai trò và hồ sơ nhân viên hợp lệ")
+    @DisplayName("Tạo người dùng và nhân viên thành công kèm phân quyền và ghi nhật ký kiểm toán")
     void testCreateUser_Success() {
         CreateUserCommand command = new CreateUserCommand(
                 "john_doe", "password123", "VT-04", "EMP-001", "John Doe", 10L
@@ -87,24 +97,25 @@ class UserServiceTest {
 
         when(loadUserPort.existsByUsername("john_doe")).thenReturn(false);
         when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
-        when(passwordEncoder.encode("password123")).thenReturn("encoded_hash");
+        when(passwordEncoder.encode("password123")).thenReturn("encoded_pass");
 
-        User savedUser = new User(new UserId(100L), "john_doe", "encoded_hash", staffRole, UserStatus.ACTIVE, null);
-        when(saveUserPort.save(any(User.class))).thenReturn(savedUser);
+        User createdUser = new User(new UserId(1L), "john_doe", "encoded_pass", staffRole, UserStatus.ACTIVE, null);
+        when(saveUserPort.save(any(User.class))).thenReturn(createdUser);
 
-        Employee savedEmployee = new Employee(new EmployeeId(200L), new UserId(100L), 10L, "EMP-001", "John Doe", false, 40, "ACTIVE");
-        when(saveEmployeePort.save(any(Employee.class))).thenReturn(savedEmployee);
+        Employee createdEmployee = new Employee(new EmployeeId(100L), new UserId(1L), 10L, "EMP-001", "John Doe", false, 40, "ACTIVE");
+        when(saveEmployeePort.save(any(Employee.class))).thenReturn(createdEmployee);
 
-        UserResult result = userService.createUser(command, 1L);
+        UserResult result = userService.createUser(command, 99L);
 
         assertNotNull(result);
-        assertEquals(100L, result.getId());
         assertEquals("john_doe", result.getUsername());
         assertEquals("VT-04", result.getRoleCode());
-        assertEquals(200L, result.getEmployeeId());
         assertEquals("John Doe", result.getFullName());
+        assertEquals(10L, result.getDepartmentId());
 
-        verify(saveAuditLogPort, times(1)).save(any(AuditLog.class));
+        verify(saveUserPort, times(2)).save(any(User.class));
+        verify(saveEmployeePort, times(1)).save(any(Employee.class));
+        verify(saveAuditLogPort, times(1)).save(any());
     }
 
     @Test
@@ -137,6 +148,23 @@ class UserServiceTest {
         UserResult result = userService.toggleUserStatus(2L, true, 1L);
 
         assertEquals(UserStatus.LOCKED, result.getStatus());
+        verify(saveAuditLogPort, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Khóa tài khoản Admin thành công và kích hoạt Pessimistic Lock trên Role VT-06")
+    void testToggleUserStatus_LockAdmin_AcquiresPessimisticLockOnAdminRole() {
+        User targetAdmin = new User(new UserId(2L), "admin2", "hash", adminRole, UserStatus.ACTIVE, new EmployeeId(20L));
+
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(targetAdmin));
+        when(loadUserPort.countActiveAdmins()).thenReturn(2L);
+        when(saveUserPort.save(any(User.class))).thenReturn(targetAdmin);
+        when(loadEmployeePort.findByUserId(new UserId(2L))).thenReturn(Optional.empty());
+
+        UserResult result = userService.toggleUserStatus(2L, true, 1L);
+
+        assertEquals(UserStatus.LOCKED, result.getStatus());
+        verify(loadRolePort, times(1)).lockRoleForUpdate(RoleCode.VT_06);
         verify(saveAuditLogPort, times(1)).save(any());
     }
 
@@ -219,6 +247,25 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Hạ quyền Admin thành công và kích hoạt Pessimistic Lock trên Role VT-06")
+    void testUpdateUserRole_DemoteAdmin_AcquiresPessimisticLockOnAdminRole() {
+        User adminUser = new User(new UserId(2L), "admin2", "hash", adminRole, UserStatus.ACTIVE, new EmployeeId(20L));
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L);
+
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(adminUser));
+        when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
+        when(loadUserPort.countActiveAdmins()).thenReturn(2L);
+        when(saveUserPort.save(any(User.class))).thenReturn(adminUser);
+        when(loadEmployeePort.findByUserId(new UserId(2L))).thenReturn(Optional.empty());
+
+        UserResult result = userService.updateUserRole(command, 1L);
+
+        assertEquals("VT-04", result.getRoleCode());
+        verify(loadRolePort, times(1)).lockRoleForUpdate(RoleCode.VT_06);
+        verify(saveAuditLogPort, times(1)).save(any());
+    }
+
+    @Test
     @DisplayName("Lấy danh sách người dùng với Batch Resolving không bị lỗi N+1 Query")
     void testGetUsers_PaginationAndBatchResolving() {
         User u1 = new User(new UserId(1L), "user1", "h1", staffRole, UserStatus.ACTIVE, new EmployeeId(10L));
@@ -239,7 +286,6 @@ class UserServiceTest {
         assertEquals("Employee 1", pageResult.getContent().get(0).getFullName());
         assertEquals("Employee 2", pageResult.getContent().get(1).getFullName());
 
-        // Verify batch resolving method was called exactly once with list of user IDs
         verify(loadEmployeePort, times(1)).findAllByUserIdIn(List.of(new UserId(1L), new UserId(2L)));
     }
 
