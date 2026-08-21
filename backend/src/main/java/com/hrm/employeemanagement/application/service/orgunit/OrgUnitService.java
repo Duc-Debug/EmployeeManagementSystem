@@ -75,32 +75,42 @@ public class OrgUnitService implements
         return toResult(savedUnit);
     }
 
-    @Override
+        @Override
     public OrgUnitResult execute(MoveOrgUnitCommand command) {
         OrgUnit unitToMove = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
-                .orElseThrow(
-                        () -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
+                .orElseThrow(() -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
+
         OrgUnit newParent = loadOrgUnitPort.findById(new OrgUnitId(command.newParentId()))
-                .orElseThrow(() -> new OrgUnitNotFoundException(
-                        "New parent unit not found with ID: " + command.newParentId()));
+                .orElseThrow(() -> new OrgUnitNotFoundException("New parent unit not found with ID: " + command.newParentId()));
+
+        // BR-ORG-04: Active parent validation
         orgUnitTreePolicy.validateActiveParent(newParent);
+
         // BR-ORG-02: Non-cyclic graph check
         orgUnitTreePolicy.validateNoCycle(unitToMove, newParent);
+
         String oldTreePath = unitToMove.getTreePath();
+        int oldLevel = unitToMove.getLevel() != null ? unitToMove.getLevel() : 1;
+
         String newTreePath = newParent.getTreePath() + unitToMove.getId().getValue() + "/";
         int newLevel = newParent.getLevel() + 1;
+        int levelDelta = newLevel - oldLevel; // ✅ Lưu lại levelDelta chuẩn xác trước khi mutate
+
+        // Mutate nút hiện tại
         unitToMove.changeParent(newParent.getId(), newTreePath, newLevel);
         OrgUnit savedUnit = saveOrgUnitPort.save(unitToMove);
+
+        // Cập nhật đường dẫn và level chuẩn xác cho toàn bộ nút con/cháu
         List<OrgUnit> childUnits = loadOrgUnitPort.findSubTree(oldTreePath);
         for (OrgUnit child : childUnits) {
             if (!child.getId().equals(unitToMove.getId())) {
                 String updatedChildPath = child.getTreePath().replace(oldTreePath, newTreePath);
-                int levelDelta = newLevel - (unitToMove.getLevel() != null ? unitToMove.getLevel() : 1);
-                int updatedChildLevel = child.getLevel() + levelDelta;
+                int updatedChildLevel = child.getLevel() + levelDelta; 
                 child.changeParent(child.getParentId(), updatedChildPath, updatedChildLevel);
                 saveOrgUnitPort.save(child);
             }
         }
+
         return toResult(savedUnit);
     }
 
