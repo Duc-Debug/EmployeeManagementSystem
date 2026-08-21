@@ -1,12 +1,12 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
-import com.hrm.employeemanagement.domain.model.role.RoleCode;
-import com.hrm.employeemanagement.infrastructure.adapter.out.persistence.user.entity.EmployeeJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.out.persistence.user.entity.RoleJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.out.persistence.user.entity.UserJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.out.persistence.user.repository.SpringDataEmployeeRepository;
-import com.hrm.employeemanagement.infrastructure.adapter.out.persistence.user.repository.SpringDataRoleRepository;
-import com.hrm.employeemanagement.infrastructure.adapter.out.persistence.user.repository.SpringDataUserRepository;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.UserJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataRoleRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataUserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;

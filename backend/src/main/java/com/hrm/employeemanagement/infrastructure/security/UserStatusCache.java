@@ -2,7 +2,7 @@ package com.hrm.employeemanagement.infrastructure.security;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.hrm.employeemanagement.domain.model.user.User;
+import com.hrm.employeemanagement.domain.user.User;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;

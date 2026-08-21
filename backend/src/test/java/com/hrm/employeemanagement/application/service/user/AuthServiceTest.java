@@ -2,13 +2,16 @@ package com.hrm.employeemanagement.application.service.user;
 
 import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
-import com.hrm.employeemanagement.domain.model.role.Role;
-import com.hrm.employeemanagement.domain.model.role.RoleCode;
-import com.hrm.employeemanagement.domain.model.user.User;
-import com.hrm.employeemanagement.domain.model.user.UserStatus;
-import com.hrm.employeemanagement.domain.repository.user.UserRepository;
-import com.hrm.employeemanagement.port.out.user.PasswordEncoderPort;
-import com.hrm.employeemanagement.port.out.user.TokenProviderPort;
+import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
+import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,7 +30,7 @@ import static org.mockito.Mockito.*;
 class AuthServiceTest {
 
     @Mock
-    private UserRepository userRepository;
+    private LoadUserPort loadUserPort;
 
     @Mock
     private PasswordEncoderPort passwordEncoder;
@@ -41,17 +44,17 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userRepository, passwordEncoder, tokenProvider);
-        userRole = new Role(1L, RoleCode.VT_06, "Quản trị viên");
+        authService = new AuthService(loadUserPort, passwordEncoder, tokenProvider);
+        userRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
     }
 
     @Test
     @DisplayName("Đăng nhập thành công với tài khoản active và mật khẩu chính xác")
     void testLogin_Success() {
         LoginCommand command = new LoginCommand("admin", "password123");
-        User user = new User(1L, "admin", "encoded_hash", userRole, UserStatus.ACTIVE, 10L);
+        User user = new User(new UserId(1L), "admin", "encoded_hash", userRole, UserStatus.ACTIVE, new EmployeeId(10L));
 
-        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(user));
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password123", "encoded_hash")).thenReturn(true);
         when(tokenProvider.generateToken(user)).thenReturn("mocked.jwt.token");
 
@@ -70,7 +73,7 @@ class AuthServiceTest {
     void testLogin_UsernameNotFound_ThrowsBadCredentialsException() {
         LoginCommand command = new LoginCommand("nonexistent", "password123");
 
-        when(userRepository.findByUsername("nonexistent")).thenReturn(Optional.empty());
+        when(loadUserPort.findByUsername("nonexistent")).thenReturn(Optional.empty());
 
         assertThrows(BadCredentialsException.class, () -> {
             authService.login(command);
@@ -83,9 +86,9 @@ class AuthServiceTest {
     @DisplayName("Đăng nhập thất bại khi sai mật khẩu")
     void testLogin_WrongPassword_ThrowsBadCredentialsException() {
         LoginCommand command = new LoginCommand("admin", "wrongpassword");
-        User user = new User(1L, "admin", "encoded_hash", userRole, UserStatus.ACTIVE, 10L);
+        User user = new User(new UserId(1L), "admin", "encoded_hash", userRole, UserStatus.ACTIVE, new EmployeeId(10L));
 
-        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(user));
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrongpassword", "encoded_hash")).thenReturn(false);
 
         assertThrows(BadCredentialsException.class, () -> {
@@ -99,9 +102,9 @@ class AuthServiceTest {
     @DisplayName("Đăng nhập thất bại khi tài khoản bị khóa")
     void testLogin_LockedUser_ThrowsDisabledException() {
         LoginCommand command = new LoginCommand("locked_user", "password123");
-        User user = new User(2L, "locked_user", "encoded_hash", userRole, UserStatus.LOCKED, 20L);
+        User user = new User(new UserId(2L), "locked_user", "encoded_hash", userRole, UserStatus.LOCKED, new EmployeeId(20L));
 
-        when(userRepository.findByUsername("locked_user")).thenReturn(Optional.of(user));
+        when(loadUserPort.findByUsername("locked_user")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password123", "encoded_hash")).thenReturn(true);
 
         assertThrows(DisabledException.class, () -> {

@@ -1,7 +1,8 @@
 package com.hrm.employeemanagement.infrastructure.security;
 
-import com.hrm.employeemanagement.domain.model.user.User;
-import com.hrm.employeemanagement.domain.repository.user.UserRepository;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.security.JwtTokenProviderAdapter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,14 +23,14 @@ import java.util.Optional;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProviderAdapter tokenProvider;
-    private final UserRepository userRepository;
+    private final LoadUserPort loadUserPort;
     private final UserStatusCache userStatusCache;
 
     public JwtAuthenticationFilter(JwtTokenProviderAdapter tokenProvider,
-                                   UserRepository userRepository,
+                                   LoadUserPort loadUserPort,
                                    UserStatusCache userStatusCache) {
         this.tokenProvider = tokenProvider;
-        this.userRepository = userRepository;
+        this.loadUserPort = loadUserPort;
         this.userStatusCache = userStatusCache;
     }
 
@@ -45,7 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // High-performance Caffeine Cache lookup (Avoids DB hits on every request)
                 Optional<User> userOpt = userStatusCache.get(username);
                 if (userOpt.isEmpty()) {
-                    userOpt = userRepository.findByUsername(username);
+                    userOpt = loadUserPort.findByUsername(username);
                     userOpt.filter(User::isActive).ifPresent(u -> userStatusCache.put(username, u));
                 }
 

@@ -1,6 +1,6 @@
 package com.hrm.employeemanagement.application.dto.user;
 
-import com.hrm.employeemanagement.domain.model.user.UserStatus;
+import com.hrm.employeemanagement.domain.user.UserStatus;
 
 public class UserResult {
     private final Long id;
