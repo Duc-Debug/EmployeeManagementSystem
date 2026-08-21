@@ -1,7 +1,9 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
+import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
+import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +50,28 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertFalse(response.getBody().isSuccess());
         assertEquals("Tên đăng nhập đã tồn tại", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("Ánh xạ InvalidCredentialsException thành HTTP 401 UNAUTHORIZED")
+    void testHandleInvalidCredentials() {
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleInvalidCredentials(
+                new InvalidCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác")
+        );
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("Tên đăng nhập hoặc mật khẩu không chính xác", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("Ánh xạ UserLockedException thành HTTP 403 FORBIDDEN")
+    void testHandleUserLocked() {
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleUserLocked(
+                new UserLockedException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên.")
+        );
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên.", response.getBody().getMessage());
     }
 
     @Test

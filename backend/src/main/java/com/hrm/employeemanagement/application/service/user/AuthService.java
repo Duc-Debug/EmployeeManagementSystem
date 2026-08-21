@@ -6,12 +6,12 @@ import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUser
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
+import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
 import com.hrm.employeemanagement.domain.user.User;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
 
 /**
- * Pure Java 100% Application Service (No Spring Annotations allowed).
+ * Pure Java 100% Application Service (Zero Spring framework dependencies).
  * Implements AuthenticateUserUseCase.
  */
 public class AuthService implements AuthenticateUserUseCase {
@@ -29,14 +29,14 @@ public class AuthService implements AuthenticateUserUseCase {
     @Override
     public AuthTokenResult login(LoginCommand command) {
         User user = loadUserPort.findByUsername(command.username())
-                .orElseThrow(() -> new BadCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác"));
+                .orElseThrow(() -> new InvalidCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác"));
 
         if (!passwordEncoder.matches(command.password(), user.getPasswordHash())) {
-            throw new BadCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác");
+            throw new InvalidCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác");
         }
 
         if (!user.isActive()) {
-            throw new DisabledException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên.");
+            throw new UserLockedException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên.");
         }
 
         String token = tokenProvider.generateToken(user);

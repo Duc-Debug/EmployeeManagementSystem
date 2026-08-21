@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
+import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
+import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,8 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -61,14 +61,14 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/login trả về 401 Unauthorized khi sai thông tin đăng nhập")
+    @DisplayName("POST /api/v1/auth/login trả về 401 Unauthorized khi sai thông tin đăng nhập (InvalidCredentialsException)")
     void testLogin_BadCredentials_Returns401() throws Exception {
         LoginRequest request = new LoginRequest();
         request.setUsername("admin");
         request.setPassword("wrong");
 
         when(authenticateUserUseCase.login(any(LoginCommand.class)))
-                .thenThrow(new BadCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác"));
+                .thenThrow(new InvalidCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác"));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -79,14 +79,14 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/login trả về 403 Forbidden khi tài khoản bị khóa")
+    @DisplayName("POST /api/v1/auth/login trả về 403 Forbidden khi tài khoản bị khóa (UserLockedException)")
     void testLogin_LockedUser_Returns403() throws Exception {
         LoginRequest request = new LoginRequest();
         request.setUsername("locked_user");
         request.setPassword("pass");
 
         when(authenticateUserUseCase.login(any(LoginCommand.class)))
-                .thenThrow(new DisabledException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên."));
+                .thenThrow(new UserLockedException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên."));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

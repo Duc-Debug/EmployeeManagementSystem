@@ -3,10 +3,12 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
+import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyActiveException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
+import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
@@ -133,14 +135,14 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Bạn không có quyền truy cập chức năng này"));
     }
 
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
+    @ExceptionHandler({InvalidCredentialsException.class, BadCredentialsException.class})
+    public ResponseEntity<ApiResponse<Void>> handleInvalidCredentials(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
-    @ExceptionHandler(DisabledException.class)
-    public ResponseEntity<ApiResponse<Void>> handleDisabledUser(DisabledException ex) {
+    @ExceptionHandler({UserLockedException.class, DisabledException.class})
+    public ResponseEntity<ApiResponse<Void>> handleUserLocked(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(ex.getMessage()));
     }

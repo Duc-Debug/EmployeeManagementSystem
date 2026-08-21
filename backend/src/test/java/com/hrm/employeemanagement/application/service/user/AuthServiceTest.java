@@ -6,6 +6,8 @@ import com.hrm.employeemanagement.application.port.outbound.security.PasswordEnc
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
+import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;
@@ -18,8 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
 
 import java.util.Optional;
 
@@ -69,13 +69,13 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Đăng nhập thất bại khi tên đăng nhập không tồn tại")
-    void testLogin_UsernameNotFound_ThrowsBadCredentialsException() {
+    @DisplayName("Đăng nhập thất bại khi tên đăng nhập không tồn tại ném InvalidCredentialsException")
+    void testLogin_UsernameNotFound_ThrowsInvalidCredentialsException() {
         LoginCommand command = new LoginCommand("nonexistent", "password123");
 
         when(loadUserPort.findByUsername("nonexistent")).thenReturn(Optional.empty());
 
-        assertThrows(BadCredentialsException.class, () -> {
+        assertThrows(InvalidCredentialsException.class, () -> {
             authService.login(command);
         });
 
@@ -83,15 +83,15 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Đăng nhập thất bại khi sai mật khẩu")
-    void testLogin_WrongPassword_ThrowsBadCredentialsException() {
+    @DisplayName("Đăng nhập thất bại khi sai mật khẩu ném InvalidCredentialsException")
+    void testLogin_WrongPassword_ThrowsInvalidCredentialsException() {
         LoginCommand command = new LoginCommand("admin", "wrongpassword");
         User user = new User(new UserId(1L), "admin", "encoded_hash", userRole, UserStatus.ACTIVE, new EmployeeId(10L));
 
         when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrongpassword", "encoded_hash")).thenReturn(false);
 
-        assertThrows(BadCredentialsException.class, () -> {
+        assertThrows(InvalidCredentialsException.class, () -> {
             authService.login(command);
         });
 
@@ -99,15 +99,15 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Đăng nhập thất bại khi tài khoản bị khóa")
-    void testLogin_LockedUser_ThrowsDisabledException() {
+    @DisplayName("Đăng nhập thất bại khi tài khoản bị khóa ném UserLockedException")
+    void testLogin_LockedUser_ThrowsUserLockedException() {
         LoginCommand command = new LoginCommand("locked_user", "password123");
         User user = new User(new UserId(2L), "locked_user", "encoded_hash", userRole, UserStatus.LOCKED, new EmployeeId(20L));
 
         when(loadUserPort.findByUsername("locked_user")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password123", "encoded_hash")).thenReturn(true);
 
-        assertThrows(DisabledException.class, () -> {
+        assertThrows(UserLockedException.class, () -> {
             authService.login(command);
         });
 
