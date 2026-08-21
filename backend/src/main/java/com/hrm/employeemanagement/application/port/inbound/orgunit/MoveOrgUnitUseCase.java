@@ -1,4 +1,4 @@
-package com.hrm.employeemanagement.application.dto.orgunit.port.inbound.orgunit;
+package com.hrm.employeemanagement.application.port.inbound.orgunit;
 
 import com.hrm.employeemanagement.application.dto.orgunit.MoveOrgUnitCommand;
 import com.hrm.employeemanagement.application.dto.orgunit.OrgUnitResult;

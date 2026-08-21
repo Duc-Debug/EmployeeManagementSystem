@@ -1,4 +1,4 @@
-package com.hrm.employeemanagement.application.dto.orgunit.port.outbound.orgunit;
+package com.hrm.employeemanagement.application.port.outbound.orgunit;
 
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 
