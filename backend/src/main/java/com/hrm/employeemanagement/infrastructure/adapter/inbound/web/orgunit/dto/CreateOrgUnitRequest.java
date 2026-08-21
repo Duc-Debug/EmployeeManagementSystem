@@ -4,31 +4,24 @@ import com.hrm.employeemanagement.application.dto.orgunit.CreateOrgUnitCommand;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record CreateOrgUnitRequest(
-    @NotBlank(message = "Unit code cannot be blank")
-    @Size(max = 50, message = "Unit code cannot exceed 50 characters")
-    String unitCode,
+        @NotBlank(message = "Unit code cannot be blank") @Size(max = 50, message = "Unit code cannot exceed 50 characters") String unitCode,
 
-    @NotBlank(message = "Unit name cannot be blank")
-    @Size(max = 255, message = "Unit name cannot exceed 255 characters")
-    String unitName,
+        @NotBlank(message = "Unit name cannot be blank") @Size(max = 255, message = "Unit name cannot exceed 255 characters") String unitName,
 
-    @NotNull(message = "Unit type is required")
-    OrgUnitType unitType,
+        @NotNull(message = "Unit type is required") OrgUnitType unitType,
+        @Positive(message = "Parent ID must be positive and greater than 0") Long parentId,
 
-    Long parentId,
-
-    String description
-) {
+        String description) {
     public CreateOrgUnitCommand toCommand() {
         return new CreateOrgUnitCommand(
-            this.unitCode,
-            this.unitName,
-            this.unitType,
-            this.parentId,
-            this.description
-        );
+                this.unitCode,
+                this.unitName,
+                this.unitType,
+                this.parentId,
+                this.description);
     }
 }

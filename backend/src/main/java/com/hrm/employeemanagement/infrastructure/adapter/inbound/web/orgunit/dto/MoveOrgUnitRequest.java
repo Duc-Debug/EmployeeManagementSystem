@@ -2,9 +2,10 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.orgunit.dt
 
 import com.hrm.employeemanagement.application.dto.orgunit.MoveOrgUnitCommand;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 public record MoveOrgUnitRequest(
-        @NotNull(message = "New parent ID is required") Long newParentId) {
+        @NotNull(message = "New parent ID is required") @Positive(message = "New parent ID must be positive and greater than 0") Long newParentId) {
     public MoveOrgUnitCommand toCommand(Long id) {
         return new MoveOrgUnitCommand(id, this.newParentId);
     }
