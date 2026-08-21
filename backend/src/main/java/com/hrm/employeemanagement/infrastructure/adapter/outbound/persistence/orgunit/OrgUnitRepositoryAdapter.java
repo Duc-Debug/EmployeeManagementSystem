@@ -57,6 +57,11 @@ public class OrgUnitRepositoryAdapter implements LoadOrgUnitPort, SaveOrgUnitPor
     public OrgUnit save(OrgUnit orgUnit) {
         OrgUnitJpaEntity jpaEntity = OrgUnitPersistenceMapper.toJpaEntity(orgUnit);
         OrgUnitJpaEntity savedEntity = repository.save(jpaEntity);
+        if (orgUnit.getId() == null) {
+            String finalTreePath = savedEntity.getTreePath() + savedEntity.getId() + "/";
+            savedEntity.setTreePath(finalTreePath);
+            savedEntity = repository.save(savedEntity);
+        }
         return OrgUnitPersistenceMapper.toDomain(savedEntity);
     }
 }

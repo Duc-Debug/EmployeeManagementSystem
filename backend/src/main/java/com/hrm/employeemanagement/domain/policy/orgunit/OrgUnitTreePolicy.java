@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.domain.policy.orgunit;
 
+import java.util.Objects;
+
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
@@ -12,6 +14,9 @@ public class OrgUnitTreePolicy {
      * của nó.
      */
     public void validateNoCycle(OrgUnit unitToMove, OrgUnit newParent) {
+        if (unitToMove == null || newParent == null) {
+            throw new IllegalArgumentException("Unit to move and new parent cannot be null");
+        }
         if (unitToMove.getId().equals(newParent.getId())) {
             throw new CyclicDependencyException("A unit cannot be its own parent node..");
         }
@@ -26,6 +31,7 @@ public class OrgUnitTreePolicy {
      * con.
      */
     public void validateActiveParent(OrgUnit parentUnit) {
+        Objects.requireNonNull(parentUnit, "Parent unit cannot be null");
         if (parentUnit.getStatus() != OrgUnitStatus.ACTIVE) {
             throw new InactiveParentException(
                     "Cannot assign or move unit under an inactive parent unit ID: " + parentUnit.getId().getValue());

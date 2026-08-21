@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class OrgUnitTreePolicyTest {
 
+    private static final LocalDateTime FIXED_TIME = LocalDateTime.of(2026, 1, 1, 0, 0);
     private OrgUnitTreePolicy policy;
 
     @BeforeEach
@@ -28,28 +29,57 @@ class OrgUnitTreePolicyTest {
     }
 
     @Test
-    @DisplayName("Should throw CyclicDependencyException when moving parent unit to descendant child")
-    void shouldThrowExceptionWhenMovingParentToChild() {
+    @DisplayName("Should throw CyclicDependencyException when moving parent unit to immediate child")
+    void shouldThrowExceptionWhenMovingParentToImmediateChild() {
         OrgUnit parent = createUnit(1L, "DEV-CENTER", "/1/", 1, null);
-        OrgUnit descendantChild = createUnit(3L, "BE-TEAM", "/1/2/3/", 3, new OrgUnitId(2L));
+        OrgUnit child = createUnit(2L, "WEB-DEPT", "/1/2/", 2, new OrgUnitId(1L));
 
-        assertThrows(CyclicDependencyException.class, () -> policy.validateNoCycle(parent, descendantChild));
+        assertThrows(CyclicDependencyException.class, () -> policy.validateNoCycle(parent, child));
     }
 
     @Test
-    @DisplayName("Should pass validation when moving to a valid parent in another branch")
-    void shouldPassWhenMovingToValidNewParent() {
-        OrgUnit unitToMove = createUnit(2L, "WEB-DEPT", "/1/2/", 2, new OrgUnitId(1L));
-        OrgUnit validNewParent = createUnit(4L, "HR-CENTER", "/4/", 1, null);
+    @DisplayName("Should throw CyclicDependencyException when moving parent unit to deep descendant (4 levels)")
+    void shouldThrowExceptionWhenMovingParentToDeepDescendant() {
+        OrgUnit rootA = createUnit(1L, "ROOT-A", "/1/", 1, null);
+        OrgUnit deepD = createUnit(4L, "TEAM-D", "/1/2/3/4/", 4, new OrgUnitId(3L));
 
-        assertDoesNotThrow(() -> policy.validateNoCycle(unitToMove, validNewParent));
+        assertThrows(CyclicDependencyException.class, () -> policy.validateNoCycle(rootA, deepD));
+    }
+
+    @Test
+    @DisplayName("Should pass validation when moving unit to a sibling node in another branch")
+    void shouldPassWhenMovingToSiblingNode() {
+        // Company (1) -> A (2) -> B (3)
+        // Company (1) -> C (4)
+        OrgUnit unitB = createUnit(3L, "UNIT-B", "/1/2/3/", 3, new OrgUnitId(2L));
+        OrgUnit unitC = createUnit(4L, "UNIT-C", "/1/4/", 2, new OrgUnitId(1L));
+
+        assertDoesNotThrow(() -> policy.validateNoCycle(unitB, unitC));
+    }
+
+    @Test
+    @DisplayName("Should pass boundary test when target node has similar prefix string (e.g. /1/2/ vs /1/20/)")
+    void shouldPassBoundaryTestWithSimilarPrefixCode() {
+        OrgUnit unit2 = createUnit(2L, "UNIT-2", "/1/2/", 2, new OrgUnitId(1L));
+        OrgUnit unit20 = createUnit(20L, "UNIT-20", "/1/20/", 2, new OrgUnitId(1L));
+
+        assertDoesNotThrow(() -> policy.validateNoCycle(unit2, unit20));
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when parameters are null")
+    void shouldThrowExceptionWhenParametersAreNull() {
+        OrgUnit validUnit = createUnit(1L, "DEV-CENTER", "/1/", 1, null);
+
+        assertThrows(IllegalArgumentException.class, () -> policy.validateNoCycle(null, validUnit));
+        assertThrows(IllegalArgumentException.class, () -> policy.validateNoCycle(validUnit, null));
     }
 
     private OrgUnit createUnit(Long id, String code, String path, int level, OrgUnitId parentId) {
         return new OrgUnit(
                 new OrgUnitId(id), code, "Unit " + code, OrgUnitType.DEPARTMENT,
                 parentId, path, level, OrgUnitStatus.ACTIVE, null, null,
-                LocalDateTime.now(), null
+                FIXED_TIME, null
         );
     }
 }

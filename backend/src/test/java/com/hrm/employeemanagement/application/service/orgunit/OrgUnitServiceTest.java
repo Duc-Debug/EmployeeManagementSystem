@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,31 +34,47 @@ class OrgUnitServiceTest {
     @Test
     @DisplayName("Should create org unit successfully when parameters are valid")
     void shouldCreateOrgUnitSuccessfully() {
+        // DEV-CENTER is created as a child of COMPANY_ROOT (id: 1)
         CreateOrgUnitCommand command = new CreateOrgUnitCommand(
-                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, null, "Mô tả"
+                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, "Mô tả"
+        );
+
+        OrgUnit rootCompany = new OrgUnit(
+                new OrgUnitId(1L), "COMPANY_ROOT", "Công Ty Cổ Phần Software", OrgUnitType.COMPANY,
+                null, "/1/", 1, OrgUnitStatus.ACTIVE, "Nút gốc", null, LocalDateTime.now(), null
         );
 
         when(loadOrgUnitPort.existsByUnitCode("DEV-CENTER")).thenReturn(false);
+        when(loadOrgUnitPort.findById(new OrgUnitId(1L))).thenReturn(Optional.of(rootCompany));
 
         OrgUnit savedUnit = new OrgUnit(
-                new OrgUnitId(1L), "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
-                null, "/1/", 1, OrgUnitStatus.ACTIVE, "Mô tả", null, LocalDateTime.now(), null
+                new OrgUnitId(2L), "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", null, LocalDateTime.now(), null
         );
         when(saveOrgUnitPort.save(any(OrgUnit.class))).thenReturn(savedUnit);
 
         OrgUnitResult result = orgUnitService.execute(command);
 
+        // Verify business behavior
         assertNotNull(result);
+        assertEquals(2L, result.id());
         assertEquals("DEV-CENTER", result.unitCode());
         assertEquals("Khối Phát Triển", result.unitName());
-        verify(saveOrgUnitPort, times(2)).save(any(OrgUnit.class));
+        assertEquals(OrgUnitType.CENTER, result.unitType());
+        assertEquals(1L, result.parentId());
+        assertEquals("/1/2/", result.treePath());
+        assertEquals(2, result.level());
+        assertEquals(OrgUnitStatus.ACTIVE, result.status());
+
+        // Verify save() is called exactly once
+        verify(saveOrgUnitPort).save(any(OrgUnit.class));
     }
 
     @Test
     @DisplayName("Should throw DuplicateUnitCodeException when unit code already exists")
     void shouldThrowExceptionWhenUnitCodeExists() {
         CreateOrgUnitCommand command = new CreateOrgUnitCommand(
-                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, null, "Mô tả"
+                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, "Mô tả"
         );
 
         when(loadOrgUnitPort.existsByUnitCode("DEV-CENTER")).thenReturn(true);

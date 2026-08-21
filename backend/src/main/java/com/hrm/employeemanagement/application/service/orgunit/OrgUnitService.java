@@ -45,7 +45,7 @@ public class OrgUnitService implements
             parentTreePath = parent.getTreePath();
             level = parent.getLevel() + 1;
         }
-        OrgUnit newUnit = new OrgUnit(
+         OrgUnit newUnit = new OrgUnit(
                 null,
                 command.unitCode(),
                 command.unitName(),
@@ -57,12 +57,10 @@ public class OrgUnitService implements
                 command.description(),
                 null,
                 LocalDateTime.now(),
-                null);
+                null
+        );
         OrgUnit savedUnit = saveOrgUnitPort.save(newUnit);
-        String finalTreePath = parentTreePath + savedUnit.getId().getValue() + "/";
-        savedUnit.changeParent(parentId, finalTreePath, level);
-        OrgUnit finalSavedUnit = saveOrgUnitPort.save(savedUnit);
-        return toResult(finalSavedUnit);
+        return toResult(savedUnit);
     }
 
     @Override
