@@ -1,12 +1,8 @@
 package com.hrm.employeemanagement.domain.orgunit;
 
-/**
- * OrgUnit entity mô tả cây tổ 
- */
-
 import java.time.LocalDateTime;
 
-import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
 
 public class OrgUnit {
     private OrgUnitId id;
@@ -31,13 +27,28 @@ public class OrgUnit {
         this.unitName = unitName;
         this.unitType = unitType;
         this.parentId = parentId;
-        this.treePath = treePath;
+        this.treePath = normalizeTreePath(treePath);
         this.level = level;
         this.status = status != null ? status : OrgUnitStatus.ACTIVE;
         this.description = description;
         this.managerId = managerId;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+    }
+
+    // Standardize treePath to start and end with trailing slash '/'
+    private String normalizeTreePath(String path) {
+        if (path == null || path.isBlank()) {
+            throw new InvalidTreePathException("Tree path cannot be null or blank");
+        }
+        String normalized = path.trim();
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        if (!normalized.endsWith("/")) {
+            normalized = normalized + "/";
+        }
+        return normalized;
     }
 
     // Hành vi nghiệp vụ: Cập nhật thông tin đơn vị
@@ -53,16 +64,13 @@ public class OrgUnit {
 
     // Hành vi nghiệp vụ: Di chuyển sang nút cha mới (Re-parenting)
     public void changeParent(OrgUnitId newParentId, String newTreePath, Integer newLevel) {
-        if (newTreePath == null || newTreePath.isBlank()) {
-            throw new OrgUnitNotFoundException("Tree path cannot be blank");
-        }
         if (newLevel == null || newLevel < 1) {
-            throw new OrgUnitNotFoundException("Level must be positive and greater than 0");
+            throw new IllegalArgumentException("Level must be positive and greater than 0");
         }
 
         // Ghi chú: newParentId CÓ THỂ null nếu đơn vị là nút Gốc (Root Node)
         this.parentId = newParentId;
-        this.treePath = newTreePath;
+        this.treePath = normalizeTreePath(newTreePath);
         this.level = newLevel;
         this.updatedAt = LocalDateTime.now();
     }
@@ -79,7 +87,7 @@ public class OrgUnit {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters (Không dùng Setter tự do để bảo vệ trạng thái)
+    // Getters
     public OrgUnitId getId() {
         return id;
     }

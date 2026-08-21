@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 
@@ -19,20 +20,24 @@ public class OrgUnitTreePolicy {
         }
 
         if (unitToMove.getTreePath() == null || unitToMove.getTreePath().isBlank()) {
-            throw new IllegalArgumentException("Unit to move treePath cannot be null or blank");
+            throw new InvalidTreePathException("Unit to move treePath cannot be null or blank");
         }
 
         if (newParent.getTreePath() == null || newParent.getTreePath().isBlank()) {
-            throw new IllegalArgumentException("New parent treePath cannot be null or blank");
+            throw new InvalidTreePathException("New parent treePath cannot be null or blank");
         }
 
-        // 1. Không được di chuyển nút vào chính nó
-        if (unitToMove.getId().equals(newParent.getId())) {
+        if (!unitToMove.getTreePath().endsWith("/") || !newParent.getTreePath().endsWith("/")) {
+            throw new InvalidTreePathException("Tree path must start and end with a trailing slash '/'");
+        }
+
+        // 1. Không được di chuyển nút vào chính nó (Dùng Objects.equals an toàn chống NullPointerException)
+        if (Objects.equals(unitToMove.getId(), newParent.getId())) {
             throw new CyclicDependencyException("A unit cannot be its own parent node.");
         }
 
         // 2. Không được di chuyển nút cha vào làm con/cháu thuộc subtree của chính nó
-        // Theo thuật toán Materialized Path: Mọi nút con/cháu của unitToMove đều có treePath bắt đầu bằng treePath của unitToMove
+        // Thuật toán Materialized Path: Mọi nút con/cháu của unitToMove đều có treePath bắt đầu bằng treePath của unitToMove
         if (newParent.getTreePath().startsWith(unitToMove.getTreePath())) {
             throw new CyclicDependencyException("Cannot move a parent unit inside one of its own descendant nodes.");
         }
