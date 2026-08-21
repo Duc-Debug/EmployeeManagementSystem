@@ -21,6 +21,7 @@ public class UseCaseConfig {
                                                          LoadEmployeePort loadEmployeePort,
                                                          SaveEmployeePort saveEmployeePort,
                                                          SaveAuditLogPort saveAuditLogPort,
+                                                         LoadDepartmentPort loadDepartmentPort,
                                                          PasswordEncoderPort passwordEncoder,
                                                          UserStatusCache userStatusCache) {
         UserService pureJavaUserService = new UserService(
@@ -30,6 +31,7 @@ public class UseCaseConfig {
                 loadEmployeePort,
                 saveEmployeePort,
                 saveAuditLogPort,
+                loadDepartmentPort,
                 passwordEncoder
         );
         return new TransactionalUserServiceDecorator(pureJavaUserService, userStatusCache);

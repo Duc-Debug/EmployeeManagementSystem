@@ -5,12 +5,15 @@ import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadDepartmentPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
+import com.hrm.employeemanagement.domain.department.Department;
+import com.hrm.employeemanagement.domain.department.DepartmentId;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
@@ -65,6 +68,9 @@ class UserServiceTest {
     private SaveAuditLogPort saveAuditLogPort;
 
     @Mock
+    private LoadDepartmentPort loadDepartmentPort;
+
+    @Mock
     private PasswordEncoderPort passwordEncoder;
 
     private UserService userService;
@@ -81,6 +87,7 @@ class UserServiceTest {
                 loadEmployeePort,
                 saveEmployeePort,
                 saveAuditLogPort,
+                loadDepartmentPort,
                 passwordEncoder
         );
 
@@ -89,7 +96,7 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Tạo người dùng và nhân viên thành công kèm phân quyền và ghi nhật ký kiểm toán")
+    @DisplayName("Tạo người dùng và nhân viên thành công kèm resolve tên phòng ban thực tế và ghi audit log")
     void testCreateUser_Success() {
         CreateUserCommand command = new CreateUserCommand(
                 "john_doe", "password123", "VT-04", "EMP-001", "John Doe", 10L
@@ -105,6 +112,9 @@ class UserServiceTest {
         Employee createdEmployee = new Employee(new EmployeeId(100L), new UserId(1L), 10L, "EMP-001", "John Doe", false, 40, "ACTIVE");
         when(saveEmployeePort.save(any(Employee.class))).thenReturn(createdEmployee);
 
+        Department dept = new Department(new DepartmentId(10L), "PB-10", "Phòng Kỹ thuật", null);
+        when(loadDepartmentPort.findById(new DepartmentId(10L))).thenReturn(Optional.of(dept));
+
         UserResult result = userService.createUser(command, 99L);
 
         assertNotNull(result);
@@ -112,10 +122,12 @@ class UserServiceTest {
         assertEquals("VT-04", result.getRoleCode());
         assertEquals("John Doe", result.getFullName());
         assertEquals(10L, result.getDepartmentId());
+        assertEquals("Phòng Kỹ thuật", result.getDepartmentName());
 
         verify(saveUserPort, times(2)).save(any(User.class));
         verify(saveEmployeePort, times(1)).save(any(Employee.class));
         verify(saveAuditLogPort, times(1)).save(any());
+        verify(loadDepartmentPort, times(1)).findById(new DepartmentId(10L));
     }
 
     @Test
@@ -224,7 +236,7 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Cập nhật vai trò và bộ phận thành công")
+    @DisplayName("Cập nhật vai trò và bộ phận thành công kèm resolve departmentName")
     void testUpdateUserRole_Success() {
         User user = new User(new UserId(2L), "user2", "hash", staffRole, UserStatus.ACTIVE, new EmployeeId(20L));
         Employee employee = new Employee(new EmployeeId(20L), new UserId(2L), 5L, "EMP-002", "User 2", false, 40, "ACTIVE");
@@ -238,10 +250,14 @@ class UserServiceTest {
         when(saveUserPort.save(any(User.class))).thenReturn(user);
         when(loadEmployeePort.findByUserId(new UserId(2L))).thenReturn(Optional.of(employee));
 
+        Department dept = new Department(new DepartmentId(15L), "PB-15", "Ban Quản lý dự án", null);
+        when(loadDepartmentPort.findById(new DepartmentId(15L))).thenReturn(Optional.of(dept));
+
         UserResult result = userService.updateUserRole(command, 1L);
 
         assertEquals("VT-02", result.getRoleCode());
         assertEquals(15L, result.getDepartmentId());
+        assertEquals("Ban Quản lý dự án", result.getDepartmentName());
         verify(saveEmployeePort, times(1)).save(employee);
         verify(saveAuditLogPort, times(1)).save(any());
     }
@@ -266,7 +282,7 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy danh sách người dùng với Batch Resolving không bị lỗi N+1 Query")
+    @DisplayName("Lấy danh sách người dùng với Batch Resolving Employee và Department tối ưu")
     void testGetUsers_PaginationAndBatchResolving() {
         User u1 = new User(new UserId(1L), "user1", "h1", staffRole, UserStatus.ACTIVE, new EmployeeId(10L));
         User u2 = new User(new UserId(2L), "user2", "h2", staffRole, UserStatus.ACTIVE, new EmployeeId(20L));
@@ -278,31 +294,40 @@ class UserServiceTest {
         Employee e2 = new Employee(new EmployeeId(20L), new UserId(2L), 5L, "E-2", "Employee 2", false, 40, "ACTIVE");
         when(loadEmployeePort.findAllByUserIdIn(List.of(new UserId(1L), new UserId(2L)))).thenReturn(List.of(e1, e2));
 
+        Department dept5 = new Department(new DepartmentId(5L), "PB-05", "Phòng Nhân Sự", null);
+        when(loadDepartmentPort.findAllByIdIn(List.of(5L))).thenReturn(List.of(dept5));
+
         PageResult<UserResult> pageResult = userService.getUsers(0, 20);
 
         assertEquals(2, pageResult.getContent().size());
         assertEquals(2L, pageResult.getTotalElements());
         assertEquals(1, pageResult.getTotalPages());
         assertEquals("Employee 1", pageResult.getContent().get(0).getFullName());
+        assertEquals("Phòng Nhân Sự", pageResult.getContent().get(0).getDepartmentName());
         assertEquals("Employee 2", pageResult.getContent().get(1).getFullName());
+        assertEquals("Phòng Nhân Sự", pageResult.getContent().get(1).getDepartmentName());
 
         verify(loadEmployeePort, times(1)).findAllByUserIdIn(List.of(new UserId(1L), new UserId(2L)));
+        verify(loadDepartmentPort, times(1)).findAllByIdIn(List.of(5L));
     }
 
     @Test
-    @DisplayName("Lấy thông tin người dùng theo ID thành công")
+    @DisplayName("Lấy thông tin người dùng theo ID thành công kèm resolve departmentName")
     void testGetUserById_Success() {
         User user = new User(new UserId(5L), "user5", "hash", staffRole, UserStatus.ACTIVE, new EmployeeId(50L));
         Employee emp = new Employee(new EmployeeId(50L), new UserId(5L), 8L, "EMP-005", "User Five", false, 40, "ACTIVE");
+        Department dept = new Department(new DepartmentId(8L), "PB-08", "Ban Giám Đốc", null);
 
         when(loadUserPort.findById(new UserId(5L))).thenReturn(Optional.of(user));
         when(loadEmployeePort.findByUserId(new UserId(5L))).thenReturn(Optional.of(emp));
+        when(loadDepartmentPort.findById(new DepartmentId(8L))).thenReturn(Optional.of(dept));
 
         UserResult result = userService.getUserById(5L);
 
         assertNotNull(result);
         assertEquals(5L, result.getId());
         assertEquals("User Five", result.getFullName());
+        assertEquals("Ban Giám Đốc", result.getDepartmentName());
     }
 
     @Test
