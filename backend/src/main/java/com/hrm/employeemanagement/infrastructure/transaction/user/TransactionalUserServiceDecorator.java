@@ -1,4 +1,4 @@
-package com.hrm.employeemanagement.infrastructure.transaction.user;
+git add .package com.hrm.employeemanagement.infrastructure.transaction.user;
 
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
@@ -11,10 +11,12 @@ import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUs
 import com.hrm.employeemanagement.application.service.user.UserService;
 import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Transaction-Aware Decorator at Infrastructure Layer.
- * Manages database transaction boundaries and cache eviction for Use Cases
+ * Manages database transaction boundaries and post-commit cache invalidation for Use Cases
  * while keeping the underlying Application Service (UserService) 100% Pure Java.
  */
 public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, GetUserListUseCase {
@@ -37,8 +39,8 @@ public class TransactionalUserServiceDecorator implements CreateUserUseCase, Tog
     @Transactional
     public UserResult toggleUserStatus(Long userId, boolean lock, Long currentAdminId) {
         UserResult result = delegate.toggleUserStatus(userId, lock, currentAdminId);
-        // Immediate Cache Invalidation upon Lock/Unlock
-        userStatusCache.evict(result.getUsername());
+        // Defer cache invalidation until after the database transaction successfully commits
+        evictCacheAfterCommit(result.getUsername());
         return result;
     }
 
@@ -46,8 +48,8 @@ public class TransactionalUserServiceDecorator implements CreateUserUseCase, Tog
     @Transactional
     public UserResult updateUserRole(UpdateUserRoleCommand command, Long currentAdminId) {
         UserResult result = delegate.updateUserRole(command, currentAdminId);
-        // Immediate Cache Invalidation upon Role change
-        userStatusCache.evict(result.getUsername());
+        // Defer cache invalidation until after the database transaction successfully commits
+        evictCacheAfterCommit(result.getUsername());
         return result;
     }
 
@@ -61,5 +63,23 @@ public class TransactionalUserServiceDecorator implements CreateUserUseCase, Tog
     @Transactional(readOnly = true)
     public UserResult getUserById(Long id) {
         return delegate.getUserById(id);
+    }
+
+    /**
+     * Invalidate user cache strictly after successful transaction commit.
+     * Prevents race conditions where concurrent requests repopulate stale uncommitted data into the cache.
+     */
+    private void evictCacheAfterCommit(String username) {
+        if (username == null) return;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    userStatusCache.evict(username);
+                }
+            });
+        } else {
+            userStatusCache.evict(username);
+        }
     }
 }
