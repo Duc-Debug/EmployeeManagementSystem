@@ -6,7 +6,6 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.UserJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataRoleRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataUserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -15,21 +14,23 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Persistence Adapter for User aggregate root.
+ * Completely eliminates N+1 queries by loading only User data, allowing
+ * the Application layer to perform optimized batch resolution of Employees.
+ */
 @Component
 public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
 
     private final SpringDataUserRepository springDataUserRepository;
     private final SpringDataRoleRepository springDataRoleRepository;
-    private final SpringDataEmployeeRepository springDataEmployeeRepository;
     private final UserPersistenceMapper mapper;
 
     public UserRepositoryAdapter(SpringDataUserRepository springDataUserRepository,
                                  SpringDataRoleRepository springDataRoleRepository,
-                                 SpringDataEmployeeRepository springDataEmployeeRepository,
                                  UserPersistenceMapper mapper) {
         this.springDataUserRepository = springDataUserRepository;
         this.springDataRoleRepository = springDataRoleRepository;
-        this.springDataEmployeeRepository = springDataEmployeeRepository;
         this.mapper = mapper;
     }
 
@@ -49,34 +50,20 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
             savedEntity = springDataUserRepository.save(entity);
         }
 
-        Long empId = user.getEmployeeIdValue();
-        if (empId == null) {
-            empId = springDataEmployeeRepository.findByUserId(savedEntity.getId())
-                    .map(e -> e.getId()).orElse(null);
-        }
-
-        return mapper.toDomain(savedEntity, empId);
+        return mapper.toDomain(savedEntity, user.getEmployeeIdValue());
     }
 
     @Override
     public Optional<User> findById(UserId id) {
         if (id == null || id.value() == null) return Optional.empty();
         return springDataUserRepository.findById(id.value())
-                .map(entity -> {
-                    Long empId = springDataEmployeeRepository.findByUserId(entity.getId())
-                            .map(e -> e.getId()).orElse(null);
-                    return mapper.toDomain(entity, empId);
-                });
+                .map(entity -> mapper.toDomain(entity, null));
     }
 
     @Override
     public Optional<User> findByUsername(String username) {
         return springDataUserRepository.findByUsername(username)
-                .map(entity -> {
-                    Long empId = springDataEmployeeRepository.findByUserId(entity.getId())
-                            .map(e -> e.getId()).orElse(null);
-                    return mapper.toDomain(entity, empId);
-                });
+                .map(entity -> mapper.toDomain(entity, null));
     }
 
     @Override
@@ -87,11 +74,7 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
     @Override
     public List<User> findAll(int page, int size) {
         return springDataUserRepository.findAll(PageRequest.of(page, size)).stream()
-                .map(entity -> {
-                    Long empId = springDataEmployeeRepository.findByUserId(entity.getId())
-                            .map(e -> e.getId()).orElse(null);
-                    return mapper.toDomain(entity, empId);
-                })
+                .map(entity -> mapper.toDomain(entity, null))
                 .toList();
     }
 
