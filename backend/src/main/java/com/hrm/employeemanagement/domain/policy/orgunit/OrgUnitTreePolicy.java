@@ -8,27 +8,38 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 
 public class OrgUnitTreePolicy {
+
     /**
      * Quy tắc BR-ORG-02: Kiểm tra không tạo vòng lặp khi di chuyển nút cây.
-     * Nút cha mới không được là chính nút đang di chuyển hoặc nằm trong nhánh con
-     * của nó.
+     * Nút cha mới không được là chính nút đang di chuyển hoặc là nút con/cháu thuộc nhánh subtree của nó.
      */
     public void validateNoCycle(OrgUnit unitToMove, OrgUnit newParent) {
         if (unitToMove == null || newParent == null) {
             throw new IllegalArgumentException("Unit to move and new parent cannot be null");
         }
-        if (unitToMove.getId().equals(newParent.getId())) {
-            throw new CyclicDependencyException("A unit cannot be its own parent node..");
+
+        if (unitToMove.getTreePath() == null || unitToMove.getTreePath().isBlank()) {
+            throw new IllegalArgumentException("Unit to move treePath cannot be null or blank");
         }
-        String unitPathSegment = "/" + unitToMove.getId().getValue() + "/";
-        if (newParent.getTreePath().contains(unitPathSegment)) {
-            throw new CyclicDependencyException("It is not possible to move the parent unit inside its child branch.");
+
+        if (newParent.getTreePath() == null || newParent.getTreePath().isBlank()) {
+            throw new IllegalArgumentException("New parent treePath cannot be null or blank");
+        }
+
+        // 1. Không được di chuyển nút vào chính nó
+        if (unitToMove.getId().equals(newParent.getId())) {
+            throw new CyclicDependencyException("A unit cannot be its own parent node.");
+        }
+
+        // 2. Không được di chuyển nút cha vào làm con/cháu thuộc subtree của chính nó
+        // Theo thuật toán Materialized Path: Mọi nút con/cháu của unitToMove đều có treePath bắt đầu bằng treePath của unitToMove
+        if (newParent.getTreePath().startsWith(unitToMove.getTreePath())) {
+            throw new CyclicDependencyException("Cannot move a parent unit inside one of its own descendant nodes.");
         }
     }
 
     /**
-     * Business Rule BR-ORG-04: Nút cha phải ở trạng thái ACTIVE mới được nhận nút
-     * con.
+     * Business Rule BR-ORG-04: Nút cha phải ở trạng thái ACTIVE mới được nhận nút con.
      */
     public void validateActiveParent(OrgUnit parentUnit) {
         Objects.requireNonNull(parentUnit, "Parent unit cannot be null");
