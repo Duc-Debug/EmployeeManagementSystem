@@ -40,6 +40,7 @@ public class OrgUnitService implements
             OrgUnit parent = loadOrgUnitPort.findById(new OrgUnitId(command.parentId()))
                     .orElseThrow(
                             () -> new OrgUnitNotFoundException("Parent unit not found with ID: " + command.parentId()));
+            orgUnitTreePolicy.validateActiveParent(parent);
             parentId = parent.getId();
             parentTreePath = parent.getTreePath();
             level = parent.getLevel() + 1;
@@ -82,6 +83,7 @@ public class OrgUnitService implements
         OrgUnit newParent = loadOrgUnitPort.findById(new OrgUnitId(command.newParentId()))
                 .orElseThrow(() -> new OrgUnitNotFoundException(
                         "New parent unit not found with ID: " + command.newParentId()));
+        orgUnitTreePolicy.validateActiveParent(newParent);
         // BR-ORG-02: Non-cyclic graph check
         orgUnitTreePolicy.validateNoCycle(unitToMove, newParent);
         String oldTreePath = unitToMove.getTreePath();
@@ -107,8 +109,21 @@ public class OrgUnitService implements
         OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
                 .orElseThrow(
                         () -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
+
+        // 1. Deactivate nút cha được chọn
         unit.deactivate();
         OrgUnit savedUnit = saveOrgUnitPort.save(unit);
+
+        // 2. Cascading Deactivation: Vô hiệu hóa dây chuyền toàn bộ các nút con/cháu
+        // thuộc nhánh treePath này
+        List<OrgUnit> subTreeUnits = loadOrgUnitPort.findSubTree(unit.getTreePath());
+        for (OrgUnit child : subTreeUnits) {
+            if (!child.getId().equals(unit.getId()) && child.getStatus() == OrgUnitStatus.ACTIVE) {
+                child.deactivate();
+                saveOrgUnitPort.save(child);
+            }
+        }
+
         return toResult(savedUnit);
     }
 
