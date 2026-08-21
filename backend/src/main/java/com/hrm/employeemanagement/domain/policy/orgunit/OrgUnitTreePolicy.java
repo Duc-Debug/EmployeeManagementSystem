@@ -19,9 +19,12 @@ public class OrgUnitTreePolicy {
             throw new IllegalArgumentException("Unit to move and new parent cannot be null");
         }
 
-        // Nếu unitToMove chưa được lưu xuống DB (id == null), đơn vị mới tạo chưa có nút con nên không thể tạo vòng lặp
-        if (unitToMove.getId() == null) {
-            return;
+        if (unitToMove.getId() == null || unitToMove.getId().getValue() == null) {
+            throw new IllegalArgumentException("Unit to move ID cannot be null");
+        }
+
+        if (newParent.getId() == null || newParent.getId().getValue() == null) {
+            throw new IllegalArgumentException("New parent ID cannot be null");
         }
 
         if (unitToMove.getTreePath() == null || unitToMove.getTreePath().isBlank()) {

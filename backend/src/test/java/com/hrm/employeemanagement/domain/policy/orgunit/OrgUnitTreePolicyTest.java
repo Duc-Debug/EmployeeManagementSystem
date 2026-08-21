@@ -75,9 +75,18 @@ class OrgUnitTreePolicyTest {
         assertThrows(IllegalArgumentException.class, () -> policy.validateNoCycle(validUnit, null));
     }
 
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when unitToMove or newParent has null ID")
+    void shouldRejectUnitWithoutId() {
+        OrgUnit unitWithNullId = createUnit(null, "DEV", "/1/", 1, null);
+        OrgUnit parent = createUnit(2L, "HR", "/2/", 1, null);
+
+        assertThrows(IllegalArgumentException.class, () -> policy.validateNoCycle(unitWithNullId, parent));
+    }
+
     private OrgUnit createUnit(Long id, String code, String path, int level, OrgUnitId parentId) {
         return new OrgUnit(
-                new OrgUnitId(id), code, "Unit " + code, OrgUnitType.DEPARTMENT,
+                id != null ? new OrgUnitId(id) : null, code, "Unit " + code, OrgUnitType.DEPARTMENT,
                 parentId, path, level, OrgUnitStatus.ACTIVE, null, null,
                 FIXED_TIME, null
         );
