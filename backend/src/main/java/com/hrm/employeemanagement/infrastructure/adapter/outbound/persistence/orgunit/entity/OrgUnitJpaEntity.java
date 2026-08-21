@@ -29,6 +29,8 @@ public class OrgUnitJpaEntity {
     private OrgUnitStatus status;
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+    @Column(name = "manager_id")
+    private Long managerId;
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     @Column(name = "updated_at")
@@ -92,6 +94,14 @@ public class OrgUnitJpaEntity {
 
     public void setParentId(Long parentId) {
         this.parentId = parentId;
+    }
+
+    public Long getManagerId() {
+        return managerId;
+    }
+
+    public void setManagerId(Long managerId) {
+        this.managerId = managerId;
     }
 
     public String getTreePath() {

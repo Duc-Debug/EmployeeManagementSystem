@@ -18,7 +18,7 @@ public class OrgUnitPersistenceMapper {
                 entity.getLevel(),
                 entity.getStatus(),
                 entity.getDescription(),
-                null, // managerId
+                entity.getManagerId(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());
     }
@@ -26,7 +26,7 @@ public class OrgUnitPersistenceMapper {
     public static OrgUnitJpaEntity toJpaEntity(OrgUnit domain) {
         if (domain == null)
             return null;
-        return new OrgUnitJpaEntity(
+        OrgUnitJpaEntity entity = new OrgUnitJpaEntity(
                 domain.getId() != null ? domain.getId().getValue() : null,
                 domain.getUnitCode(),
                 domain.getUnitName(),
@@ -38,5 +38,7 @@ public class OrgUnitPersistenceMapper {
                 domain.getDescription(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt());
+        entity.setManagerId(domain.getManagerId());
+        return entity;
     }
 }
