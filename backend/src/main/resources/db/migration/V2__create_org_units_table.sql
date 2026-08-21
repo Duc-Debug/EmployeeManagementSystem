@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS org_units (
     level INT NOT NULL DEFAULT 1,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     description TEXT NULL,
-    manager_id BIGINT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_org_units_parent FOREIGN KEY (parent_id) REFERENCES org_units(id) ON DELETE RESTRICT
