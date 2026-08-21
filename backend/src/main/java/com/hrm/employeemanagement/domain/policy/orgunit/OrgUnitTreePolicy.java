@@ -5,6 +5,7 @@ import java.util.Objects;
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
+import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 
@@ -20,11 +21,11 @@ public class OrgUnitTreePolicy {
         }
 
         if (unitToMove.getId() == null || unitToMove.getId().getValue() == null) {
-            throw new IllegalArgumentException("Unit to move ID cannot be null");
+            throw new NullOrgUnitIdException("Unit to move ID cannot be null");
         }
 
         if (newParent.getId() == null || newParent.getId().getValue() == null) {
-            throw new IllegalArgumentException("New parent ID cannot be null");
+            throw new NullOrgUnitIdException("New parent ID cannot be null");
         }
 
         if (unitToMove.getTreePath() == null || unitToMove.getTreePath().isBlank()) {

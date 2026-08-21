@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.domain.policy.orgunit;
 
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
+import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
 import com.hrm.employeemanagement.domain.orgunit.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -76,12 +77,12 @@ class OrgUnitTreePolicyTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when unitToMove or newParent has null ID")
+    @DisplayName("Should throw NullOrgUnitIdException when unitToMove or newParent has null ID")
     void shouldRejectUnitWithoutId() {
         OrgUnit unitWithNullId = createUnit(null, "DEV", "/1/", 1, null);
         OrgUnit parent = createUnit(2L, "HR", "/2/", 1, null);
 
-        assertThrows(IllegalArgumentException.class, () -> policy.validateNoCycle(unitWithNullId, parent));
+        assertThrows(NullOrgUnitIdException.class, () -> policy.validateNoCycle(unitWithNullId, parent));
     }
 
     private OrgUnit createUnit(Long id, String code, String path, int level, OrgUnitId parentId) {
