@@ -1,0 +1,42 @@
+package com.hrm.employeemanagement.infrastructure.config;
+
+import com.hrm.employeemanagement.application.port.inbound.orgunit.*;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.SaveOrgUnitPort;
+import com.hrm.employeemanagement.application.service.orgunit.OrgUnitService;
+import com.hrm.employeemanagement.infrastructure.transaction.orgunit.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class OrgUnitUseCaseConfig {
+    @Bean
+    public OrgUnitService orgUnitService(LoadOrgUnitPort loadOrgUnitPort, SaveOrgUnitPort saveOrgUnitPort) {
+        return new OrgUnitService(loadOrgUnitPort, saveOrgUnitPort);
+    }
+
+    @Bean
+    public CreateOrgUnitUseCase createOrgUnitUseCase(OrgUnitService orgUnitService) {
+        return new TransactionalCreateOrgUnitUseCase(orgUnitService);
+    }
+
+    @Bean
+    public UpdateOrgUnitUseCase updateOrgUnitUseCase(OrgUnitService orgUnitService) {
+        return new TransactionalUpdateOrgUnitUseCase(orgUnitService);
+    }
+
+    @Bean
+    public MoveOrgUnitUseCase moveOrgUnitUseCase(OrgUnitService orgUnitService) {
+        return new TransactionalMoveOrgUnitUseCase(orgUnitService);
+    }
+
+    @Bean
+    public DeactivateOrgUnitUseCase deactivateOrgUnitUseCase(OrgUnitService orgUnitService) {
+        return new TransactionalDeactivateOrgUnitUseCase(orgUnitService);
+    }
+
+    @Bean
+    public GetOrgTreeUseCase getOrgTreeUseCase(OrgUnitService orgUnitService) {
+        return orgUnitService; // Read-only query không cần transaction write
+    }
+}
