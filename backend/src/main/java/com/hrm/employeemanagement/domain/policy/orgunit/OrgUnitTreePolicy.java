@@ -19,6 +19,11 @@ public class OrgUnitTreePolicy {
             throw new IllegalArgumentException("Unit to move and new parent cannot be null");
         }
 
+        // Nếu unitToMove chưa được lưu xuống DB (id == null), đơn vị mới tạo chưa có nút con nên không thể tạo vòng lặp
+        if (unitToMove.getId() == null) {
+            return;
+        }
+
         if (unitToMove.getTreePath() == null || unitToMove.getTreePath().isBlank()) {
             throw new InvalidTreePathException("Unit to move treePath cannot be null or blank");
         }
@@ -31,7 +36,7 @@ public class OrgUnitTreePolicy {
             throw new InvalidTreePathException("Tree path must start and end with a trailing slash '/'");
         }
 
-        // 1. Không được di chuyển nút vào chính nó (Dùng Objects.equals an toàn chống NullPointerException)
+        // 1. Không được di chuyển nút vào chính nó
         if (Objects.equals(unitToMove.getId(), newParent.getId())) {
             throw new CyclicDependencyException("A unit cannot be its own parent node.");
         }
