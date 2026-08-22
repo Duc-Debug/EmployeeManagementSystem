@@ -74,7 +74,7 @@ public class UserPersistenceMapper {
         return new Employee(
                 empId,
                 userId,
-                entity.getDepartmentId(),
+                entity.getOrgUnitId(),
                 entity.getEmployeeCode(),
                 entity.getFullName(),
                 entity.getIsOutsourced(),
@@ -88,7 +88,7 @@ public class UserPersistenceMapper {
         return new EmployeeJpaEntity(
                 domain.getIdValue(),
                 domain.getUserIdValue(),
-                domain.getDepartmentId(),
+                domain.getOrgUnitId(),
                 domain.getEmployeeCode(),
                 domain.getFullName(),
                 domain.getIsOutsourced(),
@@ -99,7 +99,7 @@ public class UserPersistenceMapper {
 
     public void updateJpaEntity(EmployeeJpaEntity target, Employee domain) {
         if (target == null || domain == null) return;
-        target.setDepartmentId(domain.getDepartmentId());
+        target.setOrgUnitId(domain.getOrgUnitId());
         target.setEmployeeCode(domain.getEmployeeCode());
         target.setFullName(domain.getFullName());
         target.setIsOutsourced(domain.getIsOutsourced());

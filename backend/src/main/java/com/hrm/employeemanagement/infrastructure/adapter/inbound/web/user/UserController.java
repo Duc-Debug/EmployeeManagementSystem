@@ -50,7 +50,7 @@ public class UserController {
                 request.getRoleCode(),
                 request.getEmployeeCode(),
                 request.getFullName(),
-                request.getDepartmentId()
+                request.getOrgUnitId()
         );
 
         Long currentAdminId = currentAdmin != null ? currentAdmin.getIdValue() : null;
@@ -84,10 +84,10 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResult>> updateUserRole(@PathVariable Long id,
                                                                    @Valid @RequestBody UpdateUserRoleRequest request,
                                                                    @AuthenticationPrincipal User currentAdmin) {
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(id, request.getRoleCode(), request.getDepartmentId());
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(id, request.getRoleCode(), request.getOrgUnitId());
         Long currentAdminId = currentAdmin != null ? currentAdmin.getIdValue() : null;
         UserResult result = updateUserRoleUseCase.updateUserRole(command, currentAdminId);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật vai trò và bộ phận thành công", result));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật vai trò và đơn vị tổ chức thành công", result));
     }
 
     @PatchMapping("/{id}/status")

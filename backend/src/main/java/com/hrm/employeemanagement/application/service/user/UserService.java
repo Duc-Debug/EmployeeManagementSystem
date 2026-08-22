@@ -13,8 +13,8 @@ import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCas
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
-import com.hrm.employeemanagement.application.port.outbound.user.LoadDepartmentPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -22,12 +22,13 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
-import com.hrm.employeemanagement.domain.department.Department;
-import com.hrm.employeemanagement.domain.department.DepartmentId;
 import com.hrm.employeemanagement.domain.employee.Employee;
-import com.hrm.employeemanagement.domain.exception.department.DepartmentNotFoundException;
+import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
@@ -35,7 +36,7 @@ import com.hrm.employeemanagement.domain.user.UserId;
 
 /**
  * Pure Java Application Service orchestrating User Management Use Cases.
- * Resolves actual department names semantically and optimizes batch queries for list retrieval.
+ * Resolves actual organization unit names semantically and optimizes batch queries for list retrieval.
  */
 public class UserService implements
         CreateUserUseCase,
@@ -49,7 +50,7 @@ public class UserService implements
     private final LoadEmployeePort loadEmployeePort;
     private final SaveEmployeePort saveEmployeePort;
     private final SaveAuditLogPort saveAuditLogPort;
-    private final LoadDepartmentPort loadDepartmentPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
     private final PasswordEncoderPort passwordEncoder;
 
     public UserService(
@@ -59,7 +60,7 @@ public class UserService implements
             LoadEmployeePort loadEmployeePort,
             SaveEmployeePort saveEmployeePort,
             SaveAuditLogPort saveAuditLogPort,
-            LoadDepartmentPort loadDepartmentPort,
+            LoadOrgUnitPort loadOrgUnitPort,
             PasswordEncoderPort passwordEncoder
     ) {
         this.loadUserPort = loadUserPort;
@@ -68,7 +69,7 @@ public class UserService implements
         this.loadEmployeePort = loadEmployeePort;
         this.saveEmployeePort = saveEmployeePort;
         this.saveAuditLogPort = saveAuditLogPort;
-        this.loadDepartmentPort = loadDepartmentPort;
+        this.loadOrgUnitPort = loadOrgUnitPort;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -80,7 +81,7 @@ public class UserService implements
             );
         }
 
-        Department department = loadDepartmentOrThrow(command.departmentId());
+        OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
 
         RoleCode roleCode = RoleCode.fromCode(command.roleCode());
 
@@ -105,7 +106,7 @@ public class UserService implements
         // Link Employee profile
         Employee employee = Employee.createNew(
                 savedUser.getId(),
-                command.departmentId(),
+                command.orgUnitId(),
                 command.employeeCode(),
                 command.fullName()
         );
@@ -124,14 +125,14 @@ public class UserService implements
                 )
         );
 
-        String deptName = department != null
-                ? department.getName()
+        String orgUnitName = orgUnit != null
+                ? orgUnit.getUnitName()
                 : null;
 
         return mapToUserResult(
                 savedUser,
                 savedEmployee,
-                deptName
+                orgUnitName
         );
     }
 
@@ -192,12 +193,12 @@ public class UserService implements
                 .findByUserId(updatedUser.getId())
                 .orElse(null);
 
-        String deptName = resolveDepartmentName(employee);
+        String orgUnitName = resolveOrgUnitName(employee);
 
         return mapToUserResult(
                 updatedUser,
                 employee,
-                deptName
+                orgUnitName
         );
     }
 
@@ -239,10 +240,7 @@ public class UserService implements
                 .findByUserId(user.getId())
                 .orElse(null);
 
-        Department department = null;
-        if (employee != null && command.departmentId() != null) {
-            department = loadDepartmentOrThrow(command.departmentId());
-        }
+        OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
 
         long activeAdminCount = loadUserPort.countActiveAdmins();
 
@@ -250,8 +248,8 @@ public class UserService implements
 
         User updatedUser = saveUserPort.save(user);
 
-        if (employee != null && command.departmentId() != null) {
-            employee.assignToDepartment(command.departmentId());
+        if (employee != null && command.orgUnitId() != null) {
+            employee.assignToOrgUnit(command.orgUnitId());
             saveEmployeePort.save(employee);
         }
 
@@ -264,14 +262,14 @@ public class UserService implements
                 )
         );
 
-        String deptName = department != null
-                ? department.getName()
-                : resolveDepartmentName(employee);
+        String orgUnitName = employee != null && orgUnit != null
+                ? orgUnit.getUnitName()
+                : resolveOrgUnitName(employee);
 
         return mapToUserResult(
                 updatedUser,
                 employee,
-                deptName
+                orgUnitName
         );
     }
 
@@ -301,41 +299,42 @@ public class UserService implements
                         )
                 );
 
-        // Batch load all distinct department names in one query
-        List<Long> deptIds = employees.stream()
-                .map(Employee::getDepartmentId)
+        // Batch load all distinct organization unit names in one query
+        List<Long> orgUnitIds = employees.stream()
+                .map(Employee::getOrgUnitId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
 
-        Map<Long, String> deptNameMap =
-                loadDepartmentPort.findAllByIdIn(deptIds)
-                        .stream()
-                        .collect(
-                                Collectors.toMap(
-                                        Department::getIdValue,
-                                        Department::getName,
-                                        (existing, replacing) -> existing
-                                )
-                        );
+        Map<Long, String> orgUnitNameMap = orgUnitIds.isEmpty()
+                ? Map.of()
+                : loadOrgUnitPort.findAllByIdIn(orgUnitIds)
+                .stream()
+                .collect(
+                        Collectors.toMap(
+                                orgUnit -> orgUnit.getId().getValue(),
+                                OrgUnit::getUnitName,
+                                (existing, replacing) -> existing
+                        )
+                );
 
         List<UserResult> content = users.stream()
                 .map(user -> {
                     Employee employee =
                             employeeMap.get(user.getIdValue());
 
-                    String deptName =
+                    String orgUnitName =
                             employee != null
-                                    && employee.getDepartmentId() != null
-                                    ? deptNameMap.get(
-                                            employee.getDepartmentId()
+                                    && employee.getOrgUnitId() != null
+                                    ? orgUnitNameMap.get(
+                                            employee.getOrgUnitId()
                                     )
                                     : null;
 
                     return mapToUserResult(
                             user,
                             employee,
-                            deptName
+                            orgUnitName
                     );
                 })
                 .toList();
@@ -363,45 +362,51 @@ public class UserService implements
                 .findByUserId(user.getId())
                 .orElse(null);
 
-        String deptName = resolveDepartmentName(employee);
+        String orgUnitName = resolveOrgUnitName(employee);
 
         return mapToUserResult(
                 user,
                 employee,
-                deptName
+                orgUnitName
         );
     }
 
-    private Department loadDepartmentOrThrow(Long departmentId) {
-        if (departmentId == null) {
+    private OrgUnit loadActiveOrgUnitOrThrow(Long orgUnitId) {
+        if (orgUnitId == null) {
             return null;
         }
 
-        return loadDepartmentPort.findById(new DepartmentId(departmentId))
+        OrgUnit orgUnit = loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))
                 .orElseThrow(() ->
-                        new DepartmentNotFoundException(departmentId)
+                        new OrgUnitNotFoundException("Organizational unit not found with ID: " + orgUnitId)
                 );
+
+        if (orgUnit.getStatus() != OrgUnitStatus.ACTIVE) {
+            throw new IllegalArgumentException("Đơn vị tổ chức được chỉ định đang không hoạt động");
+        }
+
+        return orgUnit;
     }
 
-    private String resolveDepartmentName(Employee employee) {
-        if (employee == null || employee.getDepartmentId() == null) {
+    private String resolveOrgUnitName(Employee employee) {
+        if (employee == null || employee.getOrgUnitId() == null) {
             return null;
         }
 
-        return loadDepartmentPort
+        return loadOrgUnitPort
                 .findById(
-                        new DepartmentId(
-                                employee.getDepartmentId()
+                        new OrgUnitId(
+                                employee.getOrgUnitId()
                         )
                 )
-                .map(Department::getName)
+                .map(OrgUnit::getUnitName)
                 .orElse(null);
     }
 
     private UserResult mapToUserResult(
             User user,
             Employee employee,
-            String departmentName
+            String orgUnitName
     ) {
         return new UserResult(
                 user.getIdValue(),
@@ -416,9 +421,9 @@ public class UserService implements
                         ? employee.getFullName()
                         : null,
                 employee != null
-                        ? employee.getDepartmentId()
+                        ? employee.getOrgUnitId()
                         : null,
-                departmentName
+                orgUnitName
         );
     }
 }

@@ -77,9 +77,9 @@ class UserControllerTest {
         request.setRoleCode("VT-04");
         request.setEmployeeCode("EMP-099");
         request.setFullName("New User");
-        request.setDepartmentId(5L);
+        request.setOrgUnitId(5L);
 
-        UserResult mockResult = new UserResult(99L, "newuser", "VT-04", "Nhân viên chuyên môn", UserStatus.ACTIVE, 10L, "New User", 5L, "Dept 5");
+        UserResult mockResult = new UserResult(99L, "newuser", "VT-04", "Nhân viên chuyên môn", UserStatus.ACTIVE, 10L, "New User", 5L, "OrgUnit 5");
         when(createUserUseCase.createUser(any(CreateUserCommand.class), nullable(Long.class))).thenReturn(mockResult);
 
         mockMvc.perform(post("/api/v1/users")
@@ -89,7 +89,9 @@ class UserControllerTest {
                 .andExpect(header().string("Location", containsString("/api/v1/users/99")))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(99))
-                .andExpect(jsonPath("$.data.username").value("newuser"));
+                .andExpect(jsonPath("$.data.username").value("newuser"))
+                .andExpect(jsonPath("$.data.orgUnitId").value(5))
+                .andExpect(jsonPath("$.data.orgUnitName").value("OrgUnit 5"));
     }
 
     @Test
@@ -101,7 +103,7 @@ class UserControllerTest {
         request.setRoleCode("VT-04");
         request.setEmployeeCode("EMP-099");
         request.setFullName("Existing User");
-        request.setDepartmentId(5L);
+        request.setOrgUnitId(5L);
 
         when(createUserUseCase.createUser(any(), nullable(Long.class)))
                 .thenThrow(new DuplicateUsernameException("Tên đăng nhập đã tồn tại: existing"));
@@ -117,7 +119,7 @@ class UserControllerTest {
     @Test
     @DisplayName("GET /api/v1/users trả về 200 OK kèm thông tin phân trang PageResult")
     void testGetUsers_ReturnsPageResult() throws Exception {
-        UserResult u1 = new UserResult(1L, "u1", "VT-04", "Staff", UserStatus.ACTIVE, 10L, "User 1", 5L, "Dept");
+        UserResult u1 = new UserResult(1L, "u1", "VT-04", "Staff", UserStatus.ACTIVE, 10L, "User 1", 5L, "OrgUnit");
         PageResult<UserResult> mockPage = new PageResult<>(List.of(u1), 0, 20, 1L);
 
         when(getUserListUseCase.getUsers(0, 20)).thenReturn(mockPage);
@@ -159,9 +161,9 @@ class UserControllerTest {
     void testUpdateUserRole_Success() throws Exception {
         UpdateUserRoleRequest request = new UpdateUserRoleRequest();
         request.setRoleCode("VT-02");
-        request.setDepartmentId(10L);
+        request.setOrgUnitId(10L);
 
-        UserResult mockResult = new UserResult(2L, "user2", "VT-02", "Quản lý dự án", UserStatus.ACTIVE, 20L, "User Two", 10L, "Dept 10");
+        UserResult mockResult = new UserResult(2L, "user2", "VT-02", "Quản lý dự án", UserStatus.ACTIVE, 20L, "User Two", 10L, "OrgUnit 10");
         when(updateUserRoleUseCase.updateUserRole(any(UpdateUserRoleCommand.class), nullable(Long.class))).thenReturn(mockResult);
 
         mockMvc.perform(put("/api/v1/users/2/role")
@@ -169,7 +171,8 @@ class UserControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.roleCode").value("VT-02"));
+                .andExpect(jsonPath("$.data.roleCode").value("VT-02"))
+                .andExpect(jsonPath("$.data.orgUnitId").value(10));
     }
 
     @Test

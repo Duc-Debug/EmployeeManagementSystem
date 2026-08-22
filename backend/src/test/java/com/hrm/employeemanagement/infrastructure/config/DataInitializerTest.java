@@ -1,5 +1,9 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.repository.SpringDataOrgUnitRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.DepartmentJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
@@ -42,6 +46,9 @@ class DataInitializerTest {
     private SpringDataDepartmentRepository departmentRepository;
 
     @Mock
+    private SpringDataOrgUnitRepository orgUnitRepository;
+
+    @Mock
     private SpringDataUserRepository userRepository;
 
     @Mock
@@ -54,10 +61,13 @@ class DataInitializerTest {
     void setUp() {
         lenient().when(roleRepository.findByCode(any(String.class))).thenReturn(Optional.of(new RoleJpaEntity(1L, "VT-01", "Vai tro")));
         lenient().when(departmentRepository.findByCode("PB-01")).thenReturn(Optional.of(new DepartmentJpaEntity(1L, "PB-01", "Ban giám đốc", null)));
+        lenient().when(orgUnitRepository.findByUnitCode("COMPANY_ROOT")).thenReturn(Optional.of(
+                new OrgUnitJpaEntity(100L, "COMPANY_ROOT", "Công Ty Cổ Phần Software", OrgUnitType.COMPANY, null, "/100/", 1, OrgUnitStatus.ACTIVE, "Nút gốc", null, null)
+        ));
     }
 
     @Test
-    @DisplayName("Khởi tạo Admin & Employee liên kết Department thành công khi cung cấp password từ biến môi trường")
+    @DisplayName("Khởi tạo Admin & Employee liên kết OrgUnit thành công khi cung cấp password từ biến môi trường")
     void testRun_ProvisionsAdminAndEmployeeWithEnvPassword() throws Exception {
         DataInitializer dataInitializer = dataInitializer(true, "admin", "StrongEnvPassword123!");
 
@@ -82,7 +92,7 @@ class DataInitializerTest {
         ArgumentCaptor<EmployeeJpaEntity> empCaptor = ArgumentCaptor.forClass(EmployeeJpaEntity.class);
         verify(employeeRepository).save(empCaptor.capture());
         assertEquals(1L, empCaptor.getValue().getUserId());
-        assertEquals(1L, empCaptor.getValue().getDepartmentId());
+        assertEquals(100L, empCaptor.getValue().getOrgUnitId());
     }
 
     @Test
@@ -123,11 +133,11 @@ class DataInitializerTest {
 
         // Không tạo lại User
         verify(userRepository, never()).save(any(UserJpaEntity.class));
-        // Nhưng tạo bù Employee profile và liên kết Department
+        // Nhưng tạo bù Employee profile và liên kết OrgUnit
         ArgumentCaptor<EmployeeJpaEntity> empCaptor = ArgumentCaptor.forClass(EmployeeJpaEntity.class);
         verify(employeeRepository).save(empCaptor.capture());
         assertEquals(1L, empCaptor.getValue().getUserId());
-        assertEquals(1L, empCaptor.getValue().getDepartmentId());
+        assertEquals(100L, empCaptor.getValue().getOrgUnitId());
     }
 
     @Test
@@ -145,6 +155,7 @@ class DataInitializerTest {
         return new DataInitializer(
                 roleRepository,
                 departmentRepository,
+                orgUnitRepository,
                 userRepository,
                 employeeRepository,
                 passwordEncoder,

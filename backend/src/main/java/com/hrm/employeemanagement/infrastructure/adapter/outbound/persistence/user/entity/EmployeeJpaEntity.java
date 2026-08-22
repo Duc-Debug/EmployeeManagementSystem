@@ -13,8 +13,8 @@ public class EmployeeJpaEntity {
     @Column(name = "user_id")
     private Long userId;
 
-    @Column(name = "department_id")
-    private Long departmentId;
+    @Column(name = "org_unit_id")
+    private Long orgUnitId;
 
     @Column(name = "employee_code")
     private String employeeCode;
@@ -33,10 +33,10 @@ public class EmployeeJpaEntity {
     public EmployeeJpaEntity() {
     }
 
-    public EmployeeJpaEntity(Long id, Long userId, Long departmentId, String employeeCode, String fullName, Boolean isOutsourced, Integer standardHoursPerWeek, String status) {
+    public EmployeeJpaEntity(Long id, Long userId, Long orgUnitId, String employeeCode, String fullName, Boolean isOutsourced, Integer standardHoursPerWeek, String status) {
         this.id = id;
         this.userId = userId;
-        this.departmentId = departmentId;
+        this.orgUnitId = orgUnitId;
         this.employeeCode = employeeCode;
         this.fullName = fullName;
         this.isOutsourced = isOutsourced;
@@ -60,12 +60,12 @@ public class EmployeeJpaEntity {
         this.userId = userId;
     }
 
-    public Long getDepartmentId() {
-        return departmentId;
+    public Long getOrgUnitId() {
+        return orgUnitId;
     }
 
-    public void setDepartmentId(Long departmentId) {
-        this.departmentId = departmentId;
+    public void setOrgUnitId(Long orgUnitId) {
+        this.orgUnitId = orgUnitId;
     }
 
     public String getEmployeeCode() {

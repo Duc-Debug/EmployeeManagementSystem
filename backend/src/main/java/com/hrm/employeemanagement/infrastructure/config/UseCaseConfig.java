@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.*;
@@ -21,7 +22,7 @@ public class UseCaseConfig {
                                                          LoadEmployeePort loadEmployeePort,
                                                          SaveEmployeePort saveEmployeePort,
                                                          SaveAuditLogPort saveAuditLogPort,
-                                                         LoadDepartmentPort loadDepartmentPort,
+                                                         LoadOrgUnitPort loadOrgUnitPort,
                                                          PasswordEncoderPort passwordEncoder,
                                                          UserStatusCache userStatusCache) {
         UserService pureJavaUserService = new UserService(
@@ -31,7 +32,7 @@ public class UseCaseConfig {
                 loadEmployeePort,
                 saveEmployeePort,
                 saveAuditLogPort,
-                loadDepartmentPort,
+                loadOrgUnitPort,
                 passwordEncoder
         );
         return new TransactionalUserServiceDecorator(pureJavaUserService, userStatusCache);

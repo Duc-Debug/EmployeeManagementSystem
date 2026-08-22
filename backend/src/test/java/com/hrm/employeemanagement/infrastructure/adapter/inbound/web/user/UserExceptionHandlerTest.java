@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 
+import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
@@ -27,6 +28,17 @@ class UserExceptionHandlerTest {
     @BeforeEach
     void setUp() {
         exceptionHandler = new UserExceptionHandler();
+    }
+
+    @Test
+    @DisplayName("Ánh xạ OrgUnitNotFoundException thành HTTP 404 NOT FOUND")
+    void testHandleOrgUnitNotFound() {
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleOrgUnitNotFound(
+                new OrgUnitNotFoundException("Organizational unit not found with ID: 10")
+        );
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("Organizational unit not found with ID: 10", response.getBody().getMessage());
     }
 
     @Test
@@ -98,15 +110,15 @@ class UserExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Ánh xạ DataIntegrityViolationException vi phạm FOREIGN KEY department_id thành HTTP 400 BAD REQUEST")
-    void testHandleDataIntegrityViolation_ForeignKeyDepartment_Returns400() {
-        SQLException sqlEx = new SQLException("Referential integrity constraint violation: FK_EMPLOYEES_DEPARTMENT FOREIGN KEY(DEPARTMENT_ID) REFERENCES DEPARTMENTS(ID)");
+    @DisplayName("Ánh xạ DataIntegrityViolationException vi phạm FOREIGN KEY org_unit_id thành HTTP 400 BAD REQUEST")
+    void testHandleDataIntegrityViolation_ForeignKeyOrgUnit_Returns400() {
+        SQLException sqlEx = new SQLException("Referential integrity constraint violation: FK_EMPLOYEES_ORG_UNIT FOREIGN KEY(ORG_UNIT_ID) REFERENCES ORG_UNITS(ID)");
         DataIntegrityViolationException ex = new DataIntegrityViolationException("could not execute statement", sqlEx);
 
         ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleDataIntegrityViolation(ex);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertFalse(response.getBody().isSuccess());
-        assertEquals("Phòng ban được chỉ định không tồn tại trong hệ thống", response.getBody().getMessage());
+        assertEquals("Đơn vị tổ chức được chỉ định không tồn tại trong hệ thống", response.getBody().getMessage());
     }
 
     @Test

@@ -12,6 +12,8 @@ public interface LoadOrgUnitPort {
 
     boolean existsByUnitCode(String unitCode);
 
+    List<OrgUnit> findAllByIdIn(List<Long> ids);
+
     List<OrgUnit> findAllActive();
 
     List<OrgUnit> findSubTree(String treePath);
