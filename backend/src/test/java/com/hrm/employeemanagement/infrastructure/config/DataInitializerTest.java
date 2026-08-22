@@ -8,6 +8,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.us
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataRoleRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataUserRepository;
+import com.hrm.employeemanagement.infrastructure.security.InitialAdminProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -48,14 +50,8 @@ class DataInitializerTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
-    private DataInitializer dataInitializer;
-
     @BeforeEach
     void setUp() {
-        dataInitializer = new DataInitializer(roleRepository, departmentRepository, userRepository, employeeRepository, passwordEncoder);
-        dataInitializer.setInitialAdminEnabled(true);
-        dataInitializer.setInitialAdminUsername("admin");
-
         lenient().when(roleRepository.findByCode(any(String.class))).thenReturn(Optional.of(new RoleJpaEntity(1L, "VT-01", "Vai tro")));
         lenient().when(departmentRepository.findByCode("PB-01")).thenReturn(Optional.of(new DepartmentJpaEntity(1L, "PB-01", "Ban giám đốc", null)));
     }
@@ -63,7 +59,7 @@ class DataInitializerTest {
     @Test
     @DisplayName("Khởi tạo Admin & Employee liên kết Department thành công khi cung cấp password từ biến môi trường")
     void testRun_ProvisionsAdminAndEmployeeWithEnvPassword() throws Exception {
-        dataInitializer.setInitialAdminPassword("StrongEnvPassword123!");
+        DataInitializer dataInitializer = dataInitializer(true, "admin", "StrongEnvPassword123!");
 
         RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
         when(roleRepository.findByCode("VT-06")).thenReturn(Optional.of(adminRole));
@@ -90,30 +86,34 @@ class DataInitializerTest {
     }
 
     @Test
-    @DisplayName("Khởi tạo Admin tự động sinh mật khẩu ngẫu nhiên khi không cung cấp password")
-    void testRun_ProvisionsAdminWithRandomPasswordWhenNotProvided() throws Exception {
-        dataInitializer.setInitialAdminPassword(""); // Không truyền password
+    @DisplayName("Fail-fast khi bật initial admin provisioning nhưng thiếu username")
+    void testRun_FailsWhenProvisioningEnabledWithoutUsername() {
+        DataInitializer dataInitializer = dataInitializer(true, " ", "StrongEnvPassword123!");
 
-        RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
-        when(roleRepository.findByCode("VT-06")).thenReturn(Optional.of(adminRole));
-        when(userRepository.countActiveAdmins()).thenReturn(0L);
-        when(userRepository.findByUsername("admin")).thenReturn(Optional.empty());
-        when(passwordEncoder.encode(any(String.class))).thenReturn("encoded_random_password");
+        IllegalStateException ex = assertThrows(IllegalStateException.class, dataInitializer::run);
 
-        UserJpaEntity savedUser = new UserJpaEntity(1L, "admin", "encoded_random_password", adminRole, true);
-        when(userRepository.save(any(UserJpaEntity.class))).thenReturn(savedUser);
-        when(employeeRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        assertEquals("Initial admin username must be configured when provisioning is enabled", ex.getMessage());
+        verify(userRepository, never()).save(any(UserJpaEntity.class));
+        verify(employeeRepository, never()).save(any(EmployeeJpaEntity.class));
+    }
 
-        dataInitializer.run();
+    @Test
+    @DisplayName("Fail-fast khi bật initial admin provisioning nhưng thiếu password")
+    void testRun_FailsWhenProvisioningEnabledWithoutPassword() {
+        DataInitializer dataInitializer = dataInitializer(true, "admin", "");
 
-        verify(passwordEncoder).encode(any(String.class));
-        verify(userRepository).save(any(UserJpaEntity.class));
-        verify(employeeRepository).save(any(EmployeeJpaEntity.class));
+        IllegalStateException ex = assertThrows(IllegalStateException.class, dataInitializer::run);
+
+        assertEquals("Initial admin password must be configured when provisioning is enabled", ex.getMessage());
+        verify(userRepository, never()).save(any(UserJpaEntity.class));
+        verify(employeeRepository, never()).save(any(EmployeeJpaEntity.class));
     }
 
     @Test
     @DisplayName("Tự phục hồi (Self-Healing): Khi Admin User đã tồn tại nhưng Employee Profile bị thiếu, hệ thống tự động tạo Employee")
     void testRun_SelfHealing_CreatesMissingEmployeeWhenUserExists() throws Exception {
+        DataInitializer dataInitializer = dataInitializer(true, "admin", "StrongEnvPassword123!");
+
         RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
         UserJpaEntity existingAdmin = new UserJpaEntity(1L, "admin", "encoded_hash", adminRole, true);
         when(userRepository.findByUsername("admin")).thenReturn(Optional.of(existingAdmin));
@@ -133,11 +133,22 @@ class DataInitializerTest {
     @Test
     @DisplayName("Bỏ qua khởi tạo khi initialAdminEnabled = false")
     void testRun_SkipsProvisioningWhenDisabled() throws Exception {
-        dataInitializer.setInitialAdminEnabled(false);
+        DataInitializer dataInitializer = dataInitializer(false, null, null);
 
         dataInitializer.run();
 
         verify(userRepository, never()).save(any(UserJpaEntity.class));
         verify(employeeRepository, never()).save(any(EmployeeJpaEntity.class));
+    }
+
+    private DataInitializer dataInitializer(boolean enabled, String username, String password) {
+        return new DataInitializer(
+                roleRepository,
+                departmentRepository,
+                userRepository,
+                employeeRepository,
+                passwordEncoder,
+                new InitialAdminProperties(enabled, username, password)
+        );
     }
 }

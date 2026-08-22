@@ -1,8 +1,11 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
 import com.hrm.employeemanagement.infrastructure.security.CustomAccessDeniedHandler;
+import com.hrm.employeemanagement.infrastructure.security.InitialAdminProperties;
 import com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter;
+import com.hrm.employeemanagement.infrastructure.security.JwtProperties;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -23,6 +26,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@EnableConfigurationProperties({JwtProperties.class, InitialAdminProperties.class})
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
