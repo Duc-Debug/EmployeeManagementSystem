@@ -1,5 +1,10 @@
 package com.hrm.employeemanagement.application.service.user;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
@@ -20,6 +25,7 @@ import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.department.Department;
 import com.hrm.employeemanagement.domain.department.DepartmentId;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.exception.department.DepartmentNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.role.Role;
@@ -27,16 +33,15 @@ import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 /**
  * Pure Java Application Service orchestrating User Management Use Cases.
  * Resolves actual department names semantically and optimizes batch queries for list retrieval.
  */
-public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, GetUserListUseCase {
+public class UserService implements
+        CreateUserUseCase,
+        ToggleUserStatusUseCase,
+        UpdateUserRoleUseCase,
+        GetUserListUseCase {
 
     private final LoadUserPort loadUserPort;
     private final SaveUserPort saveUserPort;
@@ -47,14 +52,16 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
     private final LoadDepartmentPort loadDepartmentPort;
     private final PasswordEncoderPort passwordEncoder;
 
-    public UserService(LoadUserPort loadUserPort,
-                       SaveUserPort saveUserPort,
-                       LoadRolePort loadRolePort,
-                       LoadEmployeePort loadEmployeePort,
-                       SaveEmployeePort saveEmployeePort,
-                       SaveAuditLogPort saveAuditLogPort,
-                       LoadDepartmentPort loadDepartmentPort,
-                       PasswordEncoderPort passwordEncoder) {
+    public UserService(
+            LoadUserPort loadUserPort,
+            SaveUserPort saveUserPort,
+            LoadRolePort loadRolePort,
+            LoadEmployeePort loadEmployeePort,
+            SaveEmployeePort saveEmployeePort,
+            SaveAuditLogPort saveAuditLogPort,
+            LoadDepartmentPort loadDepartmentPort,
+            PasswordEncoderPort passwordEncoder
+    ) {
         this.loadUserPort = loadUserPort;
         this.saveUserPort = saveUserPort;
         this.loadRolePort = loadRolePort;
@@ -68,89 +75,204 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
     @Override
     public UserResult createUser(CreateUserCommand command, Long currentAdminId) {
         if (loadUserPort.existsByUsername(command.username())) {
-            throw new DuplicateUsernameException("Tên đăng nhập '" + command.username() + "' đã tồn tại trong hệ thống");
+            throw new DuplicateUsernameException(
+                    "Tên đăng nhập '" + command.username() + "' đã tồn tại trong hệ thống"
+            );
         }
 
+        Department department = loadDepartmentOrThrow(command.departmentId());
+
         RoleCode roleCode = RoleCode.fromCode(command.roleCode());
+
         Role role = loadRolePort.findByCode(roleCode)
-                .orElseGet(() -> loadRolePort.save(new Role(null, roleCode, roleCode.getName())));
+                .orElseGet(() ->
+                        loadRolePort.save(
+                                new Role(null, roleCode, roleCode.getName())
+                        )
+                );
 
         String passwordHash = passwordEncoder.encode(command.password());
 
-        User newUser = User.createNew(command.username(), passwordHash, role, null);
+        User newUser = User.createNew(
+                command.username(),
+                passwordHash,
+                role,
+                null
+        );
+
         User savedUser = saveUserPort.save(newUser);
 
         // Link Employee profile
-        Employee employee = Employee.createNew(savedUser.getId(), command.departmentId(), command.employeeCode(), command.fullName());
+        Employee employee = Employee.createNew(
+                savedUser.getId(),
+                command.departmentId(),
+                command.employeeCode(),
+                command.fullName()
+        );
+
         Employee savedEmployee = saveEmployeePort.save(employee);
 
         savedUser.linkEmployee(savedEmployee.getId());
 
         // Audit logging
-        saveAuditLogPort.save(AuditLog.create(currentAdminId, "CREATE_USER", "users", savedUser.getIdValue()));
+        saveAuditLogPort.save(
+                AuditLog.create(
+                        currentAdminId,
+                        "CREATE_USER",
+                        "users",
+                        savedUser.getIdValue()
+                )
+        );
 
-        String deptName = resolveDepartmentName(savedEmployee);
-        return mapToUserResult(savedUser, savedEmployee, deptName);
+        String deptName = department != null
+                ? department.getName()
+                : null;
+
+        return mapToUserResult(
+                savedUser,
+                savedEmployee,
+                deptName
+        );
     }
 
     @Override
-    public UserResult toggleUserStatus(Long userId, boolean lock, Long currentAdminId) {
+    public UserResult toggleUserStatus(
+            Long userId,
+            boolean lock,
+            Long currentAdminId
+    ) {
         UserId uId = new UserId(userId);
-        User user = loadUserPort.findById(uId)
-                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + userId));
 
-        // Acquire pessimistic lock on Admin role row to serialize concurrent transactions affecting active admin count
+        User user = loadUserPort.findById(uId)
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng với ID: " + userId
+                        )
+                );
+
+        // Acquire pessimistic lock on Admin role row to serialize
+        // concurrent transactions affecting active admin count
         if (lock && user.isSystemAdmin()) {
             loadRolePort.lockRoleForUpdate(RoleCode.VT_06);
         }
 
         long activeAdminCount = loadUserPort.countActiveAdmins();
-        UserId adminId = currentAdminId != null ? new UserId(currentAdminId) : null;
+
+        UserId adminId = currentAdminId != null
+                ? new UserId(currentAdminId)
+                : null;
 
         if (lock) {
             user.lock(adminId, activeAdminCount);
-            saveAuditLogPort.save(AuditLog.create(currentAdminId, "LOCK_USER", "users", user.getIdValue()));
+
+            saveAuditLogPort.save(
+                    AuditLog.create(
+                            currentAdminId,
+                            "LOCK_USER",
+                            "users",
+                            user.getIdValue()
+                    )
+            );
         } else {
             user.unlock();
-            saveAuditLogPort.save(AuditLog.create(currentAdminId, "UNLOCK_USER", "users", user.getIdValue()));
+
+            saveAuditLogPort.save(
+                    AuditLog.create(
+                            currentAdminId,
+                            "UNLOCK_USER",
+                            "users",
+                            user.getIdValue()
+                    )
+            );
         }
 
         User updatedUser = saveUserPort.save(user);
-        Employee employee = loadEmployeePort.findByUserId(updatedUser.getId()).orElse(null);
+
+        Employee employee = loadEmployeePort
+                .findByUserId(updatedUser.getId())
+                .orElse(null);
+
         String deptName = resolveDepartmentName(employee);
-        return mapToUserResult(updatedUser, employee, deptName);
+
+        return mapToUserResult(
+                updatedUser,
+                employee,
+                deptName
+        );
     }
 
     @Override
-    public UserResult updateUserRole(UpdateUserRoleCommand command, Long currentAdminId) {
+    public UserResult updateUserRole(
+            UpdateUserRoleCommand command,
+            Long currentAdminId
+    ) {
         UserId uId = new UserId(command.userId());
+
         User user = loadUserPort.findById(uId)
-                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + command.userId()));
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng với ID: "
+                                        + command.userId()
+                        )
+                );
 
         RoleCode newRoleCode = RoleCode.fromCode(command.roleCode());
-        Role newRole = loadRolePort.findByCode(newRoleCode)
-                .orElseGet(() -> loadRolePort.save(new Role(null, newRoleCode, newRoleCode.getName())));
 
-        // Acquire pessimistic lock on Admin role row to serialize concurrent transactions when demoting an admin
+        Role newRole = loadRolePort.findByCode(newRoleCode)
+                .orElseGet(() ->
+                        loadRolePort.save(
+                                new Role(
+                                        null,
+                                        newRoleCode,
+                                        newRoleCode.getName()
+                                )
+                        )
+                );
+
+        // Acquire pessimistic lock on Admin role row to serialize
+        // concurrent transactions when demoting an admin
         if (user.isSystemAdmin() && !newRole.isSystemAdmin()) {
             loadRolePort.lockRoleForUpdate(RoleCode.VT_06);
         }
 
+        Employee employee = loadEmployeePort
+                .findByUserId(user.getId())
+                .orElse(null);
+
+        Department department = null;
+        if (employee != null && command.departmentId() != null) {
+            department = loadDepartmentOrThrow(command.departmentId());
+        }
+
         long activeAdminCount = loadUserPort.countActiveAdmins();
+
         user.changeRole(newRole, activeAdminCount);
 
         User updatedUser = saveUserPort.save(user);
 
-        Employee employee = loadEmployeePort.findByUserId(updatedUser.getId()).orElse(null);
         if (employee != null && command.departmentId() != null) {
             employee.assignToDepartment(command.departmentId());
             saveEmployeePort.save(employee);
         }
 
-        saveAuditLogPort.save(AuditLog.create(currentAdminId, "UPDATE_ROLE", "users", updatedUser.getIdValue()));
+        saveAuditLogPort.save(
+                AuditLog.create(
+                        currentAdminId,
+                        "UPDATE_ROLE",
+                        "users",
+                        updatedUser.getIdValue()
+                )
+        );
 
-        String deptName = resolveDepartmentName(employee);
-        return mapToUserResult(updatedUser, employee, deptName);
+        String deptName = department != null
+                ? department.getName()
+                : resolveDepartmentName(employee);
+
+        return mapToUserResult(
+                updatedUser,
+                employee,
+                deptName
+        );
     }
 
     @Override
@@ -161,61 +283,141 @@ public class UserService implements CreateUserUseCase, ToggleUserStatusUseCase, 
         List<User> users = loadUserPort.findAll(safePage, safeSize);
         long totalElements = loadUserPort.count();
 
-        List<UserId> userIds = users.stream().map(User::getId).filter(Objects::nonNull).toList();
-        List<Employee> employees = loadEmployeePort.findAllByUserIdIn(userIds);
+        List<UserId> userIds = users.stream()
+                .map(User::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        List<Employee> employees =
+                loadEmployeePort.findAllByUserIdIn(userIds);
+
         Map<Long, Employee> employeeMap = employees.stream()
                 .filter(e -> e.getUserIdValue() != null)
-                .collect(Collectors.toMap(Employee::getUserIdValue, e -> e, (existing, replacing) -> existing));
+                .collect(
+                        Collectors.toMap(
+                                Employee::getUserIdValue,
+                                e -> e,
+                                (existing, replacing) -> existing
+                        )
+                );
 
-        // Batch load all distinct department names in 1 query
+        // Batch load all distinct department names in one query
         List<Long> deptIds = employees.stream()
                 .map(Employee::getDepartmentId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        Map<Long, String> deptNameMap = loadDepartmentPort.findAllByIdIn(deptIds).stream()
-                .collect(Collectors.toMap(Department::getIdValue, Department::getName, (existing, replacing) -> existing));
+
+        Map<Long, String> deptNameMap =
+                loadDepartmentPort.findAllByIdIn(deptIds)
+                        .stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Department::getIdValue,
+                                        Department::getName,
+                                        (existing, replacing) -> existing
+                                )
+                        );
 
         List<UserResult> content = users.stream()
-                .map(u -> {
-                    Employee emp = employeeMap.get(u.getIdValue());
-                    String deptName = (emp != null && emp.getDepartmentId() != null)
-                            ? deptNameMap.get(emp.getDepartmentId())
-                            : null;
-                    return mapToUserResult(u, emp, deptName);
+                .map(user -> {
+                    Employee employee =
+                            employeeMap.get(user.getIdValue());
+
+                    String deptName =
+                            employee != null
+                                    && employee.getDepartmentId() != null
+                                    ? deptNameMap.get(
+                                            employee.getDepartmentId()
+                                    )
+                                    : null;
+
+                    return mapToUserResult(
+                            user,
+                            employee,
+                            deptName
+                    );
                 })
                 .toList();
 
-        return new PageResult<>(content, safePage, safeSize, totalElements);
+        return new PageResult<>(
+                content,
+                safePage,
+                safeSize,
+                totalElements
+        );
     }
 
     @Override
     public UserResult getUserById(Long userId) {
         UserId uId = new UserId(userId);
+
         User user = loadUserPort.findById(uId)
-                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + userId));
-        Employee employee = loadEmployeePort.findByUserId(user.getId()).orElse(null);
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng với ID: " + userId
+                        )
+                );
+
+        Employee employee = loadEmployeePort
+                .findByUserId(user.getId())
+                .orElse(null);
+
         String deptName = resolveDepartmentName(employee);
-        return mapToUserResult(user, employee, deptName);
+
+        return mapToUserResult(
+                user,
+                employee,
+                deptName
+        );
+    }
+
+    private Department loadDepartmentOrThrow(Long departmentId) {
+        if (departmentId == null) {
+            return null;
+        }
+
+        return loadDepartmentPort.findById(new DepartmentId(departmentId))
+                .orElseThrow(() ->
+                        new DepartmentNotFoundException(departmentId)
+                );
     }
 
     private String resolveDepartmentName(Employee employee) {
-        if (employee == null || employee.getDepartmentId() == null) return null;
-        return loadDepartmentPort.findById(new DepartmentId(employee.getDepartmentId()))
+        if (employee == null || employee.getDepartmentId() == null) {
+            return null;
+        }
+
+        return loadDepartmentPort
+                .findById(
+                        new DepartmentId(
+                                employee.getDepartmentId()
+                        )
+                )
                 .map(Department::getName)
                 .orElse(null);
     }
 
-    private UserResult mapToUserResult(User user, Employee employee, String departmentName) {
+    private UserResult mapToUserResult(
+            User user,
+            Employee employee,
+            String departmentName
+    ) {
         return new UserResult(
                 user.getIdValue(),
                 user.getUsername(),
                 user.getRole().getCode().getCode(),
                 user.getRole().getName(),
                 user.getStatus(),
-                employee != null ? employee.getIdValue() : null,
-                employee != null ? employee.getFullName() : null,
-                employee != null ? employee.getDepartmentId() : null,
+                employee != null
+                        ? employee.getIdValue()
+                        : null,
+                employee != null
+                        ? employee.getFullName()
+                        : null,
+                employee != null
+                        ? employee.getDepartmentId()
+                        : null,
                 departmentName
         );
     }
