@@ -1,5 +1,24 @@
 package com.hrm.employeemanagement.application.service.user;
 
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
@@ -13,6 +32,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
@@ -32,24 +52,6 @@ import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.UserStatus;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -490,7 +492,9 @@ class UserServiceTest {
                 new UpdateUserRoleCommand(
                         2L,
                         "VT-02",
-                        15L
+                        15L,
+                        DataScope.SELF,
+                        null
                 );
 
         Role pmRole = new Role(
@@ -571,7 +575,9 @@ class UserServiceTest {
                 new UpdateUserRoleCommand(
                         2L,
                         "VT-04",
-                        15L
+                        15L,
+                        DataScope.SELF,
+                        null
                 );
 
         when(loadUserPort.findById(new UserId(2L)))
@@ -613,6 +619,216 @@ class UserServiceTest {
 
         verify(saveAuditLogPort, times(1))
                 .save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò áp dụng DataScope SELF với scopeOrgUnitId null")
+    void testUpdateUserRole_AppliesSelfDataScope() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE_ROLE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "user2",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.SELF,
+                        null
+                );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.empty());
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        15L,
+                                        "OU-15",
+                                        "Ban Quản lý dự án"
+                                )
+                        )
+                );
+
+        when(loadUserPort.countActiveAdmins())
+                .thenReturn(2L);
+
+        when(saveUserPort.save(any(User.class)))
+                .thenReturn(user);
+
+        UserResult result =
+                userService.updateUserRole(command);
+
+        assertNotNull(result);
+
+        assertEquals(
+                DataScope.SELF,
+                user.getDataScope()
+        );
+
+        assertNull(
+                user.getScopeOrgUnitId()
+        );
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò áp dụng DataScope COMPANY với scopeOrgUnitId null")
+    void testUpdateUserRole_AppliesCompanyDataScope() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE_ROLE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "user2",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.COMPANY,
+                        null
+                );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.empty());
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        15L,
+                                        "OU-15",
+                                        "Ban Quản lý dự án"
+                                )
+                        )
+                );
+
+        when(loadUserPort.countActiveAdmins())
+                .thenReturn(2L);
+
+        when(saveUserPort.save(any(User.class)))
+                .thenReturn(user);
+
+        UserResult result =
+                userService.updateUserRole(command);
+
+        assertNotNull(result);
+
+        assertEquals(
+                DataScope.COMPANY,
+                user.getDataScope()
+        );
+
+        assertNull(
+                user.getScopeOrgUnitId()
+        );
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò áp dụng DataScope ORGANIZATION_BRANCH với scopeOrgUnitId hợp lệ")
+    void testUpdateUserRole_AppliesOrganizationBranchDataScope() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE_ROLE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "user2",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.ORGANIZATION_BRANCH,
+                        5L
+                );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.empty());
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        15L,
+                                        "OU-15",
+                                        "Ban Quản lý dự án"
+                                )
+                        )
+                );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(5L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        5L,
+                                        "OU-05",
+                                        "Khối Công nghệ"
+                                )
+                        )
+                );
+
+        when(loadUserPort.countActiveAdmins())
+                .thenReturn(2L);
+
+        when(saveUserPort.save(any(User.class)))
+                .thenReturn(user);
+
+        UserResult result =
+                userService.updateUserRole(command);
+
+        assertNotNull(result);
+
+        assertEquals(
+                DataScope.ORGANIZATION_BRANCH,
+                user.getDataScope()
+        );
+
+        assertEquals(
+                5L,
+                user.getScopeOrgUnitId()
+        );
     }
 
     @Test

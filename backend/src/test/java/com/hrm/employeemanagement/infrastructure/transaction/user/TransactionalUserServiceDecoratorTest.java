@@ -18,6 +18,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.service.user.UserService;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.user.UserStatus;
 import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
 
@@ -106,12 +107,14 @@ class TransactionalUserServiceDecoratorTest {
     void testUpdateUserRole_EvictsCacheAfterCommit() {
         TransactionSynchronizationManager.initSynchronization();
 
-        UpdateUserRoleCommand command =
-                new UpdateUserRoleCommand(
-                        10L,
-                        "VT-02",
-                        5L
-                );
+  UpdateUserRoleCommand command =
+        new UpdateUserRoleCommand(
+                2L,
+                "VT-04",
+                15L,
+                DataScope.SELF,
+                null
+        );
 
         UserResult userResult = new UserResult(
                 10L,

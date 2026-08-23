@@ -89,8 +89,15 @@ public class UserController {
     @PutMapping("/{id}/role")
     public ResponseEntity<ApiResponse<UserResult>> updateUserRole(@PathVariable Long id,
                                                                    @Valid @RequestBody UpdateUserRoleRequest request) {
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(id, request.getRoleCode(), request.getOrgUnitId());
-        UserResult result = updateUserRoleUseCase.updateUserRole(command);
+      UpdateUserRoleCommand command =
+        new UpdateUserRoleCommand(
+                id,
+                request.getRoleCode(),
+                request.getOrgUnitId(),
+                request.getDataScope(),
+                request.getScopeOrgUnitId()
+        );
+            UserResult result = updateUserRoleUseCase.updateUserRole(command);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật vai trò và đơn vị tổ chức thành công", result));
     }
 

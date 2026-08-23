@@ -23,6 +23,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
@@ -217,79 +218,135 @@ public class UserService implements
         );
     }
 
-    @Override
-    public UserResult updateUserRole(
-            UpdateUserRoleCommand command
-            
-    ) {
-       Long currentAdminId = authorizationService.require(
-        PermissionCode.USER_UPDATE_ROLE
-);
-        UserId uId = new UserId(command.userId());
+   @Override
+public UserResult updateUserRole(
+        UpdateUserRoleCommand command
+) {
+    Long currentAdminId = authorizationService.require(
+            PermissionCode.USER_UPDATE_ROLE
+    );
 
-        User user = loadUserPort.findById(uId)
-                .orElseThrow(() ->
-                        new UserNotFoundException(
-                                "Không tìm thấy người dùng với ID: "
-                                        + command.userId()
-                        )
-                );
+    UserId uId = new UserId(command.userId());
 
-        RoleCode newRoleCode = RoleCode.fromCode(command.roleCode());
+    User user = loadUserPort.findById(uId)
+            .orElseThrow(() ->
+                    new UserNotFoundException(
+                            "Không tìm thấy người dùng với ID: "
+                                    + command.userId()
+                    )
+            );
 
-        Role newRole = loadRolePort.findByCode(newRoleCode)
-                .orElseGet(() ->
-                        loadRolePort.save(
-                                new Role(
-                                        null,
-                                        newRoleCode,
-                                        newRoleCode.getName()
-                                )
-                        )
-                );
+    RoleCode newRoleCode =
+            RoleCode.fromCode(command.roleCode());
 
-        // Acquire pessimistic lock on Admin role row to serialize
-        // concurrent transactions when demoting an admin
-        if (user.isSystemAdmin() && !newRole.isSystemAdmin()) {
-            loadRolePort.lockRoleForUpdate(RoleCode.VT_06);
-        }
+    Role newRole = loadRolePort.findByCode(newRoleCode)
+            .orElseGet(() ->
+                    loadRolePort.save(
+                            new Role(
+                                    null,
+                                    newRoleCode,
+                                    newRoleCode.getName()
+                            )
+                    )
+            );
 
-        Employee employee = loadEmployeePort
-                .findByUserId(user.getId())
-                .orElse(null);
-
-        OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
-
-        long activeAdminCount = loadUserPort.countActiveAdmins();
-
-        user.changeRole(newRole, activeAdminCount);
-
-        User updatedUser = saveUserPort.save(user);
-
-        if (employee != null && command.orgUnitId() != null) {
-            employee.assignToOrgUnit(command.orgUnitId());
-            saveEmployeePort.save(employee);
-        }
-
-        saveAuditLogPort.save(
-                AuditLog.create(
-                        currentAdminId,
-                        "UPDATE_ROLE",
-                        "users",
-                        updatedUser.getIdValue()
-                )
-        );
-
-        String orgUnitName = employee != null && orgUnit != null
-                ? orgUnit.getUnitName()
-                : resolveOrgUnitName(employee);
-
-        return mapToUserResult(
-                updatedUser,
-                employee,
-                orgUnitName
+    // Serialize concurrent operations when demoting an admin.
+    if (user.isSystemAdmin()
+            && !newRole.isSystemAdmin()) {
+        loadRolePort.lockRoleForUpdate(
+                RoleCode.VT_06
         );
     }
+
+    Employee employee = loadEmployeePort
+            .findByUserId(user.getId())
+            .orElse(null);
+
+    /*
+     * OrgUnit mà Employee thực sự thuộc về.
+     */
+    OrgUnit employeeOrgUnit =
+            loadActiveOrgUnitOrThrow(
+                    command.orgUnitId()
+            );
+
+    /*
+     * OrgUnit gốc của phạm vi dữ liệu.
+     *
+     * Chỉ ORGANIZATION_BRANCH mới cần scopeOrgUnitId.
+     */
+    if (command.dataScope()
+            == DataScope.ORGANIZATION_BRANCH) {
+
+        loadActiveOrgUnitOrThrow(
+                command.scopeOrgUnitId()
+        );
+    }
+
+    long activeAdminCount =
+            loadUserPort.countActiveAdmins();
+
+    /*
+     * Thay đổi quyền chức năng.
+     */
+    user.changeRole(
+            newRole,
+            activeAdminCount
+    );
+
+    /*
+     * Thay đổi phạm vi dữ liệu.
+     *
+     * Domain sẽ tự reject:
+     * ORGANIZATION_BRANCH + null
+     * SELF + orgUnitId
+     * COMPANY + orgUnitId
+     */
+    user.changeDataScope(
+            command.dataScope(),
+            command.scopeOrgUnitId()
+    );
+
+    /*
+     * Role + DataScope đã hoàn chỉnh rồi mới persist User.
+     */
+    User updatedUser =
+            saveUserPort.save(user);
+
+    /*
+     * Nếu admin đồng thời thay đổi đơn vị làm việc của Employee.
+     */
+    if (employee != null
+            && command.orgUnitId() != null) {
+
+        employee.assignToOrgUnit(
+                command.orgUnitId()
+        );
+
+        saveEmployeePort.save(employee);
+    }
+
+    saveAuditLogPort.save(
+            AuditLog.create(
+                    currentAdminId,
+                    "UPDATE_ROLE",
+                    "users",
+                    updatedUser.getIdValue()
+            )
+    );
+
+    String orgUnitName =
+            employee != null
+                    && employeeOrgUnit != null
+                    ? employeeOrgUnit.getUnitName()
+                    : resolveOrgUnitName(employee);
+
+    return mapToUserResult(
+            updatedUser,
+            employee,
+            orgUnitName
+    );
+}
 
     @Override
     public PageResult<UserResult> getUsers(int page, int size) {
