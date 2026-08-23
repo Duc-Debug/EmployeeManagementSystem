@@ -21,7 +21,9 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
@@ -52,6 +54,7 @@ public class UserService implements
     private final SaveAuditLogPort saveAuditLogPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final PasswordEncoderPort passwordEncoder;
+    private final AuthorizationService authorizationService;
 
     public UserService(
             LoadUserPort loadUserPort,
@@ -61,7 +64,8 @@ public class UserService implements
             SaveEmployeePort saveEmployeePort,
             SaveAuditLogPort saveAuditLogPort,
             LoadOrgUnitPort loadOrgUnitPort,
-            PasswordEncoderPort passwordEncoder
+            PasswordEncoderPort passwordEncoder,
+            AuthorizationService authorizationService
     ) {
         this.loadUserPort = loadUserPort;
         this.saveUserPort = saveUserPort;
@@ -71,15 +75,23 @@ public class UserService implements
         this.saveAuditLogPort = saveAuditLogPort;
         this.loadOrgUnitPort = loadOrgUnitPort;
         this.passwordEncoder = passwordEncoder;
+        this.authorizationService = Objects.requireNonNull(
+        authorizationService,
+        "AuthorizationService must not be null"
+);
     }
 
     @Override
-    public UserResult createUser(CreateUserCommand command, Long currentAdminId) {
+    public UserResult createUser(CreateUserCommand command) {
+            Long currentAdminId = authorizationService.require(
+                PermissionCode.USER_CREATE
+        );
         if (loadUserPort.existsByUsername(command.username())) {
             throw new DuplicateUsernameException(
                     "Tên đăng nhập '" + command.username() + "' đã tồn tại trong hệ thống"
             );
         }
+       
 
         OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
 
@@ -139,9 +151,12 @@ public class UserService implements
     @Override
     public UserResult toggleUserStatus(
             Long userId,
-            boolean lock,
-            Long currentAdminId
+            boolean lock
     ) {
+          Long currentAdminId = authorizationService.require(
+                PermissionCode.USER_TOGGLE_STATUS
+        );
+
         UserId uId = new UserId(userId);
 
         User user = loadUserPort.findById(uId)
@@ -204,9 +219,12 @@ public class UserService implements
 
     @Override
     public UserResult updateUserRole(
-            UpdateUserRoleCommand command,
-            Long currentAdminId
+            UpdateUserRoleCommand command
+            
     ) {
+       Long currentAdminId = authorizationService.require(
+        PermissionCode.USER_UPDATE_ROLE
+);
         UserId uId = new UserId(command.userId());
 
         User user = loadUserPort.findById(uId)
@@ -275,6 +293,11 @@ public class UserService implements
 
     @Override
     public PageResult<UserResult> getUsers(int page, int size) {
+         authorizationService.require(
+                PermissionCode.USER_READ
+        );
+
+      
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);
 
@@ -349,6 +372,10 @@ public class UserService implements
 
     @Override
     public UserResult getUserById(Long userId) {
+         authorizationService.require(
+                PermissionCode.USER_READ
+        );
+
         UserId uId = new UserId(userId);
 
         User user = loadUserPort.findById(uId)
