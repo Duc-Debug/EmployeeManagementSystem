@@ -39,7 +39,6 @@ CREATE INDEX idx_org_units_status
 -- 3. Khởi tạo nút gốc mặc định
 
 INSERT INTO org_units (
-    id,
     unit_code,
     unit_name,
     unit_type,
@@ -51,14 +50,17 @@ INSERT INTO org_units (
     created_at
 )
 VALUES (
-    1,
     'COMPANY_ROOT',
     'Công Ty Cổ Phần Software',
     'COMPANY',
     NULL,
-    '/1/',
+    '/pending/',
     1,
     'ACTIVE',
     'Nút gốc của Cây tổ chức',
     CURRENT_TIMESTAMP
 );
+
+UPDATE org_units
+SET tree_path = CONCAT('/', id, '/')
+WHERE unit_code = 'COMPANY_ROOT';

@@ -24,6 +24,33 @@ class FlywayEmployeeOrgUnitMigrationTest {
             "classpath:db/migration";
 
     @Test
+    void migrationsRunOnPlainH2LocalProfileUrl()
+            throws Exception {
+        String url = plainH2JdbcUrl("local_profile");
+
+        try (Connection keepAlive = connect(url)) {
+            migrateToLatest(url);
+
+            try (Connection connection = connect(url)) {
+                long companyRootId =
+                        queryLong(
+                                connection,
+                                "SELECT id FROM org_units WHERE unit_code = ?",
+                                "COMPANY_ROOT"
+                        );
+                OrgUnitRow pb01 =
+                        queryOrgUnit(connection, "PB-01");
+
+                assertNotEquals(companyRootId, pb01.id());
+                assertEquals(
+                        "/" + companyRootId + "/" + pb01.id() + "/",
+                        pb01.treePath()
+                );
+            }
+        }
+    }
+
+    @Test
     void v7BackfillsPb01ByBusinessKeyAndNormalizesSystemAdminScope()
             throws Exception {
         String url = jdbcUrl("v7_pb01");
@@ -182,6 +209,14 @@ class FlywayEmployeeOrgUnitMigrationTest {
                 + "_"
                 + UUID.randomUUID().toString().replace("-", "")
                 + ";MODE=MySQL;DB_CLOSE_DELAY=-1";
+    }
+
+    private static String plainH2JdbcUrl(String name) {
+        return "jdbc:h2:mem:"
+                + name
+                + "_"
+                + UUID.randomUUID().toString().replace("-", "")
+                + ";DB_CLOSE_DELAY=-1";
     }
 
     private static Connection connect(String url)
