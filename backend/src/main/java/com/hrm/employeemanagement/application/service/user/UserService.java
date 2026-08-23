@@ -85,17 +85,27 @@ public class UserService implements
 
     @Override
     public UserResult createUser(CreateUserCommand command) {
-            Long currentAdminId = authorizationService.require(
+        Long currentAdminId = authorizationService.require(
                 PermissionCode.USER_CREATE
         );
+
+        User currentUser =
+                loadCurrentUserOrThrow(currentAdminId);
+
+        requireOrgUnitInDataScope(
+                currentUser,
+                command.orgUnitId(),
+                PermissionCode.USER_CREATE
+        );
+
+        OrgUnit orgUnit =
+                loadActiveOrgUnitOrThrow(command.orgUnitId());
+
         if (loadUserPort.existsByUsername(command.username())) {
             throw new DuplicateUsernameException(
                     "Tên đăng nhập '" + command.username() + "' đã tồn tại trong hệ thống"
             );
         }
-       
-
-        OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
 
         RoleCode roleCode = RoleCode.fromCode(command.roleCode());
 
@@ -156,6 +166,16 @@ public class UserService implements
             boolean lock
     ) {
           Long currentAdminId = authorizationService.require(
+                PermissionCode.USER_TOGGLE_STATUS
+        );
+
+        User currentUser =
+                loadCurrentUserOrThrow(currentAdminId);
+
+        requireUserInDataScope(
+                currentAdminId,
+                currentUser,
+                userId,
                 PermissionCode.USER_TOGGLE_STATUS
         );
 
@@ -224,6 +244,31 @@ public UserResult updateUserRole(
         UpdateUserRoleCommand command
 ) {
     Long currentAdminId = authorizationService.require(
+            PermissionCode.USER_UPDATE_ROLE
+    );
+
+    User currentUser =
+            loadCurrentUserOrThrow(currentAdminId);
+
+    requireUserInDataScope(
+            currentAdminId,
+            currentUser,
+            command.userId(),
+            PermissionCode.USER_UPDATE_ROLE
+    );
+
+    if (command.orgUnitId() != null) {
+        requireOrgUnitInDataScope(
+                currentUser,
+                command.orgUnitId(),
+                PermissionCode.USER_UPDATE_ROLE
+        );
+    }
+
+    requireAssignableDataScope(
+            currentUser,
+            command.dataScope(),
+            command.scopeOrgUnitId(),
             PermissionCode.USER_UPDATE_ROLE
     );
 
@@ -470,30 +515,15 @@ public UserResult updateUserRole(
                 PermissionCode.USER_READ
         );
 
-        User currentUser = loadUserPort
-                .findById(new UserId(currentUserId))
-                .orElseThrow(() ->
-                        new UserNotFoundException(
-                                "Không tìm thấy người dùng hiện tại với ID: "
-                                        + currentUserId
-                        )
-                );
+        User currentUser =
+                loadCurrentUserOrThrow(currentUserId);
 
-        boolean allowed = switch (currentUser.getDataScope()) {
-            case COMPANY -> true;
-            case SELF -> currentUserId.equals(userId);
-            case ORGANIZATION_BRANCH ->
-                    loadUserPort.existsInOrgUnitBranch(
-                            userId,
-                            currentUser.getScopeOrgUnitId()
-                    );
-        };
-
-        if (!allowed) {
-            throw new PermissionDeniedException(
-                    PermissionCode.USER_READ
-            );
-        }
+        requireUserInDataScope(
+                currentUserId,
+                currentUser,
+                userId,
+                PermissionCode.USER_READ
+        );
 
         UserId targetUserId = new UserId(userId);
 
@@ -532,6 +562,93 @@ public UserResult updateUserRole(
         }
 
         return orgUnit;
+    }
+
+    private User loadCurrentUserOrThrow(Long currentUserId) {
+        return loadUserPort
+                .findById(new UserId(currentUserId))
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng hiện tại với ID: "
+                                        + currentUserId
+                        )
+                );
+    }
+
+    private void requireUserInDataScope(
+            Long currentUserId,
+            User currentUser,
+            Long targetUserId,
+            PermissionCode permission
+    ) {
+        boolean allowed = switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> currentUserId.equals(targetUserId);
+            case ORGANIZATION_BRANCH ->
+                    loadUserPort.existsInOrgUnitBranch(
+                            targetUserId,
+                            currentUser.getScopeOrgUnitId()
+                    );
+        };
+
+        if (!allowed) {
+            throw new PermissionDeniedException(permission);
+        }
+    }
+
+    private void requireOrgUnitInDataScope(
+            User currentUser,
+            Long orgUnitId,
+            PermissionCode permission
+    ) {
+        if (!isOrgUnitInDataScope(
+                currentUser,
+                orgUnitId
+        )) {
+            throw new PermissionDeniedException(permission);
+        }
+    }
+
+    private boolean isOrgUnitInDataScope(
+            User currentUser,
+            Long orgUnitId
+    ) {
+        if (orgUnitId == null) {
+            return false;
+        }
+
+        return switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> false;
+            case ORGANIZATION_BRANCH ->
+                    loadOrgUnitPort.existsInOrgUnitBranch(
+                            orgUnitId,
+                            currentUser.getScopeOrgUnitId()
+                    );
+        };
+    }
+
+    private void requireAssignableDataScope(
+            User currentUser,
+            DataScope targetDataScope,
+            Long targetScopeOrgUnitId,
+            PermissionCode permission
+    ) {
+        boolean allowed = switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> targetDataScope == DataScope.SELF
+                    && targetScopeOrgUnitId == null;
+            case ORGANIZATION_BRANCH -> targetDataScope == DataScope.SELF
+                    || targetDataScope == DataScope.ORGANIZATION_BRANCH
+                    && isOrgUnitInDataScope(
+                            currentUser,
+                            targetScopeOrgUnitId
+                    );
+        };
+
+        if (!allowed) {
+            throw new PermissionDeniedException(permission);
+        }
     }
 
     private String resolveOrgUnitName(Employee employee) {

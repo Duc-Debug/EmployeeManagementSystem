@@ -12,6 +12,8 @@ public interface LoadOrgUnitPort {
 
     boolean existsByUnitCode(String unitCode);
 
+    boolean existsInOrgUnitBranch(Long orgUnitId, Long scopeOrgUnitId);
+
     List<OrgUnit> findAllByIdIn(List<Long> ids);
 
     List<OrgUnit> findAllActive();

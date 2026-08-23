@@ -116,6 +116,20 @@ class SpringDataUserRepositoryBranchScopeTest {
         assertTrue(branchUserIds.contains(qaUser.getId()));
         assertFalse(branchUserIds.contains(hrUser.getId()));
 
+        assertTrue(
+                orgUnitRepository.existsInOrgUnitBranch(
+                        backend.getId(),
+                        tech.getId()
+                )
+        );
+
+        assertFalse(
+                orgUnitRepository.existsInOrgUnitBranch(
+                        hr.getId(),
+                        tech.getId()
+                )
+        );
+
         assertEquals(
                 3L,
                 userRepository.countByOrgUnitBranch(tech.getId())

@@ -40,6 +40,17 @@ public class OrgUnitRepositoryAdapter implements LoadOrgUnitPort, SaveOrgUnitPor
     }
 
     @Override
+    public boolean existsInOrgUnitBranch(
+            Long orgUnitId,
+            Long scopeOrgUnitId
+    ) {
+        return repository.existsInOrgUnitBranch(
+                orgUnitId,
+                scopeOrgUnitId
+        );
+    }
+
+    @Override
     public List<OrgUnit> findAllByIdIn(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();

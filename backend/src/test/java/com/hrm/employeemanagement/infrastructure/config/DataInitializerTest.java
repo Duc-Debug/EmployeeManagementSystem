@@ -191,6 +191,7 @@ class DataInitializerTest {
 
         dataInitializer.run();
 
+        verify(userRepository).normalizeSystemAdminDataScope();
         verify(userRepository, never()).save(any(UserJpaEntity.class));
         verify(employeeRepository, never()).save(any(EmployeeJpaEntity.class));
     }

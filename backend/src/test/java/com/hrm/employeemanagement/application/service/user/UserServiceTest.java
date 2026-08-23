@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -119,6 +120,23 @@ class UserServiceTest {
                 RoleCode.VT_04,
                 "Nhân viên chuyên môn"
         );
+
+        User currentAdmin = new User(
+                new UserId(ADMIN_ID),
+                "admin",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentAdmin.changeDataScope(
+                DataScope.COMPANY,
+                null
+        );
+
+        lenient().when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentAdmin));
     }
 
     @Test
@@ -223,6 +241,15 @@ class UserServiceTest {
         when(loadUserPort.existsByUsername("john_doe"))
                 .thenReturn(true);
 
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L)))
+                .thenReturn(Optional.of(
+                        activeOrgUnit(
+                                10L,
+                                "OU-10",
+                                "Phòng Kỹ thuật"
+                        )
+                ));
+
         assertThrows(
                 DuplicateUsernameException.class,
                 () -> userService.createUser(command)
@@ -230,6 +257,49 @@ class UserServiceTest {
 
         verify(authorizationService, times(1))
                 .require(PermissionCode.USER_CREATE);
+
+        verify(saveUserPort, never())
+                .save(any());
+
+        verify(saveEmployeePort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("Tạo người dùng bị từ chối khi orgUnit nằm ngoài ORGANIZATION_BRANCH scope")
+    void testCreateUser_OrganizationBranchScopeOutsideOrgUnit_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(PermissionCode.USER_CREATE))
+                .thenReturn(ADMIN_ID);
+
+        User currentUser = currentUserWithScope(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        CreateUserCommand command = new CreateUserCommand(
+                "john_doe",
+                "password123",
+                "VT-04",
+                "EMP-001",
+                "John Doe",
+                20L
+        );
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(
+                20L,
+                5L
+        )).thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.createUser(command)
+        );
+
+        verify(loadOrgUnitPort, never())
+                .findById(new OrgUnitId(20L));
 
         verify(saveUserPort, never())
                 .save(any());
@@ -487,6 +557,44 @@ class UserServiceTest {
                 "UNLOCK_USER",
                 auditCaptor.getValue().getAction()
         );
+    }
+
+    @Test
+    @DisplayName("Khóa tài khoản bị từ chối khi target user ngoài ORGANIZATION_BRANCH scope")
+    void testToggleUserStatus_OrganizationBranchScopeOutsideTarget_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(
+                PermissionCode.USER_TOGGLE_STATUS
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = currentUserWithScope(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadUserPort.existsInOrgUnitBranch(
+                20L,
+                5L
+        )).thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.toggleUserStatus(
+                        20L,
+                        true
+                )
+        );
+
+        verify(loadUserPort, never())
+                .findById(new UserId(20L));
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
     }
 
     @Test
@@ -1037,6 +1145,148 @@ class UserServiceTest {
                 IllegalArgumentException.class,
                 () -> userService.updateUserRole(command)
         );
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò bị từ chối khi target user ngoài ORGANIZATION_BRANCH scope")
+    void testUpdateUserRole_OrganizationBranchScopeOutsideTarget_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE_ROLE
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = currentUserWithScope(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadUserPort.existsInOrgUnitBranch(
+                20L,
+                5L
+        )).thenReturn(false);
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        20L,
+                        "VT-04",
+                        15L,
+                        DataScope.SELF,
+                        null
+                );
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.updateUserRole(command)
+        );
+
+        verify(loadUserPort, never())
+                .findById(new UserId(20L));
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò bị từ chối khi gán orgUnit ngoài ORGANIZATION_BRANCH scope")
+    void testUpdateUserRole_OrganizationBranchScopeOutsideAssignedOrgUnit_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE_ROLE
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = currentUserWithScope(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadUserPort.existsInOrgUnitBranch(
+                2L,
+                5L
+        )).thenReturn(true);
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(
+                20L,
+                5L
+        )).thenReturn(false);
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        20L,
+                        DataScope.SELF,
+                        null
+                );
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.updateUserRole(command)
+        );
+
+        verify(loadUserPort, never())
+                .findById(new UserId(2L));
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò bị từ chối khi actor branch gán COMPANY data scope")
+    void testUpdateUserRole_OrganizationBranchScopeAssignsCompany_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE_ROLE
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = currentUserWithScope(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadUserPort.existsInOrgUnitBranch(
+                2L,
+                5L
+        )).thenReturn(true);
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(
+                15L,
+                5L
+        )).thenReturn(true);
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.COMPANY,
+                        null
+                );
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.updateUserRole(command)
+        );
+
+        verify(loadUserPort, never())
+                .findById(new UserId(2L));
 
         verify(saveUserPort, never())
                 .save(any(User.class));
@@ -1757,6 +2007,27 @@ class UserServiceTest {
                                 "Ban Quản lý dự án"
                         )
                 ));
+    }
+
+    private User currentUserWithScope(
+            DataScope dataScope,
+            Long scopeOrgUnitId
+    ) {
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "admin",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentUser.changeDataScope(
+                dataScope,
+                scopeOrgUnitId
+        );
+
+        return currentUser;
     }
     @Test
 @DisplayName("getUsers với COMPANY scope trả về toàn bộ user")
