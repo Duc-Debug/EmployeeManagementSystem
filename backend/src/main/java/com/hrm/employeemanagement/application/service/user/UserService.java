@@ -348,18 +348,54 @@ public UserResult updateUserRole(
     );
 }
 
-    @Override
+@Override
     public PageResult<UserResult> getUsers(int page, int size) {
-         authorizationService.require(
+        Long currentUserId = authorizationService.require(
                 PermissionCode.USER_READ
         );
 
-      
+        User currentUser = loadUserPort
+                .findById(new UserId(currentUserId))
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng hiện tại với ID: "
+                                        + currentUserId
+                        )
+                );
+
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);
 
-        List<User> users = loadUserPort.findAll(safePage, safeSize);
-        long totalElements = loadUserPort.count();
+        List<User> users;
+        long totalElements;
+
+        switch (currentUser.getDataScope()) {
+            case COMPANY -> {
+                users = loadUserPort.findAll(safePage, safeSize);
+                totalElements = loadUserPort.count();
+            }
+            case ORGANIZATION_BRANCH -> {
+                Long scopeOrgUnitId = currentUser.getScopeOrgUnitId();
+                users = loadUserPort.findByOrgUnitBranch(
+                        scopeOrgUnitId,
+                        safePage,
+                        safeSize
+                );
+                totalElements = loadUserPort.countByOrgUnitBranch(
+                        scopeOrgUnitId
+                );
+            }
+            case SELF -> {
+                totalElements = 1L;
+                users = safePage == 0
+                        ? List.of(currentUser)
+                        : List.of();
+            }
+            default -> throw new IllegalStateException(
+                    "Unsupported DataScope: "
+                            + currentUser.getDataScope()
+            );
+        }
 
         List<UserId> userIds = users.stream()
                 .map(User::getId)

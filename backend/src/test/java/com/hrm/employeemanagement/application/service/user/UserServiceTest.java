@@ -846,6 +846,10 @@ class UserServiceTest {
                 UserStatus.ACTIVE,
                 new EmployeeId(10L)
         );
+        u1.changeDataScope(
+                DataScope.COMPANY,
+                null
+        );
 
         User u2 = new User(
                 new UserId(2L),
@@ -855,6 +859,9 @@ class UserServiceTest {
                 UserStatus.ACTIVE,
                 new EmployeeId(20L)
         );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(u1));
 
         when(loadUserPort.findAll(0, 20))
                 .thenReturn(List.of(u1, u2));
@@ -964,6 +971,176 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Lấy danh sách người dùng theo DataScope ORGANIZATION_BRANCH")
+    void testGetUsers_OrganizationBranchScope() {
+        when(authorizationService.require(
+                PermissionCode.USER_READ
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "branch_manager",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L),
+                DataScope.ORGANIZATION_BRANCH,
+                5L,
+                null
+        );
+
+        User scopedUser = new User(
+                new UserId(2L),
+                "user2",
+                "h2",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadUserPort.findByOrgUnitBranch(5L, 0, 20))
+                .thenReturn(List.of(scopedUser));
+
+        when(loadUserPort.countByOrgUnitBranch(5L))
+                .thenReturn(1L);
+
+        Employee employee = new Employee(
+                new EmployeeId(20L),
+                new UserId(2L),
+                8L,
+                "E-2",
+                "Employee 2",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(
+                loadEmployeePort.findAllByUserIdIn(
+                        List.of(new UserId(2L))
+                )
+        ).thenReturn(List.of(employee));
+
+        when(loadOrgUnitPort.findAllByIdIn(List.of(8L)))
+                .thenReturn(
+                        List.of(
+                                activeOrgUnit(
+                                        8L,
+                                        "OU-08",
+                                        "Nhánh Công nghệ"
+                                )
+                        )
+                );
+
+        PageResult<UserResult> pageResult =
+                userService.getUsers(0, 20);
+
+        assertEquals(
+                1,
+                pageResult.getContent().size()
+        );
+
+        assertEquals(
+                1L,
+                pageResult.getTotalElements()
+        );
+
+        assertEquals(
+                "Employee 2",
+                pageResult.getContent()
+                        .get(0)
+                        .getFullName()
+        );
+
+        assertEquals(
+                "Nhánh Công nghệ",
+                pageResult.getContent()
+                        .get(0)
+                        .getOrgUnitName()
+        );
+
+        verify(loadUserPort, times(1))
+                .findByOrgUnitBranch(5L, 0, 20);
+
+        verify(loadUserPort, times(1))
+                .countByOrgUnitBranch(5L);
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách người dùng theo DataScope SELF chỉ trả về current user ở trang đầu")
+    void testGetUsers_SelfScope() {
+        when(authorizationService.require(
+                PermissionCode.USER_READ
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "self_user",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L),
+                DataScope.SELF,
+                null,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        Employee employee = new Employee(
+                new EmployeeId(10L),
+                new UserId(ADMIN_ID),
+                5L,
+                "E-1",
+                "Self User",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(
+                loadEmployeePort.findAllByUserIdIn(
+                        List.of(new UserId(ADMIN_ID))
+                )
+        ).thenReturn(List.of(employee));
+
+        when(loadOrgUnitPort.findAllByIdIn(List.of(5L)))
+                .thenReturn(
+                        List.of(
+                                activeOrgUnit(
+                                        5L,
+                                        "OU-05",
+                                        "Phòng Nhân Sự"
+                                )
+                        )
+                );
+
+        PageResult<UserResult> pageResult =
+                userService.getUsers(0, 20);
+
+        assertEquals(
+                1,
+                pageResult.getContent().size()
+        );
+
+        assertEquals(
+                1L,
+                pageResult.getTotalElements()
+        );
+
+        assertEquals(
+                "Self User",
+                pageResult.getContent()
+                        .get(0)
+                        .getFullName()
+        );
+    }
+
+    @Test
     @DisplayName("Lấy thông tin người dùng theo ID thành công kèm resolve orgUnitName")
     void testGetUserById_Success() {
         when(authorizationService.require(
@@ -1059,4 +1236,332 @@ class UserServiceTest {
                 null
         );
     }
+    @Test
+@DisplayName("getUsers với COMPANY scope trả về toàn bộ user")
+void testGetUsers_CompanyScope_ReturnsAllUsers() {
+    when(
+            authorizationService.require(
+                    PermissionCode.USER_READ
+            )
+    ).thenReturn(1L);
+
+    User currentUser = new User(
+            new UserId(1L),
+            "admin",
+            "hash",
+            adminRole,
+            UserStatus.ACTIVE,
+            new EmployeeId(10L)
+    );
+
+    currentUser.changeDataScope(
+            DataScope.COMPANY,
+            null
+    );
+
+    when(
+            loadUserPort.findById(
+                    new UserId(1L)
+            )
+    ).thenReturn(Optional.of(currentUser));
+
+    User u1 = currentUser;
+
+    User u2 = new User(
+            new UserId(2L),
+            "user2",
+            "hash",
+            staffRole,
+            UserStatus.ACTIVE,
+            new EmployeeId(20L)
+    );
+
+    when(
+            loadUserPort.findAll(0, 20)
+    ).thenReturn(List.of(u1, u2));
+
+    when(
+            loadUserPort.count()
+    ).thenReturn(2L);
+
+    Employee e1 = new Employee(
+            new EmployeeId(10L),
+            new UserId(1L),
+            5L,
+            "E-1",
+            "Admin",
+            false,
+            40,
+            EmployeeStatus.ACTIVE
+    );
+
+    Employee e2 = new Employee(
+            new EmployeeId(20L),
+            new UserId(2L),
+            6L,
+            "E-2",
+            "User Two",
+            false,
+            40,
+            EmployeeStatus.ACTIVE
+    );
+
+    when(
+            loadEmployeePort.findAllByUserIdIn(
+                    List.of(
+                            new UserId(1L),
+                            new UserId(2L)
+                    )
+            )
+    ).thenReturn(List.of(e1, e2));
+
+    when(
+            loadOrgUnitPort.findAllByIdIn(
+                    List.of(5L, 6L)
+            )
+    ).thenReturn(List.of(
+            activeOrgUnit(5L, "OU-05", "Khối A"),
+            activeOrgUnit(6L, "OU-06", "Khối B")
+    ));
+
+    PageResult<UserResult> result =
+            userService.getUsers(0, 20);
+
+    assertEquals(
+            2,
+            result.getContent().size()
+    );
+
+    assertEquals(
+            2L,
+            result.getTotalElements()
+    );
+
+    verify(loadUserPort, times(1))
+            .findAll(0, 20);
+
+    verify(loadUserPort, times(1))
+            .count();
+
+    verify(loadUserPort, never())
+            .findByOrgUnitBranch(
+                    any(),
+                    any(Integer.class),
+                    any(Integer.class)
+            );
+}
+@Test
+@DisplayName("getUsers với SELF scope chỉ trả về chính user hiện tại")
+void testGetUsers_SelfScope_ReturnsOnlyCurrentUser() {
+    when(
+            authorizationService.require(
+                    PermissionCode.USER_READ
+            )
+    ).thenReturn(1L);
+
+    User currentUser = new User(
+            new UserId(1L),
+            "staff",
+            "hash",
+            staffRole,
+            UserStatus.ACTIVE,
+            new EmployeeId(10L)
+    );
+
+    currentUser.changeDataScope(
+            DataScope.SELF,
+            null
+    );
+
+    when(
+            loadUserPort.findById(
+                    new UserId(1L)
+            )
+    ).thenReturn(Optional.of(currentUser));
+
+    Employee employee = new Employee(
+            new EmployeeId(10L),
+            new UserId(1L),
+            5L,
+            "E-1",
+            "Current User",
+            false,
+            40,
+            EmployeeStatus.ACTIVE
+    );
+
+    when(
+            loadEmployeePort.findAllByUserIdIn(
+                    List.of(new UserId(1L))
+            )
+    ).thenReturn(List.of(employee));
+
+    when(
+            loadOrgUnitPort.findAllByIdIn(
+                    List.of(5L)
+            )
+    ).thenReturn(
+            List.of(
+                    activeOrgUnit(
+                            5L,
+                            "OU-05",
+                            "Phòng Kỹ thuật"
+                    )
+            )
+    );
+
+    PageResult<UserResult> result =
+            userService.getUsers(0, 20);
+
+    assertEquals(
+            1,
+            result.getContent().size()
+    );
+
+    assertEquals(
+            1L,
+            result.getTotalElements()
+    );
+
+    assertEquals(
+            1L,
+            result.getContent().get(0).getId()
+    );
+
+    verify(loadUserPort, never())
+            .findAll(
+                    any(Integer.class),
+                    any(Integer.class)
+            );
+
+    verify(loadUserPort, never())
+            .findByOrgUnitBranch(
+                    any(),
+                    any(Integer.class),
+                    any(Integer.class)
+            );
+}
+@Test
+@DisplayName("getUsers với ORGANIZATION_BRANCH chỉ trả user thuộc nhánh được cấp")
+void testGetUsers_OrganizationBranchScope_ReturnsBranchUsers() {
+    when(
+            authorizationService.require(
+                    PermissionCode.USER_READ
+            )
+    ).thenReturn(1L);
+
+    User currentUser = new User(
+            new UserId(1L),
+            "manager",
+            "hash",
+            adminRole,
+            UserStatus.ACTIVE,
+            new EmployeeId(10L)
+    );
+
+    currentUser.changeDataScope(
+            DataScope.ORGANIZATION_BRANCH,
+            5L
+    );
+
+    when(
+            loadUserPort.findById(
+                    new UserId(1L)
+            )
+    ).thenReturn(Optional.of(currentUser));
+
+    User branchUser = new User(
+            new UserId(2L),
+            "branch_user",
+            "hash",
+            staffRole,
+            UserStatus.ACTIVE,
+            new EmployeeId(20L)
+    );
+
+    when(
+            loadUserPort.findByOrgUnitBranch(
+                    5L,
+                    0,
+                    20
+            )
+    ).thenReturn(
+            List.of(branchUser)
+    );
+
+    when(
+            loadUserPort.countByOrgUnitBranch(
+                    5L
+            )
+    ).thenReturn(1L);
+
+    Employee branchEmployee = new Employee(
+            new EmployeeId(20L),
+            new UserId(2L),
+            8L,
+            "E-2",
+            "Branch User",
+            false,
+            40,
+            EmployeeStatus.ACTIVE
+    );
+
+    when(
+            loadEmployeePort.findAllByUserIdIn(
+                    List.of(new UserId(2L))
+            )
+    ).thenReturn(
+            List.of(branchEmployee)
+    );
+
+    when(
+            loadOrgUnitPort.findAllByIdIn(
+                    List.of(8L)
+            )
+    ).thenReturn(
+            List.of(
+                    activeOrgUnit(
+                            8L,
+                            "OU-08",
+                            "Team Backend"
+                    )
+            )
+    );
+
+    PageResult<UserResult> result =
+            userService.getUsers(0, 20);
+
+    assertEquals(
+            1,
+            result.getContent().size()
+    );
+
+    assertEquals(
+            1L,
+            result.getTotalElements()
+    );
+
+    assertEquals(
+            2L,
+            result.getContent().get(0).getId()
+    );
+
+    verify(loadUserPort, times(1))
+            .findByOrgUnitBranch(
+                    5L,
+                    0,
+                    20
+            );
+
+    verify(loadUserPort, times(1))
+            .countByOrgUnitBranch(
+                    5L
+            );
+
+    verify(loadUserPort, never())
+            .findAll(
+                    any(Integer.class),
+                    any(Integer.class)
+            );
+}
 }
