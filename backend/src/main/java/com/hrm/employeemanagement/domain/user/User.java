@@ -1,12 +1,13 @@
 package com.hrm.employeemanagement.domain.user;
 
+import java.util.Objects;
+
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
-
-import java.util.Objects;
 
 /**
  * Rich Domain Aggregate Root for User.
@@ -17,27 +18,93 @@ public class User {
     private String username;
     private String passwordHash;
     private Role role;
+    private DataScope dataScope;
+    private Long scopeOrgUnitId;
     private UserStatus status;
     private EmployeeId employeeId;
     private Long version;
 
-    public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId) {
-        this(id, username, passwordHash, role, status, employeeId, null);
-    }
+    public User(
+        UserId id,
+        String username,
+        String passwordHash,
+        Role role,
+        UserStatus status,
+        EmployeeId employeeId
+) {
+    this(
+            id,
+            username,
+            passwordHash,
+            role,
+            status,
+            employeeId,
+            DataScope.SELF,
+            null,
+            null
+    );
+}
 
-    public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, Long version) {
-        this.id = id;
-        this.username = Objects.requireNonNull(username, "Username không được null");
-        this.passwordHash = Objects.requireNonNull(passwordHash, "PasswordHash không được null");
-        this.role = Objects.requireNonNull(role, "Role không được null");
-        this.status = status != null ? status : UserStatus.ACTIVE;
-        this.employeeId = employeeId;
-        this.version = version;
-    }
+   public User(
+        UserId id,
+        String username,
+        String passwordHash,
+        Role role,
+        UserStatus status,
+        EmployeeId employeeId,
+        DataScope dataScope,
+        Long scopeOrgUnitId,
+        Long version
+) {
+    this.id = id;
+    this.username = Objects.requireNonNull(
+            username,
+            "Username không được null"
+    );
+    this.passwordHash = Objects.requireNonNull(
+            passwordHash,
+            "PasswordHash không được null"
+    );
+    this.role = Objects.requireNonNull(
+            role,
+            "Role không được null"
+    );
 
-    public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId) {
-        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId, null);
-    }
+    this.status = status != null
+            ? status
+            : UserStatus.ACTIVE;
+
+    this.employeeId = employeeId;
+
+    validateDataScope(
+            dataScope,
+            scopeOrgUnitId
+    );
+
+    this.dataScope = dataScope;
+    this.scopeOrgUnitId = scopeOrgUnitId;
+
+    this.version = version;
+}
+
+    public static User createNew(
+        String username,
+        String passwordHash,
+        Role role,
+        EmployeeId employeeId
+) {
+    return new User(
+            null,
+            username,
+            passwordHash,
+            role,
+            UserStatus.ACTIVE,
+            employeeId,
+            DataScope.SELF,
+            null,
+            null
+    );
+}
 
     public void lock(UserId currentAdminId, long activeAdminCount) {
         if (this.status == UserStatus.LOCKED) {
@@ -65,6 +132,18 @@ public class User {
         }
         this.role = Objects.requireNonNull(newRole, "Role mới không được null");
     }
+    public void changeDataScope(
+        DataScope dataScope,
+        Long scopeOrgUnitId
+) {
+    validateDataScope(
+            dataScope,
+            scopeOrgUnitId
+    );
+
+    this.dataScope = dataScope;
+    this.scopeOrgUnitId = scopeOrgUnitId;
+}
 
     public boolean isSystemAdmin() {
         return this.role != null && this.role.getCode() == RoleCode.VT_06;
@@ -92,6 +171,13 @@ public class User {
 
     public Role getRole() {
         return role;
+    }
+    public DataScope getDataScope() {
+    return dataScope;
+    }
+
+    public Long getScopeOrgUnitId() {
+    return scopeOrgUnitId;
     }
 
     public UserStatus getStatus() {
@@ -126,4 +212,29 @@ public class User {
     public void setVersion(Long version) {
         this.version = version;
     }
+    private void validateDataScope(
+        DataScope dataScope,
+        Long scopeOrgUnitId
+) {
+    Objects.requireNonNull(
+            dataScope,
+            "DataScope must not be null"
+    );
+
+    if (dataScope == DataScope.ORGANIZATION_BRANCH
+            && scopeOrgUnitId == null) {
+
+        throw new IllegalArgumentException(
+                "ORGANIZATION_BRANCH requires scopeOrgUnitId"
+        );
+    }
+
+    if (dataScope != DataScope.ORGANIZATION_BRANCH
+            && scopeOrgUnitId != null) {
+
+        throw new IllegalArgumentException(
+                "scopeOrgUnitId is only allowed for ORGANIZATION_BRANCH"
+        );
+    }
+}
 }

@@ -53,8 +53,8 @@ class UserRepositoryAdapterTest {
     @DisplayName("findAll nạp danh sách User trong 1 query và không tạo N+1 query")
     void testFindAll_LoadsUsersEfficientlyWithoutNPlusOne() {
         RoleJpaEntity roleJpa = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
-        UserJpaEntity u1 = new UserJpaEntity(1L, "admin", "hash1", roleJpa, true, 0L);
-        UserJpaEntity u2 = new UserJpaEntity(2L, "staff", "hash2", roleJpa, true, 0L);
+        UserJpaEntity u1 = userJpa(1L, "admin", "hash1", roleJpa, true, 0L);
+        UserJpaEntity u2 = userJpa(2L, "staff", "hash2", roleJpa, true, 0L);
 
         when(springDataUserRepository.findAll(PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(u1, u2)));
@@ -72,7 +72,7 @@ class UserRepositoryAdapterTest {
     @DisplayName("findById nạp User từ repository thành công")
     void testFindById_Success() {
         RoleJpaEntity roleJpa = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
-        UserJpaEntity u1 = new UserJpaEntity(1L, "admin", "hash1", roleJpa, true, 0L);
+        UserJpaEntity u1 = userJpa(1L, "admin", "hash1", roleJpa, true, 0L);
         when(springDataUserRepository.findById(1L)).thenReturn(Optional.of(u1));
 
         Optional<User> userOpt = adapter.findById(new UserId(1L));
@@ -86,7 +86,7 @@ class UserRepositoryAdapterTest {
     @DisplayName("findByUsername nạp User từ repository thành công")
     void testFindByUsername_Success() {
         RoleJpaEntity roleJpa = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
-        UserJpaEntity u1 = new UserJpaEntity(1L, "admin", "hash1", roleJpa, true, 0L);
+        UserJpaEntity u1 = userJpa(1L, "admin", "hash1", roleJpa, true, 0L);
         when(springDataUserRepository.findByUsername("admin")).thenReturn(Optional.of(u1));
 
         Optional<User> userOpt = adapter.findByUsername("admin");
@@ -104,7 +104,7 @@ class UserRepositoryAdapterTest {
         RoleJpaEntity roleJpa = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
         when(springDataRoleRepository.findByCode("VT-06")).thenReturn(Optional.of(roleJpa));
 
-        UserJpaEntity savedJpa = new UserJpaEntity(10L, "john_doe", "hash123", roleJpa, true, 0L);
+        UserJpaEntity savedJpa = userJpa(10L, "john_doe", "hash123", roleJpa, true, 0L);
         when(springDataUserRepository.save(any(UserJpaEntity.class))).thenReturn(savedJpa);
 
         User savedUser = adapter.save(domain);
@@ -112,5 +112,27 @@ class UserRepositoryAdapterTest {
         assertNotNull(savedUser);
         assertEquals(10L, savedUser.getIdValue());
         assertEquals("john_doe", savedUser.getUsername());
+    }
+
+    private UserJpaEntity userJpa(
+            Long id,
+            String username,
+            String passwordHash,
+            RoleJpaEntity role,
+            Boolean isActive,
+            Long version
+    ) {
+        UserJpaEntity entity =
+                new UserJpaEntity(
+                        id,
+                        username,
+                        passwordHash,
+                        role,
+                        isActive,
+                        version
+                );
+
+        entity.setDataScope("SELF");
+        return entity;
     }
 }

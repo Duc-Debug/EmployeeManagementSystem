@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
 import com.hrm.employeemanagement.domain.role.RoleCode;
@@ -129,6 +130,7 @@ public class DataInitializer implements CommandLineRunner {
                     adminRole,
                     true
             );
+            newAdmin.setDataScope(DataScope.COMPANY.name());
             adminUser = userRepository.save(newAdmin);
             isNewUser = true;
         }

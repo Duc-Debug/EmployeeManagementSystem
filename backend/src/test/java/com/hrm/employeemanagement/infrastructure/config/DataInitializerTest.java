@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity;
@@ -27,6 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -78,6 +80,7 @@ class DataInitializerTest {
         when(passwordEncoder.encode("StrongEnvPassword123!")).thenReturn("encoded_strong_password");
 
         UserJpaEntity savedUser = new UserJpaEntity(1L, "admin", "encoded_strong_password", adminRole, true);
+        savedUser.setDataScope(DataScope.COMPANY.name());
         when(userRepository.save(any(UserJpaEntity.class))).thenReturn(savedUser);
         when(employeeRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
@@ -88,6 +91,8 @@ class DataInitializerTest {
         assertEquals("admin", userCaptor.getValue().getUsername());
         assertEquals("encoded_strong_password", userCaptor.getValue().getPasswordHash());
         assertTrue(userCaptor.getValue().getIsActive());
+        assertEquals(DataScope.COMPANY.name(), userCaptor.getValue().getDataScope());
+        assertNull(userCaptor.getValue().getScopeOrgUnitId());
 
         ArgumentCaptor<EmployeeJpaEntity> empCaptor = ArgumentCaptor.forClass(EmployeeJpaEntity.class);
         verify(employeeRepository).save(empCaptor.capture());
@@ -126,6 +131,7 @@ class DataInitializerTest {
 
         RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
         UserJpaEntity existingAdmin = new UserJpaEntity(1L, "admin", "encoded_hash", adminRole, true);
+        existingAdmin.setDataScope(DataScope.COMPANY.name());
         when(userRepository.findByUsername("admin")).thenReturn(Optional.of(existingAdmin));
         when(employeeRepository.findByUserId(1L)).thenReturn(Optional.empty()); // Thiếu employee
 
