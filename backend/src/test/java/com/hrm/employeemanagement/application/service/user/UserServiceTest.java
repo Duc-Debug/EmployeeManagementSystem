@@ -37,6 +37,7 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
@@ -1141,13 +1142,27 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy thông tin người dùng theo ID thành công kèm resolve orgUnitName")
-    void testGetUserById_Success() {
+    @DisplayName("COMPANY đọc user khác thành công kèm resolve orgUnitName")
+    void testGetUserById_CompanyScope_ReadsOtherUser() {
         when(authorizationService.require(
                 PermissionCode.USER_READ
         )).thenReturn(ADMIN_ID);
 
-        User user = new User(
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "admin",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentUser.changeDataScope(
+                DataScope.COMPANY,
+                null
+        );
+
+        User targetUser = new User(
                 new UserId(5L),
                 "user5",
                 "hash",
@@ -1173,8 +1188,11 @@ class UserServiceTest {
                 "Ban Giám Đốc"
         );
 
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
         when(loadUserPort.findById(new UserId(5L)))
-                .thenReturn(Optional.of(user));
+                .thenReturn(Optional.of(targetUser));
 
         when(loadEmployeePort.findByUserId(new UserId(5L)))
                 .thenReturn(Optional.of(employee));
@@ -1198,11 +1216,252 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("SELF đọc chính mình thành công")
+    void testGetUserById_SelfScope_ReadsSelf() {
+        when(authorizationService.require(
+                PermissionCode.USER_READ
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "self_user",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentUser.changeDataScope(
+                DataScope.SELF,
+                null
+        );
+
+        Employee employee = new Employee(
+                new EmployeeId(10L),
+                new UserId(ADMIN_ID),
+                8L,
+                "EMP-001",
+                "Self User",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadEmployeePort.findByUserId(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(employee));
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(8L)))
+                .thenReturn(Optional.of(
+                        activeOrgUnit(
+                                8L,
+                                "OU-08",
+                                "Phòng Cá nhân"
+                        )
+                ));
+
+        UserResult result =
+                userService.getUserById(ADMIN_ID);
+
+        assertNotNull(result);
+        assertEquals(ADMIN_ID, result.getId());
+        assertEquals("Self User", result.getFullName());
+        assertEquals("Phòng Cá nhân", result.getOrgUnitName());
+
+        verify(loadUserPort, never())
+                .existsInOrgUnitBranch(
+                        any(),
+                        any()
+                );
+    }
+
+    @Test
+    @DisplayName("SELF đọc user khác bị từ chối trước khi load target")
+    void testGetUserById_SelfScope_ReadsOtherUser_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(
+                PermissionCode.USER_READ
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "self_user",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentUser.changeDataScope(
+                DataScope.SELF,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.getUserById(5L)
+        );
+
+        verify(loadUserPort, never())
+                .findById(new UserId(5L));
+
+        verify(loadEmployeePort, never())
+                .findByUserId(any());
+    }
+
+    @Test
+    @DisplayName("ORGANIZATION_BRANCH đọc user trong nhánh thành công")
+    void testGetUserById_OrganizationBranchScope_ReadsUserInsideBranch() {
+        when(authorizationService.require(
+                PermissionCode.USER_READ
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "manager",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentUser.changeDataScope(
+                DataScope.ORGANIZATION_BRANCH,
+                10L
+        );
+
+        User targetUser = new User(
+                new UserId(5L),
+                "branch_user",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(50L)
+        );
+
+        Employee employee = new Employee(
+                new EmployeeId(50L),
+                new UserId(5L),
+                12L,
+                "EMP-005",
+                "Branch User",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadUserPort.existsInOrgUnitBranch(
+                5L,
+                10L
+        )).thenReturn(true);
+
+        when(loadUserPort.findById(new UserId(5L)))
+                .thenReturn(Optional.of(targetUser));
+
+        when(loadEmployeePort.findByUserId(new UserId(5L)))
+                .thenReturn(Optional.of(employee));
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(12L)))
+                .thenReturn(Optional.of(
+                        activeOrgUnit(
+                                12L,
+                                "OU-12",
+                                "Team Backend"
+                        )
+                ));
+
+        UserResult result =
+                userService.getUserById(5L);
+
+        assertNotNull(result);
+        assertEquals(5L, result.getId());
+        assertEquals("Branch User", result.getFullName());
+        assertEquals("Team Backend", result.getOrgUnitName());
+
+        verify(loadUserPort, times(1))
+                .existsInOrgUnitBranch(
+                        5L,
+                        10L
+                );
+    }
+
+    @Test
+    @DisplayName("ORGANIZATION_BRANCH đọc user ngoài nhánh bị từ chối trước khi load target")
+    void testGetUserById_OrganizationBranchScope_ReadsUserOutsideBranch_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(
+                PermissionCode.USER_READ
+        )).thenReturn(ADMIN_ID);
+
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "manager",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentUser.changeDataScope(
+                DataScope.ORGANIZATION_BRANCH,
+                10L
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadUserPort.existsInOrgUnitBranch(
+                5L,
+                10L
+        )).thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.getUserById(5L)
+        );
+
+        verify(loadUserPort, times(1))
+                .existsInOrgUnitBranch(
+                        5L,
+                        10L
+                );
+
+        verify(loadUserPort, never())
+                .findById(new UserId(5L));
+
+        verify(loadEmployeePort, never())
+                .findByUserId(any());
+    }
+
+    @Test
     @DisplayName("Lấy thông tin người dùng theo ID thất bại khi không tìm thấy")
     void testGetUserById_NotFound_ThrowsException() {
         when(authorizationService.require(
                 PermissionCode.USER_READ
         )).thenReturn(ADMIN_ID);
+
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "admin",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentUser.changeDataScope(
+                DataScope.COMPANY,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
 
         when(loadUserPort.findById(new UserId(999L)))
                 .thenReturn(Optional.empty());

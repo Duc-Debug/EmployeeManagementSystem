@@ -53,4 +53,25 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     long countByOrgUnitBranch(
             @Param("scopeOrgUnitId") Long scopeOrgUnitId
     );
+
+    @Query(value = """
+        SELECT CASE
+                   WHEN COUNT(*) > 0 THEN TRUE
+                   ELSE FALSE
+               END
+        FROM users u
+        JOIN employees e
+            ON e.user_id = u.id
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE u.id = :userId
+          AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+        """,
+        nativeQuery = true)
+    boolean existsInOrgUnitBranch(
+            @Param("userId") Long userId,
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId
+    );
 }

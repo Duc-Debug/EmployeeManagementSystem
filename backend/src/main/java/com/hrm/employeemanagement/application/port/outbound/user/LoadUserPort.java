@@ -10,6 +10,7 @@ public interface LoadUserPort {
     Optional<User> findById(UserId id);
     Optional<User> findByUsername(String username);
     boolean existsByUsername(String username);
+    boolean existsInOrgUnitBranch(Long userId, Long scopeOrgUnitId);
     List<User> findAll(int page, int size);
     List<User> findByOrgUnitBranch(Long scopeOrgUnitId, int page, int size);
     long count();

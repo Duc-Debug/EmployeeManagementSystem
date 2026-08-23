@@ -96,6 +96,20 @@ class UserRepositoryAdapterTest {
     }
 
     @Test
+    @DisplayName("existsInOrgUnitBranch gọi thẳng repository để kiểm tra target user trong branch")
+    void testExistsInOrgUnitBranch_DelegatesToRepository() {
+        when(springDataUserRepository.existsInOrgUnitBranch(2L, 5L))
+                .thenReturn(true);
+
+        boolean result =
+                adapter.existsInOrgUnitBranch(2L, 5L);
+
+        assertTrue(result);
+        verify(springDataUserRepository)
+                .existsInOrgUnitBranch(2L, 5L);
+    }
+
+    @Test
     @DisplayName("save User mới thành công")
     void testSave_NewUser_Success() {
         Role role = new Role(new RoleId(6L), RoleCode.VT_06, "Quản trị viên");

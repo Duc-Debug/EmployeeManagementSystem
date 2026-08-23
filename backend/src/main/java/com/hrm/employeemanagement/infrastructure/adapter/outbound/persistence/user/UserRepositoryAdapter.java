@@ -72,6 +72,17 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
     }
 
     @Override
+    public boolean existsInOrgUnitBranch(
+            Long userId,
+            Long scopeOrgUnitId
+    ) {
+        return springDataUserRepository.existsInOrgUnitBranch(
+                userId,
+                scopeOrgUnitId
+        );
+    }
+
+    @Override
     public List<User> findAll(int page, int size) {
         return springDataUserRepository.findAll(PageRequest.of(page, size)).stream()
                 .map(entity -> mapper.toDomain(entity, null))
@@ -87,7 +98,7 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
     public long countActiveAdmins() {
         return springDataUserRepository.countActiveAdmins();
     }
-     @Override
+    @Override
     public List<User> findByOrgUnitBranch(
             Long scopeOrgUnitId,
             int page,

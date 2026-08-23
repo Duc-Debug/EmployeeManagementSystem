@@ -26,6 +26,7 @@ import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
@@ -465,13 +466,38 @@ public UserResult updateUserRole(
 
     @Override
     public UserResult getUserById(Long userId) {
-         authorizationService.require(
+        Long currentUserId = authorizationService.require(
                 PermissionCode.USER_READ
         );
 
-        UserId uId = new UserId(userId);
+        User currentUser = loadUserPort
+                .findById(new UserId(currentUserId))
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng hiện tại với ID: "
+                                        + currentUserId
+                        )
+                );
 
-        User user = loadUserPort.findById(uId)
+        boolean allowed = switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> currentUserId.equals(userId);
+            case ORGANIZATION_BRANCH ->
+                    loadUserPort.existsInOrgUnitBranch(
+                            userId,
+                            currentUser.getScopeOrgUnitId()
+                    );
+        };
+
+        if (!allowed) {
+            throw new PermissionDeniedException(
+                    PermissionCode.USER_READ
+            );
+        }
+
+        UserId targetUserId = new UserId(userId);
+
+        User user = loadUserPort.findById(targetUserId)
                 .orElseThrow(() ->
                         new UserNotFoundException(
                                 "Không tìm thấy người dùng với ID: " + userId
