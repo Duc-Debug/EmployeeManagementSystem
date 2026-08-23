@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -32,12 +33,14 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
@@ -274,8 +277,16 @@ class UserServiceTest {
         verify(authorizationService, times(1))
                 .require(PermissionCode.USER_TOGGLE_STATUS);
 
+        ArgumentCaptor<AuditLog> auditCaptor =
+                ArgumentCaptor.forClass(AuditLog.class);
+
         verify(saveAuditLogPort, times(1))
-                .save(any());
+                .save(auditCaptor.capture());
+
+        assertEquals(
+                "LOCK_USER",
+                auditCaptor.getValue().getAction()
+        );
     }
 
     @Test
@@ -317,8 +328,16 @@ class UserServiceTest {
         verify(loadRolePort, times(1))
                 .lockRoleForUpdate(RoleCode.VT_06);
 
+        ArgumentCaptor<AuditLog> auditCaptor =
+                ArgumentCaptor.forClass(AuditLog.class);
+
         verify(saveAuditLogPort, times(1))
-                .save(any());
+                .save(auditCaptor.capture());
+
+        assertEquals(
+                "LOCK_USER",
+                auditCaptor.getValue().getAction()
+        );
     }
 
     @Test
@@ -458,8 +477,16 @@ class UserServiceTest {
                 result.getStatus()
         );
 
+        ArgumentCaptor<AuditLog> auditCaptor =
+                ArgumentCaptor.forClass(AuditLog.class);
+
         verify(saveAuditLogPort, times(1))
-                .save(any());
+                .save(auditCaptor.capture());
+
+        assertEquals(
+                "UNLOCK_USER",
+                auditCaptor.getValue().getAction()
+        );
     }
 
     @Test
@@ -552,8 +579,16 @@ class UserServiceTest {
         verify(saveEmployeePort, times(1))
                 .save(employee);
 
+        ArgumentCaptor<AuditLog> updateAuthorizationAuditCaptor =
+                ArgumentCaptor.forClass(AuditLog.class);
+
         verify(saveAuditLogPort, times(1))
-                .save(any());
+                .save(updateAuthorizationAuditCaptor.capture());
+
+        assertEquals(
+                "UPDATE_AUTHORIZATION",
+                updateAuthorizationAuditCaptor.getValue().getAction()
+        );
     }
 
     @Test
@@ -683,6 +718,11 @@ class UserServiceTest {
                 user.getDataScope()
         );
 
+        assertEquals(
+                DataScope.SELF,
+                result.getDataScope()
+        );
+
         assertNull(
                 user.getScopeOrgUnitId()
         );
@@ -747,6 +787,11 @@ class UserServiceTest {
         assertEquals(
                 DataScope.COMPANY,
                 user.getDataScope()
+        );
+
+        assertEquals(
+                DataScope.COMPANY,
+                result.getDataScope()
         );
 
         assertNull(
@@ -827,9 +872,177 @@ class UserServiceTest {
         );
 
         assertEquals(
+                DataScope.ORGANIZATION_BRANCH,
+                result.getDataScope()
+        );
+
+        assertEquals(
                 5L,
                 user.getScopeOrgUnitId()
         );
+
+        assertEquals(
+                5L,
+                result.getScopeOrgUnitId()
+        );
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò reject SELF khi truyền scopeOrgUnitId")
+    void testUpdateUserRole_SelfScopeWithOrgUnitId_Rejects() {
+        stubUpdateRoleValidationBase(
+                DataScope.SELF,
+                5L
+        );
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.SELF,
+                        5L
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> userService.updateUserRole(command)
+        );
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò reject COMPANY khi truyền scopeOrgUnitId")
+    void testUpdateUserRole_CompanyScopeWithOrgUnitId_Rejects() {
+        stubUpdateRoleValidationBase(
+                DataScope.COMPANY,
+                5L
+        );
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.COMPANY,
+                        5L
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> userService.updateUserRole(command)
+        );
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò reject ORGANIZATION_BRANCH khi scopeOrgUnitId null")
+    void testUpdateUserRole_OrganizationBranchScopeWithNullOrgUnitId_Rejects() {
+        stubUpdateRoleValidationBase(
+                DataScope.ORGANIZATION_BRANCH,
+                null
+        );
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.ORGANIZATION_BRANCH,
+                        null
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> userService.updateUserRole(command)
+        );
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò reject ORGANIZATION_BRANCH khi scope orgUnit không tồn tại")
+    void testUpdateUserRole_OrganizationBranchScopeWithNonexistentOrgUnit_Rejects() {
+        stubUpdateRoleValidationBase(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(5L)))
+                .thenReturn(Optional.empty());
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.ORGANIZATION_BRANCH,
+                        5L
+                );
+
+        assertThrows(
+                OrgUnitNotFoundException.class,
+                () -> userService.updateUserRole(command)
+        );
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật vai trò reject ORGANIZATION_BRANCH khi scope orgUnit không hoạt động")
+    void testUpdateUserRole_OrganizationBranchScopeWithInactiveOrgUnit_Rejects() {
+        stubUpdateRoleValidationBase(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(5L)))
+                .thenReturn(Optional.of(
+                        orgUnit(
+                                5L,
+                                "OU-05",
+                                "Khối Công nghệ",
+                                OrgUnitStatus.INACTIVE
+                        )
+                ));
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-04",
+                        15L,
+                        DataScope.ORGANIZATION_BRANCH,
+                        5L
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> userService.updateUserRole(command)
+        );
+
+        verify(saveUserPort, never())
+                .save(any(User.class));
+
+        verify(saveAuditLogPort, never())
+                .save(any());
     }
 
     @Test
@@ -1480,6 +1693,20 @@ class UserServiceTest {
             String code,
             String name
     ) {
+        return orgUnit(
+                id,
+                code,
+                name,
+                OrgUnitStatus.ACTIVE
+        );
+    }
+
+    private OrgUnit orgUnit(
+            Long id,
+            String code,
+            String name,
+            OrgUnitStatus status
+    ) {
         return new OrgUnit(
                 new OrgUnitId(id),
                 code,
@@ -1488,12 +1715,48 @@ class UserServiceTest {
                 null,
                 "/" + id + "/",
                 1,
-                OrgUnitStatus.ACTIVE,
+                status,
                 null,
                 null,
                 null,
                 null
         );
+    }
+
+    private void stubUpdateRoleValidationBase(
+            DataScope dataScope,
+            Long scopeOrgUnitId
+    ) {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE_ROLE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "user2",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.empty());
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+                .thenReturn(Optional.of(
+                        activeOrgUnit(
+                                15L,
+                                "OU-15",
+                                "Ban Quản lý dự án"
+                        )
+                ));
     }
     @Test
 @DisplayName("getUsers với COMPANY scope trả về toàn bộ user")

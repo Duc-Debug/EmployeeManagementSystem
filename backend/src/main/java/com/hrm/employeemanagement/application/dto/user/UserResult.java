@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.dto.user;
 
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.user.UserStatus;
 
 public class UserResult {
@@ -12,8 +13,22 @@ public class UserResult {
     private final String fullName;
     private final Long orgUnitId;
     private final String orgUnitName;
+    private final DataScope dataScope;
+    private final Long scopeOrgUnitId;
 
-    public UserResult(Long id, String username, String roleCode, String roleName, UserStatus status, Long employeeId, String fullName, Long orgUnitId, String orgUnitName) {
+    public UserResult(
+            Long id,
+            String username,
+            String roleCode,
+            String roleName,
+            UserStatus status,
+            Long employeeId,
+            String fullName,
+            Long orgUnitId,
+            String orgUnitName,
+            DataScope dataScope,
+            Long scopeOrgUnitId
+    ) {
         this.id = id;
         this.username = username;
         this.roleCode = roleCode;
@@ -23,6 +38,8 @@ public class UserResult {
         this.fullName = fullName;
         this.orgUnitId = orgUnitId;
         this.orgUnitName = orgUnitName;
+        this.dataScope = dataScope;
+        this.scopeOrgUnitId = scopeOrgUnitId;
     }
 
     public Long getId() {
@@ -59,5 +76,13 @@ public class UserResult {
 
     public String getOrgUnitName() {
         return orgUnitName;
+    }
+
+    public DataScope getDataScope() {
+        return dataScope;
+    }
+
+    public Long getScopeOrgUnitId() {
+        return scopeOrgUnitId;
     }
 }

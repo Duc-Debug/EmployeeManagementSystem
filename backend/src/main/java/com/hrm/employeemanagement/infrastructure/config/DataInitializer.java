@@ -135,6 +135,14 @@ public class DataInitializer implements CommandLineRunner {
             isNewUser = true;
         }
 
+        if (adminUser != null
+                && (!DataScope.COMPANY.name().equals(adminUser.getDataScope())
+                || adminUser.getScopeOrgUnitId() != null)) {
+            adminUser.setDataScope(DataScope.COMPANY.name());
+            adminUser.setScopeOrgUnitId(null);
+            adminUser = userRepository.save(adminUser);
+        }
+
         // Self-Healing: Ensure the Admin User always has a linked Employee profile
         if (adminUser != null && employeeRepository.findByUserId(adminUser.getId()).isEmpty()) {
             EmployeeJpaEntity adminEmployee = new EmployeeJpaEntity(

@@ -330,7 +330,7 @@ public UserResult updateUserRole(
     saveAuditLogPort.save(
             AuditLog.create(
                     currentAdminId,
-                    "UPDATE_ROLE",
+                    "UPDATE_AUTHORIZATION",
                     "users",
                     updatedUser.getIdValue()
             )
@@ -569,7 +569,9 @@ public UserResult updateUserRole(
                 employee != null
                         ? employee.getOrgUnitId()
                         : null,
-                orgUnitName
+                orgUnitName,
+                user.getDataScope(),
+                user.getScopeOrgUnitId()
         );
     }
 }

@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -83,6 +85,18 @@ class UserExceptionHandlerTest {
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertFalse(response.getBody().isSuccess());
         assertEquals("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên.", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("Ánh xạ PermissionDeniedException thành HTTP 403 FORBIDDEN")
+    void testHandlePermissionDenied_Returns403() {
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handlePermissionDenied(
+                new PermissionDeniedException(PermissionCode.USER_READ)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("Không có quyền thực hiện thao tác: USER_READ", response.getBody().getMessage());
     }
 
     @Test

@@ -147,6 +147,44 @@ class DataInitializerTest {
     }
 
     @Test
+    @DisplayName("Tự phục hồi: Admin bootstrap đã tồn tại với SELF scope được nâng thành COMPANY")
+    void testRun_SelfHealing_UpdatesExistingAdminScopeToCompany() throws Exception {
+        DataInitializer dataInitializer = dataInitializer(true, "admin", "StrongEnvPassword123!");
+
+        RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
+        UserJpaEntity existingAdmin = new UserJpaEntity(1L, "admin", "encoded_hash", adminRole, true);
+        existingAdmin.setDataScope(DataScope.SELF.name());
+        existingAdmin.setScopeOrgUnitId(null);
+
+        when(userRepository.findByUsername("admin"))
+                .thenReturn(Optional.of(existingAdmin));
+        when(userRepository.save(any(UserJpaEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(employeeRepository.findByUserId(1L))
+                .thenReturn(Optional.of(
+                        new EmployeeJpaEntity(
+                                10L,
+                                1L,
+                                100L,
+                                "EMP-ADMIN",
+                                "Quản trị viên hệ thống",
+                                false,
+                                40,
+                                "ACTIVE"
+                        )
+                ));
+
+        dataInitializer.run();
+
+        ArgumentCaptor<UserJpaEntity> userCaptor =
+                ArgumentCaptor.forClass(UserJpaEntity.class);
+
+        verify(userRepository).save(userCaptor.capture());
+        assertEquals(DataScope.COMPANY.name(), userCaptor.getValue().getDataScope());
+        assertNull(userCaptor.getValue().getScopeOrgUnitId());
+    }
+
+    @Test
     @DisplayName("Bỏ qua khởi tạo khi initialAdminEnabled = false")
     void testRun_SkipsProvisioningWhenDisabled() throws Exception {
         DataInitializer dataInitializer = dataInitializer(false, null, null);

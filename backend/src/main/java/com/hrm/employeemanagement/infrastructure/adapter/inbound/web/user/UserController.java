@@ -3,7 +3,6 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 import java.net.URI;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,7 +30,6 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/users")
-@PreAuthorize("hasAuthority('VT-06')")
 public class UserController {
 
     private final CreateUserUseCase createUserUseCase;

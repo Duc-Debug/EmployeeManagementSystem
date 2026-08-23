@@ -62,6 +62,8 @@ class TransactionalUserServiceDecoratorTest {
                 null,
                 "John Doe",
                 null,
+                null,
+                DataScope.SELF,
                 null
         );
 
@@ -125,6 +127,8 @@ class TransactionalUserServiceDecoratorTest {
                 null,
                 "John Doe",
                 5L,
+                null,
+                DataScope.SELF,
                 null
         );
 

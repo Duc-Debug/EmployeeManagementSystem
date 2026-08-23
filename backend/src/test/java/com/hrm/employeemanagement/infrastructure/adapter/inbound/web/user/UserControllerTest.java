@@ -32,6 +32,9 @@ import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCas
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
@@ -103,7 +106,9 @@ class UserControllerTest {
                         10L,
                         "New User",
                         5L,
-                        "OrgUnit 5"
+                        "OrgUnit 5",
+                        DataScope.SELF,
+                        null
                 );
 
         when(
@@ -154,6 +159,10 @@ class UserControllerTest {
                 .andExpect(
                         jsonPath("$.data.orgUnitName")
                                 .value("OrgUnit 5")
+                )
+                .andExpect(
+                        jsonPath("$.data.dataScope")
+                                .value("SELF")
                 );
     }
 
@@ -226,7 +235,9 @@ class UserControllerTest {
                         10L,
                         "User 1",
                         5L,
-                        "OrgUnit"
+                        "OrgUnit",
+                        DataScope.ORGANIZATION_BRANCH,
+                        5L
                 );
 
         PageResult<UserResult> mockPage =
@@ -270,6 +281,16 @@ class UserControllerTest {
                         jsonPath(
                                 "$.data.totalPages"
                         ).value(1)
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.data.content[0].dataScope"
+                        ).value("ORGANIZATION_BRANCH")
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.data.content[0].scopeOrgUnitId"
+                        ).value(5)
                 );
     }
 
@@ -359,6 +380,8 @@ class UserControllerTest {
 
         request.setRoleCode("VT-02");
         request.setOrgUnitId(10L);
+        request.setDataScope(DataScope.COMPANY);
+        request.setScopeOrgUnitId(null);
 
         UserResult mockResult =
                 new UserResult(
@@ -370,7 +393,9 @@ class UserControllerTest {
                         20L,
                         "User Two",
                         10L,
-                        "OrgUnit 10"
+                        "OrgUnit 10",
+                        DataScope.COMPANY,
+                        null
                 );
 
         when(
@@ -405,6 +430,10 @@ class UserControllerTest {
                 .andExpect(
                         jsonPath("$.data.orgUnitId")
                                 .value(10)
+                )
+                .andExpect(
+                        jsonPath("$.data.dataScope")
+                                .value("COMPANY")
                 );
     }
 
@@ -440,6 +469,31 @@ class UserControllerTest {
                                                 "Không tìm thấy"
                                         )
                                 )
+                );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/users/{id} trả về 403 khi user ngoài phạm vi dữ liệu")
+    void testGetUserById_OutsideScope_Returns403()
+            throws Exception {
+
+        when(
+                getUserListUseCase.getUserById(99L)
+        ).thenThrow(
+                new PermissionDeniedException(
+                        PermissionCode.USER_READ
+                )
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/users/99")
+                )
+                .andExpect(
+                        status().isForbidden()
+                )
+                .andExpect(
+                        jsonPath("$.success")
+                                .value(false)
                 );
     }
 }
