@@ -67,6 +67,18 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
     }
 
     @Override
+    public Optional<User> findByEmail(String email) {
+        return springDataUserRepository.findByEmail(email)
+                .map(entity -> mapper.toDomain(entity, null));
+    }
+
+    @Override
+    public Optional<User> findByUsernameOrEmail(String identity) {
+        return springDataUserRepository.findByUsernameOrEmail(identity)
+                .map(entity -> mapper.toDomain(entity, null));
+    }
+
+    @Override
     public boolean existsByUsername(String username) {
         return springDataUserRepository.existsByUsername(username);
     }

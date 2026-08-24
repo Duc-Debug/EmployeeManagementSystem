@@ -29,7 +29,7 @@ public class UserPersistenceMapper {
         UserStatus status = Boolean.TRUE.equals(entity.getIsActive()) ? UserStatus.ACTIVE : UserStatus.LOCKED;
         UserId userId = entity.getId() != null ? new UserId(entity.getId()) : null;
         EmployeeId empId = employeeId != null ? new EmployeeId(employeeId) : null;
-        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId, entity.getVersion());
+        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId, entity.getEmail(), entity.getPasswordChangedAt(), entity.getVersion());
     }
 
     public UserJpaEntity toJpaEntity(User domain, RoleJpaEntity roleJpa) {
@@ -39,9 +39,11 @@ public class UserPersistenceMapper {
                 domain.getUsername(),
                 domain.getPasswordHash(),
                 roleJpa,
-                domain.isActive()
+                domain.isActive(),
+                domain.getEmail(),
+                domain.getPasswordChangedAt(),
+                domain.getVersion()
         );
-        entity.setVersion(domain.getVersion());
         return entity;
     }
 
@@ -51,6 +53,8 @@ public class UserPersistenceMapper {
         target.setPasswordHash(domain.getPasswordHash());
         target.setRole(roleJpa);
         target.setIsActive(domain.isActive());
+        target.setEmail(domain.getEmail());
+        target.setPasswordChangedAt(domain.getPasswordChangedAt());
         if (domain.getVersion() != null) {
             target.setVersion(domain.getVersion());
         }
