@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ForgotPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
+import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,7 +53,8 @@ class AuthControllerTest {
                 changePasswordUseCase,
                 requestPasswordResetUseCase,
                 resetPasswordUseCase,
-                new LoginRateLimiter()
+                new LoginRateLimiter(),
+                new ForgotPasswordRateLimiter()
         );
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
                 .setControllerAdvice(new UserExceptionHandler())
@@ -168,5 +170,27 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         verify(resetPasswordUseCase).resetPassword(any());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/forgot-password trả về 429 Too Many Requests khi gửi quá 3 lần/phút")
+    void testForgotPassword_RateLimiting_Returns429() throws Exception {
+        ForgotPasswordRequest request = new ForgotPasswordRequest("spam_user@company.com");
+
+        // 3 requests allowed
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/api/v1/auth/forgot-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+
+        // 4th request blocked with 429
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(containsString("quá nhiều lần")));
     }
 }

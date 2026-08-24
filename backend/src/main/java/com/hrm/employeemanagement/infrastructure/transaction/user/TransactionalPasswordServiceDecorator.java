@@ -48,10 +48,12 @@ public class TransactionalPasswordServiceDecorator implements ChangePasswordUseC
 
     @Override
     @Transactional
-    public void resetPassword(ResetPasswordCommand command) {
-        delegate.resetPassword(command);
-        // Note: Password reset token invalidates cached user session
-        userStatusCache.clear();
+    public String resetPassword(ResetPasswordCommand command) {
+        String username = delegate.resetPassword(command);
+        if (username != null) {
+            evictCacheAfterCommit(username);
+        }
+        return username;
     }
 
     private void evictCacheAfterCommit(String username) {

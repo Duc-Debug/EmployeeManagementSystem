@@ -116,7 +116,7 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
     }
 
     @Override
-    public void resetPassword(ResetPasswordCommand command) {
+    public String resetPassword(ResetPasswordCommand command) {
         if (command.token() == null || command.token().isBlank()) {
             throw new InvalidResetTokenException("Mã khôi phục mật khẩu không được để trống");
         }
@@ -139,6 +139,8 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
         savePasswordResetTokenPort.save(resetToken);
         saveUserPort.save(user);
         saveAuditLogPort.save(AuditLog.create(user.getIdValue(), "RESET_PASSWORD", "users", user.getIdValue()));
+
+        return user.getUsername();
     }
 
     private void validatePasswordPair(String newPassword, String confirmPassword) {

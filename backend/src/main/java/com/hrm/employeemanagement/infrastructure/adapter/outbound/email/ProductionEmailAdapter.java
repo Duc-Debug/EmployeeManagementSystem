@@ -3,12 +3,16 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.email;
 import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Profile;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 /**
  * Production Email Adapter implementing SimulatedEmailPort/EmailPort.
- * Dispatches password reset emails securely via production mail sender without logging plaintext reset tokens.
+ * Dispatches password reset emails securely via production JavaMailSender without logging plaintext reset tokens.
+ * Fails fast with an explicit exception if mail server configuration is absent in production.
  */
 @Component
 @Profile("prod")
@@ -16,13 +20,47 @@ public class ProductionEmailAdapter implements SimulatedEmailPort {
 
     private static final Logger log = LoggerFactory.getLogger(ProductionEmailAdapter.class);
 
+    private final JavaMailSender mailSender;
+
+    public ProductionEmailAdapter(ObjectProvider<JavaMailSender> mailSenderProvider) {
+        this.mailSender = mailSenderProvider.getIfAvailable();
+    }
+
     @Override
     public void sendPasswordResetEmail(String recipientEmail, String username, String resetToken, long validityMinutes) {
-        // Secure production email delivery implementation (SMTP/SendGrid/SES).
-        // Logs only delivery metadata without printing plaintext sensitive reset credentials.
-        log.info("Sending password reset email to recipient: {} (User: {})", recipientEmail, username);
+        if (mailSender == null) {
+            log.error("Failed to send password reset email: JavaMailSender is not configured in production environment.");
+            throw new IllegalStateException("Cấu hình dịch vụ Email chưa được thiết lập cho môi trường Production. Vui lòng cấu hình các thuộc tính spring.mail.* trong tệp môi trường.");
+        }
+
+        log.info("Dispatching password reset email to recipient: {} (User: {})", recipientEmail, username);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(recipientEmail);
+        message.setSubject("[Employee Management System] Yêu cầu khôi phục mật khẩu");
         
-        // Implementation details for production mail provider:
-        // javaMailSender.send(mimeMessage);
+        String resetUrl = "http://localhost:8080/api/v1/auth/reset-password?token=" + resetToken;
+        String content = String.format("""
+                Xin chào %s,
+
+                Hệ thống nhận được yêu cầu khôi phục mật khẩu cho tài khoản của bạn.
+                Vui lòng truy cập đường dẫn sau hoặc sử dụng mã Token bên dưới để hoàn tất:
+
+                Mã Token khôi phục: %s
+                Đường dẫn khôi phục: %s
+
+                Lưu ý: Mã này chỉ có hiệu lực trong vòng %d phút và chỉ được sử dụng 01 lần.
+                Nếu bạn không gửi yêu cầu này, vui lòng bỏ qua email này.
+                """, username, resetToken, resetUrl, validityMinutes);
+
+        message.setText(content);
+
+        try {
+            mailSender.send(message);
+            log.info("Successfully dispatched password reset email to recipient: {}", recipientEmail);
+        } catch (Exception ex) {
+            log.error("Failed to send email to recipient: {}", recipientEmail, ex);
+            throw new IllegalStateException("Gửi email khôi phục mật khẩu thất bại. Vui lòng thử lại sau.", ex);
+        }
     }
 }

@@ -16,6 +16,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.Ch
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ForgotPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
+import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -36,17 +37,20 @@ public class AuthController {
     private final RequestPasswordResetUseCase requestPasswordResetUseCase;
     private final ResetPasswordUseCase resetPasswordUseCase;
     private final LoginRateLimiter loginRateLimiter;
+    private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
 
     public AuthController(AuthenticateUserUseCase authenticateUserUseCase,
                           ChangePasswordUseCase changePasswordUseCase,
                           RequestPasswordResetUseCase requestPasswordResetUseCase,
                           ResetPasswordUseCase resetPasswordUseCase,
-                          LoginRateLimiter loginRateLimiter) {
+                          LoginRateLimiter loginRateLimiter,
+                          ForgotPasswordRateLimiter forgotPasswordRateLimiter) {
         this.authenticateUserUseCase = authenticateUserUseCase;
         this.changePasswordUseCase = changePasswordUseCase;
         this.requestPasswordResetUseCase = requestPasswordResetUseCase;
         this.resetPasswordUseCase = resetPasswordUseCase;
         this.loginRateLimiter = loginRateLimiter;
+        this.forgotPasswordRateLimiter = forgotPasswordRateLimiter;
     }
 
     @PostMapping("/login")
@@ -101,7 +105,19 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
+                                                             HttpServletRequest httpRequest) {
+        String clientIp = httpRequest != null ? httpRequest.getRemoteAddr() : "unknown";
+        String normalizedIdentity = request.identity() != null ? request.identity().trim().toLowerCase() : "";
+        String rateLimitKey = clientIp + ":" + normalizedIdentity;
+
+        if (forgotPasswordRateLimiter.isRateLimited(rateLimitKey)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(ApiResponse.error("Bạn đã gửi yêu cầu quá nhiều lần. Vui lòng đợi 1 phút trước khi thử lại."));
+        }
+
+        forgotPasswordRateLimiter.recordRequest(rateLimitKey);
+
         RequestPasswordResetCommand command = new RequestPasswordResetCommand(request.identity());
         requestPasswordResetUseCase.requestPasswordReset(command);
 
