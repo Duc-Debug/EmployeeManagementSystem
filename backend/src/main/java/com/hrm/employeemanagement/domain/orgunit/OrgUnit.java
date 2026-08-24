@@ -39,7 +39,7 @@ public class OrgUnit {
     // Standardize treePath to start and end with trailing slash '/'
     private String normalizeTreePath(String path) {
         if (path == null || path.isBlank()) {
-            throw new InvalidTreePathException("Tree path cannot be null or blank");
+            throw new InvalidTreePathException("Đường dẫn cây không được rỗng hoặc trống.");
         }
         String normalized = path.trim();
         if (!normalized.startsWith("/")) {
@@ -52,7 +52,7 @@ public class OrgUnit {
     }
 
     // Hành vi nghiệp vụ: Cập nhật thông tin đơn vị
-    public void updateInfo(String unitName, OrgUnitType unitType,Long managerId, String description) {
+    public void updateInfo(String unitName, OrgUnitType unitType, Long managerId, String description) {
         if (unitName == null || unitName.trim().isEmpty()) {
             throw new IllegalArgumentException("Tên đơn vị không được để trống");
         }
@@ -66,7 +66,7 @@ public class OrgUnit {
     // Hành vi nghiệp vụ: Di chuyển sang nút cha mới (Re-parenting)
     public void changeParent(OrgUnitId newParentId, String newTreePath, Integer newLevel) {
         if (newLevel == null || newLevel < 1) {
-            throw new IllegalArgumentException("Level must be positive and greater than 0");
+            throw new IllegalArgumentException("Mức độ phải dương và lớn hơn 0.");
         }
 
         // Ghi chú: newParentId CÓ THỂ null nếu đơn vị là nút Gốc (Root Node)

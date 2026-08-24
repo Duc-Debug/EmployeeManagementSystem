@@ -16,14 +16,14 @@ public class UseCaseConfig {
 
     @Bean
     public TransactionalUserServiceDecorator userService(LoadUserPort loadUserPort,
-                                                         SaveUserPort saveUserPort,
-                                                         LoadRolePort loadRolePort,
-                                                         LoadEmployeePort loadEmployeePort,
-                                                         SaveEmployeePort saveEmployeePort,
-                                                         SaveAuditLogPort saveAuditLogPort,
-                                                         LoadDepartmentPort loadDepartmentPort,
-                                                         PasswordEncoderPort passwordEncoder,
-                                                         UserStatusCache userStatusCache) {
+            SaveUserPort saveUserPort,
+            LoadRolePort loadRolePort,
+            LoadEmployeePort loadEmployeePort,
+            SaveEmployeePort saveEmployeePort,
+            SaveAuditLogPort saveAuditLogPort,
+            LoadDepartmentPort loadDepartmentPort,
+            PasswordEncoderPort passwordEncoder,
+            UserStatusCache userStatusCache) {
         UserService pureJavaUserService = new UserService(
                 loadUserPort,
                 saveUserPort,
@@ -32,15 +32,14 @@ public class UseCaseConfig {
                 saveEmployeePort,
                 saveAuditLogPort,
                 loadDepartmentPort,
-                passwordEncoder
-        );
+                passwordEncoder);
         return new TransactionalUserServiceDecorator(pureJavaUserService, userStatusCache);
     }
 
     @Bean
     public AuthenticateUserUseCase authService(LoadUserPort loadUserPort,
-                                              PasswordEncoderPort passwordEncoder,
-                                              TokenProviderPort tokenProvider) {
+            PasswordEncoderPort passwordEncoder,
+            TokenProviderPort tokenProvider) {
         return new AuthService(loadUserPort, passwordEncoder, tokenProvider);
     }
 }

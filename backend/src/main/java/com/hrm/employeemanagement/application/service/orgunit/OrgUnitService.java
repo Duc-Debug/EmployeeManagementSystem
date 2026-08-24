@@ -44,7 +44,7 @@ public class OrgUnitService implements
     public OrgUnitResult execute(CreateOrgUnitCommand command) {
         // BR-ORG-01: Check unique unit code
         if (loadOrgUnitPort.existsByUnitCode(command.unitCode())) {
-            throw new DuplicateUnitCodeException("Unit code '" + command.unitCode() + "' already exists");
+            throw new DuplicateUnitCodeException("Mã đơn vị '" + command.unitCode() + "' đã tồn tại trong hệ thống");
         }
         OrgUnitId parentId = null;
         String parentTreePath = "/";
@@ -52,7 +52,7 @@ public class OrgUnitService implements
         if (command.parentId() != null) {
             OrgUnit parent = loadOrgUnitPort.findById(new OrgUnitId(command.parentId()))
                     .orElseThrow(
-                            () -> new OrgUnitNotFoundException("Parent unit not found with ID: " + command.parentId()));
+                            () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị cha với ID: " + command.parentId()));
             orgUnitTreePolicy.validateActiveParent(parent);
             parentId = parent.getId();
             parentTreePath = parent.getTreePath();
@@ -81,7 +81,7 @@ public class OrgUnitService implements
     public OrgUnitResult execute(UpdateOrgUnitCommand command) {
         OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
                 .orElseThrow(
-                        () -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
+                        () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
         unit.updateInfo(command.unitName(), command.unitType(), command.managerId(), command.description());
         OrgUnit savedUnit = saveOrgUnitPort.save(unit);
         saveAuditLogPort.save(
@@ -94,11 +94,11 @@ public class OrgUnitService implements
     public OrgUnitResult execute(MoveOrgUnitCommand command) {
         OrgUnit unitToMove = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
                 .orElseThrow(
-                        () -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
+                        () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
 
         OrgUnit newParent = loadOrgUnitPort.findById(new OrgUnitId(command.newParentId()))
                 .orElseThrow(() -> new OrgUnitNotFoundException(
-                        "New parent unit not found with ID: " + command.newParentId()));
+                        "Không tìm thấy đơn vị cha mới với ID: " + command.newParentId()));
 
         // BR-ORG-04: Active parent validation
         orgUnitTreePolicy.validateActiveParent(newParent);
@@ -136,7 +136,7 @@ public class OrgUnitService implements
     public OrgUnitResult execute(DeactivateOrgUnitCommand command) {
         OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
                 .orElseThrow(
-                        () -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
+                        () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
 
         // 1. Deactivate nút cha được chọn
         unit.deactivate();

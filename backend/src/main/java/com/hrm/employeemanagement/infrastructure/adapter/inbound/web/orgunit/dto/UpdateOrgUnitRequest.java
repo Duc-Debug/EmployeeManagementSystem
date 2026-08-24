@@ -8,8 +8,8 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record UpdateOrgUnitRequest(
-        @NotBlank(message = "Unit name cannot be blank") @Size(max = 255, message = "Unit name cannot exceed 255 characters") String unitName,
-        @NotNull(message = "Unit type is required") OrgUnitType unitType,
+        @NotBlank(message = "Tên đơn vị không được để trống.") @Size(max = 255, message = "Tên đơn vị không được vượt quá 255 ký tự.") String unitName,
+        @NotNull(message = "Loại đơn vị không được null") OrgUnitType unitType,
         @NotNull(message = "Người quản lý không được để trống") @Positive(message = "ID người quản lý phải hợp lệ") Long managerId,
         String description) {
     public UpdateOrgUnitCommand toCommand(Long id) {

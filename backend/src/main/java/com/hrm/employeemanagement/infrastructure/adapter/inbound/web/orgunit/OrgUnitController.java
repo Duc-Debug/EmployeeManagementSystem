@@ -45,7 +45,7 @@ public class OrgUnitController {
 
     @PutMapping("/{id}")
     public ResponseEntity<OrgUnitResponse> updateUnit(
-            @PathVariable @Positive(message = "ID must be positive and greater than 0") Long id,
+            @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id,
             @Valid @RequestBody UpdateOrgUnitRequest request) {
         OrgUnitResult result = updateOrgUnitUseCase.execute(request.toCommand(id));
         return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
@@ -53,7 +53,7 @@ public class OrgUnitController {
 
     @PatchMapping("/{id}/move")
     public ResponseEntity<OrgUnitResponse> moveUnit(
-            @PathVariable @Positive(message = "ID must be positive and greater than 0") Long id,
+            @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id,
             @Valid @RequestBody MoveOrgUnitRequest request) {
         OrgUnitResult result = moveOrgUnitUseCase.execute(request.toCommand(id));
         return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
@@ -61,7 +61,7 @@ public class OrgUnitController {
 
     @PatchMapping("/{id}/deactivate")
     public ResponseEntity<OrgUnitResponse> deactivateUnit(
-            @PathVariable @Positive(message = "ID must be positive and greater than 0") Long id) {
+            @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id) {
         OrgUnitResult result = deactivateOrgUnitUseCase.execute(new DeactivateOrgUnitCommand(id));
         return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
     }

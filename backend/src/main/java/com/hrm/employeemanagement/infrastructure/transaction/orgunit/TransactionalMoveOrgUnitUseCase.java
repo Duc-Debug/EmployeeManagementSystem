@@ -10,7 +10,7 @@ public class TransactionalMoveOrgUnitUseCase implements MoveOrgUnitUseCase {
     private final MoveOrgUnitUseCase delegate;
 
     public TransactionalMoveOrgUnitUseCase(MoveOrgUnitUseCase delegate) {
-        this.delegate = Objects.requireNonNull(delegate, "MoveOrgUnitUseCase delegate must not be null");
+        this.delegate = Objects.requireNonNull(delegate, "MoveOrgUnitUseCase delegate không được phép là null");
     }
 
     @Override

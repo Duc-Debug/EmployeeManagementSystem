@@ -35,11 +35,11 @@ public class DataInitializer implements CommandLineRunner {
     private final InitialAdminProperties initialAdminProperties;
 
     public DataInitializer(SpringDataRoleRepository roleRepository,
-                           SpringDataDepartmentRepository departmentRepository,
-                           SpringDataUserRepository userRepository,
-                           SpringDataEmployeeRepository employeeRepository,
-                           PasswordEncoder passwordEncoder,
-                           InitialAdminProperties initialAdminProperties) {
+            SpringDataDepartmentRepository departmentRepository,
+            SpringDataUserRepository userRepository,
+            SpringDataEmployeeRepository employeeRepository,
+            PasswordEncoder passwordEncoder,
+            InitialAdminProperties initialAdminProperties) {
         this.roleRepository = roleRepository;
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
@@ -60,9 +60,11 @@ public class DataInitializer implements CommandLineRunner {
 
         // 2. Seed default Root Department (PB-01) idempotently
         DepartmentJpaEntity defaultDept = departmentRepository.findByCode("PB-01")
-                .orElseGet(() -> departmentRepository.save(new DepartmentJpaEntity(null, "PB-01", "Ban giám đốc", null)));
+                .orElseGet(
+                        () -> departmentRepository.save(new DepartmentJpaEntity(null, "PB-01", "Ban giám đốc", null)));
 
-        // 3. Provision initial admin user and employee profile atomically & idempotently
+        // 3. Provision initial admin user and employee profile atomically &
+        // idempotently
         if (!initialAdminProperties.enabled()) {
             return;
         }
@@ -86,15 +88,15 @@ public class DataInitializer implements CommandLineRunner {
 
         if (adminUser == null && userRepository.countActiveAdmins() == 0) {
             RoleJpaEntity adminRole = roleRepository.findByCode("VT-06")
-                    .orElseThrow(() -> new IllegalStateException("Role VT-06 (Quản trị viên) chưa tồn tại trong cơ sở dữ liệu"));
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Role VT-06 (Quản trị viên) chưa tồn tại trong cơ sở dữ liệu"));
 
             UserJpaEntity newAdmin = new UserJpaEntity(
                     null,
                     username,
                     passwordEncoder.encode(rawPassword),
                     adminRole,
-                    true
-            );
+                    true);
             adminUser = userRepository.save(newAdmin);
             isNewUser = true;
         }
@@ -109,8 +111,7 @@ public class DataInitializer implements CommandLineRunner {
                     "Quản trị viên hệ thống",
                     false,
                     40,
-                    "ACTIVE"
-            );
+                    "ACTIVE");
             employeeRepository.save(adminEmployee);
         }
 
