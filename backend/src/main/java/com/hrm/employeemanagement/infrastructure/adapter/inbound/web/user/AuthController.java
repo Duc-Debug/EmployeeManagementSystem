@@ -1,32 +1,51 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 
+import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
+import com.hrm.employeemanagement.application.dto.user.ChangePasswordCommand;
+import com.hrm.employeemanagement.application.dto.user.LoginCommand;
+import com.hrm.employeemanagement.application.dto.user.RequestPasswordResetCommand;
+import com.hrm.employeemanagement.application.dto.user.ResetPasswordCommand;
+import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
+import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ChangePasswordRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ForgotPasswordRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
+import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
-import com.hrm.employeemanagement.application.dto.user.LoginCommand;
-import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
-import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
-import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
-import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
-import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
     private final AuthenticateUserUseCase authenticateUserUseCase;
+    private final ChangePasswordUseCase changePasswordUseCase;
+    private final RequestPasswordResetUseCase requestPasswordResetUseCase;
+    private final ResetPasswordUseCase resetPasswordUseCase;
     private final LoginRateLimiter loginRateLimiter;
 
-    public AuthController(AuthenticateUserUseCase authenticateUserUseCase, LoginRateLimiter loginRateLimiter) {
+    public AuthController(AuthenticateUserUseCase authenticateUserUseCase,
+                          ChangePasswordUseCase changePasswordUseCase,
+                          RequestPasswordResetUseCase requestPasswordResetUseCase,
+                          ResetPasswordUseCase resetPasswordUseCase,
+                          LoginRateLimiter loginRateLimiter) {
         this.authenticateUserUseCase = authenticateUserUseCase;
+        this.changePasswordUseCase = changePasswordUseCase;
+        this.requestPasswordResetUseCase = requestPasswordResetUseCase;
+        this.resetPasswordUseCase = resetPasswordUseCase;
         this.loginRateLimiter = loginRateLimiter;
     }
 
@@ -41,24 +60,68 @@ public class AuthController {
                     .body(ApiResponse.error("Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi 1 phút trước khi thử lại."));
         }
 
-       try {
-    LoginCommand command = new LoginCommand(
-            request.getUsername(),
-            request.getPassword()
-    );
+        try {
+            LoginCommand command = new LoginCommand(
+                    request.getUsername(),
+                    request.getPassword()
+            );
 
-    AuthTokenResult result = authenticateUserUseCase.login(command);
+            AuthTokenResult result = authenticateUserUseCase.login(command);
+            loginRateLimiter.recordSuccessfulLogin(rateLimitKey);
 
-    loginRateLimiter.recordSuccessfulLogin(rateLimitKey);
+            return ResponseEntity.ok(
+                    ApiResponse.success("Đăng nhập thành công", result)
+            );
+        } catch (InvalidCredentialsException ex) {
+            loginRateLimiter.recordFailedAttempt(rateLimitKey);
+            throw ex;
+        }
+    }
 
-    return ResponseEntity.ok(
-            ApiResponse.success("Đăng nhập thành công", result)
-    );
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody ChangePasswordRequest request,
+                                                            @AuthenticationPrincipal User currentUser) {
+        if (currentUser == null || currentUser.getIdValue() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Bạn cần đăng nhập để đổi mật khẩu"));
+        }
 
-} catch (InvalidCredentialsException ex) {
-    loginRateLimiter.recordFailedAttempt(rateLimitKey);
-    throw ex;
-}
+        ChangePasswordCommand command = new ChangePasswordCommand(
+                currentUser.getIdValue(),
+                request.currentPassword(),
+                request.newPassword(),
+                request.confirmPassword()
+        );
+
+        changePasswordUseCase.changePassword(command);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Đổi mật khẩu thành công. Các phiên đăng nhập cũ đã được chấm dứt.", null)
+        );
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        RequestPasswordResetCommand command = new RequestPasswordResetCommand(request.identity());
+        requestPasswordResetUseCase.requestPasswordReset(command);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Nếu thông tin tài khoản hợp lệ, liên kết khôi phục mật khẩu đã được gửi đến email đăng ký.", null)
+        );
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        ResetPasswordCommand command = new ResetPasswordCommand(
+                request.token(),
+                request.newPassword(),
+                request.confirmPassword()
+        );
+
+        resetPasswordUseCase.resetPassword(command);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.", null)
+        );
     }
 }
-

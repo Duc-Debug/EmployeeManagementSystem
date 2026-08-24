@@ -45,13 +45,21 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
 
     @Override
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
+        Claims claims = getClaims(token);
+        return claims.getSubject();
+    }
+
+    public Date getIssuedAtFromToken(String token) {
+        Claims claims = getClaims(token);
+        return claims.getIssuedAt();
+    }
+
+    private Claims getClaims(String token) {
+        return Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-
-        return claims.getSubject();
     }
 
     @Override

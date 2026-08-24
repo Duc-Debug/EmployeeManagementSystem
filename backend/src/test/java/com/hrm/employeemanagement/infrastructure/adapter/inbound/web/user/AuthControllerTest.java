@@ -4,9 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ForgotPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +25,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -32,10 +38,22 @@ class AuthControllerTest {
 
     @Mock
     private AuthenticateUserUseCase authenticateUserUseCase;
+    @Mock
+    private ChangePasswordUseCase changePasswordUseCase;
+    @Mock
+    private RequestPasswordResetUseCase requestPasswordResetUseCase;
+    @Mock
+    private ResetPasswordUseCase resetPasswordUseCase;
 
     @BeforeEach
     void setUp() {
-        AuthController authController = new AuthController(authenticateUserUseCase, new LoginRateLimiter());
+        AuthController authController = new AuthController(
+                authenticateUserUseCase,
+                changePasswordUseCase,
+                requestPasswordResetUseCase,
+                resetPasswordUseCase,
+                new LoginRateLimiter()
+        );
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
                 .setControllerAdvice(new UserExceptionHandler())
                 .build();
@@ -122,5 +140,33 @@ class AuthControllerTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("quá nhiều lần")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/forgot-password thành công")
+    void testForgotPassword_Success() throws Exception {
+        ForgotPasswordRequest request = new ForgotPasswordRequest("employee1@company.com");
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(requestPasswordResetUseCase).requestPasswordReset(any());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/reset-password thành công")
+    void testResetPassword_Success() throws Exception {
+        ResetPasswordRequest request = new ResetPasswordRequest("token123", "NewPass123", "NewPass123");
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(resetPasswordUseCase).resetPassword(any());
     }
 }

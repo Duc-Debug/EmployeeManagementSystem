@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Optional;
 
 @Component
@@ -43,16 +44,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
 
-                // High-performance Caffeine Cache lookup (Avoids DB hits on every request)
+                // High-performance Caffeine Cache lookup
                 Optional<User> userOpt = userStatusCache.get(username);
                 if (userOpt.isEmpty()) {
                     userOpt = loadUserPort.findByUsername(username);
                     userOpt.filter(User::isActive).ifPresent(u -> userStatusCache.put(username, u));
                 }
 
-                // Verify user exists AND is ACTIVE
                 if (userOpt.isPresent() && userOpt.get().isActive()) {
                     User user = userOpt.get();
+
+                    // Session Invalidation Check: Check if password was changed after token issuance
+                    Date tokenIssuedAt = tokenProvider.getIssuedAtFromToken(jwt);
+                    if (user.getPasswordChangedAt() != null && tokenIssuedAt != null) {
+                        long passwordChangedEpochSec = user.getPasswordChangedAt().getEpochSecond();
+                        long tokenIssuedEpochSec = tokenIssuedAt.getTime() / 1000;
+                        if (tokenIssuedEpochSec < passwordChangedEpochSec) {
+                            userStatusCache.evict(username);
+                            filterChain.doFilter(request, response);
+                            return;
+                        }
+                    }
+
                     SimpleGrantedAuthority authority = new SimpleGrantedAuthority(user.getRole().getCode().getCode());
 
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
