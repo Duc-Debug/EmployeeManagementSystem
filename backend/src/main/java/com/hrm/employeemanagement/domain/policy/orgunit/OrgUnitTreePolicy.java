@@ -6,6 +6,7 @@ import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyExcep
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
 import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
+import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 
@@ -17,8 +18,11 @@ public class OrgUnitTreePolicy {
      * nhánh subtree của nó.
      */
     public void validateNoCycle(OrgUnit unitToMove, OrgUnit newParent) {
-        if (unitToMove == null || newParent == null) {
-            throw new IllegalArgumentException("Đơn vị cần di chuyển và đơn vị cha mới không được để trống.");
+        if (unitToMove == null) {
+            throw RequiredFieldMissingException.of("Đơn vị cần di chuyển (unitToMove)");
+        }
+        if (newParent == null) {
+            throw RequiredFieldMissingException.of("Đơn vị cha mới (newParent)");
         }
 
         if (unitToMove.getId() == null || unitToMove.getId().getValue() == null) {
@@ -60,7 +64,9 @@ public class OrgUnitTreePolicy {
      * con.
      */
     public void validateActiveParent(OrgUnit parentUnit) {
-        Objects.requireNonNull(parentUnit, "Đơn vị cha không được phép là null");
+        if (parentUnit == null) {
+            throw RequiredFieldMissingException.of("Đơn vị cha (parentUnit)");
+        }
         if (parentUnit.getStatus() != OrgUnitStatus.ACTIVE) {
             throw new InactiveParentException(
                     "Không thể gán hoặc di chuyển đơn vị dưới một đơn vị cha đang không hoạt động (ID: "

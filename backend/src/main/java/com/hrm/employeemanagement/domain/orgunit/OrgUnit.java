@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
+import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
 
 public class OrgUnit {
     private OrgUnitId id;
@@ -61,10 +62,10 @@ public class OrgUnit {
     // Hành vi nghiệp vụ: Cập nhật thông tin đơn vị
     public void updateInfo(String unitName, OrgUnitType unitType, Long managerId, String description) {
         if (unitName == null || unitName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Tên đơn vị không được để trống");
+            throw RequiredFieldMissingException.of("Tên đơn vị (unitName)");
         }
         if (unitType == null) {
-            throw new IllegalArgumentException("Loại đơn vị là bắt buộc");
+            throw RequiredFieldMissingException.of("Loại đơn vị (unitType)");
         }
         this.assignManager(managerId);
         this.unitName = unitName;
@@ -75,7 +76,10 @@ public class OrgUnit {
 
     // Hành vi nghiệp vụ: Di chuyển sang nút cha mới (Re-parenting)
     public void changeParent(OrgUnitId newParentId, String newTreePath, Integer newLevel) {
-        if (newLevel == null || newLevel < 1) {
+        if (newLevel == null) {
+            throw RequiredFieldMissingException.of("Cấp độ (level)");
+        }
+        if (newLevel < 1) {
             throw new IllegalArgumentException("Mức độ phải dương và lớn hơn 0.");
         }
 

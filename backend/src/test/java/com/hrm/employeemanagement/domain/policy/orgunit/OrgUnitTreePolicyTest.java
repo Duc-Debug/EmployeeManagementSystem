@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.domain.policy.orgunit;
 
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
+import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
 import com.hrm.employeemanagement.domain.orgunit.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -68,12 +69,12 @@ class OrgUnitTreePolicyTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when parameters are null")
+    @DisplayName("Should throw RequiredFieldMissingException when parameters are null")
     void shouldThrowExceptionWhenParametersAreNull() {
         OrgUnit validUnit = createUnit(1L, "DEV-CENTER", "/1/", 1, null);
 
-        assertThrows(IllegalArgumentException.class, () -> policy.validateNoCycle(null, validUnit));
-        assertThrows(IllegalArgumentException.class, () -> policy.validateNoCycle(validUnit, null));
+        assertThrows(RequiredFieldMissingException.class, () -> policy.validateNoCycle(null, validUnit));
+        assertThrows(RequiredFieldMissingException.class, () -> policy.validateNoCycle(validUnit, null));
     }
 
     @Test
