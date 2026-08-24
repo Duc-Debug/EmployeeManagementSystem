@@ -14,8 +14,8 @@ class OrgUnitTest {
     @DisplayName("Should throw InvalidOrgUnitManagerException when creating OrgUnit with null managerId")
     void shouldThrowExceptionWhenCreatingWithNullManagerId() {
         assertThrows(InvalidOrgUnitManagerException.class, () -> new OrgUnit(
-                new OrgUnitId(1L), "DEV", "Phòng Dev", OrgUnitType.DEPARTMENT,
-                null, "/1/", 1, OrgUnitStatus.ACTIVE, "Mô tả", null, LocalDateTime.now(), null
+                new OrgUnitId(2L), "DEV", "Phòng Dev", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", null, LocalDateTime.now(), null
         ));
     }
 

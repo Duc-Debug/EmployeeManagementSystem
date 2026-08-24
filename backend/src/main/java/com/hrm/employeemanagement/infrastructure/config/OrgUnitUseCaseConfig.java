@@ -4,6 +4,7 @@ import com.hrm.employeemanagement.application.port.inbound.orgunit.*;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.SaveOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.orgunit.OrgUnitService;
 import com.hrm.employeemanagement.infrastructure.transaction.orgunit.*;
@@ -14,8 +15,10 @@ import org.springframework.context.annotation.Configuration;
 public class OrgUnitUseCaseConfig {
     @Bean("orgUnitService")
     public OrgUnitService orgUnitService(LoadOrgUnitPort loadOrgUnitPort, SaveOrgUnitPort saveOrgUnitPort,
-            SaveAuditLogPort saveAuditLogPort, CurrentUserPort currentUserPort) {
-        return new OrgUnitService(loadOrgUnitPort, saveOrgUnitPort, saveAuditLogPort, currentUserPort);
+            LoadEmployeePort loadEmployeePort, SaveAuditLogPort saveAuditLogPort,
+            CurrentUserPort currentUserPort) {
+        return new OrgUnitService(loadOrgUnitPort, saveOrgUnitPort, loadEmployeePort, saveAuditLogPort,
+                currentUserPort);
     }
 
     @Bean("transactionalCreateOrgUnitUseCase")

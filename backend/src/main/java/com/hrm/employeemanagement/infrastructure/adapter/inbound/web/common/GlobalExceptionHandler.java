@@ -42,6 +42,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    // 1.1 Handle EmployeeNotFoundException (404 NOT FOUND)
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEmployeeNotFound(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "EMPLOYEE_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     // 2. Handle DuplicateUnitCodeException (409 CONFLICT)
     @ExceptionHandler(DuplicateUnitCodeException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateCode(DuplicateUnitCodeException ex) {

@@ -5,9 +5,15 @@ import com.hrm.employeemanagement.application.port.inbound.orgunit.*;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.SaveOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.*;
 import com.hrm.employeemanagement.domain.policy.orgunit.OrgUnitTreePolicy;
@@ -23,14 +29,17 @@ public class OrgUnitService implements
         GetOrgTreeUseCase {
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final SaveOrgUnitPort saveOrgUnitPort;
+    private final LoadEmployeePort loadEmployeePort;
     private final OrgUnitTreePolicy orgUnitTreePolicy;
     private final SaveAuditLogPort saveAuditLogPort;
     private final CurrentUserPort currentUserPort;
 
     public OrgUnitService(LoadOrgUnitPort loadOrgUnitPort, SaveOrgUnitPort saveOrgUnitPort,
-            SaveAuditLogPort saveAuditLogPort, CurrentUserPort currentUserPort) {
+            LoadEmployeePort loadEmployeePort, SaveAuditLogPort saveAuditLogPort,
+            CurrentUserPort currentUserPort) {
         this.loadOrgUnitPort = loadOrgUnitPort;
         this.saveOrgUnitPort = saveOrgUnitPort;
+        this.loadEmployeePort = loadEmployeePort;
         this.orgUnitTreePolicy = new OrgUnitTreePolicy();
         this.saveAuditLogPort = saveAuditLogPort;
         this.currentUserPort = currentUserPort;
@@ -40,12 +49,28 @@ public class OrgUnitService implements
         return currentUserPort != null ? currentUserPort.getCurrentUserId().orElse(null) : null;
     }
 
+    private void validateActiveManager(Long managerId) {
+        if (loadEmployeePort != null) {
+            Employee manager = loadEmployeePort.findById(new EmployeeId(managerId))
+                    .orElseThrow(() -> new EmployeeNotFoundException(
+                            "Không tìm thấy nhân viên quản lý với ID: " + managerId));
+            if (manager.getStatus() != EmployeeStatus.ACTIVE) {
+                throw new InvalidOrgUnitManagerException(
+                        "Nhân viên quản lý (ID: " + managerId + ") hiện không ở trạng thái hoạt động.");
+            }
+        }
+    }
+
     @Override
     public OrgUnitResult execute(CreateOrgUnitCommand command) {
         // BR-ORG-01: Check unique unit code
         if (loadOrgUnitPort.existsByUnitCode(command.unitCode())) {
             throw new DuplicateUnitCodeException("Mã đơn vị '" + command.unitCode() + "' đã tồn tại trong hệ thống");
         }
+
+        // Validate business reference: Manager must exist and be ACTIVE
+        validateActiveManager(command.managerId());
+
         OrgUnitId parentId = null;
         String parentTreePath = "/";
         int level = 1;
@@ -82,6 +107,10 @@ public class OrgUnitService implements
         OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
                 .orElseThrow(
                         () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
+
+        // Validate business reference: Manager must exist and be ACTIVE
+        validateActiveManager(command.managerId());
+
         unit.updateInfo(command.unitName(), command.unitType(), command.managerId(), command.description());
         OrgUnit savedUnit = saveOrgUnitPort.save(unit);
         saveAuditLogPort.save(

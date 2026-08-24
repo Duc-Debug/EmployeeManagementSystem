@@ -4,9 +4,16 @@ import com.hrm.employeemanagement.application.dto.orgunit.*;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.SaveOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
 import com.hrm.employeemanagement.domain.orgunit.*;
+import com.hrm.employeemanagement.domain.user.UserId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +38,9 @@ class OrgUnitServiceTest {
     private SaveOrgUnitPort saveOrgUnitPort;
 
     @Mock
+    private LoadEmployeePort loadEmployeePort;
+
+    @Mock
     private SaveAuditLogPort saveAuditLogPort;
 
     @Mock
@@ -40,7 +50,7 @@ class OrgUnitServiceTest {
     private OrgUnitService orgUnitService;
 
     @Test
-    @DisplayName("Should create org unit successfully when parameters are valid")
+    @DisplayName("Should create org unit successfully when parameters and manager are valid")
     void shouldCreateOrgUnitSuccessfully() {
         // DEV-CENTER is created as a child of COMPANY_ROOT (id: 1) with manager ID: 10
         CreateOrgUnitCommand command = new CreateOrgUnitCommand(
@@ -52,7 +62,12 @@ class OrgUnitServiceTest {
                 null, "/1/", 1, OrgUnitStatus.ACTIVE, "Nút gốc", 1L, LocalDateTime.now(), null
         );
 
+        Employee activeManager = new Employee(
+                new EmployeeId(10L), new UserId(10L), 1L, "EMP010", "Manager Name", false, 40, EmployeeStatus.ACTIVE
+        );
+
         when(loadOrgUnitPort.existsByUnitCode("DEV-CENTER")).thenReturn(false);
+        when(loadEmployeePort.findById(new EmployeeId(10L))).thenReturn(Optional.of(activeManager));
         when(loadOrgUnitPort.findById(new OrgUnitId(1L))).thenReturn(Optional.of(rootCompany));
 
         OrgUnit savedUnit = new OrgUnit(
@@ -92,5 +107,37 @@ class OrgUnitServiceTest {
         assertThrows(DuplicateUnitCodeException.class, () -> orgUnitService.execute(command));
         verify(saveOrgUnitPort, never()).save(any());
         verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw EmployeeNotFoundException when manager does not exist")
+    void shouldThrowEmployeeNotFoundExceptionWhenManagerDoesNotExist() {
+        CreateOrgUnitCommand command = new CreateOrgUnitCommand(
+                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, 9999L, "Mô tả"
+        );
+
+        when(loadOrgUnitPort.existsByUnitCode("DEV-CENTER")).thenReturn(false);
+        when(loadEmployeePort.findById(new EmployeeId(9999L))).thenReturn(Optional.empty());
+
+        assertThrows(EmployeeNotFoundException.class, () -> orgUnitService.execute(command));
+        verify(saveOrgUnitPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw InvalidOrgUnitManagerException when manager is inactive")
+    void shouldThrowInvalidOrgUnitManagerExceptionWhenManagerIsInactive() {
+        CreateOrgUnitCommand command = new CreateOrgUnitCommand(
+                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, 10L, "Mô tả"
+        );
+
+        Employee inactiveManager = new Employee(
+                new EmployeeId(10L), new UserId(10L), 1L, "EMP010", "Manager Name", false, 40, EmployeeStatus.TERMINATED
+        );
+
+        when(loadOrgUnitPort.existsByUnitCode("DEV-CENTER")).thenReturn(false);
+        when(loadEmployeePort.findById(new EmployeeId(10L))).thenReturn(Optional.of(inactiveManager));
+
+        assertThrows(InvalidOrgUnitManagerException.class, () -> orgUnitService.execute(command));
+        verify(saveOrgUnitPort, never()).save(any());
     }
 }

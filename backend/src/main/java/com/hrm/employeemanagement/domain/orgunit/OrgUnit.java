@@ -23,7 +23,10 @@ public class OrgUnit {
     public OrgUnit(OrgUnitId id, String unitCode, String unitName, OrgUnitType unitType,
             OrgUnitId parentId, String treePath, Integer level, OrgUnitStatus status,
             String description, Long managerId, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        if (managerId == null || managerId <= 0) {
+        if (parentId != null && (managerId == null || managerId <= 0)) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        }
+        if (managerId != null && managerId <= 0) {
             throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
         }
         this.id = id;
