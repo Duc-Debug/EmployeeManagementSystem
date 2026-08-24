@@ -5,5 +5,6 @@ public record UpdateOrgUnitCommand(
     Long id,
     String unitName,
     OrgUnitType unitType,
+    Long managerId,
     String description
 ) {}

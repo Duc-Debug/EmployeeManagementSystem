@@ -52,12 +52,13 @@ public class OrgUnit {
     }
 
     // Hành vi nghiệp vụ: Cập nhật thông tin đơn vị
-    public void updateInfo(String unitName, OrgUnitType unitType, String description) {
+    public void updateInfo(String unitName, OrgUnitType unitType,Long managerId, String description) {
         if (unitName == null || unitName.trim().isEmpty()) {
             throw new IllegalArgumentException("Tên đơn vị không được để trống");
         }
         this.unitName = unitName;
         this.unitType = unitType;
+        this.managerId = managerId;
         this.description = description;
         this.updatedAt = LocalDateTime.now();
     }
