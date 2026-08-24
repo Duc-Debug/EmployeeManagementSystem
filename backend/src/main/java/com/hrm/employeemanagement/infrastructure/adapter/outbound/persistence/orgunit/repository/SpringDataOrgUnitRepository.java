@@ -34,7 +34,7 @@ public interface SpringDataOrgUnitRepository extends JpaRepository<OrgUnitJpaEnt
 
     List<OrgUnitJpaEntity> findByTreePathStartingWith(String treePath);
 
-    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
             UPDATE org_units
             SET tree_path = CONCAT(:newPrefix, SUBSTRING(tree_path, LENGTH(:oldPrefix) + 1)),
@@ -49,7 +49,7 @@ public interface SpringDataOrgUnitRepository extends JpaRepository<OrgUnitJpaEnt
             @Param("levelDelta") int levelDelta
     );
 
-    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
             UPDATE org_units
             SET status = 'INACTIVE',
