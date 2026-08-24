@@ -4,6 +4,7 @@ import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmail
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -21,9 +22,12 @@ public class ProductionEmailAdapter implements SimulatedEmailPort {
     private static final Logger log = LoggerFactory.getLogger(ProductionEmailAdapter.class);
 
     private final JavaMailSender mailSender;
+    private final String resetPasswordBaseUrl;
 
-    public ProductionEmailAdapter(ObjectProvider<JavaMailSender> mailSenderProvider) {
+    public ProductionEmailAdapter(ObjectProvider<JavaMailSender> mailSenderProvider,
+                                  @Value("${app.auth.reset-password-base-url:http://localhost:8080/api/v1/auth/reset-password}") String resetPasswordBaseUrl) {
         this.mailSender = mailSenderProvider.getIfAvailable();
+        this.resetPasswordBaseUrl = resetPasswordBaseUrl;
     }
 
     @Override
@@ -39,7 +43,7 @@ public class ProductionEmailAdapter implements SimulatedEmailPort {
         message.setTo(recipientEmail);
         message.setSubject("[Employee Management System] Yêu cầu khôi phục mật khẩu");
         
-        String resetUrl = "http://localhost:8080/api/v1/auth/reset-password?token=" + resetToken;
+        String resetUrl = resetPasswordBaseUrl + (resetPasswordBaseUrl.contains("?") ? "&token=" : "?token=") + resetToken;
         String content = String.format("""
                 Xin chào %s,
 
