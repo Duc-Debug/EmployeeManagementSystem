@@ -19,7 +19,7 @@ class CreateUserCommandTest {
         assertEquals("VT-04", command.roleCode());
         assertEquals("EMP-001", command.employeeCode());
         assertEquals("John Doe", command.fullName());
-        assertEquals(10L, command.departmentId());
+        assertEquals(10L, command.orgUnitId());
     }
 
     @Test
@@ -43,8 +43,8 @@ class CreateUserCommandTest {
     }
 
     @Test
-    @DisplayName("Báo lỗi khi departmentId bị null")
-    void testNullDepartmentId_ThrowsException() {
+    @DisplayName("Báo lỗi khi orgUnitId bị null")
+    void testNullOrgUnitId_ThrowsException() {
         assertThrows(IllegalArgumentException.class, () -> {
             new CreateUserCommand("john_doe", "password123", "VT-04", "EMP-001", "John Doe", null);
         });

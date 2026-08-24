@@ -7,17 +7,17 @@ import java.util.Objects;
 public class Employee {
     private EmployeeId id;
     private UserId userId;
-    private Long departmentId;
+    private Long orgUnitId;
     private String employeeCode;
     private String fullName;
     private Boolean isOutsourced;
     private Integer standardHoursPerWeek;
     private EmployeeStatus status;
 
-    public Employee(EmployeeId id, UserId userId, Long departmentId, String employeeCode, String fullName, Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status) {
+    public Employee(EmployeeId id, UserId userId, Long orgUnitId, String employeeCode, String fullName, Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status) {
         this.id = id;
         this.userId = userId;
-        this.departmentId = departmentId;
+        this.orgUnitId = orgUnitId;
         this.employeeCode = Objects.requireNonNull(employeeCode, "EmployeeCode không được null");
         this.fullName = Objects.requireNonNull(fullName, "FullName không được null");
         this.isOutsourced = isOutsourced != null ? isOutsourced : false;
@@ -25,8 +25,8 @@ public class Employee {
         this.status = status != null ? status : EmployeeStatus.ACTIVE;
     }
 
-    public static Employee createNew(UserId userId, Long departmentId, String employeeCode, String fullName) {
-        return new Employee(null, userId, departmentId, employeeCode, fullName, false, 40, EmployeeStatus.ACTIVE);
+    public static Employee createNew(UserId userId, Long orgUnitId, String employeeCode, String fullName) {
+        return new Employee(null, userId, orgUnitId, employeeCode, fullName, false, 40, EmployeeStatus.ACTIVE);
     }
 
     public EmployeeId getId() {
@@ -45,8 +45,8 @@ public class Employee {
         return userId != null ? userId.value() : null;
     }
 
-    public Long getDepartmentId() {
-        return departmentId;
+    public Long getOrgUnitId() {
+        return orgUnitId;
     }
 
     public String getEmployeeCode() {
@@ -77,8 +77,8 @@ public class Employee {
         this.userId = Objects.requireNonNull(userId, "UserId không được null");
     }
 
-    public void assignToDepartment(Long departmentId) {
-        this.departmentId = departmentId;
+    public void assignToOrgUnit(Long orgUnitId) {
+        this.orgUnitId = orgUnitId;
     }
 
     public void changeStatus(EmployeeStatus newStatus) {

@@ -6,7 +6,7 @@ public record CreateUserCommand(
         String roleCode,
         String employeeCode,
         String fullName,
-        Long departmentId
+        Long orgUnitId
 ) {
     public CreateUserCommand {
         if (username == null || username.isBlank()) {
@@ -24,8 +24,8 @@ public record CreateUserCommand(
         if (fullName == null || fullName.isBlank()) {
             throw new IllegalArgumentException("Họ tên không được để trống");
         }
-        if (departmentId == null) {
-            throw new IllegalArgumentException("ID phòng ban không được để trống");
+        if (orgUnitId == null) {
+            throw new IllegalArgumentException("ID đơn vị tổ chức không được để trống");
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.dto.user;
 
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.user.UserStatus;
 
 public class UserResult {
@@ -10,10 +11,24 @@ public class UserResult {
     private final UserStatus status;
     private final Long employeeId;
     private final String fullName;
-    private final Long departmentId;
-    private final String departmentName;
+    private final Long orgUnitId;
+    private final String orgUnitName;
+    private final DataScope dataScope;
+    private final Long scopeOrgUnitId;
 
-    public UserResult(Long id, String username, String roleCode, String roleName, UserStatus status, Long employeeId, String fullName, Long departmentId, String departmentName) {
+    public UserResult(
+            Long id,
+            String username,
+            String roleCode,
+            String roleName,
+            UserStatus status,
+            Long employeeId,
+            String fullName,
+            Long orgUnitId,
+            String orgUnitName,
+            DataScope dataScope,
+            Long scopeOrgUnitId
+    ) {
         this.id = id;
         this.username = username;
         this.roleCode = roleCode;
@@ -21,8 +36,10 @@ public class UserResult {
         this.status = status;
         this.employeeId = employeeId;
         this.fullName = fullName;
-        this.departmentId = departmentId;
-        this.departmentName = departmentName;
+        this.orgUnitId = orgUnitId;
+        this.orgUnitName = orgUnitName;
+        this.dataScope = dataScope;
+        this.scopeOrgUnitId = scopeOrgUnitId;
     }
 
     public Long getId() {
@@ -53,11 +70,19 @@ public class UserResult {
         return fullName;
     }
 
-    public Long getDepartmentId() {
-        return departmentId;
+    public Long getOrgUnitId() {
+        return orgUnitId;
     }
 
-    public String getDepartmentName() {
-        return departmentName;
+    public String getOrgUnitName() {
+        return orgUnitName;
+    }
+
+    public DataScope getDataScope() {
+        return dataScope;
+    }
+
+    public Long getScopeOrgUnitId() {
+        return scopeOrgUnitId;
     }
 }
