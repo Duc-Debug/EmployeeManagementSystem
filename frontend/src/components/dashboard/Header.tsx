@@ -7,7 +7,7 @@ const TOP_NAV = [
     "Trình nhắn tin",
     "Lịch",
     "Tài liệu",
-    "Bảng",
+    "Tác vụ của tôi",
     "Drive",
     "Webmail",
     "Nhóm làm việc",
