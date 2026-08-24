@@ -97,8 +97,11 @@ public class OrgUnitService implements
                 LocalDateTime.now(),
                 null);
         OrgUnit savedUnit = saveOrgUnitPort.save(newUnit);
+        String newValue = "unitCode=" + savedUnit.getUnitCode() + ";unitName=" + savedUnit.getUnitName()
+                + ";unitType=" + savedUnit.getUnitType() + ";parentId=" + (savedUnit.getParentId() != null ? savedUnit.getParentId().getValue() : null)
+                + ";managerId=" + savedUnit.getManagerId();
         saveAuditLogPort.save(
-                AuditLog.create(getCurrentUserId(), "CREATE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
+                AuditLog.createChange(getCurrentUserId(), "CREATE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), null, newValue));
         return toResult(savedUnit);
     }
 
@@ -111,10 +114,17 @@ public class OrgUnitService implements
         // Validate business reference: Manager must exist and be ACTIVE
         validateActiveManager(command.managerId());
 
+        String oldValue = "unitName=" + unit.getUnitName() + ";unitType=" + unit.getUnitType()
+                + ";managerId=" + unit.getManagerId() + ";description=" + unit.getDescription();
+
         unit.updateInfo(command.unitName(), command.unitType(), command.managerId(), command.description());
         OrgUnit savedUnit = saveOrgUnitPort.save(unit);
+
+        String newValue = "unitName=" + savedUnit.getUnitName() + ";unitType=" + savedUnit.getUnitType()
+                + ";managerId=" + savedUnit.getManagerId() + ";description=" + savedUnit.getDescription();
+
         saveAuditLogPort.save(
-                AuditLog.create(getCurrentUserId(), "UPDATE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
+                AuditLog.createChange(getCurrentUserId(), "UPDATE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), oldValue, newValue));
 
         return toResult(savedUnit);
     }
@@ -137,10 +147,13 @@ public class OrgUnitService implements
 
         String oldTreePath = unitToMove.getTreePath();
         int oldLevel = unitToMove.getLevel() != null ? unitToMove.getLevel() : 1;
+        Long oldParentId = unitToMove.getParentId() != null ? unitToMove.getParentId().getValue() : null;
 
         String newTreePath = newParent.getTreePath() + unitToMove.getId().getValue() + "/";
         int newLevel = newParent.getLevel() + 1;
         int levelDelta = newLevel - oldLevel;
+
+        String oldValue = "parentId=" + oldParentId + ";treePath=" + oldTreePath + ";level=" + oldLevel;
 
         // Cập nhật nút cha và đường dẫn của nút hiện tại
         unitToMove.changeParent(newParent.getId(), newTreePath, newLevel);
@@ -149,8 +162,10 @@ public class OrgUnitService implements
         // Bulk UPDATE 1 câu SQL duy nhất cho toàn bộ các nút con/cháu thuộc subtree
         saveOrgUnitPort.updateSubTreePaths(oldTreePath, newTreePath, levelDelta);
 
+        String newValue = "parentId=" + newParent.getId().getValue() + ";treePath=" + newTreePath + ";level=" + newLevel;
+
         saveAuditLogPort
-                .save(AuditLog.create(getCurrentUserId(), "MOVE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
+                .save(AuditLog.createChange(getCurrentUserId(), "MOVE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), oldValue, newValue));
         return toResult(savedUnit);
     }
 
@@ -160,6 +175,8 @@ public class OrgUnitService implements
                 .orElseThrow(
                         () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
 
+        String oldValue = "status=" + unit.getStatus() + ";treePath=" + unit.getTreePath();
+
         // 1. Deactivate nút cha được chọn
         unit.deactivate();
         OrgUnit savedUnit = saveOrgUnitPort.save(unit);
@@ -167,8 +184,10 @@ public class OrgUnitService implements
         // 2. Cascading Deactivation: Bulk UPDATE 1 câu SQL duy nhất vô hiệu hóa toàn bộ các nút con/cháu thuộc nhánh subtree này
         saveOrgUnitPort.deactivateSubTree(unit.getTreePath());
 
+        String newValue = "status=" + savedUnit.getStatus() + ";treePath=" + savedUnit.getTreePath();
+
         saveAuditLogPort.save(
-                AuditLog.create(getCurrentUserId(), "DEACTIVATE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
+                AuditLog.createChange(getCurrentUserId(), "DEACTIVATE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), oldValue, newValue));
         return toResult(savedUnit);
     }
 
