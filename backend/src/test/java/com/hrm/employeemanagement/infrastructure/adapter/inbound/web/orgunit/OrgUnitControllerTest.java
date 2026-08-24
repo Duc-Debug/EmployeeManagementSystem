@@ -147,10 +147,20 @@ class OrgUnitControllerTest {
 
         mockMvc.perform(put("/api/v1/org-units/9999")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"unitName\":\"New Name\",\"unitType\":\"DEPARTMENT\",\"description\":\"\"}"))
+                .content("{\"unitName\":\"New Name\",\"unitType\":\"DEPARTMENT\",\"managerId\":10,\"description\":\"\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ORG_UNIT_NOT_FOUND"))
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/org-units/{id} should return HTTP 400 Bad Request when managerId is missing")
+    void shouldReturn400BadRequestWhenUpdateManagerIdIsMissing() throws Exception {
+        mockMvc.perform(put("/api/v1/org-units/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"unitName\":\"New Name\",\"unitType\":\"DEPARTMENT\",\"description\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test
@@ -158,7 +168,7 @@ class OrgUnitControllerTest {
     void shouldReturn400BadRequestWhenPathVariableTypeMismatch() throws Exception {
         mockMvc.perform(put("/api/v1/org-units/abc")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"unitName\":\"Test\",\"unitType\":\"CENTER\"}"))
+                .content("{\"unitName\":\"Test\",\"unitType\":\"CENTER\",\"managerId\":10}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
     }
