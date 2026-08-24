@@ -1605,6 +1605,161 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("getUsers áp dụng DataScope mới ở request kế tiếp khi scope bị shrink từ COMPANY sang SELF")
+    void testGetUsers_ScopeShrinkCompanyToSelf_AppliesOnNextRequest() {
+        when(authorizationService.require(
+                PermissionCode.USER_READ
+        )).thenReturn(
+                ADMIN_ID,
+                ADMIN_ID
+        );
+
+        User currentUser = new User(
+                new UserId(ADMIN_ID),
+                "admin",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+
+        currentUser.changeDataScope(
+                DataScope.COMPANY,
+                null
+        );
+
+        User otherUser = new User(
+                new UserId(2L),
+                "user2",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        when(loadUserPort.findAll(0, 20))
+                .thenReturn(List.of(currentUser, otherUser));
+
+        when(loadUserPort.count())
+                .thenReturn(2L);
+
+        Employee currentEmployee = new Employee(
+                new EmployeeId(10L),
+                new UserId(ADMIN_ID),
+                5L,
+                "E-1",
+                "Admin",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        Employee otherEmployee = new Employee(
+                new EmployeeId(20L),
+                new UserId(2L),
+                6L,
+                "E-2",
+                "User Two",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(loadEmployeePort.findAllByUserIdIn(
+                List.of(
+                        new UserId(ADMIN_ID),
+                        new UserId(2L)
+                )
+        )).thenReturn(
+                List.of(
+                        currentEmployee,
+                        otherEmployee
+                )
+        );
+
+        when(loadEmployeePort.findAllByUserIdIn(
+                List.of(new UserId(ADMIN_ID))
+        )).thenReturn(List.of(currentEmployee));
+
+        when(loadOrgUnitPort.findAllByIdIn(List.of(5L, 6L)))
+                .thenReturn(
+                        List.of(
+                                activeOrgUnit(
+                                        5L,
+                                        "OU-05",
+                                        "Khối A"
+                                ),
+                                activeOrgUnit(
+                                        6L,
+                                        "OU-06",
+                                        "Khối B"
+                                )
+                        )
+                );
+
+        when(loadOrgUnitPort.findAllByIdIn(List.of(5L)))
+                .thenReturn(
+                        List.of(
+                                activeOrgUnit(
+                                        5L,
+                                        "OU-05",
+                                        "Khối A"
+                                )
+                        )
+                );
+
+        PageResult<UserResult> firstRequest =
+                userService.getUsers(0, 20);
+
+        assertEquals(
+                2,
+                firstRequest.getContent().size()
+        );
+
+        assertEquals(
+                2L,
+                firstRequest.getTotalElements()
+        );
+
+        currentUser.changeDataScope(
+                DataScope.SELF,
+                null
+        );
+
+        PageResult<UserResult> secondRequest =
+                userService.getUsers(0, 20);
+
+        assertEquals(
+                1,
+                secondRequest.getContent().size()
+        );
+
+        assertEquals(
+                1L,
+                secondRequest.getTotalElements()
+        );
+
+        assertEquals(
+                ADMIN_ID,
+                secondRequest.getContent()
+                        .get(0)
+                        .getId()
+        );
+
+        verify(authorizationService, times(2))
+                .require(PermissionCode.USER_READ);
+
+        verify(loadUserPort, times(1))
+                .findAll(0, 20);
+
+        verify(loadUserPort, times(1))
+                .count();
+    }
+
+    @Test
     @DisplayName("COMPANY đọc user khác thành công kèm resolve orgUnitName")
     void testGetUserById_CompanyScope_ReadsOtherUser() {
         when(authorizationService.require(
