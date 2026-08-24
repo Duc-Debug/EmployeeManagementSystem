@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
@@ -16,11 +17,14 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.Ap
 public class ProjectController {
 
     private final GetProjectListUseCase getProjectListUseCase;
+    private final GetProjectDetailUseCase getProjectDetailUseCase;
 
     public ProjectController(
-            GetProjectListUseCase getProjectListUseCase
+            GetProjectListUseCase getProjectListUseCase,
+            GetProjectDetailUseCase getProjectDetailUseCase
     ) {
         this.getProjectListUseCase = getProjectListUseCase;
+        this.getProjectDetailUseCase = getProjectDetailUseCase;
     }
 
     @GetMapping
@@ -38,6 +42,21 @@ public class ProjectController {
                 ApiResponse.success(
                         "Lay danh sach du an thanh cong",
                         projects
+                )
+        );
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProjectResult>> getProjectById(
+            @org.springframework.web.bind.annotation.PathVariable Long id
+    ) {
+        ProjectResult project =
+                getProjectDetailUseCase.getProjectById(id);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Lay thong tin du an thanh cong",
+                        project
                 )
         );
     }

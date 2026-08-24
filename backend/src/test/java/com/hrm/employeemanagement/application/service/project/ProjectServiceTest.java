@@ -20,16 +20,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
@@ -56,6 +59,9 @@ class ProjectServiceTest {
     private LoadEmployeePort loadEmployeePort;
 
     @Mock
+    private SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
+
+    @Mock
     private AuthorizationService authorizationService;
 
     private ProjectService projectService;
@@ -66,6 +72,7 @@ class ProjectServiceTest {
                 loadProjectPort,
                 loadUserPort,
                 loadEmployeePort,
+                saveDeniedAuditLogPort,
                 authorizationService
         );
     }
@@ -354,6 +361,281 @@ class ProjectServiceTest {
                 );
     }
 
+    @Test
+    @DisplayName("COMPANY xem detail project ton tai thanh cong")
+    void testGetProjectById_CompanyExisting_ReturnsProject() {
+        User currentUser =
+                currentUser(
+                        RoleCode.VT_06,
+                        DataScope.COMPANY,
+                        null
+                );
+
+        Project project =
+                project(
+                        101L,
+                        "P-101",
+                        5L,
+                        200L
+                );
+
+        stubCurrentUser(currentUser);
+
+        when(loadProjectPort.findById(new ProjectId(101L)))
+                .thenReturn(Optional.of(project));
+
+        ProjectResult result =
+                projectService.getProjectById(101L);
+
+        assertEquals(101L, result.getId());
+        assertEquals("P-101", result.getProjectCode());
+
+        verify(loadProjectPort, never())
+                .existsInOrgUnitBranch(
+                        any(Long.class),
+                        any(Long.class)
+                );
+    }
+
+    @Test
+    @DisplayName("BRANCH xem detail project trong nhanh thanh cong")
+    void testGetProjectById_BranchInside_ReturnsProject() {
+        User currentUser =
+                currentUser(
+                        RoleCode.VT_02,
+                        DataScope.ORGANIZATION_BRANCH,
+                        5L
+                );
+
+        Project project =
+                project(
+                        102L,
+                        "P-102",
+                        8L,
+                        200L
+                );
+
+        stubCurrentUser(currentUser);
+
+        when(loadProjectPort.existsInOrgUnitBranch(102L, 5L))
+                .thenReturn(true);
+
+        when(loadProjectPort.findById(new ProjectId(102L)))
+                .thenReturn(Optional.of(project));
+
+        ProjectResult result =
+                projectService.getProjectById(102L);
+
+        assertEquals(102L, result.getId());
+
+        verify(saveDeniedAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("BRANCH xem detail project ngoai nhanh bi 403 va ghi denied audit")
+    void testGetProjectById_BranchOutside_ThrowsPermissionDeniedAndAudits() {
+        User currentUser =
+                currentUser(
+                        RoleCode.VT_02,
+                        DataScope.ORGANIZATION_BRANCH,
+                        5L
+                );
+
+        stubCurrentUser(currentUser);
+
+        when(loadProjectPort.existsInOrgUnitBranch(103L, 5L))
+                .thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> projectService.getProjectById(103L)
+        );
+
+        verify(loadProjectPort, never())
+                .findById(new ProjectId(103L));
+
+        verify(saveDeniedAuditLogPort)
+                .save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("SELF VT-02 xem project minh quan ly thanh cong")
+    void testGetProjectById_SelfProjectManagerManaged_ReturnsProject() {
+        User currentUser =
+                currentUser(
+                        RoleCode.VT_02,
+                        DataScope.SELF,
+                        null
+                );
+
+        Project project =
+                project(
+                        104L,
+                        "P-104",
+                        5L,
+                        CURRENT_EMPLOYEE_ID
+                );
+
+        stubCurrentUser(currentUser);
+        stubCurrentEmployee();
+
+        when(loadProjectPort.existsManagedBy(104L, CURRENT_EMPLOYEE_ID))
+                .thenReturn(true);
+
+        when(loadProjectPort.findById(new ProjectId(104L)))
+                .thenReturn(Optional.of(project));
+
+        ProjectResult result =
+                projectService.getProjectById(104L);
+
+        assertEquals(104L, result.getId());
+
+        verify(loadProjectPort, never())
+                .existsMember(
+                        any(Long.class),
+                        any(Long.class)
+                );
+    }
+
+    @Test
+    @DisplayName("SELF VT-02 xem project cua nguoi khac bi 403")
+    void testGetProjectById_SelfProjectManagerOtherProject_ThrowsPermissionDeniedException() {
+        User currentUser =
+                currentUser(
+                        RoleCode.VT_02,
+                        DataScope.SELF,
+                        null
+                );
+
+        stubCurrentUser(currentUser);
+        stubCurrentEmployee();
+
+        when(loadProjectPort.existsManagedBy(105L, CURRENT_EMPLOYEE_ID))
+                .thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> projectService.getProjectById(105L)
+        );
+
+        verify(loadProjectPort, never())
+                .findById(new ProjectId(105L));
+
+        verify(saveDeniedAuditLogPort)
+                .save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("SELF VT-04 xem project minh la member thanh cong")
+    void testGetProjectById_SelfDeveloperMember_ReturnsProject() {
+        User currentUser =
+                currentUser(
+                        RoleCode.VT_04,
+                        DataScope.SELF,
+                        null
+                );
+
+        Project project =
+                project(
+                        106L,
+                        "P-106",
+                        5L,
+                        200L
+                );
+
+        stubCurrentUser(currentUser);
+        stubCurrentEmployee();
+
+        when(loadProjectPort.existsMember(106L, CURRENT_EMPLOYEE_ID))
+                .thenReturn(true);
+
+        when(loadProjectPort.findById(new ProjectId(106L)))
+                .thenReturn(Optional.of(project));
+
+        ProjectResult result =
+                projectService.getProjectById(106L);
+
+        assertEquals(106L, result.getId());
+
+        verify(loadProjectPort, never())
+                .existsManagedBy(
+                        any(Long.class),
+                        any(Long.class)
+                );
+    }
+
+    @Test
+    @DisplayName("SELF VT-04 xem project khong phai member bi 403")
+    void testGetProjectById_SelfDeveloperNonMember_ThrowsPermissionDeniedException() {
+        User currentUser =
+                currentUser(
+                        RoleCode.VT_04,
+                        DataScope.SELF,
+                        null
+                );
+
+        stubCurrentUser(currentUser);
+        stubCurrentEmployee();
+
+        when(loadProjectPort.existsMember(107L, CURRENT_EMPLOYEE_ID))
+                .thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> projectService.getProjectById(107L)
+        );
+
+        verify(loadProjectPort, never())
+                .findById(new ProjectId(107L));
+
+        verify(saveDeniedAuditLogPort)
+                .save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Thieu PROJECT_READ khi xem detail thi bi 403 truoc khi load current user")
+    void testGetProjectById_NoProjectRead_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(PermissionCode.PROJECT_READ))
+                .thenThrow(
+                        new PermissionDeniedException(
+                                PermissionCode.PROJECT_READ
+                        )
+                );
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> projectService.getProjectById(108L)
+        );
+
+        verify(loadUserPort, never())
+                .findById(any());
+
+        verify(saveDeniedAuditLogPort, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName("COMPANY xem detail project khong ton tai thi 404")
+    void testGetProjectById_CompanyMissing_ThrowsProjectNotFoundException() {
+        User currentUser =
+                currentUser(
+                        RoleCode.VT_06,
+                        DataScope.COMPANY,
+                        null
+                );
+
+        stubCurrentUser(currentUser);
+
+        when(loadProjectPort.findById(new ProjectId(999L)))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ProjectNotFoundException.class,
+                () -> projectService.getProjectById(999L)
+        );
+    }
+
     private User currentUser(
             RoleCode roleCode,
             DataScope dataScope,
@@ -379,6 +661,19 @@ class ProjectServiceTest {
         );
 
         return user;
+    }
+
+    private void stubCurrentUser(User currentUser) {
+        when(authorizationService.require(PermissionCode.PROJECT_READ))
+                .thenReturn(CURRENT_USER_ID);
+
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID)))
+                .thenReturn(Optional.of(currentUser));
+    }
+
+    private void stubCurrentEmployee() {
+        when(loadEmployeePort.findByUserId(new UserId(CURRENT_USER_ID)))
+                .thenReturn(Optional.of(currentEmployee()));
     }
 
     private Employee currentEmployee() {

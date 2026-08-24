@@ -22,9 +22,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,11 +37,15 @@ class ProjectControllerTest {
     @Mock
     private GetProjectListUseCase getProjectListUseCase;
 
+    @Mock
+    private GetProjectDetailUseCase getProjectDetailUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectController controller =
                 new ProjectController(
-                        getProjectListUseCase
+                        getProjectListUseCase,
+                        getProjectDetailUseCase
                 );
 
         mockMvc = MockMvcBuilders
@@ -109,5 +115,80 @@ class ProjectControllerTest {
                 .andExpect(jsonPath("$.message").value(
                         containsString("PROJECT_READ")
                 ));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/projects/{id} tra ve detail project")
+    void testGetProjectById_ReturnsProject()
+            throws Exception {
+        ProjectResult project =
+                projectResult(7L);
+
+        when(getProjectDetailUseCase.getProjectById(7L))
+                .thenReturn(project);
+
+        mockMvc.perform(
+                        get("/api/v1/projects/7")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(7))
+                .andExpect(jsonPath("$.data.projectCode").value("P-07"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/projects/{id} tra ve 403 khi ngoai data scope")
+    void testGetProjectById_OutsideScope_Returns403()
+            throws Exception {
+        when(getProjectDetailUseCase.getProjectById(8L))
+                .thenThrow(
+                        new PermissionDeniedException(
+                                PermissionCode.PROJECT_READ
+                        )
+                );
+
+        mockMvc.perform(
+                        get("/api/v1/projects/8")
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(
+                        containsString("PROJECT_READ")
+                ));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/projects/{id} tra ve 404 khi project khong ton tai")
+    void testGetProjectById_NotFound_Returns404()
+            throws Exception {
+        when(getProjectDetailUseCase.getProjectById(999L))
+                .thenThrow(
+                        new ProjectNotFoundException(
+                                "Khong tim thay du an voi ID: 999"
+                        )
+                );
+
+        mockMvc.perform(
+                        get("/api/v1/projects/999")
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(
+                        containsString("999")
+                ));
+    }
+
+    private ProjectResult projectResult(Long id) {
+        return new ProjectResult(
+                id,
+                "P-0" + id,
+                "Project " + id,
+                5L,
+                100L,
+                ProjectStatus.ACTIVE,
+                10L,
+                LocalDateTime.now(),
+                null
+        );
     }
 }

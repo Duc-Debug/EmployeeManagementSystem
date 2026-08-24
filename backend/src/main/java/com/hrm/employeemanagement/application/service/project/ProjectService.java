@@ -5,32 +5,41 @@ import java.util.Objects;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
+import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
-public class ProjectService implements GetProjectListUseCase {
+public class ProjectService implements
+        GetProjectListUseCase,
+        GetProjectDetailUseCase {
 
     private final LoadProjectPort loadProjectPort;
     private final LoadUserPort loadUserPort;
     private final LoadEmployeePort loadEmployeePort;
+    private final SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
     private final AuthorizationService authorizationService;
 
     public ProjectService(
             LoadProjectPort loadProjectPort,
             LoadUserPort loadUserPort,
             LoadEmployeePort loadEmployeePort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService
     ) {
         this.loadProjectPort = Objects.requireNonNull(
@@ -45,10 +54,53 @@ public class ProjectService implements GetProjectListUseCase {
                 loadEmployeePort,
                 "LoadEmployeePort must not be null"
         );
+        this.saveDeniedAuditLogPort = Objects.requireNonNull(
+                saveDeniedAuditLogPort,
+                "SaveAuditLogInNewTransactionPort must not be null"
+        );
         this.authorizationService = Objects.requireNonNull(
                 authorizationService,
                 "AuthorizationService must not be null"
         );
+    }
+
+    @Override
+    public ProjectResult getProjectById(Long projectId) {
+        Long currentUserId = authorizationService.require(
+                PermissionCode.PROJECT_READ
+        );
+
+        User currentUser =
+                loadCurrentUserOrThrow(currentUserId);
+
+        if (!canAccessProject(
+                currentUser,
+                currentUserId,
+                projectId
+        )) {
+            saveDeniedAudit(
+                    currentUserId,
+                    currentUser,
+                    projectId
+            );
+
+            throw new PermissionDeniedException(
+                    PermissionCode.PROJECT_READ
+            );
+        }
+
+        Project project = loadProjectPort
+                .findById(
+                        new ProjectId(projectId)
+                )
+                .orElseThrow(() ->
+                        new ProjectNotFoundException(
+                                "Khong tim thay du an voi ID: "
+                                        + projectId
+                        )
+                );
+
+        return mapToProjectResult(project);
     }
 
     @Override
@@ -166,6 +218,55 @@ public class ProjectService implements GetProjectListUseCase {
         };
     }
 
+    private boolean canAccessProject(
+            User currentUser,
+            Long currentUserId,
+            Long projectId
+    ) {
+        return switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case ORGANIZATION_BRANCH ->
+                    loadProjectPort.existsInOrgUnitBranch(
+                            projectId,
+                            currentUser.getScopeOrgUnitId()
+                    );
+            case SELF -> canAccessSelfProject(
+                    currentUser,
+                    currentUserId,
+                    projectId
+            );
+        };
+    }
+
+    private boolean canAccessSelfProject(
+            User currentUser,
+            Long currentUserId,
+            Long projectId
+    ) {
+        Long employeeId = loadEmployeePort
+                .findByUserId(
+                        new UserId(currentUserId)
+                )
+                .map(Employee::getIdValue)
+                .orElse(null);
+
+        if (employeeId == null) {
+            return false;
+        }
+
+        return switch (currentUser.getRole().getCode()) {
+            case VT_02 -> loadProjectPort.existsManagedBy(
+                    projectId,
+                    employeeId
+            );
+            case VT_04 -> loadProjectPort.existsMember(
+                    projectId,
+                    employeeId
+            );
+            default -> false;
+        };
+    }
+
     private Long loadCurrentEmployeeIdOrDeny(Long currentUserId) {
         return loadEmployeePort
                 .findByUserId(
@@ -177,6 +278,30 @@ public class ProjectService implements GetProjectListUseCase {
                                 PermissionCode.PROJECT_READ
                         )
                 );
+    }
+
+    private void saveDeniedAudit(
+            Long currentUserId,
+            User currentUser,
+            Long projectId
+    ) {
+        saveDeniedAuditLogPort.save(
+                AuditLog.createChange(
+                        currentUserId,
+                        "PROJECT_ACCESS_DENIED",
+                        "projects",
+                        projectId,
+                        null,
+                        deniedAuditDetails(currentUser)
+                )
+        );
+    }
+
+    private String deniedAuditDetails(User currentUser) {
+        return "permission=PROJECT_READ"
+                + ";dataScope=" + currentUser.getDataScope()
+                + ";scopeOrgUnitId=" + currentUser.getScopeOrgUnitId()
+                + ";reason=OUTSIDE_DATA_SCOPE";
     }
 
     private User loadCurrentUserOrThrow(Long currentUserId) {

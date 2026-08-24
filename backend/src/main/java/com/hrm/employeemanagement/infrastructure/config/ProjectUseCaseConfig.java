@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.infrastructure.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -18,6 +19,7 @@ public class ProjectUseCaseConfig {
             LoadProjectPort loadProjectPort,
             LoadUserPort loadUserPort,
             LoadEmployeePort loadEmployeePort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService
     ) {
         ProjectService pureJavaProjectService =
@@ -25,6 +27,7 @@ public class ProjectUseCaseConfig {
                         loadProjectPort,
                         loadUserPort,
                         loadEmployeePort,
+                        saveDeniedAuditLogPort,
                         authorizationService
                 );
 
