@@ -22,17 +22,22 @@ public class User {
     private EmployeeId employeeId;
     private String email;
     private Instant passwordChangedAt;
+    private Integer tokenVersion;
     private Long version;
 
     public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId) {
-        this(id, username, passwordHash, role, status, employeeId, null, null, null);
+        this(id, username, passwordHash, role, status, employeeId, null, null, 1, null);
     }
 
     public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, Long version) {
-        this(id, username, passwordHash, role, status, employeeId, null, null, version);
+        this(id, username, passwordHash, role, status, employeeId, null, null, 1, version);
     }
 
     public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, String email, Instant passwordChangedAt, Long version) {
+        this(id, username, passwordHash, role, status, employeeId, email, passwordChangedAt, 1, version);
+    }
+
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, String email, Instant passwordChangedAt, Integer tokenVersion, Long version) {
         this.id = id;
         this.username = Objects.requireNonNull(username, "Username không được null");
         this.passwordHash = Objects.requireNonNull(passwordHash, "PasswordHash không được null");
@@ -41,16 +46,18 @@ public class User {
         this.employeeId = employeeId;
         this.email = email;
         this.passwordChangedAt = passwordChangedAt;
+        this.tokenVersion = tokenVersion != null ? tokenVersion : 1;
         this.version = version;
     }
 
     public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId) {
-        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId, username + "@company.com", null, null);
+        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId, username + "@company.com", null, 1, null);
     }
 
     public void updatePassword(String newPasswordHash, Instant now) {
         this.passwordHash = Objects.requireNonNull(newPasswordHash, "PasswordHash mới không được null");
         this.passwordChangedAt = Objects.requireNonNull(now, "Thời gian thay đổi không được null");
+        this.tokenVersion = (this.tokenVersion != null ? this.tokenVersion : 1) + 1;
     }
 
     public void lock(UserId currentAdminId, long activeAdminCount) {
@@ -130,6 +137,14 @@ public class User {
 
     public Instant getPasswordChangedAt() {
         return passwordChangedAt;
+    }
+
+    public Integer getTokenVersion() {
+        return tokenVersion != null ? tokenVersion : 1;
+    }
+
+    public void setTokenVersion(Integer tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 
     public Long getVersion() {

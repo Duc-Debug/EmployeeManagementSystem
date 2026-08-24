@@ -26,16 +26,24 @@ public class PasswordResetTokenJpaEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Version
+    private Long version;
+
     public PasswordResetTokenJpaEntity() {
     }
 
     public PasswordResetTokenJpaEntity(Long id, Long userId, String tokenHash, Instant expiryDate, Boolean used, Instant createdAt) {
+        this(id, userId, tokenHash, expiryDate, used, createdAt, null);
+    }
+
+    public PasswordResetTokenJpaEntity(Long id, Long userId, String tokenHash, Instant expiryDate, Boolean used, Instant createdAt, Long version) {
         this.id = id;
         this.userId = userId;
         this.tokenHash = tokenHash;
         this.expiryDate = expiryDate;
         this.used = used != null ? used : false;
         this.createdAt = createdAt != null ? createdAt : Instant.now();
+        this.version = version;
     }
 
     public Long getId() {
@@ -84,5 +92,13 @@ public class PasswordResetTokenJpaEntity {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }

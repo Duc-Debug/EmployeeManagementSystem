@@ -43,7 +43,7 @@ public class PasswordResetTokenRepositoryAdapter implements LoadPasswordResetTok
 
     @Override
     public Optional<PasswordResetToken> findByTokenHash(String tokenHash) {
-        return repository.findByTokenHash(tokenHash)
+        return repository.findByTokenHashWithLock(tokenHash)
                 .map(this::toDomain);
     }
 

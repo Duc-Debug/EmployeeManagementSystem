@@ -17,6 +17,9 @@ import com.hrm.employeemanagement.domain.user.PasswordResetToken;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -93,18 +96,19 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
             // Invalidate all previous active password reset tokens for this user
             savePasswordResetTokenPort.invalidateActiveTokensByUserId(user.getId());
 
-            String tokenString = UUID.randomUUID().toString().replace("-", "");
+            String rawTokenString = UUID.randomUUID().toString().replace("-", "");
+            String hashedToken = hashToken(rawTokenString);
             
             PasswordResetToken resetToken = PasswordResetToken.createNew(
                     user.getId(),
-                    tokenString,
+                    hashedToken,
                     RESET_TOKEN_VALIDITY_MINUTES
             );
             savePasswordResetTokenPort.save(resetToken);
 
             // Send simulated email only if explicit email address is present on the user profile
             if (user.getEmail() != null && !user.getEmail().isBlank()) {
-                simulatedEmailPort.sendPasswordResetEmail(user.getEmail(), user.getUsername(), tokenString, RESET_TOKEN_VALIDITY_MINUTES);
+                simulatedEmailPort.sendPasswordResetEmail(user.getEmail(), user.getUsername(), rawTokenString, RESET_TOKEN_VALIDITY_MINUTES);
             }
 
             saveAuditLogPort.save(AuditLog.create(user.getIdValue(), "REQUEST_PASSWORD_RESET", "password_reset_tokens", resetToken.getId()));
@@ -118,7 +122,8 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
         }
         validatePasswordPair(command.newPassword(), command.confirmPassword());
 
-        PasswordResetToken resetToken = loadPasswordResetTokenPort.findByTokenHash(command.token().trim())
+        String hashedToken = hashToken(command.token().trim());
+        PasswordResetToken resetToken = loadPasswordResetTokenPort.findByTokenHash(hashedToken)
                 .orElseThrow(() -> new InvalidResetTokenException("Mã khôi phục mật khẩu không hợp lệ hoặc không tồn tại"));
 
         Instant now = Instant.now();
@@ -145,6 +150,25 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
         }
         if (!newPassword.equals(confirmPassword)) {
             throw new InvalidPasswordException("Mật khẩu mới và mật khẩu xác nhận không trùng khớp");
+        }
+    }
+
+    public static String hashToken(String rawToken) {
+        if (rawToken == null) return null;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(rawToken.trim().getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder(2 * hashBytes.length);
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
     }
 }

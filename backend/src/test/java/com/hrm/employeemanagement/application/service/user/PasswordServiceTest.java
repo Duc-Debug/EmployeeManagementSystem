@@ -133,10 +133,12 @@ class PasswordServiceTest {
 
     @Test
     void resetPassword_validToken_success() {
-        PasswordResetToken token = new PasswordResetToken(1L, new UserId(10L), "valid_token", Instant.now().plusSeconds(900), false, Instant.now());
-        ResetPasswordCommand command = new ResetPasswordCommand("valid_token", "NewPass123", "NewPass123");
+        String rawToken = "valid_token";
+        String hashedToken = PasswordService.hashToken(rawToken);
+        PasswordResetToken token = new PasswordResetToken(1L, new UserId(10L), hashedToken, Instant.now().plusSeconds(900), false, Instant.now());
+        ResetPasswordCommand command = new ResetPasswordCommand(rawToken, "NewPass123", "NewPass123");
 
-        when(loadPasswordResetTokenPort.findByTokenHash("valid_token")).thenReturn(Optional.of(token));
+        when(loadPasswordResetTokenPort.findByTokenHash(hashedToken)).thenReturn(Optional.of(token));
         when(loadUserPort.findById(new UserId(10L))).thenReturn(Optional.of(testUser));
         when(passwordEncoder.encode("NewPass123")).thenReturn("new_hash");
 
@@ -151,10 +153,12 @@ class PasswordServiceTest {
 
     @Test
     void resetPassword_expiredToken_throwsException() {
-        PasswordResetToken expiredToken = new PasswordResetToken(1L, new UserId(10L), "expired_token", Instant.now().minusSeconds(10), false, Instant.now().minusSeconds(1000));
-        ResetPasswordCommand command = new ResetPasswordCommand("expired_token", "NewPass123", "NewPass123");
+        String rawToken = "expired_token";
+        String hashedToken = PasswordService.hashToken(rawToken);
+        PasswordResetToken expiredToken = new PasswordResetToken(1L, new UserId(10L), hashedToken, Instant.now().minusSeconds(10), false, Instant.now().minusSeconds(1000));
+        ResetPasswordCommand command = new ResetPasswordCommand(rawToken, "NewPass123", "NewPass123");
 
-        when(loadPasswordResetTokenPort.findByTokenHash("expired_token")).thenReturn(Optional.of(expiredToken));
+        when(loadPasswordResetTokenPort.findByTokenHash(hashedToken)).thenReturn(Optional.of(expiredToken));
 
         assertThrows(InvalidResetTokenException.class, () -> passwordService.resetPassword(command));
     }

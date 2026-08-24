@@ -3,15 +3,17 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.email;
 import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 
 /**
  * Infrastructure Adapter for Simulated Email Service.
- * Logs simulated outgoing emails clearly to System Console / Logs for manual inspection and verification.
+ * Restricted to dev/local/test profiles to prevent credential logging in production.
  */
 @Component
+@Profile({"dev", "local", "test", "default"})
 public class ConsoleSimulatedEmailAdapter implements SimulatedEmailPort {
 
     private static final Logger log = LoggerFactory.getLogger(ConsoleSimulatedEmailAdapter.class);

@@ -54,15 +54,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (userOpt.isPresent() && userOpt.get().isActive()) {
                     User user = userOpt.get();
 
-                    // Session Invalidation Check: Check if password was changed after token issuance
-                    Date tokenIssuedAt = tokenProvider.getIssuedAtFromToken(jwt);
-                    if (user.getPasswordChangedAt() != null && tokenIssuedAt != null) {
-                        long passwordChangedEpochSec = user.getPasswordChangedAt().getEpochSecond();
-                        long tokenIssuedEpochSec = tokenIssuedAt.getTime() / 1000;
-                        if (tokenIssuedEpochSec < passwordChangedEpochSec) {
+                    // Session Invalidation Check: Deterministic tokenVersion check
+                    Integer jwtTokenVersion = tokenProvider.getTokenVersionFromToken(jwt);
+                    if (jwtTokenVersion != null) {
+                        if (!jwtTokenVersion.equals(user.getTokenVersion())) {
                             userStatusCache.evict(username);
                             filterChain.doFilter(request, response);
                             return;
+                        }
+                    } else {
+                        Date tokenIssuedAt = tokenProvider.getIssuedAtFromToken(jwt);
+                        if (user.getPasswordChangedAt() != null && tokenIssuedAt != null) {
+                            long passwordChangedEpochSec = user.getPasswordChangedAt().getEpochSecond();
+                            long tokenIssuedEpochSec = tokenIssuedAt.getTime() / 1000;
+                            if (tokenIssuedEpochSec < passwordChangedEpochSec) {
+                                userStatusCache.evict(username);
+                                filterChain.doFilter(request, response);
+                                return;
+                            }
                         }
                     }
 

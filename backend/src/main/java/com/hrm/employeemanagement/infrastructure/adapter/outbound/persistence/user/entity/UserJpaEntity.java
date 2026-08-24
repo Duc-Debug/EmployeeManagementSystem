@@ -30,6 +30,9 @@ public class UserJpaEntity {
     @Column(name = "password_changed_at")
     private Instant passwordChangedAt;
 
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion;
+
     @Version
     private Long version;
 
@@ -37,14 +40,18 @@ public class UserJpaEntity {
     }
 
     public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive) {
-        this(id, username, passwordHash, role, isActive, null, null, null);
+        this(id, username, passwordHash, role, isActive, null, null, 1, null);
     }
 
     public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive, Long version) {
-        this(id, username, passwordHash, role, isActive, null, null, version);
+        this(id, username, passwordHash, role, isActive, null, null, 1, version);
     }
 
     public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive, String email, Instant passwordChangedAt, Long version) {
+        this(id, username, passwordHash, role, isActive, email, passwordChangedAt, 1, version);
+    }
+
+    public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive, String email, Instant passwordChangedAt, Integer tokenVersion, Long version) {
         this.id = id;
         this.username = username;
         this.passwordHash = passwordHash;
@@ -52,6 +59,7 @@ public class UserJpaEntity {
         this.isActive = isActive;
         this.email = email;
         this.passwordChangedAt = passwordChangedAt;
+        this.tokenVersion = tokenVersion != null ? tokenVersion : 1;
         this.version = version;
     }
 
@@ -109,6 +117,14 @@ public class UserJpaEntity {
 
     public void setPasswordChangedAt(Instant passwordChangedAt) {
         this.passwordChangedAt = passwordChangedAt;
+    }
+
+    public Integer getTokenVersion() {
+        return tokenVersion != null ? tokenVersion : 1;
+    }
+
+    public void setTokenVersion(Integer tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 
     public Long getVersion() {
