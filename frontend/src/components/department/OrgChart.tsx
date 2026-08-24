@@ -9,7 +9,6 @@ import {
     User,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-
 interface CardData {
     badge: string;
     badgeBg: string;
@@ -24,7 +23,6 @@ interface CardData {
     iconColor: string;
     isDark?: boolean;
 }
-
 const BOARD_CARD: CardData = {
     badge: "CẤP CAO NHẤT",
     badgeBg: "bg-indigo-900/80",
@@ -39,7 +37,6 @@ const BOARD_CARD: CardData = {
     iconColor: "text-amber-400",
     isDark: true,
 };
-
 const LEFT_BRANCH: CardData[] = [
     {
         badge: "Quản Lý Vận Hành",
@@ -68,7 +65,6 @@ const LEFT_BRANCH: CardData[] = [
         iconColor: "text-emerald-600",
     },
 ];
-
 const RIGHT_BRANCH: CardData[] = [
     {
         badge: "Quản Lý Nguồn Lực",
@@ -123,7 +119,6 @@ const RIGHT_BRANCH: CardData[] = [
         iconColor: "text-slate-500",
     },
 ];
-
 export default function OrgChart() {
     return (
         <div className="w-full h-full p-8 md:p-12 overflow-x-auto overflow-y-auto flex justify-center items-start font-sans antialiased">
@@ -133,8 +128,6 @@ export default function OrgChart() {
                 <div className="relative z-10">
                     <TreeCard card={BOARD_CARD} />
                 </div>
-
-                {/* SVG ĐƯỜNG NỐI RẼ NHÁNH VUÔNG GÓC */}
                 <div className="relative w-full h-[60px]">
                     <svg className="pointer-events-none absolute inset-0 w-full h-full overflow-visible">
                         <line x1="50%" y1="0" x2="50%" y2="30" stroke="#cbd5e1" strokeWidth="2" />
@@ -143,7 +136,6 @@ export default function OrgChart() {
                         <line x1="75%" y1="30" x2="75%" y2="60" stroke="#cbd5e1" strokeWidth="2" />
                     </svg>
                 </div>
-
                 {/* ---------------- TẦNG 2 TRỞ XUỐNG ---------------- */}
                 <div className="grid grid-cols-2 gap-16 w-full max-w-[760px]">
                     <div className="flex flex-col items-center">
@@ -156,7 +148,6 @@ export default function OrgChart() {
                             </React.Fragment>
                         ))}
                     </div>
-
                     <div className="flex flex-col items-center">
                         {RIGHT_BRANCH.map((card, idx) => (
                             <React.Fragment key={idx}>
@@ -173,10 +164,8 @@ export default function OrgChart() {
         </div>
     );
 }
-
 function TreeCard({ card }: { card: CardData }) {
     const Icon = card.icon;
-
     if (card.isDark) {
         return (
             <div className={`w-[320px] rounded-3xl ${card.cardBg} border ${card.borderColor} p-5 text-white shadow-xl relative transition-all duration-300 hover:shadow-2xl`}>
@@ -195,7 +184,6 @@ function TreeCard({ card }: { card: CardData }) {
             </div>
         );
     }
-
     return (
         <div className={`w-[320px] rounded-3xl ${card.cardBg} border-2 ${card.borderColor} p-5 text-slate-900 shadow-sm relative transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
             <div className="flex items-center justify-between mb-3">
