@@ -4,10 +4,14 @@ import com.hrm.employeemanagement.application.dto.orgunit.*;
 import com.hrm.employeemanagement.application.port.inbound.orgunit.*;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.SaveOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.*;
 import com.hrm.employeemanagement.domain.policy.orgunit.OrgUnitTreePolicy;
+
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -20,11 +24,20 @@ public class OrgUnitService implements
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final SaveOrgUnitPort saveOrgUnitPort;
     private final OrgUnitTreePolicy orgUnitTreePolicy;
+    private final SaveAuditLogPort saveAuditLogPort;
+    private final CurrentUserPort currentUserPort;
 
-    public OrgUnitService(LoadOrgUnitPort loadOrgUnitPort, SaveOrgUnitPort saveOrgUnitPort) {
+    public OrgUnitService(LoadOrgUnitPort loadOrgUnitPort, SaveOrgUnitPort saveOrgUnitPort,
+            SaveAuditLogPort saveAuditLogPort, CurrentUserPort currentUserPort) {
         this.loadOrgUnitPort = loadOrgUnitPort;
         this.saveOrgUnitPort = saveOrgUnitPort;
         this.orgUnitTreePolicy = new OrgUnitTreePolicy();
+        this.saveAuditLogPort = saveAuditLogPort;
+        this.currentUserPort = currentUserPort;
+    }
+
+    private Long getCurrentUserId() {
+        return currentUserPort != null ? currentUserPort.getCurrentUserId().orElse(null) : null;
     }
 
     @Override
@@ -45,7 +58,7 @@ public class OrgUnitService implements
             parentTreePath = parent.getTreePath();
             level = parent.getLevel() + 1;
         }
-         OrgUnit newUnit = new OrgUnit(
+        OrgUnit newUnit = new OrgUnit(
                 null,
                 command.unitCode(),
                 command.unitName(),
@@ -55,11 +68,12 @@ public class OrgUnitService implements
                 level,
                 OrgUnitStatus.ACTIVE,
                 command.description(),
-                null,
+                command.managerId(),
                 LocalDateTime.now(),
-                null
-        );
+                null);
         OrgUnit savedUnit = saveOrgUnitPort.save(newUnit);
+        saveAuditLogPort.save(
+                AuditLog.create(getCurrentUserId(), "CREATE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
         return toResult(savedUnit);
     }
 
@@ -68,18 +82,23 @@ public class OrgUnitService implements
         OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
                 .orElseThrow(
                         () -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
-        unit.updateInfo(command.unitName(), command.unitType(), command.description());
+        unit.updateInfo(command.unitName(), command.unitType(), command.managerId(), command.description());
         OrgUnit savedUnit = saveOrgUnitPort.save(unit);
+        saveAuditLogPort.save(
+                AuditLog.create(getCurrentUserId(), "UPDATE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
+
         return toResult(savedUnit);
     }
 
-        @Override
+    @Override
     public OrgUnitResult execute(MoveOrgUnitCommand command) {
         OrgUnit unitToMove = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
-                .orElseThrow(() -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
+                .orElseThrow(
+                        () -> new OrgUnitNotFoundException("Organizational unit not found with ID: " + command.id()));
 
         OrgUnit newParent = loadOrgUnitPort.findById(new OrgUnitId(command.newParentId()))
-                .orElseThrow(() -> new OrgUnitNotFoundException("New parent unit not found with ID: " + command.newParentId()));
+                .orElseThrow(() -> new OrgUnitNotFoundException(
+                        "New parent unit not found with ID: " + command.newParentId()));
 
         // BR-ORG-04: Active parent validation
         orgUnitTreePolicy.validateActiveParent(newParent);
@@ -92,7 +111,7 @@ public class OrgUnitService implements
 
         String newTreePath = newParent.getTreePath() + unitToMove.getId().getValue() + "/";
         int newLevel = newParent.getLevel() + 1;
-        int levelDelta = newLevel - oldLevel; // ✅ Lưu lại levelDelta chuẩn xác trước khi mutate
+        int levelDelta = newLevel - oldLevel;
 
         // Mutate nút hiện tại
         unitToMove.changeParent(newParent.getId(), newTreePath, newLevel);
@@ -103,12 +122,13 @@ public class OrgUnitService implements
         for (OrgUnit child : childUnits) {
             if (!child.getId().equals(unitToMove.getId())) {
                 String updatedChildPath = child.getTreePath().replace(oldTreePath, newTreePath);
-                int updatedChildLevel = child.getLevel() + levelDelta; 
+                int updatedChildLevel = child.getLevel() + levelDelta;
                 child.changeParent(child.getParentId(), updatedChildPath, updatedChildLevel);
                 saveOrgUnitPort.save(child);
             }
         }
-
+        saveAuditLogPort
+                .save(AuditLog.create(getCurrentUserId(), "MOVE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
         return toResult(savedUnit);
     }
 
@@ -131,7 +151,8 @@ public class OrgUnitService implements
                 saveOrgUnitPort.save(child);
             }
         }
-
+        saveAuditLogPort.save(
+                AuditLog.create(getCurrentUserId(), "DEACTIVATE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
         return toResult(savedUnit);
     }
 
