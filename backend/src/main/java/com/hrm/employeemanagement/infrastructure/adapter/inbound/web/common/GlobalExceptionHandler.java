@@ -4,6 +4,7 @@ import com.hrm.employeemanagement.domain.exception.DomainException;
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
 import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
@@ -119,7 +120,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 9. Handle ConstraintViolationException (@PathVariable / @RequestParam validation in @Validated Controllers)
+    // 9. Handle ConstraintViolationException (@PathVariable / @RequestParam
+    // validation in @Validated Controllers)
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -129,7 +131,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 10. Handle HandlerMethodValidationException (Spring Boot 3.2+ method parameter validation)
+    // 10. Handle HandlerMethodValidationException (Spring Boot 3.2+ method
+    // parameter validation)
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ErrorResponse> handleHandlerMethodValidation(HandlerMethodValidationException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -139,7 +142,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 11. Handle MethodArgumentTypeMismatchException (e.g. GET /org-units/abc where id expects Long)
+    // 11. Handle MethodArgumentTypeMismatchException (e.g. GET /org-units/abc where
+    // id expects Long)
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -149,7 +153,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 12. Handle HttpMessageNotReadableException (Malformed JSON or invalid Enum value)
+    // 12. Handle HttpMessageNotReadableException (Malformed JSON or invalid Enum
+    // value)
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -159,7 +164,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 13. Handle MissingServletRequestParameterException (Missing required query parameter)
+    // 13. Handle MissingServletRequestParameterException (Missing required query
+    // parameter)
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -169,7 +175,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 14. Handle IllegalArgumentException from Value Objects / Technical Argument Validation
+    // 14. Handle IllegalArgumentException from Value Objects / Technical Argument
+    // Validation
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -189,5 +196,15 @@ public class GlobalExceptionHandler {
                 "An unexpected error occurred.",
                 HttpStatus.INTERNAL_SERVER_ERROR.value());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    // Handle InvalidOrgUnitManagerException (400 BAD REQUEST)
+    @ExceptionHandler(InvalidOrgUnitManagerException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidOrgUnitManager(InvalidOrgUnitManagerException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_ORG_UNIT_MANAGER",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 }
