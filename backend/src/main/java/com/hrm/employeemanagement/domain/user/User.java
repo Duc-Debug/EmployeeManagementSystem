@@ -1,5 +1,8 @@
 package com.hrm.employeemanagement.domain.user;
 
+import java.util.Objects;
+
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
@@ -18,6 +21,8 @@ public class User {
     private String username;
     private String passwordHash;
     private Role role;
+    private DataScope dataScope;
+    private Long scopeOrgUnitId;
     private UserStatus status;
     private EmployeeId employeeId;
     private String email;
@@ -88,8 +93,76 @@ public class User {
         if (isSystemAdmin() && newRole.getCode() != RoleCode.VT_06 && activeAdminCount <= 1) {
             throw new LastAdminProtectionException("Không thể hạ quyền Quản trị viên duy nhất của hệ thống");
         }
-        this.role = Objects.requireNonNull(newRole, "Role mới không được null");
+
+        Role targetRole =
+                Objects.requireNonNull(
+                        newRole,
+                        "Role mới không được null"
+                );
+
+        validateRoleDataScope(
+                targetRole,
+                dataScope,
+                scopeOrgUnitId
+        );
+
+        this.role = targetRole;
     }
+
+    public void changeAuthorization(
+            Role newRole,
+            DataScope dataScope,
+            Long scopeOrgUnitId,
+            long activeAdminCount
+    ) {
+        Role targetRole =
+                Objects.requireNonNull(
+                        newRole,
+                        "Role mới không được null"
+                );
+
+        validateDataScope(
+                dataScope,
+                scopeOrgUnitId
+        );
+
+        validateRoleDataScope(
+                targetRole,
+                dataScope,
+                scopeOrgUnitId
+        );
+
+        if (isSystemAdmin()
+                && targetRole.getCode() != RoleCode.VT_06
+                && activeAdminCount <= 1) {
+            throw new LastAdminProtectionException(
+                    "Không thể hạ quyền Quản trị viên duy nhất của hệ thống"
+            );
+        }
+
+        this.role = targetRole;
+        this.dataScope = dataScope;
+        this.scopeOrgUnitId = scopeOrgUnitId;
+    }
+
+    public void changeDataScope(
+        DataScope dataScope,
+        Long scopeOrgUnitId
+) {
+    validateDataScope(
+            dataScope,
+            scopeOrgUnitId
+    );
+
+    validateRoleDataScope(
+            role,
+            dataScope,
+            scopeOrgUnitId
+    );
+
+    this.dataScope = dataScope;
+    this.scopeOrgUnitId = scopeOrgUnitId;
+}
 
     public boolean isSystemAdmin() {
         return this.role != null && this.role.getCode() == RoleCode.VT_06;
@@ -117,6 +190,13 @@ public class User {
 
     public Role getRole() {
         return role;
+    }
+    public DataScope getDataScope() {
+    return dataScope;
+    }
+
+    public Long getScopeOrgUnitId() {
+    return scopeOrgUnitId;
     }
 
     public UserStatus getStatus() {
@@ -171,4 +251,56 @@ public class User {
     public void setVersion(Long version) {
         this.version = version;
     }
+    private void validateDataScope(
+        DataScope dataScope,
+        Long scopeOrgUnitId
+) {
+    Objects.requireNonNull(
+            dataScope,
+            "DataScope must not be null"
+    );
+
+    if (dataScope == DataScope.ORGANIZATION_BRANCH
+            && scopeOrgUnitId == null) {
+
+        throw new IllegalArgumentException(
+                "ORGANIZATION_BRANCH requires scopeOrgUnitId"
+        );
+    }
+
+    if (dataScope != DataScope.ORGANIZATION_BRANCH
+            && scopeOrgUnitId != null) {
+
+        throw new IllegalArgumentException(
+                "scopeOrgUnitId is only allowed for ORGANIZATION_BRANCH"
+            );
+    }
+}
+
+private static DataScope defaultDataScopeFor(Role role) {
+    Role requiredRole =
+            Objects.requireNonNull(
+                    role,
+                    "Role không được null"
+            );
+
+    return requiredRole.isSystemAdmin()
+            ? DataScope.COMPANY
+            : DataScope.SELF;
+}
+
+private void validateRoleDataScope(
+        Role role,
+        DataScope dataScope,
+        Long scopeOrgUnitId
+) {
+    if (role != null
+            && role.isSystemAdmin()
+            && (dataScope != DataScope.COMPANY
+            || scopeOrgUnitId != null)) {
+        throw new IllegalArgumentException(
+                "SYSTEM_ADMIN requires COMPANY data scope"
+        );
+    }
+}
 }

@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.domain.user;
 
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyActiveException;
@@ -95,5 +96,59 @@ class UserTest {
         assertThrows(LastAdminProtectionException.class, () -> {
             adminUser.changeRole(staffRole, 1);
         });
+    }
+
+    @Test
+    @DisplayName("Tạo mới System Admin mặc định có DataScope COMPANY")
+    void testCreateSystemAdmin_DefaultsToCompanyDataScope() {
+        User adminUser = User.createNew(
+                "admin",
+                "hash",
+                adminRole,
+                null
+        );
+
+        assertEquals(DataScope.COMPANY, adminUser.getDataScope());
+        assertNull(adminUser.getScopeOrgUnitId());
+    }
+
+    @Test
+    @DisplayName("Domain reject System Admin với DataScope SELF")
+    void testSystemAdminWithSelfScope_ThrowsException() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new User(
+                        new UserId(4L),
+                        "admin_self",
+                        "hash",
+                        adminRole,
+                        UserStatus.ACTIVE,
+                        null,
+                        DataScope.SELF,
+                        null,
+                        null
+                )
+        );
+    }
+
+    @Test
+    @DisplayName("Domain reject khi đổi authorization thành System Admin nhưng scope không phải COMPANY")
+    void testChangeAuthorizationToSystemAdminWithSelfScope_ThrowsException() {
+        User staffUser = User.createNew(
+                "staff",
+                "hash",
+                staffRole,
+                null
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> staffUser.changeAuthorization(
+                        adminRole,
+                        DataScope.SELF,
+                        null,
+                        2
+                )
+        );
     }
 }

@@ -40,6 +40,27 @@ public class OrgUnitRepositoryAdapter implements LoadOrgUnitPort, SaveOrgUnitPor
     }
 
     @Override
+    public boolean existsInOrgUnitBranch(
+            Long orgUnitId,
+            Long scopeOrgUnitId
+    ) {
+        return repository.existsInOrgUnitBranch(
+                orgUnitId,
+                scopeOrgUnitId
+        );
+    }
+
+    @Override
+    public List<OrgUnit> findAllByIdIn(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return repository.findAllById(ids).stream()
+                .map(OrgUnitPersistenceMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<OrgUnit> findAllActive() {
         return repository.findByStatus(OrgUnitStatus.ACTIVE).stream()
                 .map(OrgUnitPersistenceMapper::toDomain)

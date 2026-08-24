@@ -1,5 +1,19 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 
+import java.net.URI;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
@@ -8,22 +22,14 @@ import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCas
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
-import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.CreateUserRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.UpdateUserRoleRequest;
-import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.net.URI;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/users")
-@PreAuthorize("hasAuthority('VT-06')")
 public class UserController {
 
     private final CreateUserUseCase createUserUseCase;
@@ -42,19 +48,17 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<UserResult>> createUser(@Valid @RequestBody CreateUserRequest request,
-                                                              @AuthenticationPrincipal User currentAdmin) {
+    public ResponseEntity<ApiResponse<UserResult>> createUser(@Valid @RequestBody CreateUserRequest request) {
         CreateUserCommand command = new CreateUserCommand(
                 request.getUsername(),
                 request.getPassword(),
                 request.getRoleCode(),
                 request.getEmployeeCode(),
                 request.getFullName(),
-                request.getDepartmentId()
+                request.getOrgUnitId()
         );
 
-        Long currentAdminId = currentAdmin != null ? currentAdmin.getIdValue() : null;
-        UserResult result = createUserUseCase.createUser(command, currentAdminId);
+        UserResult result = createUserUseCase.createUser(command);
 
         // Standard RESTful 201 Created with Location Header RFC 7231
         URI location = ServletUriComponentsBuilder
@@ -82,20 +86,22 @@ public class UserController {
 
     @PutMapping("/{id}/role")
     public ResponseEntity<ApiResponse<UserResult>> updateUserRole(@PathVariable Long id,
-                                                                   @Valid @RequestBody UpdateUserRoleRequest request,
-                                                                   @AuthenticationPrincipal User currentAdmin) {
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(id, request.getRoleCode(), request.getDepartmentId());
-        Long currentAdminId = currentAdmin != null ? currentAdmin.getIdValue() : null;
-        UserResult result = updateUserRoleUseCase.updateUserRole(command, currentAdminId);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật vai trò và bộ phận thành công", result));
+                                                                   @Valid @RequestBody UpdateUserRoleRequest request) {
+      UpdateUserRoleCommand command =
+        new UpdateUserRoleCommand(
+                id,
+                request.getRoleCode(),
+                request.getDataScope(),
+                request.getScopeOrgUnitId()
+        );
+            UserResult result = updateUserRoleUseCase.updateUserRole(command);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật phân quyền thành công", result));
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<ApiResponse<UserResult>> toggleUserStatus(@PathVariable Long id,
-                                                                     @RequestParam boolean lock,
-                                                                     @AuthenticationPrincipal User currentAdmin) {
-        Long currentAdminId = currentAdmin != null ? currentAdmin.getIdValue() : null;
-        UserResult result = toggleUserStatusUseCase.toggleUserStatus(id, lock, currentAdminId);
+                                                                     @RequestParam boolean lock) {
+        UserResult result = toggleUserStatusUseCase.toggleUserStatus(id, lock);
         String actionMsg = lock ? "Khóa tài khoản thành công" : "Mở lại tài khoản thành công";
         return ResponseEntity.ok(ApiResponse.success(actionMsg, result));
     }

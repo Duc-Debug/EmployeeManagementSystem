@@ -1,6 +1,11 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
 import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.repository.SpringDataOrgUnitRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.DepartmentJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
@@ -17,18 +22,22 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
  * Database Initializer & Secure Admin Provisioner.
  * Guarantees atomic (@Transactional) and resource-level idempotent bootstrap of
- * roles, root department, and the initial administrator account.
+ * roles, root organization unit, legacy root department, and the initial administrator account.
  */
 @Component
 public class DataInitializer implements CommandLineRunner {
 
+    private static final String DEFAULT_ROOT_ORG_UNIT_CODE = "COMPANY_ROOT";
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
 
     private final SpringDataRoleRepository roleRepository;
     private final SpringDataDepartmentRepository departmentRepository;
+    private final SpringDataOrgUnitRepository orgUnitRepository;
     private final SpringDataUserRepository userRepository;
     private final SpringDataEmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
@@ -36,12 +45,14 @@ public class DataInitializer implements CommandLineRunner {
 
     public DataInitializer(SpringDataRoleRepository roleRepository,
                            SpringDataDepartmentRepository departmentRepository,
+                           SpringDataOrgUnitRepository orgUnitRepository,
                            SpringDataUserRepository userRepository,
                            SpringDataEmployeeRepository employeeRepository,
                            PasswordEncoder passwordEncoder,
                            InitialAdminProperties initialAdminProperties) {
         this.roleRepository = roleRepository;
         this.departmentRepository = departmentRepository;
+        this.orgUnitRepository = orgUnitRepository;
         this.userRepository = userRepository;
         this.employeeRepository = employeeRepository;
         this.passwordEncoder = passwordEncoder;
@@ -58,11 +69,16 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
-        // 2. Seed default Root Department (PB-01) idempotently
-        DepartmentJpaEntity defaultDept = departmentRepository.findByCode("PB-01")
+        // 2. Seed legacy default Root Department (PB-01) idempotently
+        departmentRepository.findByCode("PB-01")
                 .orElseGet(() -> departmentRepository.save(new DepartmentJpaEntity(null, "PB-01", "Ban giám đốc", null)));
 
-        // 3. Provision initial admin user and employee profile atomically & idempotently
+        // 3. Resolve default root organization unit by unitCode for Employee ownership
+        OrgUnitJpaEntity defaultOrgUnit = seedDefaultOrgUnit();
+
+        userRepository.normalizeSystemAdminDataScope();
+
+        // 4. Provision initial admin user and employee profile atomically & idempotently
         if (!initialAdminProperties.enabled()) {
             return;
         }
@@ -73,10 +89,31 @@ public class DataInitializer implements CommandLineRunner {
             throw new IllegalStateException("Initial admin password must be configured when provisioning is enabled");
         }
 
-        provisionInitialAdmin(defaultDept);
+        provisionInitialAdmin(defaultOrgUnit);
     }
 
-    private void provisionInitialAdmin(DepartmentJpaEntity defaultDept) {
+    private OrgUnitJpaEntity seedDefaultOrgUnit() {
+        return orgUnitRepository.findByUnitCode(DEFAULT_ROOT_ORG_UNIT_CODE)
+                .orElseGet(() -> {
+                    OrgUnitJpaEntity saved = orgUnitRepository.save(new OrgUnitJpaEntity(
+                            null,
+                            DEFAULT_ROOT_ORG_UNIT_CODE,
+                            "Công Ty Cổ Phần Software",
+                            OrgUnitType.COMPANY,
+                            null,
+                            "/",
+                            1,
+                            OrgUnitStatus.ACTIVE,
+                            "Nút gốc của Cây tổ chức",
+                            LocalDateTime.now(),
+                            null
+                    ));
+                    saved.setTreePath("/" + saved.getId() + "/");
+                    return orgUnitRepository.save(saved);
+                });
+    }
+
+    private void provisionInitialAdmin(OrgUnitJpaEntity defaultOrgUnit) {
         String username = initialAdminProperties.username().trim();
         String rawPassword = initialAdminProperties.password().trim();
 
@@ -95,8 +132,17 @@ public class DataInitializer implements CommandLineRunner {
                     adminRole,
                     true
             );
+            newAdmin.setDataScope(DataScope.COMPANY.name());
             adminUser = userRepository.save(newAdmin);
             isNewUser = true;
+        }
+
+        if (adminUser != null
+                && (!DataScope.COMPANY.name().equals(adminUser.getDataScope())
+                || adminUser.getScopeOrgUnitId() != null)) {
+            adminUser.setDataScope(DataScope.COMPANY.name());
+            adminUser.setScopeOrgUnitId(null);
+            adminUser = userRepository.save(adminUser);
         }
 
         // Self-Healing: Ensure the Admin User always has a linked Employee profile
@@ -104,7 +150,7 @@ public class DataInitializer implements CommandLineRunner {
             EmployeeJpaEntity adminEmployee = new EmployeeJpaEntity(
                     null,
                     adminUser.getId(),
-                    defaultDept.getId(),
+                    defaultOrgUnit.getId(),
                     "EMP-ADMIN",
                     "Quản trị viên hệ thống",
                     false,

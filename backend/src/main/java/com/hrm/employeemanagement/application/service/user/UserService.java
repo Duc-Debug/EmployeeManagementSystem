@@ -13,21 +13,27 @@ import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCas
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
-import com.hrm.employeemanagement.application.port.outbound.user.LoadDepartmentPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
-import com.hrm.employeemanagement.domain.department.Department;
-import com.hrm.employeemanagement.domain.department.DepartmentId;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
-import com.hrm.employeemanagement.domain.exception.department.DepartmentNotFoundException;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
@@ -35,7 +41,7 @@ import com.hrm.employeemanagement.domain.user.UserId;
 
 /**
  * Pure Java Application Service orchestrating User Management Use Cases.
- * Resolves actual department names semantically and optimizes batch queries for list retrieval.
+ * Resolves actual organization unit names semantically and optimizes batch queries for list retrieval.
  */
 public class UserService implements
         CreateUserUseCase,
@@ -49,8 +55,10 @@ public class UserService implements
     private final LoadEmployeePort loadEmployeePort;
     private final SaveEmployeePort saveEmployeePort;
     private final SaveAuditLogPort saveAuditLogPort;
-    private final LoadDepartmentPort loadDepartmentPort;
+    private final SaveAuditLogInNewTransactionPort deniedAuditLogPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
     private final PasswordEncoderPort passwordEncoder;
+    private final AuthorizationService authorizationService;
 
     public UserService(
             LoadUserPort loadUserPort,
@@ -59,8 +67,10 @@ public class UserService implements
             LoadEmployeePort loadEmployeePort,
             SaveEmployeePort saveEmployeePort,
             SaveAuditLogPort saveAuditLogPort,
-            LoadDepartmentPort loadDepartmentPort,
-            PasswordEncoderPort passwordEncoder
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            PasswordEncoderPort passwordEncoder,
+            AuthorizationService authorizationService
     ) {
         this.loadUserPort = loadUserPort;
         this.saveUserPort = saveUserPort;
@@ -68,19 +78,41 @@ public class UserService implements
         this.loadEmployeePort = loadEmployeePort;
         this.saveEmployeePort = saveEmployeePort;
         this.saveAuditLogPort = saveAuditLogPort;
-        this.loadDepartmentPort = loadDepartmentPort;
+        this.deniedAuditLogPort = Objects.requireNonNull(
+                deniedAuditLogPort,
+                "SaveAuditLogInNewTransactionPort must not be null"
+        );
+        this.loadOrgUnitPort = loadOrgUnitPort;
         this.passwordEncoder = passwordEncoder;
+        this.authorizationService = Objects.requireNonNull(
+        authorizationService,
+        "AuthorizationService must not be null"
+);
     }
 
     @Override
-    public UserResult createUser(CreateUserCommand command, Long currentAdminId) {
+    public UserResult createUser(CreateUserCommand command) {
+        Long currentAdminId = authorizationService.require(
+                PermissionCode.USER_CREATE
+        );
+
+        User currentUser =
+                loadCurrentUserOrThrow(currentAdminId);
+
+        requireOrgUnitInDataScope(
+                currentUser,
+                command.orgUnitId(),
+                PermissionCode.USER_CREATE
+        );
+
+        OrgUnit orgUnit =
+                loadActiveOrgUnitOrThrow(command.orgUnitId());
+
         if (loadUserPort.existsByUsername(command.username())) {
             throw new DuplicateUsernameException(
                     "Tên đăng nhập '" + command.username() + "' đã tồn tại trong hệ thống"
             );
         }
-
-        Department department = loadDepartmentOrThrow(command.departmentId());
 
         RoleCode roleCode = RoleCode.fromCode(command.roleCode());
 
@@ -105,7 +137,7 @@ public class UserService implements
         // Link Employee profile
         Employee employee = Employee.createNew(
                 savedUser.getId(),
-                command.departmentId(),
+                command.orgUnitId(),
                 command.employeeCode(),
                 command.fullName()
         );
@@ -124,23 +156,36 @@ public class UserService implements
                 )
         );
 
-        String deptName = department != null
-                ? department.getName()
+        String orgUnitName = orgUnit != null
+                ? orgUnit.getUnitName()
                 : null;
 
         return mapToUserResult(
                 savedUser,
                 savedEmployee,
-                deptName
+                orgUnitName
         );
     }
 
     @Override
     public UserResult toggleUserStatus(
             Long userId,
-            boolean lock,
-            Long currentAdminId
+            boolean lock
     ) {
+          Long currentAdminId = authorizationService.require(
+                PermissionCode.USER_TOGGLE_STATUS
+        );
+
+        User currentUser =
+                loadCurrentUserOrThrow(currentAdminId);
+
+        requireUserInDataScope(
+                currentAdminId,
+                currentUser,
+                userId,
+                PermissionCode.USER_TOGGLE_STATUS
+        );
+
         UserId uId = new UserId(userId);
 
         User user = loadUserPort.findById(uId)
@@ -192,96 +237,195 @@ public class UserService implements
                 .findByUserId(updatedUser.getId())
                 .orElse(null);
 
-        String deptName = resolveDepartmentName(employee);
+        String orgUnitName = resolveOrgUnitName(employee);
 
         return mapToUserResult(
                 updatedUser,
                 employee,
-                deptName
+                orgUnitName
         );
     }
 
-    @Override
-    public UserResult updateUserRole(
-            UpdateUserRoleCommand command,
-            Long currentAdminId
-    ) {
-        UserId uId = new UserId(command.userId());
+   @Override
+public UserResult updateUserRole(
+        UpdateUserRoleCommand command
+) {
+    Long currentAdminId = authorizationService.require(
+            PermissionCode.USER_UPDATE_ROLE
+    );
 
-        User user = loadUserPort.findById(uId)
+    User currentUser =
+            loadCurrentUserOrThrow(currentAdminId);
+
+    requireUserInDataScope(
+            currentAdminId,
+            currentUser,
+            command.userId(),
+            PermissionCode.USER_UPDATE_ROLE
+    );
+
+    requireAssignableDataScope(
+            currentUser,
+            command.dataScope(),
+            command.scopeOrgUnitId(),
+            PermissionCode.USER_UPDATE_ROLE
+    );
+
+    UserId uId = new UserId(command.userId());
+
+    User user = loadUserPort.findById(uId)
+            .orElseThrow(() ->
+                    new UserNotFoundException(
+                            "Không tìm thấy người dùng với ID: "
+                                    + command.userId()
+                    )
+            );
+
+    String oldRoleCode =
+            user.getRole().getCode().getCode();
+
+    DataScope oldDataScope =
+            user.getDataScope();
+
+    Long oldScopeOrgUnitId =
+            user.getScopeOrgUnitId();
+
+    RoleCode newRoleCode =
+            RoleCode.fromCode(command.roleCode());
+
+    Role newRole = loadRolePort.findByCode(newRoleCode)
+            .orElseGet(() ->
+                    loadRolePort.save(
+                            new Role(
+                                    null,
+                                    newRoleCode,
+                                    newRoleCode.getName()
+                            )
+                    )
+            );
+
+    // Serialize concurrent operations when demoting an admin.
+    if (user.isSystemAdmin()
+            && !newRole.isSystemAdmin()) {
+        loadRolePort.lockRoleForUpdate(
+                RoleCode.VT_06
+        );
+    }
+
+    Employee employee = loadEmployeePort
+            .findByUserId(user.getId())
+            .orElse(null);
+
+    /*
+     * OrgUnit gốc của phạm vi dữ liệu.
+     *
+     * Chỉ ORGANIZATION_BRANCH mới cần scopeOrgUnitId.
+     */
+    if (command.dataScope()
+            == DataScope.ORGANIZATION_BRANCH) {
+
+        loadActiveOrgUnitOrThrow(
+                command.scopeOrgUnitId()
+        );
+    }
+
+    long activeAdminCount =
+            loadUserPort.countActiveAdmins();
+
+    /*
+     * Thay đổi role + dataScope như một authorization update duy nhất để
+     * domain không rơi vào trạng thái tạm thời sai invariant.
+     */
+    user.changeAuthorization(
+            newRole,
+            command.dataScope(),
+            command.scopeOrgUnitId(),
+            activeAdminCount
+    );
+
+    /*
+     * Role + DataScope đã hoàn chỉnh rồi mới persist User.
+     */
+    User updatedUser =
+            saveUserPort.save(user);
+
+    saveAuditLogPort.save(
+            AuditLog.createChange(
+                    currentAdminId,
+                    "UPDATE_AUTHORIZATION",
+                    "users",
+                    updatedUser.getIdValue(),
+                    authorizationAuditValue(
+                            oldRoleCode,
+                            oldDataScope,
+                            oldScopeOrgUnitId
+                    ),
+                    authorizationAuditValue(
+                            newRole.getCode().getCode(),
+                            command.dataScope(),
+                            command.scopeOrgUnitId()
+                    )
+            )
+    );
+
+    String orgUnitName =
+            resolveOrgUnitName(employee);
+
+    return mapToUserResult(
+            updatedUser,
+            employee,
+            orgUnitName
+    );
+}
+
+@Override
+    public PageResult<UserResult> getUsers(int page, int size) {
+        Long currentUserId = authorizationService.require(
+                PermissionCode.USER_READ
+        );
+
+        User currentUser = loadUserPort
+                .findById(new UserId(currentUserId))
                 .orElseThrow(() ->
                         new UserNotFoundException(
-                                "Không tìm thấy người dùng với ID: "
-                                        + command.userId()
+                                "Không tìm thấy người dùng hiện tại với ID: "
+                                        + currentUserId
                         )
                 );
 
-        RoleCode newRoleCode = RoleCode.fromCode(command.roleCode());
-
-        Role newRole = loadRolePort.findByCode(newRoleCode)
-                .orElseGet(() ->
-                        loadRolePort.save(
-                                new Role(
-                                        null,
-                                        newRoleCode,
-                                        newRoleCode.getName()
-                                )
-                        )
-                );
-
-        // Acquire pessimistic lock on Admin role row to serialize
-        // concurrent transactions when demoting an admin
-        if (user.isSystemAdmin() && !newRole.isSystemAdmin()) {
-            loadRolePort.lockRoleForUpdate(RoleCode.VT_06);
-        }
-
-        Employee employee = loadEmployeePort
-                .findByUserId(user.getId())
-                .orElse(null);
-
-        Department department = null;
-        if (employee != null && command.departmentId() != null) {
-            department = loadDepartmentOrThrow(command.departmentId());
-        }
-
-        long activeAdminCount = loadUserPort.countActiveAdmins();
-
-        user.changeRole(newRole, activeAdminCount);
-
-        User updatedUser = saveUserPort.save(user);
-
-        if (employee != null && command.departmentId() != null) {
-            employee.assignToDepartment(command.departmentId());
-            saveEmployeePort.save(employee);
-        }
-
-        saveAuditLogPort.save(
-                AuditLog.create(
-                        currentAdminId,
-                        "UPDATE_ROLE",
-                        "users",
-                        updatedUser.getIdValue()
-                )
-        );
-
-        String deptName = department != null
-                ? department.getName()
-                : resolveDepartmentName(employee);
-
-        return mapToUserResult(
-                updatedUser,
-                employee,
-                deptName
-        );
-    }
-
-    @Override
-    public PageResult<UserResult> getUsers(int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);
 
-        List<User> users = loadUserPort.findAll(safePage, safeSize);
-        long totalElements = loadUserPort.count();
+        List<User> users;
+        long totalElements;
+
+        switch (currentUser.getDataScope()) {
+            case COMPANY -> {
+                users = loadUserPort.findAll(safePage, safeSize);
+                totalElements = loadUserPort.count();
+            }
+            case ORGANIZATION_BRANCH -> {
+                Long scopeOrgUnitId = currentUser.getScopeOrgUnitId();
+                users = loadUserPort.findByOrgUnitBranch(
+                        scopeOrgUnitId,
+                        safePage,
+                        safeSize
+                );
+                totalElements = loadUserPort.countByOrgUnitBranch(
+                        scopeOrgUnitId
+                );
+            }
+            case SELF -> {
+                totalElements = 1L;
+                users = safePage == 0
+                        ? List.of(currentUser)
+                        : List.of();
+            }
+            default -> throw new IllegalStateException(
+                    "Unsupported DataScope: "
+                            + currentUser.getDataScope()
+            );
+        }
 
         List<UserId> userIds = users.stream()
                 .map(User::getId)
@@ -301,41 +445,42 @@ public class UserService implements
                         )
                 );
 
-        // Batch load all distinct department names in one query
-        List<Long> deptIds = employees.stream()
-                .map(Employee::getDepartmentId)
+        // Batch load all distinct organization unit names in one query
+        List<Long> orgUnitIds = employees.stream()
+                .map(Employee::getOrgUnitId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
 
-        Map<Long, String> deptNameMap =
-                loadDepartmentPort.findAllByIdIn(deptIds)
-                        .stream()
-                        .collect(
-                                Collectors.toMap(
-                                        Department::getIdValue,
-                                        Department::getName,
-                                        (existing, replacing) -> existing
-                                )
-                        );
+        Map<Long, String> orgUnitNameMap = orgUnitIds.isEmpty()
+                ? Map.of()
+                : loadOrgUnitPort.findAllByIdIn(orgUnitIds)
+                .stream()
+                .collect(
+                        Collectors.toMap(
+                                orgUnit -> orgUnit.getId().getValue(),
+                                OrgUnit::getUnitName,
+                                (existing, replacing) -> existing
+                        )
+                );
 
         List<UserResult> content = users.stream()
                 .map(user -> {
                     Employee employee =
                             employeeMap.get(user.getIdValue());
 
-                    String deptName =
+                    String orgUnitName =
                             employee != null
-                                    && employee.getDepartmentId() != null
-                                    ? deptNameMap.get(
-                                            employee.getDepartmentId()
+                                    && employee.getOrgUnitId() != null
+                                    ? orgUnitNameMap.get(
+                                            employee.getOrgUnitId()
                                     )
                                     : null;
 
                     return mapToUserResult(
                             user,
                             employee,
-                            deptName
+                            orgUnitName
                     );
                 })
                 .toList();
@@ -350,9 +495,23 @@ public class UserService implements
 
     @Override
     public UserResult getUserById(Long userId) {
-        UserId uId = new UserId(userId);
+        Long currentUserId = authorizationService.require(
+                PermissionCode.USER_READ
+        );
 
-        User user = loadUserPort.findById(uId)
+        User currentUser =
+                loadCurrentUserOrThrow(currentUserId);
+
+        requireUserInDataScope(
+                currentUserId,
+                currentUser,
+                userId,
+                PermissionCode.USER_READ
+        );
+
+        UserId targetUserId = new UserId(userId);
+
+        User user = loadUserPort.findById(targetUserId)
                 .orElseThrow(() ->
                         new UserNotFoundException(
                                 "Không tìm thấy người dùng với ID: " + userId
@@ -363,45 +522,223 @@ public class UserService implements
                 .findByUserId(user.getId())
                 .orElse(null);
 
-        String deptName = resolveDepartmentName(employee);
+        String orgUnitName = resolveOrgUnitName(employee);
 
         return mapToUserResult(
                 user,
                 employee,
-                deptName
+                orgUnitName
         );
     }
 
-    private Department loadDepartmentOrThrow(Long departmentId) {
-        if (departmentId == null) {
+    private OrgUnit loadActiveOrgUnitOrThrow(Long orgUnitId) {
+        if (orgUnitId == null) {
             return null;
         }
 
-        return loadDepartmentPort.findById(new DepartmentId(departmentId))
+        OrgUnit orgUnit = loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))
                 .orElseThrow(() ->
-                        new DepartmentNotFoundException(departmentId)
+                        new OrgUnitNotFoundException("Organizational unit not found with ID: " + orgUnitId)
+                );
+
+        if (orgUnit.getStatus() != OrgUnitStatus.ACTIVE) {
+            throw new IllegalArgumentException("Đơn vị tổ chức được chỉ định đang không hoạt động");
+        }
+
+        return orgUnit;
+    }
+
+    private User loadCurrentUserOrThrow(Long currentUserId) {
+        return loadUserPort
+                .findById(new UserId(currentUserId))
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng hiện tại với ID: "
+                                        + currentUserId
+                        )
                 );
     }
 
-    private String resolveDepartmentName(Employee employee) {
-        if (employee == null || employee.getDepartmentId() == null) {
+    private void requireUserInDataScope(
+            Long currentUserId,
+            User currentUser,
+            Long targetUserId,
+            PermissionCode permission
+    ) {
+        boolean allowed = switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> currentUserId.equals(targetUserId);
+            case ORGANIZATION_BRANCH ->
+                    loadUserPort.existsInOrgUnitBranch(
+                            targetUserId,
+                            currentUser.getScopeOrgUnitId()
+                    );
+        };
+
+        if (!allowed) {
+            saveDeniedAudit(
+                    currentUserId,
+                    "USER_ACCESS_DENIED",
+                    "users",
+                    targetUserId,
+                    permission,
+                    deniedAuditDetails(
+                            permission,
+                            currentUser,
+                            "OUTSIDE_DATA_SCOPE"
+                    )
+            );
+
+            throw new PermissionDeniedException(permission);
+        }
+    }
+
+    private void requireOrgUnitInDataScope(
+            User currentUser,
+            Long orgUnitId,
+            PermissionCode permission
+    ) {
+        if (!isOrgUnitInDataScope(
+                currentUser,
+                orgUnitId
+        )) {
+            saveDeniedAudit(
+                    currentUser.getIdValue(),
+                    "ORG_UNIT_ACCESS_DENIED",
+                    "org_units",
+                    orgUnitId,
+                    permission,
+                    deniedAuditDetails(
+                            permission,
+                            currentUser,
+                            "OUTSIDE_DATA_SCOPE"
+                    )
+            );
+
+            throw new PermissionDeniedException(permission);
+        }
+    }
+
+    private boolean isOrgUnitInDataScope(
+            User currentUser,
+            Long orgUnitId
+    ) {
+        if (orgUnitId == null) {
+            return false;
+        }
+
+        return switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> false;
+            case ORGANIZATION_BRANCH ->
+                    loadOrgUnitPort.existsInOrgUnitBranch(
+                            orgUnitId,
+                            currentUser.getScopeOrgUnitId()
+                    );
+        };
+    }
+
+    private void requireAssignableDataScope(
+            User currentUser,
+            DataScope targetDataScope,
+            Long targetScopeOrgUnitId,
+            PermissionCode permission
+    ) {
+        boolean allowed = switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> targetDataScope == DataScope.SELF
+                    && targetScopeOrgUnitId == null;
+            case ORGANIZATION_BRANCH -> targetDataScope == DataScope.SELF
+                    || targetDataScope == DataScope.ORGANIZATION_BRANCH
+                    && isOrgUnitInDataScope(
+                            currentUser,
+                            targetScopeOrgUnitId
+                    );
+        };
+
+        if (!allowed) {
+            saveDeniedAudit(
+                    currentUser.getIdValue(),
+                    "DATA_SCOPE_ASSIGN_DENIED",
+                    "users",
+                    currentUser.getIdValue(),
+                    permission,
+                    deniedAuditDetails(
+                            permission,
+                            currentUser,
+                            "UNASSIGNABLE_DATA_SCOPE"
+                    )
+                            + ";targetDataScope=" + targetDataScope
+                            + ";targetScopeOrgUnitId=" + targetScopeOrgUnitId
+            );
+
+            throw new PermissionDeniedException(permission);
+        }
+    }
+
+    private void saveDeniedAudit(
+            Long actorUserId,
+            String action,
+            String tableName,
+            Long recordId,
+            PermissionCode permission,
+            String details
+    ) {
+        deniedAuditLogPort.save(
+                AuditLog.createChange(
+                        actorUserId,
+                        action,
+                        tableName,
+                        recordId,
+                        null,
+                        details != null
+                                ? details
+                                : "permission=" + permission.name()
+                                + ";reason=DENIED"
+                )
+        );
+    }
+
+    private String deniedAuditDetails(
+            PermissionCode permission,
+            User currentUser,
+            String reason
+    ) {
+        return "permission=" + permission.name()
+                + ";dataScope=" + currentUser.getDataScope()
+                + ";scopeOrgUnitId=" + currentUser.getScopeOrgUnitId()
+                + ";reason=" + reason;
+    }
+
+    private String resolveOrgUnitName(Employee employee) {
+        if (employee == null || employee.getOrgUnitId() == null) {
             return null;
         }
 
-        return loadDepartmentPort
+        return loadOrgUnitPort
                 .findById(
-                        new DepartmentId(
-                                employee.getDepartmentId()
+                        new OrgUnitId(
+                                employee.getOrgUnitId()
                         )
                 )
-                .map(Department::getName)
+                .map(OrgUnit::getUnitName)
                 .orElse(null);
+    }
+
+    private String authorizationAuditValue(
+            String roleCode,
+            DataScope dataScope,
+            Long scopeOrgUnitId
+    ) {
+        return "role=" + roleCode
+                + ";dataScope=" + dataScope
+                + ";scopeOrgUnitId=" + scopeOrgUnitId;
     }
 
     private UserResult mapToUserResult(
             User user,
             Employee employee,
-            String departmentName
+            String orgUnitName
     ) {
         return new UserResult(
                 user.getIdValue(),
@@ -416,9 +753,11 @@ public class UserService implements
                         ? employee.getFullName()
                         : null,
                 employee != null
-                        ? employee.getDepartmentId()
+                        ? employee.getOrgUnitId()
                         : null,
-                departmentName
+                orgUnitName,
+                user.getDataScope(),
+                user.getScopeOrgUnitId()
         );
     }
 }

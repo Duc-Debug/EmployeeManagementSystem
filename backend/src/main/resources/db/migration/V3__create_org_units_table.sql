@@ -4,9 +4,12 @@ id BIGINT AUTO_INCREMENT PRIMARY KEY,
     unit_code VARCHAR(50) NOT NULL UNIQUE,
     unit_name VARCHAR(255) NOT NULL,
     unit_type VARCHAR(50) NOT NULL,
+
     parent_id BIGINT NULL,
+
     tree_path VARCHAR(500) NOT NULL,
     level INT NOT NULL DEFAULT 1,
+
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     description TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,

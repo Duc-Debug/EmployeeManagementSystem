@@ -1,10 +1,10 @@
 package com.hrm.employeemanagement.application.port.outbound.user;
 
-import com.hrm.employeemanagement.domain.user.User;
-import com.hrm.employeemanagement.domain.user.UserId;
-
 import java.util.List;
 import java.util.Optional;
+
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
 
 public interface LoadUserPort {
     Optional<User> findById(UserId id);
@@ -12,7 +12,10 @@ public interface LoadUserPort {
     Optional<User> findByEmail(String email);
     Optional<User> findByUsernameOrEmail(String identity);
     boolean existsByUsername(String username);
+    boolean existsInOrgUnitBranch(Long userId, Long scopeOrgUnitId);
     List<User> findAll(int page, int size);
+    List<User> findByOrgUnitBranch(Long scopeOrgUnitId, int page, int size);
     long count();
+    long countByOrgUnitBranch(Long scopeOrgUnitId);
     long countActiveAdmins();
 }

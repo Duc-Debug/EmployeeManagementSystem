@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidPasswordException;
@@ -36,6 +38,12 @@ public class UserExceptionHandler {
 
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleUserNotFound(UserNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(OrgUnitNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOrgUnitNotFound(OrgUnitNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(ex.getMessage()));
     }
@@ -77,6 +85,10 @@ public class UserExceptionHandler {
 
         // Check for Foreign Key Constraint violations -> 400 BAD REQUEST
         if (lowerMsg.contains("foreign key") || lowerMsg.contains("fk_") || lowerMsg.contains("referential integrity")) {
+            if (lowerMsg.contains("org_unit") || lowerMsg.contains("org unit")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Đơn vị tổ chức được chỉ định không tồn tại trong hệ thống"));
+            }
             if (lowerMsg.contains("department")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.error("Phòng ban được chỉ định không tồn tại trong hệ thống"));
@@ -113,6 +125,12 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error("Bạn không có quyền truy cập chức năng này"));
+    }
+
+    @ExceptionHandler(PermissionDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePermissionDenied(PermissionDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler({InvalidCredentialsException.class, BadCredentialsException.class})
