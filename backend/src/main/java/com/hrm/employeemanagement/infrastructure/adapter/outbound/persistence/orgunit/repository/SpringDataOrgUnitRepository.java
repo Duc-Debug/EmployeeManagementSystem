@@ -33,4 +33,30 @@ public interface SpringDataOrgUnitRepository extends JpaRepository<OrgUnitJpaEnt
     List<OrgUnitJpaEntity> findByStatus(OrgUnitStatus status);
 
     List<OrgUnitJpaEntity> findByTreePathStartingWith(String treePath);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = """
+            UPDATE org_units
+            SET tree_path = CONCAT(:newPrefix, SUBSTRING(tree_path, LENGTH(:oldPrefix) + 1)),
+                level = level + :levelDelta,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE tree_path LIKE CONCAT(:oldPrefix, '%')
+            """,
+            nativeQuery = true)
+    int updateSubTreePaths(
+            @Param("oldPrefix") String oldPrefix,
+            @Param("newPrefix") String newPrefix,
+            @Param("levelDelta") int levelDelta
+    );
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = """
+            UPDATE org_units
+            SET status = 'INACTIVE',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE tree_path LIKE CONCAT(:treePath, '%')
+              AND status = 'ACTIVE'
+            """,
+            nativeQuery = true)
+    int deactivateSubTree(@Param("treePath") String treePath);
 }

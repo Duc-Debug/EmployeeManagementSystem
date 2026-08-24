@@ -76,13 +76,28 @@ public class OrgUnitRepositoryAdapter implements LoadOrgUnitPort, SaveOrgUnitPor
 
     @Override
     public OrgUnit save(OrgUnit orgUnit) {
-        OrgUnitJpaEntity jpaEntity = OrgUnitPersistenceMapper.toJpaEntity(orgUnit);
-        OrgUnitJpaEntity savedEntity = repository.save(jpaEntity);
-        if (orgUnit.getId() == null) {
-            String finalTreePath = savedEntity.getTreePath() + savedEntity.getId() + "/";
-            savedEntity.setTreePath(finalTreePath);
-            savedEntity = repository.save(savedEntity);
+        try {
+            OrgUnitJpaEntity jpaEntity = OrgUnitPersistenceMapper.toJpaEntity(orgUnit);
+            OrgUnitJpaEntity savedEntity = repository.save(jpaEntity);
+            if (orgUnit.getId() == null) {
+                String finalTreePath = savedEntity.getTreePath() + savedEntity.getId() + "/";
+                savedEntity.setTreePath(finalTreePath);
+                savedEntity = repository.save(savedEntity);
+            }
+            return OrgUnitPersistenceMapper.toDomain(savedEntity);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            throw new com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException(
+                    "Mã đơn vị '" + orgUnit.getUnitCode() + "' đã tồn tại trong hệ thống");
         }
-        return OrgUnitPersistenceMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public int updateSubTreePaths(String oldPrefix, String newPrefix, int levelDelta) {
+        return repository.updateSubTreePaths(oldPrefix, newPrefix, levelDelta);
+    }
+
+    @Override
+    public int deactivateSubTree(String treePath) {
+        return repository.deactivateSubTree(treePath);
     }
 }

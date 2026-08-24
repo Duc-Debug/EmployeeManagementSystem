@@ -142,20 +142,13 @@ public class OrgUnitService implements
         int newLevel = newParent.getLevel() + 1;
         int levelDelta = newLevel - oldLevel;
 
-        // Mutate nút hiện tại
+        // Cập nhật nút cha và đường dẫn của nút hiện tại
         unitToMove.changeParent(newParent.getId(), newTreePath, newLevel);
         OrgUnit savedUnit = saveOrgUnitPort.save(unitToMove);
 
-        // Cập nhật đường dẫn và level chuẩn xác cho toàn bộ nút con/cháu
-        List<OrgUnit> childUnits = loadOrgUnitPort.findSubTree(oldTreePath);
-        for (OrgUnit child : childUnits) {
-            if (!child.getId().equals(unitToMove.getId())) {
-                String updatedChildPath = child.getTreePath().replace(oldTreePath, newTreePath);
-                int updatedChildLevel = child.getLevel() + levelDelta;
-                child.changeParent(child.getParentId(), updatedChildPath, updatedChildLevel);
-                saveOrgUnitPort.save(child);
-            }
-        }
+        // Bulk UPDATE 1 câu SQL duy nhất cho toàn bộ các nút con/cháu thuộc subtree
+        saveOrgUnitPort.updateSubTreePaths(oldTreePath, newTreePath, levelDelta);
+
         saveAuditLogPort
                 .save(AuditLog.create(getCurrentUserId(), "MOVE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
         return toResult(savedUnit);
@@ -171,15 +164,9 @@ public class OrgUnitService implements
         unit.deactivate();
         OrgUnit savedUnit = saveOrgUnitPort.save(unit);
 
-        // 2. Cascading Deactivation: Vô hiệu hóa dây chuyền toàn bộ các nút con/cháu
-        // thuộc nhánh treePath này
-        List<OrgUnit> subTreeUnits = loadOrgUnitPort.findSubTree(unit.getTreePath());
-        for (OrgUnit child : subTreeUnits) {
-            if (!child.getId().equals(unit.getId()) && child.getStatus() == OrgUnitStatus.ACTIVE) {
-                child.deactivate();
-                saveOrgUnitPort.save(child);
-            }
-        }
+        // 2. Cascading Deactivation: Bulk UPDATE 1 câu SQL duy nhất vô hiệu hóa toàn bộ các nút con/cháu thuộc nhánh subtree này
+        saveOrgUnitPort.deactivateSubTree(unit.getTreePath());
+
         saveAuditLogPort.save(
                 AuditLog.create(getCurrentUserId(), "DEACTIVATE_ORG_UNIT", "org_units", savedUnit.getId().getValue()));
         return toResult(savedUnit);

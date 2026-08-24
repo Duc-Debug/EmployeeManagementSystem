@@ -140,4 +140,50 @@ class OrgUnitServiceTest {
         assertThrows(InvalidOrgUnitManagerException.class, () -> orgUnitService.execute(command));
         verify(saveOrgUnitPort, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Should move org unit and invoke bulk updateSubTreePaths")
+    void shouldMoveOrgUnitSuccessfully() {
+        MoveOrgUnitCommand command = new MoveOrgUnitCommand(2L, 3L);
+
+        OrgUnit unitToMove = new OrgUnit(
+                new OrgUnitId(2L), "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
+        );
+
+        OrgUnit newParent = new OrgUnit(
+                new OrgUnitId(3L), "TECH-DEPT", "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/3/", 2, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(unitToMove));
+        when(loadOrgUnitPort.findById(new OrgUnitId(3L))).thenReturn(Optional.of(newParent));
+        when(saveOrgUnitPort.save(any(OrgUnit.class))).thenReturn(unitToMove);
+
+        OrgUnitResult result = orgUnitService.execute(command);
+
+        assertNotNull(result);
+        verify(saveOrgUnitPort).updateSubTreePaths("/1/2/", "/1/3/2/", 1);
+        verify(saveAuditLogPort).save(any());
+    }
+
+    @Test
+    @DisplayName("Should deactivate org unit and invoke bulk deactivateSubTree")
+    void shouldDeactivateOrgUnitSuccessfully() {
+        DeactivateOrgUnitCommand command = new DeactivateOrgUnitCommand(2L);
+
+        OrgUnit unit = new OrgUnit(
+                new OrgUnitId(2L), "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(unit));
+        when(saveOrgUnitPort.save(any(OrgUnit.class))).thenReturn(unit);
+
+        OrgUnitResult result = orgUnitService.execute(command);
+
+        assertNotNull(result);
+        verify(saveOrgUnitPort).deactivateSubTree("/1/2/");
+        verify(saveAuditLogPort).save(any());
+    }
 }
