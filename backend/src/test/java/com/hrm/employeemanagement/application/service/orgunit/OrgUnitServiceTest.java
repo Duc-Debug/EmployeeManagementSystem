@@ -3,6 +3,8 @@ package com.hrm.employeemanagement.application.service.orgunit;
 import com.hrm.employeemanagement.application.dto.orgunit.*;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.SaveOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.orgunit.*;
 import org.junit.jupiter.api.DisplayName;
@@ -28,20 +30,26 @@ class OrgUnitServiceTest {
     @Mock
     private SaveOrgUnitPort saveOrgUnitPort;
 
+    @Mock
+    private SaveAuditLogPort saveAuditLogPort;
+
+    @Mock
+    private CurrentUserPort currentUserPort;
+
     @InjectMocks
     private OrgUnitService orgUnitService;
 
     @Test
     @DisplayName("Should create org unit successfully when parameters are valid")
     void shouldCreateOrgUnitSuccessfully() {
-        // DEV-CENTER is created as a child of COMPANY_ROOT (id: 1)
+        // DEV-CENTER is created as a child of COMPANY_ROOT (id: 1) with manager ID: 10
         CreateOrgUnitCommand command = new CreateOrgUnitCommand(
-                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, "Mô tả"
+                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, 10L, "Mô tả"
         );
 
         OrgUnit rootCompany = new OrgUnit(
                 new OrgUnitId(1L), "COMPANY_ROOT", "Công Ty Cổ Phần Software", OrgUnitType.COMPANY,
-                null, "/1/", 1, OrgUnitStatus.ACTIVE, "Nút gốc", null, LocalDateTime.now(), null
+                null, "/1/", 1, OrgUnitStatus.ACTIVE, "Nút gốc", 1L, LocalDateTime.now(), null
         );
 
         when(loadOrgUnitPort.existsByUnitCode("DEV-CENTER")).thenReturn(false);
@@ -49,7 +57,7 @@ class OrgUnitServiceTest {
 
         OrgUnit savedUnit = new OrgUnit(
                 new OrgUnitId(2L), "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
-                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", null, LocalDateTime.now(), null
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
         );
         when(saveOrgUnitPort.save(any(OrgUnit.class))).thenReturn(savedUnit);
 
@@ -62,24 +70,27 @@ class OrgUnitServiceTest {
         assertEquals("Khối Phát Triển", result.unitName());
         assertEquals(OrgUnitType.CENTER, result.unitType());
         assertEquals(1L, result.parentId());
+        assertEquals(10L, result.managerId());
         assertEquals("/1/2/", result.treePath());
         assertEquals(2, result.level());
         assertEquals(OrgUnitStatus.ACTIVE, result.status());
 
-        // Verify save() is called exactly once
+        // Verify save() and audit log save() are called
         verify(saveOrgUnitPort).save(any(OrgUnit.class));
+        verify(saveAuditLogPort).save(any());
     }
 
     @Test
     @DisplayName("Should throw DuplicateUnitCodeException when unit code already exists")
     void shouldThrowExceptionWhenUnitCodeExists() {
         CreateOrgUnitCommand command = new CreateOrgUnitCommand(
-                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, "Mô tả"
+                "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, 10L, "Mô tả"
         );
 
         when(loadOrgUnitPort.existsByUnitCode("DEV-CENTER")).thenReturn(true);
 
         assertThrows(DuplicateUnitCodeException.class, () -> orgUnitService.execute(command));
         verify(saveOrgUnitPort, never()).save(any());
+        verify(saveAuditLogPort, never()).save(any());
     }
 }

@@ -57,12 +57,12 @@ class OrgUnitControllerTest {
     @Test
     @DisplayName("POST /api/v1/org-units should return HTTP 201 Created when request is valid")
     void shouldReturn201CreatedWhenCreateOrgUnitIsValid() throws Exception {
-        // Business compliant test data: DEV-CENTER is a child of COMPANY_ROOT (id: 1)
-        String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitName\":\"Khối Phát Triển\",\"unitType\":\"CENTER\",\"parentId\":1,\"description\":\"Mô tả\"}";
+        // Business compliant test data: DEV-CENTER is a child of COMPANY_ROOT (id: 1) with managerId: 10
+        String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitName\":\"Khối Phát Triển\",\"unitType\":\"CENTER\",\"parentId\":1,\"managerId\":10,\"description\":\"Mô tả\"}";
 
         OrgUnitResult mockResult = new OrgUnitResult(
                 2L, "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
-                1L, "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", null, LocalDateTime.now(), null
+                1L, "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
         );
 
         when(createOrgUnitUseCase.execute(any(CreateOrgUnitCommand.class))).thenReturn(mockResult);
@@ -74,14 +74,27 @@ class OrgUnitControllerTest {
                 .andExpect(jsonPath("$.id").value(2))
                 .andExpect(jsonPath("$.unitCode").value("DEV-CENTER"))
                 .andExpect(jsonPath("$.parentId").value(1))
+                .andExpect(jsonPath("$.managerId").value(10))
                 .andExpect(jsonPath("$.treePath").value("/1/2/"))
                 .andExpect(jsonPath("$.level").value(2));
     }
 
     @Test
+    @DisplayName("POST /api/v1/org-units should return HTTP 400 Bad Request when managerId is missing (TC-03)")
+    void shouldReturn400BadRequestWhenManagerIdIsMissing() throws Exception {
+        String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitName\":\"Khối Phát Triển\",\"unitType\":\"CENTER\",\"parentId\":1,\"description\":\"Mô tả\"}";
+
+        mockMvc.perform(post("/api/v1/org-units")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     @DisplayName("POST /api/v1/org-units should return HTTP 409 Conflict when unit code already exists")
     void shouldReturn409ConflictWhenDuplicateUnitCode() throws Exception {
-        String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitName\":\"Khối Phát Triển\",\"unitType\":\"CENTER\",\"parentId\":1,\"description\":\"Mô tả\"}";
+        String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitName\":\"Khối Phát Triển\",\"unitType\":\"CENTER\",\"parentId\":1,\"managerId\":10,\"description\":\"Mô tả\"}";
 
         when(createOrgUnitUseCase.execute(any(CreateOrgUnitCommand.class)))
                 .thenThrow(new DuplicateUnitCodeException("Unit code 'DEV-CENTER' already exists"));
@@ -113,7 +126,7 @@ class OrgUnitControllerTest {
     @Test
     @DisplayName("POST /api/v1/org-units should return HTTP 400 Bad Request when parent is inactive")
     void shouldReturn400BadRequestWhenParentIsInactive() throws Exception {
-        String requestJson = "{\"unitCode\":\"WEB-DEPT\",\"unitName\":\"Phòng Web\",\"unitType\":\"DEPARTMENT\",\"parentId\":2,\"description\":\"Mô tả\"}";
+        String requestJson = "{\"unitCode\":\"WEB-DEPT\",\"unitName\":\"Phòng Web\",\"unitType\":\"DEPARTMENT\",\"parentId\":2,\"managerId\":10,\"description\":\"Mô tả\"}";
 
         when(createOrgUnitUseCase.execute(any()))
                 .thenThrow(new InactiveParentException("Cannot assign or move unit under an inactive parent unit ID: 2"));
