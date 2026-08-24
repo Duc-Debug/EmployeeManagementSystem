@@ -10,11 +10,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -34,13 +37,17 @@ class AuthorizationServiceTest {
     @Mock
     private PermissionQueryPort permissionQueryPort;
 
+    @Mock
+    private SaveAuditLogInNewTransactionPort deniedAuditLogPort;
+
     private AuthorizationService authorizationService;
 
     @BeforeEach
     void setUp() {
         authorizationService = new AuthorizationService(
                 authenticatedUserPort,
-                permissionQueryPort
+                permissionQueryPort,
+                deniedAuditLogPort
         );
     }
 
@@ -89,5 +96,28 @@ class AuthorizationServiceTest {
                         10L,
                         PermissionCode.USER_READ
                 );
+
+        ArgumentCaptor<AuditLog> auditCaptor =
+                ArgumentCaptor.forClass(AuditLog.class);
+
+        verify(deniedAuditLogPort)
+                .save(auditCaptor.capture());
+
+        assertEquals(
+                10L,
+                auditCaptor.getValue().getUserId()
+        );
+        assertEquals(
+                "PERMISSION_DENIED",
+                auditCaptor.getValue().getAction()
+        );
+        assertEquals(
+                "permissions",
+                auditCaptor.getValue().getTableName()
+        );
+        assertEquals(
+                "permission=USER_READ;reason=MISSING_PERMISSION",
+                auditCaptor.getValue().getNewValue()
+        );
     }
 }

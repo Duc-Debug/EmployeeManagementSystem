@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
@@ -31,6 +32,7 @@ public class UseCaseConfig {
                                                          LoadEmployeePort loadEmployeePort,
                                                          SaveEmployeePort saveEmployeePort,
                                                          SaveAuditLogPort saveAuditLogPort,
+                                                         SaveAuditLogInNewTransactionPort deniedAuditLogPort,
                                                          LoadOrgUnitPort loadOrgUnitPort,
                                                          PasswordEncoderPort passwordEncoder,
                                                          UserStatusCache userStatusCache,
@@ -42,6 +44,7 @@ public class UseCaseConfig {
         loadEmployeePort,
         saveEmployeePort,
         saveAuditLogPort,
+        deniedAuditLogPort,
         loadOrgUnitPort,
         passwordEncoder,
         authorizationService
@@ -58,11 +61,13 @@ public class UseCaseConfig {
     @Bean
 public AuthorizationService authorizationService(
         GetAuthenticatedUserPort authenticatedUserPort,
-        PermissionQueryPort permissionQueryPort
+        PermissionQueryPort permissionQueryPort,
+        SaveAuditLogInNewTransactionPort deniedAuditLogPort
 ) {
     return new AuthorizationService(
             authenticatedUserPort,
-            permissionQueryPort
+            permissionQueryPort,
+            deniedAuditLogPort
     );
 }
 }

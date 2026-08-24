@@ -4,6 +4,8 @@ import java.util.Objects;
 
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.user.User;
@@ -12,10 +14,12 @@ public class AuthorizationService {
 
     private final GetAuthenticatedUserPort authenticatedUserPort;
     private final PermissionQueryPort permissionQueryPort;
+    private final SaveAuditLogInNewTransactionPort deniedAuditLogPort;
 
     public AuthorizationService(
             GetAuthenticatedUserPort authenticatedUserPort,
-            PermissionQueryPort permissionQueryPort
+            PermissionQueryPort permissionQueryPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort
     ) {
         this.authenticatedUserPort = Objects.requireNonNull(
                 authenticatedUserPort,
@@ -25,6 +29,11 @@ public class AuthorizationService {
         this.permissionQueryPort = Objects.requireNonNull(
                 permissionQueryPort,
                 "PermissionQueryPort must not be null"
+        );
+
+        this.deniedAuditLogPort = Objects.requireNonNull(
+                deniedAuditLogPort,
+                "SaveAuditLogInNewTransactionPort must not be null"
         );
     }
 
@@ -49,6 +58,18 @@ public class AuthorizationService {
                 currentUserId,
                 permission
         )) {
+            deniedAuditLogPort.save(
+                    AuditLog.createChange(
+                            currentUserId,
+                            "PERMISSION_DENIED",
+                            "permissions",
+                            null,
+                            null,
+                            "permission=" + permission.name()
+                                    + ";reason=MISSING_PERMISSION"
+                    )
+            );
+
             throw new PermissionDeniedException(permission);
         }
 

@@ -186,35 +186,55 @@ public class ProjectService implements
         RoleCode roleCode =
                 currentUser.getRole().getCode();
 
-        Long employeeId =
-                loadCurrentEmployeeIdOrDeny(
-                        currentUserId
+        return switch (roleCode) {
+            case VT_02 -> {
+                Long employeeId =
+                        loadCurrentEmployeeIdOrDeny(
+                                currentUserId,
+                                currentUser
+                        );
+
+                yield new ProjectPage(
+                        loadProjectPort.findManagedBy(
+                                employeeId,
+                                page,
+                                size
+                        ),
+                        loadProjectPort.countManagedBy(
+                                employeeId
+                        )
+                );
+            }
+            case VT_04 -> {
+                Long employeeId =
+                        loadCurrentEmployeeIdOrDeny(
+                                currentUserId,
+                                currentUser
+                        );
+
+                yield new ProjectPage(
+                        loadProjectPort.findMemberProjects(
+                                employeeId,
+                                page,
+                                size
+                        ),
+                        loadProjectPort.countMemberProjects(
+                                employeeId
+                        )
+                );
+            }
+            default -> {
+                saveDeniedAudit(
+                        currentUserId,
+                        currentUser,
+                        null,
+                        "UNSUPPORTED_SELF_ROLE"
                 );
 
-        return switch (roleCode) {
-            case VT_02 -> new ProjectPage(
-                    loadProjectPort.findManagedBy(
-                            employeeId,
-                            page,
-                            size
-                    ),
-                    loadProjectPort.countManagedBy(
-                            employeeId
-                    )
-            );
-            case VT_04 -> new ProjectPage(
-                    loadProjectPort.findMemberProjects(
-                            employeeId,
-                            page,
-                            size
-                    ),
-                    loadProjectPort.countMemberProjects(
-                            employeeId
-                    )
-            );
-            default -> throw new PermissionDeniedException(
-                    PermissionCode.PROJECT_READ
-            );
+                throw new PermissionDeniedException(
+                        PermissionCode.PROJECT_READ
+                );
+            }
         };
     }
 
@@ -267,23 +287,47 @@ public class ProjectService implements
         };
     }
 
-    private Long loadCurrentEmployeeIdOrDeny(Long currentUserId) {
+    private Long loadCurrentEmployeeIdOrDeny(
+            Long currentUserId,
+            User currentUser
+    ) {
         return loadEmployeePort
                 .findByUserId(
                         new UserId(currentUserId)
                 )
                 .map(Employee::getIdValue)
-                .orElseThrow(() ->
-                        new PermissionDeniedException(
-                                PermissionCode.PROJECT_READ
-                        )
-                );
+                .orElseThrow(() -> {
+                    saveDeniedAudit(
+                            currentUserId,
+                            currentUser,
+                            null,
+                            "NO_EMPLOYEE_PROFILE"
+                    );
+
+                    return new PermissionDeniedException(
+                            PermissionCode.PROJECT_READ
+                    );
+                });
     }
 
     private void saveDeniedAudit(
             Long currentUserId,
             User currentUser,
             Long projectId
+    ) {
+        saveDeniedAudit(
+                currentUserId,
+                currentUser,
+                projectId,
+                "OUTSIDE_DATA_SCOPE"
+        );
+    }
+
+    private void saveDeniedAudit(
+            Long currentUserId,
+            User currentUser,
+            Long projectId,
+            String reason
     ) {
         saveDeniedAuditLogPort.save(
                 AuditLog.createChange(
@@ -292,16 +336,22 @@ public class ProjectService implements
                         "projects",
                         projectId,
                         null,
-                        deniedAuditDetails(currentUser)
+                        deniedAuditDetails(
+                                currentUser,
+                                reason
+                        )
                 )
         );
     }
 
-    private String deniedAuditDetails(User currentUser) {
+    private String deniedAuditDetails(
+            User currentUser,
+            String reason
+    ) {
         return "permission=PROJECT_READ"
                 + ";dataScope=" + currentUser.getDataScope()
                 + ";scopeOrgUnitId=" + currentUser.getScopeOrgUnitId()
-                + ";reason=OUTSIDE_DATA_SCOPE";
+                + ";reason=" + reason;
     }
 
     private User loadCurrentUserOrThrow(Long currentUserId) {

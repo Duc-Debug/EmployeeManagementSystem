@@ -10,9 +10,11 @@ public class UpdateUserRoleRequest {
     @NotBlank(message = "Mã vai trò không được để trống")
     private String roleCode;
 
-    @NotNull(message = "ID đơn vị tổ chức không được để trống")
     private Long orgUnitId;
+
+    @NotNull(message = "Phạm vi dữ liệu không được để trống")
     private DataScope dataScope;
+
     private Long scopeOrgUnitId;
 
     public String getRoleCode() {

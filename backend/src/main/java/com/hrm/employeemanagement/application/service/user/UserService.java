@@ -13,6 +13,7 @@ import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCas
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
@@ -54,6 +55,7 @@ public class UserService implements
     private final LoadEmployeePort loadEmployeePort;
     private final SaveEmployeePort saveEmployeePort;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final SaveAuditLogInNewTransactionPort deniedAuditLogPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final PasswordEncoderPort passwordEncoder;
     private final AuthorizationService authorizationService;
@@ -65,6 +67,7 @@ public class UserService implements
             LoadEmployeePort loadEmployeePort,
             SaveEmployeePort saveEmployeePort,
             SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort,
             LoadOrgUnitPort loadOrgUnitPort,
             PasswordEncoderPort passwordEncoder,
             AuthorizationService authorizationService
@@ -75,6 +78,10 @@ public class UserService implements
         this.loadEmployeePort = loadEmployeePort;
         this.saveEmployeePort = saveEmployeePort;
         this.saveAuditLogPort = saveAuditLogPort;
+        this.deniedAuditLogPort = Objects.requireNonNull(
+                deniedAuditLogPort,
+                "SaveAuditLogInNewTransactionPort must not be null"
+        );
         this.loadOrgUnitPort = loadOrgUnitPort;
         this.passwordEncoder = passwordEncoder;
         this.authorizationService = Objects.requireNonNull(
@@ -257,14 +264,6 @@ public UserResult updateUserRole(
             PermissionCode.USER_UPDATE_ROLE
     );
 
-    if (command.orgUnitId() != null) {
-        requireOrgUnitInDataScope(
-                currentUser,
-                command.orgUnitId(),
-                PermissionCode.USER_UPDATE_ROLE
-        );
-    }
-
     requireAssignableDataScope(
             currentUser,
             command.dataScope(),
@@ -318,14 +317,6 @@ public UserResult updateUserRole(
             .orElse(null);
 
     /*
-     * OrgUnit mà Employee thực sự thuộc về.
-     */
-    OrgUnit employeeOrgUnit =
-            loadActiveOrgUnitOrThrow(
-                    command.orgUnitId()
-            );
-
-    /*
      * OrgUnit gốc của phạm vi dữ liệu.
      *
      * Chỉ ORGANIZATION_BRANCH mới cần scopeOrgUnitId.
@@ -342,24 +333,14 @@ public UserResult updateUserRole(
             loadUserPort.countActiveAdmins();
 
     /*
-     * Thay đổi quyền chức năng.
+     * Thay đổi role + dataScope như một authorization update duy nhất để
+     * domain không rơi vào trạng thái tạm thời sai invariant.
      */
-    user.changeRole(
+    user.changeAuthorization(
             newRole,
-            activeAdminCount
-    );
-
-    /*
-     * Thay đổi phạm vi dữ liệu.
-     *
-     * Domain sẽ tự reject:
-     * ORGANIZATION_BRANCH + null
-     * SELF + orgUnitId
-     * COMPANY + orgUnitId
-     */
-    user.changeDataScope(
             command.dataScope(),
-            command.scopeOrgUnitId()
+            command.scopeOrgUnitId(),
+            activeAdminCount
     );
 
     /*
@@ -367,19 +348,6 @@ public UserResult updateUserRole(
      */
     User updatedUser =
             saveUserPort.save(user);
-
-    /*
-     * Nếu admin đồng thời thay đổi đơn vị làm việc của Employee.
-     */
-    if (employee != null
-            && command.orgUnitId() != null) {
-
-        employee.assignToOrgUnit(
-                command.orgUnitId()
-        );
-
-        saveEmployeePort.save(employee);
-    }
 
     saveAuditLogPort.save(
             AuditLog.createChange(
@@ -401,10 +369,7 @@ public UserResult updateUserRole(
     );
 
     String orgUnitName =
-            employee != null
-                    && employeeOrgUnit != null
-                    ? employeeOrgUnit.getUnitName()
-                    : resolveOrgUnitName(employee);
+            resolveOrgUnitName(employee);
 
     return mapToUserResult(
             updatedUser,
@@ -611,6 +576,19 @@ public UserResult updateUserRole(
         };
 
         if (!allowed) {
+            saveDeniedAudit(
+                    currentUserId,
+                    "USER_ACCESS_DENIED",
+                    "users",
+                    targetUserId,
+                    permission,
+                    deniedAuditDetails(
+                            permission,
+                            currentUser,
+                            "OUTSIDE_DATA_SCOPE"
+                    )
+            );
+
             throw new PermissionDeniedException(permission);
         }
     }
@@ -624,6 +602,19 @@ public UserResult updateUserRole(
                 currentUser,
                 orgUnitId
         )) {
+            saveDeniedAudit(
+                    currentUser.getIdValue(),
+                    "ORG_UNIT_ACCESS_DENIED",
+                    "org_units",
+                    orgUnitId,
+                    permission,
+                    deniedAuditDetails(
+                            permission,
+                            currentUser,
+                            "OUTSIDE_DATA_SCOPE"
+                    )
+            );
+
             throw new PermissionDeniedException(permission);
         }
     }
@@ -666,8 +657,57 @@ public UserResult updateUserRole(
         };
 
         if (!allowed) {
+            saveDeniedAudit(
+                    currentUser.getIdValue(),
+                    "DATA_SCOPE_ASSIGN_DENIED",
+                    "users",
+                    currentUser.getIdValue(),
+                    permission,
+                    deniedAuditDetails(
+                            permission,
+                            currentUser,
+                            "UNASSIGNABLE_DATA_SCOPE"
+                    )
+                            + ";targetDataScope=" + targetDataScope
+                            + ";targetScopeOrgUnitId=" + targetScopeOrgUnitId
+            );
+
             throw new PermissionDeniedException(permission);
         }
+    }
+
+    private void saveDeniedAudit(
+            Long actorUserId,
+            String action,
+            String tableName,
+            Long recordId,
+            PermissionCode permission,
+            String details
+    ) {
+        deniedAuditLogPort.save(
+                AuditLog.createChange(
+                        actorUserId,
+                        action,
+                        tableName,
+                        recordId,
+                        null,
+                        details != null
+                                ? details
+                                : "permission=" + permission.name()
+                                + ";reason=DENIED"
+                )
+        );
+    }
+
+    private String deniedAuditDetails(
+            PermissionCode permission,
+            User currentUser,
+            String reason
+    ) {
+        return "permission=" + permission.name()
+                + ";dataScope=" + currentUser.getDataScope()
+                + ";scopeOrgUnitId=" + currentUser.getScopeOrgUnitId()
+                + ";reason=" + reason;
     }
 
     private String resolveOrgUnitName(Employee employee) {

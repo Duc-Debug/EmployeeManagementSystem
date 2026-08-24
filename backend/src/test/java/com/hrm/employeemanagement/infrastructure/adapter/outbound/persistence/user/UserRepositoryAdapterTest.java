@@ -146,7 +146,11 @@ class UserRepositoryAdapterTest {
                         version
                 );
 
-        entity.setDataScope("SELF");
+        entity.setDataScope(
+                "VT-06".equals(role.getCode())
+                        ? "COMPANY"
+                        : "SELF"
+        );
         return entity;
     }
 }

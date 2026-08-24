@@ -9,4 +9,18 @@ public record UpdateUserRoleCommand(
         DataScope dataScope,
         Long scopeOrgUnitId
 ) {
+    public UpdateUserRoleCommand(
+            Long userId,
+            String roleCode,
+            DataScope dataScope,
+            Long scopeOrgUnitId
+    ) {
+        this(
+                userId,
+                roleCode,
+                null,
+                dataScope,
+                scopeOrgUnitId
+        );
+    }
 }

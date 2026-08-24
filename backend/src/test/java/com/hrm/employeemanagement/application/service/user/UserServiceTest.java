@@ -26,6 +26,7 @@ import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
@@ -82,6 +83,9 @@ class UserServiceTest {
     private SaveAuditLogPort saveAuditLogPort;
 
     @Mock
+    private SaveAuditLogInNewTransactionPort deniedAuditLogPort;
+
+    @Mock
     private LoadOrgUnitPort loadOrgUnitPort;
 
     @Mock
@@ -104,6 +108,7 @@ class UserServiceTest {
                 loadEmployeePort,
                 saveEmployeePort,
                 saveAuditLogPort,
+                deniedAuditLogPort,
                 loadOrgUnitPort,
                 passwordEncoder,
                 authorizationService
@@ -125,7 +130,7 @@ class UserServiceTest {
                 new UserId(ADMIN_ID),
                 "admin",
                 "hash",
-                adminRole,
+                staffRole,
                 UserStatus.ACTIVE,
                 new EmployeeId(10L)
         );
@@ -598,7 +603,7 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Cập nhật vai trò và đơn vị tổ chức thành công kèm resolve orgUnitName")
+    @DisplayName("Cập nhật phân quyền thành công và giữ nguyên OrgUnit của Employee")
     void testUpdateUserRole_Success() {
         when(authorizationService.require(
                 PermissionCode.USER_UPDATE_ROLE
@@ -655,12 +660,12 @@ class UserServiceTest {
                 .thenReturn(Optional.of(employee));
 
         OrgUnit orgUnit = activeOrgUnit(
-                15L,
-                "OU-15",
-                "Ban Quản lý dự án"
+                5L,
+                "OU-05",
+                "Đơn vị hiện tại"
         );
 
-        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+        when(loadOrgUnitPort.findById(new OrgUnitId(5L)))
                 .thenReturn(Optional.of(orgUnit));
 
         UserResult result =
@@ -672,19 +677,19 @@ class UserServiceTest {
         );
 
         assertEquals(
-                15L,
+                5L,
                 result.getOrgUnitId()
         );
 
         assertEquals(
-                "Ban Quản lý dự án",
+                "Đơn vị hiện tại",
                 result.getOrgUnitName()
         );
 
         verify(authorizationService, times(1))
                 .require(PermissionCode.USER_UPDATE_ROLE);
 
-        verify(saveEmployeePort, times(1))
+        verify(saveEmployeePort, never())
                 .save(employee);
 
         ArgumentCaptor<AuditLog> updateAuthorizationAuditCaptor =
@@ -739,7 +744,7 @@ class UserServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(2L)))
                 .thenReturn(Optional.empty());
 
-        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+        lenient().when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
                 .thenReturn(
                         Optional.of(
                                 activeOrgUnit(
@@ -853,7 +858,7 @@ class UserServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(2L)))
                 .thenReturn(Optional.empty());
 
-        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+        lenient().when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
                 .thenReturn(
                         Optional.of(
                                 activeOrgUnit(
@@ -913,7 +918,7 @@ class UserServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(2L)))
                 .thenReturn(Optional.empty());
 
-        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+        lenient().when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
                 .thenReturn(
                         Optional.of(
                                 activeOrgUnit(
@@ -984,7 +989,7 @@ class UserServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(2L)))
                 .thenReturn(Optional.empty());
 
-        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+        lenient().when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
                 .thenReturn(
                         Optional.of(
                                 activeOrgUnit(
@@ -1055,7 +1060,7 @@ class UserServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(2L)))
                 .thenReturn(Optional.empty());
 
-        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+        lenient().when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
                 .thenReturn(
                         Optional.of(
                                 activeOrgUnit(
@@ -1312,8 +1317,8 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Cập nhật vai trò bị từ chối khi gán orgUnit ngoài ORGANIZATION_BRANCH scope")
-    void testUpdateUserRole_OrganizationBranchScopeOutsideAssignedOrgUnit_ThrowsPermissionDeniedException() {
+    @DisplayName("Cập nhật vai trò bỏ qua legacy orgUnitId ngoài scope")
+    void testUpdateUserRole_IgnoresLegacyOrgUnitIdOutsideScope() {
         when(authorizationService.require(
                 PermissionCode.USER_UPDATE_ROLE
         )).thenReturn(ADMIN_ID);
@@ -1331,10 +1336,14 @@ class UserServiceTest {
                 5L
         )).thenReturn(true);
 
-        when(loadOrgUnitPort.existsInOrgUnitBranch(
-                20L,
-                5L
-        )).thenReturn(false);
+        User user = new User(
+                new UserId(2L),
+                "target",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
 
         UpdateUserRoleCommand command =
                 new UpdateUserRoleCommand(
@@ -1345,19 +1354,33 @@ class UserServiceTest {
                         null
                 );
 
-        assertThrows(
-                PermissionDeniedException.class,
-                () -> userService.updateUserRole(command)
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.empty());
+        when(loadUserPort.countActiveAdmins())
+                .thenReturn(2L);
+        when(saveUserPort.save(user))
+                .thenReturn(user);
+
+        UserResult result =
+                userService.updateUserRole(command);
+
+        assertEquals(
+                "VT-04",
+                result.getRoleCode()
         );
 
-        verify(loadUserPort, never())
-                .findById(new UserId(2L));
+        verify(loadOrgUnitPort, never())
+                .existsInOrgUnitBranch(
+                        20L,
+                        5L
+                );
 
-        verify(saveUserPort, never())
-                .save(any(User.class));
-
-        verify(saveAuditLogPort, never())
-                .save(any());
+        verify(saveUserPort)
+                .save(user);
     }
 
     @Test
@@ -1380,7 +1403,7 @@ class UserServiceTest {
                 5L
         )).thenReturn(true);
 
-        when(loadOrgUnitPort.existsInOrgUnitBranch(
+        lenient().when(loadOrgUnitPort.existsInOrgUnitBranch(
                 15L,
                 5L
         )).thenReturn(true);
@@ -1732,7 +1755,7 @@ class UserServiceTest {
                 new UserId(ADMIN_ID),
                 "admin",
                 "hash",
-                adminRole,
+                staffRole,
                 UserStatus.ACTIVE,
                 new EmployeeId(10L)
         );
@@ -2043,6 +2066,33 @@ class UserServiceTest {
 
         verify(loadEmployeePort, never())
                 .findByUserId(any());
+
+        ArgumentCaptor<AuditLog> auditCaptor =
+                ArgumentCaptor.forClass(AuditLog.class);
+
+        verify(deniedAuditLogPort)
+                .save(auditCaptor.capture());
+
+        assertEquals(
+                ADMIN_ID,
+                auditCaptor.getValue().getUserId()
+        );
+        assertEquals(
+                "USER_ACCESS_DENIED",
+                auditCaptor.getValue().getAction()
+        );
+        assertEquals(
+                "users",
+                auditCaptor.getValue().getTableName()
+        );
+        assertEquals(
+                5L,
+                auditCaptor.getValue().getRecordId()
+        );
+        assertEquals(
+                "permission=USER_READ;dataScope=SELF;scopeOrgUnitId=null;reason=OUTSIDE_DATA_SCOPE",
+                auditCaptor.getValue().getNewValue()
+        );
     }
 
     @Test
@@ -2056,7 +2106,7 @@ class UserServiceTest {
                 new UserId(ADMIN_ID),
                 "manager",
                 "hash",
-                adminRole,
+                staffRole,
                 UserStatus.ACTIVE,
                 new EmployeeId(10L)
         );
@@ -2135,7 +2185,7 @@ class UserServiceTest {
                 new UserId(ADMIN_ID),
                 "manager",
                 "hash",
-                adminRole,
+                staffRole,
                 UserStatus.ACTIVE,
                 new EmployeeId(10L)
         );
@@ -2182,7 +2232,7 @@ class UserServiceTest {
                 new UserId(ADMIN_ID),
                 "admin",
                 "hash",
-                adminRole,
+                staffRole,
                 UserStatus.ACTIVE,
                 new EmployeeId(10L)
         );
@@ -2268,7 +2318,7 @@ class UserServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(2L)))
                 .thenReturn(Optional.empty());
 
-        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+        lenient().when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
                 .thenReturn(Optional.of(
                         activeOrgUnit(
                                 15L,
@@ -2286,7 +2336,7 @@ class UserServiceTest {
                 new UserId(ADMIN_ID),
                 "admin",
                 "hash",
-                adminRole,
+                staffRole,
                 UserStatus.ACTIVE,
                 new EmployeeId(10L)
         );
@@ -2516,7 +2566,7 @@ void testGetUsers_OrganizationBranchScope_ReturnsBranchUsers() {
             new UserId(1L),
             "manager",
             "hash",
-            adminRole,
+            staffRole,
             UserStatus.ACTIVE,
             new EmployeeId(10L)
     );
@@ -2625,5 +2675,80 @@ void testGetUsers_OrganizationBranchScope_ReturnsBranchUsers() {
                     any(Integer.class),
                     any(Integer.class)
             );
+}
+
+@Test
+@DisplayName("updateUserRole không điều chuyển OrgUnit của Employee")
+void testUpdateUserRole_DoesNotChangeEmployeeOrgUnit() {
+    when(authorizationService.require(
+            PermissionCode.USER_UPDATE_ROLE
+    )).thenReturn(ADMIN_ID);
+
+    User user = new User(
+            new UserId(2L),
+            "john_doe",
+            "hash",
+            staffRole,
+            UserStatus.ACTIVE,
+            new EmployeeId(20L)
+    );
+
+    Employee employee = new Employee(
+            new EmployeeId(20L),
+            new UserId(2L),
+            15L,
+            "EMP-002",
+            "John Doe",
+            false,
+            40,
+            EmployeeStatus.ACTIVE
+    );
+
+    UpdateUserRoleCommand command =
+            new UpdateUserRoleCommand(
+                    2L,
+                    "VT-04",
+                    99L,
+                    DataScope.COMPANY,
+                    null
+            );
+
+    when(loadUserPort.findById(new UserId(2L)))
+            .thenReturn(Optional.of(user));
+    when(loadRolePort.findByCode(RoleCode.VT_04))
+            .thenReturn(Optional.of(staffRole));
+    when(loadEmployeePort.findByUserId(new UserId(2L)))
+            .thenReturn(Optional.of(employee));
+    when(loadUserPort.countActiveAdmins())
+            .thenReturn(2L);
+    when(saveUserPort.save(user))
+            .thenReturn(user);
+    when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+            .thenReturn(
+                    Optional.of(
+                            activeOrgUnit(
+                                    15L,
+                                    "OU-15",
+                                    "Phòng hiện tại"
+                            )
+                    )
+            );
+
+    UserResult result =
+            userService.updateUserRole(command);
+
+    assertEquals(
+            15L,
+            employee.getOrgUnitId()
+    );
+    assertEquals(
+            15L,
+            result.getOrgUnitId()
+    );
+
+    verify(saveEmployeePort, never())
+            .save(any());
+    verify(loadOrgUnitPort, never())
+            .findById(new OrgUnitId(99L));
 }
 }

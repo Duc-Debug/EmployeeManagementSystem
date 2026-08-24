@@ -339,9 +339,6 @@ class ProjectServiceTest {
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID)))
                 .thenReturn(Optional.of(currentUser));
 
-        when(loadEmployeePort.findByUserId(new UserId(CURRENT_USER_ID)))
-                .thenReturn(Optional.of(currentEmployee()));
-
         assertThrows(
                 PermissionDeniedException.class,
                 () -> projectService.getProjects(0, 20)
@@ -359,6 +356,9 @@ class ProjectServiceTest {
                         any(Integer.class),
                         any(Integer.class)
                 );
+
+        verify(saveDeniedAuditLogPort)
+                .save(any(AuditLog.class));
     }
 
     @Test

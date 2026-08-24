@@ -91,12 +91,11 @@ public class UserController {
         new UpdateUserRoleCommand(
                 id,
                 request.getRoleCode(),
-                request.getOrgUnitId(),
                 request.getDataScope(),
                 request.getScopeOrgUnitId()
         );
             UserResult result = updateUserRoleUseCase.updateUserRole(command);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật vai trò và đơn vị tổ chức thành công", result));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật phân quyền thành công", result));
     }
 
     @PatchMapping("/{id}/status")

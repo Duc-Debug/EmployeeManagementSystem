@@ -73,7 +73,7 @@ class UserPersistenceMapperTest {
     @Test
     @DisplayName("Ánh xạ từ UserJpaEntity sang User domain bảo toàn trường @Version")
     void testToDomain_PreservesVersion() {
-        RoleJpaEntity roleJpa = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
+        RoleJpaEntity roleJpa = new RoleJpaEntity(4L, "VT-04", "Nhân viên");
         UserJpaEntity jpaEntity = new UserJpaEntity(1L, "admin", "hash123", roleJpa, true, 5L);
         jpaEntity.setDataScope("SELF");
 
@@ -92,7 +92,7 @@ class UserPersistenceMapperTest {
     @Test
     @DisplayName("Ánh xạ từ User domain sang UserJpaEntity bảo toàn trường @Version")
     void testToJpaEntity_PreservesVersion() {
-        Role role = new Role(new RoleId(6L), RoleCode.VT_06, "Quản trị viên");
+        Role role = new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên");
         User user = new User(
                 new UserId(1L),
                 "admin",
@@ -104,7 +104,7 @@ class UserPersistenceMapperTest {
                 null,
                 3L
         );
-        RoleJpaEntity roleJpa = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
+        RoleJpaEntity roleJpa = new RoleJpaEntity(4L, "VT-04", "Nhân viên");
 
         UserJpaEntity jpaEntity = mapper.toJpaEntity(user, roleJpa);
 
