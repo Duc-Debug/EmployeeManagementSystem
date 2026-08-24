@@ -35,5 +35,3 @@ build/
 .env
 .env.local
 .env.prod
-
-application-dev.properties
