@@ -25,18 +25,10 @@ public class FlywayConfig {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
-                .cleanDisabled(false)
                 .locations("classpath:db/migration")
                 .load();
 
-        try {
-            flyway.repair();
-            flyway.migrate();
-        } catch (Exception e) {
-            System.out.println("⚠️ Phát hiện xung đột migration trong lúc dev, tiến hành clean và migrate lại...");
-            flyway.clean();
-            flyway.migrate();
-        }
+        flyway.migrate();
 
         System.out.println("==================================================");
         System.out.println("✅ FLYWAY MIGRATION SUCCESSFUL!");

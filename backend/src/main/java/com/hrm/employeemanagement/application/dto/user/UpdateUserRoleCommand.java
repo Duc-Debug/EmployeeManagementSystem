@@ -1,19 +1,26 @@
 package com.hrm.employeemanagement.application.dto.user;
 
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+
 public record UpdateUserRoleCommand(
         Long userId,
         String roleCode,
-        Long departmentId
+        Long orgUnitId,
+        DataScope dataScope,
+        Long scopeOrgUnitId
 ) {
-    public UpdateUserRoleCommand {
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID không được để trống");
-        }
-        if (roleCode == null || roleCode.isBlank()) {
-            throw new IllegalArgumentException("Mã vai trò không được để trống");
-        }
-        if (departmentId == null) {
-            throw new IllegalArgumentException("ID phòng ban không được để trống");
-        }
+    public UpdateUserRoleCommand(
+            Long userId,
+            String roleCode,
+            DataScope dataScope,
+            Long scopeOrgUnitId
+    ) {
+        this(
+                userId,
+                roleCode,
+                null,
+                dataScope,
+                scopeOrgUnitId
+        );
     }
 }
