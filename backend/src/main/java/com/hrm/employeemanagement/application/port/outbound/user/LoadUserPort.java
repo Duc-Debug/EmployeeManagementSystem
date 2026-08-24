@@ -9,6 +9,8 @@ import java.util.Optional;
 public interface LoadUserPort {
     Optional<User> findById(UserId id);
     Optional<User> findByUsername(String username);
+    Optional<User> findByEmail(String email);
+    Optional<User> findByUsernameOrEmail(String identity);
     boolean existsByUsername(String username);
     List<User> findAll(int page, int size);
     long count();
