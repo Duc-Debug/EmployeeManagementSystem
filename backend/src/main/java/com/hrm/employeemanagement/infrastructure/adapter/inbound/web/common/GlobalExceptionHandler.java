@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common;
 
 import com.hrm.employeemanagement.domain.exception.DomainException;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
@@ -8,6 +9,7 @@ import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManager
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
 import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,6 +109,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidOrgUnitManager(InvalidOrgUnitManagerException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "INVALID_ORG_UNIT_MANAGER",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 8. Handle RequiredFieldMissingException (400 BAD REQUEST)
+    @ExceptionHandler(RequiredFieldMissingException.class)
+    public ResponseEntity<ErrorResponse> handleRequiredFieldMissing(RequiredFieldMissingException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "REQUIRED_FIELD_MISSING",
                 ex.getMessage(),
                 HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -216,15 +228,5 @@ public class GlobalExceptionHandler {
                 "An unexpected error occurred.",
                 HttpStatus.INTERNAL_SERVER_ERROR.value());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-    }
-
-    // Handle InvalidOrgUnitManagerException (400 BAD REQUEST)
-    @ExceptionHandler(InvalidOrgUnitManagerException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidOrgUnitManager(InvalidOrgUnitManagerException ex) {
-        ErrorResponse response = ErrorResponse.of(
-                "INVALID_ORG_UNIT_MANAGER",
-                ex.getMessage(),
-                HttpStatus.BAD_REQUEST.value());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 }
