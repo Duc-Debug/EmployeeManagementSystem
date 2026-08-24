@@ -51,7 +51,11 @@ public class User {
     }
 
     public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId) {
-        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId, username + "@company.com", null, 1, null);
+        return createNew(username, passwordHash, role, employeeId, null);
+    }
+
+    public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId, String email) {
+        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId, email, null, 1, null);
     }
 
     public void updatePassword(String newPasswordHash, Instant now) {

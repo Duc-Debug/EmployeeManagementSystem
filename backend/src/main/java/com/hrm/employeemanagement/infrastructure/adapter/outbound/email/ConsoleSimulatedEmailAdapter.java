@@ -22,7 +22,7 @@ public class ConsoleSimulatedEmailAdapter implements SimulatedEmailPort {
     private final String resetPasswordBaseUrl;
 
     public ConsoleSimulatedEmailAdapter(
-            @Value("${app.auth.reset-password-base-url:http://localhost:8080/api/v1/auth/reset-password}") String resetPasswordBaseUrl) {
+            @Value("${app.auth.reset-password-base-url:http://localhost:3000/reset-password}") String resetPasswordBaseUrl) {
         this.resetPasswordBaseUrl = resetPasswordBaseUrl;
     }
 

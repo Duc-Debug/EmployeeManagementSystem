@@ -17,5 +17,3 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     CONSTRAINT fk_prt_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- 3. Backfill default email addresses for existing users if NULL
-UPDATE users SET email = CONCAT(username, '@company.com') WHERE email IS NULL;

@@ -3,7 +3,6 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.email;
 import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.mail.SimpleMailMessage;
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * Production Email Adapter implementing SimulatedEmailPort/EmailPort.
  * Dispatches password reset emails securely via production JavaMailSender without logging plaintext reset tokens.
- * Fails fast with an explicit exception if mail server configuration is absent in production.
+ * Fails fast during Spring startup if JavaMailSender or reset base URL configuration is missing in production.
  */
 @Component
 @Profile("prod")
@@ -24,19 +23,14 @@ public class ProductionEmailAdapter implements SimulatedEmailPort {
     private final JavaMailSender mailSender;
     private final String resetPasswordBaseUrl;
 
-    public ProductionEmailAdapter(ObjectProvider<JavaMailSender> mailSenderProvider,
-                                  @Value("${app.auth.reset-password-base-url:http://localhost:8080/api/v1/auth/reset-password}") String resetPasswordBaseUrl) {
-        this.mailSender = mailSenderProvider.getIfAvailable();
+    public ProductionEmailAdapter(JavaMailSender mailSender,
+                                  @Value("${app.auth.reset-password-base-url}") String resetPasswordBaseUrl) {
+        this.mailSender = mailSender;
         this.resetPasswordBaseUrl = resetPasswordBaseUrl;
     }
 
     @Override
     public void sendPasswordResetEmail(String recipientEmail, String username, String resetToken, long validityMinutes) {
-        if (mailSender == null) {
-            log.error("Failed to send password reset email: JavaMailSender is not configured in production environment.");
-            throw new IllegalStateException("Cấu hình dịch vụ Email chưa được thiết lập cho môi trường Production. Vui lòng cấu hình các thuộc tính spring.mail.* trong tệp môi trường.");
-        }
-
         log.info("Dispatching password reset email to recipient: {} (User: {})", recipientEmail, username);
 
         SimpleMailMessage message = new SimpleMailMessage();
