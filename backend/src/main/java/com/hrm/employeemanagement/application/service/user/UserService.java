@@ -282,6 +282,15 @@ public UserResult updateUserRole(
                     )
             );
 
+    String oldRoleCode =
+            user.getRole().getCode().getCode();
+
+    DataScope oldDataScope =
+            user.getDataScope();
+
+    Long oldScopeOrgUnitId =
+            user.getScopeOrgUnitId();
+
     RoleCode newRoleCode =
             RoleCode.fromCode(command.roleCode());
 
@@ -373,11 +382,21 @@ public UserResult updateUserRole(
     }
 
     saveAuditLogPort.save(
-            AuditLog.create(
+            AuditLog.createChange(
                     currentAdminId,
                     "UPDATE_AUTHORIZATION",
                     "users",
-                    updatedUser.getIdValue()
+                    updatedUser.getIdValue(),
+                    authorizationAuditValue(
+                            oldRoleCode,
+                            oldDataScope,
+                            oldScopeOrgUnitId
+                    ),
+                    authorizationAuditValue(
+                            newRole.getCode().getCode(),
+                            command.dataScope(),
+                            command.scopeOrgUnitId()
+                    )
             )
     );
 
@@ -664,6 +683,16 @@ public UserResult updateUserRole(
                 )
                 .map(OrgUnit::getUnitName)
                 .orElse(null);
+    }
+
+    private String authorizationAuditValue(
+            String roleCode,
+            DataScope dataScope,
+            Long scopeOrgUnitId
+    ) {
+        return "role=" + roleCode
+                + ";dataScope=" + dataScope
+                + ";scopeOrgUnitId=" + scopeOrgUnitId;
     }
 
     private UserResult mapToUserResult(

@@ -700,6 +700,120 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("Cập nhật authorization ghi audit actor, target, old/new và timestamp")
+    void testUpdateUserRole_WritesAuthorizationChangeDetailsAudit() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE_ROLE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "user2",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        UpdateUserRoleCommand command =
+                new UpdateUserRoleCommand(
+                        2L,
+                        "VT-02",
+                        15L,
+                        DataScope.ORGANIZATION_BRANCH,
+                        5L
+                );
+
+        Role pmRole = new Role(
+                new RoleId(2L),
+                RoleCode.VT_02,
+                "Quản lý dự án"
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+
+        when(loadRolePort.findByCode(RoleCode.VT_02))
+                .thenReturn(Optional.of(pmRole));
+
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.empty());
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        15L,
+                                        "OU-15",
+                                        "Ban Quản lý dự án"
+                                )
+                        )
+                );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(5L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        5L,
+                                        "OU-05",
+                                        "Khối Công nghệ"
+                                )
+                        )
+                );
+
+        when(loadUserPort.countActiveAdmins())
+                .thenReturn(2L);
+
+        when(saveUserPort.save(any(User.class)))
+                .thenReturn(user);
+
+        userService.updateUserRole(command);
+
+        ArgumentCaptor<AuditLog> auditCaptor =
+                ArgumentCaptor.forClass(AuditLog.class);
+
+        verify(saveAuditLogPort, times(1))
+                .save(auditCaptor.capture());
+
+        AuditLog auditLog =
+                auditCaptor.getValue();
+
+        assertEquals(
+                ADMIN_ID,
+                auditLog.getUserId()
+        );
+
+        assertEquals(
+                "UPDATE_AUTHORIZATION",
+                auditLog.getAction()
+        );
+
+        assertEquals(
+                "users",
+                auditLog.getTableName()
+        );
+
+        assertEquals(
+                2L,
+                auditLog.getRecordId()
+        );
+
+        assertEquals(
+                "role=VT-04;dataScope=SELF;scopeOrgUnitId=null",
+                auditLog.getOldValue()
+        );
+
+        assertEquals(
+                "role=VT-02;dataScope=ORGANIZATION_BRANCH;scopeOrgUnitId=5",
+                auditLog.getNewValue()
+        );
+
+        assertNotNull(
+                auditLog.getCreatedAt()
+        );
+    }
+
+    @Test
     @DisplayName("Hạ quyền Admin thành công và kích hoạt Pessimistic Lock trên Role VT-06")
     void testUpdateUserRole_DemoteAdmin_AcquiresPessimisticLockOnAdminRole() {
         when(authorizationService.require(

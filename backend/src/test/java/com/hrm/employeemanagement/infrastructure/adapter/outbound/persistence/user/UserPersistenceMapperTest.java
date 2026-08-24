@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user;
 
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.role.Role;
@@ -8,6 +9,7 @@ import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.UserStatus;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.AuditLogJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.UserJpaEntity;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +29,45 @@ class UserPersistenceMapperTest {
     @BeforeEach
     void setUp() {
         mapper = new UserPersistenceMapper();
+    }
+
+    @Test
+    @DisplayName("Ánh xạ AuditLog bảo toàn oldValue và newValue")
+    void testAuditLogMapping_PreservesChangeValues() {
+        AuditLog auditLog = AuditLog.createChange(
+                1L,
+                "UPDATE_AUTHORIZATION",
+                "users",
+                25L,
+                "role=VT-04;dataScope=SELF;scopeOrgUnitId=null",
+                "role=VT-02;dataScope=ORGANIZATION_BRANCH;scopeOrgUnitId=5"
+        );
+
+        AuditLogJpaEntity entity =
+                mapper.toJpaEntity(auditLog);
+
+        assertEquals(
+                auditLog.getOldValue(),
+                entity.getOldValue()
+        );
+
+        assertEquals(
+                auditLog.getNewValue(),
+                entity.getNewValue()
+        );
+
+        AuditLog mappedBack =
+                mapper.toDomain(entity);
+
+        assertEquals(
+                auditLog.getOldValue(),
+                mappedBack.getOldValue()
+        );
+
+        assertEquals(
+                auditLog.getNewValue(),
+                mappedBack.getNewValue()
+        );
     }
 
     @Test

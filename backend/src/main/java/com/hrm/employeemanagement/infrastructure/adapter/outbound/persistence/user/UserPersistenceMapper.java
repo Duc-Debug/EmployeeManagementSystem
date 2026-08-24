@@ -278,7 +278,9 @@ public class UserPersistenceMapper {
                 entity.getAction(),
                 entity.getTableName(),
                 entity.getRecordId(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getOldValue(),
+                entity.getNewValue()
         );
     }
 
@@ -295,7 +297,9 @@ public class UserPersistenceMapper {
                 domain.getAction(),
                 domain.getTableName(),
                 domain.getRecordId(),
-                domain.getCreatedAt()
+                domain.getCreatedAt(),
+                domain.getOldValue(),
+                domain.getNewValue()
         );
     }
 }
