@@ -92,6 +92,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    // 7. Handle InvalidOrgUnitManagerException (400 BAD REQUEST)
+    @ExceptionHandler(InvalidOrgUnitManagerException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidOrgUnitManager(InvalidOrgUnitManagerException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_ORG_UNIT_MANAGER",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     // 7. Handle Generic DomainException (400 BAD REQUEST)
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleGenericDomainException(DomainException ex) {

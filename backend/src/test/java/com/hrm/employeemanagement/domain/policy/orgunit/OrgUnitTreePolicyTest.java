@@ -88,7 +88,7 @@ class OrgUnitTreePolicyTest {
     private OrgUnit createUnit(Long id, String code, String path, int level, OrgUnitId parentId) {
         return new OrgUnit(
                 id != null ? new OrgUnitId(id) : null, code, "Unit " + code, OrgUnitType.DEPARTMENT,
-                parentId, path, level, OrgUnitStatus.ACTIVE, null, null,
+                parentId, path, level, OrgUnitStatus.ACTIVE, null, 1L,
                 FIXED_TIME, null
         );
     }

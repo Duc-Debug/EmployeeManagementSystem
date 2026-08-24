@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.domain.orgunit;
 
 import java.time.LocalDateTime;
 
+import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
 
 public class OrgUnit {
@@ -22,6 +23,9 @@ public class OrgUnit {
     public OrgUnit(OrgUnitId id, String unitCode, String unitName, OrgUnitType unitType,
             OrgUnitId parentId, String treePath, Integer level, OrgUnitStatus status,
             String description, Long managerId, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        if (managerId == null || managerId <= 0) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        }
         this.id = id;
         this.unitCode = unitCode;
         this.unitName = unitName;
@@ -56,9 +60,12 @@ public class OrgUnit {
         if (unitName == null || unitName.trim().isEmpty()) {
             throw new IllegalArgumentException("Tên đơn vị không được để trống");
         }
+        if (unitType == null) {
+            throw new IllegalArgumentException("Loại đơn vị là bắt buộc");
+        }
+        this.assignManager(managerId);
         this.unitName = unitName;
         this.unitType = unitType;
-        this.managerId = managerId;
         this.description = description;
         this.updatedAt = LocalDateTime.now();
     }
@@ -84,6 +91,9 @@ public class OrgUnit {
 
     // Hành vi nghiệp vụ: Bổ nhiệm Trưởng phòng/Quản lý
     public void assignManager(Long managerId) {
+        if (managerId == null || managerId <= 0) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        }
         this.managerId = managerId;
         this.updatedAt = LocalDateTime.now();
     }
