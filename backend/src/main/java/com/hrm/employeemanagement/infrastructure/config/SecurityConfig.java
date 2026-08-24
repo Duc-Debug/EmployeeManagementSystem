@@ -52,6 +52,7 @@ public class SecurityConfig {
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
                     auth.requestMatchers("/api/v1/users/**").hasAuthority("VT-06");
+                    auth.requestMatchers("/api/v1/org-units/**").hasAuthority("VT-06");
                     auth.anyRequest().authenticated();
                 })
                 .exceptionHandling(exception -> exception
