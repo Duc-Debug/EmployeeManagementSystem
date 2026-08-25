@@ -9,10 +9,10 @@ CREATE TABLE IF NOT EXISTS org_units (
     level INT NOT NULL DEFAULT 1,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     description TEXT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL,
     CONSTRAINT fk_org_units_parent FOREIGN KEY (parent_id) REFERENCES org_units(id) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- 2. Đánh Index tối ưu truy vấn cây
 CREATE INDEX idx_org_units_parent_id ON org_units(parent_id);
