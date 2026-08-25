@@ -87,4 +87,20 @@ class CaffeineTokenBlacklistAdapterTest {
         assertTrue(customAdapter.isUserRevoked(username, now - 5000));
         assertFalse(customAdapter.isUserRevoked(username, now + 5000));
     }
+
+    @Test
+    @DisplayName("Boundary: Kiểm tra chính xác từng mili-giây cho logic revocation (<= revokedBefore vs > revokedBefore)")
+    void testRevocationTimestampBoundary_ExactMilliseconds() {
+        String username = "boundary_user";
+        long revocationTimestamp = 1_700_000_000_000L;
+
+        blacklistAdapter.blacklistUser(username, revocationTimestamp);
+
+        // 1 ms before -> revoked
+        assertTrue(blacklistAdapter.isUserRevoked(username, revocationTimestamp - 1));
+        // exact boundary -> revoked
+        assertTrue(blacklistAdapter.isUserRevoked(username, revocationTimestamp));
+        // 1 ms after -> NOT revoked (valid new token)
+        assertFalse(blacklistAdapter.isUserRevoked(username, revocationTimestamp + 1));
+    }
 }

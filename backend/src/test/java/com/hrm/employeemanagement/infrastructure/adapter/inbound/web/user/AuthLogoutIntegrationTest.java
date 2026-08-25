@@ -197,4 +197,102 @@ class AuthLogoutIntegrationTest {
                 .toList();
         assertThat(userLogoutAllLogs).hasSize(1);
     }
+
+    @Test
+    @DisplayName("Boundary: Token mới được tạo sau logout-all vẫn phải hợp lệ, token cũ bị thu hồi")
+    void testEndToEnd_LogoutAll_NewTokenIssuedAfterwards_RemainsValidAndAccessGranted() throws Exception {
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setUsername(TEST_USERNAME);
+        loginRequest.setPassword(TEST_PASSWORD);
+
+        // 1. First Login -> tokenOld
+        MvcResult loginResultOld = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String tokenOld = objectMapper.readTree(loginResultOld.getResponse().getContentAsString())
+                .path("data").path("token").asText();
+
+        // 2. Perform Logout All Devices
+        mockMvc.perform(post("/api/v1/auth/logout?allDevices=true")
+                        .header("Authorization", "Bearer " + tokenOld))
+                .andExpect(status().isOk());
+
+        // 3. Old Token MUST be rejected
+        mockMvc.perform(get("/api/v1/users/" + testUserId).header("Authorization", "Bearer " + tokenOld))
+                .andExpect(status().isUnauthorized());
+
+        // 4. Sleep briefly to ensure new token issuedAt > revocation timestamp
+        Thread.sleep(50);
+
+        // 5. Second Login -> tokenNew
+        MvcResult loginResultNew = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String tokenNew = objectMapper.readTree(loginResultNew.getResponse().getContentAsString())
+                .path("data").path("token").asText();
+
+        // 6. New token MUST be accepted (200 OK)
+        mockMvc.perform(get("/api/v1/users/" + testUserId).header("Authorization", "Bearer " + tokenNew))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("Idempotency: Đăng xuất nhiều lần liên tiếp với cùng một token được xử lý an toàn")
+    void testEndToEnd_MultipleConsecutiveLogouts_IsIdempotentAndSafe() throws Exception {
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setUsername(TEST_USERNAME);
+        loginRequest.setPassword(TEST_PASSWORD);
+
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String token = objectMapper.readTree(loginResult.getResponse().getContentAsString())
+                .path("data").path("token").asText();
+
+        // 1st Logout -> 200 OK
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        // 2nd Logout with same token -> 200 OK (Idempotent, no 500 error)
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        // 3rd Logout with same token -> 200 OK
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        // Calling protected endpoint remains 401 Unauthorized
+        mockMvc.perform(get("/api/v1/users/" + testUserId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Security: Gửi token không hợp lệ / bị làm giả (tampered) được xử lý an toàn và không gây sập hệ thống")
+    void testEndToEnd_LogoutWithTamperedOrMalformedToken_HandledGracefully() throws Exception {
+        String malformedToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalidPayload.invalidSignature";
+
+        // Logout with malformed token -> Should return 200 OK gracefully without throwing 500
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + malformedToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        // Access protected API with malformed token -> 401 Unauthorized
+        mockMvc.perform(get("/api/v1/users/" + testUserId)
+                        .header("Authorization", "Bearer " + malformedToken))
+                .andExpect(status().isUnauthorized());
+    }
 }
