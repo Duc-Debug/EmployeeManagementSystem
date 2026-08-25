@@ -6,4 +6,6 @@ public interface TokenProviderPort {
     String generateToken(User user);
     String getUsernameFromToken(String token);
     boolean validateToken(String token);
+    long getRemainingExpirationMs(String token);
+    Long getUserIdFromToken(String token);
 }

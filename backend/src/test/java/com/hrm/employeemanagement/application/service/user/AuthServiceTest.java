@@ -2,9 +2,12 @@ package com.hrm.employeemanagement.application.service.user;
 
 import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
+import com.hrm.employeemanagement.application.dto.user.LogoutCommand;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
+import com.hrm.employeemanagement.application.port.outbound.security.TokenBlacklistPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
@@ -38,13 +41,19 @@ class AuthServiceTest {
     @Mock
     private TokenProviderPort tokenProvider;
 
+    @Mock
+    private TokenBlacklistPort tokenBlacklistPort;
+
+    @Mock
+    private SaveAuditLogPort saveAuditLogPort;
+
     private AuthService authService;
 
     private Role userRole;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(loadUserPort, passwordEncoder, tokenProvider);
+        authService = new AuthService(loadUserPort, passwordEncoder, tokenProvider, tokenBlacklistPort, saveAuditLogPort);
         userRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
     }
 
@@ -112,5 +121,50 @@ class AuthServiceTest {
         });
 
         verify(tokenProvider, never()).generateToken(any());
+    }
+
+    @Test
+    @DisplayName("Đăng xuất thành công với token hợp lệ: đưa token vào blacklist và ghi nhận audit log")
+    void testLogout_Success() {
+        String token = "valid.jwt.token";
+        LogoutCommand command = new LogoutCommand(token, 1L, "admin");
+
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getRemainingExpirationMs(token)).thenReturn(3600000L);
+
+        authService.logout(command);
+
+        verify(tokenBlacklistPort, times(1)).blacklist(token, 3600000L);
+        verify(saveAuditLogPort, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Đăng xuất khi token không hợp lệ hoặc đã hết hạn: không blacklist và không ghi audit log")
+    void testLogout_InvalidToken() {
+        String token = "invalid.jwt.token";
+        LogoutCommand command = new LogoutCommand(token, null, null);
+
+        when(tokenProvider.validateToken(token)).thenReturn(false);
+
+        authService.logout(command);
+
+        verify(tokenBlacklistPort, never()).blacklist(anyString(), anyLong());
+        verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Đăng xuất với token hợp lệ nhưng không truyền userId: trích xuất userId từ TokenProviderPort")
+    void testLogout_ExtractUserIdFromToken() {
+        String token = "valid.jwt.token";
+        LogoutCommand command = new LogoutCommand(token, null, null);
+
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getRemainingExpirationMs(token)).thenReturn(1800000L);
+        when(tokenProvider.getUserIdFromToken(token)).thenReturn(2L);
+
+        authService.logout(command);
+
+        verify(tokenBlacklistPort, times(1)).blacklist(token, 1800000L);
+        verify(saveAuditLogPort, times(1)).save(any());
     }
 }
