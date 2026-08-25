@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Logo } from "@/components/ui/Logo";
 import { clearDemoSession, readDemoSession } from "@/lib/demo-session";
 
 const navigation: ReadonlyArray<{ href: string; icon: IconName; label: string }> = [
@@ -79,11 +80,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         }}
       >
         <div className="side-nav__brand">
-          <span aria-hidden="true" className="brand-mark">EM</span>
-          <span>
-            <strong>Employee</strong>
-            <small>Management System</small>
-          </span>
+          <Logo size={36} theme="dark" variant="full" />
         </div>
 
         <nav aria-label="Điều hướng chính" className="side-nav__links">
@@ -125,20 +122,48 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         className="dashboard-frame"
         inert={isNavigationOpen && !isDesktopNavigation ? true : undefined}
       >
-        <header className="mobile-bar">
-          <button
-            aria-expanded={isNavigationOpen}
-            aria-label="Mở menu điều hướng"
-            className="icon-button"
-            onClick={() => setIsNavigationOpen(true)}
-            ref={menuTriggerRef}
-            type="button"
-          >
-            <Icon name="menu" />
-          </button>
-          <span className="mobile-bar__brand">Employee Management</span>
-          <span aria-hidden="true" className="avatar avatar--small">{user.fullName.slice(0, 1)}</span>
+        <header className="dashboard-topbar">
+          <div className="dashboard-topbar__left">
+            <button
+              aria-expanded={isNavigationOpen}
+              aria-label="Mở menu điều hướng"
+              className="icon-button mobile-menu-btn"
+              onClick={() => setIsNavigationOpen(true)}
+              ref={menuTriggerRef}
+              type="button"
+            >
+              <Icon name="menu" />
+            </button>
+            <div className="topbar-search">
+              <Icon name="search" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm nhanh nhân sự, đơn vị, quyền hạn... (Ctrl + K)"
+                aria-label="Tìm kiếm nhanh"
+                className="topbar-search__input"
+                readOnly
+              />
+            </div>
+          </div>
+
+          <div className="dashboard-topbar__right">
+            <button type="button" className="icon-button notification-btn" title="Thông báo" aria-label="Thông báo">
+              <Icon name="bell" />
+              <span className="notification-indicator" />
+            </button>
+
+            <div className="topbar-divider" />
+
+            <div className="topbar-user">
+              <span aria-hidden="true" className="avatar avatar--small">{user.fullName.slice(0, 1)}</span>
+              <div className="topbar-user__info">
+                <strong>{user.fullName}</strong>
+                <span className="topbar-user__role">{user.roleName}</span>
+              </div>
+            </div>
+          </div>
         </header>
+
         <main className="dashboard-content">{children}</main>
       </div>
     </div>
