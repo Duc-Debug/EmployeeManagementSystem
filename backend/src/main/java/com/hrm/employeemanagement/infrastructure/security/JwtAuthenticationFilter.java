@@ -28,8 +28,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserStatusCache userStatusCache;
 
     public JwtAuthenticationFilter(JwtTokenProviderAdapter tokenProvider,
-                                   LoadUserPort loadUserPort,
-                                   UserStatusCache userStatusCache) {
+            LoadUserPort loadUserPort,
+            UserStatusCache userStatusCache) {
         this.tokenProvider = tokenProvider;
         this.loadUserPort = loadUserPort;
         this.userStatusCache = userStatusCache;

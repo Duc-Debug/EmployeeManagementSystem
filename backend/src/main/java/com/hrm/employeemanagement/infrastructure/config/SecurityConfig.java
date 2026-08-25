@@ -23,12 +23,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Spring Security Configuration.
  * Restricts public endpoints, enforces stateless JWT session management,
- * and dynamically permits H2 console and frameOptions only when explicitly enabled in local/dev profiles.
+ * and dynamically permits H2 console and frameOptions only when explicitly
+ * enabled in local/dev profiles.
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, InitialAdminProperties.class})
+@EnableConfigurationProperties({ JwtProperties.class, InitialAdminProperties.class })
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -36,8 +37,8 @@ public class SecurityConfig {
     private final boolean h2ConsoleEnabled;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          CustomAccessDeniedHandler customAccessDeniedHandler,
-                          @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled) {
+            CustomAccessDeniedHandler customAccessDeniedHandler,
+            @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.customAccessDeniedHandler = customAccessDeniedHandler;
         this.h2ConsoleEnabled = h2ConsoleEnabled;
@@ -54,6 +55,7 @@ public class SecurityConfig {
                     if (h2ConsoleEnabled) {
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
+                    auth.requestMatchers("/api/v1/org-units/**").hasAuthority("VT-06");
                     auth.requestMatchers("/api/v1/users/**").authenticated();
                     auth.anyRequest().authenticated();
                 })
