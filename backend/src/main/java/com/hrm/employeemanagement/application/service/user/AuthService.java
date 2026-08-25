@@ -60,9 +60,7 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
 
     @Override
     public void logout(LogoutCommand command) {
-        if (command == null || command.token() == null || command.token().isBlank()) {
-            return;
-        }
+        Objects.requireNonNull(command, "LogoutCommand must not be null");
 
         String token = command.token();
         if (tokenProvider.validateToken(token)) {

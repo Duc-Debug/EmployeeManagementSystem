@@ -183,4 +183,14 @@ class AuthServiceTest {
         verify(tokenBlacklistPort, times(1)).blacklistUser(eq("admin"), anyLong());
         verify(saveAuditLogPort, times(1)).save(argThat(audit -> "LOGOUT_ALL".equals(audit.getAction())));
     }
+
+    @Test
+    @DisplayName("Đăng xuất với command là null ném NullPointerException (Fail-Fast)")
+    void testLogout_NullCommand_ThrowsNullPointerException() {
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> {
+            authService.logout(null);
+        });
+
+        assertEquals("LogoutCommand must not be null", exception.getMessage());
+    }
 }
