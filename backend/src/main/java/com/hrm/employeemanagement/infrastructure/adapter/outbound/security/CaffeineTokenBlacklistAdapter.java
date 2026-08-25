@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenBlacklistPort;
+import com.hrm.employeemanagement.infrastructure.security.JwtProperties;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -34,7 +35,7 @@ public class CaffeineTokenBlacklistAdapter implements TokenBlacklistPort {
     private final Cache<String, Long> blacklistCache;
     private final Cache<String, Long> userRevocationCache;
 
-    public CaffeineTokenBlacklistAdapter() {
+    public CaffeineTokenBlacklistAdapter(JwtProperties jwtProperties) {
         this.blacklistCache = Caffeine.newBuilder()
                 .expireAfter(new Expiry<String, Long>() {
                     @Override
@@ -54,10 +55,17 @@ public class CaffeineTokenBlacklistAdapter implements TokenBlacklistPort {
                 })
                 .build();
 
+        long userRevocationTtlMs = (jwtProperties != null && jwtProperties.expirationMs() > 0)
+                ? jwtProperties.expirationMs()
+                : 86_400_000L;
+
         this.userRevocationCache = Caffeine.newBuilder()
-                .maximumSize(10_000)
-                .expireAfterWrite(24, TimeUnit.HOURS)
+                .expireAfterWrite(userRevocationTtlMs, TimeUnit.MILLISECONDS)
                 .build();
+    }
+
+    public CaffeineTokenBlacklistAdapter() {
+        this(null);
     }
 
     @Override

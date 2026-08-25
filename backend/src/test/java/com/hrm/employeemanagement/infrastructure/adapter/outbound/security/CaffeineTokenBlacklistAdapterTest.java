@@ -72,4 +72,19 @@ class CaffeineTokenBlacklistAdapterTest {
         assertFalse(blacklistAdapter.isUserRevoked(username, now + 1000));
         assertFalse(blacklistAdapter.isUserRevoked("other_user", now - 1000));
     }
+
+    @Test
+    @DisplayName("Khởi tạo adapter với JwtProperties tùy chỉnh TTL cho user revocation")
+    void testDynamicTtl_WithCustomJwtProperties() {
+        com.hrm.employeemanagement.infrastructure.security.JwtProperties customProps =
+                new com.hrm.employeemanagement.infrastructure.security.JwtProperties("a-very-secure-secret-key-that-is-at-least-32-chars-long!", 172_800_000L); // 48h
+        CaffeineTokenBlacklistAdapter customAdapter = new CaffeineTokenBlacklistAdapter(customProps);
+
+        String username = "custom_user";
+        long now = System.currentTimeMillis();
+        customAdapter.blacklistUser(username, now);
+
+        assertTrue(customAdapter.isUserRevoked(username, now - 5000));
+        assertFalse(customAdapter.isUserRevoked(username, now + 5000));
+    }
 }
