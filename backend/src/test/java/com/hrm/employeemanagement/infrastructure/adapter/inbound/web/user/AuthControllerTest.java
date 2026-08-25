@@ -4,10 +4,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.LogoutUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ForgotPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
+import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
+import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,9 +28,13 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
@@ -32,19 +44,28 @@ class AuthControllerTest {
 
     @Mock
     private AuthenticateUserUseCase authenticateUserUseCase;
-
     @Mock
-    private com.hrm.employeemanagement.application.port.inbound.user.LogoutUseCase logoutUseCase;
+    private LogoutUseCase logoutUseCase;
+    @Mock
+    private ChangePasswordUseCase changePasswordUseCase;
+    @Mock
+    private RequestPasswordResetUseCase requestPasswordResetUseCase;
+    @Mock
+    private ResetPasswordUseCase resetPasswordUseCase;
 
-    private com.hrm.employeemanagement.infrastructure.security.UserStatusCache userStatusCache;
+    private UserStatusCache userStatusCache;
 
     @BeforeEach
     void setUp() {
-        userStatusCache = new com.hrm.employeemanagement.infrastructure.security.UserStatusCache();
+        userStatusCache = new UserStatusCache();
         AuthController authController = new AuthController(
                 authenticateUserUseCase,
                 logoutUseCase,
+                changePasswordUseCase,
+                requestPasswordResetUseCase,
+                resetPasswordUseCase,
                 new LoginRateLimiter(),
+                new ForgotPasswordRateLimiter(),
                 userStatusCache
         );
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
@@ -146,7 +167,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Đăng xuất thành công"));
 
-        org.mockito.Mockito.verify(logoutUseCase, org.mockito.Mockito.times(1))
+        verify(logoutUseCase, times(1))
                 .logout(org.mockito.ArgumentMatchers.argThat(cmd -> token.equals(cmd.token())));
     }
 
@@ -158,7 +179,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Đăng xuất thành công"));
 
-        org.mockito.Mockito.verify(logoutUseCase, org.mockito.Mockito.never()).logout(org.mockito.Mockito.any());
+        verify(logoutUseCase, never()).logout(any());
     }
 
     @Test
@@ -172,7 +193,57 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Đăng xuất khỏi tất cả thiết bị thành công"));
 
-        org.mockito.Mockito.verify(logoutUseCase, org.mockito.Mockito.times(1))
+        verify(logoutUseCase, times(1))
                 .logout(org.mockito.ArgumentMatchers.argThat(cmd -> cmd.allDevices() && token.equals(cmd.token())));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/forgot-password thành công")
+    void testForgotPassword_Success() throws Exception {
+        ForgotPasswordRequest request = new ForgotPasswordRequest("employee1@company.com");
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(requestPasswordResetUseCase).requestPasswordReset(any());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/reset-password thành công")
+    void testResetPassword_Success() throws Exception {
+        ResetPasswordRequest request = new ResetPasswordRequest("token123", "NewPass123", "NewPass123");
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(resetPasswordUseCase).resetPassword(any());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/forgot-password trả về 429 Too Many Requests khi gửi quá 3 lần/phút")
+    void testForgotPassword_RateLimiting_Returns429() throws Exception {
+        ForgotPasswordRequest request = new ForgotPasswordRequest("spam_user@company.com");
+
+        // 3 requests allowed
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/api/v1/auth/forgot-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+
+        // 4th request blocked with 429
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(containsString("quá nhiều lần")));
     }
 }

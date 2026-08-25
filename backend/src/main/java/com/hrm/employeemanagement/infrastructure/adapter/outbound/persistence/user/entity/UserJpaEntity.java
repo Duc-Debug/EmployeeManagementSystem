@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity;
 
+import jakarta.persistence.*;
+import java.time.Instant;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -37,6 +39,15 @@ public class UserJpaEntity {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
+    @Column(name = "email", unique = true)
+    private String email;
+
+    @Column(name = "password_changed_at")
+    private Instant passwordChangedAt;
+
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion;
+
     @Version
     private Long version;
 
@@ -44,15 +55,26 @@ public class UserJpaEntity {
     }
 
     public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive) {
-        this(id, username, passwordHash, role, isActive, null);
+        this(id, username, passwordHash, role, isActive, null, null, 1, null);
     }
 
     public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive, Long version) {
+        this(id, username, passwordHash, role, isActive, null, null, 1, version);
+    }
+
+    public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive, String email, Instant passwordChangedAt, Long version) {
+        this(id, username, passwordHash, role, isActive, email, passwordChangedAt, 1, version);
+    }
+
+    public UserJpaEntity(Long id, String username, String passwordHash, RoleJpaEntity role, Boolean isActive, String email, Instant passwordChangedAt, Integer tokenVersion, Long version) {
         this.id = id;
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
         this.isActive = isActive;
+        this.email = email;
+        this.passwordChangedAt = passwordChangedAt;
+        this.tokenVersion = tokenVersion != null ? tokenVersion : 1;
         this.version = version;
     }
 
@@ -101,6 +123,30 @@ public class UserJpaEntity {
 
     public void setIsActive(Boolean active) {
         isActive = active;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public Instant getPasswordChangedAt() {
+        return passwordChangedAt;
+    }
+
+    public void setPasswordChangedAt(Instant passwordChangedAt) {
+        this.passwordChangedAt = passwordChangedAt;
+    }
+
+    public Integer getTokenVersion() {
+        return tokenVersion != null ? tokenVersion : 1;
+    }
+
+    public void setTokenVersion(Integer tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 
     public Long getVersion() {

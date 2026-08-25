@@ -14,7 +14,13 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.us
 @Repository
 public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, Long> {
     Optional<UserJpaEntity> findByUsername(String username);
+    Optional<UserJpaEntity> findByEmail(String email);
+
+    @Query("SELECT u FROM UserJpaEntity u WHERE u.username = :identity OR u.email = :identity")
+    Optional<UserJpaEntity> findByUsernameOrEmail(@Param("identity") String identity);
+
     boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
 
     @Query("SELECT COUNT(u) FROM UserJpaEntity u WHERE u.role.code = 'VT-06' AND u.isActive = true")
     long countActiveAdmins();

@@ -9,7 +9,10 @@ import com.hrm.employeemanagement.domain.user.UserId;
 public interface LoadUserPort {
     Optional<User> findById(UserId id);
     Optional<User> findByUsername(String username);
+    Optional<User> findByEmail(String email);
+    Optional<User> findByUsernameOrEmail(String identity);
     boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
     boolean existsInOrgUnitBranch(Long userId, Long scopeOrgUnitId);
     List<User> findAll(int page, int size);
     List<User> findByOrgUnitBranch(Long scopeOrgUnitId, int page, int size);

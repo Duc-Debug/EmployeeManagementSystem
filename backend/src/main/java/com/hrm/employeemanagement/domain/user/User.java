@@ -1,13 +1,14 @@
 package com.hrm.employeemanagement.domain.user;
 
-import java.util.Objects;
-
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
+
+import java.time.Instant;
+import java.util.Objects;
 
 /**
  * Rich Domain Aggregate Root for User.
@@ -22,95 +23,66 @@ public class User {
     private Long scopeOrgUnitId;
     private UserStatus status;
     private EmployeeId employeeId;
+    private String email;
+    private Instant passwordChangedAt;
+    private Integer tokenVersion;
     private Long version;
 
-    public User(
-        UserId id,
-        String username,
-        String passwordHash,
-        Role role,
-        UserStatus status,
-        EmployeeId employeeId
-) {
-    this(
-            id,
-            username,
-            passwordHash,
-            role,
-            status,
-            employeeId,
-            defaultDataScopeFor(role),
-            null,
-            null
-    );
-}
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId) {
+        this(id, username, passwordHash, role, status, employeeId, defaultDataScopeFor(role), null, null, null, 1, null);
+    }
 
-   public User(
-        UserId id,
-        String username,
-        String passwordHash,
-        Role role,
-        UserStatus status,
-        EmployeeId employeeId,
-        DataScope dataScope,
-        Long scopeOrgUnitId,
-        Long version
-) {
-    this.id = id;
-    this.username = Objects.requireNonNull(
-            username,
-            "Username không được null"
-    );
-    this.passwordHash = Objects.requireNonNull(
-            passwordHash,
-            "PasswordHash không được null"
-    );
-    this.role = Objects.requireNonNull(
-            role,
-            "Role không được null"
-    );
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, Long version) {
+        this(id, username, passwordHash, role, status, employeeId, defaultDataScopeFor(role), null, null, null, 1, version);
+    }
 
-    this.status = status != null
-            ? status
-            : UserStatus.ACTIVE;
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status,
+                EmployeeId employeeId, DataScope dataScope, Long scopeOrgUnitId, Long version) {
+        this(id, username, passwordHash, role, status, employeeId, dataScope, scopeOrgUnitId,
+                null, null, 1, version);
+    }
 
-    this.employeeId = employeeId;
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, String email, Instant passwordChangedAt, Long version) {
+        this(id, username, passwordHash, role, status, employeeId, defaultDataScopeFor(role), null, email, passwordChangedAt, 1, version);
+    }
 
-    validateDataScope(
-            dataScope,
-            scopeOrgUnitId
-    );
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, String email, Instant passwordChangedAt, Integer tokenVersion, Long version) {
+        this(id, username, passwordHash, role, status, employeeId, defaultDataScopeFor(role), null, email, passwordChangedAt, tokenVersion, version);
+    }
 
-    validateRoleDataScope(
-            role,
-            dataScope,
-            scopeOrgUnitId
-    );
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status,
+                EmployeeId employeeId, DataScope dataScope, Long scopeOrgUnitId, String email,
+                Instant passwordChangedAt, Integer tokenVersion, Long version) {
+        this.id = id;
+        this.username = Objects.requireNonNull(username, "Username không được null");
+        this.passwordHash = Objects.requireNonNull(passwordHash, "PasswordHash không được null");
+        this.role = Objects.requireNonNull(role, "Role không được null");
+        this.status = status != null ? status : UserStatus.ACTIVE;
+        this.employeeId = employeeId;
+        validateDataScope(dataScope, scopeOrgUnitId);
+        validateRoleDataScope(role, dataScope, scopeOrgUnitId);
+        this.dataScope = dataScope;
+        this.scopeOrgUnitId = scopeOrgUnitId;
+        this.email = normalizeEmail(email);
+        this.passwordChangedAt = passwordChangedAt;
+        this.tokenVersion = tokenVersion != null ? tokenVersion : 1;
+        this.version = version;
+    }
 
-    this.dataScope = dataScope;
-    this.scopeOrgUnitId = scopeOrgUnitId;
+    public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId) {
+        return createNew(username, passwordHash, role, employeeId, null);
+    }
 
-    this.version = version;
-}
+    public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId, String email) {
+        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId,
+                defaultDataScopeFor(role), null, email, null, 1, null);
+    }
 
-    public static User createNew(
-        String username,
-        String passwordHash,
-        Role role,
-        EmployeeId employeeId
-) {
-    return new User(
-            null,
-            username,
-            passwordHash,
-            role,
-            UserStatus.ACTIVE,
-            employeeId,
-            defaultDataScopeFor(role),
-            null,
-            null
-    );
-}
+    public void updatePassword(String newPasswordHash, Instant now) {
+        this.passwordHash = Objects.requireNonNull(newPasswordHash, "PasswordHash mới không được null");
+        this.passwordChangedAt = Objects.requireNonNull(now, "Thời gian thay đổi không được null");
+        this.tokenVersion = (this.tokenVersion != null ? this.tokenVersion : 1) + 1;
+    }
 
     public void lock(UserId currentAdminId, long activeAdminCount) {
         if (this.status == UserStatus.LOCKED) {
@@ -254,6 +226,26 @@ public class User {
         return employeeId != null ? employeeId.value() : null;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = normalizeEmail(email);
+    }
+
+    public Instant getPasswordChangedAt() {
+        return passwordChangedAt;
+    }
+
+    public Integer getTokenVersion() {
+        return tokenVersion != null ? tokenVersion : 1;
+    }
+
+    public void setTokenVersion(Integer tokenVersion) {
+        this.tokenVersion = tokenVersion;
+    }
+
     public Long getVersion() {
         return version;
     }
@@ -325,5 +317,12 @@ private void validateRoleDataScope(
                 "SYSTEM_ADMIN requires COMPANY data scope"
         );
     }
+}
+
+private static String normalizeEmail(String email) {
+    if (email == null || email.isBlank()) {
+        return null;
+    }
+    return email.trim().toLowerCase(java.util.Locale.ROOT);
 }
 }
