@@ -23,5 +23,9 @@ CREATE INDEX idx_org_units_tree_path ON org_units(tree_path);
 CREATE INDEX idx_org_units_status ON org_units(status);
 
 -- 3. Khởi tạo Nút Gốc mặc định (Công Ty Gốc)
-INSERT INTO org_units (id, unit_code, unit_name, unit_type, parent_id, tree_path, level, status, description, created_at)
-VALUES (1, 'COMPANY_ROOT', 'Công Ty Cổ Phần Software', 'COMPANY', NULL, '/1/', 1, 'ACTIVE', 'Nút gốc của Cây tổ chức', CURRENT_TIMESTAMP);
+INSERT INTO org_units (unit_code, unit_name, unit_type, parent_id, tree_path, level, status, description, created_at)
+VALUES ('COMPANY_ROOT', 'Công Ty Cổ Phần Software', 'COMPANY', NULL, '/pending/', 1, 'ACTIVE', 'Nút gốc của Cây tổ chức', CURRENT_TIMESTAMP);
+
+UPDATE org_units
+SET tree_path = CONCAT('/', id, '/')
+WHERE unit_code = 'COMPANY_ROOT';

@@ -1,7 +1,5 @@
 package com.hrm.employeemanagement.domain.user;
 
-import java.util.Objects;
-
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
@@ -31,24 +29,40 @@ public class User {
     private Long version;
 
     public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId) {
-        this(id, username, passwordHash, role, status, employeeId, null, null, 1, null);
+        this(id, username, passwordHash, role, status, employeeId, defaultDataScopeFor(role), null, null, null, 1, null);
     }
 
     public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, Long version) {
-        this(id, username, passwordHash, role, status, employeeId, null, null, 1, version);
+        this(id, username, passwordHash, role, status, employeeId, defaultDataScopeFor(role), null, null, null, 1, version);
+    }
+
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status,
+                EmployeeId employeeId, DataScope dataScope, Long scopeOrgUnitId, Long version) {
+        this(id, username, passwordHash, role, status, employeeId, dataScope, scopeOrgUnitId,
+                null, null, 1, version);
     }
 
     public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, String email, Instant passwordChangedAt, Long version) {
-        this(id, username, passwordHash, role, status, employeeId, email, passwordChangedAt, 1, version);
+        this(id, username, passwordHash, role, status, employeeId, defaultDataScopeFor(role), null, email, passwordChangedAt, 1, version);
     }
 
     public User(UserId id, String username, String passwordHash, Role role, UserStatus status, EmployeeId employeeId, String email, Instant passwordChangedAt, Integer tokenVersion, Long version) {
+        this(id, username, passwordHash, role, status, employeeId, defaultDataScopeFor(role), null, email, passwordChangedAt, tokenVersion, version);
+    }
+
+    public User(UserId id, String username, String passwordHash, Role role, UserStatus status,
+                EmployeeId employeeId, DataScope dataScope, Long scopeOrgUnitId, String email,
+                Instant passwordChangedAt, Integer tokenVersion, Long version) {
         this.id = id;
         this.username = Objects.requireNonNull(username, "Username không được null");
         this.passwordHash = Objects.requireNonNull(passwordHash, "PasswordHash không được null");
         this.role = Objects.requireNonNull(role, "Role không được null");
         this.status = status != null ? status : UserStatus.ACTIVE;
         this.employeeId = employeeId;
+        validateDataScope(dataScope, scopeOrgUnitId);
+        validateRoleDataScope(role, dataScope, scopeOrgUnitId);
+        this.dataScope = dataScope;
+        this.scopeOrgUnitId = scopeOrgUnitId;
         this.email = email;
         this.passwordChangedAt = passwordChangedAt;
         this.tokenVersion = tokenVersion != null ? tokenVersion : 1;
@@ -60,7 +74,8 @@ public class User {
     }
 
     public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId, String email) {
-        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId, email, null, 1, null);
+        return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId,
+                defaultDataScopeFor(role), null, email, null, 1, null);
     }
 
     public void updatePassword(String newPasswordHash, Instant now) {

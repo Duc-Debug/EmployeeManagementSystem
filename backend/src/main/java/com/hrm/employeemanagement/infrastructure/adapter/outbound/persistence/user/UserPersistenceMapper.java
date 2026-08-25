@@ -33,7 +33,9 @@ public class UserPersistenceMapper {
         UserStatus status = Boolean.TRUE.equals(entity.getIsActive()) ? UserStatus.ACTIVE : UserStatus.LOCKED;
         UserId userId = entity.getId() != null ? new UserId(entity.getId()) : null;
         EmployeeId empId = employeeId != null ? new EmployeeId(employeeId) : null;
-        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId, entity.getEmail(), entity.getPasswordChangedAt(), entity.getTokenVersion(), entity.getVersion());
+        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId,
+                DataScope.valueOf(entity.getDataScope()), entity.getScopeOrgUnitId(), entity.getEmail(),
+                entity.getPasswordChangedAt(), entity.getTokenVersion(), entity.getVersion());
     }
 
     public UserJpaEntity toJpaEntity(User domain, RoleJpaEntity roleJpa) {
@@ -49,6 +51,8 @@ public class UserPersistenceMapper {
                 domain.getTokenVersion(),
                 domain.getVersion()
         );
+        entity.setDataScope(domain.getDataScope().name());
+        entity.setScopeOrgUnitId(domain.getScopeOrgUnitId());
         return entity;
     }
 
@@ -61,6 +65,8 @@ public class UserPersistenceMapper {
         target.setEmail(domain.getEmail());
         target.setPasswordChangedAt(domain.getPasswordChangedAt());
         target.setTokenVersion(domain.getTokenVersion());
+        target.setDataScope(domain.getDataScope().name());
+        target.setScopeOrgUnitId(domain.getScopeOrgUnitId());
         if (domain.getVersion() != null) {
             target.setVersion(
                     domain.getVersion()

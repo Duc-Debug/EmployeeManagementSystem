@@ -12,10 +12,12 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadPasswordResetTokenPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.SavePasswordResetTokenPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.user.AuthService;
@@ -81,5 +83,12 @@ public class UseCaseConfig {
                 saveAuditLogPort
         );
         return new TransactionalPasswordServiceDecorator(pureJavaPasswordService, loadUserPort, userStatusCache);
+    }
+
+    @Bean
+    public AuthorizationService authorizationService(GetAuthenticatedUserPort authenticatedUserPort,
+                                                     PermissionQueryPort permissionQueryPort,
+                                                     SaveAuditLogInNewTransactionPort deniedAuditLogPort) {
+        return new AuthorizationService(authenticatedUserPort, permissionQueryPort, deniedAuditLogPort);
     }
 }
