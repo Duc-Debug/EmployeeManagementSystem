@@ -25,7 +25,6 @@ public class CaffeineTokenBlacklistAdapter implements TokenBlacklistPort {
 
     public CaffeineTokenBlacklistAdapter() {
         this.blacklistCache = Caffeine.newBuilder()
-                .maximumSize(50_000)
                 .expireAfter(new Expiry<String, Long>() {
                     @Override
                     public long expireAfterCreate(String key, Long value, long currentTime) {
