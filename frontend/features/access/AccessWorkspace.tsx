@@ -20,6 +20,9 @@ function toAccessDraft(user: User): AuthorizationDraft {
   };
 }
 
+// Simulated current logged in session user (Admin)
+const CURRENT_LOGGED_IN_USER_ID = 10001; // Nguyễn Minh Anh
+
 export function AccessWorkspace() {
   const [users, setUsers] = useState<User[]>(() => DEMO_USERS.map((user) => ({ ...user })));
   const [selectedUserId, setSelectedUserId] = useState<number>(DEMO_USERS[0]?.id ?? 0);
@@ -39,10 +42,18 @@ export function AccessWorkspace() {
     unitType: u.unitType,
   })), [orgUnits]);
 
-  // Selected Role details
+  // Selected Role details from official 6 roles
   const activeRoleDetails = useMemo(() => {
-    return DEMO_ROLES.find((r) => r.code === draft.roleCode);
+    return DEMO_ROLES.find((r) => r.code === draft.roleCode) ?? DEMO_ROLES[0];
   }, [draft.roleCode]);
+
+  // Check how many active Admins exist in the system
+  const activeAdminCount = useMemo(() => {
+    return users.filter((u) => u.roleCode === "VT-06" && u.status === "ACTIVE").length;
+  }, [users]);
+
+  // Is current selected user the logged-in user?
+  const isSelf = selectedUser?.id === CURRENT_LOGGED_IN_USER_ID;
 
   // Filtered Users List
   const filteredUsers = useMemo(() => {
@@ -89,6 +100,18 @@ export function AccessWorkspace() {
       return;
     }
 
+    // Security Rule 1: Cannot modify own role
+    if (isSelf) {
+      setErrors({ roleCode: "Không thể tự thay đổi vai trò của tài khoản đang đăng nhập." });
+      return;
+    }
+
+    // Security Rule 2: Cannot demote the last active Admin
+    if (selectedUser.roleCode === "VT-06" && draft.roleCode !== "VT-06" && activeAdminCount <= 1) {
+      setErrors({ roleCode: "Hệ thống phải có ít nhất một Quản trị viên (VT-06) hoạt động. Vui lòng cấp quyền Quản trị viên cho tài khoản khác trước." });
+      return;
+    }
+
     if (draft.dataScope === "ORGANIZATION_BRANCH" && !draft.scopeOrgUnitId) {
       setErrors({ scopeOrgUnitId: "Hãy chọn đơn vị tổ chức áp dụng." });
       return;
@@ -131,7 +154,7 @@ export function AccessWorkspace() {
         </div>
       )}
 
-      {/* KPI Stats Cards */}
+      {/* KPI Stats Cards - Compact 80% */}
       <section aria-label="Thống kê phân quyền" className="kpi-grid">
         <div className="kpi-card is-active">
           <div className="kpi-card__header">
@@ -237,6 +260,7 @@ export function AccessWorkspace() {
             <div className="access-user-list__items">
               {filteredUsers.map((user) => {
                 const isSelected = user.id === selectedUser?.id;
+                const isThisUserSelf = user.id === CURRENT_LOGGED_IN_USER_ID;
                 return (
                   <button
                     aria-current={isSelected ? "true" : undefined}
@@ -250,7 +274,10 @@ export function AccessWorkspace() {
                     </span>
                     <div className="access-user-card__copy">
                       <div className="access-user-card__top">
-                        <strong>{user.fullName}</strong>
+                        <strong>
+                          {user.fullName}
+                          {isThisUserSelf && <span className="self-tag">Bạn</span>}
+                        </strong>
                         <StatusBadge status={user.status} />
                       </div>
                       <small>@{user.username} {user.email ? `· ${user.email}` : ""}</small>
@@ -281,12 +308,15 @@ export function AccessWorkspace() {
             {/* User Profile Header */}
             <div className="access-editor__hero">
               <div className="access-editor__hero-main">
-                <span aria-hidden="true" className="avatar avatar--large avatar--gradient">
+                <span aria-hidden="true" className="avatar avatar--medium avatar--gradient">
                   {selectedUser.fullName.slice(0, 1)}
                 </span>
                 <div className="access-editor__hero-info">
                   <div className="access-editor__title-row">
-                    <h2 id="access-editor-title">{selectedUser.fullName}</h2>
+                    <h2 id="access-editor-title">
+                      {selectedUser.fullName}
+                      {isSelf && <span className="self-tag">Tài khoản của bạn</span>}
+                    </h2>
                     <StatusBadge status={selectedUser.status} />
                   </div>
                   <div className="access-editor__meta-row">
@@ -299,6 +329,14 @@ export function AccessWorkspace() {
             </div>
 
             <div className="data-panel__body access-editor__body">
+              {/* Security Guard Alert if viewing self or single admin */}
+              {isSelf ? (
+                <div className="access-security-alert">
+                  <Icon name="shield" />
+                  <span>Đây là tài khoản bạn đang đăng nhập. Quyền hạn được khóa để đảm bảo an toàn phiên làm việc.</span>
+                </div>
+              ) : null}
+
               {/* Form Config */}
               <form className="form access-form" noValidate onSubmit={saveAccess}>
                 <div className="access-section-title">
@@ -318,7 +356,7 @@ export function AccessWorkspace() {
                 />
 
                 <div className="form-actions access-form-actions">
-                  <button className="button button--primary" type="submit">
+                  <button className="button button--primary" disabled={isSelf} type="submit">
                     <Icon name="check" />
                     <span>Lưu quyền truy cập</span>
                   </button>
@@ -338,22 +376,22 @@ export function AccessWorkspace() {
                   <div className="role-spec-grid">
                     <div className="role-spec-item">
                       <span className="role-spec-item__label">🎯 Mục tiêu vai trò</span>
-                      <p className="role-spec-item__val">{activeRoleDetails.goal}</p>
+                      <p className="role-spec-item__val">{activeRoleDetails.goal || "Điều hành và quản lý hoạt động theo thẩm quyền."}</p>
                     </div>
 
                     <div className="role-spec-item">
                       <span className="role-spec-item__label">🛡️ Thẩm quyền chức năng</span>
-                      <p className="role-spec-item__val">{activeRoleDetails.permissions}</p>
+                      <p className="role-spec-item__val">{activeRoleDetails.permissions || "Xem và thao tác các chức năng trong phạm vi vai trò."}</p>
                     </div>
 
                     <div className="role-spec-item">
                       <span className="role-spec-item__label">📊 Dữ liệu được phép xem</span>
-                      <p className="role-spec-item__val">{activeRoleDetails.scopeData}</p>
+                      <p className="role-spec-item__val">{activeRoleDetails.scopeData || "Dữ liệu giới hạn theo Data Scope được phân bổ."}</p>
                     </div>
 
                     <div className="role-spec-item role-spec-item--warning">
                       <span className="role-spec-item__label">⛔ Giới hạn không được phép</span>
-                      <p className="role-spec-item__val">{activeRoleDetails.limitations}</p>
+                      <p className="role-spec-item__val">{activeRoleDetails.limitations || "Không thao tác ngoài phạm vi thẩm quyền được cấp."}</p>
                     </div>
                   </div>
                 </div>
