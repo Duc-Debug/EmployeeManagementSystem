@@ -1,36 +1,42 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
 import { Icon } from "@/components/ui/Icon";
 
 interface DialogProps {
   children: ReactNode;
   description?: string;
+  footer?: ReactNode;
+  initialFocusRef?: RefObject<HTMLElement | null>;
   onClose: () => void;
   open: boolean;
   title: string;
 }
 
-export function Dialog({ children, description, onClose, open, title }: DialogProps) {
+export function Dialog({ children, description, footer, initialFocusRef, onClose, open, title }: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) {
       return;
     }
 
+    let frame = 0;
     if (open && !dialog.open) {
       dialog.showModal();
+      initialFocusRef?.current?.focus({ preventScroll: true });
+      frame = window.requestAnimationFrame(() => initialFocusRef?.current?.focus({ preventScroll: true }));
     }
 
     if (!open && dialog.open) {
       dialog.close();
     }
-  }, [open]);
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialFocusRef, open]);
 
   function handleBackdropClick(event: React.MouseEvent<HTMLDialogElement>) {
     if (event.target === event.currentTarget) {
@@ -48,6 +54,12 @@ export function Dialog({ children, description, onClose, open, title }: DialogPr
         onClose();
       }}
       onClick={handleBackdropClick}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !event.defaultPrevented) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
       ref={dialogRef}
     >
       <div className="dialog__panel">
@@ -60,7 +72,8 @@ export function Dialog({ children, description, onClose, open, title }: DialogPr
             <Icon name="close" />
           </button>
         </header>
-        {children}
+        <div className="dialog__body">{children}</div>
+        {footer ? <footer className="dialog__footer">{footer}</footer> : null}
       </div>
     </dialog>
   );

@@ -1,33 +1,54 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 
+import { FormField } from "@/components/ui/FormField";
 import { Icon } from "@/components/ui/Icon";
-import { DEFAULT_DEMO_SESSION, saveDemoSession } from "@/lib/demo-session";
+
+type LoginErrors = Partial<Record<"password" | "username", string>>;
 
 export function LoginForm() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<LoginErrors>({});
+  const [submitError, setSubmitError] = useState("");
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function updateUsername(value: string) {
+    setUsername(value);
+    setErrors((currentErrors) => ({ ...currentErrors, username: undefined }));
+    setSubmitError("");
+  }
 
+  function updatePassword(value: string) {
+    setPassword(value);
+    setErrors((currentErrors) => ({ ...currentErrors, password: undefined }));
+    setSubmitError("");
+  }
+
+  function submitLogin() {
+    const nextErrors: LoginErrors = {};
     if (!username.trim() || !password) {
-      setError("Tên đăng nhập và mật khẩu là bắt buộc. Hãy điền đủ hai trường để tiếp tục.");
+      if (!username.trim()) nextErrors.username = "Tên đăng nhập là bắt buộc.";
+      if (!password) nextErrors.password = "Mật khẩu là bắt buộc.";
+      setErrors(nextErrors);
+      window.requestAnimationFrame(() => {
+        if (nextErrors.username) {
+          usernameRef.current?.focus();
+        } else {
+          passwordRef.current?.focus();
+        }
+      });
       return;
     }
 
-    setError(
-      "Dịch vụ đăng nhập chưa được kết nối trong bản UI này. Mở giao diện demo để xem các màn hình quản trị bằng dữ liệu minh họa.",
-    );
+    setSubmitError("Không thể đăng nhập vào lúc này. Vui lòng thử lại sau.");
   }
 
-  function openDemo() {
-    saveDemoSession(DEFAULT_DEMO_SESSION);
-    router.push("/users");
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    submitLogin();
   }
 
   return (
@@ -57,54 +78,63 @@ export function LoginForm() {
           </div>
 
           <form className="form login-form" noValidate onSubmit={handleSubmit}>
-            {error ? (
+            {submitError ? (
               <div aria-live="polite" className="notice notice--error" role="alert">
                 <Icon name="alert" />
-                <span>{error}</span>
+                <span>{submitError}</span>
               </div>
             ) : null}
 
-            <div className="field-group">
-              <label htmlFor="username">Tên đăng nhập</label>
+            <FormField error={errors.username} id="username" label="Tên đăng nhập">
               <input
+                aria-describedby="username-message"
+                aria-invalid={Boolean(errors.username)}
+                aria-required="true"
                 autoComplete="username"
                 className="input"
                 id="username"
-                onChange={(event) => setUsername(event.target.value)}
+                onChange={(event) => updateUsername(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                    event.preventDefault();
+                    passwordRef.current?.focus();
+                  }
+                }}
                 placeholder="vd. nguyenvana"
+                ref={usernameRef}
                 required
                 value={username}
               />
-            </div>
+            </FormField>
 
-            <div className="field-group">
-              <label htmlFor="password">Mật khẩu</label>
+            <FormField error={errors.password} id="password" label="Mật khẩu">
               <input
+                aria-describedby="password-message"
+                aria-invalid={Boolean(errors.password)}
+                aria-required="true"
                 autoComplete="current-password"
                 className="input"
                 id="password"
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => updatePassword(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                    event.preventDefault();
+                    submitLogin();
+                  }
+                }}
                 placeholder="Nhập mật khẩu"
+                ref={passwordRef}
                 required
                 type="password"
                 value={password}
               />
-            </div>
+            </FormField>
 
             <button className="button button--primary login-form__submit" type="submit">
               Đăng nhập
               <Icon name="arrowRight" />
             </button>
           </form>
-
-          <div className="login-card__demo">
-            <strong>Giao diện đang dùng dữ liệu minh họa.</strong>
-            <p>Chức năng đăng nhập thật sẽ gọi API khi lớp session/BFF được bổ sung.</p>
-            <button className="button button--secondary" onClick={openDemo} type="button">
-              Mở giao diện demo
-              <Icon name="arrowRight" />
-            </button>
-          </div>
         </section>
       </main>
     </div>

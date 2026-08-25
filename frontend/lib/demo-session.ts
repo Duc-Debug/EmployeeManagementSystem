@@ -8,8 +8,8 @@ export interface DemoSession {
 export const DEMO_SESSION_STORAGE_KEY = "employee-management-demo-session";
 
 export const DEFAULT_DEMO_SESSION: DemoSession = {
-  fullName: "Người dùng demo",
-  username: "demo.admin",
+  fullName: "Nguyễn Minh Anh",
+  username: "minh.anh",
   roleCode: "VT-06",
   roleName: "Quản trị viên",
 };

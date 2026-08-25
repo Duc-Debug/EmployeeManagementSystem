@@ -1,7 +1,5 @@
 import type {
   OrgUnitTreeNode,
-  PermissionDefinition,
-  ReadOnlyEffectivePermissionFixture,
   Role,
   User,
 } from "../types/hrm";
@@ -27,8 +25,8 @@ export const DEMO_ROLES = [
 export const DEMO_ORG_UNIT_TREE = [
   {
     id: 9000,
-    unitCode: "DEMO-COMPANY",
-    unitName: "Công ty demo",
+    unitCode: "COMPANY",
+    unitName: "Công ty",
     unitType: "COMPANY",
     parentId: null,
     treePath: "/9000/",
@@ -39,8 +37,8 @@ export const DEMO_ORG_UNIT_TREE = [
     children: [
       {
         id: 9001,
-        unitCode: "DEMO-CENTER",
-        unitName: "Khối demo",
+        unitCode: "OPERATIONS",
+        unitName: "Khối vận hành",
         unitType: "CENTER",
         parentId: 9000,
         treePath: "/9000/9001/",
@@ -48,7 +46,48 @@ export const DEMO_ORG_UNIT_TREE = [
         status: "ACTIVE",
         description: null,
         managerId: null,
-        children: [],
+        children: [
+          {
+            id: 9003,
+            unitCode: "HR",
+            unitName: "Phòng Nhân sự",
+            unitType: "DEPARTMENT",
+            parentId: 9001,
+            treePath: "/9000/9001/9003/",
+            level: 2,
+            status: "ACTIVE",
+            description: null,
+            managerId: null,
+            children: [],
+          },
+        ],
+      },
+      {
+        id: 9002,
+        unitCode: "TECHNOLOGY",
+        unitName: "Khối Công nghệ",
+        unitType: "CENTER",
+        parentId: 9000,
+        treePath: "/9000/9002/",
+        level: 1,
+        status: "ACTIVE",
+        description: null,
+        managerId: null,
+        children: [
+          {
+            id: 9004,
+            unitCode: "PLATFORM",
+            unitName: "Nhóm Nền tảng",
+            unitType: "TEAM",
+            parentId: 9002,
+            treePath: "/9000/9002/9004/",
+            level: 2,
+            status: "ACTIVE",
+            description: null,
+            managerId: null,
+            children: [],
+          },
+        ],
       },
     ],
   },
@@ -58,97 +97,41 @@ export const DEMO_ORG_UNIT_TREE = [
 export const DEMO_USERS = [
   {
     id: 10001,
-    username: "demo.admin",
+    username: "minh.anh",
     roleCode: "VT-06",
     roleName: "Quản trị viên",
     status: "ACTIVE",
     employeeId: 20001,
-    fullName: "Người dùng demo quản trị",
+    fullName: "Nguyễn Minh Anh",
     orgUnitId: 9000,
-    orgUnitName: "Công ty demo",
+    orgUnitName: "Công ty",
     dataScope: "COMPANY",
     scopeOrgUnitId: null,
   },
   {
     id: 10002,
-    username: "demo.branch",
+    username: "quoc.huy",
     roleCode: "VT-03",
     roleName: "Quản lý nguồn lực",
     status: "ACTIVE",
     employeeId: 20002,
-    fullName: "Người dùng demo đơn vị",
-    orgUnitId: 9001,
-    orgUnitName: "Khối demo",
+    fullName: "Trần Quốc Huy",
+    orgUnitId: 9002,
+    orgUnitName: "Khối Công nghệ",
     dataScope: "ORGANIZATION_BRANCH",
-    scopeOrgUnitId: 9001,
+    scopeOrgUnitId: 9002,
   },
   {
     id: 10003,
-    username: "demo.employee",
+    username: "ngoc.mai",
     roleCode: "VT-07",
     roleName: "Nhân viên công ty",
     status: "LOCKED",
     employeeId: 20003,
-    fullName: "Người dùng demo cá nhân",
-    orgUnitId: 9001,
-    orgUnitName: "Khối demo",
+    fullName: "Lê Ngọc Mai",
+    orgUnitId: 9003,
+    orgUnitName: "Phòng Nhân sự",
     dataScope: "SELF",
     scopeOrgUnitId: null,
   },
 ] as const satisfies readonly User[];
-
-/** Names and descriptions reflect the backend permission seed only. */
-export const DEMO_PERMISSION_CATALOG = [
-  {
-    code: "USER_READ",
-    name: "Xem tài khoản",
-    description: "Cho phép xem danh sách và thông tin tài khoản",
-  },
-  {
-    code: "USER_CREATE",
-    name: "Tạo tài khoản",
-    description: "Cho phép tạo tài khoản mới",
-  },
-  {
-    code: "USER_UPDATE_ROLE",
-    name: "Phân quyền tài khoản",
-    description: "Cho phép thay đổi vai trò và phạm vi dữ liệu của tài khoản",
-  },
-  {
-    code: "USER_TOGGLE_STATUS",
-    name: "Khóa hoặc mở tài khoản",
-    description: "Cho phép thay đổi trạng thái hoạt động của tài khoản",
-  },
-  {
-    code: "ORG_UNIT_READ",
-    name: "Xem cơ cấu tổ chức",
-    description: "Cho phép xem cây tổ chức",
-  },
-  {
-    code: "PROJECT_READ",
-    name: "Xem dự án",
-    description: "Cho phép xem danh sách và thông tin dự án",
-  },
-  {
-    code: "EMPLOYEE_READ",
-    name: "Xem nhân viên",
-    description: "Cho phép xem thông tin nhân viên",
-  },
-  {
-    code: "EMPLOYEE_UPDATE",
-    name: "Cập nhật nhân viên",
-    description: "Cho phép cập nhật thông tin nhân viên",
-  },
-] as const satisfies readonly PermissionDefinition[];
-
-/**
- * Placeholder for a read-only permissions panel. It grants nothing because an
- * actual effective-permissions API is not available yet.
- */
-export const DEMO_READ_ONLY_EFFECTIVE_PERMISSIONS = {
-  source: "DEMO_READ_ONLY",
-  availability: "NOT_EXPOSED_BY_API",
-  resolvedForUserId: null,
-  permissions: [],
-  note: "Dữ liệu quyền hiệu lực cần được cung cấp bởi API backend.",
-} as const satisfies ReadOnlyEffectivePermissionFixture;

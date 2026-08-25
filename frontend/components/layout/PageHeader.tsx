@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 interface PageHeaderProps {
   actions?: ReactNode;
-  description: string;
+  description?: string;
   title: string;
 }
 
@@ -13,7 +13,7 @@ export function PageHeader({ actions, description, title }: PageHeaderProps) {
     <header className="page-header">
       <div className="page-header__copy">
         <h1>{title}</h1>
-        <p>{description}</p>
+        {description ? <p>{description}</p> : null}
       </div>
       {actions ? <div className="page-header__actions">{actions}</div> : null}
     </header>

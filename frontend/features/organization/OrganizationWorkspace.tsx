@@ -1,32 +1,45 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
-import { findOrgUnit, flattenOrgTree, getParentOrgUnit } from "@/lib/organization";
+import {
+  appendOrgUnit,
+  findOrgUnit,
+  flattenOrgTree,
+  getDescendantIds,
+  getParentOrgUnit,
+  reparentOrgUnitTree,
+  updateOrgUnitInfo,
+} from "@/lib/organization";
 import { DEMO_ORG_UNIT_TREE } from "@/src/mocks/hrm";
 import type { OrgUnitTreeNode, OrgUnitType } from "@/src/types/hrm";
 
-interface UnitDraft {
-  description: string;
-  parentId: string;
-  unitCode: string;
-  unitName: string;
-  unitType: OrgUnitType;
-}
+import { OrgUnitForm, type OrgUnitDraft, type OrgUnitDraftErrors } from "@/features/organization/OrgUnitForm";
+import { OrganizationTree } from "@/features/organization/OrganizationTree";
 
-type UnitErrors = Partial<Record<keyof UnitDraft, string>>;
+type OrgEditorState = { mode: "create" } | { mode: "edit"; unitId: number } | null;
 
-function createInitialDraft(parentId: number): UnitDraft {
+function createInitialDraft(parentId: number | null): OrgUnitDraft {
   return {
     description: "",
-    parentId: String(parentId),
+    parentId: parentId ? String(parentId) : "",
     unitCode: "",
     unitName: "",
     unitType: "DEPARTMENT",
+  };
+}
+
+function toEditDraft(unit: OrgUnitTreeNode): OrgUnitDraft {
+  return {
+    description: unit.description ?? "",
+    parentId: unit.parentId ? String(unit.parentId) : "",
+    unitCode: unit.unitCode,
+    unitName: unit.unitName,
+    unitType: unit.unitType,
   };
 }
 
@@ -35,18 +48,27 @@ export function OrganizationWorkspace() {
   const [selectedUnitId, setSelectedUnitId] = useState<number>(DEMO_ORG_UNIT_TREE[0]?.id ?? 0);
   const [expandedUnits, setExpandedUnits] = useState<Set<number>>(() => new Set(flattenOrgTree(DEMO_ORG_UNIT_TREE).map((unit) => unit.id)));
   const [query, setQuery] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [draft, setDraft] = useState<UnitDraft>(() => createInitialDraft(DEMO_ORG_UNIT_TREE[0]?.id ?? 0));
-  const [errors, setErrors] = useState<UnitErrors>({});
+  const [editor, setEditor] = useState<OrgEditorState>(null);
+  const [draft, setDraft] = useState<OrgUnitDraft>(() => createInitialDraft(DEMO_ORG_UNIT_TREE[0]?.id ?? null));
+  const [errors, setErrors] = useState<OrgUnitDraftErrors>({});
   const [announcement, setAnnouncement] = useState("");
+  const [draggedUnitId, setDraggedUnitId] = useState<number | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<number | null>(null);
+  const editorFocusRef = useRef<HTMLElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
+  const setEditorFocus = useCallback((element: HTMLElement | null) => {
+    editorFocusRef.current = element;
+  }, []);
   const allUnits = useMemo(() => flattenOrgTree(tree), [tree]);
   const selectedUnit = findOrgUnit(tree, selectedUnitId) ?? allUnits[0];
   const normalizedQuery = query.trim().toLocaleLowerCase("vi");
-
-  function updateDraft<Key extends keyof UnitDraft>(key: Key, value: UnitDraft[Key]) {
-    setDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
-    setErrors((currentErrors) => ({ ...currentErrors, [key]: undefined }));
-  }
+  const editingUnit = editor?.mode === "edit" ? findOrgUnit(tree, editor.unitId) : undefined;
+  const parentOptions = useMemo(() => {
+    const excludedIds = editingUnit ? getDescendantIds(editingUnit) : new Set<number>();
+    return allUnits
+      .filter((unit) => unit.status === "ACTIVE" && !excludedIds.has(unit.id))
+      .map((unit) => ({ depth: unit.level, id: unit.id, unitCode: unit.unitCode, unitName: unit.unitName }));
+  }, [allUnits, editingUnit]);
 
   function toggleExpanded(unitId: number) {
     setExpandedUnits((currentUnits) => {
@@ -61,55 +83,170 @@ export function OrganizationWorkspace() {
   }
 
   function openCreateDialog() {
-    const parentId = selectedUnit?.id ?? allUnits[0]?.id ?? 0;
-    setDraft(createInitialDraft(parentId));
+    setDraft(createInitialDraft(selectedUnit?.id ?? null));
     setErrors({});
-    setIsCreateOpen(true);
+    setEditor({ mode: "create" });
   }
 
-  function validateDraft() {
-    const nextErrors: UnitErrors = {};
-    if (!draft.unitCode.trim()) nextErrors.unitCode = "Mã đơn vị là bắt buộc.";
-    if (!draft.unitName.trim()) nextErrors.unitName = "Tên đơn vị là bắt buộc.";
-    if (!draft.parentId) nextErrors.parentId = "Hãy chọn đơn vị cha.";
+  function openEditDialog(unit: OrgUnitTreeNode) {
+    setDraft(toEditDraft(unit));
+    setErrors({});
+    setEditor({ mode: "edit", unitId: unit.id });
+  }
+
+  function closeEditor() {
+    setEditor(null);
+    setErrors({});
+  }
+
+  function updateDraft<Key extends keyof OrgUnitDraft>(key: Key, value: OrgUnitDraft[Key]) {
+    setDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
+    setErrors((currentErrors) => ({ ...currentErrors, [key]: undefined }));
+  }
+
+  function validateDraft(): boolean {
+    const nextErrors: OrgUnitDraftErrors = {};
+    if (!editor) {
+      return false;
+    }
+
+    if (editor.mode === "create" && !draft.unitCode.trim()) {
+      nextErrors.unitCode = "Mã đơn vị là bắt buộc.";
+    }
+    if (!draft.unitName.trim()) {
+      nextErrors.unitName = "Tên đơn vị là bắt buộc.";
+    }
+
+    if (draft.parentId) {
+      const parent = findOrgUnit(tree, Number(draft.parentId));
+      if (!parent || parent.status !== "ACTIVE") {
+        nextErrors.parentId = "Không tìm thấy đơn vị cha. Vui lòng chọn lại.";
+      }
+    } else if (editingUnit?.parentId !== null) {
+      nextErrors.parentId = "Hãy chọn đơn vị cha hợp lệ.";
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
 
-  function handleCreateUnit(event: React.FormEvent<HTMLFormElement>) {
+  function saveOrgUnit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validateDraft()) {
+    if (!editor || !validateDraft()) {
       return;
     }
 
-    const parentId = Number(draft.parentId);
-    const parent = findOrgUnit(tree, parentId);
-    if (!parent) {
-      setErrors({ parentId: "Không tìm thấy đơn vị cha trong cây minh họa." });
+    const parentId = draft.parentId ? Number(draft.parentId) : null;
+    if (editor.mode === "create") {
+      const parent = parentId ? findOrgUnit(tree, parentId) : undefined;
+      const newUnitId = Date.now();
+      const newUnit: OrgUnitTreeNode = {
+        children: [],
+        description: draft.description.trim() || null,
+        id: newUnitId,
+        level: parent ? parent.level + 1 : 0,
+        managerId: null,
+        parentId,
+        status: "ACTIVE",
+        treePath: parent ? `${parent.treePath}${newUnitId}/` : `/${newUnitId}/`,
+        unitCode: draft.unitCode.trim().toUpperCase(),
+        unitName: draft.unitName.trim(),
+        unitType: draft.unitType,
+      };
+      setTree((currentTree) => appendOrgUnit(currentTree, parentId, newUnit));
+      if (parentId) {
+        setExpandedUnits((currentUnits) => new Set(currentUnits).add(parentId));
+      }
+      setSelectedUnitId(newUnitId);
+      setAnnouncement(`Đã tạo đơn vị ${newUnit.unitName}.`);
+      closeEditor();
       return;
     }
 
-    const newUnitId = Date.now();
-    const newUnit: OrgUnitTreeNode = {
-      children: [],
-      description: draft.description.trim() || null,
-      id: newUnitId,
-      level: parent.level + 1,
-      managerId: null,
-      parentId,
-      status: "ACTIVE",
-      treePath: `${parent.treePath}${newUnitId}/`,
-      unitCode: draft.unitCode.trim().toUpperCase(),
-      unitName: draft.unitName.trim(),
-      unitType: draft.unitType,
-    };
+    if (!editingUnit) {
+      return;
+    }
 
-    setTree((currentTree) => appendUnit(currentTree, parentId, newUnit));
-    setExpandedUnits((currentUnits) => new Set(currentUnits).add(parentId));
-    setSelectedUnitId(newUnit.id);
-    setIsCreateOpen(false);
-    setAnnouncement(`Đã thêm ${newUnit.unitName} vào cây minh họa.`);
+    setTree((currentTree) => {
+      const updatedTree = updateOrgUnitInfo(currentTree, editingUnit.id, {
+        description: draft.description.trim() || null,
+        unitName: draft.unitName.trim(),
+        unitType: draft.unitType,
+      });
+      if (parentId !== null && parentId !== editingUnit.parentId) {
+        return reparentOrgUnitTree(updatedTree, editingUnit.id, parentId);
+      }
+
+      return updatedTree;
+    });
+    if (parentId && parentId !== editingUnit.parentId) {
+      setExpandedUnits((currentUnits) => new Set(currentUnits).add(parentId));
+    }
+    setAnnouncement(`Đã cập nhật đơn vị ${draft.unitName.trim()}.`);
+    closeEditor();
   }
+
+  function canMoveUnit(sourceId: number, targetId: number): boolean {
+    const source = findOrgUnit(tree, sourceId);
+    const target = findOrgUnit(tree, targetId);
+    return Boolean(
+      source
+      && target
+      && source.parentId !== null
+      && target.status === "ACTIVE"
+      && source.parentId !== target.id
+      && !getDescendantIds(source).has(target.id),
+    );
+  }
+
+  function resetDragState() {
+    setDraggedUnitId(null);
+    setDropTargetId(null);
+  }
+
+  function handleDragStart(event: DragEvent<HTMLElement>, unitId: number) {
+    if (normalizedQuery) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(unitId));
+    setDraggedUnitId(unitId);
+    setDropTargetId(null);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLElement>, targetUnitId: number) {
+    if (draggedUnitId === null || !canMoveUnit(draggedUnitId, targetUnitId)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDropTargetId(targetUnitId);
+  }
+
+  function handleDrop(event: DragEvent<HTMLElement>, targetUnitId: number) {
+    event.preventDefault();
+    const sourceId = draggedUnitId ?? Number(event.dataTransfer.getData("text/plain"));
+    if (!sourceId || !canMoveUnit(sourceId, targetUnitId)) {
+      resetDragState();
+      return;
+    }
+
+    const source = findOrgUnit(tree, sourceId);
+    const target = findOrgUnit(tree, targetUnitId);
+    setTree((currentTree) => reparentOrgUnitTree(currentTree, sourceId, targetUnitId));
+    setExpandedUnits((currentUnits) => new Set(currentUnits).add(targetUnitId));
+    setSelectedUnitId(sourceId);
+    if (source && target) {
+      setAnnouncement(`Đã chuyển ${source.unitName} vào ${target.unitName}.`);
+    }
+    resetDragState();
+  }
+
+  const editorMode = editor?.mode;
+  const editorTitle = editorMode === "edit" ? "Sửa đơn vị tổ chức" : "Tạo đơn vị tổ chức";
 
   return (
     <div className="workspace-stack">
@@ -120,7 +257,7 @@ export function OrganizationWorkspace() {
             Tạo đơn vị
           </button>
         }
-        description="Duyệt quan hệ cha/con và xem thông tin cấu trúc. Một số trường chờ API chi tiết để hiển thị dữ liệu thật."
+        description="Theo dõi và quản lý cơ cấu tổ chức."
         title="Cây tổ chức"
       />
 
@@ -131,7 +268,7 @@ export function OrganizationWorkspace() {
           <div className="data-panel__header">
             <div>
               <h2 id="org-tree-title">Cơ cấu tổ chức</h2>
-              <p>{allUnits.length} đơn vị trong dữ liệu minh họa</p>
+              <p>{allUnits.length} đơn vị</p>
             </div>
           </div>
           <div className="data-panel__body organization-tree-panel__body">
@@ -147,145 +284,73 @@ export function OrganizationWorkspace() {
                 value={query}
               />
             </div>
-            <ul className="organization-tree">
-              {tree.map((unit) => (
-                <OrgTreeItem
-                  key={unit.id}
-                  onSelect={setSelectedUnitId}
-                  onToggle={toggleExpanded}
-                  query={normalizedQuery}
-                  selectedUnitId={selectedUnitId}
-                  unit={unit}
-                  visibleExpandedUnits={expandedUnits}
-                />
-              ))}
-            </ul>
+            <p className="organization-tree__hint">
+              {normalizedQuery ? "Xóa tìm kiếm để di chuyển đơn vị." : "Kéo biểu tượng để thay đổi đơn vị cha. Dùng Chỉnh sửa để di chuyển bằng bàn phím hoặc cảm ứng."}
+            </p>
+            <OrganizationTree
+              dragDisabled={Boolean(normalizedQuery)}
+              draggedUnitId={draggedUnitId}
+              dropTargetId={dropTargetId}
+              expandedUnits={expandedUnits}
+              onCanDrop={canMoveUnit}
+              onDragEnd={resetDragState}
+              onDragOver={handleDragOver}
+              onDragStart={handleDragStart}
+              onDrop={handleDrop}
+              onSelect={setSelectedUnitId}
+              onToggle={toggleExpanded}
+              query={normalizedQuery}
+              selectedUnitId={selectedUnitId}
+              units={tree}
+            />
             {!tree.some((unit) => matchesUnitOrChild(unit, normalizedQuery)) ? (
-              <EmptyState icon="search" message="Thử tìm bằng mã hoặc tên đơn vị trong dữ liệu minh họa." title="Không có đơn vị phù hợp" />
+              <EmptyState icon="search" message="Thử tìm bằng mã hoặc tên đơn vị." title="Không có đơn vị phù hợp" />
             ) : null}
           </div>
         </section>
 
-        {selectedUnit ? <OrganizationDetail selectedUnit={selectedUnit} tree={tree} /> : null}
+        {selectedUnit ? <OrganizationDetail onEdit={openEditDialog} selectedUnit={selectedUnit} tree={tree} /> : null}
       </div>
 
       <Dialog
-        description="Các trường này khớp với endpoint tạo đơn vị hiện có. Người quản lý và nhân sự cần API bổ sung trước khi có thể ghi nhận chính thức."
-        onClose={() => setIsCreateOpen(false)}
-        open={isCreateOpen}
-        title="Tạo đơn vị tổ chức"
+        description={editorMode === "edit" ? "Cập nhật thông tin và đơn vị cha của đơn vị tổ chức." : "Nhập thông tin đơn vị tổ chức."}
+        footer={
+          <>
+            <button className="button button--quiet" onClick={closeEditor} type="button">Hủy</button>
+            <button className="button button--primary" form="org-unit-form" ref={submitRef} type="submit">
+              {editorMode === "edit" ? "Lưu thay đổi" : "Tạo đơn vị"}
+            </button>
+          </>
+        }
+        initialFocusRef={editorFocusRef}
+        onClose={closeEditor}
+        open={Boolean(editor)}
+        title={editorTitle}
       >
-        <form className="form" noValidate onSubmit={handleCreateUnit}>
-          <div className="form-grid form-grid--two">
-            <OrgField error={errors.unitCode} id="unit-code" label="Mã đơn vị">
-              <input aria-describedby="unit-code-message" aria-invalid={Boolean(errors.unitCode)} className="input" id="unit-code" onChange={(event) => updateDraft("unitCode", event.target.value)} placeholder="vd. P-KYTHUAT" required value={draft.unitCode} />
-            </OrgField>
-            <OrgField error={errors.unitName} id="unit-name" label="Tên đơn vị">
-              <input aria-describedby="unit-name-message" aria-invalid={Boolean(errors.unitName)} className="input" id="unit-name" onChange={(event) => updateDraft("unitName", event.target.value)} required value={draft.unitName} />
-            </OrgField>
-          </div>
-          <div className="form-grid form-grid--two">
-            <OrgField error={errors.parentId} id="unit-parent" label="Đơn vị cha">
-              <select aria-describedby="unit-parent-message" aria-invalid={Boolean(errors.parentId)} className="select" id="unit-parent" onChange={(event) => updateDraft("parentId", event.target.value)} required value={draft.parentId}>
-                {allUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.unitCode} · {unit.unitName}</option>)}
-              </select>
-            </OrgField>
-            <OrgField id="unit-type" label="Loại đơn vị">
-              <select aria-describedby="unit-type-message" className="select" id="unit-type" onChange={(event) => updateDraft("unitType", event.target.value as OrgUnitType)} value={draft.unitType}>
-                <option value="COMPANY">Công ty</option>
-                <option value="CENTER">Khối / Trung tâm</option>
-                <option value="DEPARTMENT">Phòng ban</option>
-                <option value="TEAM">Nhóm chuyên môn</option>
-              </select>
-            </OrgField>
-          </div>
-          <OrgField id="unit-description" label="Mô tả">
-            <textarea aria-describedby="unit-description-message" className="textarea" id="unit-description" onChange={(event) => updateDraft("description", event.target.value)} placeholder="Mô tả ngắn về đơn vị" value={draft.description} />
-          </OrgField>
-          <div className="notice notice--warning">
-            <Icon name="alert" />
-            <span>API hiện chưa hỗ trợ trường người quản lý hoặc danh sách nhân sự của đơn vị. Giao diện không tự suy diễn hai dữ liệu này.</span>
-          </div>
-          <div className="form-actions">
-            <button className="button button--quiet" onClick={() => setIsCreateOpen(false)} type="button">Hủy</button>
-            <button className="button button--primary" type="submit">Tạo đơn vị</button>
-          </div>
-        </form>
+        {editorMode ? (
+          <OrgUnitForm
+            errors={errors}
+            formId="org-unit-form"
+            initialFocusRef={setEditorFocus}
+            mode={editorMode}
+            onChange={updateDraft}
+            onSubmit={saveOrgUnit}
+            parentOptions={parentOptions}
+            value={draft}
+          />
+        ) : null}
       </Dialog>
     </div>
   );
 }
 
-function OrgTreeItem({
-  onSelect,
-  onToggle,
-  query,
-  selectedUnitId,
-  unit,
-  visibleExpandedUnits,
-}: Readonly<{
-  onSelect: (unitId: number) => void;
-  onToggle: (unitId: number) => void;
-  query: string;
-  selectedUnitId: number;
-  unit: OrgUnitTreeNode;
-  visibleExpandedUnits: ReadonlySet<number>;
-}>) {
-  if (!matchesUnitOrChild(unit, query)) {
-    return null;
-  }
-
-  const hasChildren = unit.children.length > 0;
-  const isExpanded = Boolean(query) || visibleExpandedUnits.has(unit.id);
-  const isSelected = selectedUnitId === unit.id;
-
-  return (
-    <li className="tree-node">
-      <div className="tree-node__row">
-        {hasChildren ? (
-          <button
-            aria-expanded={isExpanded}
-            aria-label={isExpanded ? `Thu gọn ${unit.unitName}` : `Mở rộng ${unit.unitName}`}
-            className="tree-node__toggle"
-            onClick={() => onToggle(unit.id)}
-            type="button"
-          >
-            <Icon name={isExpanded ? "chevronDown" : "chevronRight"} />
-          </button>
-        ) : <span aria-hidden="true" className="tree-node__toggle-placeholder" />}
-        <button
-          aria-current={isSelected ? "true" : undefined}
-          className={isSelected ? "tree-node__button is-selected" : "tree-node__button"}
-          onClick={() => onSelect(unit.id)}
-          type="button"
-        >
-          <Icon name="organization" />
-          <span className="tree-node__copy">
-            <strong>{unit.unitName}</strong>
-            <small>{unit.unitCode}</small>
-          </span>
-        </button>
-      </div>
-      {hasChildren && isExpanded ? (
-        <ul className="organization-tree organization-tree--nested">
-          {unit.children.map((child) => (
-            <OrgTreeItem
-              key={child.id}
-              onSelect={onSelect}
-              onToggle={onToggle}
-              query={query}
-              selectedUnitId={selectedUnitId}
-              unit={child}
-              visibleExpandedUnits={visibleExpandedUnits}
-            />
-          ))}
-        </ul>
-      ) : null}
-    </li>
-  );
+interface OrganizationDetailProps {
+  onEdit: (unit: OrgUnitTreeNode) => void;
+  selectedUnit: OrgUnitTreeNode;
+  tree: readonly OrgUnitTreeNode[];
 }
 
-function OrganizationDetail({ selectedUnit, tree }: Readonly<{ selectedUnit: OrgUnitTreeNode; tree: readonly OrgUnitTreeNode[] }>) {
+function OrganizationDetail({ onEdit, selectedUnit, tree }: OrganizationDetailProps) {
   const parent = getParentOrgUnit(tree, selectedUnit.parentId);
 
   return (
@@ -295,25 +360,22 @@ function OrganizationDetail({ selectedUnit, tree }: Readonly<{ selectedUnit: Org
           <h2 id="org-detail-title">{selectedUnit.unitName}</h2>
           <p>{selectedUnit.unitCode} · Cấp {selectedUnit.level}</p>
         </div>
-        <UnitStatusBadge status={selectedUnit.status} />
+        <div className="organization-detail__actions">
+          <UnitStatusBadge status={selectedUnit.status} />
+          <button className="table-action" onClick={() => onEdit(selectedUnit)} type="button">
+            <Icon name="settings" />
+            Chỉnh sửa
+          </button>
+        </div>
       </div>
       <div className="data-panel__body workspace-stack">
         <dl className="detail-list">
           <div><dt>Loại đơn vị</dt><dd>{formatUnitType(selectedUnit.unitType)}</dd></div>
           <div><dt>Đơn vị cha</dt><dd>{parent ? parent.unitName : "Đơn vị gốc"}</dd></div>
-          <div><dt>Người quản lý</dt><dd>{selectedUnit.managerId ? `ID ${selectedUnit.managerId}` : "Chưa có dữ liệu từ API"}</dd></div>
           <div><dt>Trạng thái</dt><dd>{selectedUnit.status === "ACTIVE" ? "Đang hoạt động" : "Ngừng hoạt động"}</dd></div>
         </dl>
 
-        {selectedUnit.description ? <p className="detail-description">{selectedUnit.description}</p> : <p className="detail-description detail-description--empty">Đơn vị này chưa có mô tả.</p>}
-
-        <div className="detail-section">
-          <div className="detail-section__heading">
-            <h3>Nhân sự thuộc đơn vị</h3>
-            <span>Chờ dữ liệu</span>
-          </div>
-          <EmptyState icon="users" message="Endpoint cây tổ chức hiện không trả danh sách nhân sự. Kết nối API chi tiết để hiển thị danh sách thành viên." title="Chưa có dữ liệu nhân sự" />
-        </div>
+        {selectedUnit.description ? <p className="detail-description">{selectedUnit.description}</p> : <p className="detail-description detail-description--empty">Chưa có mô tả.</p>}
       </div>
     </section>
   );
@@ -329,17 +391,6 @@ function UnitStatusBadge({ status }: Readonly<{ status: OrgUnitTreeNode["status"
   );
 }
 
-function OrgField({ children, error, id, label }: Readonly<{ children: React.ReactNode; error?: string; id: string; label: string }>) {
-  const hintId = `${id}-message`;
-  return (
-    <div className="field-group">
-      <label htmlFor={id}>{label}</label>
-      {children}
-      <p className={error ? "field-error" : "field-hint"} id={hintId}>{error ?? " "}</p>
-    </div>
-  );
-}
-
 function matchesUnitOrChild(unit: OrgUnitTreeNode, query: string): boolean {
   if (!query) {
     return true;
@@ -347,16 +398,6 @@ function matchesUnitOrChild(unit: OrgUnitTreeNode, query: string): boolean {
 
   const unitMatches = [unit.unitCode, unit.unitName].some((value) => value.toLocaleLowerCase("vi").includes(query));
   return unitMatches || unit.children.some((child) => matchesUnitOrChild(child, query));
-}
-
-function appendUnit(nodes: readonly OrgUnitTreeNode[], parentId: number, newUnit: OrgUnitTreeNode): readonly OrgUnitTreeNode[] {
-  return nodes.map((node) => {
-    if (node.id === parentId) {
-      return { ...node, children: [...node.children, newUnit] };
-    }
-
-    return { ...node, children: appendUnit(node.children, parentId, newUnit) };
-  });
 }
 
 function formatUnitType(unitType: OrgUnitType) {
