@@ -35,6 +35,7 @@ export interface Role {
 export interface User {
   id: number;
   username: string;
+  email?: string;
   roleCode: RoleCode;
   roleName: string;
   status: UserStatus;

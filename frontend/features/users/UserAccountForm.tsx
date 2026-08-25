@@ -5,19 +5,22 @@ import { useRef, type FormEvent, type RefObject } from "react";
 import { FormField } from "@/components/ui/FormField";
 import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import { DEMO_ROLES } from "@/src/mocks/hrm";
-import type { User } from "@/src/types/hrm";
+import type { DataScope, User, UserStatus } from "@/src/types/hrm";
 
-import { AuthorizationFields, type AuthorizationDraft, type AuthorizationErrors } from "@/features/users/AuthorizationFields";
+import { type AuthorizationDraft, type AuthorizationErrors } from "@/features/users/AuthorizationFields";
 
 export interface UserAccountDraft extends AuthorizationDraft {
+  email: string;
   employeeCode: string;
   fullName: string;
   orgUnitId: string;
-  password: string;
+  password?: string;
+  status: UserStatus;
   username: string;
 }
 
-export type UserAccountErrors = AuthorizationErrors & Partial<Record<"employeeCode" | "fullName" | "orgUnitId" | "password" | "username", string>>;
+export type UserAccountErrors = AuthorizationErrors &
+  Partial<Record<"email" | "employeeCode" | "fullName" | "orgUnitId" | "password" | "status" | "username", string>>;
 
 interface UserAccountFormProps {
   errors: UserAccountErrors;
@@ -25,161 +28,221 @@ interface UserAccountFormProps {
   identity?: Pick<User, "fullName" | "orgUnitName" | "username">;
   initialFocusRef?: (element: HTMLElement | null) => void;
   mode: "create" | "edit";
-  onChange: (key: keyof UserAccountDraft, value: string) => void;
+  onChange: (key: keyof UserAccountDraft, value: any) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   orgUnitOptions: readonly OrgUnitOption[];
   submitRef?: RefObject<HTMLButtonElement | null>;
   value: UserAccountDraft;
 }
 
+const dataScopeOptions: ReadonlyArray<{ label: string; value: DataScope }> = [
+  { label: "Toàn công ty", value: "COMPANY" },
+  { label: "Theo đơn vị", value: "ORGANIZATION_BRANCH" },
+  { label: "Cá nhân", value: "SELF" },
+];
+
 export function UserAccountForm({
   errors,
   formId,
-  identity,
   initialFocusRef,
   mode,
   onChange,
   onSubmit,
   orgUnitOptions,
-  submitRef,
   value,
 }: UserAccountFormProps) {
-  const employeeCodeRef = useRef<HTMLInputElement>(null);
-  const usernameRef = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
-  const roleRef = useRef<HTMLSelectElement>(null);
-  const orgUnitRef = useRef<HTMLButtonElement>(null);
+  const isSystemAdmin = value.roleCode === "VT-06";
 
-  function advanceOnEnter(event: React.KeyboardEvent<HTMLElement>, nextElement: HTMLElement | null) {
-    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      nextElement?.focus();
+  function handleRoleChange(roleCode: string) {
+    onChange("roleCode", roleCode);
+    if (roleCode === "VT-06") {
+      onChange("dataScope", "COMPANY");
+      onChange("scopeOrgUnitId", "");
     }
   }
 
-  function assignCreateFocus(element: HTMLInputElement | null) {
-    initialFocusRef?.(element);
-  }
-
-  if (mode === "edit") {
-    return (
-      <form className="form" id={formId} noValidate onSubmit={onSubmit}>
-        <div className="account-summary">
-          <strong>{identity?.fullName}</strong>
-          <span>{identity?.username} · {identity?.orgUnitName ?? "Chưa gán đơn vị"}</span>
-        </div>
-        <AuthorizationFields
-          errors={errors}
-          idPrefix="edit-user"
-          initialRoleFocusRef={(element) => initialFocusRef?.(element)}
-          onChange={(key, nextValue) => onChange(key, nextValue)}
-          orgUnitOptions={orgUnitOptions}
-          value={value}
-        />
-      </form>
-    );
-  }
-
   return (
-    <form className="form" id={formId} noValidate onSubmit={onSubmit}>
+    <form className="form form--user-editor" id={formId} noValidate onSubmit={onSubmit}>
+      {/* Block 1: Thông tin cơ bản */}
+      <div className="form-section-title">
+        <span>1. Thông tin cá nhân & Tài khoản</span>
+      </div>
+
       <div className="form-grid form-grid--two">
-        <FormField error={errors.fullName} id="create-user-full-name" label="Họ tên">
+        <FormField error={errors.fullName} id="user-full-name" label="Họ và tên">
           <input
-            aria-describedby="create-user-full-name-message"
             aria-invalid={Boolean(errors.fullName)}
-            aria-required="true"
             className="input"
-            id="create-user-full-name"
+            id="user-full-name"
             onChange={(event) => onChange("fullName", event.target.value)}
-            onKeyDown={(event) => advanceOnEnter(event, employeeCodeRef.current)}
-            ref={assignCreateFocus}
+            placeholder="vd. Nguyễn Văn A"
+            ref={(el) => {
+              if (mode === "create") initialFocusRef?.(el);
+            }}
             required
+            type="text"
             value={value.fullName}
           />
         </FormField>
-        <FormField error={errors.employeeCode} id="create-user-employee-code" label="Mã nhân viên">
+
+        <FormField error={errors.email} id="user-email" label="Email liên hệ / Khôi phục">
           <input
-            aria-describedby="create-user-employee-code-message"
-            aria-invalid={Boolean(errors.employeeCode)}
-            aria-required="true"
+            aria-invalid={Boolean(errors.email)}
             className="input"
-            id="create-user-employee-code"
-            onChange={(event) => onChange("employeeCode", event.target.value)}
-            onKeyDown={(event) => advanceOnEnter(event, usernameRef.current)}
-            placeholder="vd. EMP-001"
-            ref={employeeCodeRef}
+            id="user-email"
+            onChange={(event) => onChange("email", event.target.value)}
+            placeholder="vd. van.a@company.com"
             required
+            type="email"
+            value={value.email}
+          />
+        </FormField>
+      </div>
+
+      <div className="form-grid form-grid--two">
+        <FormField error={errors.employeeCode} id="user-employee-code" label="Mã nhân viên">
+          <input
+            aria-invalid={Boolean(errors.employeeCode)}
+            className="input"
+            id="user-employee-code"
+            onChange={(event) => onChange("employeeCode", event.target.value)}
+            placeholder="vd. EMP-001"
+            required
+            type="text"
             value={value.employeeCode}
           />
         </FormField>
-      </div>
 
-      <div className="form-grid form-grid--two">
-        <FormField error={errors.username} id="create-user-username" label="Tên đăng nhập">
+        <FormField error={errors.username} id="user-username" label="Tên đăng nhập">
           <input
-            aria-describedby="create-user-username-message"
             aria-invalid={Boolean(errors.username)}
-            aria-required="true"
             autoComplete="username"
             className="input"
-            id="create-user-username"
+            disabled={mode === "edit"}
+            id="user-username"
             onChange={(event) => onChange("username", event.target.value)}
-            onKeyDown={(event) => advanceOnEnter(event, passwordRef.current)}
-            ref={usernameRef}
+            placeholder="vd. van.a"
             required
+            type="text"
             value={value.username}
           />
         </FormField>
-        <FormField error={errors.password} id="create-user-password" label="Mật khẩu">
+      </div>
+
+      <div className="form-grid form-grid--two">
+        <FormField
+          error={errors.password}
+          hint={mode === "edit" ? "Để trống nếu giữ nguyên mật khẩu cũ" : undefined}
+          id="user-password"
+          label={mode === "create" ? "Mật khẩu khởi tạo" : "Mật khẩu mới (tùy chọn)"}
+        >
           <input
-            aria-describedby="create-user-password-message"
             aria-invalid={Boolean(errors.password)}
-            aria-required="true"
             autoComplete="new-password"
             className="input"
-            id="create-user-password"
+            id="user-password"
             onChange={(event) => onChange("password", event.target.value)}
-            onKeyDown={(event) => advanceOnEnter(event, roleRef.current)}
-            ref={passwordRef}
-            required
+            placeholder={mode === "create" ? "Tối thiểu 6 ký tự" : "Nhập nếu muốn đổi"}
+            required={mode === "create"}
             type="password"
-            value={value.password}
+            value={value.password ?? ""}
+          />
+        </FormField>
+
+        <FormField error={errors.orgUnitId} id="user-org-unit" label="Đơn vị tổ chức trực thuộc">
+          <OrgUnitCombobox
+            ariaInvalid={Boolean(errors.orgUnitId)}
+            id="user-org-unit"
+            onChange={(nextValue) => onChange("orgUnitId", nextValue)}
+            options={orgUnitOptions}
+            placeholder="Chọn đơn vị công tác"
+            value={value.orgUnitId}
           />
         </FormField>
       </div>
 
+      {/* Block 2: Phân quyền & Phạm vi dữ liệu */}
+      <div className="form-section-title" style={{ marginTop: "0.5rem" }}>
+        <span>2. Phân quyền & Phạm vi dữ liệu (Data Scope)</span>
+      </div>
+
       <div className="form-grid form-grid--two">
-        <FormField error={errors.roleCode} id="create-user-role" label="Role">
+        <FormField error={errors.roleCode} id="user-role" label="Vai trò (Role)">
           <select
-            aria-describedby="create-user-role-message"
             aria-invalid={Boolean(errors.roleCode)}
-            aria-required="true"
             className="select"
-            id="create-user-role"
-            onChange={(event) => onChange("roleCode", event.target.value)}
-            onKeyDown={(event) => advanceOnEnter(event, orgUnitRef.current)}
-            ref={roleRef}
-            required
+            id="user-role"
+            onChange={(event) => handleRoleChange(event.target.value)}
             value={value.roleCode}
           >
-            <option value="">Chọn role</option>
-            {DEMO_ROLES.map((role) => <option key={role.code} value={role.code}>{role.code} · {role.name}</option>)}
+            <option value="">Chọn vai trò</option>
+            {DEMO_ROLES.map((role) => (
+              <option key={role.code} value={role.code}>
+                {role.code} · {role.name}
+              </option>
+            ))}
           </select>
         </FormField>
-        <FormField error={errors.orgUnitId} id="create-user-org-unit" label="Đơn vị tổ chức">
-          <OrgUnitCombobox
-            ariaDescribedBy="create-user-org-unit-message"
-            ariaInvalid={Boolean(errors.orgUnitId)}
-            id="create-user-org-unit"
-            onChange={(nextValue) => onChange("orgUnitId", nextValue)}
-            onEnter={() => submitRef?.current?.focus()}
-            onKeyboardSelect={() => submitRef?.current?.focus()}
-            options={orgUnitOptions}
-            placeholder="Chọn đơn vị tổ chức"
-            ref={orgUnitRef}
-            value={value.orgUnitId}
-          />
+
+        <FormField
+          error={errors.dataScope}
+          hint={isSystemAdmin ? "Quản trị viên (VT-06) tự động áp dụng toàn công ty." : undefined}
+          id="user-data-scope"
+          label="Phạm vi dữ liệu (Data Scope)"
+        >
+          <select
+            aria-invalid={Boolean(errors.dataScope)}
+            className="select"
+            disabled={isSystemAdmin}
+            id="user-data-scope"
+            onChange={(event) => {
+              const dataScope = event.target.value as DataScope;
+              onChange("dataScope", dataScope);
+              if (dataScope !== "ORGANIZATION_BRANCH") {
+                onChange("scopeOrgUnitId", "");
+              }
+            }}
+            value={value.dataScope}
+          >
+            {dataScopeOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </FormField>
+      </div>
+
+      <div className="form-grid form-grid--two">
+        <FormField error={errors.status} id="user-status" label="Trạng thái hoạt động">
+          <select
+            className="select"
+            id="user-status"
+            onChange={(event) => onChange("status", event.target.value as UserStatus)}
+            value={value.status}
+          >
+            <option value="ACTIVE">Hoạt động (Active)</option>
+            <option value="LOCKED">Đã khóa (Locked)</option>
+          </select>
+        </FormField>
+
+        {value.dataScope === "ORGANIZATION_BRANCH" ? (
+          <FormField
+            error={errors.scopeOrgUnitId}
+            hint="Dữ liệu sẽ được giới hạn trong cây đơn vị đã chọn."
+            id="user-scope-org-unit"
+            label="Đơn vị tổ chức áp dụng"
+          >
+            <OrgUnitCombobox
+              ariaInvalid={Boolean(errors.scopeOrgUnitId)}
+              id="user-scope-org-unit"
+              onChange={(nextValue) => onChange("scopeOrgUnitId", nextValue)}
+              options={orgUnitOptions}
+              placeholder="Chọn đơn vị áp dụng"
+              value={value.scopeOrgUnitId}
+            />
+          </FormField>
+        ) : null}
       </div>
     </form>
   );

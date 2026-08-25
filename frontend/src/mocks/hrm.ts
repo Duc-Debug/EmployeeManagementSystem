@@ -98,6 +98,7 @@ export const DEMO_USERS = [
   {
     id: 10001,
     username: "minh.anh",
+    email: "minh.anh@company.com",
     roleCode: "VT-06",
     roleName: "Quản trị viên",
     status: "ACTIVE",
@@ -111,6 +112,7 @@ export const DEMO_USERS = [
   {
     id: 10002,
     username: "quoc.huy",
+    email: "quoc.huy@company.com",
     roleCode: "VT-03",
     roleName: "Quản lý nguồn lực",
     status: "ACTIVE",
@@ -124,6 +126,7 @@ export const DEMO_USERS = [
   {
     id: 10003,
     username: "ngoc.mai",
+    email: "ngoc.mai@company.com",
     roleCode: "VT-07",
     roleName: "Nhân viên công ty",
     status: "LOCKED",
