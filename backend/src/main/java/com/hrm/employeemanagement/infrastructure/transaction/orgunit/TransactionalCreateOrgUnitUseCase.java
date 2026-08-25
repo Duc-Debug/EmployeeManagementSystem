@@ -10,7 +10,7 @@ public class TransactionalCreateOrgUnitUseCase implements CreateOrgUnitUseCase {
     private final CreateOrgUnitUseCase delegate;
 
     public TransactionalCreateOrgUnitUseCase(CreateOrgUnitUseCase delegate) {
-        this.delegate = Objects.requireNonNull(delegate, "CreateOrgUnitUseCase delegate must not be null");
+        this.delegate = Objects.requireNonNull(delegate, "CreateOrgUnitUseCase delegate không được phép là null.");
     }
 
     @Override

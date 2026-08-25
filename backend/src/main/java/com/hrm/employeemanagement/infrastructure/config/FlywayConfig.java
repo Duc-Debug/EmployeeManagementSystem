@@ -10,7 +10,8 @@ import javax.sql.DataSource;
 
 /**
  * Cấu hình Flyway - Nguồn chân lý duy nhất cho Database Schema.
- * Đảm bảo Flyway luôn chạy migration xong trước khi Hibernate tiến hành validate bảng.
+ * Đảm bảo Flyway luôn chạy migration xong trước khi Hibernate tiến hành
+ * validate bảng.
  */
 @Configuration
 public class FlywayConfig {
@@ -26,7 +27,7 @@ public class FlywayConfig {
                 .baselineOnMigrate(true)
                 .locations("classpath:db/migration")
                 .load();
-
+        flyway.repair();
         flyway.migrate();
 
         System.out.println("==================================================");
@@ -36,8 +37,9 @@ public class FlywayConfig {
     }
 
     /**
-     * Bắt buộc Hibernate (EntityManagerFactory) phải đợi Bean Flyway hoàn thành 
-     * trước khi thực hiện kiểm tra cấu trúc bảng (ddl-auto=validate), tránh lỗi khởi động.
+     * Bắt buộc Hibernate (EntityManagerFactory) phải đợi Bean Flyway hoàn thành
+     * trước khi thực hiện kiểm tra cấu trúc bảng (ddl-auto=validate), tránh lỗi
+     * khởi động.
      */
     @Bean
     public static BeanFactoryPostProcessor entityManagerFactoryDependsOnFlyway() {

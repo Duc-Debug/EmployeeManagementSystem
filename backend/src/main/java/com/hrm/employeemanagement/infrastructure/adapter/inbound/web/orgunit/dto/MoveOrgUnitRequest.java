@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 public record MoveOrgUnitRequest(
-        @NotNull(message = "New parent ID is required") @Positive(message = "New parent ID must be positive and greater than 0") Long newParentId) {
+        @NotNull(message = "Cần ID của nút cha") @Positive(message = "Id nút cha mới phải là số dương và lớn hơn 0.") Long newParentId) {
     public MoveOrgUnitCommand toCommand(Long id) {
         return new MoveOrgUnitCommand(id, this.newParentId);
     }

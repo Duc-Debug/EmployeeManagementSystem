@@ -2,11 +2,14 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.o
 
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.SaveOrgUnitPort;
+import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.repository.SpringDataOrgUnitRepository;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
@@ -76,13 +79,33 @@ public class OrgUnitRepositoryAdapter implements LoadOrgUnitPort, SaveOrgUnitPor
 
     @Override
     public OrgUnit save(OrgUnit orgUnit) {
-        OrgUnitJpaEntity jpaEntity = OrgUnitPersistenceMapper.toJpaEntity(orgUnit);
-        OrgUnitJpaEntity savedEntity = repository.save(jpaEntity);
-        if (orgUnit.getId() == null) {
-            String finalTreePath = savedEntity.getTreePath() + savedEntity.getId() + "/";
-            savedEntity.setTreePath(finalTreePath);
-            savedEntity = repository.save(savedEntity);
+        try {
+            OrgUnitJpaEntity jpaEntity = OrgUnitPersistenceMapper.toJpaEntity(orgUnit);
+            OrgUnitJpaEntity savedEntity = repository.save(jpaEntity);
+            if (orgUnit.getId() == null) {
+                String finalTreePath = savedEntity.getTreePath() + savedEntity.getId() + "/";
+                savedEntity.setTreePath(finalTreePath);
+                savedEntity = repository.save(savedEntity);
+            }
+            return OrgUnitPersistenceMapper.toDomain(savedEntity);
+        } catch (DataIntegrityViolationException ex) {
+            String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
+            String lowerMsg = rootMsg != null ? rootMsg.toLowerCase() : "";
+            if (lowerMsg.contains("unit_code") || lowerMsg.contains("duplicate") || lowerMsg.contains("unique") || lowerMsg.contains("uk_")) {
+                throw new DuplicateUnitCodeException(
+                        "Mã đơn vị '" + orgUnit.getUnitCode() + "' đã tồn tại trong hệ thống");
+            }
+            throw ex;
         }
-        return OrgUnitPersistenceMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public int updateSubTreePaths(String oldPrefix, String newPrefix, int levelDelta) {
+        return repository.updateSubTreePaths(oldPrefix, newPrefix, levelDelta);
+    }
+
+    @Override
+    public int deactivateSubTree(String treePath) {
+        return repository.deactivateSubTree(treePath);
     }
 }

@@ -10,7 +10,7 @@ public class TransactionalDeactivateOrgUnitUseCase implements DeactivateOrgUnitU
     private final DeactivateOrgUnitUseCase delegate;
 
     public TransactionalDeactivateOrgUnitUseCase(DeactivateOrgUnitUseCase delegate) {
-        this.delegate = Objects.requireNonNull(delegate, "DeactivateOrgUnitUseCase delegate must not be null");
+        this.delegate = Objects.requireNonNull(delegate, "DeactivateOrgUnitUseCase delegate không được phép là null");
     }
 
     @Override
