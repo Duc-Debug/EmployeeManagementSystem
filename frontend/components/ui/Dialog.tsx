@@ -50,6 +50,27 @@ export function Dialog({
     return () => window.cancelAnimationFrame(frame);
   }, [initialFocusRef, open]);
 
+  // Lock background body scroll when dialog is open
+  useLayoutEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+    const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = "hidden";
+    if (scrollBarWidth > 0) {
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+    };
+  }, [open]);
+
   function handleBackdropClick(event: React.MouseEvent<HTMLDialogElement>) {
     if (preventBackdropClose) {
       return;

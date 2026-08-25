@@ -27,7 +27,7 @@ const navSections: ReadonlyArray<NavSection> = [
   {
     title: "Phân hệ nghiệp vụ",
     items: [
-      { href: "/users", icon: "users", label: "Tài khoản nhân sự", badge: "Live" },
+      { href: "/users", icon: "users", label: "Tài khoản nhân sự" },
       { href: "/organization", icon: "organization", label: "Sơ đồ cây tổ chức" },
       { href: "/access", icon: "access", label: "Ma trận phân quyền" },
     ],
