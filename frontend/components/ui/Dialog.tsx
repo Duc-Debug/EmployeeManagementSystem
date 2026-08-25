@@ -6,15 +6,27 @@ import { Icon } from "@/components/ui/Icon";
 
 interface DialogProps {
   children: ReactNode;
+  className?: string;
   description?: string;
   footer?: ReactNode;
   initialFocusRef?: RefObject<HTMLElement | null>;
   onClose: () => void;
   open: boolean;
+  preventBackdropClose?: boolean;
   title: string;
 }
 
-export function Dialog({ children, description, footer, initialFocusRef, onClose, open, title }: DialogProps) {
+export function Dialog({
+  children,
+  className = "",
+  description,
+  footer,
+  initialFocusRef,
+  onClose,
+  open,
+  preventBackdropClose = false,
+  title,
+}: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -39,6 +51,9 @@ export function Dialog({ children, description, footer, initialFocusRef, onClose
   }, [initialFocusRef, open]);
 
   function handleBackdropClick(event: React.MouseEvent<HTMLDialogElement>) {
+    if (preventBackdropClose) {
+      return;
+    }
     if (event.target === event.currentTarget) {
       onClose();
     }
@@ -48,8 +63,12 @@ export function Dialog({ children, description, footer, initialFocusRef, onClose
     <dialog
       aria-describedby={description ? descriptionId : undefined}
       aria-labelledby={titleId}
-      className="dialog"
+      className={`dialog ${className}`}
       onCancel={(event) => {
+        if (preventBackdropClose) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
         onClose();
       }}
