@@ -8,10 +8,27 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { clearDemoSession, readDemoSession } from "@/lib/demo-session";
 
-const navigation: ReadonlyArray<{ href: string; icon: IconName; label: string }> = [
-  { href: "/users", icon: "users", label: "Tài khoản" },
-  { href: "/organization", icon: "organization", label: "Cây tổ chức" },
-  { href: "/access", icon: "access", label: "Phân quyền" },
+interface NavItem {
+  badge?: string;
+  href: string;
+  icon: IconName;
+  label: string;
+}
+
+interface NavSection {
+  items: ReadonlyArray<NavItem>;
+  title: string;
+}
+
+const navSections: ReadonlyArray<NavSection> = [
+  {
+    title: "Phân hệ nghiệp vụ",
+    items: [
+      { href: "/users", icon: "users", label: "Tài khoản nhân sự", badge: "Live" },
+      { href: "/organization", icon: "organization", label: "Sơ đồ cây tổ chức" },
+      { href: "/access", icon: "access", label: "Ma trận phân quyền" },
+    ],
+  },
 ];
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
@@ -19,6 +36,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [isDesktopNavigation, setIsDesktopNavigation] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const firstNavigationLinkRef = useRef<HTMLAnchorElement>(null);
 
@@ -60,7 +78,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const user = readDemoSession();
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isCollapsed ? "app-shell--collapsed" : ""}`}>
       {isNavigationOpen ? (
         <button
           aria-label="Đóng menu điều hướng"
@@ -71,7 +89,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       ) : null}
       <aside
         aria-hidden={isDesktopNavigation || isNavigationOpen ? undefined : true}
-        className={isNavigationOpen ? "side-nav is-open" : "side-nav"}
+        className={`side-nav ${isCollapsed ? "side-nav--collapsed" : ""} ${isNavigationOpen ? "is-open" : ""}`}
         inert={isDesktopNavigation || isNavigationOpen ? undefined : true}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -79,40 +97,69 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           }
         }}
       >
-        <div className="side-nav__brand">
-          <Logo size={36} theme="dark" variant="full" />
+        <div className="side-nav__header">
+          <div className="side-nav__brand">
+            <Logo size={34} theme="light" variant={isCollapsed ? "mark" : "full"} />
+          </div>
+          <button
+            aria-label={isCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            className="side-nav__toggle-btn"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            title={isCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            type="button"
+          >
+            <Icon name="menu" />
+          </button>
         </div>
 
-        <nav aria-label="Điều hướng chính" className="side-nav__links">
-          {navigation.map((item) => {
-            const isCurrent = pathname === item.href;
-            return (
-              <Link
-                aria-current={isCurrent ? "page" : undefined}
-                className={isCurrent ? "side-nav__link is-current" : "side-nav__link"}
-                href={item.href}
-                key={item.href}
-                onClick={() => closeNavigation(false)}
-                ref={item.href === navigation[0]?.href ? firstNavigationLinkRef : undefined}
-              >
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+        <nav aria-label="Điều hướng chính" className="side-nav__menu">
+          {navSections.map((section, sIdx) => (
+            <div className="side-nav__section" key={section.title}>
+              <span className="side-nav__section-title">{section.title}</span>
+              <div className="side-nav__links">
+                {section.items.map((item, itemIdx) => {
+                  const isCurrent = pathname === item.href;
+                  return (
+                    <Link
+                      aria-current={isCurrent ? "page" : undefined}
+                      className={isCurrent ? "side-nav__link is-current" : "side-nav__link"}
+                      href={item.href}
+                      key={item.href}
+                      onClick={() => closeNavigation(false)}
+                      ref={sIdx === 0 && itemIdx === 0 ? firstNavigationLinkRef : undefined}
+                      title={item.label}
+                    >
+                      <span className="side-nav__link-icon">
+                        <Icon name={item.icon} />
+                      </span>
+                      <span className="side-nav__link-label">{item.label}</span>
+                      {item.badge ? (
+                        <span className="side-nav__link-badge">{item.badge}</span>
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="side-nav__footer">
-          <div className="session-card">
-            <span aria-hidden="true" className="avatar avatar--small">{user.fullName.slice(0, 1)}</span>
-            <div>
+          <div className="session-card" title={`${user.fullName} (${user.roleName})`}>
+            <div className="session-card__avatar">
+              <span aria-hidden="true" className="avatar avatar--small">{user.fullName.slice(0, 1)}</span>
+              <span className="session-card__status-dot" />
+            </div>
+            <div className="session-card__info">
               <strong>{user.fullName}</strong>
-              <span>{user.roleName} · {user.roleCode}</span>
+              <div className="session-card__role">
+                <span className="role-chip">{user.roleName}</span>
+              </div>
             </div>
           </div>
-          <button className="side-nav__logout" onClick={handleLogout} type="button">
+          <button className="side-nav__logout" onClick={handleLogout} title="Đăng xuất" type="button">
             <Icon name="logout" />
-            <span>Đăng xuất</span>
+            <span className="side-nav__logout-text">Đăng xuất</span>
           </button>
         </div>
       </aside>
