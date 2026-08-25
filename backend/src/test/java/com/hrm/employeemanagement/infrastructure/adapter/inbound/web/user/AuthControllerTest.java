@@ -33,9 +33,20 @@ class AuthControllerTest {
     @Mock
     private AuthenticateUserUseCase authenticateUserUseCase;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.user.LogoutUseCase logoutUseCase;
+
+    private com.hrm.employeemanagement.infrastructure.security.UserStatusCache userStatusCache;
+
     @BeforeEach
     void setUp() {
-        AuthController authController = new AuthController(authenticateUserUseCase, new LoginRateLimiter());
+        userStatusCache = new com.hrm.employeemanagement.infrastructure.security.UserStatusCache();
+        AuthController authController = new AuthController(
+                authenticateUserUseCase,
+                logoutUseCase,
+                new LoginRateLimiter(),
+                userStatusCache
+        );
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
                 .setControllerAdvice(new UserExceptionHandler())
                 .build();
@@ -122,5 +133,31 @@ class AuthControllerTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("quá nhiều lần")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout trả về 200 OK và gọi LogoutUseCase khi có Bearer token")
+    void testLogout_WithBearerToken_Returns200OK() throws Exception {
+        String token = "sample.valid.jwt";
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đăng xuất thành công"));
+
+        org.mockito.Mockito.verify(logoutUseCase, org.mockito.Mockito.times(1))
+                .logout(org.mockito.ArgumentMatchers.argThat(cmd -> token.equals(cmd.token())));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout trả về 200 OK khi không có Authorization header (idempotent)")
+    void testLogout_WithoutAuthorizationHeader_Returns200OK() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đăng xuất thành công"));
+
+        org.mockito.Mockito.verify(logoutUseCase, org.mockito.Mockito.never()).logout(org.mockito.Mockito.any());
     }
 }
