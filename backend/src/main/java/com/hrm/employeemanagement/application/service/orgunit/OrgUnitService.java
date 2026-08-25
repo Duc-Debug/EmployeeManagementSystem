@@ -37,9 +37,9 @@ public class OrgUnitService implements
     public OrgUnitService(LoadOrgUnitPort loadOrgUnitPort, SaveOrgUnitPort saveOrgUnitPort,
             LoadEmployeePort loadEmployeePort, SaveAuditLogPort saveAuditLogPort,
             CurrentUserPort currentUserPort) {
-        this.loadOrgUnitPort = loadOrgUnitPort;
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort,"LoadOrgUnitPort is not null");
         this.saveOrgUnitPort = saveOrgUnitPort;
-        this.loadEmployeePort = loadEmployeePort;
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort,"LoadEmployeePort is not null");
         this.orgUnitTreePolicy = new OrgUnitTreePolicy();
         this.saveAuditLogPort = saveAuditLogPort;
         this.currentUserPort = currentUserPort;
@@ -50,7 +50,6 @@ public class OrgUnitService implements
     }
 
     private void validateActiveManager(Long managerId) {
-        if (loadEmployeePort != null) {
             Employee manager = loadEmployeePort.findById(new EmployeeId(managerId))
                     .orElseThrow(() -> new EmployeeNotFoundException(
                             "Không tìm thấy nhân viên quản lý với ID: " + managerId));
@@ -58,7 +57,6 @@ public class OrgUnitService implements
                 throw new InvalidOrgUnitManagerException(
                         "Nhân viên quản lý (ID: " + managerId + ") hiện không ở trạng thái hoạt động.");
             }
-        }
     }
 
     @Override
