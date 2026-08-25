@@ -75,12 +75,23 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
                 tokenBlacklistPort.blacklist(token, remainingTtl);
             }
 
+            String username = command.username();
+            if (username == null || username.isBlank()) {
+                username = tokenProvider.getUsernameFromToken(token);
+            }
+
             Long userId = command.userId();
             if (userId == null) {
                 userId = tokenProvider.getUserIdFromToken(token);
             }
 
-            if (userId != null && saveAuditLogPort != null) {
+            if (command.allDevices() && username != null && tokenBlacklistPort != null) {
+                long now = System.currentTimeMillis();
+                tokenBlacklistPort.blacklistUser(username, now);
+                if (userId != null && saveAuditLogPort != null) {
+                    saveAuditLogPort.save(AuditLog.create(userId, "LOGOUT_ALL", "users", userId));
+                }
+            } else if (userId != null && saveAuditLogPort != null) {
                 saveAuditLogPort.save(AuditLog.create(userId, "LOGOUT", "users", userId));
             }
         }

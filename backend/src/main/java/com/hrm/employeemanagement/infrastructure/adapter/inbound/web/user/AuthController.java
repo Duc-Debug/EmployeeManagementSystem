@@ -75,7 +75,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest httpRequest) {
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest httpRequest,
+                                                      @org.springframework.web.bind.annotation.RequestParam(value = "allDevices", required = false, defaultValue = "false") boolean allDevices) {
         String authHeader = httpRequest != null ? httpRequest.getHeader("Authorization") : null;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
@@ -90,7 +91,7 @@ public class AuthController {
                 }
 
                 if (logoutUseCase != null) {
-                    logoutUseCase.logout(new LogoutCommand(token, userId, username));
+                    logoutUseCase.logout(new LogoutCommand(token, userId, username, allDevices));
                 }
 
                 if (username != null && userStatusCache != null) {
@@ -100,7 +101,7 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(
-                ApiResponse.success("Đăng xuất thành công", null)
+                ApiResponse.success(allDevices ? "Đăng xuất khỏi tất cả thiết bị thành công" : "Đăng xuất thành công", null)
         );
     }
 }

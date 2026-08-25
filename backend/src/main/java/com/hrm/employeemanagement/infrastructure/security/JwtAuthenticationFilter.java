@@ -48,6 +48,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     && (tokenBlacklistPort == null || !tokenBlacklistPort.isBlacklisted(jwt))
                     && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
+                long issuedAt = tokenProvider.getIssuedAtTimestampFromToken(jwt);
+
+                if (tokenBlacklistPort != null && tokenBlacklistPort.isUserRevoked(username, issuedAt)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 // High-performance Caffeine Cache lookup (Avoids DB hits on every request)
                 Optional<User> userOpt = userStatusCache.get(username);

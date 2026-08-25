@@ -96,4 +96,22 @@ class JwtAuthenticationFilterTest {
         verify(tokenProvider, never()).validateToken(token);
         verify(filterChain, times(1)).doFilter(request, response);
     }
+
+    @Test
+    @DisplayName("Phiên người dùng đã bị thu hồi (isUserRevoked = true): không thiết lập SecurityContext")
+    void testDoFilter_UserRevoked_Ignored() throws Exception {
+        String token = "user.revoked.jwt.token";
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(tokenBlacklistPort.isBlacklisted(token)).thenReturn(false);
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getIssuedAtTimestampFromToken(token)).thenReturn(1000L);
+        when(tokenBlacklistPort.isUserRevoked("admin", 1000L)).thenReturn(true);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(loadUserPort, never()).findByUsername("admin");
+        verify(filterChain, times(1)).doFilter(request, response);
+    }
 }

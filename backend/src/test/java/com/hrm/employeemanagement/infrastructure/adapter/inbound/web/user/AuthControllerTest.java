@@ -160,4 +160,19 @@ class AuthControllerTest {
 
         org.mockito.Mockito.verify(logoutUseCase, org.mockito.Mockito.never()).logout(org.mockito.Mockito.any());
     }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout?allDevices=true trả về 200 OK và gọi LogoutUseCase với cờ allDevices")
+    void testLogout_AllDevices_Returns200OK() throws Exception {
+        String token = "sample.valid.jwt";
+
+        mockMvc.perform(post("/api/v1/auth/logout?allDevices=true")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đăng xuất khỏi tất cả thiết bị thành công"));
+
+        org.mockito.Mockito.verify(logoutUseCase, org.mockito.Mockito.times(1))
+                .logout(org.mockito.ArgumentMatchers.argThat(cmd -> cmd.allDevices() && token.equals(cmd.token())));
+    }
 }

@@ -167,4 +167,20 @@ class AuthServiceTest {
         verify(tokenBlacklistPort, times(1)).blacklist(token, 1800000L);
         verify(saveAuditLogPort, times(1)).save(any());
     }
+
+    @Test
+    @DisplayName("Đăng xuất mọi thiết bị (allDevices = true): thu hồi toàn bộ token của user và ghi nhận LOGOUT_ALL")
+    void testLogout_AllDevices_Success() {
+        String token = "valid.jwt.token";
+        LogoutCommand command = LogoutCommand.of(token, 1L, "admin", true);
+
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getRemainingExpirationMs(token)).thenReturn(3600000L);
+
+        authService.logout(command);
+
+        verify(tokenBlacklistPort, times(1)).blacklist(token, 3600000L);
+        verify(tokenBlacklistPort, times(1)).blacklistUser(eq("admin"), anyLong());
+        verify(saveAuditLogPort, times(1)).save(argThat(audit -> "LOGOUT_ALL".equals(audit.getAction())));
+    }
 }

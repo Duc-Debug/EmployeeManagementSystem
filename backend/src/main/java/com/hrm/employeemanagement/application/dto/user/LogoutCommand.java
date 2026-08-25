@@ -3,7 +3,8 @@ package com.hrm.employeemanagement.application.dto.user;
 public record LogoutCommand(
         String token,
         Long userId,
-        String username
+        String username,
+        boolean allDevices
 ) {
     public LogoutCommand {
         if (token == null || token.isBlank()) {
@@ -11,11 +12,20 @@ public record LogoutCommand(
         }
     }
 
+    public LogoutCommand(String token, Long userId, String username) {
+        this(token, userId, username, false);
+    }
+
     public static LogoutCommand of(String token) {
-        return new LogoutCommand(token, null, null);
+        return new LogoutCommand(token, null, null, false);
     }
 
     public static LogoutCommand of(String token, Long userId, String username) {
-        return new LogoutCommand(token, userId, username);
+        return new LogoutCommand(token, userId, username, false);
+    }
+
+    public static LogoutCommand of(String token, Long userId, String username, boolean allDevices) {
+        return new LogoutCommand(token, userId, username, allDevices);
     }
 }
+
