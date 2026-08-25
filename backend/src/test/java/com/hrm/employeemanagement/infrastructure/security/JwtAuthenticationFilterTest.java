@@ -71,6 +71,7 @@ class JwtAuthenticationFilterTest {
         when(tokenBlacklistPort.isBlacklisted(token)).thenReturn(false);
         when(tokenProvider.validateToken(token)).thenReturn(true);
         when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getTokenVersionFromToken(token)).thenReturn(1);
 
         Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Admin");
         User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(1L));
