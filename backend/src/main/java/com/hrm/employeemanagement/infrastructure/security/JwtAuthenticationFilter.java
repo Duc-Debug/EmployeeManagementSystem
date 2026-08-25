@@ -33,10 +33,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             LoadUserPort loadUserPort,
             UserStatusCache userStatusCache,
             TokenBlacklistPort tokenBlacklistPort) {
-        this.tokenProvider = tokenProvider;
-        this.loadUserPort = loadUserPort;
-        this.userStatusCache = userStatusCache;
-        this.tokenBlacklistPort = tokenBlacklistPort;
+        this.tokenProvider = java.util.Objects.requireNonNull(tokenProvider, "tokenProvider must not be null");
+        this.loadUserPort = java.util.Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
+        this.userStatusCache = java.util.Objects.requireNonNull(userStatusCache, "userStatusCache must not be null");
+        this.tokenBlacklistPort = java.util.Objects.requireNonNull(tokenBlacklistPort, "tokenBlacklistPort must not be null");
     }
 
     @Override
@@ -46,12 +46,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt)
-                    && (tokenBlacklistPort == null || !tokenBlacklistPort.isBlacklisted(jwt))
+                    && !tokenBlacklistPort.isBlacklisted(jwt)
                     && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
                 long issuedAt = tokenProvider.getIssuedAtTimestampFromToken(jwt);
 
-                if (tokenBlacklistPort != null && tokenBlacklistPort.isUserRevoked(username, issuedAt)) {
+                if (tokenBlacklistPort.isUserRevoked(username, issuedAt)) {
                     filterChain.doFilter(request, response);
                     return;
                 }

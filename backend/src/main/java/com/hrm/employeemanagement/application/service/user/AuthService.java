@@ -15,6 +15,8 @@ import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsExcept
 import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
 import com.hrm.employeemanagement.domain.user.User;
 
+import java.util.Objects;
+
 /**
  * Pure Java 100% Application Service (Zero Spring framework dependencies).
  * Implements AuthenticateUserUseCase and LogoutUseCase.
@@ -29,20 +31,14 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
 
     public AuthService(LoadUserPort loadUserPort,
                        PasswordEncoderPort passwordEncoder,
-                       TokenProviderPort tokenProvider) {
-        this(loadUserPort, passwordEncoder, tokenProvider, null, null);
-    }
-
-    public AuthService(LoadUserPort loadUserPort,
-                       PasswordEncoderPort passwordEncoder,
                        TokenProviderPort tokenProvider,
                        TokenBlacklistPort tokenBlacklistPort,
                        SaveAuditLogPort saveAuditLogPort) {
-        this.loadUserPort = loadUserPort;
-        this.passwordEncoder = passwordEncoder;
-        this.tokenProvider = tokenProvider;
-        this.tokenBlacklistPort = tokenBlacklistPort;
-        this.saveAuditLogPort = saveAuditLogPort;
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
+        this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "passwordEncoder must not be null");
+        this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider must not be null");
+        this.tokenBlacklistPort = Objects.requireNonNull(tokenBlacklistPort, "tokenBlacklistPort must not be null");
+        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "saveAuditLogPort must not be null");
     }
 
     @Override
@@ -71,7 +67,7 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
         String token = command.token();
         if (tokenProvider.validateToken(token)) {
             long remainingTtl = tokenProvider.getRemainingExpirationMs(token);
-            if (remainingTtl > 0 && tokenBlacklistPort != null) {
+            if (remainingTtl > 0) {
                 tokenBlacklistPort.blacklist(token, remainingTtl);
             }
 
@@ -85,13 +81,13 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
                 userId = tokenProvider.getUserIdFromToken(token);
             }
 
-            if (command.allDevices() && username != null && tokenBlacklistPort != null) {
+            if (command.allDevices() && username != null) {
                 long now = System.currentTimeMillis();
                 tokenBlacklistPort.blacklistUser(username, now);
-                if (userId != null && saveAuditLogPort != null) {
+                if (userId != null) {
                     saveAuditLogPort.save(AuditLog.create(userId, "LOGOUT_ALL", "users", userId));
                 }
-            } else if (userId != null && saveAuditLogPort != null) {
+            } else if (userId != null) {
                 saveAuditLogPort.save(AuditLog.create(userId, "LOGOUT", "users", userId));
             }
         }
