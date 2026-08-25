@@ -15,7 +15,6 @@ export const ROLE_CODES = [
   "VT-04",
   "VT-05",
   "VT-06",
-  "VT-07",
 ] as const;
 
 export type RoleCode = (typeof ROLE_CODES)[number];
@@ -29,6 +28,11 @@ export type OrgUnitStatus = "ACTIVE" | "INACTIVE";
 export interface Role {
   code: RoleCode;
   name: string;
+  description?: string;
+  goal?: string;
+  permissions?: string;
+  scopeData?: string;
+  limitations?: string;
 }
 
 /** Matches the backend UserResult payload. */
