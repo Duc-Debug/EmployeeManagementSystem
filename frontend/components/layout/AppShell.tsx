@@ -95,11 +95,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const topbarUserDropdownRef = useRef<HTMLDivElement>(null);
   const sidebarUserDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [user, setUser] = useState<DemoSession>(DEFAULT_USER_SESSION);
-
-  useEffect(() => {
-    setUser(readDemoSession());
-  }, []);
+  const [user, setUser] = useState<DemoSession>(() => {
+    if (typeof window === "undefined") {
+      return DEFAULT_USER_SESSION;
+    }
+    return readDemoSession();
+  });
 
   useLayoutEffect(() => {
     const desktopQuery = window.matchMedia("(min-width: 60rem)");

@@ -1,7 +1,5 @@
-"use client";
-
-import { useRef, type FormEvent, type RefObject } from "react";
-
+import { type FormEvent, type RefObject } from "react";
+ 
 import { FormField } from "@/components/ui/FormField";
 import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import { DEMO_ROLES } from "@/src/mocks/hrm";
@@ -28,7 +26,7 @@ interface UserAccountFormProps {
   identity?: Pick<User, "fullName" | "orgUnitName" | "username">;
   initialFocusRef?: (element: HTMLElement | null) => void;
   mode: "create" | "edit";
-  onChange: (key: keyof UserAccountDraft, value: any) => void;
+  onChange: <Key extends keyof UserAccountDraft>(key: Key, value: UserAccountDraft[Key]) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   orgUnitOptions: readonly OrgUnitOption[];
   submitRef?: RefObject<HTMLButtonElement | null>;

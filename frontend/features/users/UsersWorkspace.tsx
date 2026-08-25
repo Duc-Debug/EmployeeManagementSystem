@@ -108,7 +108,7 @@ export function UsersWorkspace() {
     setDraft(EMPTY_DRAFT);
   }
 
-  function updateDraft(key: keyof UserAccountDraft, value: any) {
+  function updateDraft<Key extends keyof UserAccountDraft>(key: Key, value: UserAccountDraft[Key]) {
     setDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
     setErrors((currentErrors) => ({ ...currentErrors, [key]: undefined }));
   }
