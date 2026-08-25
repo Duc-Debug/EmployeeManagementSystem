@@ -1,4 +1,4 @@
-/* Hallmark · genre: modern-minimal · tone: technical austere enterprise · palette: Cobalt 256° · macrostructure: Workbench · enrichment: none · nav: N3 side-rail · footer: utility rail · contrast: pass (40–41) · slop: pass (42–45) · honest: pass (46) · chrome: pass (47) · tokens: pass (48) · responsive: pass (49) · icons: pass (30) · mobile: pass (34, 49, 50–57) */
+/* Hallmark · genre: modern-minimal · tone: technical austere enterprise · palette: Deep Teal 181° · macrostructure: Workbench · enrichment: none · nav: N3 side-rail · footer: utility rail · contrast: pass (40–41) · slop: pass (42–45) · honest: pass (46) · chrome: pass (47) · tokens: pass (48) · responsive: pass (49) · icons: pass (30) · mobile: pass (34, 49, 50–57) */
 :root {
   --color-paper: oklch(98.5% 0.004 250);
   --color-surface: oklch(99.3% 0.005 250);
@@ -13,12 +13,12 @@
   --color-inverse: oklch(96% 0.006 250);
   --color-rule: oklch(87% 0.008 250);
   --color-rule-strong: oklch(76% 0.014 250);
-  --color-accent: oklch(45% 0.18 256);
-  --color-accent-hover: oklch(40% 0.17 256);
-  --color-accent-soft: oklch(93% 0.035 256);
+  --color-accent: oklch(45% 0.11 181);
+  --color-accent-hover: oklch(40% 0.1 181);
+  --color-accent-soft: oklch(93% 0.03 181);
   --color-accent-ink: oklch(98% 0.004 250);
-  --color-focus: oklch(58% 0.2 256);
-  --color-focus-on-accent: oklch(93% 0.04 256);
+  --color-focus: oklch(57% 0.13 181);
+  --color-focus-on-accent: oklch(93% 0.03 181);
   --color-success: oklch(44% 0.13 153);
   --color-success-soft: oklch(94% 0.04 153);
   --color-error: oklch(47% 0.18 25);
