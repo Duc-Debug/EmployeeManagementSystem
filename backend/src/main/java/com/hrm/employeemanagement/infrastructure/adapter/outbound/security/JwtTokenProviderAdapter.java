@@ -63,4 +63,41 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
             return false;
         }
     }
+
+    @Override
+    public long getRemainingExpirationMs(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            Date expiration = claims.getExpiration();
+            if (expiration == null) {
+                return 0;
+            }
+            long remaining = expiration.getTime() - System.currentTimeMillis();
+            return Math.max(remaining, 0);
+        } catch (Exception ex) {
+            return 0;
+        }
+    }
+
+    @Override
+    public Long getUserIdFromToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            Object userIdClaim = claims.get("userId");
+            if (userIdClaim instanceof Number number) {
+                return number.longValue();
+            }
+            return null;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
 }

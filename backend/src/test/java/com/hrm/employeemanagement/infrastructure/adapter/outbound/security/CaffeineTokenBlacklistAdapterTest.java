@@ -1,0 +1,61 @@
+package com.hrm.employeemanagement.infrastructure.adapter.outbound.security;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class CaffeineTokenBlacklistAdapterTest {
+
+    private CaffeineTokenBlacklistAdapter blacklistAdapter;
+
+    @BeforeEach
+    void setUp() {
+        blacklistAdapter = new CaffeineTokenBlacklistAdapter();
+    }
+
+    @Test
+    @DisplayName("Token chưa blacklist trả về false")
+    void testIsNotBlacklisted_ByDefault() {
+        assertFalse(blacklistAdapter.isBlacklisted("any.token.value"));
+        assertFalse(blacklistAdapter.isBlacklisted(null));
+        assertFalse(blacklistAdapter.isBlacklisted(""));
+    }
+
+    @Test
+    @DisplayName("Token sau khi blacklist với TTL hợp lệ trả về true")
+    void testBlacklistToken_Success() {
+        String token = "jwt.token.to.blacklist";
+        blacklistAdapter.blacklist(token, 60_000L); // 1 minute TTL
+
+        assertTrue(blacklistAdapter.isBlacklisted(token));
+    }
+
+    @Test
+    @DisplayName("Blacklist với TTL <= 0 hoặc null token không gây lỗi")
+    void testBlacklistToken_InvalidParams_HandledGracefully() {
+        blacklistAdapter.blacklist(null, 60_000L);
+        blacklistAdapter.blacklist("", 60_000L);
+        blacklistAdapter.blacklist("token.with.negative.ttl", -100L);
+        blacklistAdapter.blacklist("token.with.zero.ttl", 0L);
+
+        assertFalse(blacklistAdapter.isBlacklisted("token.with.negative.ttl"));
+        assertFalse(blacklistAdapter.isBlacklisted("token.with.zero.ttl"));
+    }
+
+    @Test
+    @DisplayName("Xóa toàn bộ blacklist bằng clear()")
+    void testClear_RemovesAllTokens() {
+        blacklistAdapter.blacklist("token1", 60_000L);
+        blacklistAdapter.blacklist("token2", 60_000L);
+
+        assertTrue(blacklistAdapter.isBlacklisted("token1"));
+        assertTrue(blacklistAdapter.isBlacklisted("token2"));
+
+        blacklistAdapter.clear();
+
+        assertFalse(blacklistAdapter.isBlacklisted("token1"));
+        assertFalse(blacklistAdapter.isBlacklisted("token2"));
+    }
+}

@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.security;
 
+import com.hrm.employeemanagement.application.port.outbound.security.TokenBlacklistPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.security.JwtTokenProviderAdapter;
@@ -25,13 +26,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProviderAdapter tokenProvider;
     private final LoadUserPort loadUserPort;
     private final UserStatusCache userStatusCache;
+    private final TokenBlacklistPort tokenBlacklistPort;
 
     public JwtAuthenticationFilter(JwtTokenProviderAdapter tokenProvider,
             LoadUserPort loadUserPort,
-            UserStatusCache userStatusCache) {
+            UserStatusCache userStatusCache,
+            TokenBlacklistPort tokenBlacklistPort) {
         this.tokenProvider = tokenProvider;
         this.loadUserPort = loadUserPort;
         this.userStatusCache = userStatusCache;
+        this.tokenBlacklistPort = tokenBlacklistPort;
     }
 
     @Override
@@ -40,7 +44,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            if (StringUtils.hasText(jwt)
+                    && (tokenBlacklistPort == null || !tokenBlacklistPort.isBlacklisted(jwt))
+                    && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
 
                 // High-performance Caffeine Cache lookup (Avoids DB hits on every request)
