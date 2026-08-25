@@ -70,6 +70,8 @@ class AuthLogoutIntegrationTest {
                 .apply(springSecurity())
                 .build();
 
+        auditLogRepository.deleteAll();
+
         RoleJpaEntity adminRole = roleRepository.findByCode("VT-06")
                 .orElseGet(() -> roleRepository.save(new RoleJpaEntity(null, "VT-06", "Quản trị viên")));
 
@@ -137,10 +139,12 @@ class AuthLogoutIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
 
-        // 5. Verify audit log entry was created
+        // 5. Verify audit log entry was created specifically for this user and action
         List<AuditLogJpaEntity> logs = auditLogRepository.findAll();
-        boolean hasLogoutAudit = logs.stream().anyMatch(l -> "LOGOUT".equals(l.getAction()));
-        assertThat(hasLogoutAudit).isTrue();
+        List<AuditLogJpaEntity> userLogoutLogs = logs.stream()
+                .filter(l -> testUserId.equals(l.getUserId()) && "LOGOUT".equals(l.getAction()))
+                .toList();
+        assertThat(userLogoutLogs).hasSize(1);
     }
 
     @Test
@@ -186,9 +190,11 @@ class AuthLogoutIntegrationTest {
         mockMvc.perform(get("/api/v1/users/" + testUserId).header("Authorization", "Bearer " + token2))
                 .andExpect(status().isUnauthorized());
 
-        // Verify LOGOUT_ALL audit log
+        // Verify LOGOUT_ALL audit log specifically for this user
         List<AuditLogJpaEntity> logs = auditLogRepository.findAll();
-        boolean hasLogoutAllAudit = logs.stream().anyMatch(l -> "LOGOUT_ALL".equals(l.getAction()));
-        assertThat(hasLogoutAllAudit).isTrue();
+        List<AuditLogJpaEntity> userLogoutAllLogs = logs.stream()
+                .filter(l -> testUserId.equals(l.getUserId()) && "LOGOUT_ALL".equals(l.getAction()))
+                .toList();
+        assertThat(userLogoutAllLogs).hasSize(1);
     }
 }
