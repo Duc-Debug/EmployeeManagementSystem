@@ -1,0 +1,8 @@
+{
+  "scannedAt": "2026-08-25",
+  "framework": "Next.js App Router + React + TypeScript",
+  "fontStack": "Space Grotesk, IBM Plex Sans, and IBM Plex Mono through semantic tokens",
+  "palette": "Deep Teal semantic token system in tokens.css",
+  "motion": "Named duration and easing tokens with a reduced-motion fallback; no transition-all",
+  "spacing": "Named spacing scale reused across shared components"
+}
