@@ -114,6 +114,12 @@ public class UserService implements
             );
         }
 
+        if (loadUserPort.existsByEmail(command.username())) {
+            throw new DuplicateUsernameException(
+                    "Tên đăng nhập xung đột với email khôi phục của một tài khoản khác"
+            );
+        }
+
         RoleCode roleCode = RoleCode.fromCode(command.roleCode());
 
         Role role = loadRolePort.findByCode(roleCode)

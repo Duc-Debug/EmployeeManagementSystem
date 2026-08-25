@@ -27,116 +27,46 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.us
 @Component
 public class UserPersistenceMapper {
 
-    public User toDomain(
-            UserJpaEntity entity,
-            Long employeeId
-    ) {
-        if (entity == null) {
-            return null;
-        }
-
-        Role role = toDomain(
-                entity.getRole()
-        );
-
-        UserStatus status =
-                Boolean.TRUE.equals(entity.getIsActive())
-                        ? UserStatus.ACTIVE
-                        : UserStatus.LOCKED;
-
-        UserId userId =
-                entity.getId() != null
-                        ? new UserId(entity.getId())
-                        : null;
-
-        EmployeeId empId =
-                employeeId != null
-                        ? new EmployeeId(employeeId)
-                        : null;
-
-        DataScope dataScope =
-                DataScope.valueOf(
-                        entity.getDataScope()
-                );
-
-        return new User(
-                userId,
-                entity.getUsername(),
-                entity.getPasswordHash(),
-                role,
-                status,
-                empId,
-                dataScope,
-                entity.getScopeOrgUnitId(),
-                entity.getVersion()
-        );
+    public User toDomain(UserJpaEntity entity, Long employeeId) {
+        if (entity == null) return null;
+        Role role = toDomain(entity.getRole());
+        UserStatus status = Boolean.TRUE.equals(entity.getIsActive()) ? UserStatus.ACTIVE : UserStatus.LOCKED;
+        UserId userId = entity.getId() != null ? new UserId(entity.getId()) : null;
+        EmployeeId empId = employeeId != null ? new EmployeeId(employeeId) : null;
+        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId,
+                DataScope.valueOf(entity.getDataScope()), entity.getScopeOrgUnitId(), entity.getEmail(),
+                entity.getPasswordChangedAt(), entity.getTokenVersion(), entity.getVersion());
     }
 
-    public UserJpaEntity toJpaEntity(
-            User domain,
-            RoleJpaEntity roleJpa
-    ) {
-        if (domain == null) {
-            return null;
-        }
-
-        UserJpaEntity entity =
-                new UserJpaEntity(
-                        domain.getIdValue(),
-                        domain.getUsername(),
-                        domain.getPasswordHash(),
-                        roleJpa,
-                        domain.isActive()
-                );
-
-        entity.setDataScope(
-                domain.getDataScope().name()
-        );
-
-        entity.setScopeOrgUnitId(
-                domain.getScopeOrgUnitId()
-        );
-
-        entity.setVersion(
+    public UserJpaEntity toJpaEntity(User domain, RoleJpaEntity roleJpa) {
+        if (domain == null) return null;
+        UserJpaEntity entity = new UserJpaEntity(
+                domain.getIdValue(),
+                domain.getUsername(),
+                domain.getPasswordHash(),
+                roleJpa,
+                domain.isActive(),
+                domain.getEmail(),
+                domain.getPasswordChangedAt(),
+                domain.getTokenVersion(),
                 domain.getVersion()
         );
-
+        entity.setDataScope(domain.getDataScope().name());
+        entity.setScopeOrgUnitId(domain.getScopeOrgUnitId());
         return entity;
     }
 
-    public void updateJpaEntity(
-            UserJpaEntity target,
-            User domain,
-            RoleJpaEntity roleJpa
-    ) {
-        if (target == null || domain == null) {
-            return;
-        }
-
-        target.setUsername(
-                domain.getUsername()
-        );
-
-        target.setPasswordHash(
-                domain.getPasswordHash()
-        );
-
-        target.setRole(
-                roleJpa
-        );
-
-        target.setIsActive(
-                domain.isActive()
-        );
-
-        target.setDataScope(
-                domain.getDataScope().name()
-        );
-
-        target.setScopeOrgUnitId(
-                domain.getScopeOrgUnitId()
-        );
-
+    public void updateJpaEntity(UserJpaEntity target, User domain, RoleJpaEntity roleJpa) {
+        if (target == null || domain == null) return;
+        target.setUsername(domain.getUsername());
+        target.setPasswordHash(domain.getPasswordHash());
+        target.setRole(roleJpa);
+        target.setIsActive(domain.isActive());
+        target.setEmail(domain.getEmail());
+        target.setPasswordChangedAt(domain.getPasswordChangedAt());
+        target.setTokenVersion(domain.getTokenVersion());
+        target.setDataScope(domain.getDataScope().name());
+        target.setScopeOrgUnitId(domain.getScopeOrgUnitId());
         if (domain.getVersion() != null) {
             target.setVersion(
                     domain.getVersion()

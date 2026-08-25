@@ -4,6 +4,8 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
+import com.hrm.employeemanagement.domain.exception.user.InvalidPasswordException;
+import com.hrm.employeemanagement.domain.exception.user.InvalidResetTokenException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyActiveException;
@@ -113,7 +115,7 @@ public class UserExceptionHandler {
                 .body(ApiResponse.error(errorMessage));
     }
 
-    @ExceptionHandler({SelfLockingException.class, LastAdminProtectionException.class, UserAlreadyLockedException.class, UserAlreadyActiveException.class, IllegalArgumentException.class})
+    @ExceptionHandler({SelfLockingException.class, LastAdminProtectionException.class, UserAlreadyLockedException.class, UserAlreadyActiveException.class, InvalidPasswordException.class, InvalidResetTokenException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiResponse<Void>> handleBusinessRuleViolation(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage()));

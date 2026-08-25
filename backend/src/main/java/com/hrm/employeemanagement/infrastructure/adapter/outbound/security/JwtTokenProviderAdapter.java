@@ -37,6 +37,7 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
                 .subject(user.getUsername())
                 .claim("userId", user.getIdValue())
                 .claim("roleCode", user.getRole().getCode().getCode())
+                .claim("tv", user.getTokenVersion())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)
@@ -45,13 +46,30 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
 
     @Override
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
+        Claims claims = getClaims(token);
+        return claims.getSubject();
+    }
+
+    public Date getIssuedAtFromToken(String token) {
+        Claims claims = getClaims(token);
+        return claims.getIssuedAt();
+    }
+
+    public Integer getTokenVersionFromToken(String token) {
+        Claims claims = getClaims(token);
+        Object tvObj = claims.get("tv");
+        if (tvObj instanceof Number number) {
+            return number.intValue();
+        }
+        return null;
+    }
+
+    private Claims getClaims(String token) {
+        return Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-
-        return claims.getSubject();
     }
 
     @Override
