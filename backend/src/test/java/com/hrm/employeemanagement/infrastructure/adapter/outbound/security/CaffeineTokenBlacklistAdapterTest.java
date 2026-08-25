@@ -58,4 +58,18 @@ class CaffeineTokenBlacklistAdapterTest {
         assertFalse(blacklistAdapter.isBlacklisted("token1"));
         assertFalse(blacklistAdapter.isBlacklisted("token2"));
     }
+
+    @Test
+    @DisplayName("Thu hồi toàn bộ phiên của User: token sinh trước timestamp bị coi là revoked")
+    void testBlacklistUser_Success() {
+        String username = "admin";
+        long now = System.currentTimeMillis();
+
+        blacklistAdapter.blacklistUser(username, now);
+
+        assertTrue(blacklistAdapter.isUserRevoked(username, now - 1000));
+        assertTrue(blacklistAdapter.isUserRevoked(username, now));
+        assertFalse(blacklistAdapter.isUserRevoked(username, now + 1000));
+        assertFalse(blacklistAdapter.isUserRevoked("other_user", now - 1000));
+    }
 }

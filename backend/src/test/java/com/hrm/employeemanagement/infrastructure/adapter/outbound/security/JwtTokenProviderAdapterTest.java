@@ -63,6 +63,8 @@ class JwtTokenProviderAdapterTest {
         assertTrue(provider.validateToken(token));
         assertEquals("admin", provider.getUsernameFromToken(token));
         assertEquals(1L, provider.getUserIdFromToken(token));
+        assertNotNull(provider.getJtiFromToken(token));
+        assertTrue(provider.getIssuedAtTimestampFromToken(token) > 0);
         assertTrue(provider.getRemainingExpirationMs(token) > 0);
         assertTrue(provider.getRemainingExpirationMs(token) <= EXPIRATION_MS);
     }

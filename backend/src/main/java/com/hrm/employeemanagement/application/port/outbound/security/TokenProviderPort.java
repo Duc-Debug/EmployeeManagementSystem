@@ -8,4 +8,6 @@ public interface TokenProviderPort {
     boolean validateToken(String token);
     long getRemainingExpirationMs(String token);
     Long getUserIdFromToken(String token);
+    String getJtiFromToken(String token);
+    long getIssuedAtTimestampFromToken(String token);
 }
