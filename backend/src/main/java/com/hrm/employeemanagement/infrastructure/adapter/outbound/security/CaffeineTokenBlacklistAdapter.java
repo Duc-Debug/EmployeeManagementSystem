@@ -16,6 +16,17 @@ import java.util.concurrent.TimeUnit;
  * Stores token hashes with dynamic TTL matching the token's remaining lifetime,
  * reducing memory overhead by >75% compared to raw JWT strings.
  * Also supports user-level session revocation (all devices logout).
+ *
+ * <h3>SECURITY TRADE-OFF & PRODUCTION NOTICE:</h3>
+ * <ul>
+ *   <li><b>In-Memory Lifecycle:</b> This adapter maintains revocation state solely in the local JVM heap.
+ *       State is cleared upon application restart/redeployment or pod eviction. Any unexpired JWTs
+ *       logged out before restart could become valid until natural expiration if used against this node.</li>
+ *   <li><b>Single-Instance Scope:</b> Does not sync across multiple instances/nodes in a clustered environment.</li>
+ *   <li><b>Production Recommendation:</b> For high-availability, zero-downtime rolling deployments, and multi-instance
+ *       production environments, a shared distributed TTL store (such as Redis) implementing {@link TokenBlacklistPort}
+ *       must be configured to guarantee cross-node revocation consistency and restart survivability.</li>
+ * </ul>
  */
 @Component
 public class CaffeineTokenBlacklistAdapter implements TokenBlacklistPort {
