@@ -2,7 +2,9 @@ package com.hrm.employeemanagement.domain.orgunit;
 
 import java.time.LocalDateTime;
 
+import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathException;
+import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
 
 public class OrgUnit {
     private OrgUnitId id;
@@ -22,6 +24,12 @@ public class OrgUnit {
     public OrgUnit(OrgUnitId id, String unitCode, String unitName, OrgUnitType unitType,
             OrgUnitId parentId, String treePath, Integer level, OrgUnitStatus status,
             String description, Long managerId, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        if (parentId != null && (managerId == null || managerId <= 0)) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        }
+        if (managerId != null && managerId <= 0) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        }
         this.id = id;
         this.unitCode = unitCode;
         this.unitName = unitName;
@@ -39,7 +47,7 @@ public class OrgUnit {
     // Standardize treePath to start and end with trailing slash '/'
     private String normalizeTreePath(String path) {
         if (path == null || path.isBlank()) {
-            throw new InvalidTreePathException("Tree path cannot be null or blank");
+            throw new InvalidTreePathException("Đường dẫn cây không được rỗng hoặc trống.");
         }
         String normalized = path.trim();
         if (!normalized.startsWith("/")) {
@@ -52,10 +60,14 @@ public class OrgUnit {
     }
 
     // Hành vi nghiệp vụ: Cập nhật thông tin đơn vị
-    public void updateInfo(String unitName, OrgUnitType unitType, String description) {
+    public void updateInfo(String unitName, OrgUnitType unitType, Long managerId, String description) {
         if (unitName == null || unitName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Tên đơn vị không được để trống");
+            throw RequiredFieldMissingException.of("Tên đơn vị (unitName)");
         }
+        if (unitType == null) {
+            throw RequiredFieldMissingException.of("Loại đơn vị (unitType)");
+        }
+        this.assignManager(managerId);
         this.unitName = unitName;
         this.unitType = unitType;
         this.description = description;
@@ -64,8 +76,11 @@ public class OrgUnit {
 
     // Hành vi nghiệp vụ: Di chuyển sang nút cha mới (Re-parenting)
     public void changeParent(OrgUnitId newParentId, String newTreePath, Integer newLevel) {
-        if (newLevel == null || newLevel < 1) {
-            throw new IllegalArgumentException("Level must be positive and greater than 0");
+        if (newLevel == null) {
+            throw RequiredFieldMissingException.of("Cấp độ (level)");
+        }
+        if (newLevel < 1) {
+            throw new IllegalArgumentException("Mức độ phải dương và lớn hơn 0.");
         }
 
         // Ghi chú: newParentId CÓ THỂ null nếu đơn vị là nút Gốc (Root Node)
@@ -83,6 +98,9 @@ public class OrgUnit {
 
     // Hành vi nghiệp vụ: Bổ nhiệm Trưởng phòng/Quản lý
     public void assignManager(Long managerId) {
+        if (managerId == null || managerId <= 0) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        }
         this.managerId = managerId;
         this.updatedAt = LocalDateTime.now();
     }

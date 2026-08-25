@@ -10,7 +10,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * High-performance In-Memory Caffeine Cache for User Authentication & Status.
- * Caches active user lookup for 2 minutes to prevent DB congestion on high traffic.
+ * Caches active user lookup for 2 minutes to prevent DB congestion on high
+ * traffic.
  * Provides immediate eviction on account lock/unlock.
  */
 @Component
@@ -22,7 +23,8 @@ public class UserStatusCache {
             .build();
 
     public Optional<User> get(String username) {
-        if (username == null) return Optional.empty();
+        if (username == null)
+            return Optional.empty();
         return Optional.ofNullable(cache.getIfPresent(username));
     }
 

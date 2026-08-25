@@ -44,12 +44,12 @@ public class DataInitializer implements CommandLineRunner {
     private final InitialAdminProperties initialAdminProperties;
 
     public DataInitializer(SpringDataRoleRepository roleRepository,
-                           SpringDataDepartmentRepository departmentRepository,
-                           SpringDataOrgUnitRepository orgUnitRepository,
-                           SpringDataUserRepository userRepository,
-                           SpringDataEmployeeRepository employeeRepository,
-                           PasswordEncoder passwordEncoder,
-                           InitialAdminProperties initialAdminProperties) {
+            SpringDataDepartmentRepository departmentRepository,
+            SpringDataOrgUnitRepository orgUnitRepository,
+            SpringDataUserRepository userRepository,
+            SpringDataEmployeeRepository employeeRepository,
+            PasswordEncoder passwordEncoder,
+            InitialAdminProperties initialAdminProperties) {
         this.roleRepository = roleRepository;
         this.departmentRepository = departmentRepository;
         this.orgUnitRepository = orgUnitRepository;
@@ -123,7 +123,8 @@ public class DataInitializer implements CommandLineRunner {
 
         if (adminUser == null && userRepository.countActiveAdmins() == 0) {
             RoleJpaEntity adminRole = roleRepository.findByCode("VT-06")
-                    .orElseThrow(() -> new IllegalStateException("Role VT-06 (Quản trị viên) chưa tồn tại trong cơ sở dữ liệu"));
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Role VT-06 (Quản trị viên) chưa tồn tại trong cơ sở dữ liệu"));
 
             UserJpaEntity newAdmin = new UserJpaEntity(
                     null,
@@ -155,8 +156,7 @@ public class DataInitializer implements CommandLineRunner {
                     "Quản trị viên hệ thống",
                     false,
                     40,
-                    "ACTIVE"
-            );
+                    "ACTIVE");
             employeeRepository.save(adminEmployee);
         }
 

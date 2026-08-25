@@ -7,7 +7,7 @@ public final class OrgUnitId {
 
     public OrgUnitId(Long value) {
         if (value != null && value <= 0) {
-            throw new IllegalArgumentException("OrgUnitId  must large than 0");
+            throw new IllegalArgumentException("OrgUnitId  phải lớn hơn 0");
         }
         this.value = value;
     }

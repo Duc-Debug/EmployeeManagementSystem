@@ -9,7 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * In-Memory Sliding-Window Rate Limiter for Authentication Endpoints.
- * Protects against Brute-Force attacks by blocking clients after 5 consecutive failed attempts per minute.
+ * Protects against Brute-Force attacks by blocking clients after 5 consecutive
+ * failed attempts per minute.
  */
 @Component
 public class LoginRateLimiter {
@@ -23,13 +24,15 @@ public class LoginRateLimiter {
             .build();
 
     public boolean isBlocked(String key) {
-        if (key == null) return false;
+        if (key == null)
+            return false;
         AtomicInteger attempts = attemptsCache.getIfPresent(key);
         return attempts != null && attempts.get() >= MAX_FAILED_ATTEMPTS;
     }
 
     public void recordFailedAttempt(String key) {
-        if (key == null) return;
+        if (key == null)
+            return;
         attemptsCache.asMap().compute(key, (k, counter) -> {
             if (counter == null) {
                 return new AtomicInteger(1);
