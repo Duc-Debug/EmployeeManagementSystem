@@ -1,0 +1,8 @@
+{
+  "scannedAt": "2026-08-25",
+  "framework": "React + Vite starter export",
+  "fontStack": "System UI starter; no reusable production typography system",
+  "palette": "Starter CSS variables with repeated inline Figma-export colors",
+  "motion": "Unscoped transition-all patterns",
+  "spacing": "No structured scale detected"
+}
