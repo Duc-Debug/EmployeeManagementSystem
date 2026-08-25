@@ -84,6 +84,11 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
     }
 
     @Override
+    public boolean existsByEmail(String email) {
+        return springDataUserRepository.existsByEmail(email);
+    }
+
+    @Override
     public boolean existsInOrgUnitBranch(
             Long userId,
             Long scopeOrgUnitId

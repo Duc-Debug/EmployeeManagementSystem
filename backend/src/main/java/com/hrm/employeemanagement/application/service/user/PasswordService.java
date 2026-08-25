@@ -6,7 +6,7 @@ import com.hrm.employeemanagement.application.dto.user.ResetPasswordCommand;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
-import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
+import com.hrm.employeemanagement.application.port.outbound.email.QueuePasswordResetEmailPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.*;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
@@ -37,7 +37,7 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
     private final PasswordEncoderPort passwordEncoder;
     private final SavePasswordResetTokenPort savePasswordResetTokenPort;
     private final LoadPasswordResetTokenPort loadPasswordResetTokenPort;
-    private final SimulatedEmailPort simulatedEmailPort;
+    private final QueuePasswordResetEmailPort passwordResetEmailQueue;
     private final SaveAuditLogPort saveAuditLogPort;
 
     public PasswordService(LoadUserPort loadUserPort,
@@ -45,14 +45,14 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
                            PasswordEncoderPort passwordEncoder,
                            SavePasswordResetTokenPort savePasswordResetTokenPort,
                            LoadPasswordResetTokenPort loadPasswordResetTokenPort,
-                           SimulatedEmailPort simulatedEmailPort,
+                           QueuePasswordResetEmailPort passwordResetEmailQueue,
                            SaveAuditLogPort saveAuditLogPort) {
         this.loadUserPort = loadUserPort;
         this.saveUserPort = saveUserPort;
         this.passwordEncoder = passwordEncoder;
         this.savePasswordResetTokenPort = savePasswordResetTokenPort;
         this.loadPasswordResetTokenPort = loadPasswordResetTokenPort;
-        this.simulatedEmailPort = simulatedEmailPort;
+        this.passwordResetEmailQueue = passwordResetEmailQueue;
         this.saveAuditLogPort = saveAuditLogPort;
     }
 
@@ -108,7 +108,7 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
 
             // Send simulated email only if explicit email address is present on the user profile
             if (user.getEmail() != null && !user.getEmail().isBlank()) {
-                simulatedEmailPort.sendPasswordResetEmail(user.getEmail(), user.getUsername(), rawTokenString, RESET_TOKEN_VALIDITY_MINUTES);
+                passwordResetEmailQueue.enqueue(user.getEmail(), user.getUsername(), rawTokenString, RESET_TOKEN_VALIDITY_MINUTES);
             }
 
             saveAuditLogPort.save(AuditLog.create(user.getIdValue(), "REQUEST_PASSWORD_RESET", "password_reset_tokens", resetToken.getId()));

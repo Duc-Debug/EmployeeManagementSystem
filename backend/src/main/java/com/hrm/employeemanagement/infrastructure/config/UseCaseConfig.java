@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
-import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
+import com.hrm.employeemanagement.application.port.outbound.email.QueuePasswordResetEmailPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
@@ -69,7 +69,7 @@ public class UseCaseConfig {
                                                                  PasswordEncoderPort passwordEncoder,
                                                                  SavePasswordResetTokenPort savePasswordResetTokenPort,
                                                                  LoadPasswordResetTokenPort loadPasswordResetTokenPort,
-                                                                 SimulatedEmailPort simulatedEmailPort,
+                                                                 QueuePasswordResetEmailPort passwordResetEmailQueue,
                                                                  SaveAuditLogPort saveAuditLogPort,
                                                                  UserStatusCache userStatusCache) {
         PasswordService pureJavaPasswordService = new PasswordService(
@@ -78,7 +78,7 @@ public class UseCaseConfig {
                 passwordEncoder,
                 savePasswordResetTokenPort,
                 loadPasswordResetTokenPort,
-                simulatedEmailPort,
+                passwordResetEmailQueue,
                 saveAuditLogPort
         );
         return new TransactionalPasswordServiceDecorator(pureJavaPasswordService, loadUserPort, userStatusCache);

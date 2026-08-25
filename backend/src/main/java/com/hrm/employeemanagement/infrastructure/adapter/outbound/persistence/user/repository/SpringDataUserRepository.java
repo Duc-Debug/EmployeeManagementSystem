@@ -20,6 +20,7 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     Optional<UserJpaEntity> findByUsernameOrEmail(@Param("identity") String identity);
 
     boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
 
     @Query("SELECT COUNT(u) FROM UserJpaEntity u WHERE u.role.code = 'VT-06' AND u.isActive = true")
     long countActiveAdmins();

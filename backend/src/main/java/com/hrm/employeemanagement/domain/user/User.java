@@ -63,7 +63,7 @@ public class User {
         validateRoleDataScope(role, dataScope, scopeOrgUnitId);
         this.dataScope = dataScope;
         this.scopeOrgUnitId = scopeOrgUnitId;
-        this.email = email;
+        this.email = normalizeEmail(email);
         this.passwordChangedAt = passwordChangedAt;
         this.tokenVersion = tokenVersion != null ? tokenVersion : 1;
         this.version = version;
@@ -231,7 +231,7 @@ public class User {
     }
 
     public void setEmail(String email) {
-        this.email = email;
+        this.email = normalizeEmail(email);
     }
 
     public Instant getPasswordChangedAt() {
@@ -317,5 +317,12 @@ private void validateRoleDataScope(
                 "SYSTEM_ADMIN requires COMPANY data scope"
         );
     }
+}
+
+private static String normalizeEmail(String email) {
+    if (email == null || email.isBlank()) {
+        return null;
+    }
+    return email.trim().toLowerCase(java.util.Locale.ROOT);
 }
 }

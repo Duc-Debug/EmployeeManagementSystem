@@ -6,7 +6,7 @@ import java.util.Optional;
 import com.hrm.employeemanagement.application.dto.user.ChangePasswordCommand;
 import com.hrm.employeemanagement.application.dto.user.RequestPasswordResetCommand;
 import com.hrm.employeemanagement.application.dto.user.ResetPasswordCommand;
-import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
+import com.hrm.employeemanagement.application.port.outbound.email.QueuePasswordResetEmailPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadPasswordResetTokenPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -52,7 +52,7 @@ class PasswordServiceTest {
     private LoadPasswordResetTokenPort loadPasswordResetTokenPort;
 
     @Mock
-    private SimulatedEmailPort simulatedEmailPort;
+    private QueuePasswordResetEmailPort passwordResetEmailQueue;
 
     @Mock
     private SaveAuditLogPort saveAuditLogPort;
@@ -68,7 +68,7 @@ class PasswordServiceTest {
                 passwordEncoder,
                 savePasswordResetTokenPort,
                 loadPasswordResetTokenPort,
-                simulatedEmailPort,
+                passwordResetEmailQueue,
                 saveAuditLogPort
         );
 
@@ -175,7 +175,7 @@ class PasswordServiceTest {
         verify(savePasswordResetTokenPort)
                 .save(any(PasswordResetToken.class));
 
-        verify(simulatedEmailPort).sendPasswordResetEmail(
+        verify(passwordResetEmailQueue).enqueue(
                 eq("employee1@company.com"),
                 eq("employee1"),
                 anyString(),
@@ -219,7 +219,7 @@ class PasswordServiceTest {
         verify(savePasswordResetTokenPort)
                 .save(any(PasswordResetToken.class));
 
-        verify(simulatedEmailPort, never()).sendPasswordResetEmail(
+        verify(passwordResetEmailQueue, never()).enqueue(
                 anyString(),
                 anyString(),
                 anyString(),
