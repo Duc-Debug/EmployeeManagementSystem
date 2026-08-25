@@ -51,7 +51,6 @@
 			<groupId>com.github.ben-manes.caffeine</groupId>
 			<artifactId>caffeine</artifactId>
 		</dependency>
-
 		<!-- JWT Authentication (JJWT) -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>

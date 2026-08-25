@@ -25,16 +25,37 @@ public class AuditLogJpaEntity {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(name = "old_value", length = 2000)
+    private String oldValue;
+
+    @Column(name = "new_value", length = 2000)
+    private String newValue;
+
     public AuditLogJpaEntity() {
     }
 
     public AuditLogJpaEntity(Long id, Long userId, String action, String tableName, Long recordId, LocalDateTime createdAt) {
+        this(id, userId, action, tableName, recordId, createdAt, null, null);
+    }
+
+    public AuditLogJpaEntity(
+            Long id,
+            Long userId,
+            String action,
+            String tableName,
+            Long recordId,
+            LocalDateTime createdAt,
+            String oldValue,
+            String newValue
+    ) {
         this.id = id;
         this.userId = userId;
         this.action = action;
         this.tableName = tableName;
         this.recordId = recordId;
         this.createdAt = createdAt;
+        this.oldValue = oldValue;
+        this.newValue = newValue;
     }
 
     public Long getId() {
@@ -83,5 +104,21 @@ public class AuditLogJpaEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getOldValue() {
+        return oldValue;
+    }
+
+    public void setOldValue(String oldValue) {
+        this.oldValue = oldValue;
+    }
+
+    public String getNewValue() {
+        return newValue;
+    }
+
+    public void setNewValue(String newValue) {
+        this.newValue = newValue;
     }
 }

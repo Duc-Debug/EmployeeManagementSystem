@@ -23,8 +23,8 @@ public class CreateUserRequest {
     @NotBlank(message = "Họ tên không được để trống")
     private String fullName;
 
-    @NotNull(message = "ID bộ phận không được để trống")
-    private Long departmentId;
+    @NotNull(message = "ID đơn vị tổ chức không được để trống")
+    private Long orgUnitId;
 
     public String getUsername() {
         return username;
@@ -66,11 +66,11 @@ public class CreateUserRequest {
         this.fullName = fullName;
     }
 
-    public Long getDepartmentId() {
-        return departmentId;
+    public Long getOrgUnitId() {
+        return orgUnitId;
     }
 
-    public void setDepartmentId(Long departmentId) {
-        this.departmentId = departmentId;
+    public void setOrgUnitId(Long orgUnitId) {
+        this.orgUnitId = orgUnitId;
     }
 }

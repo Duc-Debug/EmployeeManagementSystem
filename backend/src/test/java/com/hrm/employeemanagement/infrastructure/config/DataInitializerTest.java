@@ -1,5 +1,10 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.repository.SpringDataOrgUnitRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.DepartmentJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
@@ -23,6 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +48,9 @@ class DataInitializerTest {
     private SpringDataDepartmentRepository departmentRepository;
 
     @Mock
+    private SpringDataOrgUnitRepository orgUnitRepository;
+
+    @Mock
     private SpringDataUserRepository userRepository;
 
     @Mock
@@ -54,10 +63,13 @@ class DataInitializerTest {
     void setUp() {
         lenient().when(roleRepository.findByCode(any(String.class))).thenReturn(Optional.of(new RoleJpaEntity(1L, "VT-01", "Vai tro")));
         lenient().when(departmentRepository.findByCode("PB-01")).thenReturn(Optional.of(new DepartmentJpaEntity(1L, "PB-01", "Ban giám đốc", null)));
+        lenient().when(orgUnitRepository.findByUnitCode("COMPANY_ROOT")).thenReturn(Optional.of(
+                new OrgUnitJpaEntity(100L, "COMPANY_ROOT", "Công Ty Cổ Phần Software", OrgUnitType.COMPANY, null, "/100/", 1, OrgUnitStatus.ACTIVE, "Nút gốc", null, null)
+        ));
     }
 
     @Test
-    @DisplayName("Khởi tạo Admin & Employee liên kết Department thành công khi cung cấp password từ biến môi trường")
+    @DisplayName("Khởi tạo Admin & Employee liên kết OrgUnit thành công khi cung cấp password từ biến môi trường")
     void testRun_ProvisionsAdminAndEmployeeWithEnvPassword() throws Exception {
         DataInitializer dataInitializer = dataInitializer(true, "admin", "StrongEnvPassword123!");
 
@@ -68,6 +80,7 @@ class DataInitializerTest {
         when(passwordEncoder.encode("StrongEnvPassword123!")).thenReturn("encoded_strong_password");
 
         UserJpaEntity savedUser = new UserJpaEntity(1L, "admin", "encoded_strong_password", adminRole, true);
+        savedUser.setDataScope(DataScope.COMPANY.name());
         when(userRepository.save(any(UserJpaEntity.class))).thenReturn(savedUser);
         when(employeeRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
@@ -78,11 +91,13 @@ class DataInitializerTest {
         assertEquals("admin", userCaptor.getValue().getUsername());
         assertEquals("encoded_strong_password", userCaptor.getValue().getPasswordHash());
         assertTrue(userCaptor.getValue().getIsActive());
+        assertEquals(DataScope.COMPANY.name(), userCaptor.getValue().getDataScope());
+        assertNull(userCaptor.getValue().getScopeOrgUnitId());
 
         ArgumentCaptor<EmployeeJpaEntity> empCaptor = ArgumentCaptor.forClass(EmployeeJpaEntity.class);
         verify(employeeRepository).save(empCaptor.capture());
         assertEquals(1L, empCaptor.getValue().getUserId());
-        assertEquals(1L, empCaptor.getValue().getDepartmentId());
+        assertEquals(100L, empCaptor.getValue().getOrgUnitId());
     }
 
     @Test
@@ -116,6 +131,7 @@ class DataInitializerTest {
 
         RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
         UserJpaEntity existingAdmin = new UserJpaEntity(1L, "admin", "encoded_hash", adminRole, true);
+        existingAdmin.setDataScope(DataScope.COMPANY.name());
         when(userRepository.findByUsername("admin")).thenReturn(Optional.of(existingAdmin));
         when(employeeRepository.findByUserId(1L)).thenReturn(Optional.empty()); // Thiếu employee
 
@@ -123,11 +139,49 @@ class DataInitializerTest {
 
         // Không tạo lại User
         verify(userRepository, never()).save(any(UserJpaEntity.class));
-        // Nhưng tạo bù Employee profile và liên kết Department
+        // Nhưng tạo bù Employee profile và liên kết OrgUnit
         ArgumentCaptor<EmployeeJpaEntity> empCaptor = ArgumentCaptor.forClass(EmployeeJpaEntity.class);
         verify(employeeRepository).save(empCaptor.capture());
         assertEquals(1L, empCaptor.getValue().getUserId());
-        assertEquals(1L, empCaptor.getValue().getDepartmentId());
+        assertEquals(100L, empCaptor.getValue().getOrgUnitId());
+    }
+
+    @Test
+    @DisplayName("Tự phục hồi: Admin bootstrap đã tồn tại với SELF scope được nâng thành COMPANY")
+    void testRun_SelfHealing_UpdatesExistingAdminScopeToCompany() throws Exception {
+        DataInitializer dataInitializer = dataInitializer(true, "admin", "StrongEnvPassword123!");
+
+        RoleJpaEntity adminRole = new RoleJpaEntity(6L, "VT-06", "Quản trị viên");
+        UserJpaEntity existingAdmin = new UserJpaEntity(1L, "admin", "encoded_hash", adminRole, true);
+        existingAdmin.setDataScope(DataScope.SELF.name());
+        existingAdmin.setScopeOrgUnitId(null);
+
+        when(userRepository.findByUsername("admin"))
+                .thenReturn(Optional.of(existingAdmin));
+        when(userRepository.save(any(UserJpaEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(employeeRepository.findByUserId(1L))
+                .thenReturn(Optional.of(
+                        new EmployeeJpaEntity(
+                                10L,
+                                1L,
+                                100L,
+                                "EMP-ADMIN",
+                                "Quản trị viên hệ thống",
+                                false,
+                                40,
+                                "ACTIVE"
+                        )
+                ));
+
+        dataInitializer.run();
+
+        ArgumentCaptor<UserJpaEntity> userCaptor =
+                ArgumentCaptor.forClass(UserJpaEntity.class);
+
+        verify(userRepository).save(userCaptor.capture());
+        assertEquals(DataScope.COMPANY.name(), userCaptor.getValue().getDataScope());
+        assertNull(userCaptor.getValue().getScopeOrgUnitId());
     }
 
     @Test
@@ -137,6 +191,7 @@ class DataInitializerTest {
 
         dataInitializer.run();
 
+        verify(userRepository).normalizeSystemAdminDataScope();
         verify(userRepository, never()).save(any(UserJpaEntity.class));
         verify(employeeRepository, never()).save(any(EmployeeJpaEntity.class));
     }
@@ -145,6 +200,7 @@ class DataInitializerTest {
         return new DataInitializer(
                 roleRepository,
                 departmentRepository,
+                orgUnitRepository,
                 userRepository,
                 employeeRepository,
                 passwordEncoder,
