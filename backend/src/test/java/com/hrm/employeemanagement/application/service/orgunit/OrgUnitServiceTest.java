@@ -11,7 +11,9 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
+import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.*;
 import com.hrm.employeemanagement.domain.user.UserId;
 import org.junit.jupiter.api.DisplayName;
@@ -185,5 +187,69 @@ class OrgUnitServiceTest {
         assertNotNull(result);
         verify(saveOrgUnitPort).deactivateSubTree("/1/2/");
         verify(saveAuditLogPort).save(any());
+    }
+
+    @Test
+    @DisplayName("Should activate inactive org unit successfully when parent is active and log audit change")
+    void shouldActivateOrgUnitSuccessfully() {
+        ActivateOrgUnitCommand command = new ActivateOrgUnitCommand(2L);
+
+        OrgUnit parent = new OrgUnit(
+                new OrgUnitId(1L), "COMPANY_ROOT", "Công ty Software", OrgUnitType.COMPANY,
+                null, "/1/", 1, OrgUnitStatus.ACTIVE, "Gốc", 1L, LocalDateTime.now(), null
+        );
+
+        OrgUnit inactiveChild = new OrgUnit(
+                new OrgUnitId(2L), "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.INACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(inactiveChild));
+        when(loadOrgUnitPort.findById(new OrgUnitId(1L))).thenReturn(Optional.of(parent));
+        when(saveOrgUnitPort.save(any(OrgUnit.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrgUnitResult result = orgUnitService.execute(command);
+
+        assertNotNull(result);
+        assertEquals(OrgUnitStatus.ACTIVE, result.status());
+        verify(saveOrgUnitPort).save(any(OrgUnit.class));
+        verify(saveAuditLogPort).save(argThat(auditLog ->
+                "ACTIVATE_ORG_UNIT".equals(auditLog.getAction())
+        ));
+    }
+
+    @Test
+    @DisplayName("Should throw OrgUnitNotFoundException when activating non-existing unit")
+    void shouldThrowOrgUnitNotFoundExceptionWhenActivatingNonExistingUnit() {
+        ActivateOrgUnitCommand command = new ActivateOrgUnitCommand(999L);
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(999L))).thenReturn(Optional.empty());
+
+        assertThrows(OrgUnitNotFoundException.class, () -> orgUnitService.execute(command));
+        verify(saveOrgUnitPort, never()).save(any());
+        verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw InactiveParentException when activating child while its parent is inactive")
+    void shouldThrowInactiveParentExceptionWhenActivatingChildWithInactiveParent() {
+        ActivateOrgUnitCommand command = new ActivateOrgUnitCommand(2L);
+
+        OrgUnit inactiveParent = new OrgUnit(
+                new OrgUnitId(1L), "COMPANY_ROOT", "Công ty Software", OrgUnitType.COMPANY,
+                null, "/1/", 1, OrgUnitStatus.INACTIVE, "Gốc", 1L, LocalDateTime.now(), null
+        );
+
+        OrgUnit inactiveChild = new OrgUnit(
+                new OrgUnitId(2L), "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.INACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(inactiveChild));
+        when(loadOrgUnitPort.findById(new OrgUnitId(1L))).thenReturn(Optional.of(inactiveParent));
+
+        assertThrows(InactiveParentException.class, () -> orgUnitService.execute(command));
+        verify(saveOrgUnitPort, never()).save(any());
+        verify(saveAuditLogPort, never()).save(any());
     }
 }
