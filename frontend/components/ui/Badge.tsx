@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 import type { DataScope, RoleCode, UserStatus } from "@/src/types/hrm";
 
 interface StatusBadgeProps {
@@ -13,16 +14,16 @@ interface ScopeBadgeProps {
   scope: DataScope;
 }
 
-const scopeLabels: Record<DataScope, string> = {
-  COMPANY: "Toàn công ty",
-  ORGANIZATION_BRANCH: "Theo đơn vị",
-  SELF: "Cá nhân",
+const scopeConfigs: Record<DataScope, { icon: "access" | "building" | "user"; label: string; tone: "indigo" | "blue" | "slate" }> = {
+  COMPANY: { icon: "access", label: "Toàn công ty", tone: "indigo" },
+  ORGANIZATION_BRANCH: { icon: "building", label: "Theo đơn vị", tone: "blue" },
+  SELF: { icon: "user", label: "Cá nhân", tone: "slate" },
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const isActive = status === "ACTIVE";
   return (
-    <span className={isActive ? "status-badge status-badge--active" : "status-badge status-badge--locked"}>
+    <span className={`status-badge ${isActive ? "status-badge--active" : "status-badge--locked"}`}>
       <span aria-hidden="true" className="status-badge__dot" />
       {isActive ? "Hoạt động" : "Đã khóa"}
     </span>
@@ -30,13 +31,25 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 }
 
 export function RoleBadge({ code, name }: RoleBadgeProps) {
-  return <span className="role-badge"><span>{code}</span>{name}</span>;
+  const isSystemAdmin = code === "VT-06";
+  return (
+    <span className={`role-badge ${isSystemAdmin ? "role-badge--admin" : ""}`}>
+      <span className="role-badge__code">{code}</span>
+      <span className="role-badge__name">{name}</span>
+    </span>
+  );
 }
 
 export function ScopeBadge({ scope }: ScopeBadgeProps) {
-  return <span className="scope-badge">{scopeLabels[scope]}</span>;
+  const config = scopeConfigs[scope] ?? scopeConfigs.SELF;
+  return (
+    <span className={`scope-badge scope-badge--${config.tone}`}>
+      <Icon name={config.icon} />
+      <span>{config.label}</span>
+    </span>
+  );
 }
 
 export function getScopeLabel(scope: DataScope) {
-  return scopeLabels[scope];
+  return scopeConfigs[scope]?.label ?? "Cá nhân";
 }

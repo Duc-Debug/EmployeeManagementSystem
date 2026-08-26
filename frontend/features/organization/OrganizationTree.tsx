@@ -3,7 +3,7 @@
 import type { DragEvent } from "react";
 
 import { Icon } from "@/components/ui/Icon";
-import type { OrgUnitTreeNode } from "@/src/types/hrm";
+import type { OrgUnitTreeNode, OrgUnitType } from "@/src/types/hrm";
 
 interface OrganizationTreeProps {
   dragDisabled: boolean;
@@ -20,6 +20,21 @@ interface OrganizationTreeProps {
   query: string;
   selectedUnitId: number;
   units: readonly OrgUnitTreeNode[];
+}
+
+function getUnitTypeMeta(unitType: OrgUnitType) {
+  switch (unitType) {
+    case "COMPANY":
+      return { className: "unit-tag--company", icon: "building" as const, label: "Công ty" };
+    case "CENTER":
+      return { className: "unit-tag--center", icon: "branch" as const, label: "Khối" };
+    case "DEPARTMENT":
+      return { className: "unit-tag--dept", icon: "users" as const, label: "Phòng ban" };
+    case "TEAM":
+      return { className: "unit-tag--team", icon: "user" as const, label: "Nhóm" };
+    default:
+      return { className: "unit-tag--dept", icon: "organization" as const, label: "Đơn vị" };
+  }
 }
 
 export function OrganizationTree({
@@ -94,6 +109,7 @@ function OrganizationTreeItem({
   const canReceiveDrop = draggedUnitId !== null && onCanDrop(draggedUnitId, unit.id);
   const isDropTarget = dropTargetId === unit.id && canReceiveDrop;
   const canDrag = !dragDisabled && unit.parentId !== null;
+  const meta = getUnitTypeMeta(unit.unitType);
 
   return (
     <li className={isDragging ? "tree-node is-dragging" : "tree-node"}>
@@ -108,7 +124,9 @@ function OrganizationTreeItem({
           >
             <Icon name={isExpanded ? "chevronDown" : "chevronRight"} />
           </button>
-        ) : <span aria-hidden="true" className="tree-node__toggle-placeholder" />}
+        ) : (
+          <span aria-hidden="true" className="tree-node__toggle-placeholder" />
+        )}
         <button
           aria-label={`Kéo ${unit.unitName} để thay đổi đơn vị cha`}
           className="tree-node__drag-handle"
@@ -120,23 +138,31 @@ function OrganizationTreeItem({
             event.stopPropagation();
             onDragStart(event, unit.id);
           }}
+          title={canDrag ? "Kéo để chuyển vị trí cơ cấu" : undefined}
           type="button"
         >
           <Icon name="grip" />
         </button>
         <button
           aria-current={isSelected ? "true" : undefined}
-          className={isDropTarget ? "tree-node__button is-drop-target" : isSelected ? "tree-node__button is-selected" : "tree-node__button"}
+          className={`tree-node__button ${isDropTarget ? "is-drop-target" : ""} ${isSelected ? "is-selected" : ""} ${unit.status === "INACTIVE" ? "is-inactive" : ""}`}
           onClick={() => onSelect(unit.id)}
           onDragOver={(event) => onDragOver(event, unit.id)}
           onDrop={(event) => onDrop(event, unit.id)}
           type="button"
         >
-          <Icon name="organization" />
-          <span className="tree-node__copy">
-            <strong>{unit.unitName}</strong>
-            <small>{unit.unitCode}</small>
+          <span className="tree-node__icon">
+            <Icon name={unit.status === "INACTIVE" ? "lock" : meta.icon} />
           </span>
+          <div className="tree-node__copy">
+            <div className="tree-node__title-line">
+              <strong className="tree-node__name">{unit.unitName}</strong>
+              <span className={`org-unit-tag ${meta.className}`}>{meta.label}</span>
+              {unit.status === "INACTIVE" && <span className="org-unit-tag unit-tag--locked">Khóa</span>}
+              {hasChildren && <span className="tree-node__child-count">{unit.children.length}</span>}
+            </div>
+            <small className="tree-node__code">{unit.unitCode}</small>
+          </div>
         </button>
       </div>
       {hasChildren && isExpanded ? (
@@ -171,6 +197,8 @@ function matchesUnitOrChild(unit: OrgUnitTreeNode, query: string): boolean {
     return true;
   }
 
-  const unitMatches = [unit.unitCode, unit.unitName].some((value) => value.toLocaleLowerCase("vi").includes(query));
+  const unitMatches = [unit.unitCode, unit.unitName].some((value) =>
+    value.toLocaleLowerCase("vi").includes(query),
+  );
   return unitMatches || unit.children.some((child) => matchesUnitOrChild(child, query));
 }
