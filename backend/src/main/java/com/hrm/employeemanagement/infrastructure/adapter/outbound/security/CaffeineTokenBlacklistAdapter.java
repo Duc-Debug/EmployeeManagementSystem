@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenBlacklistPort;
 import com.hrm.employeemanagement.infrastructure.security.JwtProperties;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  */
 @Component
+@Profile({"dev", "local", "test"})
 public class CaffeineTokenBlacklistAdapter implements TokenBlacklistPort {
 
     private final Cache<String, Long> blacklistCache;
