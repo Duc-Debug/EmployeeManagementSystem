@@ -303,9 +303,20 @@ svg {
 }
 
 .side-nav__links {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.side-nav__links li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .side-nav__link {
