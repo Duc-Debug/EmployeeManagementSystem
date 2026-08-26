@@ -1,19 +1,47 @@
 package com.hrm.employeemanagement.application.service.skill;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
-import com.hrm.employeemanagement.application.dto.skill.*;
-import com.hrm.employeemanagement.application.port.inbound.skill.*;
+import com.hrm.employeemanagement.application.dto.skill.CreateSkillCommand;
+import com.hrm.employeemanagement.application.dto.skill.CreateSkillGroupCommand;
+import com.hrm.employeemanagement.application.dto.skill.DeactivateSkillCommand;
+import com.hrm.employeemanagement.application.dto.skill.DeactivateSkillGroupCommand;
+import com.hrm.employeemanagement.application.dto.skill.MergeSkillCommand;
+import com.hrm.employeemanagement.application.dto.skill.SkillGroupResult;
+import com.hrm.employeemanagement.application.dto.skill.SkillResult;
+import com.hrm.employeemanagement.application.dto.skill.UpdateSkillCommand;
+import com.hrm.employeemanagement.application.dto.skill.UpdateSkillGroupCommand;
+import com.hrm.employeemanagement.application.port.inbound.skill.CreateSkillGroupUseCase;
+import com.hrm.employeemanagement.application.port.inbound.skill.CreateSkillUseCase;
+import com.hrm.employeemanagement.application.port.inbound.skill.DeactivateSkillGroupUseCase;
+import com.hrm.employeemanagement.application.port.inbound.skill.DeactivateSkillUseCase;
+import com.hrm.employeemanagement.application.port.inbound.skill.GetSkillGroupListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.skill.GetSkillListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.skill.MergeSkillUseCase;
+import com.hrm.employeemanagement.application.port.inbound.skill.UpdateSkillGroupUseCase;
+import com.hrm.employeemanagement.application.port.inbound.skill.UpdateSkillUseCase;
 import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
-import com.hrm.employeemanagement.application.port.outbound.skill.*;
+import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillGroupPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.SaveSkillGroupPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.SaveSkillPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
-import com.hrm.employeemanagement.domain.exception.skill.*;
-import com.hrm.employeemanagement.domain.skill.*;
+import com.hrm.employeemanagement.domain.exception.skill.DuplicateSkillNameException;
+import com.hrm.employeemanagement.domain.exception.skill.InvalidSkillMergeException;
+import com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException;
+import com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException;
+import com.hrm.employeemanagement.domain.skill.Skill;
+import com.hrm.employeemanagement.domain.skill.SkillGroup;
+import com.hrm.employeemanagement.domain.skill.SkillGroupId;
+import com.hrm.employeemanagement.domain.skill.SkillId;
+import com.hrm.employeemanagement.domain.skill.SkillStatus;
 
 public class SkillService implements
         CreateSkillUseCase,
