@@ -7,7 +7,7 @@ export default function LoginPageContainer() {
     const handleLogin = async ({ username, password }: LoginCredentials) => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         // Kiểm tra thông tin đăng nhập demo
-        if (username === "admin@company.com" && password === "123456") {
+        if (username === "hung" && password === "123456") {
             // Lưu thông tin giả lập vào localStorage
             localStorage.setItem("accessToken", "demo-mock-token-123456");
             localStorage.setItem("tokenType", "Bearer");

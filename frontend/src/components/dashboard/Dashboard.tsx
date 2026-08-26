@@ -11,28 +11,40 @@ export default function Dashboard() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     return (
-        <div className="flex h-screen w-full flex-col bg-[#f4f5fa] text-[#1e1b4b] antialiased">
-            <Header setIsSidebarOpen={setIsSidebarOpen} />
+        <div className="relative flex h-screen w-full flex-col overflow-hidden text-[#f6f4ff] antialiased">
+            {/* ---------- ambient backdrop (matches login page) ---------- */}
+            <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
+                <div
+                    className="absolute inset-0"
+                    style={{
+                        background: "linear-gradient(165deg, #a855f7 0%, #7c3aed 22%, #5b21b6 38%, #4338ca 55%, #3b82f6 78%, #60a5fa 100%)",
+                    }}
+                />
+            </div>
 
-            <div className="flex flex-1 overflow-hidden">
-                <SideBar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} />
+            <div className="relative z-10 flex h-full w-full flex-col">
+                <Header setIsSidebarOpen={setIsSidebarOpen} />
 
-                <main className="flex-1 overflow-y-auto p-6">
-                    {activeTab === "departments" ? (
-                        <DepartmentsView />
-                    ) : (
-                        <div>
-                            {/* Header Overview */}
-                            <DashboardHeader />
+                <div className="flex flex-1 overflow-hidden">
+                    <SideBar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} />
 
-                            {/* Section KPI Cards */}
-                            <KpiStatsSection />
+                    <main className="flex-1 overflow-y-auto p-6">
+                        {activeTab === "departments" ? (
+                            <DepartmentsView />
+                        ) : (
+                            <div>
+                                {/* Header Overview */}
+                                <DashboardHeader />
 
-                            {/* Lịch Workspace */}
-                            <CalendarView />
-                        </div>
-                    )}
-                </main>
+                                {/* Section KPI Cards */}
+                                <KpiStatsSection />
+
+                                {/* Lịch Workspace */}
+                                <CalendarView />
+                            </div>
+                        )}
+                    </main>
+                </div>
             </div>
         </div>
     );

@@ -30,8 +30,9 @@ export default function CalendarView() {
         );
     };
     return (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-            <div className="lg:col-span-3">
+        <div className="flex flex-col gap-6 lg:flex-row items-start">
+            {/* MainCalendar */}
+            <div className="w-full flex-1 min-w-0">
                 <MainCalendar
                     selectedDate={selectedDate}
                     now={now}
@@ -40,14 +41,18 @@ export default function CalendarView() {
                     onGoToday={handleGoToday}
                 />
             </div>
-            <div className="lg:col-span-1">
-                <MiniCalendar
-                    miniCalMonth={miniCalMonth}
-                    selectedDate={selectedDate}
-                    now={now}
-                    onSelectDate={setSelectedDate}
-                    onChangeMonth={handleChangeMonth}
-                />
+
+            {/* MiniCalendar - Đã bỏ khung thừa bên ngoài */}
+            <div className="w-full lg:w-[280px] shrink-0">
+                <div className="sticky top-6">
+                    <MiniCalendar
+                        miniCalMonth={miniCalMonth}
+                        selectedDate={selectedDate}
+                        now={now}
+                        onSelectDate={setSelectedDate}
+                        onChangeMonth={handleChangeMonth}
+                    />
+                </div>
             </div>
         </div>
     );

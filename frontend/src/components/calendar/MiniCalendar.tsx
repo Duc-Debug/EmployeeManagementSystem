@@ -49,20 +49,20 @@ export default function MiniCalendar({
         return days;
     };
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between text-slate-600">
+        <div className="rounded-2xl border border-white/15 bg-white/[0.07] p-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(15,10,45,0.15)]">
+            <div className="mb-4 flex items-center justify-between text-white/70">
                 <button
                     onClick={() => onChangeMonth(-1)}
-                    className="rounded p-1 hover:bg-slate-100"
+                    className="rounded p-1 hover:bg-white/10"
                 >
                     <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-sm font-semibold text-slate-700">
+                <span className="text-sm font-semibold text-white">
                     tháng {miniCalMonth.getMonth() + 1} {miniCalMonth.getFullYear()}
                 </span>
                 <button
                     onClick={() => onChangeMonth(1)}
-                    className="rounded p-1 hover:bg-slate-100"
+                    className="rounded p-1 hover:bg-white/10"
                 >
                     <ChevronRight className="h-4 w-4" />
                 </button>
@@ -70,7 +70,7 @@ export default function MiniCalendar({
 
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
                 {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day, idx) => (
-                    <div key={idx} className="py-1 font-semibold text-slate-500">
+                    <div key={idx} className="py-1 font-semibold text-white/50">
                         {day}
                     </div>
                 ))}
@@ -84,12 +84,12 @@ export default function MiniCalendar({
                             className={cn(
                                 "mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition",
                                 isSelected
-                                    ? "bg-[#00a8ff] font-bold text-white shadow-sm"
+                                    ? "bg-[#00d2ff] font-bold text-[#0d0a30] shadow-sm"
                                     : isToday
-                                        ? "border border-[#00a8ff] font-bold text-[#00a8ff]"
+                                        ? "border border-[#00d2ff] font-bold text-[#00d2ff]"
                                         : isCurrentMonth
-                                            ? "text-slate-700 hover:bg-slate-100"
-                                            : "text-slate-300"
+                                            ? "text-white/80 hover:bg-white/10"
+                                            : "text-white/25"
                             )}
                         >
                             {date.getDate()}

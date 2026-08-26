@@ -26,38 +26,38 @@ export default function MainCalendar({
         hour12: true,
     });
     return (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/[0.07] backdrop-blur-xl shadow-[0_8px_24px_rgba(15,10,45,0.15)]">
             {/* Header Lịch */}
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
                 <div>
-                    <h2 className="text-xl font-semibold text-slate-700">
+                    <h2 className="text-xl font-semibold text-white">
                         {selectedDate.getDate()} tháng {selectedDate.getMonth() + 1} năm {selectedDate.getFullYear()}
                     </h2>
-                    <p className="text-sm text-slate-400">
+                    <p className="text-sm text-white/50">
                         {DAYS_OF_WEEK[selectedDate.getDay()]}
                     </p>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-slate-600">
-                    <button className="flex items-center gap-1 hover:text-slate-900">
-                        Ngày <ChevronDown className="h-4 w-4 text-slate-400" />
+                <div className="flex items-center gap-4 text-sm text-white/70">
+                    <button className="flex items-center gap-1 hover:text-white">
+                        Ngày <ChevronDown className="h-4 w-4 text-white/50" />
                     </button>
-                    <div className="flex items-center rounded-lg border border-slate-200">
-                        <button onClick={onPrevDay} className="p-1 hover:bg-slate-50">
-                            <ChevronLeft className="h-4 w-4 text-slate-500" />
+                    <div className="flex items-center rounded-lg border border-white/15">
+                        <button onClick={onPrevDay} className="p-1 hover:bg-white/10">
+                            <ChevronLeft className="h-4 w-4 text-white/70" />
                         </button>
                         <button
                             onClick={onGoToday}
-                            className="border-x border-slate-200 px-2.5 py-0.5 text-xs font-medium hover:bg-slate-50"
+                            className="border-x border-white/15 px-2.5 py-0.5 text-xs font-medium hover:bg-white/10"
                         >
                             Hôm nay
                         </button>
-                        <button onClick={onNextDay} className="p-1 hover:bg-slate-50">
-                            <ChevronRight className="h-4 w-4 text-slate-500" />
+                        <button onClick={onNextDay} className="p-1 hover:bg-white/10">
+                            <ChevronRight className="h-4 w-4 text-white/70" />
                         </button>
                     </div>
                 </div>
             </div>
-            <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-1.5 text-xs font-semibold text-slate-500">
+            <div className="border-b border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-white/50">
                 Ngày
             </div>
             {/* mốc giờ & Vạch */}
@@ -77,7 +77,7 @@ export default function MainCalendar({
                             <div className="h-[1.5px] flex-1 bg-red-500" />
                         </div>
                     )}
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-white/10">
                         {TIME_SLOTS.map((hour) => {
                             const label =
                                 hour === 0
@@ -89,10 +89,10 @@ export default function MainCalendar({
                                             : `${hour - 12} PM`;
                             return (
                                 <div key={hour} className="flex h-[50px] items-start">
-                                    <div className="w-16 flex-none py-1.5 pl-3 pr-2 text-right text-[11px] font-medium text-slate-400">
+                                    <div className="w-16 flex-none py-1.5 pl-3 pr-2 text-right text-[11px] font-medium text-white/40">
                                         {label}
                                     </div>
-                                    <div className="h-full flex-1 border-l border-slate-100 px-3 py-1"></div>
+                                    <div className="h-full flex-1 border-l border-white/10 px-3 py-1"></div>
                                 </div>
                             );
                         })}

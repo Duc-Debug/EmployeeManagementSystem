@@ -5,3 +5,30 @@
   --background: #ffffff;
   --foreground: #140b30;
 }
+
+/* Custom Scrollbar trong suốt toàn ứng dụng */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* Nền của thanh cuộn trong suốt hoàn toàn */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Tay kéo cuộn tròn, màu trắng trong suốt mờ */
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+
+/* Đổi màu tươi hơn khi rê chuột vào thanh cuộn */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Ẩn hai nút mũi tên ở hai đầu thanh cuộn */
+::-webkit-scrollbar-button {
+  display: none;
+}

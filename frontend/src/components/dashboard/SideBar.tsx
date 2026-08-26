@@ -10,6 +10,7 @@ import {
     ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
     { name: "Nhân viên", icon: Users, id: "employees" },
@@ -18,22 +19,31 @@ const SIDEBAR_WORKSPACE = [
     { name: "Phòng ban", icon: Building2, id: "departments" },
     { name: "Báo cáo", icon: BarChart3, id: "reports" },
 ];
+
 const SIDEBAR_SETTINGS = [
     { name: "Quyền truy cập", icon: ShieldCheck, id: "access" },
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
+
 interface SideBarProps {
     activeTab: string;
     setActiveTab: (tab: string) => void;
     isOpen: boolean;
 }
+
 export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProps) {
-    if (!isOpen) return null;
     return (
-        <aside className="flex w-[240px] flex-none flex-col justify-between border-r border-slate-200 bg-white p-4 transition-all duration-300">
-            <div className="space-y-6">
+        <aside
+            className={cn(
+                "flex flex-col justify-between border-r border-white/15 bg-white/[0.06] backdrop-blur-2xl transition-all duration-300 ease-in-out overflow-hidden",
+                isOpen
+                    ? "w-[240px] p-4 opacity-100 translate-x-0"
+                    : "w-0 p-0 opacity-0 -translate-x-full border-r-0 pointer-events-none"
+            )}
+        >
+            <div className="w-[208px] space-y-6 flex-none">
                 <div>
-                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-white/40">
                         KHÔNG GIAN LÀM VIỆC
                     </p>
                     <nav className="space-y-1">
@@ -45,24 +55,24 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                                     key={item.id}
                                     onClick={() => setActiveTab(item.id)}
                                     className={cn(
-                                        "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                                        "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                                         isActive
-                                            ? "bg-indigo-50 text-[#4338ca]"
-                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                            ? "bg-white/15 text-white border border-white/20"
+                                            : "text-white/65 hover:bg-white/10 hover:text-white"
                                     )}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <Icon className="h-4 w-4" />
-                                        <span>{item.name}</span>
+                                        <Icon className="h-4 w-4 shrink-0" />
+                                        <span className="whitespace-nowrap">{item.name}</span>
                                     </div>
-                                    {isActive && <ChevronRight className="h-4 w-4" />}
+                                    {isActive && <ChevronRight className="h-4 w-4 shrink-0" />}
                                 </button>
                             );
                         })}
                     </nav>
                 </div>
                 <div>
-                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-white/40">
                         CÀI ĐẶT
                     </p>
                     <nav className="space-y-1">
@@ -74,15 +84,15 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                                     key={item.id}
                                     onClick={() => setActiveTab(item.id)}
                                     className={cn(
-                                        "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                                        "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                                         isActive
-                                            ? "bg-indigo-50 text-[#4338ca]"
-                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                            ? "bg-white/15 text-white border border-white/20"
+                                            : "text-white/65 hover:bg-white/10 hover:text-white"
                                     )}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <Icon className="h-4 w-4" />
-                                        <span>{item.name}</span>
+                                        <Icon className="h-4 w-4 shrink-0" />
+                                        <span className="whitespace-nowrap">{item.name}</span>
                                     </div>
                                 </button>
                             );
@@ -90,10 +100,11 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                     </nav>
                 </div>
             </div>
-            <div className="rounded-2xl bg-indigo-50/60 p-4">
-                <p className="text-xs font-bold text-indigo-900">Cần hỗ trợ?</p>
-                <p className="mt-1 text-xs text-indigo-600/80">Xem hướng dẫn quản lý nhân sự.</p>
-                <a href="#" className="mt-2 block text-xs font-semibold text-[#4338ca] hover:underline">
+
+            <div className="w-[208px] rounded-2xl border border-white/15 bg-white/[0.06] p-4 flex-none backdrop-blur-xl">
+                <p className="text-xs font-bold text-white">Cần hỗ trợ?</p>
+                <p className="mt-1 text-xs text-white/60">Xem hướng dẫn quản lý nhân sự.</p>
+                <a href="#" className="mt-2 block text-xs font-semibold text-[#63ecc8] hover:underline">
                     Tìm hiểu thêm →
                 </a>
             </div>
