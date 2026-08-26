@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.security;
 
+import com.hrm.employeemanagement.infrastructure.security.JwtProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -76,8 +77,8 @@ class CaffeineTokenBlacklistAdapterTest {
     @Test
     @DisplayName("Khởi tạo adapter với JwtProperties tùy chỉnh TTL cho user revocation")
     void testDynamicTtl_WithCustomJwtProperties() {
-        com.hrm.employeemanagement.infrastructure.security.JwtProperties customProps =
-                new com.hrm.employeemanagement.infrastructure.security.JwtProperties("a-very-secure-secret-key-that-is-at-least-32-chars-long!", 172_800_000L); // 48h
+        JwtProperties customProps =
+                new JwtProperties("a-very-secure-secret-key-that-is-at-least-32-chars-long!", 172_800_000L); // 48h
         CaffeineTokenBlacklistAdapter customAdapter = new CaffeineTokenBlacklistAdapter(customProps);
 
         String username = "custom_user";
