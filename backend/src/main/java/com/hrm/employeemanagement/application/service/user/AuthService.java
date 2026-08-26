@@ -9,6 +9,7 @@ import com.hrm.employeemanagement.application.port.outbound.security.PasswordEnc
 import com.hrm.employeemanagement.application.port.outbound.security.TokenBlacklistPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -24,21 +25,32 @@ import java.util.Objects;
 public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
 
     private final LoadUserPort loadUserPort;
+    private final SaveUserPort saveUserPort;
     private final PasswordEncoderPort passwordEncoder;
     private final TokenProviderPort tokenProvider;
     private final TokenBlacklistPort tokenBlacklistPort;
     private final SaveAuditLogPort saveAuditLogPort;
 
     public AuthService(LoadUserPort loadUserPort,
+                       SaveUserPort saveUserPort,
                        PasswordEncoderPort passwordEncoder,
                        TokenProviderPort tokenProvider,
                        TokenBlacklistPort tokenBlacklistPort,
                        SaveAuditLogPort saveAuditLogPort) {
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
+        this.saveUserPort = saveUserPort;
         this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "passwordEncoder must not be null");
         this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider must not be null");
         this.tokenBlacklistPort = Objects.requireNonNull(tokenBlacklistPort, "tokenBlacklistPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "saveAuditLogPort must not be null");
+    }
+
+    public AuthService(LoadUserPort loadUserPort,
+                       PasswordEncoderPort passwordEncoder,
+                       TokenProviderPort tokenProvider,
+                       TokenBlacklistPort tokenBlacklistPort,
+                       SaveAuditLogPort saveAuditLogPort) {
+        this(loadUserPort, null, passwordEncoder, tokenProvider, tokenBlacklistPort, saveAuditLogPort);
     }
 
     @Override
@@ -64,24 +76,31 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
 
         String token = command.token();
         if (tokenProvider.validateToken(token)) {
+            boolean isBlacklisted = tokenBlacklistPort.isBlacklisted(token);
+            String username = tokenProvider.getUsernameFromToken(token);
+            long issuedAt = tokenProvider.getIssuedAtTimestampFromToken(token);
+            boolean isUserRevoked = username != null && tokenBlacklistPort.isUserRevoked(username, issuedAt);
+
+            // Stolen or already revoked/blacklisted tokens cannot perform logout actions or alter revocation state
+            if (isBlacklisted || isUserRevoked) {
+                return;
+            }
+
             long remainingTtl = tokenProvider.getRemainingExpirationMs(token);
             if (remainingTtl > 0) {
                 tokenBlacklistPort.blacklist(token, remainingTtl);
             }
 
-            String username = command.username();
-            if (username == null || username.isBlank()) {
-                username = tokenProvider.getUsernameFromToken(token);
-            }
-
-            Long userId = command.userId();
-            if (userId == null) {
-                userId = tokenProvider.getUserIdFromToken(token);
-            }
+            Long userId = tokenProvider.getUserIdFromToken(token);
 
             if (command.allDevices() && username != null) {
-                long now = System.currentTimeMillis();
-                tokenBlacklistPort.blacklistUser(username, now);
+                tokenBlacklistPort.blacklistUser(username, Math.max(issuedAt - 1000, 0));
+                loadUserPort.findByUsername(username).ifPresent(user -> {
+                    user.setTokenVersion(user.getTokenVersion() + 1);
+                    if (saveUserPort != null) {
+                        saveUserPort.save(user);
+                    }
+                });
                 if (userId != null) {
                     saveAuditLogPort.save(AuditLog.create(userId, "LOGOUT_ALL", "users", userId));
                 }

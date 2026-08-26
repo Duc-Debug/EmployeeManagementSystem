@@ -101,21 +101,13 @@ public class AuthController {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
             if (!token.isBlank()) {
-                String username = null;
-                Long userId = null;
+                if (logoutUseCase != null) {
+                    logoutUseCase.logout(new LogoutCommand(token, allDevices));
+                }
 
                 Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-                if (auth != null && auth.getPrincipal() instanceof User user) {
-                    username = user.getUsername();
-                    userId = user.getIdValue();
-                }
-
-                if (logoutUseCase != null) {
-                    logoutUseCase.logout(new LogoutCommand(token, userId, username, allDevices));
-                }
-
-                if (username != null && userStatusCache != null) {
-                    userStatusCache.evict(username);
+                if (auth != null && auth.getPrincipal() instanceof User user && userStatusCache != null) {
+                    userStatusCache.evict(user.getUsername());
                 }
             }
         }

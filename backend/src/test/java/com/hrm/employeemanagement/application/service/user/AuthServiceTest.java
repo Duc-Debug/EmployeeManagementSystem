@@ -127,10 +127,11 @@ class AuthServiceTest {
     @DisplayName("Đăng xuất thành công với token hợp lệ: đưa token vào blacklist và ghi nhận audit log")
     void testLogout_Success() {
         String token = "valid.jwt.token";
-        LogoutCommand command = new LogoutCommand(token, 1L, "admin");
+        LogoutCommand command = new LogoutCommand(token);
 
         when(tokenProvider.validateToken(token)).thenReturn(true);
         when(tokenProvider.getRemainingExpirationMs(token)).thenReturn(3600000L);
+        when(tokenProvider.getUserIdFromToken(token)).thenReturn(1L);
 
         authService.logout(command);
 
@@ -142,7 +143,7 @@ class AuthServiceTest {
     @DisplayName("Đăng xuất khi token không hợp lệ hoặc đã hết hạn: không blacklist và không ghi audit log")
     void testLogout_InvalidToken() {
         String token = "invalid.jwt.token";
-        LogoutCommand command = new LogoutCommand(token, null, null);
+        LogoutCommand command = new LogoutCommand(token);
 
         when(tokenProvider.validateToken(token)).thenReturn(false);
 
@@ -153,10 +154,10 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Đăng xuất với token hợp lệ nhưng không truyền userId: trích xuất userId từ TokenProviderPort")
+    @DisplayName("Đăng xuất với token hợp lệ: trích xuất userId từ TokenProviderPort")
     void testLogout_ExtractUserIdFromToken() {
         String token = "valid.jwt.token";
-        LogoutCommand command = new LogoutCommand(token, null, null);
+        LogoutCommand command = new LogoutCommand(token);
 
         when(tokenProvider.validateToken(token)).thenReturn(true);
         when(tokenProvider.getRemainingExpirationMs(token)).thenReturn(1800000L);
@@ -172,9 +173,11 @@ class AuthServiceTest {
     @DisplayName("Đăng xuất mọi thiết bị (allDevices = true): thu hồi toàn bộ token của user và ghi nhận LOGOUT_ALL")
     void testLogout_AllDevices_Success() {
         String token = "valid.jwt.token";
-        LogoutCommand command = LogoutCommand.of(token, 1L, "admin", true);
+        LogoutCommand command = LogoutCommand.of(token, true);
 
         when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getUserIdFromToken(token)).thenReturn(1L);
         when(tokenProvider.getRemainingExpirationMs(token)).thenReturn(3600000L);
 
         authService.logout(command);
@@ -182,6 +185,22 @@ class AuthServiceTest {
         verify(tokenBlacklistPort, times(1)).blacklist(token, 3600000L);
         verify(tokenBlacklistPort, times(1)).blacklistUser(eq("admin"), anyLong());
         verify(saveAuditLogPort, times(1)).save(argThat(audit -> "LOGOUT_ALL".equals(audit.getAction())));
+    }
+
+    @Test
+    @DisplayName("Đăng xuất với token đã bị blacklist hoặc revoked: không cập nhật trạng thái thu hồi hay ghi log lại")
+    void testLogout_AlreadyBlacklistedOrRevoked_Ignored() {
+        String token = "blacklisted.jwt.token";
+        LogoutCommand command = LogoutCommand.of(token, true);
+
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenBlacklistPort.isBlacklisted(token)).thenReturn(true);
+
+        authService.logout(command);
+
+        verify(tokenBlacklistPort, never()).blacklist(anyString(), anyLong());
+        verify(tokenBlacklistPort, never()).blacklistUser(anyString(), anyLong());
+        verify(saveAuditLogPort, never()).save(any());
     }
 
     @Test

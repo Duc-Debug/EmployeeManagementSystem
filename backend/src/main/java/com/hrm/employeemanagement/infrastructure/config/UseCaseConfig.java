@@ -59,11 +59,12 @@ public class UseCaseConfig {
 
     @Bean
     public AuthService authService(LoadUserPort loadUserPort,
+            SaveUserPort saveUserPort,
             PasswordEncoderPort passwordEncoder,
             TokenProviderPort tokenProvider,
             TokenBlacklistPort tokenBlacklistPort,
             SaveAuditLogPort saveAuditLogPort) {
-        return new AuthService(loadUserPort, passwordEncoder, tokenProvider, tokenBlacklistPort, saveAuditLogPort);
+        return new AuthService(loadUserPort, saveUserPort, passwordEncoder, tokenProvider, tokenBlacklistPort, saveAuditLogPort);
     }
 
     @Bean

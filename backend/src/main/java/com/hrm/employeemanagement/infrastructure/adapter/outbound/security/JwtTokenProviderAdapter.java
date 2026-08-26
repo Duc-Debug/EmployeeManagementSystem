@@ -54,11 +54,13 @@ public class JwtTokenProviderAdapter implements TokenProviderPort {
         return claims.getSubject();
     }
 
+    @Override
     public Date getIssuedAtFromToken(String token) {
         Claims claims = getClaims(token);
         return claims.getIssuedAt();
     }
 
+    @Override
     public Integer getTokenVersionFromToken(String token) {
         Claims claims = getClaims(token);
         Object tvObj = claims.get("tv");

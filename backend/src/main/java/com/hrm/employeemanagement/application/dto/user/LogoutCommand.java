@@ -2,8 +2,6 @@ package com.hrm.employeemanagement.application.dto.user;
 
 public record LogoutCommand(
         String token,
-        Long userId,
-        String username,
         boolean allDevices
 ) {
     public LogoutCommand {
@@ -12,20 +10,24 @@ public record LogoutCommand(
         }
     }
 
-    public LogoutCommand(String token, Long userId, String username) {
-        this(token, userId, username, false);
+    public LogoutCommand(String token) {
+        this(token, false);
     }
 
     public static LogoutCommand of(String token) {
-        return new LogoutCommand(token, null, null, false);
+        return new LogoutCommand(token, false);
+    }
+
+    public static LogoutCommand of(String token, boolean allDevices) {
+        return new LogoutCommand(token, allDevices);
     }
 
     public static LogoutCommand of(String token, Long userId, String username) {
-        return new LogoutCommand(token, userId, username, false);
+        return new LogoutCommand(token, false);
     }
 
     public static LogoutCommand of(String token, Long userId, String username, boolean allDevices) {
-        return new LogoutCommand(token, userId, username, allDevices);
+        return new LogoutCommand(token, allDevices);
     }
 }
 

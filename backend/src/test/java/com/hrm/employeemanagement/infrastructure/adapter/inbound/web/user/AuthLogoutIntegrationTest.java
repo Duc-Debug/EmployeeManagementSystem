@@ -224,8 +224,7 @@ class AuthLogoutIntegrationTest {
         mockMvc.perform(get("/api/v1/users/" + testUserId).header("Authorization", "Bearer " + oldToken))
                 .andExpect(status().isUnauthorized());
 
-        // 3. Sleep 1.1s to ensure issuedAt timestamp (which has 1-second precision in standard JWT iat claim) of new token is strictly greater than revocation timestamp
-        Thread.sleep(1100);
+        // 3. Log in anew after logout-all without requiring thread sleeping
 
         // 4. Log in anew after logout-all
         MvcResult newLoginResult = mockMvc.perform(post("/api/v1/auth/login")
