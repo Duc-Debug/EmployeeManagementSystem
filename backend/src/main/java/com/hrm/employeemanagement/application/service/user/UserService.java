@@ -7,9 +7,11 @@ import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.dto.user.RoleResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
@@ -47,7 +49,8 @@ public class UserService implements
         CreateUserUseCase,
         ToggleUserStatusUseCase,
         UpdateUserRoleUseCase,
-        GetUserListUseCase {
+        GetUserListUseCase,
+        GetRoleListUseCase {
 
     private final LoadUserPort loadUserPort;
     private final SaveUserPort saveUserPort;
@@ -729,6 +732,19 @@ public UserResult updateUserRole(
                 )
                 .map(OrgUnit::getUnitName)
                 .orElse(null);
+    }
+
+    @Override
+    public List<RoleResult> getRoles() {
+        authorizationService.require(PermissionCode.USER_READ);
+        return loadRolePort.findAll().stream()
+                .map(role -> new RoleResult(
+                        role.getId() != null ? role.getId().value() : null,
+                        role.getCode() != null ? role.getCode().getCode() : null,
+                        role.getName(),
+                        null
+                ))
+                .toList();
     }
 
     private String authorizationAuditValue(
