@@ -18,12 +18,12 @@ public interface SpringDataPermissionRepository
               AND u.is_active = TRUE
               AND p.code = :permissionCode
             """, nativeQuery = true)
-    int countMatchingPermissions(
+    int countUserPermission(
             @Param("userId") Long userId,
             @Param("permissionCode") String permissionCode
     );
 
     default boolean hasPermission(Long userId, String permissionCode) {
-        return countMatchingPermissions(userId, permissionCode) > 0;
+        return countUserPermission(userId, permissionCode) > 0;
     }
 }

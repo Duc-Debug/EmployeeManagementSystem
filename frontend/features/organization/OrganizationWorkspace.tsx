@@ -11,7 +11,6 @@ import {
   findOrgUnit,
   flattenOrgTree,
   getDescendantIds,
-  getParentOrgUnit,
 } from "@/lib/organization";
 import type { OrgUnitTreeNode, User } from "@/src/types/hrm";
 import { activateOrgUnit, createOrgUnit, deactivateOrgUnit, getOrgTree, moveOrgUnit, updateOrgUnit } from "@/lib/api/org-units";
