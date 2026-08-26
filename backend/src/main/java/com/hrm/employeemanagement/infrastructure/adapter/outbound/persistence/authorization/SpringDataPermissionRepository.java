@@ -8,10 +8,7 @@ public interface SpringDataPermissionRepository
         extends JpaRepository<PermissionJpaEntity, Long> {
 
     @Query(value = """
-            SELECT CASE
-                       WHEN COUNT(*) > 0 THEN TRUE
-                       ELSE FALSE
-                   END
+            SELECT COUNT(*)
             FROM users u
             JOIN role_permissions rp
                 ON rp.role_id = u.role_id
@@ -21,7 +18,7 @@ public interface SpringDataPermissionRepository
               AND u.is_active = TRUE
               AND p.code = :permissionCode
             """, nativeQuery = true)
-    boolean hasPermission(
+    long countUserPermission(
             @Param("userId") Long userId,
             @Param("permissionCode") String permissionCode
     );
