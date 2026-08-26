@@ -16,6 +16,7 @@
     <description>Employee Management System</description>
     <properties>
         <java.version>21</java.version>
+        <argLine></argLine>
     </properties>
     <dependencies>
         <!-- Web & REST -->
@@ -131,7 +132,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    <argLine>${argLine} -XX:+EnableDynamicAgentLoading</argLine>
                 </configuration>
             </plugin>
             <plugin>
