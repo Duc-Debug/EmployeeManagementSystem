@@ -51,7 +51,7 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
   const token = loginRes.token;
   setAuthToken(token);
 
-  // Fetch full user profile after login
+  // Fetch full user profile after login - strictly require /auth/me to succeed
   try {
     const userRes = await apiRequest<UserResultDto>("/auth/me", {
       headers: {
@@ -77,23 +77,9 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
 
     setStoredUser(authUser);
     return authUser;
-  } catch {
-    const fallbackUser: AuthUser = {
-      dataScope: "COMPANY",
-      email: null,
-      employeeCode: null,
-      fullName: loginRes.username,
-      id: loginRes.userId,
-      orgUnitId: null,
-      orgUnitName: null,
-      roleCode: loginRes.roleCode as RoleCode,
-      roleName: loginRes.roleCode === "VT-06" ? "Quản trị viên" : loginRes.roleCode,
-      scopeOrgUnitId: null,
-      status: "ACTIVE",
-      username: loginRes.username,
-    };
-    setStoredUser(fallbackUser);
-    return fallbackUser;
+  } catch (error) {
+    clearAuthSession();
+    throw error;
   }
 }
 

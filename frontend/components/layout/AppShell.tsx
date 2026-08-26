@@ -8,7 +8,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { FormField } from "@/components/ui/FormField";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
-import { getAuthToken, useAuthUser, type AuthUser } from "@/lib/auth-session";
+import { clearAuthSession, getAuthToken, getStoredUser, useAuthUser } from "@/lib/auth-session";
 import { getCurrentUser, changePassword, logout } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api-client";
 
@@ -63,24 +63,10 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
-const DEFAULT_AUTH_USER: AuthUser = {
-  dataScope: "COMPANY",
-  email: null,
-  employeeCode: "EMP-ADMIN",
-  fullName: "Quản trị viên",
-  id: 1,
-  orgUnitId: null,
-  orgUnitName: null,
-  roleCode: "VT-06",
-  roleName: "Quản trị viên",
-  scopeOrgUnitId: null,
-  status: "ACTIVE",
-  username: "admin",
-};
-
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [isDesktopNavigation, setIsDesktopNavigation] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -105,19 +91,34 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const sidebarUserDropdownRef = useRef<HTMLDivElement>(null);
 
   const authUser = useAuthUser();
-  const user = authUser || DEFAULT_AUTH_USER;
 
   // Auth Guard: Enforce login if token is missing & sync profile
   useEffect(() => {
+    let isMounted = true;
     const token = getAuthToken();
+
     if (!token) {
       router.replace("/login");
       return;
     }
 
-    getCurrentUser().catch(() => {
-      // Keep stored user session
-    });
+    getCurrentUser()
+      .then(() => {
+        if (isMounted) setIsAuthChecking(false);
+      })
+      .catch((err) => {
+        const storedUser = getStoredUser();
+        if (storedUser && !(err instanceof ApiError && (err.status === 401 || err.status === 403))) {
+          if (isMounted) setIsAuthChecking(false);
+        } else {
+          clearAuthSession();
+          router.replace("/login");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [router]);
 
   useLayoutEffect(() => {
@@ -238,6 +239,32 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }
 
   const unreadCount = notifications.filter((n) => n.unread).length;
+
+  if (isAuthChecking && !authUser) {
+    return (
+      <div
+        className="auth-loading-screen"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          gap: "1rem",
+          color: "var(--color-text-secondary, #6b7280)",
+        }}
+      >
+        <Icon name="spinner" />
+        <span>Đang xác thực phiên làm việc...</span>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return null;
+  }
+
+  const user = authUser;
 
   return (
     <div className="app-shell">
