@@ -67,6 +67,15 @@ public class SkillService implements
                         LoadSkillGroupPort loadSkillGroupPort,
                         SaveSkillGroupPort saveSkillGroupPort,
                         SaveAuditLogPort saveAuditLogPort,
+                        AuthorizationService authorizationService) {
+        this(loadSkillPort, saveSkillPort, loadSkillGroupPort, saveSkillGroupPort, saveAuditLogPort, authorizationService, null);
+    }
+
+    public SkillService(LoadSkillPort loadSkillPort,
+                        SaveSkillPort saveSkillPort,
+                        LoadSkillGroupPort loadSkillGroupPort,
+                        SaveSkillGroupPort saveSkillGroupPort,
+                        SaveAuditLogPort saveAuditLogPort,
                         AuthorizationService authorizationService,
                         CurrentUserPort currentUserPort) {
         this.loadSkillPort = Objects.requireNonNull(loadSkillPort, "LoadSkillPort must not be null");
@@ -153,6 +162,14 @@ public class SkillService implements
     public SkillResult execute(MergeSkillCommand command) {
         Long currentUserId = authorizationService.require(PermissionCode.SKILL_MERGE);
 
+        if (command.sourceSkillIds() == null || command.sourceSkillIds().isEmpty()) {
+            throw new IllegalArgumentException("Danh sách kỹ năng nguồn không được để trống.");
+        }
+
+        if (command.sourceSkillIds().contains(command.targetSkillId())) {
+            throw new InvalidSkillMergeException("Một kỹ năng không thể tự gộp vào chính nó.");
+        }
+
         Skill targetSkill = loadSkillPort.findById(new SkillId(command.targetSkillId()))
                 .orElseThrow(() -> new SkillNotFoundException("Không tìm thấy kỹ năng đích với ID: " + command.targetSkillId()));
 
@@ -160,8 +177,9 @@ public class SkillService implements
             throw new InvalidSkillMergeException("Kỹ năng đích phải ở trạng thái ACTIVE.");
         }
 
-        List<Skill> sourceSkills = loadSkillPort.findAllByIdIn(command.sourceSkillIds());
-        if (sourceSkills.size() != command.sourceSkillIds().size()) {
+        List<Long> distinctSourceIds = command.sourceSkillIds().stream().distinct().toList();
+        List<Skill> sourceSkills = loadSkillPort.findAllByIdIn(distinctSourceIds);
+        if (sourceSkills.size() != distinctSourceIds.size()) {
             throw new SkillNotFoundException("Một hoặc nhiều kỹ năng nguồn không tồn tại trong hệ thống.");
         }
 
@@ -171,6 +189,7 @@ public class SkillService implements
             sourceSkill.mergeInto(targetSkill.getId());
 
             List<Long> employeeIds = loadSkillPort.findEmployeeIdsWithSkill(sourceSkill.getId().value());
+            boolean hasReassignableEmployees = false;
 
             for (Long empId : employeeIds) {
                 affectedEmployeesCount++;
@@ -179,8 +198,12 @@ public class SkillService implements
                 if (alreadyHasTarget) {
                     saveSkillPort.removeEmployeeSkill(empId, sourceSkill.getId().value());
                 } else {
-                    saveSkillPort.reassignEmployeeSkills(sourceSkill.getId().value(), targetSkill.getId().value());
+                    hasReassignableEmployees = true;
                 }
+            }
+
+            if (hasReassignableEmployees) {
+                saveSkillPort.reassignEmployeeSkills(sourceSkill.getId().value(), targetSkill.getId().value());
             }
 
             saveSkillPort.save(sourceSkill);
@@ -233,10 +256,11 @@ public class SkillService implements
         authorizationService.require(PermissionCode.SKILL_READ);
         List<Skill> skills = loadSkillPort.findAll(groupId, status, keyword);
         Map<Long, String> groupNameMap = loadSkillGroupPort.findAll().stream()
+                .filter(g -> g.getId() != null && g.getId().value() != null)
                 .collect(Collectors.toMap(g -> g.getId().value(), SkillGroup::getName, (a, b) -> a));
 
         return skills.stream()
-                .map(s -> toSkillResult(s, groupNameMap.get(s.getGroupId())))
+                .map(s -> toSkillResult(s, s.getGroupId() != null ? groupNameMap.get(s.getGroupId()) : null))
                 .toList();
     }
 
@@ -337,9 +361,12 @@ public class SkillService implements
     }
 
     private SkillResult toSkillResult(Skill s) {
-        String groupName = loadSkillGroupPort.findById(new SkillGroupId(s.getGroupId()))
-                .map(SkillGroup::getName)
-                .orElse(null);
+        String groupName = null;
+        if (s.getGroupId() != null && s.getGroupId() > 0) {
+            groupName = loadSkillGroupPort.findById(new SkillGroupId(s.getGroupId()))
+                    .map(SkillGroup::getName)
+                    .orElse(null);
+        }
         return toSkillResult(s, groupName);
     }
 
@@ -350,7 +377,7 @@ public class SkillService implements
                 groupName,
                 s.getName(),
                 s.getDescription(),
-                s.getStatus().name(),
+                s.getStatus() != null ? s.getStatus().name() : null,
                 s.getMergedIntoSkillId() != null ? s.getMergedIntoSkillId().value() : null,
                 s.getCreatedAt(),
                 s.getUpdatedAt()
@@ -362,7 +389,7 @@ public class SkillService implements
                 g.getId() != null ? g.getId().value() : null,
                 g.getName(),
                 g.getDescription(),
-                g.getStatus().name(),
+                g.getStatus() != null ? g.getStatus().name() : null,
                 g.getCreatedAt(),
                 g.getUpdatedAt()
         );

@@ -157,4 +157,20 @@ class SkillServiceTest {
                 skillService.execute(new MergeSkillCommand(1L, List.of(2L)))
         );
     }
+
+    @Test
+    @DisplayName("Ném InvalidSkillMergeException khi danh sách kỹ năng nguồn chứa chính kỹ năng đích")
+    void shouldThrowWhenSourceSkillsContainTargetSkill() {
+        assertThrows(InvalidSkillMergeException.class, () ->
+                new MergeSkillCommand(1L, List.of(2L, 1L))
+        );
+    }
+
+    @Test
+    @DisplayName("Ném IllegalArgumentException khi danh sách kỹ năng nguồn rỗng")
+    void shouldThrowWhenSourceSkillsIsEmpty() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new MergeSkillCommand(1L, List.of())
+        );
+    }
 }
