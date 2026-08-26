@@ -6,8 +6,7 @@ public enum RoleCode {
     VT_03("VT-03", "Quản lý nguồn lực"),
     VT_04("VT-04", "Nhân viên chuyên môn"),
     VT_05("VT-05", "Nhân sự"),
-    VT_06("VT-06", "Quản trị viên"),
-    VT_07("VT-07", "Nhân viên công ty");
+    VT_06("VT-06", "Quản trị viên");
 
     private final String code;
     private final String name;

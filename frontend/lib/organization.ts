@@ -79,6 +79,20 @@ export function updateOrgUnitInfo(
   });
 }
 
+export function updateOrgUnitStatus(
+  nodes: readonly OrgUnitTreeNode[],
+  unitId: number,
+  status: "ACTIVE" | "INACTIVE",
+): readonly OrgUnitTreeNode[] {
+  return nodes.map((node) => {
+    if (node.id === unitId) {
+      return { ...node, status };
+    }
+
+    return { ...node, children: updateOrgUnitStatus(node.children, unitId, status) };
+  });
+}
+
 export function reparentOrgUnitTree(
   nodes: readonly OrgUnitTreeNode[],
   unitId: number,

@@ -16,12 +16,14 @@ import {
 import { createPortal } from "react-dom";
 
 import { Icon } from "@/components/ui/Icon";
+import type { OrgUnitType } from "@/src/types/hrm";
 
 export interface OrgUnitOption {
   depth: number;
   id: number;
   unitCode: string;
   unitName: string;
+  unitType?: OrgUnitType;
 }
 
 interface ComboboxMenuPosition {
@@ -44,6 +46,19 @@ interface OrgUnitComboboxProps {
   options: readonly OrgUnitOption[];
   placeholder: string;
   value: string;
+}
+
+function getUnitTypeMeta(unitType?: OrgUnitType, depth = 0) {
+  if (unitType === "COMPANY" || depth === 0) {
+    return { label: "Công ty", className: "unit-tag--company" };
+  }
+  if (unitType === "CENTER" || depth === 1) {
+    return { label: "Khối", className: "unit-tag--center" };
+  }
+  if (unitType === "DEPARTMENT" || depth === 2) {
+    return { label: "Phòng ban", className: "unit-tag--dept" };
+  }
+  return { label: "Nhóm", className: "unit-tag--team" };
 }
 
 export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProps>(function OrgUnitCombobox(
@@ -93,27 +108,16 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
 
     const viewportGutter = 8;
     const menuGap = 4;
-    const preferredMenuHeight = 288;
+    const maxBlockSize = 220;
     const triggerRect = trigger.getBoundingClientRect();
-    const dialog = trigger.closest("dialog");
-    const dialogRect = dialog?.getBoundingClientRect();
-    const headerRect = dialog?.querySelector(".dialog__header")?.getBoundingClientRect();
-    const footerRect = dialog?.querySelector(".dialog__footer")?.getBoundingClientRect();
-    const menuTopBoundary = headerRect ? headerRect.bottom + viewportGutter : (dialogRect ? dialogRect.top + viewportGutter : viewportGutter);
-    const menuBottomBoundary = footerRect ? footerRect.top - viewportGutter : (dialogRect ? dialogRect.bottom - viewportGutter : window.innerHeight - viewportGutter);
-    const availableAbove = Math.max(triggerRect.top - menuTopBoundary - menuGap, 0);
-    const availableBelow = Math.max(menuBottomBoundary - triggerRect.bottom - menuGap, 0);
-    const direction = availableBelow >= preferredMenuHeight || availableBelow >= availableAbove ? "below" : "above";
-    const maxBlockSize = Math.max(Math.min(direction === "below" ? availableBelow : availableAbove, preferredMenuHeight), 120);
-    const width = Math.min(triggerRect.width, Math.max(window.innerWidth - viewportGutter * 2, 0));
-    const left = Math.min(Math.max(triggerRect.left, viewportGutter), Math.max(window.innerWidth - width - viewportGutter, viewportGutter));
+    const top = triggerRect.bottom + menuGap;
 
     setMenuPosition({
-      direction,
-      left,
+      direction: "below",
+      left: Math.max(viewportGutter, triggerRect.left),
       maxBlockSize,
-      top: direction === "below" ? triggerRect.bottom + menuGap : triggerRect.top - menuGap,
-      width,
+      top,
+      width: triggerRect.width,
     });
   }, []);
 
@@ -123,11 +127,23 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
     }
 
     updateMenuPosition();
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
+  }, [filteredOptions.length, isOpen, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleWindowChange = () => {
+      updateMenuPosition();
+    };
+
+    window.addEventListener("resize", handleWindowChange);
+    window.addEventListener("scroll", handleWindowChange, true);
+
     return () => {
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
+      window.removeEventListener("resize", handleWindowChange);
+      window.removeEventListener("scroll", handleWindowChange, true);
     };
   }, [isOpen, updateMenuPosition]);
 
@@ -136,89 +152,89 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
       return;
     }
 
-    const frame = window.requestAnimationFrame(() => searchRef.current?.focus());
-    return () => window.cancelAnimationFrame(frame);
-  }, [isOpen]);
+    const selectedIndex = filteredOptions.findIndex((option) => option.id === Number(value));
+    setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+    searchRef.current?.focus();
+  }, [filteredOptions, isOpen, value]);
 
   useEffect(() => {
-    if (highlightedIndex >= filteredOptions.length) {
-      setHighlightedIndex(Math.max(filteredOptions.length - 1, 0));
+    if (!isOpen) {
+      return undefined;
     }
-  }, [filteredOptions.length, highlightedIndex]);
 
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-        setQuery("");
-        setMenuPortalTarget(null);
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
       }
+
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target) || target.closest?.(".org-unit-combobox__menu")) {
+        return;
+      }
+
+      setIsOpen(false);
+      setQuery("");
     }
 
     document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    const dialog = rootRef.current?.closest("dialog");
+    setMenuPortalTarget(dialog ?? document.body);
   }, []);
 
   function openMenu() {
-    const portalTarget = triggerRef.current?.closest<HTMLElement>("dialog") ?? document.body;
-    const selectedIndex = filteredOptions.findIndex((option) => option.id === selectedOption?.id);
-    setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
-    setMenuPortalTarget(portalTarget);
+    if (disabled) {
+      return;
+    }
+
+    triggerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     setIsOpen(true);
   }
 
-  function closeMenu(restoreFocus = false) {
+  function closeMenu(focusTrigger = false) {
     setIsOpen(false);
     setQuery("");
-    setMenuPortalTarget(null);
-    if (restoreFocus) {
-      window.requestAnimationFrame(() => triggerRef.current?.focus());
+    if (focusTrigger) {
+      triggerRef.current?.focus();
     }
   }
 
   function selectOption(option: OrgUnitOption, moveToNextField = false) {
     onChange(String(option.id));
-    setIsOpen(false);
-    setQuery("");
-    setMenuPortalTarget(null);
-    window.requestAnimationFrame(() => {
-      if (moveToNextField && onKeyboardSelect) {
-        onKeyboardSelect();
-        return;
-      }
-
-      triggerRef.current?.focus();
-    });
+    closeMenu(!moveToNextField);
+    if (moveToNextField) {
+      onKeyboardSelect?.();
+    }
   }
 
-  function moveHighlight(nextIndex: number) {
-    if (filteredOptions.length === 0) {
-      return;
-    }
-
-    const wrappedIndex = (nextIndex + filteredOptions.length) % filteredOptions.length;
-    setHighlightedIndex(wrappedIndex);
+  function clearSelection(e: React.MouseEvent) {
+    e.stopPropagation();
+    onChange("");
+    setQuery("");
+    triggerRef.current?.focus();
   }
 
   function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.nativeEvent.isComposing || disabled) {
+    if (disabled) {
       return;
     }
 
-    if (event.key === "ArrowDown" || event.key === " ") {
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       openMenu();
       return;
     }
 
     if (event.key === "Enter") {
-      event.preventDefault();
-      if (value && onEnter) {
-        onEnter();
-        return;
-      }
-
-      openMenu();
+      onEnter?.();
     }
   }
 
@@ -230,19 +246,17 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();
-        moveHighlight(highlightedIndex + 1);
+        if (filteredOptions.length === 0) {
+          return;
+        }
+        setHighlightedIndex((current) => (current + 1) % filteredOptions.length);
         break;
       case "ArrowUp":
         event.preventDefault();
-        moveHighlight(highlightedIndex - 1);
-        break;
-      case "Home":
-        event.preventDefault();
-        setHighlightedIndex(0);
-        break;
-      case "End":
-        event.preventDefault();
-        setHighlightedIndex(Math.max(filteredOptions.length - 1, 0));
+        if (filteredOptions.length === 0) {
+          return;
+        }
+        setHighlightedIndex((current) => (current - 1 + filteredOptions.length) % filteredOptions.length);
         break;
       case "Enter": {
         event.preventDefault();
@@ -288,7 +302,7 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
             setHighlightedIndex(0);
           }}
           onKeyDown={handleSearchKeyDown}
-          placeholder="Tìm theo tên hoặc mã"
+          placeholder="Tìm theo tên hoặc mã..."
           ref={searchRef}
           role="combobox"
           type="search"
@@ -299,23 +313,55 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
         {filteredOptions.map((option, index) => {
           const isSelected = option.id === selectedOption?.id;
           const isHighlighted = index === highlightedIndex;
+          const meta = getUnitTypeMeta(option.unitType, option.depth);
+          const isBlockStart = option.depth === 1;
+
           return (
-            <li key={option.id} role="presentation">
+            <li
+              className={isBlockStart ? "org-unit-combobox__item org-unit-combobox__item--block-start" : "org-unit-combobox__item"}
+              key={option.id}
+              role="presentation"
+            >
               <button
                 aria-selected={isSelected}
-                className={isHighlighted ? "org-unit-combobox__option is-highlighted" : "org-unit-combobox__option"}
+                className={`org-unit-combobox__option ${isHighlighted ? "is-highlighted" : ""} ${isSelected ? "is-selected" : ""}`}
                 data-depth={Math.min(option.depth, 4)}
                 id={`${listboxId}-${option.id}`}
-                onClick={() => selectOption(option)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  selectOption(option);
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectOption(option);
+                }}
                 onMouseMove={() => setHighlightedIndex(index)}
                 role="option"
                 type="button"
               >
-                <span className="org-unit-combobox__option-copy">
-                  <strong>{option.unitName}</strong>
-                  <small>{option.unitCode}</small>
-                </span>
-                {isSelected ? <Icon name="check" /> : null}
+                <div className="org-unit-combobox__option-main">
+                  <div className="org-unit-combobox__tree-guide">
+                    {option.depth === 0 ? (
+                      <span className="org-unit-combobox__dot org-unit-combobox__dot--company" />
+                    ) : option.depth === 1 ? (
+                      <span className="org-unit-combobox__branch">├─</span>
+                    ) : (
+                      <span className="org-unit-combobox__branch">│&nbsp;&nbsp;└─</span>
+                    )}
+                  </div>
+                  <div className="org-unit-combobox__text-group">
+                    <div className="org-unit-combobox__title-row">
+                      <strong className="org-unit-combobox__unit-name">{option.unitName}</strong>
+                      <span className={`org-unit-tag ${meta.className}`}>{meta.label}</span>
+                    </div>
+                    <small className="org-unit-combobox__unit-code">{option.unitCode}</small>
+                  </div>
+                </div>
+                {isSelected ? (
+                  <span className="org-unit-combobox__selected-icon">
+                    <Icon name="check" />
+                  </span>
+                ) : null}
               </button>
             </li>
           );
@@ -333,7 +379,7 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
           aria-describedby={ariaDescribedBy}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
-          aria-invalid={ariaInvalid || undefined}
+          aria-invalid={ariaInvalid}
           className={selectedOption ? "org-unit-combobox__trigger" : "org-unit-combobox__trigger is-placeholder"}
           disabled={disabled}
           id={id}
@@ -342,24 +388,22 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
           ref={triggerRef}
           type="button"
         >
-          <span>{selectedOption ? `${selectedOption.unitCode} · ${selectedOption.unitName}` : placeholder}</span>
+          <span>
+            {selectedOption ? `${selectedOption.unitCode} · ${selectedOption.unitName}` : placeholder}
+          </span>
           <Icon name="chevronDown" />
         </button>
-        {allowClear && value && !disabled ? (
+        {allowClear && selectedOption && !disabled ? (
           <button
-            aria-label="Bỏ chọn đơn vị tổ chức"
+            aria-label="Xóa lựa chọn đơn vị"
             className="org-unit-combobox__clear"
-            onClick={() => {
-              onChange("");
-              closeMenu(true);
-            }}
+            onClick={clearSelection}
             type="button"
           >
             <Icon name="close" />
           </button>
         ) : null}
       </div>
-
       {menuPortalTarget && menu ? createPortal(menu, menuPortalTarget) : null}
     </div>
   );
