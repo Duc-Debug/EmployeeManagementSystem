@@ -1,3 +1,11 @@
+-- Normalize legacy rows before enforcing the contract date invariant.
+-- These columns are nullable, so an unknown/invalid end date is represented as NULL.
+UPDATE employees
+SET contract_end_date = NULL
+WHERE contract_end_date IS NOT NULL
+  AND start_date IS NOT NULL
+  AND contract_end_date < start_date;
+
 ALTER TABLE employees
     ADD CONSTRAINT chk_employees_contract_dates
     CHECK (contract_end_date IS NULL OR start_date IS NULL OR contract_end_date >= start_date);

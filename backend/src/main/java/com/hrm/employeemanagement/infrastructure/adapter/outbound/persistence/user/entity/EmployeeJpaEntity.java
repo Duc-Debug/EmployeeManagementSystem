@@ -41,7 +41,7 @@ public class EmployeeJpaEntity {
     @Column(name = "is_outsourced")
     private Boolean isOutsourced;
 
-    @Column(name = "standard_hours_per_week")
+    @Column(name = "standard_hours_per_week", nullable = false)
     private Integer standardHoursPerWeek;
 
     private String status;
