@@ -2,8 +2,10 @@ package com.hrm.employeemanagement.domain.skill;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
+
 import com.hrm.employeemanagement.domain.exception.skill.InvalidSkillMergeException;
 import com.hrm.employeemanagement.domain.exception.skill.RequiredFieldMissingException;
+
 
 public class Skill {
     private final SkillId id;
@@ -14,7 +16,7 @@ public class Skill {
     private SkillId mergedIntoSkillId; // Null nếu chưa từng bị merge
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
+    // Constructor khởi tạo
     public Skill(SkillId id, Long groupId, String name, String description,
                  SkillStatus status, SkillId mergedIntoSkillId,
                  LocalDateTime createdAt, LocalDateTime updatedAt) {
@@ -33,7 +35,12 @@ public class Skill {
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
         this.updatedAt = updatedAt;
     }
-
+    // =========================================================================
+    // HÀNH VI NGHIỆP VỤ (DOMAIN BEHAVIORS) - Thay thế cho các Setter tùy tiện
+    // =========================================================================
+    /**
+     * Quy tắc: Cập nhật thông tin kỹ năng
+     */
     public void updateInfo(String newName, Long newGroupId, String newDescription) {
         if (newName == null || newName.trim().isEmpty()) {
             throw RequiredFieldMissingException.of("Tên kỹ năng (name)");
@@ -49,7 +56,9 @@ public class Skill {
         this.description = newDescription;
         this.updatedAt = LocalDateTime.now();
     }
-
+    /**
+     * Quy tắc: Vô hiệu hóa kỹ năng (Soft Deactivate)
+     */
     public void deactivate() {
         if (this.status == SkillStatus.MERGED) {
             throw new IllegalStateException("Kỹ năng đã bị MERGED không thể chuyển sang INACTIVE.");
@@ -57,7 +66,9 @@ public class Skill {
         this.status = SkillStatus.INACTIVE;
         this.updatedAt = LocalDateTime.now();
     }
-
+    /**
+     * Quy tắc CV-01: Gộp kỹ năng hiện tại vào kỹ năng đích
+     */
     public void mergeInto(SkillId targetSkillId) {
         if (targetSkillId == null) {
             throw RequiredFieldMissingException.of("Kỹ năng đích (targetSkillId)");
@@ -68,40 +79,18 @@ public class Skill {
         if (this.status == SkillStatus.MERGED) {
             throw new InvalidSkillMergeException("Kỹ năng này đã từng bị gộp trước đó.");
         }
+        // Chuyển trạng thái và lưu dấu vết kỹ năng đích
         this.status = SkillStatus.MERGED;
         this.mergedIntoSkillId = targetSkillId;
         this.updatedAt = LocalDateTime.now();
     }
-
-    public SkillId getId() {
-        return id;
-    }
-
-    public Long getGroupId() {
-        return groupId;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public SkillStatus getStatus() {
-        return status;
-    }
-
-    public SkillId getMergedIntoSkillId() {
-        return mergedIntoSkillId;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
+    // Getters thuần túy để đọc trạng thái (Không cung cấp Setters)
+    public SkillId getId() { return id; }
+    public Long getGroupId() { return groupId; }
+    public String getName() { return name; }
+    public String getDescription() { return description; }
+    public SkillStatus getStatus() { return status; }
+    public SkillId getMergedIntoSkillId() { return mergedIntoSkillId; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

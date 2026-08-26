@@ -50,10 +50,6 @@ public class SkillService implements
         this.currentUserPort = currentUserPort;
     }
 
-    private Long getCurrentUserId() {
-        return currentUserPort != null ? currentUserPort.getCurrentUserId().orElse(null) : null;
-    }
-
     @Override
     public SkillResult execute(CreateSkillCommand command) {
         Long currentUserId = authorizationService.require(PermissionCode.SKILL_CREATE);
@@ -265,7 +261,6 @@ public class SkillService implements
         if (loadSkillGroupPort.existsGroupByNameIgnoreCaseAndIdNot(command.name(), command.id())) {
             throw new DuplicateSkillNameException("Tên nhóm kỹ năng '" + command.name() + "' đã tồn tại.");
         }
-
 
         String oldValue = "name=" + group.getName() + ";description=" + group.getDescription();
         group.updateInfo(command.name(), command.description());
