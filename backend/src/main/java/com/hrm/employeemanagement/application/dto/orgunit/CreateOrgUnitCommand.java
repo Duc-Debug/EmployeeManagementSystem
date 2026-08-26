@@ -28,14 +28,11 @@ public record CreateOrgUnitCommand(
         if (unitType == null) {
             throw RequiredFieldMissingException.of("Loại đơn vị (unitType)");
         }
-        if (managerId == null) {
-            throw RequiredFieldMissingException.of("Người quản lý (managerId)");
-        }
         if (parentId != null && parentId <= 0) {
             throw new IllegalArgumentException("ID đơn vị cha phải lớn hơn 0");
         }
-        if (managerId <= 0) {
-            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        if (managerId != null && managerId <= 0) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) phải lớn hơn 0");
         }
         if (description != null && description.length() > 2000) {
             throw new IllegalArgumentException("Mô tả không được vượt quá 2000 ký tự");

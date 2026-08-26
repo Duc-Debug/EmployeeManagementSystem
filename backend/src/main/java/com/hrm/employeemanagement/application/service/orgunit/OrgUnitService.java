@@ -50,13 +50,16 @@ public class OrgUnitService implements
     }
 
     private void validateActiveManager(Long managerId) {
-            Employee manager = loadEmployeePort.findById(new EmployeeId(managerId))
-                    .orElseThrow(() -> new EmployeeNotFoundException(
-                            "Không tìm thấy nhân viên quản lý với ID: " + managerId));
-            if (manager.getStatus() != EmployeeStatus.ACTIVE) {
-                throw new InvalidOrgUnitManagerException(
-                        "Nhân viên quản lý (ID: " + managerId + ") hiện không ở trạng thái hoạt động.");
-            }
+        if (managerId == null) {
+            return;
+        }
+        Employee manager = loadEmployeePort.findById(new EmployeeId(managerId))
+                .orElseThrow(() -> new EmployeeNotFoundException(
+                        "Không tìm thấy nhân viên quản lý với ID: " + managerId));
+        if (manager.getStatus() != EmployeeStatus.ACTIVE) {
+            throw new InvalidOrgUnitManagerException(
+                    "Nhân viên quản lý (ID: " + managerId + ") hiện không ở trạng thái hoạt động.");
+        }
     }
 
     @Override
