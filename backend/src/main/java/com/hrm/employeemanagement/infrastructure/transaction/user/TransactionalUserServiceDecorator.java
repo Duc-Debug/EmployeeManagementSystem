@@ -9,6 +9,7 @@ import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
@@ -20,7 +21,7 @@ import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
  * Manages database transaction boundaries and post-commit cache invalidation for Use Cases
  * while keeping the underlying Application Service (UserService) 100% Pure Java.
  */
-public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, GetUserListUseCase {
+public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, GetUserListUseCase, GetCurrentUserProfileUseCase {
 
     private final UserService delegate;
     private final UserStatusCache userStatusCache;

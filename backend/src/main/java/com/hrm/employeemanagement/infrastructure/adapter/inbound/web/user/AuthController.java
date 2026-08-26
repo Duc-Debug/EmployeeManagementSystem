@@ -8,7 +8,7 @@ import com.hrm.employeemanagement.application.dto.user.ResetPasswordCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
-import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -39,7 +39,7 @@ public class AuthController {
     private final ChangePasswordUseCase changePasswordUseCase;
     private final RequestPasswordResetUseCase requestPasswordResetUseCase;
     private final ResetPasswordUseCase resetPasswordUseCase;
-    private final GetUserListUseCase getUserListUseCase;
+    private final GetCurrentUserProfileUseCase getCurrentUserProfileUseCase;
     private final LoginRateLimiter loginRateLimiter;
     private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
 
@@ -47,14 +47,14 @@ public class AuthController {
                           ChangePasswordUseCase changePasswordUseCase,
                           RequestPasswordResetUseCase requestPasswordResetUseCase,
                           ResetPasswordUseCase resetPasswordUseCase,
-                          GetUserListUseCase getUserListUseCase,
+                          GetCurrentUserProfileUseCase getCurrentUserProfileUseCase,
                           LoginRateLimiter loginRateLimiter,
                           ForgotPasswordRateLimiter forgotPasswordRateLimiter) {
         this.authenticateUserUseCase = authenticateUserUseCase;
         this.changePasswordUseCase = changePasswordUseCase;
         this.requestPasswordResetUseCase = requestPasswordResetUseCase;
         this.resetPasswordUseCase = resetPasswordUseCase;
-        this.getUserListUseCase = getUserListUseCase;
+        this.getCurrentUserProfileUseCase = getCurrentUserProfileUseCase;
         this.loginRateLimiter = loginRateLimiter;
         this.forgotPasswordRateLimiter = forgotPasswordRateLimiter;
     }
@@ -65,7 +65,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("Bạn cần đăng nhập để xem thông tin"));
         }
-        UserResult userResult = getUserListUseCase.getCurrentUserProfile(currentUser.getIdValue());
+        UserResult userResult = getCurrentUserProfileUseCase.getCurrentUserProfile(currentUser.getIdValue());
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin người dùng thành công", userResult));
     }
 

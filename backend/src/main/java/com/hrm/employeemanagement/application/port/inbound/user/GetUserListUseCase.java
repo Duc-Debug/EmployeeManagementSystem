@@ -6,5 +6,4 @@ import com.hrm.employeemanagement.application.dto.user.UserResult;
 public interface GetUserListUseCase {
     PageResult<UserResult> getUsers(int page, int size);
     UserResult getUserById(Long id);
-    UserResult getCurrentUserProfile(Long id);
 }

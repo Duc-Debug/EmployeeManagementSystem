@@ -5,7 +5,7 @@ import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
-import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -47,7 +47,7 @@ class AuthControllerTest {
     @Mock
     private ResetPasswordUseCase resetPasswordUseCase;
     @Mock
-    private GetUserListUseCase getUserListUseCase;
+    private GetCurrentUserProfileUseCase getCurrentUserProfileUseCase;
 
     @BeforeEach
     void setUp() {
@@ -56,7 +56,7 @@ class AuthControllerTest {
                 changePasswordUseCase,
                 requestPasswordResetUseCase,
                 resetPasswordUseCase,
-                getUserListUseCase,
+                getCurrentUserProfileUseCase,
                 new LoginRateLimiter(),
                 new ForgotPasswordRateLimiter()
         );

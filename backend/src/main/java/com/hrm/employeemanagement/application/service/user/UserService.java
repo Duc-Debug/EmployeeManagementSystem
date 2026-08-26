@@ -10,6 +10,7 @@ import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
@@ -47,7 +48,8 @@ public class UserService implements
         CreateUserUseCase,
         ToggleUserStatusUseCase,
         UpdateUserRoleUseCase,
-        GetUserListUseCase {
+        GetUserListUseCase,
+        GetCurrentUserProfileUseCase {
 
     private final LoadUserPort loadUserPort;
     private final SaveUserPort saveUserPort;
