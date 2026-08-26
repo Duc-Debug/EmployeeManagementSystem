@@ -30,6 +30,7 @@
   },
   "include": [
     "next-env.d.ts",
+    "next.config.ts",
     ".next/types/**/*.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
@@ -44,9 +45,6 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "src/App.tsx",
-    "src/main.tsx",
-    "vite.config.ts"
+    "node_modules"
   ]
 }
