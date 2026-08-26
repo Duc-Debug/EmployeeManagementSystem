@@ -82,9 +82,9 @@ class OrgUnitControllerTest {
         }
 
         @Test
-        @DisplayName("POST /api/v1/org-units should return HTTP 400 Bad Request when managerId is missing (TC-03)")
-        void shouldReturn400BadRequestWhenManagerIdIsMissing() throws Exception {
-                String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitName\":\"Khối Phát Triển\",\"unitType\":\"CENTER\",\"parentId\":1,\"description\":\"Mô tả\"}";
+        @DisplayName("POST /api/v1/org-units should return HTTP 400 Bad Request when unitName is missing")
+        void shouldReturn400BadRequestWhenUnitNameIsMissing() throws Exception {
+                String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitType\":\"CENTER\",\"parentId\":1,\"description\":\"Mô tả\"}";
 
                 mockMvc.perform(post("/api/v1/org-units")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -158,11 +158,11 @@ class OrgUnitControllerTest {
         }
 
         @Test
-        @DisplayName("PUT /api/v1/org-units/{id} should return HTTP 400 Bad Request when managerId is missing")
-        void shouldReturn400BadRequestWhenUpdateManagerIdIsMissing() throws Exception {
+        @DisplayName("PUT /api/v1/org-units/{id} should return HTTP 400 Bad Request when unitName is missing")
+        void shouldReturn400BadRequestWhenUpdateUnitNameIsMissing() throws Exception {
                 mockMvc.perform(put("/api/v1/org-units/1")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"unitName\":\"New Name\",\"unitType\":\"DEPARTMENT\",\"description\":\"\"}"))
+                                .content("{\"unitType\":\"DEPARTMENT\",\"description\":\"\"}"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
         }
