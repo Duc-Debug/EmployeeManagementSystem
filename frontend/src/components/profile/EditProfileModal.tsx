@@ -1,34 +1,27 @@
 import { useState, useEffect } from "react";
 import { Edit3, Save, X } from "lucide-react";
-
 interface UserInfo {
     name: string;
     email: string;
     role: string;
     department: string;
 }
-
 interface EditProfileModalProps {
     isOpen: boolean;
     userInfo: UserInfo;
     onClose: () => void;
     onSave: (updatedData: UserInfo) => void;
 }
-
 export default function EditProfileModal({ isOpen, userInfo, onClose, onSave }: EditProfileModalProps) {
     const [formData, setFormData] = useState<UserInfo>({ ...userInfo });
-
     useEffect(() => {
         setFormData({ ...userInfo });
     }, [userInfo, isOpen]);
-
     if (!isOpen) return null;
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onSave(formData);
     };
-
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fadeIn">
             <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 text-slate-800">
@@ -44,7 +37,6 @@ export default function EditProfileModal({ isOpen, userInfo, onClose, onSave }: 
                         <X className="h-5 w-5" />
                     </button>
                 </div>
-
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="col-span-2 sm:col-span-1">
@@ -86,7 +78,6 @@ export default function EditProfileModal({ isOpen, userInfo, onClose, onSave }: 
                             />
                         </div>
                     </div>
-
                     <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
                         <button
                             type="button"

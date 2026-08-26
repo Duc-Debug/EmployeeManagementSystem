@@ -2,28 +2,21 @@ import { useState } from "react";
 import { Settings, Lock, Edit3, X } from "lucide-react";
 import EditProfileModal from "./EditProfileModal";
 import ChangePasswordModal from "./ChangePasswordModal";
-
 interface UserProfileModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
-
 export default function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-
-    // State lưu thông tin tài khoản
     const [userInfo, setUserInfo] = useState({
         name: "Chu Văn Hưng",
         email: "hungwgg01@gmail.com",
         role: "Trưởng phòng",
         department: "Phòng Công Nghệ Thông Tin",
     });
-
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
     if (!isOpen) return null;
-
     return (
         <>
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fadeIn">
@@ -41,8 +34,6 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                             <X className="h-5 w-5" />
                         </button>
                     </div>
-
-                    {/* Thông báo */}
                     {message && (
                         <div
                             className={`mb-4 rounded-lg p-3 text-xs font-medium ${
@@ -54,8 +45,6 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                             {message.text}
                         </div>
                     )}
-
-                    {/* Nội dung thông tin tài khoản */}
                     <div className="rounded-xl bg-slate-50 p-5 border border-slate-100 mb-6">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
                             Thông tin tài khoản
@@ -79,8 +68,6 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                             </div>
                         </div>
                     </div>
-
-                    {/* Các nút bấm hành động */}
                     <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
                         <button
                             onClick={() => {
@@ -103,8 +90,6 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                     </div>
                 </div>
             </div>
-
-            {/* Modal chỉnh sửa thông tin */}
             <EditProfileModal
                 isOpen={isEditOpen}
                 userInfo={userInfo}
@@ -115,8 +100,6 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                     setMessage({ type: "success", text: "Cập nhật thông tin tài khoản thành công!" });
                 }}
             />
-
-            {/* Modal đổi mật khẩu */}
             <ChangePasswordModal
                 isOpen={isChangePasswordOpen}
                 onClose={() => setIsChangePasswordOpen(false)}

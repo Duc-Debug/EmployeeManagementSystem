@@ -1,46 +1,37 @@
 import { useState } from "react";
 import { Lock, Eye, EyeOff, UserCheck, X } from "lucide-react";
-
 interface ChangePasswordModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
 }
-
 export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: ChangePasswordModalProps) {
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
-
     if (!isOpen) return null;
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
-
         if (!currentPassword || !newPassword || !confirmPassword) {
             setError("Vui lòng điền đầy đủ các trường mật khẩu.");
             return;
         }
-
         if (newPassword !== confirmPassword) {
             setError("Mật khẩu mới và xác nhận không khớp.");
             return;
         }
-
         if (newPassword.length < 6) {
             setError("Mật khẩu phải chứa ít nhất 6 ký tự.");
             return;
         }
-
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
         onSuccess();
     };
-
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fadeIn">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 text-slate-800">
@@ -56,13 +47,11 @@ export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: Chan
                         <X className="h-5 w-5" />
                     </button>
                 </div>
-
                 {error && (
                     <div className="mb-3 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
                         {error}
                     </div>
                 )}
-
                 <form onSubmit={handleSubmit} className="space-y-3 text-xs">
                     <div>
                         <label className="block mb-1 font-medium text-slate-600">Mật khẩu hiện tại</label>
@@ -74,7 +63,6 @@ export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: Chan
                             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-800 focus:border-[#4338ca] focus:outline-none"
                         />
                     </div>
-
                     <div>
                         <label className="block mb-1 font-medium text-slate-600">Mật khẩu mới</label>
                         <input
@@ -85,7 +73,6 @@ export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: Chan
                             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-800 focus:border-[#4338ca] focus:outline-none"
                         />
                     </div>
-
                     <div>
                         <label className="block mb-1 font-medium text-slate-600">Xác nhận mật khẩu mới</label>
                         <input
@@ -96,7 +83,6 @@ export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: Chan
                             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-800 focus:border-[#4338ca] focus:outline-none"
                         />
                     </div>
-
                     <div className="flex items-center justify-between pt-1">
                         <button
                             type="button"
@@ -107,7 +93,6 @@ export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: Chan
                             {showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                         </button>
                     </div>
-
                     <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
                         <button
                             type="button"
