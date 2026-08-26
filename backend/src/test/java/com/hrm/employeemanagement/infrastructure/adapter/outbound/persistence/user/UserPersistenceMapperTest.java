@@ -95,6 +95,50 @@ class UserPersistenceMapperTest {
     }
 
     @Test
+    @DisplayName("Null dataScope defaults to SELF for non-admin users")
+    void testToDomain_NullDataScopeDefaultsToSelfForNonAdmin() {
+        RoleJpaEntity roleJpa = new RoleJpaEntity(
+                4L,
+                "VT-04",
+                "Employee"
+        );
+        UserJpaEntity jpaEntity = new UserJpaEntity(
+                1L,
+                "legacy-user",
+                "hash123",
+                roleJpa,
+                true,
+                1L
+        );
+
+        User user = mapper.toDomain(jpaEntity, null);
+
+        assertEquals(DataScope.SELF, user.getDataScope());
+    }
+
+    @Test
+    @DisplayName("Null dataScope defaults to COMPANY for system administrators")
+    void testToDomain_NullDataScopeDefaultsToCompanyForSystemAdmin() {
+        RoleJpaEntity roleJpa = new RoleJpaEntity(
+                6L,
+                "VT-06",
+                "System Administrator"
+        );
+        UserJpaEntity jpaEntity = new UserJpaEntity(
+                1L,
+                "legacy-admin",
+                "hash123",
+                roleJpa,
+                true,
+                1L
+        );
+
+        User user = mapper.toDomain(jpaEntity, null);
+
+        assertEquals(DataScope.COMPANY, user.getDataScope());
+    }
+
+    @Test
     @DisplayName("Ánh xạ từ User domain sang UserJpaEntity bảo toàn trường @Version")
     void testToJpaEntity_PreservesVersion() {
         Role role = new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên");

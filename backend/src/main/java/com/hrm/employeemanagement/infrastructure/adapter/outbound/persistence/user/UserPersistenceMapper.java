@@ -36,12 +36,22 @@ public class UserPersistenceMapper {
         return new User(userId,
                 entity.getUsername(),
                 entity.getPasswordHash(), role, status, empId,
-                DataScope.valueOf(entity.getDataScope()),
+                resolveDataScope(entity.getDataScope(), role),
                 entity.getScopeOrgUnitId(),
                 entity.getEmail(),
                 entity.getPasswordChangedAt(),
                 entity.getTokenVersion(),
                 entity.getVersion());
+    }
+
+    private DataScope resolveDataScope(String dataScope, Role role) {
+        if (dataScope != null) {
+            return DataScope.valueOf(dataScope);
+        }
+
+        return role != null && role.isSystemAdmin()
+                ? DataScope.COMPANY
+                : DataScope.SELF;
     }
 
     public UserJpaEntity toJpaEntity(User domain, RoleJpaEntity roleJpa) {
