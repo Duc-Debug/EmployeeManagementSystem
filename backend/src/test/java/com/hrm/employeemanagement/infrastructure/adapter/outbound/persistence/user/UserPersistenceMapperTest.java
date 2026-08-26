@@ -3,6 +3,8 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.u
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;
@@ -10,11 +12,14 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.UserStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.AuditLogJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.UserJpaEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -147,5 +152,21 @@ class UserPersistenceMapperTest {
         assertEquals("SELF", managedEntity.getDataScope());
         assertNull(managedEntity.getScopeOrgUnitId());
         assertEquals(2L, managedEntity.getVersion());
+    }
+
+    @Test
+    @DisplayName("Ánh xạ Employee mới bảo toàn thông tin nghề nghiệp và hợp đồng")
+    void testEmployeeToJpaEntity_PreservesProfileFields() {
+        LocalDate startDate = LocalDate.of(2026, 1, 1);
+        LocalDate contractEndDate = LocalDate.of(2027, 12, 31);
+        Employee employee = new Employee(
+                new EmployeeId(10L), new UserId(20L), 30L, "EMP-020", "Nguyễn Văn A",
+                "Backend Developer", startDate, contractEndDate, false, 40, EmployeeStatus.ACTIVE);
+
+        EmployeeJpaEntity entity = mapper.toJpaEntity(employee);
+
+        assertEquals("Backend Developer", entity.getProfessionalRole());
+        assertEquals(startDate, entity.getStartDate());
+        assertEquals(contractEndDate, entity.getContractEndDate());
     }
 }

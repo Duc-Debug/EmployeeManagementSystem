@@ -33,9 +33,15 @@ public class UserPersistenceMapper {
         UserStatus status = Boolean.TRUE.equals(entity.getIsActive()) ? UserStatus.ACTIVE : UserStatus.LOCKED;
         UserId userId = entity.getId() != null ? new UserId(entity.getId()) : null;
         EmployeeId empId = employeeId != null ? new EmployeeId(employeeId) : null;
-        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId,
-                DataScope.valueOf(entity.getDataScope()), entity.getScopeOrgUnitId(), entity.getEmail(),
-                entity.getPasswordChangedAt(), entity.getTokenVersion(), entity.getVersion());
+        return new User(userId,
+                entity.getUsername(),
+                entity.getPasswordHash(), role, status, empId,
+                DataScope.valueOf(entity.getDataScope()),
+                entity.getScopeOrgUnitId(),
+                entity.getEmail(),
+                entity.getPasswordChangedAt(),
+                entity.getTokenVersion(),
+                entity.getVersion());
     }
 
     public UserJpaEntity toJpaEntity(User domain, RoleJpaEntity roleJpa) {
@@ -137,6 +143,9 @@ public class UserPersistenceMapper {
                 entity.getOrgUnitId(),
                 entity.getEmployeeCode(),
                 entity.getFullName(),
+                entity.getProfessionalRole(),
+                entity.getStartDate(),
+                entity.getContractEndDate(),
                 entity.getIsOutsourced(),
                 entity.getStandardHoursPerWeek(),
                 status
@@ -156,6 +165,9 @@ public class UserPersistenceMapper {
                 domain.getOrgUnitId(),
                 domain.getEmployeeCode(),
                 domain.getFullName(),
+                domain.getProfessionalRole(),
+                domain.getStartDate(),
+                domain.getContractEndDate(),
                 domain.getIsOutsourced(),
                 domain.getStandardHoursPerWeek(),
                 domain.getStatusValue()
@@ -180,6 +192,18 @@ public class UserPersistenceMapper {
 
         target.setFullName(
                 domain.getFullName()
+        );
+
+        target.setProfessionalRole(
+                domain.getProfessionalRole()
+        );
+
+        target.setStartDate(
+                domain.getStartDate()
+        );
+
+        target.setContractEndDate(
+                domain.getContractEndDate()
         );
 
         target.setIsOutsourced(
