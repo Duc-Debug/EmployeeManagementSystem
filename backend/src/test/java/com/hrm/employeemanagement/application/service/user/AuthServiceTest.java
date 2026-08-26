@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.port.outbound.security.PasswordEnc
 import com.hrm.employeemanagement.application.port.outbound.security.TokenBlacklistPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -36,6 +37,9 @@ class AuthServiceTest {
     private LoadUserPort loadUserPort;
 
     @Mock
+    private SaveUserPort saveUserPort;
+
+    @Mock
     private PasswordEncoderPort passwordEncoder;
 
     @Mock
@@ -53,7 +57,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(loadUserPort, passwordEncoder, tokenProvider, tokenBlacklistPort, saveAuditLogPort);
+        authService = new AuthService(loadUserPort, saveUserPort, passwordEncoder, tokenProvider, tokenBlacklistPort, saveAuditLogPort);
         userRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
     }
 
@@ -174,16 +178,20 @@ class AuthServiceTest {
     void testLogout_AllDevices_Success() {
         String token = "valid.jwt.token";
         LogoutCommand command = LogoutCommand.of(token, true);
+        User user = new User(new UserId(1L), "admin", "encoded_hash", userRole, UserStatus.ACTIVE, new EmployeeId(10L));
 
         when(tokenProvider.validateToken(token)).thenReturn(true);
         when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
         when(tokenProvider.getUserIdFromToken(token)).thenReturn(1L);
         when(tokenProvider.getRemainingExpirationMs(token)).thenReturn(3600000L);
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
 
         authService.logout(command);
 
         verify(tokenBlacklistPort, times(1)).blacklist(token, 3600000L);
         verify(tokenBlacklistPort, times(1)).blacklistUser(eq("admin"), anyLong());
+        verify(saveUserPort, times(1)).save(user);
+        assertEquals(2, user.getTokenVersion());
         verify(saveAuditLogPort, times(1)).save(argThat(audit -> "LOGOUT_ALL".equals(audit.getAction())));
     }
 

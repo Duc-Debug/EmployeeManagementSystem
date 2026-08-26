@@ -37,7 +37,6 @@ public class CaffeineTokenBlacklistAdapter implements TokenBlacklistPort {
 
     public CaffeineTokenBlacklistAdapter(JwtProperties jwtProperties) {
         this.blacklistCache = Caffeine.newBuilder()
-                .maximumSize(100_000)
                 .expireAfter(new Expiry<String, Long>() {
                     @Override
                     public long expireAfterCreate(String key, Long value, long currentTime) {

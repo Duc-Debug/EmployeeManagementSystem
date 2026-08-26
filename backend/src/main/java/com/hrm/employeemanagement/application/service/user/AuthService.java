@@ -38,19 +38,11 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
                        TokenBlacklistPort tokenBlacklistPort,
                        SaveAuditLogPort saveAuditLogPort) {
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
-        this.saveUserPort = saveUserPort;
+        this.saveUserPort = Objects.requireNonNull(saveUserPort, "saveUserPort must not be null");
         this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "passwordEncoder must not be null");
         this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider must not be null");
         this.tokenBlacklistPort = Objects.requireNonNull(tokenBlacklistPort, "tokenBlacklistPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "saveAuditLogPort must not be null");
-    }
-
-    public AuthService(LoadUserPort loadUserPort,
-                       PasswordEncoderPort passwordEncoder,
-                       TokenProviderPort tokenProvider,
-                       TokenBlacklistPort tokenBlacklistPort,
-                       SaveAuditLogPort saveAuditLogPort) {
-        this(loadUserPort, null, passwordEncoder, tokenProvider, tokenBlacklistPort, saveAuditLogPort);
     }
 
     @Override
@@ -96,10 +88,8 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
             if (command.allDevices() && username != null) {
                 tokenBlacklistPort.blacklistUser(username, Math.max(issuedAt - 1000, 0));
                 loadUserPort.findByUsername(username).ifPresent(user -> {
-                    user.setTokenVersion(user.getTokenVersion() + 1);
-                    if (saveUserPort != null) {
-                        saveUserPort.save(user);
-                    }
+                    user.revokeAllSessions();
+                    saveUserPort.save(user);
                 });
                 if (userId != null) {
                     saveAuditLogPort.save(AuditLog.create(userId, "LOGOUT_ALL", "users", userId));
