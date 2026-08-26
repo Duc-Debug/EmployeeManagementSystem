@@ -86,7 +86,6 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
             Long userId = tokenProvider.getUserIdFromToken(token);
 
             if (command.allDevices() && username != null) {
-                tokenBlacklistPort.blacklistUser(username, Math.max(issuedAt - 1000, 0));
                 loadUserPort.findByUsername(username).ifPresent(user -> {
                     user.revokeAllSessions();
                     saveUserPort.save(user);

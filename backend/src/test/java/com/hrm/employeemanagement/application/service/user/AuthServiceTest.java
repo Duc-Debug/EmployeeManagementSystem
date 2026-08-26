@@ -189,7 +189,7 @@ class AuthServiceTest {
         authService.logout(command);
 
         verify(tokenBlacklistPort, times(1)).blacklist(token, 3600000L);
-        verify(tokenBlacklistPort, times(1)).blacklistUser(eq("admin"), anyLong());
+        verify(tokenBlacklistPort, never()).blacklistUser(anyString(), anyLong());
         verify(saveUserPort, times(1)).save(user);
         assertEquals(2, user.getTokenVersion());
         verify(saveAuditLogPort, times(1)).save(argThat(audit -> "LOGOUT_ALL".equals(audit.getAction())));
