@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  * Restricted exclusively to dev/local/test profiles to prevent credential logging in production.
  */
 @Component
-@Profile({"dev", "local", "test", "default"})
+@Profile({"dev", "local", "test"})
 public class ConsoleSimulatedEmailAdapter implements SimulatedEmailPort {
 
     private static final Logger log = LoggerFactory.getLogger(ConsoleSimulatedEmailAdapter.class);
