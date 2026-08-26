@@ -24,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -251,5 +252,34 @@ class OrgUnitServiceTest {
         assertThrows(InactiveParentException.class, () -> orgUnitService.execute(command));
         verify(saveOrgUnitPort, never()).save(any());
         verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should build org tree in deterministic order matching tree path and unit code")
+    void shouldBuildOrgTreeInDeterministicOrder() {
+        OrgUnit root = new OrgUnit(
+                new OrgUnitId(1L), "COMPANY_ROOT", "Công ty Software", OrgUnitType.COMPANY,
+                null, "/1/", 1, OrgUnitStatus.ACTIVE, "Gốc", 1L, LocalDateTime.now(), null
+        );
+        OrgUnit childA = new OrgUnit(
+                new OrgUnitId(2L), "ADMIN-CENTER", "Khối Hành Chính", OrgUnitType.CENTER,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
+        );
+        OrgUnit childB = new OrgUnit(
+                new OrgUnitId(3L), "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
+                new OrgUnitId(1L), "/1/3/", 2, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
+        );
+
+        when(loadOrgUnitPort.findAll()).thenReturn(List.of(root, childA, childB));
+
+        List<OrgUnitNodeResult> tree = orgUnitService.execute();
+
+        assertNotNull(tree);
+        assertEquals(1, tree.size());
+        OrgUnitNodeResult rootNode = tree.get(0);
+        assertEquals("COMPANY_ROOT", rootNode.unitCode());
+        assertEquals(2, rootNode.children().size());
+        assertEquals("ADMIN-CENTER", rootNode.children().get(0).unitCode());
+        assertEquals("DEV-CENTER", rootNode.children().get(1).unitCode());
     }
 }

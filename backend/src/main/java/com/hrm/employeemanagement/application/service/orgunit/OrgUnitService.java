@@ -245,7 +245,7 @@ public class OrgUnitService implements
     }
 
     private List<OrgUnitNodeResult> buildTreeHierarchy(List<OrgUnit> units) {
-        Map<Long, OrgUnitNodeResult> nodeMap = new HashMap<>();
+        Map<Long, OrgUnitNodeResult> nodeMap = new LinkedHashMap<>();
         List<OrgUnitNodeResult> rootNodes = new ArrayList<>();
         for (OrgUnit u : units) {
             Long id = u.getId() != null ? u.getId().getValue() : null;

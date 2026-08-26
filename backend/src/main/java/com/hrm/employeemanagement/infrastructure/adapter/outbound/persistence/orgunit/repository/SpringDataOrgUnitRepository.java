@@ -33,6 +33,8 @@ public interface SpringDataOrgUnitRepository extends JpaRepository<OrgUnitJpaEnt
 
     List<OrgUnitJpaEntity> findByStatus(OrgUnitStatus status);
 
+    List<OrgUnitJpaEntity> findAllByOrderByTreePathAscUnitCodeAsc();
+
     List<OrgUnitJpaEntity> findByTreePathStartingWith(String treePath);
 
     @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
