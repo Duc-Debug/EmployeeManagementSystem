@@ -93,6 +93,12 @@ public class OrgUnit {
         this.updatedAt = LocalDateTime.now();
     }
 
+    // Hành vi nghiệp vụ: Kích hoạt / Mở khóa đơn vị
+    public void activate() {
+        this.status = OrgUnitStatus.ACTIVE;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Hành vi nghiệp vụ: Bổ nhiệm Trưởng phòng/Quản lý
     public void assignManager(Long managerId) {
         if (managerId != null && managerId <= 0) {

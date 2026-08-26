@@ -71,6 +71,13 @@ public class OrgUnitRepositoryAdapter implements LoadOrgUnitPort, SaveOrgUnitPor
     }
 
     @Override
+    public List<OrgUnit> findAll() {
+        return repository.findAll().stream()
+                .map(OrgUnitPersistenceMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<OrgUnit> findSubTree(String treePath) {
         return repository.findByTreePathStartingWith(treePath).stream()
                 .map(OrgUnitPersistenceMapper::toDomain)

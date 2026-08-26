@@ -13,8 +13,10 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
 import com.hrm.employeemanagement.domain.orgunit.*;
 import com.hrm.employeemanagement.domain.policy.orgunit.OrgUnitTreePolicy;
 
@@ -26,6 +28,7 @@ public class OrgUnitService implements
         UpdateOrgUnitUseCase,
         MoveOrgUnitUseCase,
         DeactivateOrgUnitUseCase,
+        ActivateOrgUnitUseCase,
         GetOrgTreeUseCase {
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final SaveOrgUnitPort saveOrgUnitPort;
@@ -193,8 +196,35 @@ public class OrgUnitService implements
     }
 
     @Override
+    public OrgUnitResult execute(ActivateOrgUnitCommand command) {
+        if (command == null || command.id() == null) {
+            throw RequiredFieldMissingException.of("ID đơn vị tổ chức");
+        }
+        OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
+                .orElseThrow(() -> new OrgUnitNotFoundException(
+                        "Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
+
+        if (unit.getParentId() != null) {
+            OrgUnit parent = loadOrgUnitPort.findById(unit.getParentId())
+                    .orElseThrow(() -> new OrgUnitNotFoundException("Không tìm thấy đơn vị cha với ID: " + unit.getParentId().getValue()));
+            if (parent.getStatus() != OrgUnitStatus.ACTIVE) {
+                throw new InactiveParentException("Không thể mở khóa đơn vị khi đơn vị cấp trên đang bị khóa.");
+            }
+        }
+
+        String oldValue = "status=" + unit.getStatus() + ";treePath=" + unit.getTreePath();
+        unit.activate();
+        OrgUnit savedUnit = saveOrgUnitPort.save(unit);
+
+        String newValue = "status=" + savedUnit.getStatus() + ";treePath=" + savedUnit.getTreePath();
+        saveAuditLogPort.save(
+                AuditLog.createChange(getCurrentUserId(), "ACTIVATE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), oldValue, newValue));
+        return toResult(savedUnit);
+    }
+
+    @Override
     public List<OrgUnitNodeResult> execute() {
-        List<OrgUnit> allUnits = loadOrgUnitPort.findAllActive();
+        List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
         return buildTreeHierarchy(allUnits);
     }
 
