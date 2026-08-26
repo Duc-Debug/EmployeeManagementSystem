@@ -537,6 +537,21 @@ public UserResult updateUserRole(
         );
     }
 
+    @Override
+    public UserResult getCurrentUserProfile(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID must not be null");
+        }
+
+        User user = loadUserPort.findById(new UserId(userId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        Employee employee = loadEmployeePort.findByUserId(user.getId()).orElse(null);
+        String orgUnitName = resolveOrgUnitName(employee);
+
+        return mapToUserResult(user, employee, orgUnitName);
+    }
+
     private OrgUnit loadActiveOrgUnitOrThrow(Long orgUnitId) {
         if (orgUnitId == null) {
             return null;

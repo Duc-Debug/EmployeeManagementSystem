@@ -66,6 +66,12 @@ public class TransactionalUserServiceDecorator implements CreateUserUseCase, Tog
         return delegate.getUserById(id);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public UserResult getCurrentUserProfile(Long id) {
+        return delegate.getCurrentUserProfile(id);
+    }
+
     /**
      * Invalidate user cache strictly after successful transaction commit.
      * Prevents race conditions where concurrent requests repopulate stale uncommitted data into the cache.
