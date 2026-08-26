@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Plus, Pencil, Trash2, GitBranch } from "lucide-react";
-import OrgNodeModal, { type CardData } from "./OrgNodeModal";
+import OrgNodeModal from "./OrgNodeModal";
+import type { CardData } from "./orgNode.constants";
 import {
     Crown,
     BarChart2,
@@ -12,21 +13,20 @@ import {
 
 const BOARD_CARD: CardData = {
     badge: "CẤP CAO NHẤT",
-    badgeBg: "bg-amber-400/20",
-    badgeColor: "text-amber-200",
+    badgeBg: "bg-amber-100",
+    badgeColor: "text-amber-800",
     title: "Ban Giám Đốc",
     desc: "Quyết định chiến lược & Tầm nhìn",
     subLeft: "Hội đồng Quản trị",
     levelText: "Tầng 1",
-    cardBg: "bg-white/[0.09]",
-    borderColor: "border-white/20",
+    cardBg: "bg-black/[100]",
+    borderColor: "border-amber-200",
     icon: Crown,
-    iconColor: "text-amber-300",
+    iconColor: "text-amber-600",
     isDark: true,
 };
 
 const INITIAL_BOARD_BRANCHES: CardData[][] = [
-    // Nhánh 1 (Bên trái)
     [
         {
             badge: "Quản Lý Vận Hành",
@@ -55,7 +55,6 @@ const INITIAL_BOARD_BRANCHES: CardData[][] = [
             iconColor: "text-emerald-300",
         },
     ],
-    // Nhánh 2 (Bên phải)
     [
         {
             badge: "Quản Lý Nguồn Lực",
@@ -166,7 +165,6 @@ export default function OrgChart() {
         if (editTarget.kind === "board") {
             setBoardCard(card);
         } else if (editTarget.kind === "addFirstBoardBranchNode") {
-            // Thêm một nhánh hoàn toàn mới trực thuộc BGĐ
             setBoardBranches((prev) => [...prev, [card]]);
         } else if (editTarget.kind === "addBoardBranchNode") {
             setBoardBranches((prev) =>
@@ -266,12 +264,8 @@ export default function OrgChart() {
     return (
         <div className="w-full h-full p-8 md:p-12 overflow-x-auto overflow-y-auto flex flex-col items-center font-sans antialiased">
             <div className="relative flex flex-col items-center min-w-[780px]">
-
-                {/* ---------------- TẦNG 1: BAN GIÁM ĐỐC ---------------- */}
                 <div className="relative z-10 flex flex-col items-center">
                     <TreeCard card={boardCard} onEdit={() => setEditTarget({ kind: "board" })} />
-
-                    {/* Nút bấm thêm nhánh trực thuộc BGĐ */}
                     <button
                         onClick={() => setEditTarget({ kind: "addFirstBoardBranchNode" })}
                         className="mt-3 flex items-center gap-1.5 rounded-full border border-dashed border-amber-300/40 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
@@ -279,8 +273,6 @@ export default function OrgChart() {
                         <Plus className="h-3.5 w-3.5" /> Thêm nhánh thuộc Ban Giám Đốc
                     </button>
                 </div>
-
-                {/* Đường nối SVG động dựa trên số nhánh thuộc BGĐ */}
                 {boardBranches.length > 0 && (
                     <div className="relative w-full h-[50px]">
                         <svg className="pointer-events-none absolute inset-0 w-full h-full overflow-visible">
@@ -313,14 +305,12 @@ export default function OrgChart() {
                     </div>
                 )}
 
-                {/* ---------------- CÁC NHÁNH TRỰC THUỘC BAN GIÁM ĐỐC ---------------- */}
                 <div
                     className="grid gap-12 w-full pb-4"
                     style={{ gridTemplateColumns: `repeat(${Math.max(boardBranches.length, 1)}, minmax(0, 1fr))` }}
                 >
                     {boardBranches.map((branch, bIdx) => (
                         <div key={bIdx} className="flex flex-col items-center relative group">
-                            {/* Nút xóa nhánh trực thuộc nếu có từ 2 nút/nhánh trở lên */}
                             <div className="w-[320px] flex justify-end mb-1">
                                 <button
                                     onClick={() => deleteBoardBranch(bIdx)}
@@ -350,8 +340,6 @@ export default function OrgChart() {
                     ))}
                 </div>
             </div>
-
-            {/* ---------------- CÁC NHÁNH ĐỘC LẬP (không trực thuộc BGĐ) ---------------- */}
             {extraBranches.length > 0 && (
                 <div className="mt-6 w-full min-w-[780px] border-t border-dashed border-white/15 pt-8">
                     <p className="mb-5 text-center text-[11px] font-semibold uppercase tracking-wider text-white/35">
@@ -418,12 +406,37 @@ export default function OrgChart() {
         </div>
     );
 }
+const HUE_TEXT_SHADES: Record<string, { title: string; desc: string; subLeft: string; level: string }> = {
+    blue: { title: "text-blue-200", desc: "text-blue-300/70", subLeft: "text-blue-300", level: "text-blue-200" },
+    emerald: { title: "text-emerald-200", desc: "text-emerald-300/70", subLeft: "text-emerald-300", level: "text-emerald-200" },
+    purple: { title: "text-purple-200", desc: "text-purple-300/70", subLeft: "text-purple-300", level: "text-purple-200" },
+    pink: { title: "text-pink-200", desc: "text-pink-300/70", subLeft: "text-pink-300", level: "text-pink-200" },
+    amber: { title: "text-amber-200", desc: "text-amber-300/70", subLeft: "text-amber-300", level: "text-amber-200" },
+    indigo: { title: "text-indigo-200", desc: "text-indigo-300/70", subLeft: "text-indigo-300", level: "text-indigo-200" },
+    teal: { title: "text-teal-200", desc: "text-teal-300/70", subLeft: "text-teal-300", level: "text-teal-200" },
+    rose: { title: "text-rose-200", desc: "text-rose-300/70", subLeft: "text-rose-300", level: "text-rose-200" },
+    orange: { title: "text-orange-200", desc: "text-orange-300/70", subLeft: "text-orange-300", level: "text-orange-200" },
+    cyan: { title: "text-cyan-200", desc: "text-cyan-300/70", subLeft: "text-cyan-300", level: "text-cyan-200" },
+};
+const DEFAULT_TEXT_SHADES = { title: "text-slate-200", desc: "text-slate-300/70", subLeft: "text-slate-300", level: "text-slate-200" };
+
+function hueFromClass(cls?: string): string | null {
+    if (!cls) return null;
+    const m = cls.match(/text-([a-z]+)-\d+/);
+    return m ? m[1] : null;
+}
+
+function textShadesFor(card: CardData) {
+    const hue = hueFromClass(card.iconColor) ?? hueFromClass(card.badgeColor);
+    return (hue && HUE_TEXT_SHADES[hue]) || DEFAULT_TEXT_SHADES;
+}
 
 function TreeCard({ card, onEdit }: { card: CardData; onEdit: () => void }) {
     const Icon = card.icon;
+    const shades = textShadesFor(card);
     const base = card.isDark
-        ? `w-[320px] rounded-3xl ${card.cardBg} border ${card.borderColor} p-5 text-white shadow-xl backdrop-blur-xl relative transition-all duration-300 hover:shadow-2xl hover:bg-white/[0.12] group`
-        : `w-[320px] rounded-3xl ${card.cardBg} border ${card.borderColor} p-5 text-white shadow-sm backdrop-blur-xl relative transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 group`;
+        ? `w-[320px] rounded-3xl ${card.cardBg} border ${card.borderColor} p-5 shadow-xl backdrop-blur-xl relative transition-all duration-300 hover:shadow-2xl hover:bg-white/[0.12] group`
+        : `w-[320px] rounded-3xl ${card.cardBg} border ${card.borderColor} p-5 shadow-sm backdrop-blur-xl relative transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 group`;
 
     return (
         <div className={base}>
@@ -442,15 +455,15 @@ function TreeCard({ card, onEdit }: { card: CardData; onEdit: () => void }) {
                 </span>
                 <Icon className={`h-5 w-5 ${card.iconColor} shrink-0`} />
             </div>
-            <h3 className={`${card.isDark ? "text-lg font-bold" : "text-lg font-extrabold"} tracking-tight text-white mb-1`}>
+            <h3 className={`${card.isDark ? "text-lg font-bold" : "text-lg font-extrabold"} tracking-tight ${shades.title} mb-1`}>
                 {card.title}
             </h3>
-            <p className="text-xs text-white/60 leading-relaxed font-medium mb-5 min-h-[32px]">{card.desc}</p>
+            <p className={`text-xs ${shades.desc} leading-relaxed font-medium mb-5 min-h-[32px]`}>{card.desc}</p>
             <div className="border-t border-white/15 pt-3 flex items-center justify-between text-xs font-semibold">
-                <span className={card.isDark ? "text-white/50 text-[11px]" : `text-[11px] ${card.badgeColor}`}>
+                <span className={`text-[11px] font-semibold ${shades.subLeft}`}>
                     {card.subLeft}
                 </span>
-                <span className={card.isDark ? "text-amber-300 font-bold" : "text-white/60 font-bold"}>
+                <span className={`font-bold ${shades.level}`}>
                     {card.levelText}
                 </span>
             </div>

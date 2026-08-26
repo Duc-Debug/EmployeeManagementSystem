@@ -5,6 +5,7 @@ import DashboardHeader from "./DashboardHeader";
 import KpiStatsSection from "../kpi/KpiStatsSection";
 import CalendarView from "../calendar/CalendarView";
 import DepartmentsView from "../department/DepartmentsView";
+import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
 
 export default function Dashboard() {
     const [activeTab, setActiveTab] = useState("overview");
@@ -29,9 +30,12 @@ export default function Dashboard() {
                     <SideBar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} />
 
                     <main className="flex-1 overflow-y-auto p-6">
-                        {activeTab === "departments" ? (
-                            <DepartmentsView />
-                        ) : (
+                        {/* Thêm điều kiện render theo activeTab tại đây */}
+                        {activeTab === "employees" && <EmployeeProfilePage />}
+
+                        {activeTab === "departments" && <DepartmentsView />}
+
+                        {activeTab === "overview" && (
                             <div>
                                 {/* Header Overview */}
                                 <DashboardHeader />
