@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common;
 
 import com.hrm.employeemanagement.domain.exception.DomainException;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
@@ -10,6 +11,7 @@ import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathExcept
 import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
+import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +54,24 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 HttpStatus.NOT_FOUND.value());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUserNotFound(UserNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "USER_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(PermissionDeniedException.class)
+    public ResponseEntity<ErrorResponse> handlePermissionDenied(PermissionDeniedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "FORBIDDEN",
+                ex.getMessage(),
+                HttpStatus.FORBIDDEN.value());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
     // 2. Handle DuplicateUnitCodeException (409 CONFLICT)
@@ -216,6 +236,29 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 14.1. Handle DataIntegrityViolationException (Foreign key / Duplicate key constraints)
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
+        log.error("Data integrity violation: ", ex);
+        ErrorResponse response = ErrorResponse.of(
+                "DATA_INTEGRITY_VIOLATION",
+                "Dữ liệu không hợp lệ hoặc tham chiếu tới đối tượng không tồn tại (User ID / Org Unit ID không hợp lệ)",
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 14.2. Handle AccessDeniedException (@PreAuthorize security check failures)
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        log.warn("Access denied exception in controller: ", ex);
+        ErrorResponse response = ErrorResponse.of(
+                "FORBIDDEN",
+                "Bạn không có quyền truy cập chức năng này",
+                HttpStatus.FORBIDDEN.value());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)

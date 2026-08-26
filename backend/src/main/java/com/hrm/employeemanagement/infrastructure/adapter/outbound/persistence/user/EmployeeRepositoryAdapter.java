@@ -51,6 +51,11 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
     }
 
     @Override
+    public boolean existsByEmployeeCode(String employeeCode) {
+        return springDataEmployeeRepository.existsByEmployeeCode(employeeCode);
+    }
+
+    @Override
     public List<Employee> findAllByUserIdIn(List<UserId> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return List.of();
