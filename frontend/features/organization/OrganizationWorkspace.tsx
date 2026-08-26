@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
+import { StatusBadge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
@@ -13,7 +14,7 @@ import {
   getParentOrgUnit,
 } from "@/lib/organization";
 import type { OrgUnitTreeNode, User } from "@/src/types/hrm";
-import { createOrgUnit, deactivateOrgUnit, getOrgTree, moveOrgUnit, updateOrgUnit } from "@/lib/api/org-units";
+import { activateOrgUnit, createOrgUnit, deactivateOrgUnit, getOrgTree, moveOrgUnit, updateOrgUnit } from "@/lib/api/org-units";
 import { getUsers } from "@/lib/api/users";
 import { ApiError } from "@/lib/api-client";
 
@@ -25,6 +26,7 @@ type OrgEditorState = { mode: "create" } | { mode: "edit"; unitId: number } | nu
 function createInitialDraft(parentId: number | null): OrgUnitDraft {
   return {
     description: "",
+    managerId: "",
     parentId: parentId ? String(parentId) : "",
     unitCode: "",
     unitName: "",
@@ -35,6 +37,7 @@ function createInitialDraft(parentId: number | null): OrgUnitDraft {
 function toEditDraft(unit: OrgUnitTreeNode): OrgUnitDraft {
   return {
     description: unit.description ?? "",
+    managerId: unit.managerId ? String(unit.managerId) : "",
     parentId: unit.parentId ? String(unit.parentId) : "",
     unitCode: unit.unitCode,
     unitName: unit.unitName,
@@ -95,8 +98,9 @@ export function OrganizationWorkspace() {
 
   const allUnits = useMemo(() => flattenOrgTree(tree), [tree]);
   const selectedUnit = findOrgUnit(tree, selectedUnitId) ?? allUnits[0];
-  const normalizedQuery = query.trim().toLocaleLowerCase("vi");
   const editingUnit = editor?.mode === "edit" ? findOrgUnit(tree, editor.unitId) : undefined;
+  const parentUnit = selectedUnit && selectedUnit.parentId ? findOrgUnit(tree, selectedUnit.parentId) : null;
+  const normalizedQuery = query.trim().toLocaleLowerCase("vi");
   
   const parentOptions = useMemo(() => {
     const excludedIds = editingUnit ? getDescendantIds(editingUnit) : new Set<number>();
@@ -126,6 +130,26 @@ export function OrganizationWorkspace() {
   const unitMembers = useMemo(() => {
     if (!selectedUnit) return [];
     return allUsers.filter((user) => user.orgUnitId === selectedUnit.id);
+  }, [allUsers, selectedUnit]);
+
+  // Candidates for Manager filtered by suitable roles (VT-01, VT-02, VT-03, VT-05, VT-06)
+  const managerOptions = useMemo(() => {
+    const suitableRoles = new Set(["VT-01", "VT-02", "VT-03", "VT-05", "VT-06"]);
+    return allUsers
+      .filter((user) => user.status === "ACTIVE" && suitableRoles.has(user.roleCode))
+      .map((user) => ({
+        employeeId: user.employeeId || user.id,
+        fullName: user.fullName || user.username,
+        roleCode: user.roleCode,
+        roleName: user.roleName,
+        username: user.username,
+      }));
+  }, [allUsers]);
+
+  // Manager of selected unit
+  const managerUser = useMemo(() => {
+    if (!selectedUnit || !selectedUnit.managerId) return null;
+    return allUsers.find((u) => (u.employeeId && u.employeeId === selectedUnit.managerId) || u.id === selectedUnit.managerId) || null;
   }, [allUsers, selectedUnit]);
 
   function toggleExpanded(unitId: number) {
@@ -165,9 +189,20 @@ export function OrganizationWorkspace() {
     setErrors({});
   }
 
-  function handleToggleStatus(unit: OrgUnitTreeNode) {
+  async function handleToggleStatus(unit: OrgUnitTreeNode) {
     if (unit.status === "ACTIVE") {
       setLockTarget(unit);
+    } else {
+      try {
+        await activateOrgUnit(unit.id);
+        const refreshed = await getOrgTree();
+        setTree(refreshed);
+        setAnnouncement(`Đã mở khóa đơn vị ${unit.unitName}.`);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setAnnouncement(err.message);
+        }
+      }
     }
   }
 
@@ -222,10 +257,12 @@ export function OrganizationWorkspace() {
     }
 
     const parentId = draft.parentId ? Number(draft.parentId) : null;
+    const managerId = draft.managerId ? Number(draft.managerId) : null;
     if (editor.mode === "create") {
       try {
         const created = await createOrgUnit({
           description: draft.description.trim() || null,
+          managerId,
           parentId,
           unitCode: draft.unitCode.trim().toUpperCase(),
           unitName: draft.unitName.trim(),
@@ -254,6 +291,7 @@ export function OrganizationWorkspace() {
     try {
       await updateOrgUnit(editingUnit.id, {
         description: draft.description.trim() || null,
+        managerId,
         unitName: draft.unitName.trim(),
         unitType: draft.unitType,
       });
@@ -349,11 +387,11 @@ export function OrganizationWorkspace() {
         actions={
           <button className="button button--primary" onClick={() => openCreateDialog()} type="button">
             <Icon name="plus" />
-            <span>Thêm đơn vị mới</span>
+            <span>Tạo đơn vị mới</span>
           </button>
         }
-        description="Mô hình tổ chức 4 cấp: Công ty, Khối, Phòng ban và Nhóm trực thuộc."
-        title="Sơ đồ cây tổ chức"
+        description="Quản lý và trực quan hóa cây cơ cấu phân cấp phòng ban, khối và nhóm chuyên môn."
+        title="Cơ cấu tổ chức"
       />
 
       {fetchError && (
@@ -380,18 +418,18 @@ export function OrganizationWorkspace() {
             </span>
           </div>
           <div className="kpi-card__val">{stats.total}</div>
-          <div className="kpi-card__desc">Toàn hệ thống</div>
+          <div className="kpi-card__desc">{stats.active} hoạt động</div>
         </div>
 
         <div className="kpi-card">
           <div className="kpi-card__header">
-            <span className="kpi-card__label">Khối nghiệp vụ</span>
+            <span className="kpi-card__label">Khối / Trung tâm</span>
             <span className="kpi-card__icon kpi-card__icon--purple">
               <Icon name="branch" />
             </span>
           </div>
           <div className="kpi-card__val kpi-card__val--purple">{stats.centers}</div>
-          <div className="kpi-card__desc">Khối trung tâm</div>
+          <div className="kpi-card__desc">Cấp 1 trực thuộc công ty</div>
         </div>
 
         <div className="kpi-card">
@@ -402,7 +440,7 @@ export function OrganizationWorkspace() {
             </span>
           </div>
           <div className="kpi-card__val kpi-card__val--emerald">{stats.departments}</div>
-          <div className="kpi-card__desc">Bộ phận trực thuộc</div>
+          <div className="kpi-card__desc">Cấp 2 nghiệp vụ</div>
         </div>
 
         <div className="kpi-card">
@@ -413,32 +451,30 @@ export function OrganizationWorkspace() {
             </span>
           </div>
           <div className="kpi-card__val kpi-card__val--rose">{stats.teams}</div>
-          <div className="kpi-card__desc">Đội nhóm cấp cơ sở</div>
+          <div className="kpi-card__desc">Cấp 3 dự án / kỹ thuật</div>
         </div>
       </section>
 
       {/* Main Split Grid */}
-      <div className="org-split-grid">
+      <div className="organization-layout">
         {/* Left Panel: Visual Tree Hierarchy */}
         <section aria-labelledby="org-tree-title" className="data-panel">
           <div className="data-panel__header">
             <div>
               <h2 id="org-tree-title">Cây phân cấp đơn vị</h2>
-              <p>{allUnits.length} đơn vị trong cơ cấu</p>
+              <p>Hiển thị {allUnits.length} đơn vị trong cơ cấu</p>
             </div>
-            <div className="data-panel__actions">
-              <button className="button button--secondary button--compact" onClick={expandAll} type="button">
-                <Icon name="plus" />
+            <div className="tree-toolbar-actions">
+              <button className="button button--secondary" onClick={expandAll} type="button">
                 <span>Mở rộng</span>
               </button>
-              <button className="button button--secondary button--compact" onClick={collapseAll} type="button">
-                <Icon name="close" />
+              <button className="button button--secondary" onClick={collapseAll} type="button">
                 <span>Thu gọn</span>
               </button>
             </div>
           </div>
 
-          <div className="data-panel__body">
+          <div className="organization-tree-panel__body">
             {/* Tree Search Box */}
             <div className="search-field org-tree-search">
               <Icon name="search" />
@@ -463,6 +499,8 @@ export function OrganizationWorkspace() {
               )}
             </div>
 
+            <p className="organization-tree__hint">Kéo thả biểu tượng để thay đổi đơn vị cha trực thuộc.</p>
+
             {tree.length === 0 ? (
               <EmptyState
                 icon="organization"
@@ -470,131 +508,171 @@ export function OrganizationWorkspace() {
                 title="Chưa có đơn vị"
               />
             ) : (
-              <OrganizationTree
-                dragDisabled={Boolean(normalizedQuery)}
-                draggedUnitId={draggedUnitId}
-                dropTargetId={dropTargetId}
-                expandedUnits={expandedUnits}
-                onCanDrop={canMoveUnit}
-                onDragEnd={resetDragState}
-                onDragOver={handleDragOver}
-                onDragStart={handleDragStart}
-                onDrop={handleDrop}
-                onSelect={setSelectedUnitId}
-                onToggle={toggleExpanded}
-                query={query}
-                selectedUnitId={selectedUnitId}
-                units={tree}
-              />
+              <div className="tree-scroll-container">
+                <OrganizationTree
+                  dragDisabled={Boolean(normalizedQuery)}
+                  draggedUnitId={draggedUnitId}
+                  dropTargetId={dropTargetId}
+                  expandedUnits={expandedUnits}
+                  onCanDrop={canMoveUnit}
+                  onDragEnd={resetDragState}
+                  onDragOver={handleDragOver}
+                  onDragStart={handleDragStart}
+                  onDrop={handleDrop}
+                  onSelect={setSelectedUnitId}
+                  onToggle={toggleExpanded}
+                  query={query}
+                  selectedUnitId={selectedUnitId}
+                  units={tree}
+                />
+              </div>
             )}
           </div>
         </section>
 
         {/* Right Panel: Selected Unit Detail View */}
-        <section aria-labelledby="unit-detail-title" className="data-panel">
-          <div className="data-panel__header">
-            <div>
-              <h2 id="unit-detail-title">Thông tin chi tiết</h2>
-              <p>{selectedUnit ? `${selectedUnit.unitName} (${selectedUnit.unitCode})` : "Chi tiết đơn vị"}</p>
-            </div>
-            {selectedUnit && (
-              <div className="data-panel__actions">
-                <button
-                  className="button button--secondary button--compact"
-                  onClick={() => openCreateDialog(selectedUnit.id)}
-                  type="button"
-                >
-                  <Icon name="plus" />
-                  <span>Thêm con</span>
-                </button>
-                <button
-                  className="button button--secondary button--compact"
-                  onClick={() => openEditDialog(selectedUnit)}
-                  type="button"
-                >
-                  <Icon name="settings" />
-                  <span>Sửa</span>
-                </button>
-                {selectedUnit.parentId !== null && (
-                  <button
-                    className={`button button--compact ${selectedUnit.status === "ACTIVE" ? "button--danger" : "button--secondary"}`}
-                    onClick={() => handleToggleStatus(selectedUnit)}
-                    type="button"
-                  >
-                    <Icon name={selectedUnit.status === "ACTIVE" ? "lock" : "unlock"} />
-                    <span>{selectedUnit.status === "ACTIVE" ? "Khóa" : "Mở"}</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="data-panel__body">
-            {selectedUnit ? (
-              <div className="unit-detail-content">
-                <div className="unit-detail-card">
-                  <div className="unit-detail-card__header">
-                    <div className="unit-detail-card__icon-box">
+        <section aria-labelledby="unit-detail-title" className="organization-detail-panel">
+          {selectedUnit ? (
+            <>
+              <div className="org-detail-hero">
+                <div className="org-detail-hero__top">
+                  <div className="org-detail-hero__title-group">
+                    <div className={`org-detail-hero__icon ${selectedUnit.status === "INACTIVE" ? "is-inactive" : ""}`}>
                       <Icon name={selectedUnit.unitType === "COMPANY" ? "organization" : selectedUnit.unitType === "CENTER" ? "branch" : selectedUnit.unitType === "DEPARTMENT" ? "users" : "user"} />
                     </div>
-                    <div>
-                      <h3 className="unit-detail-card__name">{selectedUnit.unitName}</h3>
-                      <div className="unit-detail-card__meta">
-                        <span className="unit-badge">{selectedUnit.unitCode}</span>
-                        <span className="role-chip">{selectedUnit.unitType}</span>
-                        <span className={`status-pill ${selectedUnit.status === "ACTIVE" ? "status-pill--active" : "status-pill--locked"}`}>
-                          {selectedUnit.status === "ACTIVE" ? "Đang hoạt động" : "Tạm khóa"}
-                        </span>
-                      </div>
-                    </div>
+                    <h2 className="org-detail-hero__title" id="unit-detail-title">{selectedUnit.unitName}</h2>
                   </div>
 
-                  <dl className="unit-facts-grid">
-                    <div className="unit-fact">
-                      <dt>Mã định danh (ID)</dt>
-                      <dd>#{selectedUnit.id}</dd>
-                    </div>
-                    <div className="unit-fact">
-                      <dt>Cấp bậc phân cấp</dt>
-                      <dd>Cấp {selectedUnit.level}</dd>
-                    </div>
-                    <div className="unit-fact">
-                      <dt>Đơn vị cấp trên</dt>
-                      <dd>{getParentOrgUnit(tree, selectedUnit.id)?.unitName ?? "Đơn vị gốc (Công ty)"}</dd>
-                    </div>
-                    <div className="unit-fact">
-                      <dt>Đơn vị con trực thuộc</dt>
-                      <dd>{selectedUnit.children.length} đơn vị</dd>
-                    </div>
-                  </dl>
+                  <div className="org-detail-hero__actions">
+                    <button
+                      className="button button--secondary"
+                      onClick={() => openCreateDialog(selectedUnit.id)}
+                      type="button"
+                    >
+                      <Icon name="plus" />
+                      <span>Thêm đơn vị con</span>
+                    </button>
+                    <button
+                      className="button button--secondary"
+                      onClick={() => openEditDialog(selectedUnit)}
+                      type="button"
+                    >
+                      <Icon name="settings" />
+                      <span>Sửa</span>
+                    </button>
+                    {selectedUnit.parentId !== null && (
+                      <button
+                        className={`button ${selectedUnit.status === "ACTIVE" ? "button--danger" : "button--secondary"}`}
+                        onClick={() => handleToggleStatus(selectedUnit)}
+                        type="button"
+                      >
+                        <Icon name={selectedUnit.status === "ACTIVE" ? "lock" : "unlock"} />
+                        <span>{selectedUnit.status === "ACTIVE" ? "Khóa" : "Mở"}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-                  {selectedUnit.description && (
-                    <div className="unit-desc-box">
-                      <strong>Mô tả chức năng & nhiệm vụ:</strong>
-                      <p>{selectedUnit.description}</p>
-                    </div>
+                <div className="org-detail-hero__badges">
+                  <span className="org-detail-code-badge">{selectedUnit.unitCode}</span>
+                  <span className="role-chip">{selectedUnit.unitType === "COMPANY" ? "CÔNG TY" : selectedUnit.unitType === "CENTER" ? "KHỐI" : selectedUnit.unitType === "DEPARTMENT" ? "PHÒNG BAN" : "NHÓM"}</span>
+                  <span className="org-level-pill">Cấp {selectedUnit.level}</span>
+                  <StatusBadge status={selectedUnit.status === "ACTIVE" ? "ACTIVE" : "LOCKED"} />
+                </div>
+              </div>
+
+              <div className="org-detail-body">
+                <div className="org-prop-table">
+                  <div className="org-prop-row">
+                    <span className="org-prop-label">
+                      <Icon name="branch" />
+                      Đơn vị cha trực thuộc
+                    </span>
+                    <span className="org-prop-value">
+                      {parentUnit ? (
+                        <button className="org-parent-link" onClick={() => setSelectedUnitId(parentUnit.id)} type="button">
+                          <Icon name="branch" />
+                          <span>{parentUnit.unitName}</span>
+                          <small>({parentUnit.unitCode})</small>
+                        </button>
+                      ) : (
+                        <span className="org-prop-root">Đơn vị gốc (Công ty)</span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="org-prop-row">
+                    <span className="org-prop-label">
+                      <Icon name="user" />
+                      Người quản lý
+                    </span>
+                    <span className="org-prop-value">
+                      {managerUser ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontWeight: 600, color: "#4338ca" }}>
+                          <span>{managerUser.fullName || managerUser.username}</span>
+                          <small style={{ color: "#6366f1" }}>({managerUser.roleCode} - {managerUser.roleName})</small>
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Chưa chỉ định</span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="org-prop-row">
+                    <span className="org-prop-label">
+                      <Icon name="organization" />
+                      Cấu trúc trực thuộc
+                    </span>
+                    <span className="org-prop-value">
+                      {selectedUnit.children.length} đơn vị cấp con
+                    </span>
+                  </div>
+
+                  <div className="org-prop-row">
+                    <span className="org-prop-label">
+                      <Icon name="users" />
+                      Nhân sự phụ trách
+                    </span>
+                    <span className="org-prop-value">
+                      {unitMembers.length} thành viên
+                    </span>
+                  </div>
+                </div>
+
+                <div className="org-note-card">
+                  <div className="org-note-card__header">
+                    <Icon name="document" />
+                    <span>Mô tả & chức năng nhiệm vụ</span>
+                  </div>
+                  {selectedUnit.description ? (
+                    <p className="org-note-card__text">{selectedUnit.description}</p>
+                  ) : (
+                    <p className="org-note-card__empty">Chưa có mô tả chức năng nhiệm vụ cho đơn vị này.</p>
                   )}
                 </div>
 
-                {/* Unit Members Sub-Section */}
-                <div className="unit-members-section">
-                  <div className="unit-members-section__header">
-                    <Icon name="users" />
-                    <strong>Nhân sự thuộc đơn vị ({unitMembers.length})</strong>
+                <div className="org-members-block">
+                  <div className="org-members-block__header">
+                    <span className="org-members-block__title">
+                      <Icon name="users" />
+                      Nhân sự trực thuộc ({unitMembers.length})
+                    </span>
                   </div>
 
                   {unitMembers.length === 0 ? (
-                    <div className="unit-members-empty">
-                      <span>Chưa có nhân sự nào được gán vào đơn vị này.</span>
+                    <div className="org-members-empty-card">
+                      Chưa có nhân sự nào được gán trực thuộc đơn vị này.
                     </div>
                   ) : (
-                    <div className="unit-members-list">
+                    <div className="org-members-grid">
                       {unitMembers.map((member) => {
                         const memberName = member.fullName || member.username || "Thành viên";
                         return (
-                          <div className="unit-member-item" key={member.id}>
-                            <span className="avatar avatar--small avatar--gradient">{memberName.slice(0, 1).toUpperCase()}</span>
-                            <div className="unit-member-item__info">
+                          <div className="org-member-item" key={member.id}>
+                            <span className="avatar avatar--small avatar--gradient">
+                              {memberName.slice(0, 1).toUpperCase()}
+                            </span>
+                            <div className="org-member-item__info">
                               <strong>{memberName}</strong>
                               <span>@{member.username} · {member.roleName}</span>
                             </div>
@@ -605,14 +683,16 @@ export function OrganizationWorkspace() {
                   )}
                 </div>
               </div>
-            ) : (
+            </>
+          ) : (
+            <div style={{ padding: "2rem" }}>
               <EmptyState
                 icon="organization"
                 message="Chọn một đơn vị từ cây phân cấp bên trái để xem thông tin chi tiết."
                 title="Chưa chọn đơn vị"
               />
-            )}
-          </div>
+            </div>
+          )}
         </section>
       </div>
 
@@ -641,6 +721,7 @@ export function OrganizationWorkspace() {
             errors={errors}
             formId="org-unit-form"
             initialFocusRef={setEditorFocus}
+            managerOptions={managerOptions}
             mode={editorMode}
             onChange={updateDraft}
             onSubmit={saveOrgUnit}

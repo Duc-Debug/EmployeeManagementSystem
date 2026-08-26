@@ -52,3 +52,9 @@ export async function deactivateOrgUnit(id: number): Promise<OrgUnitTreeNode> {
     method: "PATCH",
   });
 }
+
+export async function activateOrgUnit(id: number): Promise<OrgUnitTreeNode> {
+  return await apiRequest<OrgUnitTreeNode>(`/org-units/${id}/activate`, {
+    method: "PATCH",
+  });
+}
