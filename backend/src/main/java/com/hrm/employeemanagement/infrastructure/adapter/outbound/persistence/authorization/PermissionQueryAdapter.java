@@ -1,10 +1,11 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.authorization;
 
-import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
-import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import java.util.Objects;
+
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
+import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 
 @Component
 public class PermissionQueryAdapter

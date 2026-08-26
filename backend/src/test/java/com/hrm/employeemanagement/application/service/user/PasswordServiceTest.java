@@ -74,8 +74,8 @@ class PasswordServiceTest {
 
         Role role = new Role(
                 new RoleId(4L),
-                RoleCode.VT_07,
-                "Nhân viên công ty"
+                RoleCode.VT_04,
+                "Nhân viên chuyên môn"
         );
 
         testUser = new User(
@@ -189,8 +189,8 @@ class PasswordServiceTest {
     void requestPasswordReset_userWithoutEmail_invalidatesTokensButDoesNotSendEmail() {
         Role role = new Role(
                 new RoleId(4L),
-                RoleCode.VT_07,
-                "Nhân viên công ty"
+                RoleCode.VT_04,
+                "Nhân viên chuyên môn"
         );
 
         User userWithoutEmail = new User(

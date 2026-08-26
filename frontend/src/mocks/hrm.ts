@@ -5,18 +5,65 @@ import type {
 } from "../types/hrm";
 
 /**
- * Demo-only role labels mirror the backend role seed. Do not use these values
- * to infer authorization; the backend remains the source of truth.
+ * Official system roles matching the RBAC specification (VT-01 -> VT-06).
+ * VT-07 (Nhân viên công ty) is a shared concept, not an assignable role.
  */
-export const DEMO_ROLES = [
-  { code: "VT-01", name: "Ban giám đốc" },
-  { code: "VT-02", name: "Quản lý dự án" },
-  { code: "VT-03", name: "Quản lý nguồn lực" },
-  { code: "VT-04", name: "Nhân viên chuyên môn" },
-  { code: "VT-05", name: "Nhân sự" },
-  { code: "VT-06", name: "Quản trị viên" },
-  { code: "VT-07", name: "Nhân viên công ty" },
-] as const satisfies readonly Role[];
+export const DEMO_ROLES: readonly Role[] = [
+  {
+    code: "VT-01",
+    description: "Người điều hành đơn vị, theo dõi năng lực và mức độ tải của toàn bộ nhân sự.",
+    goal: "Biết đơn vị còn nhận thêm được việc hay không trước khi cam kết với khách hàng.",
+    limitations: "Không trực tiếp phân bổ nhân sự và không ghi giờ làm.",
+    name: "Ban giám đốc",
+    permissions: "Xem toàn bộ báo cáo năng lực, so sánh các kịch bản mô phỏng và đặt ngưỡng cảnh báo quá tải.",
+    scopeData: "Toàn bộ dự án, phân bổ, năng lực khả dụng và báo cáo tỷ lệ sử dụng năng lực.",
+  },
+  {
+    code: "VT-02",
+    description: "Người chịu trách nhiệm một hoặc nhiều dự án từ lúc khởi động tới lúc đóng.",
+    goal: "Giao dự án đúng hạn và trong ngân sách giờ công đã đặt.",
+    limitations: "Chỉ thấy dữ liệu của dự án mình phụ trách và không tự phân bổ nhân sự ngoài bộ phận.",
+    name: "Quản lý dự án",
+    permissions: "Tạo và cập nhật dự án, chia cây công việc, giao việc, đặt ngân sách giờ và duyệt bảng chấm công.",
+    scopeData: "Dự án được giao, công việc, phân bổ và giờ làm thực tế của dự án đó.",
+  },
+  {
+    code: "VT-03",
+    description: "Trưởng bộ phận chuyên môn, người nắm nhân sự và quyết định ai làm dự án nào.",
+    goal: "Bố trí đúng người vào đúng dự án mà không để ai quá tải hay ngồi không.",
+    limitations: "Không sửa nội dung chuyên môn của dự án và không xem dữ liệu bộ phận khác.",
+    name: "Quản lý nguồn lực",
+    permissions: "Phân bổ nhân sự theo tuần, giữ chỗ nguồn lực, chạy kịch bản mô phỏng và duyệt nghỉ phép.",
+    scopeData: "Hồ sơ năng lực, lịch phân bổ, ngày nghỉ và mức độ quá tải của nhân sự thuộc bộ phận.",
+  },
+  {
+    code: "VT-04",
+    description: "Người trực tiếp thực hiện công việc của dự án và ghi nhận giờ làm.",
+    goal: "Nắm rõ tuần tới mình được phân bổ vào việc gì và ghi đúng giờ đã làm.",
+    limitations: "Không xem lịch phân bổ chi tiết của người khác và không tự thay đổi phân bổ.",
+    name: "Nhân viên chuyên môn",
+    permissions: "Xem việc được giao và lịch phân bổ của mình, ghi và nộp bảng chấm công, gửi đơn nghỉ phép, khai báo kỹ năng.",
+    scopeData: "Công việc được giao, lịch phân bổ, giờ làm và đơn nghỉ phép của chính mình.",
+  },
+  {
+    code: "VT-05",
+    description: "Người quản lý hồ sơ nhân sự, hợp đồng lao động, lịch làm việc và ngày lễ.",
+    goal: "Giữ dữ liệu nhân sự và lịch nghỉ luôn đúng để hệ thống tính năng lực chính xác.",
+    limitations: "Không tham gia điều hành dự án và không phân bổ nhân sự.",
+    name: "Nhân sự",
+    permissions: "Khai báo hồ sơ nhân sự, giờ làm việc chuẩn, lịch làm việc và danh sách ngày lễ.",
+    scopeData: "Hồ sơ nhân sự, giờ chuẩn, đơn nghỉ phép và lịch làm việc toàn đơn vị.",
+  },
+  {
+    code: "VT-06",
+    description: "Người quản trị hệ thống, tài khoản, cây tổ chức và phân quyền.",
+    goal: "Bảo đảm mỗi người chỉ thấy đúng phần dữ liệu thuộc thẩm quyền của mình.",
+    limitations: "Không tham gia nghiệp vụ dự án và không phân bổ nhân sự.",
+    name: "Quản trị viên",
+    permissions: "Tạo và khóa tài khoản, khai báo cây tổ chức, gán vai trò và xem toàn bộ nhật ký truy cập.",
+    scopeData: "Tài khoản, vai trò, quyền hạn, cây tổ chức và nhật ký truy cập.",
+  },
+];
 
 /**
  * Minimal tree-shaped demonstration data. It deliberately has no manager,
@@ -32,7 +79,7 @@ export const DEMO_ORG_UNIT_TREE = [
     treePath: "/9000/",
     level: 0,
     status: "ACTIVE",
-    description: null,
+    description: "Trụ sở điều hành toàn công ty",
     managerId: null,
     children: [
       {
@@ -44,7 +91,7 @@ export const DEMO_ORG_UNIT_TREE = [
         treePath: "/9000/9001/",
         level: 1,
         status: "ACTIVE",
-        description: null,
+        description: "Điều hành quản trị và nhân sự vận hành",
         managerId: null,
         children: [
           {
@@ -56,7 +103,7 @@ export const DEMO_ORG_UNIT_TREE = [
             treePath: "/9000/9001/9003/",
             level: 2,
             status: "ACTIVE",
-            description: null,
+            description: "Quản lý tuyển dụng, hồ sơ nhân sự và chế độ phúc lợi",
             managerId: null,
             children: [],
           },
@@ -71,7 +118,7 @@ export const DEMO_ORG_UNIT_TREE = [
         treePath: "/9000/9002/",
         level: 1,
         status: "ACTIVE",
-        description: null,
+        description: "Khối nghiên cứu phát triển và công nghệ thông tin",
         managerId: null,
         children: [
           {
@@ -83,7 +130,7 @@ export const DEMO_ORG_UNIT_TREE = [
             treePath: "/9000/9002/9004/",
             level: 2,
             status: "ACTIVE",
-            description: null,
+            description: "Đội ngũ kỹ thuật phần mềm và kiến trúc hạ tầng",
             managerId: null,
             children: [],
           },
@@ -93,45 +140,90 @@ export const DEMO_ORG_UNIT_TREE = [
   },
 ] as const satisfies readonly OrgUnitTreeNode[];
 
-/** Clearly labeled UI fixtures; these are not accounts in the backend. */
-export const DEMO_USERS = [
+/** Clearly labeled UI fixtures; representing each of the 6 official roles. */
+export const DEMO_USERS: readonly User[] = [
   {
-    id: 10001,
-    username: "minh.anh",
-    roleCode: "VT-06",
-    roleName: "Quản trị viên",
-    status: "ACTIVE",
+    dataScope: "COMPANY",
+    email: "minh.anh@company.com",
     employeeId: 20001,
     fullName: "Nguyễn Minh Anh",
+    id: 10001,
     orgUnitId: 9000,
     orgUnitName: "Công ty",
-    dataScope: "COMPANY",
+    roleCode: "VT-06",
+    roleName: "Quản trị viên",
     scopeOrgUnitId: null,
+    status: "ACTIVE",
+    username: "minh.anh",
   },
   {
-    id: 10002,
-    username: "quoc.huy",
-    roleCode: "VT-03",
-    roleName: "Quản lý nguồn lực",
-    status: "ACTIVE",
+    dataScope: "COMPANY",
+    email: "hoang.nam@company.com",
     employeeId: 20002,
-    fullName: "Trần Quốc Huy",
+    fullName: "Phạm Hoàng Nam",
+    id: 10002,
+    orgUnitId: 9000,
+    orgUnitName: "Công ty",
+    roleCode: "VT-01",
+    roleName: "Ban giám đốc",
+    scopeOrgUnitId: null,
+    status: "ACTIVE",
+    username: "hoang.nam",
+  },
+  {
+    dataScope: "ORGANIZATION_BRANCH",
+    email: "duc.thanh@company.com",
+    employeeId: 20003,
+    fullName: "Vũ Đức Thành",
+    id: 10003,
     orgUnitId: 9002,
     orgUnitName: "Khối Công nghệ",
-    dataScope: "ORGANIZATION_BRANCH",
+    roleCode: "VT-02",
+    roleName: "Quản lý dự án",
     scopeOrgUnitId: 9002,
+    status: "ACTIVE",
+    username: "duc.thanh",
   },
   {
-    id: 10003,
-    username: "ngoc.mai",
-    roleCode: "VT-07",
-    roleName: "Nhân viên công ty",
-    status: "LOCKED",
-    employeeId: 20003,
+    dataScope: "ORGANIZATION_BRANCH",
+    email: "quoc.huy@company.com",
+    employeeId: 20004,
+    fullName: "Trần Quốc Huy",
+    id: 10004,
+    orgUnitId: 9002,
+    orgUnitName: "Khối Công nghệ",
+    roleCode: "VT-03",
+    roleName: "Quản lý nguồn lực",
+    scopeOrgUnitId: 9002,
+    status: "ACTIVE",
+    username: "quoc.huy",
+  },
+  {
+    dataScope: "SELF",
+    email: "van.an@company.com",
+    employeeId: 20005,
+    fullName: "Đỗ Văn An",
+    id: 10005,
+    orgUnitId: 9004,
+    orgUnitName: "Nhóm Nền tảng",
+    roleCode: "VT-04",
+    roleName: "Nhân viên chuyên môn",
+    scopeOrgUnitId: null,
+    status: "ACTIVE",
+    username: "van.an",
+  },
+  {
+    dataScope: "COMPANY",
+    email: "ngoc.mai@company.com",
+    employeeId: 20006,
     fullName: "Lê Ngọc Mai",
+    id: 10006,
     orgUnitId: 9003,
     orgUnitName: "Phòng Nhân sự",
-    dataScope: "SELF",
+    roleCode: "VT-05",
+    roleName: "Nhân sự",
     scopeOrgUnitId: null,
+    status: "LOCKED",
+    username: "ngoc.mai",
   },
-] as const satisfies readonly User[];
+];
