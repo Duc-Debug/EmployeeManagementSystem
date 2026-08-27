@@ -5,8 +5,10 @@ import com.hrm.employeemanagement.application.dto.user.ChangePasswordCommand;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.dto.user.RequestPasswordResetCommand;
 import com.hrm.employeemanagement.application.dto.user.ResetPasswordCommand;
+import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -23,6 +25,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +39,7 @@ public class AuthController {
     private final ChangePasswordUseCase changePasswordUseCase;
     private final RequestPasswordResetUseCase requestPasswordResetUseCase;
     private final ResetPasswordUseCase resetPasswordUseCase;
+    private final GetCurrentUserProfileUseCase getCurrentUserProfileUseCase;
     private final LoginRateLimiter loginRateLimiter;
     private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
 
@@ -43,14 +47,26 @@ public class AuthController {
                           ChangePasswordUseCase changePasswordUseCase,
                           RequestPasswordResetUseCase requestPasswordResetUseCase,
                           ResetPasswordUseCase resetPasswordUseCase,
+                          GetCurrentUserProfileUseCase getCurrentUserProfileUseCase,
                           LoginRateLimiter loginRateLimiter,
                           ForgotPasswordRateLimiter forgotPasswordRateLimiter) {
         this.authenticateUserUseCase = authenticateUserUseCase;
         this.changePasswordUseCase = changePasswordUseCase;
         this.requestPasswordResetUseCase = requestPasswordResetUseCase;
         this.resetPasswordUseCase = resetPasswordUseCase;
+        this.getCurrentUserProfileUseCase = getCurrentUserProfileUseCase;
         this.loginRateLimiter = loginRateLimiter;
         this.forgotPasswordRateLimiter = forgotPasswordRateLimiter;
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResult>> getCurrentUser(@AuthenticationPrincipal User currentUser) {
+        if (currentUser == null || currentUser.getIdValue() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Bạn cần đăng nhập để xem thông tin"));
+        }
+        UserResult userResult = getCurrentUserProfileUseCase.getCurrentUserProfile(currentUser.getIdValue());
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin người dùng thành công", userResult));
     }
 
     @PostMapping("/login")

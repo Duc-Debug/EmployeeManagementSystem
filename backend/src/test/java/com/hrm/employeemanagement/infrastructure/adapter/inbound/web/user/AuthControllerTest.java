@@ -5,6 +5,7 @@ import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -45,6 +46,8 @@ class AuthControllerTest {
     private RequestPasswordResetUseCase requestPasswordResetUseCase;
     @Mock
     private ResetPasswordUseCase resetPasswordUseCase;
+    @Mock
+    private GetCurrentUserProfileUseCase getCurrentUserProfileUseCase;
 
     @BeforeEach
     void setUp() {
@@ -53,10 +56,12 @@ class AuthControllerTest {
                 changePasswordUseCase,
                 requestPasswordResetUseCase,
                 resetPasswordUseCase,
+                getCurrentUserProfileUseCase,
                 new LoginRateLimiter(),
                 new ForgotPasswordRateLimiter()
         );
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
+                .setCustomArgumentResolvers(new org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver())
                 .setControllerAdvice(new UserExceptionHandler())
                 .build();
     }
@@ -192,5 +197,13 @@ class AuthControllerTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("quá nhiều lần")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/auth/me trả về 401 khi chưa đăng nhập")
+    void testGetCurrentUser_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
     }
 }
