@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common;
 import com.hrm.employeemanagement.domain.exception.DomainException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
@@ -63,6 +64,17 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 HttpStatus.NOT_FOUND.value());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler({EmployeeVersionConflictException.class,
+            org.springframework.orm.ObjectOptimisticLockingFailureException.class,
+            jakarta.persistence.OptimisticLockException.class})
+    public ResponseEntity<ErrorResponse> handleOptimisticLocking(Exception ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "EMPLOYEE_VERSION_CONFLICT",
+                "Hồ sơ nhân sự đã được cập nhật bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại.",
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     @ExceptionHandler(PermissionDeniedException.class)

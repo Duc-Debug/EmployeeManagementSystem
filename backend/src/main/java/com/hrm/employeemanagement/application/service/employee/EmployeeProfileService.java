@@ -18,6 +18,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.employee.InvalidEmployeeDataException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
@@ -79,6 +80,11 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
         Employee employee = loadEmployeePort.findById(new EmployeeId(command.employeeId()))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự"));
 
+        if (!Objects.equals(command.version(), employee.getVersion())) {
+            throw new EmployeeVersionConflictException(
+                    "Hồ sơ nhân sự đã được cập nhật bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại.");
+        }
+
         requireEmployeeInScope(currentUser, employee, PermissionCode.EMPLOYEE_UPDATE);
         requireOrgUnitInScope(currentUser, command.orgUnitId(), employee, PermissionCode.EMPLOYEE_UPDATE);
         requireActiveOrgUnit(command.orgUnitId());
@@ -117,8 +123,10 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
         boolean allowed = switch (currentUser.getDataScope()) {
             case COMPANY -> true;
             case SELF -> currentUser.getIdValue().equals(employee.getUserIdValue());
-            case ORGANIZATION_BRANCH -> loadOrgUnitPort.existsInOrgUnitBranch(
-                    employee.getOrgUnitId(), currentUser.getScopeOrgUnitId());
+            case ORGANIZATION_BRANCH -> employee.getOrgUnitId() != null
+                    && currentUser.getScopeOrgUnitId() != null
+                    && loadOrgUnitPort.existsInOrgUnitBranch(
+                            employee.getOrgUnitId(), currentUser.getScopeOrgUnitId());
         };
         if (!allowed) {
             throw new PermissionDeniedException(permission);
@@ -132,8 +140,9 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
             case SELF -> existingEmployee != null
                     && currentUser.getIdValue().equals(existingEmployee.getUserIdValue())
                     && orgUnitId.equals(existingEmployee.getOrgUnitId());
-            case ORGANIZATION_BRANCH -> loadOrgUnitPort.existsInOrgUnitBranch(
-                    orgUnitId, currentUser.getScopeOrgUnitId());
+            case ORGANIZATION_BRANCH -> currentUser.getScopeOrgUnitId() != null
+                    && loadOrgUnitPort.existsInOrgUnitBranch(
+                            orgUnitId, currentUser.getScopeOrgUnitId());
         };
         if (!allowed) {
             throw new PermissionDeniedException(permission);

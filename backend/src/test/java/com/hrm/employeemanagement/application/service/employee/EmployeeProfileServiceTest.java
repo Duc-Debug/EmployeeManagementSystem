@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.employee.InvalidEmployeeDataException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -146,6 +147,24 @@ class EmployeeProfileServiceTest {
     }
 
     @Test
+    @DisplayName("Từ chối cập nhật khi phiên bản hồ sơ đã thay đổi")
+    void updateProfile_StaleVersion_ThrowsConflict() {
+        UpdateEmployeeProfileCommand command = new UpdateEmployeeProfileCommand(
+                100L, 2L, "Nguyễn Văn B", "Senior Developer", null, null, 40, 1L
+        );
+        Employee existing = new Employee(
+                new EmployeeId(100L), new UserId(10L), 1L, "EMP001", "Nguyễn Văn A",
+                null, null, null, false, 40,
+                com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE, 2L
+        );
+        when(loadEmployeePort.findById(new EmployeeId(100L))).thenReturn(Optional.of(existing));
+
+        assertThrows(EmployeeVersionConflictException.class,
+                () -> employeeProfileService.execute(command));
+        verify(saveEmployeePort, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Từ chối đọc hồ sơ nằm ngoài phạm vi chi nhánh")
     void getById_OutsideOrganizationBranch_ThrowsPermissionDenied() {
         Employee employee = new Employee(
@@ -159,5 +178,34 @@ class EmployeeProfileServiceTest {
         assertThrows(PermissionDeniedException.class,
                 () -> employeeProfileService.getById(100L));
         verify(saveEmployeePort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Từ chối truy cập phạm vi chi nhánh khi người dùng chưa có scopeOrgUnitId")
+    void getById_OrganizationBranchWithoutScopeOrgUnit_DeniesWithoutQueryingBranch() {
+        Employee employee = new Employee(
+                new EmployeeId(100L), new UserId(10L), 20L, "EMP001", "Nguyễn Văn A",
+                false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(currentUser.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(currentUser.getScopeOrgUnitId()).thenReturn(null);
+        when(loadEmployeePort.findById(new EmployeeId(100L))).thenReturn(Optional.of(employee));
+
+        assertThrows(PermissionDeniedException.class,
+                () -> employeeProfileService.getById(100L));
+        verify(loadOrgUnitPort, never()).existsInOrgUnitBranch(any(), any());
+    }
+
+    @Test
+    @DisplayName("Từ chối truy cập phạm vi chi nhánh khi hồ sơ chưa có orgUnitId")
+    void getById_EmployeeWithoutOrgUnit_DeniesWithoutQueryingBranch() {
+        Employee employee = new Employee(
+                new EmployeeId(100L), new UserId(10L), null, "EMP001", "Nguyễn Văn A",
+                false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(currentUser.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(loadEmployeePort.findById(new EmployeeId(100L))).thenReturn(Optional.of(employee));
+
+        assertThrows(PermissionDeniedException.class,
+                () -> employeeProfileService.getById(100L));
+        verify(loadOrgUnitPort, never()).existsInOrgUnitBranch(any(), any());
     }
 }
