@@ -10,6 +10,7 @@ public enum PermissionCode {
     ORG_UNIT_READ,
 
     PROJECT_READ,
+    PROJECT_CREATE,
 
     EMPLOYEE_READ,
     EMPLOYEE_UPDATE
