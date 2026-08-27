@@ -8,8 +8,9 @@ import { Dialog } from "@/components/ui/Dialog";
 import { FormField } from "@/components/ui/FormField";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
-import { clearDemoSession, readDemoSession, saveDemoSession, type DemoSession } from "@/lib/demo-session";
-import { DEMO_USERS } from "@/src/mocks/hrm";
+import { clearAuthSession, getAuthToken, getStoredUser, useAuthUser } from "@/lib/auth-session";
+import { getCurrentUser, changePassword, logout } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api-client";
 
 interface NavItem {
   badge?: string;
@@ -45,27 +46,19 @@ interface NotificationItem {
 
 const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
-    desc: "Tài khoản minh.anh đã được cấu hình DataScope: Toàn công ty.",
-    icon: "shield",
-    id: "notif-1",
-    time: "5 phút trước",
-    title: "Phân quyền cập nhật",
-    unread: true,
-  },
-  {
     desc: "Cấu trúc 4 cấp đơn vị tổ chức đã được đồng bộ thành công.",
     icon: "organization",
-    id: "notif-2",
-    time: "25 phút trước",
+    id: "notif-1",
+    time: "5 phút trước",
     title: "Cơ cấu tổ chức",
     unread: true,
   },
   {
-    desc: "Hệ thống NexusHRM đã cập nhật giao diện Modern SaaS mới.",
-    icon: "sparkles",
-    id: "notif-3",
-    time: "2 giờ trước",
-    title: "Nâng cấp giao diện",
+    desc: "Hệ thống NexusHRM hoạt động ở chế độ kết nối dữ liệu trực tiếp.",
+    icon: "shield",
+    id: "notif-2",
+    time: "25 phút trước",
+    title: "Bảo mật hệ thống",
     unread: false,
   },
 ];
@@ -73,6 +66,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [isDesktopNavigation, setIsDesktopNavigation] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -88,6 +82,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changePasswordSuccess, setChangePasswordSuccess] = useState(false);
   const [changePasswordError, setChangePasswordError] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const firstNavigationLinkRef = useRef<HTMLAnchorElement>(null);
@@ -95,12 +90,36 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const topbarUserDropdownRef = useRef<HTMLDivElement>(null);
   const sidebarUserDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [user, setUser] = useState<DemoSession>(() => {
-    if (typeof window === "undefined") {
-      return DEFAULT_USER_SESSION;
+  const authUser = useAuthUser();
+
+  // Auth Guard: Enforce login if token is missing & sync profile
+  useEffect(() => {
+    let isMounted = true;
+    const token = getAuthToken();
+
+    if (!token) {
+      router.replace("/login");
+      return;
     }
-    return readDemoSession();
-  });
+
+    getCurrentUser()
+      .then(() => {
+        if (isMounted) setIsAuthChecking(false);
+      })
+      .catch((err) => {
+        const storedUser = getStoredUser();
+        if (storedUser && !(err instanceof ApiError && (err.status === 401 || err.status === 403))) {
+          if (isMounted) setIsAuthChecking(false);
+        } else {
+          clearAuthSession();
+          router.replace("/login");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   useLayoutEffect(() => {
     const desktopQuery = window.matchMedia("(min-width: 60rem)");
@@ -164,25 +183,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }
 
   function handleLogout() {
-    clearDemoSession();
-    router.push("/login");
-  }
-
-  function handleSwitchUser(demoUsername: string) {
-    const selected = DEMO_USERS.find((u) => u.username === demoUsername);
-    if (selected) {
-      const newSession: DemoSession = {
-        fullName: selected.fullName,
-        roleCode: selected.roleCode,
-        roleName: selected.roleName,
-        username: selected.username,
-      };
-      saveDemoSession(newSession);
-      setUser(newSession);
-      setIsTopbarUserMenuOpen(false);
-      setIsSidebarUserMenuOpen(false);
-      window.location.reload();
-    }
+    logout();
   }
 
   function handleMarkAllAsRead() {
@@ -195,7 +196,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     );
   }
 
-  function handleChangePasswordSubmit(e: React.FormEvent) {
+  async function handleChangePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     setChangePasswordError("");
     if (!oldPassword) {
@@ -211,141 +212,165 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       return;
     }
 
-    setChangePasswordSuccess(true);
-    setTimeout(() => {
-      setIsChangePasswordOpen(false);
-      setChangePasswordSuccess(false);
-      setOldPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    }, 1500);
+    try {
+      setIsChangingPassword(true);
+      await changePassword({
+        confirmPassword,
+        currentPassword: oldPassword,
+        newPassword,
+      });
+      setChangePasswordSuccess(true);
+      setTimeout(() => {
+        setIsChangePasswordOpen(false);
+        setChangePasswordSuccess(false);
+        setOldPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setIsChangingPassword(false);
+      }, 1500);
+    } catch (err) {
+      setIsChangingPassword(false);
+      if (err instanceof ApiError) {
+        setChangePasswordError(err.message);
+      } else {
+        setChangePasswordError("Đổi mật khẩu thất bại. Vui lòng thử lại.");
+      }
+    }
   }
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
-  return (
-    <div className={`app-shell ${isCollapsed ? "app-shell--collapsed" : ""}`}>
-      {isNavigationOpen ? (
-        <button
-          aria-label="Đóng menu điều hướng"
-          className="side-nav-backdrop is-visible"
-          onClick={() => closeNavigation()}
-          type="button"
-        />
-      ) : null}
-      <aside
-        aria-hidden={isDesktopNavigation || isNavigationOpen ? undefined : true}
-        className={`side-nav ${isCollapsed ? "side-nav--collapsed" : ""} ${isNavigationOpen ? "is-open" : ""}`}
-        inert={isDesktopNavigation || isNavigationOpen ? undefined : true}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            closeNavigation();
-          }
+  if (isAuthChecking && !authUser) {
+    return (
+      <div
+        className="auth-loading-screen"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          gap: "1rem",
+          color: "var(--color-text-secondary, #6b7280)",
         }}
+      >
+        <Icon name="spinner" />
+        <span>Đang xác thực phiên làm việc...</span>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return null;
+  }
+
+  const user = authUser;
+
+  return (
+    <div className="app-shell">
+      <button
+        aria-label="Đóng menu điều hướng"
+        className={`side-nav-backdrop ${isNavigationOpen ? "is-visible" : ""}`}
+        onClick={() => closeNavigation(false)}
+        type="button"
+      />
+
+      <aside
+        aria-label="Thanh điều hướng bên cạnh"
+        className={`side-nav ${isNavigationOpen ? "is-open" : ""} ${isCollapsed ? "side-nav--collapsed" : ""}`}
       >
         <div className="side-nav__header">
           <div className="side-nav__brand">
-            <Logo size={34} theme="light" variant={isCollapsed ? "mark" : "full"} />
+            <Logo
+              size={isCollapsed ? 32 : 36}
+              theme="light"
+              variant={isCollapsed ? "mark" : "full"}
+            />
           </div>
+
           <button
-            aria-label={isCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
-            className="side-nav__toggle-btn"
+            aria-label={isCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+            className="icon-button side-nav__toggle-btn"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            title={isCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            title={isCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
             type="button"
           >
             <Icon name="menu" />
           </button>
         </div>
 
-        <nav aria-label="Điều hướng chính" className="side-nav__menu">
-          {navSections.map((section, sIdx) => (
+        <nav aria-label="Thanh điều hướng chính" className="side-nav__menu">
+          {navSections.map((section, sectionIndex) => (
             <div className="side-nav__section" key={section.title}>
-              <span className="side-nav__section-title">{section.title}</span>
-              <div className="side-nav__links">
-                {section.items.map((item, itemIdx) => {
-                  const isCurrent = pathname === item.href;
+              {!isCollapsed && <span className="side-nav__section-title">{section.title}</span>}
+              <ul className="side-nav__links" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                {section.items.map((item, itemIndex) => {
+                  const isActive = pathname === item.href;
                   return (
-                    <Link
-                      aria-current={isCurrent ? "page" : undefined}
-                      className={isCurrent ? "side-nav__link is-current" : "side-nav__link"}
-                      href={item.href}
-                      key={item.href}
-                      onClick={() => closeNavigation(false)}
-                      ref={sIdx === 0 && itemIdx === 0 ? firstNavigationLinkRef : undefined}
-                      title={item.label}
-                    >
-                      <span className="side-nav__link-icon">
-                        <Icon name={item.icon} />
-                      </span>
-                      <span className="side-nav__link-label">{item.label}</span>
-                      {item.badge ? (
-                        <span className="side-nav__link-badge">{item.badge}</span>
-                      ) : null}
-                    </Link>
+                    <li key={item.href} style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                      <Link
+                        aria-current={isActive ? "page" : undefined}
+                        className={`side-nav__link ${isActive ? "is-current" : ""}`}
+                        href={item.href}
+                        onClick={() => {
+                          if (!isDesktopNavigation) {
+                            closeNavigation();
+                          }
+                        }}
+                        ref={sectionIndex === 0 && itemIndex === 0 ? firstNavigationLinkRef : undefined}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        <span className="side-nav__link-icon">
+                          <Icon name={item.icon} />
+                        </span>
+                        {!isCollapsed && <span className="side-nav__link-label">{item.label}</span>}
+                        {item.badge && !isCollapsed && <span className="side-nav__link-badge">{item.badge}</span>}
+                      </Link>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </div>
           ))}
         </nav>
 
-        {/* Sidebar Footer with interactive user dropdown */}
-        <div className="side-nav__footer dropdown-container sidebar-user-dropdown-container" ref={sidebarUserDropdownRef}>
+        {/* Sidebar Footer User Info & Menu Container */}
+        <div className="side-nav__footer dropdown-container" ref={sidebarUserDropdownRef}>
           <button
-            className={`session-card session-card--interactive ${isSidebarUserMenuOpen ? "is-active" : ""}`}
+            aria-expanded={isSidebarUserMenuOpen}
+            aria-haspopup="true"
+            aria-label="Tùy chọn tài khoản"
+            className={`session-card ${isSidebarUserMenuOpen ? "is-active" : ""}`}
             onClick={() => {
               setIsSidebarUserMenuOpen((prev) => !prev);
-              setIsTopbarUserMenuOpen(false);
               setIsNotificationOpen(false);
+              setIsTopbarUserMenuOpen(false);
             }}
-            title={`${user.fullName} (${user.roleName}) - Nhấp để xem tùy chọn`}
             type="button"
           >
             <div className="session-card__avatar">
-              <span aria-hidden="true" className="avatar avatar--small">{user.fullName.slice(0, 1)}</span>
+              <span aria-hidden="true" className="avatar avatar--small">{(user.fullName || user.username || "U").slice(0, 1).toUpperCase()}</span>
               <span className="session-card__status-dot" />
             </div>
-            <div className="session-card__info">
-              <strong>{user.fullName}</strong>
-              <div className="session-card__role">
+            {!isCollapsed && (
+              <div className="session-card__info">
+                <strong>{user.fullName || user.username}</strong>
                 <span className="role-chip">{user.roleName}</span>
               </div>
-            </div>
+            )}
           </button>
 
           {isSidebarUserMenuOpen && (
-            <div className="dropdown-menu user-dropdown sidebar-user-dropdown">
+            <div className="dropdown-menu user-dropdown side-nav__user-dropdown">
               <div className="user-dropdown__header">
                 <div className="user-dropdown__avatar">
-                  <span className="avatar avatar--large">{user.fullName.slice(0, 1)}</span>
+                  <span className="avatar avatar--large">{(user.fullName || user.username || "U").slice(0, 1).toUpperCase()}</span>
                   <span className="user-dropdown__online" />
                 </div>
                 <div className="user-dropdown__details">
-                  <strong>{user.fullName}</strong>
+                  <strong>{user.fullName || user.username}</strong>
                   <span className="user-dropdown__username">@{user.username}</span>
                   <span className="role-chip">{user.roleName} ({user.roleCode})</span>
-                </div>
-              </div>
-
-              <div className="user-dropdown__section">
-                <span className="user-dropdown__section-title">Chuyển tài khoản thử nghiệm:</span>
-                <div className="user-dropdown__quick-users">
-                  {DEMO_USERS.map((demo) => (
-                    <button
-                      className={`quick-user-item ${demo.username === user.username ? "is-selected" : ""}`}
-                      key={demo.id}
-                      onClick={() => handleSwitchUser(demo.username)}
-                      type="button"
-                    >
-                      <span className="avatar avatar--xs">{demo.fullName.slice(0, 1)}</span>
-                      <div className="quick-user-item__info">
-                        <strong>{demo.fullName}</strong>
-                        <span>{demo.roleName}</span>
-                      </div>
-                      {demo.username === user.username && <Icon name="check" />}
-                    </button>
-                  ))}
                 </div>
               </div>
 
@@ -453,30 +478,23 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                           onClick={() => handleNotificationClick(notif.id)}
                           type="button"
                         >
-                          <span className="notification-item__icon">
+                          <div className="notification-item__icon">
                             <Icon name={notif.icon} />
-                          </span>
+                          </div>
                           <div className="notification-item__content">
                             <div className="notification-item__title">
-                              <strong>{notif.title}</strong>
-                              {notif.unread && <span className="unread-dot" />}
+                              <span>{notif.title}</span>
+                              <time>{notif.time}</time>
                             </div>
-                            <p>{notif.desc}</p>
-                            <time>{notif.time}</time>
+                            <p className="notification-item__desc">{notif.desc}</p>
                           </div>
                         </button>
                       ))
                     )}
                   </div>
-
-                  <div className="dropdown-footer">
-                    <span>Hệ thống NexusHRM v2.4</span>
-                  </div>
                 </div>
               )}
             </div>
-
-            <div className="topbar-divider" />
 
             {/* Topbar User Profile Dropdown Container */}
             <div className="dropdown-container" ref={topbarUserDropdownRef}>
@@ -492,9 +510,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 }}
                 type="button"
               >
-                <span aria-hidden="true" className="avatar avatar--small">{user.fullName.slice(0, 1)}</span>
+                <span aria-hidden="true" className="avatar avatar--small">{(user.fullName || user.username || "U").slice(0, 1).toUpperCase()}</span>
                 <div className="topbar-user__info">
-                  <strong>{user.fullName}</strong>
+                  <strong>{user.fullName || user.username}</strong>
                   <span className="topbar-user__role">{user.roleName}</span>
                 </div>
               </button>
@@ -503,34 +521,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 <div className="dropdown-menu user-dropdown">
                   <div className="user-dropdown__header">
                     <div className="user-dropdown__avatar">
-                      <span className="avatar avatar--large">{user.fullName.slice(0, 1)}</span>
+                      <span className="avatar avatar--large">{(user.fullName || user.username || "U").slice(0, 1).toUpperCase()}</span>
                       <span className="user-dropdown__online" />
                     </div>
                     <div className="user-dropdown__details">
-                      <strong>{user.fullName}</strong>
+                      <strong>{user.fullName || user.username}</strong>
                       <span className="user-dropdown__username">@{user.username}</span>
                       <span className="role-chip">{user.roleName} ({user.roleCode})</span>
-                    </div>
-                  </div>
-
-                  <div className="user-dropdown__section">
-                    <span className="user-dropdown__section-title">Chuyển tài khoản thử nghiệm:</span>
-                    <div className="user-dropdown__quick-users">
-                      {DEMO_USERS.map((demo) => (
-                        <button
-                          className={`quick-user-item ${demo.username === user.username ? "is-selected" : ""}`}
-                          key={demo.id}
-                          onClick={() => handleSwitchUser(demo.username)}
-                          type="button"
-                        >
-                          <span className="avatar avatar--xs">{demo.fullName.slice(0, 1)}</span>
-                          <div className="quick-user-item__info">
-                            <strong>{demo.fullName}</strong>
-                            <span>{demo.roleName}</span>
-                          </div>
-                          {demo.username === user.username && <Icon name="check" />}
-                        </button>
-                      ))}
                     </div>
                   </div>
 
@@ -579,8 +576,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             >
               Hủy
             </button>
-            <button className="button button--primary" form="change-password-form" type="submit">
-              Cập nhật mật khẩu
+            <button className="button button--primary" disabled={isChangingPassword} form="change-password-form" type="submit">
+              {isChangingPassword ? "Đang lưu..." : "Cập nhật mật khẩu"}
             </button>
           </>
         }
@@ -672,10 +669,3 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     </div>
   );
 }
-
-const DEFAULT_USER_SESSION: DemoSession = {
-  fullName: "Nguyễn Minh Anh",
-  roleCode: "VT-06",
-  roleName: "Quản trị viên",
-  username: "minh.anh",
-};

@@ -42,6 +42,8 @@ class OrgUnitControllerTest {
         @Mock
         private DeactivateOrgUnitUseCase deactivateOrgUnitUseCase;
         @Mock
+        private ActivateOrgUnitUseCase activateOrgUnitUseCase;
+        @Mock
         private GetOrgTreeUseCase getOrgTreeUseCase;
 
         @InjectMocks
@@ -82,9 +84,9 @@ class OrgUnitControllerTest {
         }
 
         @Test
-        @DisplayName("POST /api/v1/org-units should return HTTP 400 Bad Request when managerId is missing (TC-03)")
-        void shouldReturn400BadRequestWhenManagerIdIsMissing() throws Exception {
-                String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitName\":\"Khối Phát Triển\",\"unitType\":\"CENTER\",\"parentId\":1,\"description\":\"Mô tả\"}";
+        @DisplayName("POST /api/v1/org-units should return HTTP 400 Bad Request when unitName is missing")
+        void shouldReturn400BadRequestWhenUnitNameIsMissing() throws Exception {
+                String requestJson = "{\"unitCode\":\"DEV-CENTER\",\"unitType\":\"CENTER\",\"parentId\":1,\"description\":\"Mô tả\"}";
 
                 mockMvc.perform(post("/api/v1/org-units")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -158,11 +160,11 @@ class OrgUnitControllerTest {
         }
 
         @Test
-        @DisplayName("PUT /api/v1/org-units/{id} should return HTTP 400 Bad Request when managerId is missing")
-        void shouldReturn400BadRequestWhenUpdateManagerIdIsMissing() throws Exception {
+        @DisplayName("PUT /api/v1/org-units/{id} should return HTTP 400 Bad Request when unitName is missing")
+        void shouldReturn400BadRequestWhenUpdateUnitNameIsMissing() throws Exception {
                 mockMvc.perform(put("/api/v1/org-units/1")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"unitName\":\"New Name\",\"unitType\":\"DEPARTMENT\",\"description\":\"\"}"))
+                                .content("{\"unitType\":\"DEPARTMENT\",\"description\":\"\"}"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
         }
@@ -175,5 +177,45 @@ class OrgUnitControllerTest {
                                 .content("{\"unitName\":\"Test\",\"unitType\":\"CENTER\",\"managerId\":10}"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+        }
+
+        @Test
+        @DisplayName("PATCH /api/v1/org-units/{id}/activate should return HTTP 200 OK when activation succeeds")
+        void shouldReturn200OkWhenActivateOrgUnitIsValid() throws Exception {
+                OrgUnitResult result = new OrgUnitResult(
+                                2L, "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER,
+                                1L, "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
+                );
+
+                when(activateOrgUnitUseCase.execute(any())).thenReturn(result);
+
+                mockMvc.perform(patch("/api/v1/org-units/2/activate"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(2))
+                                .andExpect(jsonPath("$.status").value("ACTIVE"));
+        }
+
+        @Test
+        @DisplayName("PATCH /api/v1/org-units/{id}/activate should return HTTP 404 Not Found when unit does not exist")
+        void shouldReturn404NotFoundWhenActivateOrgUnitDoesNotExist() throws Exception {
+                when(activateOrgUnitUseCase.execute(any()))
+                                .thenThrow(new OrgUnitNotFoundException("Organizational unit not found with ID: 9999"));
+
+                mockMvc.perform(patch("/api/v1/org-units/9999/activate"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("ORG_UNIT_NOT_FOUND"))
+                                .andExpect(jsonPath("$.status").value(404));
+        }
+
+        @Test
+        @DisplayName("PATCH /api/v1/org-units/{id}/activate should return HTTP 400 Bad Request when parent is inactive")
+        void shouldReturn400BadRequestWhenActivateOrgUnitParentIsInactive() throws Exception {
+                when(activateOrgUnitUseCase.execute(any()))
+                                .thenThrow(new InactiveParentException("Cannot activate unit under an inactive parent unit"));
+
+                mockMvc.perform(patch("/api/v1/org-units/2/activate"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INACTIVE_PARENT_UNIT"))
+                                .andExpect(jsonPath("$.status").value(400));
         }
 }

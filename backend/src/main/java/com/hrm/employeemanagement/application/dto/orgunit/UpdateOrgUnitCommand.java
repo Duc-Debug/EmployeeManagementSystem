@@ -21,15 +21,12 @@ public record UpdateOrgUnitCommand(
         if (unitType == null) {
             throw RequiredFieldMissingException.of("Loại đơn vị (unitType)");
         }
-        if (managerId == null) {
-            throw RequiredFieldMissingException.of("Người quản lý (managerId)");
-        }
 
         if (id <= 0) {
             throw new IllegalArgumentException("ID đơn vị tổ chức phải lớn hơn 0");
         }
-        if (managerId <= 0) {
-            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        if (managerId != null && managerId <= 0) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) phải lớn hơn 0");
         }
         if (unitName.trim().length() > 255) {
             throw new IllegalArgumentException("Tên đơn vị không được vượt quá 255 ký tự");
