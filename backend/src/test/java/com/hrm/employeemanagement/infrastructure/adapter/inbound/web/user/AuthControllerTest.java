@@ -9,8 +9,16 @@ import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserPr
 import com.hrm.employeemanagement.application.port.inbound.user.LogoutUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
+import com.hrm.employeemanagement.application.dto.user.UserResult;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.UserStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ForgotPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
@@ -258,5 +266,32 @@ class AuthControllerTest {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/auth/me trả về 200 OK và thông tin user khi đã đăng nhập thành công")
+    void testGetCurrentUser_Authenticated_Returns200OK() throws Exception {
+        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(10L));
+
+        UserResult userResult = new UserResult(1L, "admin", "VT-06", "Quản trị viên", UserStatus.ACTIVE, 10L, "Admin User", 1L, "Phòng IT", com.hrm.employeemanagement.domain.authorization.DataScope.COMPANY, null);
+        when(getCurrentUserProfileUseCase.getCurrentUserProfile(1L)).thenReturn(userResult);
+
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(user, null, java.util.Collections.emptyList())
+        );
+
+        try {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/me"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.id").value(1L))
+                    .andExpect(jsonPath("$.data.username").value("admin"))
+                    .andExpect(jsonPath("$.data.roleCode").value("VT-06"));
+
+            verify(getCurrentUserProfileUseCase, times(1)).getCurrentUserProfile(1L);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }
