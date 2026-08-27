@@ -201,6 +201,7 @@ export function UsersWorkspace() {
 
       try {
         const created = await createUser({
+          email: draft.email.trim() || undefined,
           employeeCode: draft.employeeCode.trim() || undefined,
           fullName: draft.fullName.trim(),
           orgUnitId: selectedOrgUnit.id,
@@ -460,7 +461,8 @@ export function UsersWorkspace() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th scope="col">Tài khoản & Email</th>
+                      <th scope="col">Tài khoản</th>
+                      <th scope="col">Email</th>
                       <th scope="col">Vai trò (Role)</th>
                       <th scope="col">Đơn vị tổ chức</th>
                       <th scope="col">Phạm vi dữ liệu</th>
@@ -605,6 +607,7 @@ function UserActions({ onEdit, onRequestLock, onUnlock, user }: UserActionProps)
 
 function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps) {
   const displayName = user.fullName || user.username || "Người dùng";
+  const displayEmail = user.email || `${user.username}@company.com`;
   return (
     <tr className="user-table-row">
       <td>
@@ -616,10 +619,12 @@ function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps
             <strong>{displayName}</strong>
             <div className="table-person__meta">
               <span className="table-person__username">@{user.username}</span>
-              {user.email && <span className="table-person__email">· {user.email}</span>}
             </div>
           </div>
         </div>
+      </td>
+      <td>
+        <span className="table-email">{displayEmail}</span>
       </td>
       <td>
         <RoleBadge code={user.roleCode} name={user.roleName} />
@@ -645,6 +650,7 @@ function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps
 
 function UserRecordCard({ onEdit, onRequestLock, onUnlock, user }: UserActionProps) {
   const displayName = user.fullName || user.username || "Người dùng";
+  const displayEmail = user.email || `${user.username}@company.com`;
   return (
     <article className="record-card">
       <div className="record-card__header">
@@ -656,13 +662,13 @@ function UserRecordCard({ onEdit, onRequestLock, onUnlock, user }: UserActionPro
             <strong>{displayName}</strong>
             <div className="table-person__meta">
               <span className="table-person__username">@{user.username}</span>
-              {user.email && <span className="table-person__email">· {user.email}</span>}
             </div>
           </div>
         </div>
         <StatusBadge status={user.status} />
       </div>
       <dl className="record-card__facts">
+        <div><dt>Email</dt><dd>{displayEmail}</dd></div>
         <div><dt>Vai trò</dt><dd><RoleBadge code={user.roleCode} name={user.roleName} /></dd></div>
         <div><dt>Phạm vi</dt><dd><ScopeBadge scope={user.dataScope} /></dd></div>
         <div><dt>Đơn vị</dt><dd>{user.orgUnitName ?? "Chưa gán đơn vị"}</dd></div>

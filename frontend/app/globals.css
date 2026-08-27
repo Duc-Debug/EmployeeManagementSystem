@@ -1911,6 +1911,11 @@ button:active {
   font-size: 0.6875rem;
 }
 
+.table-email {
+  color: #475569;
+  font-size: 0.75rem;
+}
+
 .table-org-cell {
   display: flex;
   align-items: center;
