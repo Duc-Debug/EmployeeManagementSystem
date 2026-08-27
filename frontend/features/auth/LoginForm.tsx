@@ -61,11 +61,15 @@ export function LoginForm() {
     setSubmitError("");
 
     try {
-      await login({
+      const authUser = await login({
         password,
         username: username.trim(),
       });
-      window.location.href = "/users";
+      if (authUser.roleCode === "VT-06") {
+        window.location.href = "/users";
+      } else {
+        window.location.href = "/organization";
+      }
     } catch (err) {
       setIsLoading(false);
       if (err instanceof ApiError) {
