@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.hrm.employeemanagement.application.dto.skill.*;
 import com.hrm.employeemanagement.application.port.inbound.skill.*;
 import com.hrm.employeemanagement.domain.exception.skill.*;
+import com.hrm.employeemanagement.domain.skill.SkillStatus;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -124,5 +125,25 @@ class SkillControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].name").value("Java"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/skills?status=ACTIVE trả về 200 OK")
+    void shouldReturn200WhenSkillStatusIsValidEnum() throws Exception {
+        SkillResult item = new SkillResult(1L, 1L, "Backend", "Java", "Desc", "ACTIVE", null, LocalDateTime.now(), null);
+        when(getSkillListUseCase.execute(null, SkillStatus.ACTIVE, null)).thenReturn(List.of(item));
+
+        mockMvc.perform(get("/api/v1/skills?status=ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/skills?status=ABC trả về 400 Bad Request khi truyền enum không hợp lệ")
+    void shouldReturn400WhenSkillStatusIsInvalidEnum() throws Exception {
+        mockMvc.perform(get("/api/v1/skills?status=ABC"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
     }
 }

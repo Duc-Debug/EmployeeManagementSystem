@@ -11,6 +11,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.hrm.employeemanagement.application.dto.skill.*;
 import com.hrm.employeemanagement.application.port.inbound.skill.*;
+import com.hrm.employeemanagement.domain.skill.SkillStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.skill.dto.*;
 
 import jakarta.validation.Valid;
@@ -55,7 +56,7 @@ public class SkillController {
     @GetMapping
     public ResponseEntity<List<SkillResponse>> getSkills(
             @RequestParam(required = false) Long groupId,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) SkillStatus status,
             @RequestParam(required = false) String keyword) {
         List<SkillResult> results = getSkillListUseCase.execute(groupId, status, keyword);
         return ResponseEntity.ok(results.stream().map(SkillResponse::fromResult).toList());

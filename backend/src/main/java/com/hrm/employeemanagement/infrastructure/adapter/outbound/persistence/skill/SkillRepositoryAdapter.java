@@ -53,8 +53,8 @@ public class SkillRepositoryAdapter implements
     }
 
     @Override
-    public List<Skill> findAll(Long groupId, String status, String keyword) {
-        return skillRepository.searchSkills(groupId, status, keyword).stream()
+    public List<Skill> findAll(Long groupId, SkillStatus status, String keyword) {
+        return skillRepository.searchSkills(groupId, status != null ? status.name() : null, keyword).stream()
                 .map(SkillPersistenceMapper::toDomain)
                 .collect(Collectors.toList());
     }
@@ -95,9 +95,7 @@ public class SkillRepositoryAdapter implements
             SkillJpaEntity saved = skillRepository.save(jpaEntity);
             return SkillPersistenceMapper.toDomain(saved);
         } catch (DataIntegrityViolationException ex) {
-            String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
-            String lowerMsg = rootMsg != null ? rootMsg.toLowerCase() : "";
-            if (lowerMsg.contains("uk_skills_name") || lowerMsg.contains("duplicate") || lowerMsg.contains("unique")) {
+            if (isDuplicateConstraintViolation(ex, "uk_skills_name")) {
                 throw new DuplicateSkillNameException("Tên kỹ năng '" + skill.getName() + "' đã tồn tại trong hệ thống.");
             }
             throw ex;
@@ -105,8 +103,13 @@ public class SkillRepositoryAdapter implements
     }
 
     @Override
-    public void reassignEmployeeSkills(Long sourceSkillId, Long targetSkillId) {
-        employeeSkillRepository.reassignEmployeeSkills(sourceSkillId, targetSkillId);
+    public int deleteDuplicateEmployeeSkills(Long sourceSkillId, Long targetSkillId) {
+        return employeeSkillRepository.deleteDuplicateEmployeeSkills(sourceSkillId, targetSkillId);
+    }
+
+    @Override
+    public int reassignEmployeeSkills(Long sourceSkillId, Long targetSkillId) {
+        return employeeSkillRepository.reassignEmployeeSkills(sourceSkillId, targetSkillId);
     }
 
     @Override
@@ -160,12 +163,39 @@ public class SkillRepositoryAdapter implements
             SkillGroupJpaEntity saved = skillGroupRepository.save(jpaEntity);
             return SkillPersistenceMapper.toDomain(saved);
         } catch (DataIntegrityViolationException ex) {
-            String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
-            String lowerMsg = rootMsg != null ? rootMsg.toLowerCase() : "";
-            if (lowerMsg.contains("uk_skill_groups_name") || lowerMsg.contains("duplicate") || lowerMsg.contains("unique")) {
+            if (isDuplicateConstraintViolation(ex, "uk_skill_groups_name")) {
                 throw new DuplicateSkillNameException("Tên nhóm kỹ năng '" + skillGroup.getName() + "' đã tồn tại trong hệ thống.");
             }
             throw ex;
         }
+    }
+
+    private boolean isDuplicateConstraintViolation(DataIntegrityViolationException ex, String constraintName) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                String cName = cve.getConstraintName();
+                if (cName != null && cName.equalsIgnoreCase(constraintName)) {
+                    return true;
+                }
+                String sqlState = cve.getSQLState();
+                if ("23505".equals(sqlState) && (cName == null || cName.equalsIgnoreCase(constraintName))) {
+                    return true;
+                }
+            }
+            if (current instanceof java.sql.SQLException sqlEx) {
+                String sqlState = sqlEx.getSQLState();
+                int errorCode = sqlEx.getErrorCode();
+                if ("23505".equals(sqlState) || errorCode == 1062) {
+                    String msg = sqlEx.getMessage() != null ? sqlEx.getMessage().toLowerCase() : "";
+                    if (msg.contains(constraintName.toLowerCase())) {
+                        return true;
+                    }
+                }
+            }
+            current = current.getCause();
+        }
+        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
+        return rootMsg != null && rootMsg.toLowerCase().contains(constraintName.toLowerCase());
     }
 }
