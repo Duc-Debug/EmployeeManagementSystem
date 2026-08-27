@@ -6,6 +6,7 @@ import KpiStatsSection from "../kpi/KpiStatsSection";
 import CalendarView from "../calendar/CalendarView";
 import DepartmentsView from "../department/DepartmentsView";
 import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
+import AccessControlView from "../access/AccessControlView";
 
 export default function Dashboard() {
     const [activeTab, setActiveTab] = useState("overview");
@@ -34,6 +35,8 @@ export default function Dashboard() {
                         {activeTab === "employees" && <EmployeeProfilePage />}
 
                         {activeTab === "departments" && <DepartmentsView />}
+
+                        {activeTab === "access" && <AccessControlView />}
 
                         {activeTab === "overview" && (
                             <div>
