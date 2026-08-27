@@ -81,20 +81,10 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
             Long userId = tokenProvider.getUserIdFromToken(token);
 
             if (command.allDevices() && username != null) {
-                int maxRetries = 3;
-                for (int attempt = 1; attempt <= maxRetries; attempt++) {
-                    try {
-                        loadUserPort.findByUsername(username).ifPresent(user -> {
-                            user.revokeAllSessions();
-                            saveUserPort.save(user);
-                        });
-                        break;
-                    } catch (RuntimeException ex) {
-                        if (attempt == maxRetries || !isOptimisticLockException(ex)) {
-                            throw ex;
-                        }
-                    }
-                }
+                loadUserPort.findByUsername(username).ifPresent(user -> {
+                    user.revokeAllSessions();
+                    saveUserPort.save(user);
+                });
                 if (userId != null) {
                     saveAuditLogPort.save(AuditLog.create(userId, "LOGOUT_ALL", "users", userId));
                 }
@@ -107,11 +97,6 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
                 tokenBlacklistPort.blacklist(token, remainingTtl);
             }
         }
-    }
-
-    private boolean isOptimisticLockException(RuntimeException ex) {
-        String name = ex.getClass().getName();
-        return name.contains("OptimisticLock") || (ex.getCause() != null && ex.getCause().getClass().getName().contains("OptimisticLock"));
     }
 }
 
