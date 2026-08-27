@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -40,12 +41,16 @@ class ProjectControllerTest {
     @Mock
     private GetProjectDetailUseCase getProjectDetailUseCase;
 
+    @Mock
+    private CreateProjectUseCase createProjectUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectController controller =
                 new ProjectController(
                         getProjectListUseCase,
-                        getProjectDetailUseCase
+                        getProjectDetailUseCase,
+                        createProjectUseCase
                 );
 
         mockMvc = MockMvcBuilders
@@ -67,6 +72,10 @@ class ProjectControllerTest {
                         "Project One",
                         5L,
                         100L,
+                        null,
+                        null,
+                        java.math.BigDecimal.ZERO,
+                        null,
                         ProjectStatus.ACTIVE,
                         10L,
                         LocalDateTime.now(),
@@ -185,6 +194,10 @@ class ProjectControllerTest {
                 "Project " + id,
                 5L,
                 100L,
+                null,
+                null,
+                java.math.BigDecimal.ZERO,
+                null,
                 ProjectStatus.ACTIVE,
                 10L,
                 LocalDateTime.now(),

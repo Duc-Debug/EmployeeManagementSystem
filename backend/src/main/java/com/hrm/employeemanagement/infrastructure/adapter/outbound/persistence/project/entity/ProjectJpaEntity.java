@@ -70,7 +70,22 @@ public class ProjectJpaEntity {
             String projectName,
             Long orgUnitId,
             Long managerId,
-            LocalDate starDate,
+            ProjectStatus status,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
+        this(id, projectCode, projectName, orgUnitId, managerId, null, null, BigDecimal.ZERO, null, status, createdBy, createdAt, updatedAt, version);
+    }
+
+    public ProjectJpaEntity(
+            Long id,
+            String projectCode,
+            String projectName,
+            Long orgUnitId,
+            Long managerId,
+            LocalDate startDate,
             LocalDate endDate,
             BigDecimal estimatedHours,
             String description,
@@ -84,7 +99,7 @@ public class ProjectJpaEntity {
         this.projectName = projectName;
         this.orgUnitId = orgUnitId;
         this.managerId = managerId;
-        this.startDate = starDate;
+        this.startDate = startDate;
         this.endDate = endDate;
         this.estimatedHours = estimatedHours;
         this.description = description;

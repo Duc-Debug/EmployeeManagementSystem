@@ -1,9 +1,8 @@
 -- 1. Bổ sung các cột mới cho bảng projects
-ALTER TABLE projects
-    ADD COLUMN start_date DATE NULL,
-    ADD COLUMN end_date DATE NULL,
-    ADD COLUMN estimated_hours DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    ADD COLUMN description TEXT NULL;
+ALTER TABLE projects ADD COLUMN start_date DATE NULL;
+ALTER TABLE projects ADD COLUMN end_date DATE NULL;
+ALTER TABLE projects ADD COLUMN estimated_hours DECIMAL(10, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE projects ADD COLUMN description TEXT NULL;
 
 -- 2. Thêm ràng buộc kiểm tra ngày kết thúc >= ngày bắt đầu
 ALTER TABLE projects
