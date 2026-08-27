@@ -7,12 +7,22 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
-import com.hrm.employeemanagement.application.port.outbound.skill.*;
+import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillGroupPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.SaveSkillGroupPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.SaveSkillPort;
 import com.hrm.employeemanagement.domain.exception.skill.DuplicateSkillNameException;
-import com.hrm.employeemanagement.domain.skill.*;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.*;
+import com.hrm.employeemanagement.domain.skill.Skill;
+import com.hrm.employeemanagement.domain.skill.SkillGroup;
+import com.hrm.employeemanagement.domain.skill.SkillGroupId;
+import com.hrm.employeemanagement.domain.skill.SkillId;
+import com.hrm.employeemanagement.domain.skill.SkillStatus;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.SkillGroupJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.SkillJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.mapper.SkillPersistenceMapper;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.*;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataEmployeeSkillRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataSkillGroupRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataSkillRepository;
 
 @Component
 public class SkillRepositoryAdapter implements
