@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "employees")
@@ -46,12 +47,23 @@ public class EmployeeJpaEntity {
 
     private String status;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     public EmployeeJpaEntity() {
     }
 
     public EmployeeJpaEntity(Long id, Long userId, Long orgUnitId, String employeeCode, String fullName,
                               String professionalRole, LocalDate startDate, LocalDate contractEndDate,
                               Boolean isOutsourced, Integer standardHoursPerWeek, String status) {
+        this(id, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate,
+                contractEndDate, isOutsourced, standardHoursPerWeek, status, null);
+    }
+
+    public EmployeeJpaEntity(Long id, Long userId, Long orgUnitId, String employeeCode, String fullName,
+                              String professionalRole, LocalDate startDate, LocalDate contractEndDate,
+                              Boolean isOutsourced, Integer standardHoursPerWeek, String status, Long version) {
         this.id = id;
         this.userId = userId;
         this.orgUnitId = orgUnitId;
@@ -63,6 +75,7 @@ public class EmployeeJpaEntity {
         this.isOutsourced = isOutsourced;
         this.standardHoursPerWeek = standardHoursPerWeek;
         this.status = status;
+        this.version = version;
     }
 
     public EmployeeJpaEntity(Long id, Long userId, Long orgUnitId, String employeeCode, String fullName, Boolean isOutsourced, Integer standardHoursPerWeek, String status) {
@@ -102,4 +115,7 @@ public class EmployeeJpaEntity {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 }

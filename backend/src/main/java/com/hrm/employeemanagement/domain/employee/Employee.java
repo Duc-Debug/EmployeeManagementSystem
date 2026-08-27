@@ -18,11 +18,19 @@ public class Employee {
     private Boolean isOutsourced;
     private Integer standardHoursPerWeek;
     private EmployeeStatus status;
+    private Long version;
 
     // 11-argument constructor
     public Employee(EmployeeId id, UserId userId, Long orgUnitId, String employeeCode, String fullName,
                     String professionalRole, LocalDate startDate, LocalDate contractEndDate,
                     Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status) {
+        this(id, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate,
+                contractEndDate, isOutsourced, standardHoursPerWeek, status, null);
+    }
+
+    public Employee(EmployeeId id, UserId userId, Long orgUnitId, String employeeCode, String fullName,
+                    String professionalRole, LocalDate startDate, LocalDate contractEndDate,
+                    Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status, Long version) {
         this.id = id;
         this.userId = userId;
         this.orgUnitId = orgUnitId;
@@ -35,6 +43,7 @@ public class Employee {
         this.status = status != null ? status : EmployeeStatus.ACTIVE;
         setStandardHoursPerWeek(standardHoursPerWeek != null ? standardHoursPerWeek : 40);
         validateContractDates(startDate, contractEndDate);
+        this.version = version;
     }
 
     // 8-argument constructor for backwards compatibility
@@ -137,6 +146,10 @@ public class Employee {
 
     public String getStatusValue() {
         return status != null ? status.name() : EmployeeStatus.ACTIVE.name();
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public void linkUser(UserId userId) {

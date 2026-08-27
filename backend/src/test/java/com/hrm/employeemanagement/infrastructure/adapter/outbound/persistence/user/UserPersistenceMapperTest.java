@@ -139,6 +139,29 @@ class UserPersistenceMapperTest {
     }
 
     @Test
+    @DisplayName("Invalid dataScope falls back to the role's valid default")
+    void testToDomain_InvalidDataScopeFallsBackToRoleDefault() {
+        RoleJpaEntity roleJpa = new RoleJpaEntity(
+                6L,
+                "VT-06",
+                "System Administrator"
+        );
+        UserJpaEntity jpaEntity = new UserJpaEntity(
+                1L,
+                "legacy-admin",
+                "hash123",
+                roleJpa,
+                true,
+                1L
+        );
+        jpaEntity.setDataScope("INVALID_SCOPE");
+
+        User user = mapper.toDomain(jpaEntity, null);
+
+        assertEquals(DataScope.COMPANY, user.getDataScope());
+    }
+
+    @Test
     @DisplayName("Ánh xạ từ User domain sang UserJpaEntity bảo toàn trường @Version")
     void testToJpaEntity_PreservesVersion() {
         Role role = new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên");
@@ -212,5 +235,22 @@ class UserPersistenceMapperTest {
         assertEquals("Backend Developer", entity.getProfessionalRole());
         assertEquals(startDate, entity.getStartDate());
         assertEquals(contractEndDate, entity.getContractEndDate());
+    }
+
+    @Test
+    @DisplayName("Cập nhật EmployeeJpaEntity đồng bộ liên kết userId")
+    void testEmployeeUpdateJpaEntity_UpdatesUserId() {
+        EmployeeJpaEntity managedEntity = new EmployeeJpaEntity(
+                10L, null, 30L, "EMP-020", "Nguyễn Văn A",
+                false, 40, "ACTIVE"
+        );
+        Employee employee = new Employee(
+                new EmployeeId(10L), new UserId(20L), 30L, "EMP-020", "Nguyễn Văn A",
+                false, 40, EmployeeStatus.ACTIVE
+        );
+
+        mapper.updateJpaEntity(managedEntity, employee);
+
+        assertEquals(20L, managedEntity.getUserId());
     }
 }

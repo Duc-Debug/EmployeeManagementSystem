@@ -1,5 +1,9 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user;
 
+import java.util.Locale;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.domain.audit.AuditLog;
@@ -27,6 +31,8 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.us
 @Component
 public class UserPersistenceMapper {
 
+    private static final Logger log = LoggerFactory.getLogger(UserPersistenceMapper.class);
+
     public User toDomain(UserJpaEntity entity, Long employeeId) {
         if (entity == null) return null;
         Role role = toDomain(entity.getRole());
@@ -46,9 +52,20 @@ public class UserPersistenceMapper {
 
     private DataScope resolveDataScope(String dataScope, Role role) {
         if (dataScope != null) {
-            return DataScope.valueOf(dataScope);
+            try {
+                return DataScope.valueOf(dataScope.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                DataScope fallback = defaultDataScope(role);
+                log.error("Invalid data_scope value '{}' found in the database; falling back to {}",
+                        dataScope, fallback);
+                return fallback;
+            }
         }
 
+        return defaultDataScope(role);
+    }
+
+    private DataScope defaultDataScope(Role role) {
         return role != null && role.isSystemAdmin()
                 ? DataScope.COMPANY
                 : DataScope.SELF;
@@ -158,7 +175,8 @@ public class UserPersistenceMapper {
                 entity.getContractEndDate(),
                 entity.getIsOutsourced(),
                 entity.getStandardHoursPerWeek(),
-                status
+                status,
+                entity.getVersion()
         );
     }
 
@@ -180,7 +198,8 @@ public class UserPersistenceMapper {
                 domain.getContractEndDate(),
                 domain.getIsOutsourced(),
                 domain.getStandardHoursPerWeek(),
-                domain.getStatusValue()
+                domain.getStatusValue(),
+                domain.getVersion()
         );
     }
 
@@ -191,6 +210,10 @@ public class UserPersistenceMapper {
         if (target == null || domain == null) {
             return;
         }
+
+        target.setUserId(
+                domain.getUserIdValue()
+        );
 
         target.setOrgUnitId(
                 domain.getOrgUnitId()
