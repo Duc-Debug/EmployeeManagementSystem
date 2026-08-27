@@ -47,7 +47,6 @@ export function setAuthToken(token: string): void {
     return;
   }
   localStorage.setItem(TOKEN_KEY, token);
-  document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=86400; SameSite=Lax`;
   notify();
 }
 
@@ -94,7 +93,6 @@ export function clearAuthSession(): void {
   cachedUserSnapshot = null;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   notify();
 }
 
