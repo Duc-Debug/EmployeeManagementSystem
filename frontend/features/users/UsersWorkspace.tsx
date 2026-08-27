@@ -396,21 +396,6 @@ export function UsersWorkspace() {
               </select>
             </div>
 
-            {(query || roleFilter !== "ALL" || statusFilter !== "ALL") && (
-              <button
-                className="button button--secondary button--compact filter-reset-btn"
-                onClick={() => {
-                  setQuery("");
-                  setRoleFilter("ALL");
-                  setStatusFilter("ALL");
-                }}
-                type="button"
-              >
-                <Icon name="close" />
-                <span>Đặt lại lọc</span>
-              </button>
-            )}
-
             {/* Search Box on the Right */}
             <div className="search-field">
               <Icon name="search" />
@@ -438,19 +423,6 @@ export function UsersWorkspace() {
 
           {filteredUsers.length === 0 ? (
             <EmptyState
-              action={
-                <button
-                  className="button button--secondary"
-                  onClick={() => {
-                    setQuery("");
-                    setRoleFilter("ALL");
-                    setStatusFilter("ALL");
-                  }}
-                  type="button"
-                >
-                  Xóa bộ lọc
-                </button>
-              }
               icon="search"
               message="Không có tài khoản nào khớp với điều kiện tìm kiếm hiện tại."
               title="Không tìm thấy tài khoản"

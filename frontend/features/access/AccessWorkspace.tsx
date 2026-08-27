@@ -347,7 +347,6 @@ export function AccessWorkspace() {
 
               {filteredUsers.length === 0 && (
                 <EmptyState
-                  action={<button className="button button--secondary" onClick={() => { setSearchQuery(""); setRoleFilter("ALL"); }} type="button">Xóa bộ lọc</button>}
                   icon="search"
                   message="Không tìm thấy tài khoản phù hợp với điều kiện lọc."
                   title="Không có kết quả"

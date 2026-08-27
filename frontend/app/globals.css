@@ -1046,6 +1046,19 @@ svg {
   box-shadow: var(--shadow-sm);
 }
 
+.session-card--borderless {
+  border: none !important;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.session-card--borderless:hover,
+.session-card--borderless.is-active {
+  background: var(--color-surface-raised, #f1f5f9);
+  border: none !important;
+  box-shadow: none !important;
+}
+
 /* Sidebar User Dropdown Positioning */
 .sidebar-user-dropdown-container {
   position: relative;
