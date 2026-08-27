@@ -10,6 +10,7 @@ import com.hrm.employeemanagement.application.port.outbound.authorization.Permis
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
+import com.hrm.employeemanagement.application.port.outbound.security.TokenBlacklistPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadPasswordResetTokenPort;
@@ -57,10 +58,13 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public AuthenticateUserUseCase authService(LoadUserPort loadUserPort,
+    public AuthService authService(LoadUserPort loadUserPort,
+            SaveUserPort saveUserPort,
             PasswordEncoderPort passwordEncoder,
-            TokenProviderPort tokenProvider) {
-        return new AuthService(loadUserPort, passwordEncoder, tokenProvider);
+            TokenProviderPort tokenProvider,
+            TokenBlacklistPort tokenBlacklistPort,
+            SaveAuditLogPort saveAuditLogPort) {
+        return new AuthService(loadUserPort, saveUserPort, passwordEncoder, tokenProvider, tokenBlacklistPort, saveAuditLogPort);
     }
 
     @Bean

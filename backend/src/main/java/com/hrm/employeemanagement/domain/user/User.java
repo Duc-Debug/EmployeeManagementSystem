@@ -242,6 +242,10 @@ public class User {
         return tokenVersion != null ? tokenVersion : 1;
     }
 
+    public void revokeAllSessions() {
+        this.tokenVersion = (this.tokenVersion != null ? this.tokenVersion : 1) + 1;
+    }
+
     public void setTokenVersion(Integer tokenVersion) {
         this.tokenVersion = tokenVersion;
     }
