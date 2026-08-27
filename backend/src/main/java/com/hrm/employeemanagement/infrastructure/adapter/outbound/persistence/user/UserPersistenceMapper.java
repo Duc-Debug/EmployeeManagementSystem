@@ -1,5 +1,9 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user;
 
+import java.util.Locale;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.domain.audit.AuditLog;
@@ -27,15 +31,44 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.us
 @Component
 public class UserPersistenceMapper {
 
+    private static final Logger log = LoggerFactory.getLogger(UserPersistenceMapper.class);
+
     public User toDomain(UserJpaEntity entity, Long employeeId) {
         if (entity == null) return null;
         Role role = toDomain(entity.getRole());
         UserStatus status = Boolean.TRUE.equals(entity.getIsActive()) ? UserStatus.ACTIVE : UserStatus.LOCKED;
         UserId userId = entity.getId() != null ? new UserId(entity.getId()) : null;
         EmployeeId empId = employeeId != null ? new EmployeeId(employeeId) : null;
-        return new User(userId, entity.getUsername(), entity.getPasswordHash(), role, status, empId,
-                DataScope.valueOf(entity.getDataScope()), entity.getScopeOrgUnitId(), entity.getEmail(),
-                entity.getPasswordChangedAt(), entity.getTokenVersion(), entity.getVersion());
+        return new User(userId,
+                entity.getUsername(),
+                entity.getPasswordHash(), role, status, empId,
+                resolveDataScope(entity.getDataScope(), role),
+                entity.getScopeOrgUnitId(),
+                entity.getEmail(),
+                entity.getPasswordChangedAt(),
+                entity.getTokenVersion(),
+                entity.getVersion());
+    }
+
+    private DataScope resolveDataScope(String dataScope, Role role) {
+        if (dataScope != null) {
+            try {
+                return DataScope.valueOf(dataScope.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                DataScope fallback = defaultDataScope(role);
+                log.error("Invalid data_scope value '{}' found in the database; falling back to {}",
+                        dataScope, fallback);
+                return fallback;
+            }
+        }
+
+        return defaultDataScope(role);
+    }
+
+    private DataScope defaultDataScope(Role role) {
+        return role != null && role.isSystemAdmin()
+                ? DataScope.COMPANY
+                : DataScope.SELF;
     }
 
     public UserJpaEntity toJpaEntity(User domain, RoleJpaEntity roleJpa) {
@@ -137,9 +170,13 @@ public class UserPersistenceMapper {
                 entity.getOrgUnitId(),
                 entity.getEmployeeCode(),
                 entity.getFullName(),
+                entity.getProfessionalRole(),
+                entity.getStartDate(),
+                entity.getContractEndDate(),
                 entity.getIsOutsourced(),
                 entity.getStandardHoursPerWeek(),
-                status
+                status,
+                entity.getVersion()
         );
     }
 
@@ -156,9 +193,13 @@ public class UserPersistenceMapper {
                 domain.getOrgUnitId(),
                 domain.getEmployeeCode(),
                 domain.getFullName(),
+                domain.getProfessionalRole(),
+                domain.getStartDate(),
+                domain.getContractEndDate(),
                 domain.getIsOutsourced(),
                 domain.getStandardHoursPerWeek(),
-                domain.getStatusValue()
+                domain.getStatusValue(),
+                domain.getVersion()
         );
     }
 
@@ -170,6 +211,10 @@ public class UserPersistenceMapper {
             return;
         }
 
+        target.setUserId(
+                domain.getUserIdValue()
+        );
+
         target.setOrgUnitId(
                 domain.getOrgUnitId()
         );
@@ -180,6 +225,18 @@ public class UserPersistenceMapper {
 
         target.setFullName(
                 domain.getFullName()
+        );
+
+        target.setProfessionalRole(
+                domain.getProfessionalRole()
+        );
+
+        target.setStartDate(
+                domain.getStartDate()
+        );
+
+        target.setContractEndDate(
+                domain.getContractEndDate()
         );
 
         target.setIsOutsourced(

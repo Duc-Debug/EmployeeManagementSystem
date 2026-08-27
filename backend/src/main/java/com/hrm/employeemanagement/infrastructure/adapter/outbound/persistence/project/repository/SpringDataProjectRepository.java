@@ -110,10 +110,7 @@ public interface SpringDataProjectRepository
     );
 
     @Query(value = """
-        SELECT CASE
-                   WHEN COUNT(*) > 0 THEN TRUE
-                   ELSE FALSE
-               END
+        SELECT COUNT(*)
         FROM projects p
         JOIN org_units ou
             ON ou.id = p.org_unit_id
@@ -123,38 +120,44 @@ public interface SpringDataProjectRepository
           AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
         """,
         nativeQuery = true)
-    boolean existsInOrgUnitBranch(
+    int countInOrgUnitBranch(
             @Param("projectId") Long projectId,
             @Param("scopeOrgUnitId") Long scopeOrgUnitId
     );
 
+    default boolean existsInOrgUnitBranch(Long projectId, Long scopeOrgUnitId) {
+        return countInOrgUnitBranch(projectId, scopeOrgUnitId) > 0;
+    }
+
     @Query(value = """
-        SELECT CASE
-                   WHEN COUNT(*) > 0 THEN TRUE
-                   ELSE FALSE
-               END
+        SELECT COUNT(*)
         FROM projects p
         WHERE p.id = :projectId
           AND p.manager_id = :employeeId
         """,
         nativeQuery = true)
-    boolean existsManagedBy(
+    int countManagedBy(
             @Param("projectId") Long projectId,
             @Param("employeeId") Long employeeId
     );
 
+    default boolean existsManagedBy(Long projectId, Long employeeId) {
+        return countManagedBy(projectId, employeeId) > 0;
+    }
+
     @Query(value = """
-        SELECT CASE
-                   WHEN COUNT(*) > 0 THEN TRUE
-                   ELSE FALSE
-               END
+        SELECT COUNT(*)
         FROM project_members pm
         WHERE pm.project_id = :projectId
           AND pm.employee_id = :employeeId
         """,
         nativeQuery = true)
-    boolean existsMember(
+    int countMember(
             @Param("projectId") Long projectId,
             @Param("employeeId") Long employeeId
     );
+
+    default boolean existsMember(Long projectId, Long employeeId) {
+        return countMember(projectId, employeeId) > 0;
+    }
 }

@@ -24,7 +24,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      {/* suppressHydrationWarning prevents spurious warnings caused by browser extensions or client-side attributes on body */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

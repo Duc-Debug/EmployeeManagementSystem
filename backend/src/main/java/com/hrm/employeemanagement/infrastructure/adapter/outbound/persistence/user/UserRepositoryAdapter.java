@@ -36,21 +36,31 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
 
     @Override
     public User save(User user) {
-        RoleJpaEntity roleJpa = springDataRoleRepository.findByCode(user.getRole().getCode().getCode())
-                .orElseGet(() -> springDataRoleRepository.save(new RoleJpaEntity(null, user.getRole().getCode().getCode(), user.getRole().getName())));
+        int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                RoleJpaEntity roleJpa = springDataRoleRepository.findByCode(user.getRole().getCode().getCode())
+                        .orElseGet(() -> springDataRoleRepository.save(new RoleJpaEntity(null, user.getRole().getCode().getCode(), user.getRole().getName())));
 
-        UserJpaEntity savedEntity;
-        if (user.getIdValue() != null) {
-            UserJpaEntity existingEntity = springDataUserRepository.findById(user.getIdValue())
-                    .orElseGet(() -> mapper.toJpaEntity(user, roleJpa));
-            mapper.updateJpaEntity(existingEntity, user, roleJpa);
-            savedEntity = springDataUserRepository.save(existingEntity);
-        } else {
-            UserJpaEntity entity = mapper.toJpaEntity(user, roleJpa);
-            savedEntity = springDataUserRepository.save(entity);
+                UserJpaEntity savedEntity;
+                if (user.getIdValue() != null) {
+                    UserJpaEntity existingEntity = springDataUserRepository.findById(user.getIdValue())
+                            .orElseGet(() -> mapper.toJpaEntity(user, roleJpa));
+                    mapper.updateJpaEntity(existingEntity, user, roleJpa);
+                    savedEntity = springDataUserRepository.save(existingEntity);
+                } else {
+                    UserJpaEntity entity = mapper.toJpaEntity(user, roleJpa);
+                    savedEntity = springDataUserRepository.save(entity);
+                }
+
+                return mapper.toDomain(savedEntity, user.getEmployeeIdValue());
+            } catch (org.springframework.dao.OptimisticLockingFailureException ex) {
+                if (attempt == maxRetries) {
+                    throw ex;
+                }
+            }
         }
-
-        return mapper.toDomain(savedEntity, user.getEmployeeIdValue());
+        throw new IllegalStateException("Unexpected state in UserRepositoryAdapter.save");
     }
 
     @Override

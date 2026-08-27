@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { RoleBadge, ScopeBadge, StatusBadge } from "@/components/ui/Badge";
@@ -8,8 +8,11 @@ import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
 import { flattenOrgTree } from "@/lib/organization";
-import { DEMO_ORG_UNIT_TREE, DEMO_ROLES, DEMO_USERS } from "@/src/mocks/hrm";
-import type { User } from "@/src/types/hrm";
+import { DEMO_ROLES } from "@/src/mocks/hrm";
+import type { OrgUnitTreeNode, User } from "@/src/types/hrm";
+import { createUser, getUsers, toggleUserStatus, updateUserRole } from "@/lib/api/users";
+import { getOrgTree } from "@/lib/api/org-units";
+import { ApiError } from "@/lib/api-client";
 
 import { type UserAccountDraft, type UserAccountErrors, UserAccountForm } from "@/features/users/UserAccountForm";
 
@@ -34,7 +37,7 @@ function toEditDraft(user: User): UserAccountDraft {
     dataScope: user.dataScope,
     email: user.email || `${user.username}@company.com`,
     employeeCode: user.employeeId ? `EMP-00${user.employeeId}` : "EMP-001",
-    fullName: user.fullName,
+    fullName: user.fullName || user.username || "",
     orgUnitId: user.orgUnitId ? String(user.orgUnitId) : "",
     roleCode: user.roleCode,
     scopeOrgUnitId: user.scopeOrgUnitId ? String(user.scopeOrgUnitId) : "",
@@ -44,7 +47,8 @@ function toEditDraft(user: User): UserAccountDraft {
 }
 
 export function UsersWorkspace() {
-  const [users, setUsers] = useState<User[]>(() => DEMO_USERS.map((user) => ({ ...user })));
+  const [users, setUsers] = useState<User[]>([]);
+  const [rawTree, setRawTree] = useState<OrgUnitTreeNode[]>([]);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -59,7 +63,36 @@ export function UsersWorkspace() {
   const setEditorFocus = useCallback((element: HTMLElement | null) => {
     editorFocusRef.current = element;
   }, []);
-  const orgUnits = useMemo(() => flattenOrgTree(DEMO_ORG_UNIT_TREE), []);
+
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  useEffect(() => {
+    let ignore = false;
+    Promise.all([
+      getUsers(0, 100),
+      getOrgTree(),
+    ])
+      .then(([usersPage, tree]) => {
+        if (!ignore) {
+          setUsers(usersPage?.content || []);
+          setRawTree(tree || []);
+          setFetchError(null);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          console.error("Lỗi nạp dữ liệu từ Backend:", err);
+          setFetchError(err instanceof Error ? err.message : "Không thể tải dữ liệu từ máy chủ.");
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [reloadTick]);
+
+  const orgUnits = useMemo(() => flattenOrgTree(rawTree), [rawTree]);
   const orgUnitOptions = useMemo(() => orgUnits.map((orgUnit) => ({
     depth: orgUnit.level,
     id: orgUnit.id,
@@ -73,16 +106,16 @@ export function UsersWorkspace() {
   // KPI Stats
   const stats = useMemo(() => {
     const total = users.length;
-    const active = users.filter((u) => u.status === "ACTIVE").length;
-    const locked = users.filter((u) => u.status === "LOCKED").length;
-    const admins = users.filter((u) => u.roleCode === "VT-06").length;
+    const active = users.filter((user) => user.status === "ACTIVE").length;
+    const locked = users.filter((user) => user.status === "LOCKED").length;
+    const admins = users.filter((user) => user.roleCode === "VT-06").length;
     return { active, admins, locked, total };
   }, [users]);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("vi");
     return users.filter((user) => {
-      const searchMatches = !normalizedQuery || [user.fullName, user.username, user.email ?? "", user.orgUnitName ?? ""]
+      const searchMatches = !normalizedQuery || [user.fullName || "", user.username || "", user.email ?? "", user.orgUnitName ?? ""]
         .some((value) => value.toLocaleLowerCase("vi").includes(normalizedQuery));
       const roleMatches = roleFilter === "ALL" || user.roleCode === roleFilter;
       const statusMatches = statusFilter === "ALL" || user.status === statusFilter;
@@ -146,7 +179,7 @@ export function UsersWorkspace() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  function saveUser(event: FormEvent<HTMLFormElement>) {
+  async function saveUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editor || !validateDraft()) {
       return;
@@ -166,23 +199,23 @@ export function UsersWorkspace() {
         return;
       }
 
-      const newUser: User = {
-        dataScope: selectedRole.code === "VT-06" ? "COMPANY" : draft.dataScope,
-        email: draft.email.trim().toLowerCase(),
-        employeeId: null,
-        fullName: draft.fullName.trim(),
-        id: Date.now(),
-        orgUnitId: selectedOrgUnit.id,
-        orgUnitName: selectedOrgUnit.unitName,
-        roleCode: selectedRole.code,
-        roleName: selectedRole.name,
-        scopeOrgUnitId: draft.dataScope === "ORGANIZATION_BRANCH" ? Number(draft.scopeOrgUnitId) : null,
-        status: draft.status || "ACTIVE",
-        username: draft.username.trim(),
-      };
-      setUsers((currentUsers) => [newUser, ...currentUsers]);
-      setAnnouncement(`Đã tạo tài khoản ${newUser.fullName}.`);
-      closeEditor();
+      try {
+        const created = await createUser({
+          employeeCode: draft.employeeCode.trim() || undefined,
+          fullName: draft.fullName.trim(),
+          orgUnitId: selectedOrgUnit.id,
+          password: draft.password,
+          roleCode: selectedRole.code,
+          username: draft.username.trim(),
+        });
+        setUsers((currentUsers) => [created, ...currentUsers]);
+        setAnnouncement(`Đã tạo tài khoản ${created.fullName}.`);
+        closeEditor();
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setErrors({ username: err.message });
+        }
+      }
       return;
     }
 
@@ -191,47 +224,51 @@ export function UsersWorkspace() {
     }
 
     const scopeOrgUnitId = draft.dataScope === "ORGANIZATION_BRANCH" ? Number(draft.scopeOrgUnitId) : null;
-    setUsers((currentUsers) => currentUsers.map((user) => (
-      user.id === editingUser.id
-        ? {
-          ...user,
-          dataScope: selectedRole.code === "VT-06" ? "COMPANY" : draft.dataScope,
-          email: draft.email.trim().toLowerCase() || user.email,
-          fullName: draft.fullName.trim() || user.fullName,
-          orgUnitId: selectedOrgUnit ? selectedOrgUnit.id : user.orgUnitId,
-          orgUnitName: selectedOrgUnit ? selectedOrgUnit.unitName : user.orgUnitName,
-          roleCode: selectedRole.code,
-          roleName: selectedRole.name,
-          scopeOrgUnitId,
-          status: draft.status || user.status,
-        }
-        : user
-    )));
-    setAnnouncement(`Đã cập nhật tài khoản ${editingUser.fullName}.`);
-    closeEditor();
+    try {
+      const updated = await updateUserRole(editingUser.id, {
+        dataScope: selectedRole.code === "VT-06" ? "COMPANY" : draft.dataScope,
+        roleCode: selectedRole.code,
+        scopeOrgUnitId,
+      });
+      setUsers((currentUsers) => currentUsers.map((u) => u.id === editingUser.id ? updated : u));
+      setAnnouncement(`Đã cập nhật tài khoản ${editingUser.fullName}.`);
+      closeEditor();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setErrors({ roleCode: err.message });
+      }
+    }
   }
 
   function requestLock(user: User) {
     setLockTarget(user);
   }
 
-  function confirmLock() {
+  async function confirmLock() {
     if (!lockTarget) {
       return;
     }
 
-    setUsers((currentUsers) => currentUsers.map((user) => (
-      user.id === lockTarget.id ? { ...user, status: "LOCKED" } : user
-    )));
-    setAnnouncement(`Đã khóa tài khoản ${lockTarget.fullName}.`);
+    try {
+      const updated = await toggleUserStatus(lockTarget.id, true);
+      setUsers((currentUsers) => currentUsers.map((u) => u.id === lockTarget.id ? updated : u));
+      setAnnouncement(`Đã khóa tài khoản ${lockTarget.fullName}.`);
+    } catch {
+      // ignore
+    }
     setLockTarget(null);
   }
 
-  function unlockUser(user: User) {
-    setUsers((currentUsers) => currentUsers.map((item) => (
-      item.id === user.id ? { ...item, status: "ACTIVE" } : item
-    )));
-    setAnnouncement(`Đã mở khóa tài khoản ${user.fullName}.`);
+  async function unlockUser(user: User) {
+    try {
+      const updated = await toggleUserStatus(user.id, false);
+      setUsers((currentUsers) => currentUsers.map((item) => (
+        item.id === user.id ? updated : item
+      )));
+      setAnnouncement(`Đã mở khóa tài khoản ${user.fullName}.`);
+    } catch {
+      // ignore
+    }
   }
 
   const editorMode = editor?.mode;
@@ -249,6 +286,18 @@ export function UsersWorkspace() {
         description="Quản trị danh sách người dùng, phân cấp đơn vị và phạm vi truy cập dữ liệu."
         title="Quản lý tài khoản nhân sự"
       />
+
+      {fetchError && (
+        <div className="notice notice--error" style={{ marginBottom: "1rem" }}>
+          <Icon name="alert" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+            <span>{fetchError}</span>
+            <button className="button button--secondary" onClick={() => setReloadTick((t) => t + 1)} type="button" style={{ padding: "0.25rem 0.75rem", fontSize: "0.875rem" }}>
+              Thử lại
+            </button>
+          </div>
+        </div>
+      )}
 
       {announcement ? <p aria-live="polite" className="sr-only">{announcement}</p> : null}
 
@@ -512,7 +561,7 @@ export function UsersWorkspace() {
                 <Icon name="alert" />
               </div>
               <div className="lock-warning-card__info">
-                <strong>{lockTarget.fullName}</strong>
+                <strong>{lockTarget.fullName || lockTarget.username}</strong>
                 <span>@{lockTarget.username} · {lockTarget.email ?? `${lockTarget.username}@company.com`}</span>
               </div>
             </div>
@@ -555,15 +604,16 @@ function UserActions({ onEdit, onRequestLock, onUnlock, user }: UserActionProps)
 }
 
 function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps) {
+  const displayName = user.fullName || user.username || "Người dùng";
   return (
     <tr className="user-table-row">
       <td>
         <div className="table-person">
           <span aria-hidden="true" className="avatar avatar--medium avatar--gradient">
-            {user.fullName.slice(0, 1)}
+            {displayName.slice(0, 1).toUpperCase()}
           </span>
           <div className="table-person__copy">
-            <strong>{user.fullName}</strong>
+            <strong>{displayName}</strong>
             <div className="table-person__meta">
               <span className="table-person__username">@{user.username}</span>
               {user.email && <span className="table-person__email">· {user.email}</span>}
@@ -594,15 +644,16 @@ function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps
 }
 
 function UserRecordCard({ onEdit, onRequestLock, onUnlock, user }: UserActionProps) {
+  const displayName = user.fullName || user.username || "Người dùng";
   return (
     <article className="record-card">
       <div className="record-card__header">
         <div className="table-person">
           <span aria-hidden="true" className="avatar avatar--small avatar--gradient">
-            {user.fullName.slice(0, 1)}
+            {displayName.slice(0, 1).toUpperCase()}
           </span>
           <div className="table-person__copy">
-            <strong>{user.fullName}</strong>
+            <strong>{displayName}</strong>
             <div className="table-person__meta">
               <span className="table-person__username">@{user.username}</span>
               {user.email && <span className="table-person__email">· {user.email}</span>}

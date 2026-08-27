@@ -11,34 +11,36 @@ import static org.junit.jupiter.api.Assertions.*;
 class OrgUnitTest {
 
     @Test
-    @DisplayName("Should throw InvalidOrgUnitManagerException when creating OrgUnit with null managerId")
-    void shouldThrowExceptionWhenCreatingWithNullManagerId() {
-        assertThrows(InvalidOrgUnitManagerException.class, () -> new OrgUnit(
+    @DisplayName("Should create OrgUnit successfully with null managerId")
+    void shouldCreateSuccessfullyWithNullManagerId() {
+        OrgUnit unit = new OrgUnit(
                 new OrgUnitId(2L), "DEV", "Phòng Dev", OrgUnitType.DEPARTMENT,
                 new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả", null, LocalDateTime.now(), null
-        ));
+        );
+        assertNull(unit.getManagerId());
     }
 
     @Test
-    @DisplayName("Should throw InvalidOrgUnitManagerException when assignManager with invalid ID")
+    @DisplayName("Should throw InvalidOrgUnitManagerException when managerId is invalid (<= 0)")
     void shouldThrowExceptionWhenAssignInvalidManagerId() {
         OrgUnit unit = new OrgUnit(
                 new OrgUnitId(1L), "DEV", "Phòng Dev", OrgUnitType.DEPARTMENT,
                 null, "/1/", 1, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
         );
 
-        assertThrows(InvalidOrgUnitManagerException.class, () -> unit.assignManager(null));
         assertThrows(InvalidOrgUnitManagerException.class, () -> unit.assignManager(-1L));
+        assertThrows(InvalidOrgUnitManagerException.class, () -> unit.assignManager(0L));
     }
 
     @Test
-    @DisplayName("Should throw InvalidOrgUnitManagerException when updateInfo with null managerId")
-    void shouldThrowExceptionWhenUpdateInfoWithNullManagerId() {
+    @DisplayName("Should update OrgUnit info successfully with null managerId")
+    void shouldUpdateInfoSuccessfullyWithNullManagerId() {
         OrgUnit unit = new OrgUnit(
                 new OrgUnitId(1L), "DEV", "Phòng Dev", OrgUnitType.DEPARTMENT,
                 null, "/1/", 1, OrgUnitStatus.ACTIVE, "Mô tả", 10L, LocalDateTime.now(), null
         );
 
-        assertThrows(InvalidOrgUnitManagerException.class, () -> unit.updateInfo("Phòng Mới", OrgUnitType.CENTER, null, "Mô tả mới"));
+        assertDoesNotThrow(() -> unit.updateInfo("Phòng Mới", OrgUnitType.CENTER, null, "Mô tả mới"));
+        assertNull(unit.getManagerId());
     }
 }
