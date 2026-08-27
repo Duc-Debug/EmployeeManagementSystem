@@ -1,4 +1,4 @@
-import type { ModuleDef, RoleTheme, DataScope, Role } from "./access.types";
+import type { ModuleDef, RoleTheme, DataScope, Role, Department } from "./access.types";
 
 export interface ThemeOption {
     key: RoleTheme;
@@ -49,6 +49,17 @@ export const SCOPE_OPTIONS: { value: DataScope; label: string }[] = [
     { value: "custom_tree", label: "Cây đơn vị tùy chỉnh" },
 ];
 
+/** Default set of departments, mirroring the reference dashboard. A role can
+ *  belong to one department (or "all"), and the "Cây đơn vị tùy chỉnh" data
+ *  scope lets a module be limited to a hand-picked subset of these. */
+export const DEPARTMENTS: Department[] = [
+    { id: "dept_hr", name: "Phòng Nhân sự" },
+    { id: "dept_tech", name: "Phòng Công nghệ" },
+    { id: "dept_marketing", name: "Phòng Marketing" },
+    { id: "dept_sales", name: "Phòng Kinh doanh" },
+    { id: "dept_finance", name: "Phòng Tài chính" },
+];
+
 export const MODULES: ModuleDef[] = [
     {
         id: "employee",
@@ -88,6 +99,7 @@ export const ROLES: Omit<Role, "permissions">[] = [
         isSystemRole: true,
         userCount: 3,
         theme: "purple",
+        departmentId: "all",
     },
     {
         id: "hr_manager",
@@ -96,6 +108,7 @@ export const ROLES: Omit<Role, "permissions">[] = [
         isSystemRole: false,
         userCount: 5,
         theme: "indigo",
+        departmentId: "dept_hr",
     },
     {
         id: "employee",
@@ -104,5 +117,6 @@ export const ROLES: Omit<Role, "permissions">[] = [
         isSystemRole: true,
         userCount: 120,
         theme: "slate",
+        departmentId: "all",
     },
 ];

@@ -9,8 +9,17 @@ export type DataScope =
 
 export type RoleTheme = 'purple' | 'blue' | 'indigo' | 'emerald' | 'amber' | 'rose' | 'slate';
 
+/** A department/unit used both to scope a role ("thuộc phòng ban nào") and
+ *  as the pickable node list for the "Cây đơn vị tùy chỉnh" data scope. */
+export interface Department {
+    id: string;
+    name: string;
+}
+
 export interface DataScopeConfig {
     type: DataScope;
+    /** Only meaningful when type === 'custom_tree': ids of the specific
+     *  departments this scope is limited to. */
     selectedNodeIds?: string[];
 }
 
@@ -43,6 +52,8 @@ export interface Role {
     isSystemRole?: boolean;
     userCount: number;
     theme: RoleTheme;
+    /** Department this role belongs to, or 'all' for a company-wide role. */
+    departmentId: string;
     permissions: Record<string, ModulePermission>;
 }
 
@@ -51,4 +62,6 @@ export interface RoleBasicInfo {
     name: string;
     description: string;
     theme: RoleTheme;
+    departmentId: string;
+    isSystemRole?: boolean;
 }
