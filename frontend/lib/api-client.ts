@@ -45,8 +45,8 @@ export async function apiRequest<T = unknown>(
       headers,
     });
 
-    // Handle 401 Unauthorized and 403 Forbidden for protected routes
-    if (response.status === 401 || response.status === 403) {
+    // Handle 401 Unauthorized for expired or invalid session
+    if (response.status === 401) {
       if (
         typeof window !== "undefined" &&
         !window.location.pathname.startsWith("/login")

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { FormField } from "@/components/ui/FormField";
@@ -89,8 +89,23 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const notifDropdownRef = useRef<HTMLDivElement>(null);
   const topbarUserDropdownRef = useRef<HTMLDivElement>(null);
   const sidebarUserDropdownRef = useRef<HTMLDivElement>(null);
-
   const authUser = useAuthUser();
+
+  const userNavSections = useMemo(() => {
+    return navSections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => {
+          // VT-06 (Admin) has access to all management modules
+          if (authUser?.roleCode === "VT-06") {
+            return true;
+          }
+          // Non-admin roles (VT-01 to VT-05) have view access to organization tree
+          return item.href === "/organization";
+        }),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [authUser?.roleCode]);
 
   // Auth Guard: Enforce login if token is missing & sync profile
   useEffect(() => {
@@ -300,7 +315,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         </div>
 
         <nav aria-label="Thanh điều hướng chính" className="side-nav__menu">
-          {navSections.map((section, sectionIndex) => (
+          {userNavSections.map((section, sectionIndex) => (
             <div className="side-nav__section" key={section.title}>
               {!isCollapsed && <span className="side-nav__section-title">{section.title}</span>}
               <ul className="side-nav__links" style={{ listStyle: "none", margin: 0, padding: 0 }}>
