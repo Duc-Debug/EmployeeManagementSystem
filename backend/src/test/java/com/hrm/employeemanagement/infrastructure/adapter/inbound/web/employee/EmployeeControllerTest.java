@@ -94,6 +94,7 @@ class EmployeeControllerTest {
     void updateProfile_Success() throws Exception {
         String jsonPayload = """
             {
+              "version": 0,
               "orgUnitId": 1,
               "fullName": "Nguyễn Văn B",
               "professionalRole": "Senior Developer",
@@ -153,6 +154,7 @@ class EmployeeControllerTest {
     void createProfile_MissingRequiredFields_ReturnsBadRequest() throws Exception {
         String jsonPayload = """
             {
+              "version": 0,
               "orgUnitId": 1,
               "fullName": "Nguyễn Văn A",
               "professionalRole": "Senior Java Developer",
@@ -180,6 +182,24 @@ class EmployeeControllerTest {
                         .content(validUpdatePayload()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/employees/1 - Thiếu version trả về 400")
+    void updateProfile_MissingVersion_ReturnsBadRequest() throws Exception {
+        String jsonPayload = """
+            {
+              "orgUnitId": 1,
+              "fullName": "Nguyễn Văn A",
+              "standardHoursPerWeek": 40
+            }
+            """;
+
+        mockMvc.perform(put("/api/v1/employees/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test
@@ -211,6 +231,7 @@ class EmployeeControllerTest {
     private String validUpdatePayload() {
         return """
             {
+              "version": 0,
               "orgUnitId": 1,
               "fullName": "Nguyễn Văn A",
               "professionalRole": "Senior Java Developer",

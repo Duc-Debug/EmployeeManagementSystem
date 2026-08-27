@@ -71,7 +71,8 @@ public class EmployeeController {
             request.professionalRole(),
             request.startDate(),
             request.contractEndDate(),
-            request.standardHoursPerWeek()
+            request.standardHoursPerWeek(),
+            request.version()
         );
         EmployeeProfileResult result = updateEmployeeProfileUseCase.execute(command);
         return ResponseEntity.ok(result);
@@ -103,6 +104,7 @@ public class EmployeeController {
     ) {}
 
     public record UpdateEmployeeRequest(
+        @NotNull(message = "Version không được để trống") Long version,
         @NotNull(message = "OrgUnitId không được để trống") Long orgUnitId,
         @NotBlank(message = "Họ tên không được để trống") String fullName,
         String professionalRole,
