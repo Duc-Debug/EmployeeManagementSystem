@@ -66,14 +66,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (userOpt.isPresent() && userOpt.get().isActive()) {
                     User user = userOpt.get();
 
-                    // Session Invalidation Check: Deterministic tokenVersion check
+                    // Session Invalidation Check: Strongly consistent tokenVersion check from DB
                     Integer jwtTokenVersion = tokenProvider.getTokenVersionFromToken(jwt);
                     if (jwtTokenVersion != null) {
+                        Optional<User> freshUserOpt = loadUserPort.findByUsername(username);
+                        if (freshUserOpt.isEmpty() || !freshUserOpt.get().isActive()) {
+                            userStatusCache.evict(username);
+                            filterChain.doFilter(request, response);
+                            return;
+                        }
+                        user = freshUserOpt.get();
                         if (!jwtTokenVersion.equals(user.getTokenVersion())) {
                             userStatusCache.evict(username);
                             filterChain.doFilter(request, response);
                             return;
                         }
+                        userStatusCache.put(username, user);
                     } else {
                         Date tokenIssuedAt = tokenProvider.getIssuedAtFromToken(jwt);
                         if (user.getPasswordChangedAt() != null && tokenIssuedAt != null) {
