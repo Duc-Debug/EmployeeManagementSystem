@@ -188,23 +188,9 @@ public class SkillService implements
         for (Skill sourceSkill : sourceSkills) {
             sourceSkill.mergeInto(targetSkill.getId());
 
-            List<Long> employeeIds = loadSkillPort.findEmployeeIdsWithSkill(sourceSkill.getId().value());
-            boolean hasReassignableEmployees = false;
-
-            for (Long empId : employeeIds) {
-                affectedEmployeesCount++;
-                boolean alreadyHasTarget = loadSkillPort.hasEmployeeSkill(empId, targetSkill.getId().value());
-
-                if (alreadyHasTarget) {
-                    saveSkillPort.removeEmployeeSkill(empId, sourceSkill.getId().value());
-                } else {
-                    hasReassignableEmployees = true;
-                }
-            }
-
-            if (hasReassignableEmployees) {
-                saveSkillPort.reassignEmployeeSkills(sourceSkill.getId().value(), targetSkill.getId().value());
-            }
+            int duplicatesRemoved = saveSkillPort.deleteDuplicateEmployeeSkills(sourceSkill.getId().value(), targetSkill.getId().value());
+            int reassigned = saveSkillPort.reassignEmployeeSkills(sourceSkill.getId().value(), targetSkill.getId().value());
+            affectedEmployeesCount += (duplicatesRemoved + reassigned);
 
             saveSkillPort.save(sourceSkill);
         }
@@ -252,7 +238,7 @@ public class SkillService implements
     }
 
     @Override
-    public List<SkillResult> execute(Long groupId, String status, String keyword) {
+    public List<SkillResult> execute(Long groupId, SkillStatus status, String keyword) {
         authorizationService.require(PermissionCode.SKILL_READ);
         List<Skill> skills = loadSkillPort.findAll(groupId, status, keyword);
         Map<Long, String> groupNameMap = loadSkillGroupPort.findAll().stream()

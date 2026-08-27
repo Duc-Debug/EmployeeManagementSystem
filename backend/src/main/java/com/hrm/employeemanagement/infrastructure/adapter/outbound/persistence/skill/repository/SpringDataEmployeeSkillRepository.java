@@ -18,6 +18,16 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
     long countBySkillId(Long skillId);
 
     @Modifying
+    @Query("""
+        DELETE FROM EmployeeSkillJpaEntity es
+        WHERE es.skillId = :sourceSkillId
+          AND es.employeeId IN (
+              SELECT es2.employeeId FROM EmployeeSkillJpaEntity es2 WHERE es2.skillId = :targetSkillId
+          )
+    """)
+    int deleteDuplicateEmployeeSkills(@Param("sourceSkillId") Long sourceSkillId, @Param("targetSkillId") Long targetSkillId);
+
+    @Modifying
     @Query("UPDATE EmployeeSkillJpaEntity es SET es.skillId = :targetSkillId WHERE es.skillId = :sourceSkillId")
     int reassignEmployeeSkills(@Param("sourceSkillId") Long sourceSkillId, @Param("targetSkillId") Long targetSkillId);
 

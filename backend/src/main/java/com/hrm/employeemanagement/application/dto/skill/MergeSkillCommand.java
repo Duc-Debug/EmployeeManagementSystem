@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.dto.skill;
 
 import java.util.List;
+import java.util.Objects;
 import com.hrm.employeemanagement.domain.exception.skill.InvalidSkillMergeException;
 
 public record MergeSkillCommand(
@@ -14,17 +15,21 @@ public record MergeSkillCommand(
         if (sourceSkillIds == null || sourceSkillIds.isEmpty()) {
             throw new IllegalArgumentException("Danh sách Source Skill IDs không được để trống.");
         }
+        if (sourceSkillIds.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Source Skill ID không được null.");
+        }
+        if (sourceSkillIds.stream().anyMatch(id -> id <= 0)) {
+            throw new IllegalArgumentException("Source Skill ID phải là số dương hợp lệ.");
+        }
         if (sourceSkillIds.contains(targetSkillId)) {
             throw new InvalidSkillMergeException("Danh sách kỹ năng nguồn không được chứa chính kỹ năng đích.");
         }
-        // Loại bỏ null và duplicate
         sourceSkillIds = sourceSkillIds.stream()
-                .filter(id -> id != null && id > 0)
                 .distinct()
                 .toList();
 
         if (sourceSkillIds.isEmpty()) {
-            throw new IllegalArgumentException("Danh sách Source Skill IDs không hợp lệ sau khi lọc.");
+            throw new IllegalArgumentException("Danh sách Source Skill IDs không được để trống.");
         }
     }
 }

@@ -98,7 +98,7 @@ class SkillServiceTest {
     }
 
     @Test
-    @DisplayName("Gộp kỹ năng (Merge Skill) thành công với cơ chế khử trùng lặp (Deduplication)")
+    @DisplayName("Gộp kỹ năng (Merge Skill) thành công với cơ chế khử trùng lặp (Deduplication) nguyên tử")
     void shouldMergeSkillsSuccessfullyWithDeduplication() {
         when(authorizationService.require(PermissionCode.SKILL_MERGE)).thenReturn(99L);
 
@@ -109,24 +109,20 @@ class SkillServiceTest {
         when(loadSkillPort.findById(new SkillId(1L))).thenReturn(Optional.of(targetSkill));
         when(loadSkillPort.findAllByIdIn(List.of(2L, 3L))).thenReturn(List.of(sourceSkill2, sourceSkill3));
 
-        // Employee 101 có cả Skill 2 và Skill 1 (Target) -> Cần xóa Skill 2
-        // Employee 102 chỉ có Skill 2 -> Cần chuyển Skill 2 thành Skill 1
-        when(loadSkillPort.findEmployeeIdsWithSkill(2L)).thenReturn(List.of(101L, 102L));
-        when(loadSkillPort.hasEmployeeSkill(101L, 1L)).thenReturn(true);
-        when(loadSkillPort.hasEmployeeSkill(102L, 1L)).thenReturn(false);
-
-        // Employee 103 có Skill 3 -> Cần chuyển Skill 3 thành Skill 1
-        when(loadSkillPort.findEmployeeIdsWithSkill(3L)).thenReturn(List.of(103L));
-        when(loadSkillPort.hasEmployeeSkill(103L, 1L)).thenReturn(false);
+        when(saveSkillPort.deleteDuplicateEmployeeSkills(2L, 1L)).thenReturn(1);
+        when(saveSkillPort.reassignEmployeeSkills(2L, 1L)).thenReturn(1);
+        when(saveSkillPort.deleteDuplicateEmployeeSkills(3L, 1L)).thenReturn(0);
+        when(saveSkillPort.reassignEmployeeSkills(3L, 1L)).thenReturn(1);
 
         SkillResult result = skillService.execute(new MergeSkillCommand(1L, List.of(2L, 3L)));
 
         assertNotNull(result);
         assertEquals(1L, result.id());
 
-        // Kiểm tra xử lý Employee
-        verify(saveSkillPort).removeEmployeeSkill(101L, 2L);
+        // Kiểm tra xử lý Employee qua atomic DB queries
+        verify(saveSkillPort).deleteDuplicateEmployeeSkills(2L, 1L);
         verify(saveSkillPort).reassignEmployeeSkills(2L, 1L);
+        verify(saveSkillPort).deleteDuplicateEmployeeSkills(3L, 1L);
         verify(saveSkillPort).reassignEmployeeSkills(3L, 1L);
 
         // Kiểm tra trạng thái của Source Skills
@@ -172,5 +168,44 @@ class SkillServiceTest {
         assertThrows(IllegalArgumentException.class, () ->
                 new MergeSkillCommand(1L, List.of())
         );
+    }
+
+    @Test
+    @DisplayName("Ném IllegalArgumentException khi danh sách kỹ năng nguồn chứa phần tử null")
+    void shouldThrowWhenSourceSkillsContainsNull() {
+        java.util.List<Long> idsWithNull = new java.util.ArrayList<>();
+        idsWithNull.add(2L);
+        idsWithNull.add(null);
+        idsWithNull.add(3L);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                new MergeSkillCommand(1L, idsWithNull)
+        );
+    }
+
+    @Test
+    @DisplayName("Ném IllegalArgumentException khi danh sách kỹ năng nguồn chứa số âm hoặc 0")
+    void shouldThrowWhenSourceSkillsContainsNonPositive() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new MergeSkillCommand(1L, List.of(2L, -10L, 3L))
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+                new MergeSkillCommand(1L, List.of(2L, 0L, 3L))
+        );
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách kỹ năng theo filter SkillStatus thành công")
+    void shouldGetSkillsWithSkillStatusFilter() {
+        when(authorizationService.require(PermissionCode.SKILL_READ)).thenReturn(99L);
+        when(loadSkillPort.findAll(1L, SkillStatus.ACTIVE, "java")).thenReturn(List.of(
+                new Skill(new SkillId(1L), 1L, "Java", "Desc", SkillStatus.ACTIVE, null, null, null)
+        ));
+        when(loadSkillGroupPort.findAll()).thenReturn(List.of());
+
+        List<SkillResult> results = skillService.execute(1L, SkillStatus.ACTIVE, "java");
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        assertEquals("Java", results.get(0).name());
     }
 }
