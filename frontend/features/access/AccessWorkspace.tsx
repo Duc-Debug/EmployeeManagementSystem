@@ -185,7 +185,7 @@ export function AccessWorkspace() {
   return (
     <div className="workspace-stack">
       <PageHeader
-        description="Thiết lập vai trò nghiệp vụ (VT-01 → VT-06) và phạm vi dữ liệu (Data Scope) cho từng tài khoản."
+        description="Thiết lập vai trò nghiệp vụ (VT-01 → VT-06) và phạm vi dữ liệu cho từng tài khoản."
         title="Phân quyền hệ thống"
       />
 
@@ -441,7 +441,7 @@ export function AccessWorkspace() {
 
                     <div className="role-spec-item">
                       <span className="role-spec-item__label">📊 Dữ liệu được phép xem</span>
-                      <p className="role-spec-item__val">{activeRoleDetails.scopeData || "Dữ liệu giới hạn theo Data Scope được phân bổ."}</p>
+                      <p className="role-spec-item__val">{activeRoleDetails.scopeData || "Dữ liệu giới hạn theo phạm vi dữ liệu được phân bổ."}</p>
                     </div>
 
                     <div className="role-spec-item role-spec-item--warning">

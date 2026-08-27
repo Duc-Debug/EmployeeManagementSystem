@@ -132,7 +132,7 @@ export function UserAccountForm({
           error={errors.password}
           hint={mode === "edit" ? "Để trống nếu giữ nguyên mật khẩu cũ" : undefined}
           id="user-password"
-          label={mode === "create" ? "Mật khẩu khởi tạo" : "Mật khẩu mới (tùy chọn)"}
+          label={mode === "create" ? "Mật khẩu khởi tạo" : "Mật khẩu mới"}
         >
           <input
             aria-invalid={Boolean(errors.password)}
@@ -161,11 +161,11 @@ export function UserAccountForm({
 
       {/* Block 2: Phân quyền & Phạm vi dữ liệu */}
       <div className="form-section-title" style={{ marginTop: "0.5rem" }}>
-        <span>2. Phân quyền & Phạm vi dữ liệu (Data Scope)</span>
+        <span>2. Phân quyền & Phạm vi dữ liệu</span>
       </div>
 
       <div className="form-grid form-grid--two">
-        <FormField error={errors.roleCode} id="user-role" label="Vai trò (Role)">
+        <FormField error={errors.roleCode} id="user-role" label="Vai trò">
           <select
             aria-invalid={Boolean(errors.roleCode)}
             className="select"
@@ -186,7 +186,7 @@ export function UserAccountForm({
           error={errors.dataScope}
           hint={isSystemAdmin ? "Quản trị viên (VT-06) tự động áp dụng toàn công ty." : undefined}
           id="user-data-scope"
-          label="Phạm vi dữ liệu (Data Scope)"
+          label="Phạm vi dữ liệu"
         >
           <select
             aria-invalid={Boolean(errors.dataScope)}
@@ -219,8 +219,8 @@ export function UserAccountForm({
             onChange={(event) => onChange("status", event.target.value as UserStatus)}
             value={value.status}
           >
-            <option value="ACTIVE">Hoạt động (Active)</option>
-            <option value="LOCKED">Đã khóa (Locked)</option>
+            <option value="ACTIVE">Hoạt động</option>
+            <option value="LOCKED">Đã khóa</option>
           </select>
         </FormField>
 

@@ -364,7 +364,7 @@ export function UsersWorkspace() {
             </span>
           </div>
           <div className="kpi-card__val kpi-card__val--purple">{stats.admins}</div>
-          <div className="kpi-card__desc">DataScope: Toàn công ty</div>
+          <div className="kpi-card__desc">Phạm vi dữ liệu: Toàn công ty</div>
         </button>
       </section>
 
@@ -380,9 +380,9 @@ export function UsersWorkspace() {
         <div className="data-panel__body">
           <div className="filter-toolbar">
             <div className="select-field">
-              <label className="sr-only" htmlFor="role-filter">Lọc theo role</label>
+              <label className="sr-only" htmlFor="role-filter">Lọc theo vai trò</label>
               <select className="select" id="role-filter" onChange={(event) => setRoleFilter(event.target.value)} value={roleFilter}>
-                <option value="ALL">Tất cả role</option>
+                <option value="ALL">Tất cả vai trò</option>
                 {DEMO_ROLES.map((role) => <option key={role.code} value={role.code}>{role.code} · {role.name}</option>)}
               </select>
             </div>
@@ -463,7 +463,7 @@ export function UsersWorkspace() {
                     <tr>
                       <th scope="col">Tài khoản</th>
                       <th scope="col">Email</th>
-                      <th scope="col">Vai trò (Role)</th>
+                      <th scope="col">Vai trò</th>
                       <th scope="col">Đơn vị tổ chức</th>
                       <th scope="col">Phạm vi dữ liệu</th>
                       <th scope="col">Trạng thái</th>

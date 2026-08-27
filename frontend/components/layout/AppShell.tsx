@@ -437,7 +437,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               <input
                 aria-label="Tìm kiếm nhanh"
                 className="topbar-search__input"
-                placeholder="Tìm kiếm nhanh nhân sự, đơn vị, quyền hạn... (Ctrl + K)"
+                placeholder="Tìm kiếm nhanh nhân sự, đơn vị, quyền hạn..."
                 readOnly
                 type="text"
               />

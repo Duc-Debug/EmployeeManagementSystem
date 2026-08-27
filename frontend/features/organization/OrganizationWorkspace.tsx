@@ -592,10 +592,10 @@ export function OrganizationWorkspace() {
                         <button className="org-parent-link" onClick={() => setSelectedUnitId(parentUnit.id)} type="button">
                           <Icon name="branch" />
                           <span>{parentUnit.unitName}</span>
-                          <small>({parentUnit.unitCode})</small>
+                          <small>{parentUnit.unitCode}</small>
                         </button>
                       ) : (
-                        <span className="org-prop-root">Đơn vị gốc (Công ty)</span>
+                        <span className="org-prop-root">Đơn vị gốc</span>
                       )}
                     </span>
                   </div>
@@ -609,7 +609,7 @@ export function OrganizationWorkspace() {
                       {managerUser ? (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontWeight: 600, color: "#4338ca" }}>
                           <span>{managerUser.fullName || managerUser.username}</span>
-                          <small style={{ color: "#6366f1" }}>({managerUser.roleCode} - {managerUser.roleName})</small>
+                          <small style={{ color: "#6366f1" }}>({managerUser.roleCode}) {managerUser.roleName}</small>
                         </span>
                       ) : (
                         <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Chưa chỉ định</span>
@@ -654,7 +654,7 @@ export function OrganizationWorkspace() {
                   <div className="org-members-block__header">
                     <span className="org-members-block__title">
                       <Icon name="users" />
-                      Nhân sự trực thuộc ({unitMembers.length})
+                      Nhân sự trực thuộc: {unitMembers.length}
                     </span>
                   </div>
 
