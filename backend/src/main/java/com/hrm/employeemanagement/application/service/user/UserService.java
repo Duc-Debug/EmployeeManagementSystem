@@ -11,6 +11,7 @@ import com.hrm.employeemanagement.application.dto.user.RoleResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
@@ -50,7 +51,8 @@ public class UserService implements
         ToggleUserStatusUseCase,
         UpdateUserRoleUseCase,
         GetUserListUseCase,
-        GetRoleListUseCase {
+        GetRoleListUseCase,
+        GetCurrentUserProfileUseCase {
 
     private final LoadUserPort loadUserPort;
     private final SaveUserPort saveUserPort;
@@ -538,6 +540,21 @@ public UserResult updateUserRole(
                 employee,
                 orgUnitName
         );
+    }
+
+    @Override
+    public UserResult getCurrentUserProfile(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID must not be null");
+        }
+
+        User user = loadUserPort.findById(new UserId(userId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        Employee employee = loadEmployeePort.findByUserId(user.getId()).orElse(null);
+        String orgUnitName = resolveOrgUnitName(employee);
+
+        return mapToUserResult(user, employee, orgUnitName);
     }
 
     private OrgUnit loadActiveOrgUnitOrThrow(Long orgUnitId) {

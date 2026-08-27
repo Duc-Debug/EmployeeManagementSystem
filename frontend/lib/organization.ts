@@ -1,19 +1,21 @@
 import type { OrgUnitTreeNode } from "@/src/types/hrm";
 
 export function flattenOrgTree(nodes: readonly OrgUnitTreeNode[]): OrgUnitTreeNode[] {
-  return nodes.flatMap((node) => [node, ...flattenOrgTree(node.children)]);
+  if (!nodes || !Array.isArray(nodes)) return [];
+  return nodes.flatMap((node) => [node, ...flattenOrgTree(node.children || [])]);
 }
 
 export function findOrgUnit(
   nodes: readonly OrgUnitTreeNode[],
   unitId: number,
 ): OrgUnitTreeNode | undefined {
+  if (!nodes || !Array.isArray(nodes)) return undefined;
   for (const node of nodes) {
     if (node.id === unitId) {
       return node;
     }
 
-    const match = findOrgUnit(node.children, unitId);
+    const match = findOrgUnit(node.children || [], unitId);
     if (match) {
       return match;
     }
@@ -36,8 +38,8 @@ export function getParentOrgUnit(
 export function getDescendantIds(unit: OrgUnitTreeNode): ReadonlySet<number> {
   const ids = new Set<number>([unit.id]);
 
-  function collect(children: readonly OrgUnitTreeNode[]) {
-    children.forEach((child) => {
+  function collect(children: readonly OrgUnitTreeNode[] | undefined) {
+    (children || []).forEach((child) => {
       ids.add(child.id);
       collect(child.children);
     });

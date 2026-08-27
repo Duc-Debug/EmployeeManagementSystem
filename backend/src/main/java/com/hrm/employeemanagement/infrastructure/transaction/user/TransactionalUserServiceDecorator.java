@@ -10,6 +10,7 @@ import com.hrm.employeemanagement.application.dto.user.RoleResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
@@ -24,7 +25,7 @@ import java.util.List;
  * Manages database transaction boundaries and post-commit cache invalidation for Use Cases
  * while keeping the underlying Application Service (UserService) 100% Pure Java.
  */
-public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, GetUserListUseCase, GetRoleListUseCase {
+public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, GetUserListUseCase, GetRoleListUseCase, GetCurrentUserProfileUseCase {
 
     private final UserService delegate;
     private final UserStatusCache userStatusCache;
@@ -74,6 +75,12 @@ public class TransactionalUserServiceDecorator implements CreateUserUseCase, Tog
     @Transactional(readOnly = true)
     public List<RoleResult> getRoles() {
         return delegate.getRoles();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResult getCurrentUserProfile(Long id) {
+        return delegate.getCurrentUserProfile(id);
     }
 
     /**

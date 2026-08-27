@@ -1,14 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { RoleBadge, ScopeBadge, StatusBadge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
 import { flattenOrgTree } from "@/lib/organization";
-import { DEMO_ORG_UNIT_TREE, DEMO_ROLES, DEMO_USERS } from "@/src/mocks/hrm";
-import type { RoleCode, User } from "@/src/types/hrm";
+import { DEMO_ROLES } from "@/src/mocks/hrm";
+import type { OrgUnitTreeNode, RoleCode, User } from "@/src/types/hrm";
+import { getUsers, updateUserRole } from "@/lib/api/users";
+import { getOrgTree } from "@/lib/api/org-units";
+import { useAuthUser } from "@/lib/auth-session";
+import { ApiError } from "@/lib/api-client";
 
 import { AuthorizationFields, type AuthorizationDraft, type AuthorizationErrors } from "@/features/users/AuthorizationFields";
 
@@ -20,20 +24,55 @@ function toAccessDraft(user: User): AuthorizationDraft {
   };
 }
 
-// Simulated current logged in session user (Admin)
-const CURRENT_LOGGED_IN_USER_ID = 10001; // Nguyễn Minh Anh
-
 export function AccessWorkspace() {
-  const [users, setUsers] = useState<User[]>(() => DEMO_USERS.map((user) => ({ ...user })));
-  const [selectedUserId, setSelectedUserId] = useState<number>(DEMO_USERS[0]?.id ?? 0);
+  const [users, setUsers] = useState<User[]>([]);
+  const [rawTree, setRawTree] = useState<OrgUnitTreeNode[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number>(0);
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? users[0];
-  const [draft, setDraft] = useState<AuthorizationDraft>(() => toAccessDraft(DEMO_USERS[0]));
+  const [draft, setDraft] = useState<AuthorizationDraft>({
+    dataScope: "SELF",
+    roleCode: "VT-06",
+    scopeOrgUnitId: "",
+  });
   const [errors, setErrors] = useState<AuthorizationErrors>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [toastMessage, setToastMessage] = useState<string>("");
+  const loggedInUser = useAuthUser();
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
-  const orgUnits = useMemo(() => flattenOrgTree(DEMO_ORG_UNIT_TREE), []);
+  useEffect(() => {
+    let ignore = false;
+    Promise.all([
+      getUsers(0, 100),
+      getOrgTree(),
+    ])
+      .then(([usersPage, treeData]) => {
+        if (!ignore) {
+          const uList = usersPage?.content || [];
+          setUsers(uList);
+          setRawTree(treeData || []);
+          if (uList.length > 0) {
+            setSelectedUserId(uList[0].id);
+            setDraft(toAccessDraft(uList[0]));
+          }
+          setFetchError(null);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          console.error("Lỗi nạp dữ liệu phân quyền:", err);
+          setFetchError(err instanceof Error ? err.message : "Không thể tải dữ liệu phân quyền.");
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [reloadTick]);
+
+  const orgUnits = useMemo(() => flattenOrgTree(rawTree), [rawTree]);
   const orgUnitOptions = useMemo(() => orgUnits.map((u) => ({
     depth: u.level,
     id: u.id,
@@ -53,7 +92,7 @@ export function AccessWorkspace() {
   }, [users]);
 
   // Is current selected user the logged-in user?
-  const isSelf = selectedUser?.id === CURRENT_LOGGED_IN_USER_ID;
+  const isSelf = Boolean(loggedInUser && selectedUser?.id === loggedInUser.id);
 
   // Filtered Users List
   const filteredUsers = useMemo(() => {
@@ -94,7 +133,7 @@ export function AccessWorkspace() {
     setTimeout(() => setToastMessage(""), 4000);
   }
 
-  function saveAccess(event: React.FormEvent<HTMLFormElement>) {
+  async function saveAccess(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedUser) {
       return;
@@ -125,19 +164,22 @@ export function AccessWorkspace() {
     }
 
     const scopeOrgUnitId = draft.dataScope === "ORGANIZATION_BRANCH" ? selectedOrgUnit?.id ?? null : null;
-    setUsers((currentUsers) => currentUsers.map((user) => (
-      user.id === selectedUser.id
-        ? {
-          ...user,
-          dataScope: draft.dataScope,
-          roleCode: selectedRole.code as RoleCode,
-          roleName: selectedRole.name,
-          scopeOrgUnitId,
-        }
-        : user
-    )));
-    showToast(`Đã cập nhật vai trò ${selectedRole.name} cho ${selectedUser.fullName}.`);
-    setErrors({});
+    try {
+      const updated = await updateUserRole(selectedUser.id, {
+        dataScope: draft.dataScope,
+        roleCode: selectedRole.code as RoleCode,
+        scopeOrgUnitId,
+      });
+      setUsers((currentUsers) => currentUsers.map((user) => (
+        user.id === selectedUser.id ? updated : user
+      )));
+      showToast(`Đã cập nhật vai trò ${selectedRole.name} cho ${selectedUser.fullName}.`);
+      setErrors({});
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setErrors({ roleCode: err.message });
+      }
+    }
   }
 
   return (
@@ -146,6 +188,18 @@ export function AccessWorkspace() {
         description="Thiết lập vai trò nghiệp vụ (VT-01 → VT-06) và phạm vi dữ liệu (Data Scope) cho từng tài khoản."
         title="Phân quyền hệ thống"
       />
+
+      {fetchError && (
+        <div className="notice notice--error" style={{ marginBottom: "1rem" }}>
+          <Icon name="alert" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+            <span>{fetchError}</span>
+            <button className="button button--secondary" onClick={() => setReloadTick((t) => t + 1)} type="button" style={{ padding: "0.25rem 0.75rem", fontSize: "0.875rem" }}>
+              Thử lại
+            </button>
+          </div>
+        </div>
+      )}
 
       {toastMessage && (
         <div className="access-toast" role="alert">
@@ -260,7 +314,8 @@ export function AccessWorkspace() {
             <div className="access-user-list__items">
               {filteredUsers.map((user) => {
                 const isSelected = user.id === selectedUser?.id;
-                const isThisUserSelf = user.id === CURRENT_LOGGED_IN_USER_ID;
+                const isThisUserSelf = Boolean(loggedInUser && user.id === loggedInUser.id);
+                const userDisplayName = user.fullName || user.username || "Người dùng";
                 return (
                   <button
                     aria-current={isSelected ? "true" : undefined}
@@ -270,12 +325,12 @@ export function AccessWorkspace() {
                     type="button"
                   >
                     <span aria-hidden="true" className="avatar avatar--small avatar--gradient">
-                      {user.fullName.slice(0, 1)}
+                      {userDisplayName.slice(0, 1).toUpperCase()}
                     </span>
                     <div className="access-user-card__copy">
                       <div className="access-user-card__top">
                         <strong>
-                          {user.fullName}
+                          {userDisplayName}
                           {isThisUserSelf && <span className="self-tag">Bạn</span>}
                         </strong>
                         <StatusBadge status={user.status} />
@@ -309,12 +364,12 @@ export function AccessWorkspace() {
             <div className="access-editor__hero">
               <div className="access-editor__hero-main">
                 <span aria-hidden="true" className="avatar avatar--medium avatar--gradient">
-                  {selectedUser.fullName.slice(0, 1)}
+                  {(selectedUser.fullName || selectedUser.username || "Người dùng").slice(0, 1).toUpperCase()}
                 </span>
                 <div className="access-editor__hero-info">
                   <div className="access-editor__title-row">
                     <h2 id="access-editor-title">
-                      {selectedUser.fullName}
+                      {selectedUser.fullName || selectedUser.username}
                       {isSelf && <span className="self-tag">Tài khoản của bạn</span>}
                     </h2>
                     <StatusBadge status={selectedUser.status} />

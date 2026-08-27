@@ -186,6 +186,136 @@ class FlywayEmployeeOrgUnitMigrationTest {
         }
     }
 
+    @Test
+    void v16NormalizesInvalidLegacyContractDatesBeforeAddingConstraint()
+            throws Exception {
+        String url = jdbcUrl("v16_invalid_contract_dates");
+
+        try (Connection keepAlive = connect(url)) {
+            migrateTo(url, "15");
+
+            try (Connection connection = connect(url);
+                 Statement statement = connection.createStatement()) {
+                statement.executeUpdate(
+                        """
+                                INSERT INTO employees (
+                                    employee_code,
+                                    full_name,
+                                    start_date,
+                                    contract_end_date
+                                ) VALUES (
+                                    'EMP-INVALID-DATES',
+                                    'Legacy employee',
+                                    DATE '2026-01-01',
+                                    DATE '2025-12-31'
+                                )
+                                """
+                );
+            }
+
+            migrateToLatest(url);
+
+            try (Connection connection = connect(url)) {
+                assertNull(
+                        querySingleValue(
+                                connection,
+                                """
+                                        SELECT contract_end_date
+                                        FROM employees
+                                        WHERE employee_code = ?
+                                        """,
+                                "EMP-INVALID-DATES"
+                        )
+                );
+
+                assertThrows(
+                        SQLException.class,
+                        () -> {
+                            try (PreparedStatement statement =
+                                         connection.prepareStatement(
+                                                 """
+                                                         UPDATE employees
+                                                         SET contract_end_date = ?
+                                                         WHERE employee_code = ?
+                                                         """
+                                         )) {
+                                statement.setDate(
+                                        1,
+                                        java.sql.Date.valueOf("2025-12-31")
+                                );
+                                statement.setString(
+                                        2,
+                                        "EMP-INVALID-DATES"
+                                );
+                                statement.executeUpdate();
+                            }
+                        }
+                );
+            }
+        }
+    }
+
+    @Test
+    void v15BackfillsNullStandardHoursBeforeMakingColumnNotNull()
+            throws Exception {
+        String url = jdbcUrl("v15_null_standard_hours");
+
+        try (Connection keepAlive = connect(url)) {
+            migrateTo(url, "14");
+
+            try (Connection connection = connect(url);
+                 Statement statement = connection.createStatement()) {
+                statement.executeUpdate(
+                        """
+                                INSERT INTO employees (
+                                    employee_code,
+                                    full_name,
+                                    standard_hours_per_week
+                                ) VALUES (
+                                    'EMP-NULL-HOURS',
+                                    'Legacy employee',
+                                    NULL
+                                )
+                                """
+                );
+            }
+
+            migrateToLatest(url);
+
+            try (Connection connection = connect(url)) {
+                assertEquals(
+                        40L,
+                        queryLong(
+                                connection,
+                                """
+                                        SELECT standard_hours_per_week
+                                        FROM employees
+                                        WHERE employee_code = ?
+                                        """,
+                                "EMP-NULL-HOURS"
+                        )
+                );
+
+                assertThrows(
+                        SQLException.class,
+                        () -> {
+                            try (PreparedStatement statement =
+                                         connection.prepareStatement(
+                                                 """
+                                                         UPDATE employees
+                                                         SET standard_hours_per_week = NULL
+                                                         WHERE employee_code = ?
+                                                         """
+                                         )) {
+                                statement.setString(1, "EMP-NULL-HOURS");
+                                statement.executeUpdate();
+                            }
+                        }
+                );
+            }
+        }
+    }
+
     private static void migrateTo(String url, String target) {
         Flyway.configure()
                 .dataSource(url, "sa", "")

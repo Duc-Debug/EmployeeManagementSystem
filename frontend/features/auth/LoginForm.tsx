@@ -1,21 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { FormField } from "@/components/ui/FormField";
 import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
-import { saveDemoSession } from "@/lib/demo-session";
-import { DEMO_USERS } from "@/src/mocks/hrm";
+import { login } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api-client";
 
 type LoginErrors = Partial<Record<"password" | "username", string>>;
 
 export function LoginForm() {
-  const router = useRouter();
-  const [username, setUsername] = useState("minh.anh");
-  const [password, setPassword] = useState("admin@123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errors, setErrors] = useState<LoginErrors>({});
@@ -43,17 +41,7 @@ export function LoginForm() {
     setSubmitError("");
   }
 
-  function handleSelectQuickAccount(targetUsername: string) {
-    const matched = DEMO_USERS.find((u) => u.username === targetUsername);
-    if (matched) {
-      setUsername(matched.username);
-      setPassword("password123");
-      setErrors({});
-      setSubmitError("");
-    }
-  }
-
-  function submitLogin() {
+  async function submitLogin() {
     const nextErrors: LoginErrors = {};
     if (!username.trim() || !password) {
       if (!username.trim()) nextErrors.username = "Tên đăng nhập là bắt buộc.";
@@ -72,37 +60,24 @@ export function LoginForm() {
     setIsLoading(true);
     setSubmitError("");
 
-    // Simulate login request (matching backend /api/v1/auth/login)
-    setTimeout(() => {
-      setIsLoading(false);
-      const matchedUser = DEMO_USERS.find(
-        (u) => u.username.toLowerCase() === username.trim().toLowerCase()
-      );
-
-      if (matchedUser) {
-        if (matchedUser.status === "LOCKED") {
-          setSubmitError("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
-          return;
-        }
-
-        saveDemoSession({
-          fullName: matchedUser.fullName,
-          roleCode: matchedUser.roleCode,
-          roleName: matchedUser.roleName,
-          username: matchedUser.username,
-        });
+    try {
+      const authUser = await login({
+        password,
+        username: username.trim(),
+      });
+      if (authUser.roleCode === "VT-06") {
+        window.location.href = "/users";
       } else {
-        // Fallback for custom usernames in prototype
-        saveDemoSession({
-          fullName: username.trim(),
-          roleCode: "VT-06",
-          roleName: "Quản trị viên",
-          username: username.trim(),
-        });
+        window.location.href = "/organization";
       }
-
-      router.push("/users");
-    }, 600);
+    } catch (err) {
+      setIsLoading(false);
+      if (err instanceof ApiError) {
+        setSubmitError(err.message);
+      } else {
+        setSubmitError("Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.");
+      }
+    }
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -188,29 +163,6 @@ export function LoginForm() {
             <p>Vui lòng nhập thông tin xác thực để bắt đầu phiên làm việc.</p>
           </div>
 
-          {/* Quick Demo Account Selector */}
-          <div className="quick-accounts">
-            <div className="quick-accounts__header">
-              <Icon name="sparkles" />
-              <span className="quick-accounts__title">Tài khoản thử nghiệm nhanh:</span>
-            </div>
-            <div className="quick-accounts__chips">
-              {DEMO_USERS.map((user) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => handleSelectQuickAccount(user.username)}
-                  className={`quick-account-chip ${username === user.username ? "is-selected" : ""}`}
-                  title={`${user.fullName} (${user.roleName})`}
-                >
-                  <Icon name={user.roleCode === "VT-06" ? "access" : "user"} />
-                  <span>{user.username}</span>
-                  <small>· {user.roleName}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-
           <form className="form login-form" noValidate onSubmit={handleSubmit}>
             {submitError ? (
               <div aria-live="polite" className="notice notice--error" role="alert">
@@ -235,7 +187,7 @@ export function LoginForm() {
                     passwordRef.current?.focus();
                   }
                 }}
-                placeholder="vd. minh.anh"
+                placeholder="vd. admin"
                 ref={usernameRef}
                 required
                 value={username}
