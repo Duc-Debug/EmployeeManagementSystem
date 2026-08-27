@@ -243,7 +243,7 @@ public class SkillService implements
                 .toList();
 
         Map<Long, String> groupNameMap = groupIds.isEmpty() ? Map.of() :
-                loadSkillGroupPort.findAllByIdIn(groupIds).stream()
+                loadSkillGroupPort.findAllGroupsByIdIn(groupIds).stream()
                         .filter(g -> g.getId() != null && g.getId().value() != null)
                         .collect(Collectors.toMap(g -> g.getId().value(), SkillGroup::getName, (a, b) -> a));
 

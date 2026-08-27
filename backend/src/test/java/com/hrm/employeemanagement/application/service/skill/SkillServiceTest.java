@@ -201,7 +201,7 @@ class SkillServiceTest {
         when(loadSkillPort.findAll(1L, SkillStatus.ACTIVE, "java")).thenReturn(List.of(
                 new Skill(new SkillId(1L), 1L, "Java", "Desc", SkillStatus.ACTIVE, null, null, null)
         ));
-        when(loadSkillGroupPort.findAllByIdIn(List.of(1L))).thenReturn(List.of(
+        when(loadSkillGroupPort.findAllGroupsByIdIn(List.of(1L))).thenReturn(List.of(
                 new SkillGroup(new SkillGroupId(1L), "Backend", "Backend group", SkillStatus.ACTIVE, null, null)
         ));
 

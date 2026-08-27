@@ -129,7 +129,7 @@ public class SkillRepositoryAdapter implements
     }
 
     @Override
-    public List<SkillGroup> findAllByIdIn(List<Long> ids) {
+    public List<SkillGroup> findAllGroupsByIdIn(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return List.of();
         return skillGroupRepository.findAllById(ids).stream()
                 .map(SkillPersistenceMapper::toDomain)
