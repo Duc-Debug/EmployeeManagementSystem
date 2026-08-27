@@ -18,7 +18,7 @@ public interface SpringDataPermissionRepository
               AND u.is_active = TRUE
               AND p.code = :permissionCode
             """, nativeQuery = true)
-    long countUserPermission(
+    long countPermissionMatches(
             @Param("userId") Long userId,
             @Param("permissionCode") String permissionCode
     );

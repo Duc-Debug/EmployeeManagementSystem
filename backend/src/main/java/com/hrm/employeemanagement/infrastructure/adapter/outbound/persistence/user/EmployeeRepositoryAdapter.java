@@ -30,10 +30,10 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
             EmployeeJpaEntity existing = springDataEmployeeRepository.findById(employee.getIdValue())
                     .orElseGet(() -> mapper.toJpaEntity(employee));
             mapper.updateJpaEntity(existing, employee);
-            saved = springDataEmployeeRepository.save(existing);
+            saved = springDataEmployeeRepository.saveAndFlush(existing);
         } else {
             EmployeeJpaEntity entity = mapper.toJpaEntity(employee);
-            saved = springDataEmployeeRepository.save(entity);
+            saved = springDataEmployeeRepository.saveAndFlush(entity);
         }
         return mapper.toDomain(saved);
     }
@@ -48,6 +48,11 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
     public Optional<Employee> findById(EmployeeId id) {
         if (id == null || id.value() == null) return Optional.empty();
         return springDataEmployeeRepository.findById(id.value()).map(mapper::toDomain);
+    }
+
+    @Override
+    public boolean existsByEmployeeCode(String employeeCode) {
+        return springDataEmployeeRepository.existsByEmployeeCode(employeeCode);
     }
 
     @Override

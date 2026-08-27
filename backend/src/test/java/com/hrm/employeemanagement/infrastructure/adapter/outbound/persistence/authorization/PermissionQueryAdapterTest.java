@@ -129,6 +129,19 @@ class PermissionQueryAdapterTest {
         );
     }
 
+    @Test
+    @DisplayName("VT-05 có quyền đọc và cập nhật hồ sơ nhân viên")
+    void testHasPermission_HrRoleHasEmployeePermissions() {
+        UserJpaEntity hrUser = userWithRole(
+                "employee-permissions-vt05-" + System.nanoTime(),
+                "VT-05");
+
+        assertTrue(permissionQueryAdapter.hasPermission(
+                hrUser.getId(), PermissionCode.EMPLOYEE_READ));
+        assertTrue(permissionQueryAdapter.hasPermission(
+                hrUser.getId(), PermissionCode.EMPLOYEE_UPDATE));
+    }
+
     private UserJpaEntity userWithRole(
             String username,
             String roleCode

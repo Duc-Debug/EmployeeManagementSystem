@@ -14,10 +14,7 @@ public interface SpringDataOrgUnitRepository extends JpaRepository<OrgUnitJpaEnt
     boolean existsByUnitCode(String unitCode);
 
     @Query(value = """
-            SELECT CASE
-                       WHEN COUNT(*) > 0 THEN TRUE
-                       ELSE FALSE
-                   END
+            SELECT COUNT(*)
             FROM org_units ou
             JOIN org_units scope
                 ON scope.id = :scopeOrgUnitId
@@ -25,12 +22,18 @@ public interface SpringDataOrgUnitRepository extends JpaRepository<OrgUnitJpaEnt
               AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
             """,
             nativeQuery = true)
-    boolean existsInOrgUnitBranch(
+    int countInOrgUnitBranch(
             @Param("orgUnitId") Long orgUnitId,
             @Param("scopeOrgUnitId") Long scopeOrgUnitId
     );
 
+    default boolean existsInOrgUnitBranch(Long orgUnitId, Long scopeOrgUnitId) {
+        return countInOrgUnitBranch(orgUnitId, scopeOrgUnitId) > 0;
+    }
+
     List<OrgUnitJpaEntity> findByStatus(OrgUnitStatus status);
+
+    List<OrgUnitJpaEntity> findAllByOrderByTreePathAscUnitCodeAsc();
 
     List<OrgUnitJpaEntity> findByTreePathStartingWith(String treePath);
 
