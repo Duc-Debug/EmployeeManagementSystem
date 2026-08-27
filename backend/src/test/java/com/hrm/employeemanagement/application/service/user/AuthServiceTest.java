@@ -220,4 +220,22 @@ class AuthServiceTest {
 
         assertEquals("LogoutCommand must not be null", exception.getMessage());
     }
+
+    @Test
+    @DisplayName("Đăng xuất mọi thiết bị thất bại ở bước DB save: không blacklist token để cho phép retry")
+    void testLogout_AllDevices_DbFailure_DoesNotBlacklistToken() {
+        String token = "valid.jwt.token";
+        LogoutCommand command = LogoutCommand.of(token, true);
+        User user = new User(new UserId(1L), "admin", "encoded_hash", userRole, UserStatus.ACTIVE, new EmployeeId(10L));
+
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getUserIdFromToken(token)).thenReturn(1L);
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
+        doThrow(new RuntimeException("DB Connection Error")).when(saveUserPort).save(user);
+
+        assertThrows(RuntimeException.class, () -> authService.logout(command));
+
+        verify(tokenBlacklistPort, never()).blacklist(anyString(), anyLong());
+    }
 }

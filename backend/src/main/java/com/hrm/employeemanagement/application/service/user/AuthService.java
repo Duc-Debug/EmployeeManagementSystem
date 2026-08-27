@@ -78,11 +78,6 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
                 return;
             }
 
-            long remainingTtl = tokenProvider.getRemainingExpirationMs(token);
-            if (remainingTtl > 0) {
-                tokenBlacklistPort.blacklist(token, remainingTtl);
-            }
-
             Long userId = tokenProvider.getUserIdFromToken(token);
 
             if (command.allDevices() && username != null) {
@@ -105,6 +100,11 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
                 }
             } else if (userId != null) {
                 saveAuditLogPort.save(AuditLog.create(userId, "LOGOUT", "users", userId));
+            }
+
+            long remainingTtl = tokenProvider.getRemainingExpirationMs(token);
+            if (remainingTtl > 0) {
+                tokenBlacklistPort.blacklist(token, remainingTtl);
             }
         }
     }
