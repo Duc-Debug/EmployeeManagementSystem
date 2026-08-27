@@ -57,10 +57,14 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public AuthenticateUserUseCase authService(LoadUserPort loadUserPort,
+    public com.hrm.employeemanagement.infrastructure.transaction.user.TransactionalAuthServiceDecorator authService(
+            LoadUserPort loadUserPort,
+            SaveUserPort saveUserPort,
             PasswordEncoderPort passwordEncoder,
-            TokenProviderPort tokenProvider) {
-        return new AuthService(loadUserPort, passwordEncoder, tokenProvider);
+            TokenProviderPort tokenProvider,
+            UserStatusCache userStatusCache) {
+        AuthService pureJavaAuthService = new AuthService(loadUserPort, saveUserPort, passwordEncoder, tokenProvider);
+        return new com.hrm.employeemanagement.infrastructure.transaction.user.TransactionalAuthServiceDecorator(pureJavaAuthService, userStatusCache);
     }
 
     @Bean

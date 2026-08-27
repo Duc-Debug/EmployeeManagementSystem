@@ -5,6 +5,7 @@ import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.security.TokenProviderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
@@ -33,6 +34,9 @@ class AuthServiceTest {
     private LoadUserPort loadUserPort;
 
     @Mock
+    private SaveUserPort saveUserPort;
+
+    @Mock
     private PasswordEncoderPort passwordEncoder;
 
     @Mock
@@ -44,7 +48,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(loadUserPort, passwordEncoder, tokenProvider);
+        authService = new AuthService(loadUserPort, saveUserPort, passwordEncoder, tokenProvider);
         userRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
     }
 
@@ -112,5 +116,19 @@ class AuthServiceTest {
         });
 
         verify(tokenProvider, never()).generateToken(any());
+    }
+
+    @Test
+    @DisplayName("Logout thành công tăng tokenVersion và lưu user")
+    void testLogout_Success() {
+        User user = new User(new UserId(1L), "admin", "encoded_hash", userRole, UserStatus.ACTIVE, new EmployeeId(10L));
+        Integer initialTokenVersion = user.getTokenVersion();
+
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(user));
+
+        authService.logout(1L);
+
+        assertEquals(initialTokenVersion + 1, user.getTokenVersion());
+        verify(saveUserPort, times(1)).save(user);
     }
 }

@@ -84,6 +84,10 @@ public class User {
         this.tokenVersion = (this.tokenVersion != null ? this.tokenVersion : 1) + 1;
     }
 
+    public void logout() {
+        this.tokenVersion = (this.tokenVersion != null ? this.tokenVersion : 1) + 1;
+    }
+
     public void lock(UserId currentAdminId, long activeAdminCount) {
         if (this.status == UserStatus.LOCKED) {
             throw new com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException("Tài khoản này hiện đã bị khóa");

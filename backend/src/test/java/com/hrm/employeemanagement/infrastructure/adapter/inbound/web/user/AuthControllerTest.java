@@ -5,10 +5,18 @@ import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.LogoutUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserLockedException;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.UserStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ForgotPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
@@ -40,6 +48,8 @@ class AuthControllerTest {
     @Mock
     private AuthenticateUserUseCase authenticateUserUseCase;
     @Mock
+    private LogoutUserUseCase logoutUserUseCase;
+    @Mock
     private ChangePasswordUseCase changePasswordUseCase;
     @Mock
     private RequestPasswordResetUseCase requestPasswordResetUseCase;
@@ -50,6 +60,7 @@ class AuthControllerTest {
     void setUp() {
         AuthController authController = new AuthController(
                 authenticateUserUseCase,
+                logoutUserUseCase,
                 changePasswordUseCase,
                 requestPasswordResetUseCase,
                 resetPasswordUseCase,
@@ -57,6 +68,7 @@ class AuthControllerTest {
                 new ForgotPasswordRateLimiter()
         );
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
+                .setCustomArgumentResolvers(new org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver())
                 .setControllerAdvice(new UserExceptionHandler())
                 .build();
     }
@@ -192,5 +204,37 @@ class AuthControllerTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("quá nhiều lần")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout trả về 401 Unauthorized khi chưa đăng nhập")
+    void testLogout_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout trả về 200 OK khi đã đăng nhập")
+    void testLogout_Authenticated_Success() throws Exception {
+        Role userRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
+        User mockUser = new User(new UserId(1L), "admin", "encoded_hash", userRole, UserStatus.ACTIVE, new EmployeeId(10L));
+
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(mockUser, null)
+        );
+
+        try {
+            mockMvc.perform(post("/api/v1/auth/logout")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.message").value(containsString("thành công")));
+
+            verify(logoutUserUseCase).logout(1L);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }

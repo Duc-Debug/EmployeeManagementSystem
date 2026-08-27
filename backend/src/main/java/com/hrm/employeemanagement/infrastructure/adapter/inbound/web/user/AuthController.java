@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.dto.user.RequestPasswordResetComma
 import com.hrm.employeemanagement.application.dto.user.ResetPasswordCommand;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.LogoutUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthenticateUserUseCase authenticateUserUseCase;
+    private final LogoutUserUseCase logoutUserUseCase;
     private final ChangePasswordUseCase changePasswordUseCase;
     private final RequestPasswordResetUseCase requestPasswordResetUseCase;
     private final ResetPasswordUseCase resetPasswordUseCase;
@@ -40,12 +42,14 @@ public class AuthController {
     private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
 
     public AuthController(AuthenticateUserUseCase authenticateUserUseCase,
+                          LogoutUserUseCase logoutUserUseCase,
                           ChangePasswordUseCase changePasswordUseCase,
                           RequestPasswordResetUseCase requestPasswordResetUseCase,
                           ResetPasswordUseCase resetPasswordUseCase,
                           LoginRateLimiter loginRateLimiter,
                           ForgotPasswordRateLimiter forgotPasswordRateLimiter) {
         this.authenticateUserUseCase = authenticateUserUseCase;
+        this.logoutUserUseCase = logoutUserUseCase;
         this.changePasswordUseCase = changePasswordUseCase;
         this.requestPasswordResetUseCase = requestPasswordResetUseCase;
         this.resetPasswordUseCase = resetPasswordUseCase;
@@ -80,6 +84,20 @@ public class AuthController {
             loginRateLimiter.recordFailedAttempt(rateLimitKey);
             throw ex;
         }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal User currentUser) {
+        if (currentUser == null || currentUser.getIdValue() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Bạn cần đăng nhập để thực hiện đăng xuất"));
+        }
+
+        logoutUserUseCase.logout(currentUser.getIdValue());
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Đăng xuất thành công", null)
+        );
     }
 
     @PostMapping("/change-password")
