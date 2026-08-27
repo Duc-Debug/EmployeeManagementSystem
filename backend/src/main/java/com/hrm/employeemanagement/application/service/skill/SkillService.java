@@ -67,15 +67,6 @@ public class SkillService implements
                         LoadSkillGroupPort loadSkillGroupPort,
                         SaveSkillGroupPort saveSkillGroupPort,
                         SaveAuditLogPort saveAuditLogPort,
-                        AuthorizationService authorizationService) {
-        this(loadSkillPort, saveSkillPort, loadSkillGroupPort, saveSkillGroupPort, saveAuditLogPort, authorizationService, null);
-    }
-
-    public SkillService(LoadSkillPort loadSkillPort,
-                        SaveSkillPort saveSkillPort,
-                        LoadSkillGroupPort loadSkillGroupPort,
-                        SaveSkillGroupPort saveSkillGroupPort,
-                        SaveAuditLogPort saveAuditLogPort,
                         AuthorizationService authorizationService,
                         CurrentUserPort currentUserPort) {
         this.loadSkillPort = Objects.requireNonNull(loadSkillPort, "LoadSkillPort must not be null");
@@ -84,7 +75,7 @@ public class SkillService implements
         this.saveSkillGroupPort = Objects.requireNonNull(saveSkillGroupPort, "SaveSkillGroupPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
-        this.currentUserPort = currentUserPort;
+        this.currentUserPort = Objects.requireNonNull(currentUserPort, "CurrentUserPort must not be null");
     }
 
     @Override
@@ -241,9 +232,20 @@ public class SkillService implements
     public List<SkillResult> execute(Long groupId, SkillStatus status, String keyword) {
         authorizationService.require(PermissionCode.SKILL_READ);
         List<Skill> skills = loadSkillPort.findAll(groupId, status, keyword);
-        Map<Long, String> groupNameMap = loadSkillGroupPort.findAll().stream()
-                .filter(g -> g.getId() != null && g.getId().value() != null)
-                .collect(Collectors.toMap(g -> g.getId().value(), SkillGroup::getName, (a, b) -> a));
+        if (skills.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> groupIds = skills.stream()
+                .map(Skill::getGroupId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, String> groupNameMap = groupIds.isEmpty() ? Map.of() :
+                loadSkillGroupPort.findAllByIdIn(groupIds).stream()
+                        .filter(g -> g.getId() != null && g.getId().value() != null)
+                        .collect(Collectors.toMap(g -> g.getId().value(), SkillGroup::getName, (a, b) -> a));
 
         return skills.stream()
                 .map(s -> toSkillResult(s, s.getGroupId() != null ? groupNameMap.get(s.getGroupId()) : null))

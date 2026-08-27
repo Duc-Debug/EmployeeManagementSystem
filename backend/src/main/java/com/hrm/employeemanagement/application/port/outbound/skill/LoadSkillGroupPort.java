@@ -8,6 +8,7 @@ import com.hrm.employeemanagement.domain.skill.SkillGroupId;
 
 public interface LoadSkillGroupPort {
     Optional<SkillGroup> findById(SkillGroupId id);
+    List<SkillGroup> findAllByIdIn(List<Long> ids);
     List<SkillGroup> findAll();
     boolean existsById(SkillGroupId id);
     boolean existsGroupByNameIgnoreCase(String name);

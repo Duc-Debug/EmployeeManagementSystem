@@ -195,17 +195,36 @@ class SkillServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy danh sách kỹ năng theo filter SkillStatus thành công")
+    @DisplayName("Lấy danh sách kỹ năng theo filter SkillStatus thành công và chỉ load đúng group theo ID")
     void shouldGetSkillsWithSkillStatusFilter() {
         when(authorizationService.require(PermissionCode.SKILL_READ)).thenReturn(99L);
         when(loadSkillPort.findAll(1L, SkillStatus.ACTIVE, "java")).thenReturn(List.of(
                 new Skill(new SkillId(1L), 1L, "Java", "Desc", SkillStatus.ACTIVE, null, null, null)
         ));
-        when(loadSkillGroupPort.findAll()).thenReturn(List.of());
+        when(loadSkillGroupPort.findAllByIdIn(List.of(1L))).thenReturn(List.of(
+                new SkillGroup(new SkillGroupId(1L), "Backend", "Backend group", SkillStatus.ACTIVE, null, null)
+        ));
 
         List<SkillResult> results = skillService.execute(1L, SkillStatus.ACTIVE, "java");
         assertNotNull(results);
         assertEquals(1, results.size());
         assertEquals("Java", results.get(0).name());
+        assertEquals("Backend", results.get(0).groupName());
+    }
+
+    @Test
+    @DisplayName("Ném NullPointerException khi CurrentUserPort bị null trong constructor")
+    void shouldThrowWhenCurrentUserPortIsNull() {
+        assertThrows(NullPointerException.class, () ->
+                new SkillService(
+                        loadSkillPort,
+                        saveSkillPort,
+                        loadSkillGroupPort,
+                        saveSkillGroupPort,
+                        saveAuditLogPort,
+                        authorizationService,
+                        null
+                )
+        );
     }
 }
