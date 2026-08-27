@@ -3,12 +3,14 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.ChangePasswordCommand;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
+import com.hrm.employeemanagement.application.dto.user.LogoutCommand;
 import com.hrm.employeemanagement.application.dto.user.RequestPasswordResetCommand;
 import com.hrm.employeemanagement.application.dto.user.ResetPasswordCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.LogoutUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
@@ -20,15 +22,19 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.Lo
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
+import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,27 +42,33 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthenticateUserUseCase authenticateUserUseCase;
+    private final LogoutUseCase logoutUseCase;
     private final ChangePasswordUseCase changePasswordUseCase;
     private final RequestPasswordResetUseCase requestPasswordResetUseCase;
     private final ResetPasswordUseCase resetPasswordUseCase;
     private final GetCurrentUserProfileUseCase getCurrentUserProfileUseCase;
     private final LoginRateLimiter loginRateLimiter;
     private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
+    private final UserStatusCache userStatusCache;
 
     public AuthController(AuthenticateUserUseCase authenticateUserUseCase,
+                          LogoutUseCase logoutUseCase,
                           ChangePasswordUseCase changePasswordUseCase,
                           RequestPasswordResetUseCase requestPasswordResetUseCase,
                           ResetPasswordUseCase resetPasswordUseCase,
                           GetCurrentUserProfileUseCase getCurrentUserProfileUseCase,
                           LoginRateLimiter loginRateLimiter,
-                          ForgotPasswordRateLimiter forgotPasswordRateLimiter) {
+                          ForgotPasswordRateLimiter forgotPasswordRateLimiter,
+                          UserStatusCache userStatusCache) {
         this.authenticateUserUseCase = authenticateUserUseCase;
+        this.logoutUseCase = logoutUseCase;
         this.changePasswordUseCase = changePasswordUseCase;
         this.requestPasswordResetUseCase = requestPasswordResetUseCase;
         this.resetPasswordUseCase = resetPasswordUseCase;
         this.getCurrentUserProfileUseCase = getCurrentUserProfileUseCase;
         this.loginRateLimiter = loginRateLimiter;
         this.forgotPasswordRateLimiter = forgotPasswordRateLimiter;
+        this.userStatusCache = userStatusCache;
     }
 
     @GetMapping("/me")
@@ -96,6 +108,29 @@ public class AuthController {
             loginRateLimiter.recordFailedAttempt(rateLimitKey);
             throw ex;
         }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest httpRequest,
+                                                      @RequestParam(value = "allDevices", required = false, defaultValue = "false") boolean allDevices) {
+        String authHeader = httpRequest != null ? httpRequest.getHeader("Authorization") : null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7).trim();
+            if (!token.isBlank()) {
+                if (logoutUseCase != null) {
+                    logoutUseCase.logout(new LogoutCommand(token, allDevices));
+                }
+
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.getPrincipal() instanceof User user && userStatusCache != null) {
+                    userStatusCache.evict(user.getUsername());
+                }
+            }
+        }
+
+        return ResponseEntity.ok(
+                ApiResponse.success(allDevices ? "Đăng xuất khỏi tất cả thiết bị thành công" : "Đăng xuất thành công", null)
+        );
     }
 
     @PostMapping("/change-password")

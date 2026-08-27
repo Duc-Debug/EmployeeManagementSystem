@@ -62,6 +62,11 @@ class JwtTokenProviderAdapterTest {
         assertNotNull(token);
         assertTrue(provider.validateToken(token));
         assertEquals("admin", provider.getUsernameFromToken(token));
+        assertEquals(1L, provider.getUserIdFromToken(token));
+        assertNotNull(provider.getJtiFromToken(token));
+        assertTrue(provider.getIssuedAtTimestampFromToken(token) > 0);
+        assertTrue(provider.getRemainingExpirationMs(token) > 0);
+        assertTrue(provider.getRemainingExpirationMs(token) <= EXPIRATION_MS);
     }
 
     @Test
@@ -71,6 +76,8 @@ class JwtTokenProviderAdapterTest {
         assertFalse(provider.validateToken("invalid.jwt.token"));
         assertFalse(provider.validateToken(""));
         assertFalse(provider.validateToken(null));
+        assertEquals(0L, provider.getRemainingExpirationMs("invalid.jwt.token"));
+        org.junit.jupiter.api.Assertions.assertNull(provider.getUserIdFromToken("invalid.jwt.token"));
     }
 
     private static JwtProperties jwtProperties() {
