@@ -32,8 +32,19 @@ build/
 ### VS Code ###
 .vscode/
 
+### Secrets & Config ###
 .env
 .env.local
 .env.prod
+.env.*
 
-application-dev.properties
+### Postman (Không push file chứa Token cá nhân) ###
+Employee_Management_Postman_Environment.json
+### Frontend Next.js & Node (Rất quan trọng) ###
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+### System Files ###
+.DS_Store
+Thumbs.db

@@ -41,6 +41,11 @@ public class OrgUnitUseCaseConfig {
         return new TransactionalDeactivateOrgUnitUseCase(orgUnitService);
     }
 
+    @Bean("transactionalActivateOrgUnitUseCase")
+    public ActivateOrgUnitUseCase activateOrgUnitUseCase(OrgUnitService orgUnitService) {
+        return new TransactionalActivateOrgUnitUseCase(orgUnitService);
+    }
+
     @Bean("getOrgTreeUseCase")
     public GetOrgTreeUseCase getOrgTreeUseCase(OrgUnitService orgUnitService) {
         return orgUnitService;

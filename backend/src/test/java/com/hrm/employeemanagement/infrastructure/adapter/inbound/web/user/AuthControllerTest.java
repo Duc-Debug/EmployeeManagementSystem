@@ -3,9 +3,11 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrm.employeemanagement.application.dto.user.AuthTokenResult;
 import com.hrm.employeemanagement.application.dto.user.LoginCommand;
+import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
-import com.hrm.employeemanagement.application.port.inbound.user.LogoutUserUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.LogoutUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
@@ -22,6 +24,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.Lo
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
+import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,10 +37,13 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
@@ -48,24 +54,31 @@ class AuthControllerTest {
     @Mock
     private AuthenticateUserUseCase authenticateUserUseCase;
     @Mock
-    private LogoutUserUseCase logoutUserUseCase;
+    private LogoutUseCase logoutUseCase;
     @Mock
     private ChangePasswordUseCase changePasswordUseCase;
     @Mock
     private RequestPasswordResetUseCase requestPasswordResetUseCase;
     @Mock
     private ResetPasswordUseCase resetPasswordUseCase;
+    @Mock
+    private GetCurrentUserProfileUseCase getCurrentUserProfileUseCase;
+
+    private UserStatusCache userStatusCache;
 
     @BeforeEach
     void setUp() {
+        userStatusCache = new UserStatusCache();
         AuthController authController = new AuthController(
                 authenticateUserUseCase,
-                logoutUserUseCase,
+                logoutUseCase,
                 changePasswordUseCase,
                 requestPasswordResetUseCase,
                 resetPasswordUseCase,
+                getCurrentUserProfileUseCase,
                 new LoginRateLimiter(),
-                new ForgotPasswordRateLimiter()
+                new ForgotPasswordRateLimiter(),
+                userStatusCache
         );
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
                 .setCustomArgumentResolvers(new org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver())
@@ -157,6 +170,47 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/auth/logout trả về 200 OK và gọi LogoutUseCase khi có Bearer token")
+    void testLogout_WithBearerToken_Returns200OK() throws Exception {
+        String token = "sample.valid.jwt";
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đăng xuất thành công"));
+
+        verify(logoutUseCase, times(1))
+                .logout(org.mockito.ArgumentMatchers.argThat(cmd -> token.equals(cmd.token())));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout trả về 200 OK khi không có Authorization header (idempotent)")
+    void testLogout_WithoutAuthorizationHeader_Returns200OK() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đăng xuất thành công"));
+
+        verify(logoutUseCase, never()).logout(any());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout?allDevices=true trả về 200 OK và gọi LogoutUseCase với cờ allDevices")
+    void testLogout_AllDevices_Returns200OK() throws Exception {
+        String token = "sample.valid.jwt";
+
+        mockMvc.perform(post("/api/v1/auth/logout?allDevices=true")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đăng xuất khỏi tất cả thiết bị thành công"));
+
+        verify(logoutUseCase, times(1))
+                .logout(org.mockito.ArgumentMatchers.argThat(cmd -> cmd.allDevices() && token.equals(cmd.token())));
+    }
+
+    @Test
     @DisplayName("POST /api/v1/auth/forgot-password thành công")
     void testForgotPassword_Success() throws Exception {
         ForgotPasswordRequest request = new ForgotPasswordRequest("employee1@company.com");
@@ -207,32 +261,35 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/logout trả về 401 Unauthorized khi chưa đăng nhập")
-    void testLogout_Unauthenticated_Returns401() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/logout")
-                        .contentType(MediaType.APPLICATION_JSON))
+    @DisplayName("GET /api/v1/auth/me trả về 401 khi chưa đăng nhập")
+    void testGetCurrentUser_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/logout trả về 200 OK khi đã đăng nhập")
-    void testLogout_Authenticated_Success() throws Exception {
-        Role userRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
-        User mockUser = new User(new UserId(1L), "admin", "encoded_hash", userRole, UserStatus.ACTIVE, new EmployeeId(10L));
+    @DisplayName("GET /api/v1/auth/me trả về 200 OK và thông tin user khi đã đăng nhập thành công")
+    void testGetCurrentUser_Authenticated_Returns200OK() throws Exception {
+        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(10L));
+
+        UserResult userResult = new UserResult(1L, "admin", "VT-06", "Quản trị viên", UserStatus.ACTIVE, 10L, "Admin User", 1L, "Phòng IT", com.hrm.employeemanagement.domain.authorization.DataScope.COMPANY, null);
+        when(getCurrentUserProfileUseCase.getCurrentUserProfile(1L)).thenReturn(userResult);
 
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
-                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(mockUser, null)
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(user, null, java.util.Collections.emptyList())
         );
 
         try {
-            mockMvc.perform(post("/api/v1/auth/logout")
-                            .contentType(MediaType.APPLICATION_JSON))
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/me"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.message").value(containsString("thành công")));
+                    .andExpect(jsonPath("$.data.id").value(1L))
+                    .andExpect(jsonPath("$.data.username").value("admin"))
+                    .andExpect(jsonPath("$.data.roleCode").value("VT-06"));
 
-            verify(logoutUserUseCase).logout(1L);
+            verify(getCurrentUserProfileUseCase, times(1)).getCurrentUserProfile(1L);
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }

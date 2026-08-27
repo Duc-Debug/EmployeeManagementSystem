@@ -24,11 +24,8 @@ public class OrgUnit {
     public OrgUnit(OrgUnitId id, String unitCode, String unitName, OrgUnitType unitType,
             OrgUnitId parentId, String treePath, Integer level, OrgUnitStatus status,
             String description, Long managerId, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        if (parentId != null && (managerId == null || managerId <= 0)) {
-            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
-        }
         if (managerId != null && managerId <= 0) {
-            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) phải lớn hơn 0");
         }
         this.id = id;
         this.unitCode = unitCode;
@@ -96,10 +93,16 @@ public class OrgUnit {
         this.updatedAt = LocalDateTime.now();
     }
 
+    // Hành vi nghiệp vụ: Kích hoạt / Mở khóa đơn vị
+    public void activate() {
+        this.status = OrgUnitStatus.ACTIVE;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Hành vi nghiệp vụ: Bổ nhiệm Trưởng phòng/Quản lý
     public void assignManager(Long managerId) {
-        if (managerId == null || managerId <= 0) {
-            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) không được để trống và phải lớn hơn 0");
+        if (managerId != null && managerId <= 0) {
+            throw new InvalidOrgUnitManagerException("Người quản lý (managerId) phải lớn hơn 0");
         }
         this.managerId = managerId;
         this.updatedAt = LocalDateTime.now();

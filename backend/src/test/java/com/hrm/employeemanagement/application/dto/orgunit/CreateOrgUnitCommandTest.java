@@ -23,7 +23,7 @@ class CreateOrgUnitCommandTest {
     }
 
     @Test
-    @DisplayName("Should throw RequiredFieldMissingException when unitCode, unitName, unitType, or managerId is missing")
+    @DisplayName("Should throw RequiredFieldMissingException when unitCode, unitName, or unitType is missing")
     void shouldThrowExceptionWhenRequiredFieldIsMissing() {
         assertThrows(RequiredFieldMissingException.class, () -> new CreateOrgUnitCommand(
                 "", "Khối Phát Triển", OrgUnitType.CENTER, 1L, 10L, null
@@ -34,9 +34,15 @@ class CreateOrgUnitCommandTest {
         assertThrows(RequiredFieldMissingException.class, () -> new CreateOrgUnitCommand(
                 "DEV-CENTER", "Khối Phát Triển", null, 1L, 10L, null
         ));
-        assertThrows(RequiredFieldMissingException.class, () -> new CreateOrgUnitCommand(
+    }
+
+    @Test
+    @DisplayName("Should create valid CreateOrgUnitCommand with null managerId")
+    void shouldCreateValidCommandWithNullManagerId() {
+        CreateOrgUnitCommand command = new CreateOrgUnitCommand(
                 "DEV-CENTER", "Khối Phát Triển", OrgUnitType.CENTER, 1L, null, null
-        ));
+        );
+        assertNull(command.managerId());
     }
 
     @Test
