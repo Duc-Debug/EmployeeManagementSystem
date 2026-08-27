@@ -24,6 +24,7 @@ public class OrgUnitController {
     private final UpdateOrgUnitUseCase updateOrgUnitUseCase;
     private final MoveOrgUnitUseCase moveOrgUnitUseCase;
     private final DeactivateOrgUnitUseCase deactivateOrgUnitUseCase;
+    private final ActivateOrgUnitUseCase activateOrgUnitUseCase;
     private final GetOrgTreeUseCase getOrgTreeUseCase;
 
     public OrgUnitController(
@@ -31,11 +32,13 @@ public class OrgUnitController {
             @Qualifier("transactionalUpdateOrgUnitUseCase") UpdateOrgUnitUseCase updateOrgUnitUseCase,
             @Qualifier("transactionalMoveOrgUnitUseCase") MoveOrgUnitUseCase moveOrgUnitUseCase,
             @Qualifier("transactionalDeactivateOrgUnitUseCase") DeactivateOrgUnitUseCase deactivateOrgUnitUseCase,
+            @Qualifier("transactionalActivateOrgUnitUseCase") ActivateOrgUnitUseCase activateOrgUnitUseCase,
             @Qualifier("orgUnitService") GetOrgTreeUseCase getOrgTreeUseCase) {
         this.createOrgUnitUseCase = createOrgUnitUseCase;
         this.updateOrgUnitUseCase = updateOrgUnitUseCase;
         this.moveOrgUnitUseCase = moveOrgUnitUseCase;
         this.deactivateOrgUnitUseCase = deactivateOrgUnitUseCase;
+        this.activateOrgUnitUseCase = activateOrgUnitUseCase;
         this.getOrgTreeUseCase = getOrgTreeUseCase;
     }
 
@@ -71,6 +74,13 @@ public class OrgUnitController {
     public ResponseEntity<OrgUnitResponse> deactivateUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id) {
         OrgUnitResult result = deactivateOrgUnitUseCase.execute(new DeactivateOrgUnitCommand(id));
+        return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
+    }
+
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<OrgUnitResponse> activateUnit(
+            @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id) {
+        OrgUnitResult result = activateOrgUnitUseCase.execute(new ActivateOrgUnitCommand(id));
         return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
     }
 

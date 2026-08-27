@@ -19,7 +19,7 @@ public record CreateOrgUnitRequest(
 
         @Positive(message = "Parent ID phải lớn hơn 0") 
         Long parentId,
-        @NotNull(message = "Người quản lý không được để trống") @Positive(message = "ID người quản lý phải hợp lệ") 
+        @Positive(message = "ID người quản lý phải hợp lệ") 
         Long managerId,
 
         @Size(max = 2000, message = "Mô tả không vượt quá 2000 ký tự") 

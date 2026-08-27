@@ -6,8 +6,10 @@ import com.hrm.employeemanagement.application.dto.user.LoginCommand;
 import com.hrm.employeemanagement.application.dto.user.LogoutCommand;
 import com.hrm.employeemanagement.application.dto.user.RequestPasswordResetCommand;
 import com.hrm.employeemanagement.application.dto.user.ResetPasswordCommand;
+import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ChangePasswordUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.LogoutUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.RequestPasswordResetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ResetPasswordUseCase;
@@ -28,6 +30,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,6 +46,7 @@ public class AuthController {
     private final ChangePasswordUseCase changePasswordUseCase;
     private final RequestPasswordResetUseCase requestPasswordResetUseCase;
     private final ResetPasswordUseCase resetPasswordUseCase;
+    private final GetCurrentUserProfileUseCase getCurrentUserProfileUseCase;
     private final LoginRateLimiter loginRateLimiter;
     private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
     private final UserStatusCache userStatusCache;
@@ -52,6 +56,7 @@ public class AuthController {
                           ChangePasswordUseCase changePasswordUseCase,
                           RequestPasswordResetUseCase requestPasswordResetUseCase,
                           ResetPasswordUseCase resetPasswordUseCase,
+                          GetCurrentUserProfileUseCase getCurrentUserProfileUseCase,
                           LoginRateLimiter loginRateLimiter,
                           ForgotPasswordRateLimiter forgotPasswordRateLimiter,
                           UserStatusCache userStatusCache) {
@@ -60,9 +65,20 @@ public class AuthController {
         this.changePasswordUseCase = changePasswordUseCase;
         this.requestPasswordResetUseCase = requestPasswordResetUseCase;
         this.resetPasswordUseCase = resetPasswordUseCase;
+        this.getCurrentUserProfileUseCase = getCurrentUserProfileUseCase;
         this.loginRateLimiter = loginRateLimiter;
         this.forgotPasswordRateLimiter = forgotPasswordRateLimiter;
         this.userStatusCache = userStatusCache;
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResult>> getCurrentUser(@AuthenticationPrincipal User currentUser) {
+        if (currentUser == null || currentUser.getIdValue() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Bạn cần đăng nhập để xem thông tin"));
+        }
+        UserResult userResult = getCurrentUserProfileUseCase.getCurrentUserProfile(currentUser.getIdValue());
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin người dùng thành công", userResult));
     }
 
     @PostMapping("/login")

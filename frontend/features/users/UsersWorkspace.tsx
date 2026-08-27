@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { RoleBadge, ScopeBadge, StatusBadge } from "@/components/ui/Badge";
@@ -8,8 +8,11 @@ import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
 import { flattenOrgTree } from "@/lib/organization";
-import { DEMO_ORG_UNIT_TREE, DEMO_ROLES, DEMO_USERS } from "@/src/mocks/hrm";
-import type { User } from "@/src/types/hrm";
+import { DEMO_ROLES } from "@/src/mocks/hrm";
+import type { OrgUnitTreeNode, User } from "@/src/types/hrm";
+import { createUser, getUsers, toggleUserStatus, updateUserRole } from "@/lib/api/users";
+import { getOrgTree } from "@/lib/api/org-units";
+import { ApiError } from "@/lib/api-client";
 
 import { type UserAccountDraft, type UserAccountErrors, UserAccountForm } from "@/features/users/UserAccountForm";
 
@@ -17,12 +20,14 @@ type UserEditorState = { mode: "create" } | { mode: "edit"; userId: number } | n
 
 const EMPTY_DRAFT: UserAccountDraft = {
   dataScope: "SELF",
+  email: "",
   employeeCode: "",
   fullName: "",
   orgUnitId: "",
   password: "",
   roleCode: "",
   scopeOrgUnitId: "",
+  status: "ACTIVE",
   username: "",
 };
 
@@ -30,16 +35,20 @@ function toEditDraft(user: User): UserAccountDraft {
   return {
     ...EMPTY_DRAFT,
     dataScope: user.dataScope,
-    fullName: user.fullName,
+    email: user.email || `${user.username}@company.com`,
+    employeeCode: user.employeeId ? `EMP-00${user.employeeId}` : "EMP-001",
+    fullName: user.fullName || user.username || "",
     orgUnitId: user.orgUnitId ? String(user.orgUnitId) : "",
     roleCode: user.roleCode,
     scopeOrgUnitId: user.scopeOrgUnitId ? String(user.scopeOrgUnitId) : "",
+    status: user.status,
     username: user.username,
   };
 }
 
 export function UsersWorkspace() {
-  const [users, setUsers] = useState<User[]>(() => DEMO_USERS.map((user) => ({ ...user })));
+  const [users, setUsers] = useState<User[]>([]);
+  const [rawTree, setRawTree] = useState<OrgUnitTreeNode[]>([]);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -54,19 +63,59 @@ export function UsersWorkspace() {
   const setEditorFocus = useCallback((element: HTMLElement | null) => {
     editorFocusRef.current = element;
   }, []);
-  const orgUnits = useMemo(() => flattenOrgTree(DEMO_ORG_UNIT_TREE), []);
+
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  useEffect(() => {
+    let ignore = false;
+    Promise.all([
+      getUsers(0, 100),
+      getOrgTree(),
+    ])
+      .then(([usersPage, tree]) => {
+        if (!ignore) {
+          setUsers(usersPage?.content || []);
+          setRawTree(tree || []);
+          setFetchError(null);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          console.error("Lỗi nạp dữ liệu từ Backend:", err);
+          setFetchError(err instanceof Error ? err.message : "Không thể tải dữ liệu từ máy chủ.");
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [reloadTick]);
+
+  const orgUnits = useMemo(() => flattenOrgTree(rawTree), [rawTree]);
   const orgUnitOptions = useMemo(() => orgUnits.map((orgUnit) => ({
     depth: orgUnit.level,
     id: orgUnit.id,
     unitCode: orgUnit.unitCode,
     unitName: orgUnit.unitName,
+    unitType: orgUnit.unitType,
   })), [orgUnits]);
 
   const editingUser = editor?.mode === "edit" ? users.find((user) => user.id === editor.userId) : undefined;
+  
+  // KPI Stats
+  const stats = useMemo(() => {
+    const total = users.length;
+    const active = users.filter((user) => user.status === "ACTIVE").length;
+    const locked = users.filter((user) => user.status === "LOCKED").length;
+    const admins = users.filter((user) => user.roleCode === "VT-06").length;
+    return { active, admins, locked, total };
+  }, [users]);
+
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("vi");
     return users.filter((user) => {
-      const searchMatches = !normalizedQuery || [user.fullName, user.username, user.orgUnitName ?? ""]
+      const searchMatches = !normalizedQuery || [user.fullName || "", user.username || "", user.email ?? "", user.orgUnitName ?? ""]
         .some((value) => value.toLocaleLowerCase("vi").includes(normalizedQuery));
       const roleMatches = roleFilter === "ALL" || user.roleCode === roleFilter;
       const statusMatches = statusFilter === "ALL" || user.status === statusFilter;
@@ -92,7 +141,7 @@ export function UsersWorkspace() {
     setDraft(EMPTY_DRAFT);
   }
 
-  function updateDraft(key: keyof UserAccountDraft, value: string) {
+  function updateDraft<Key extends keyof UserAccountDraft>(key: Key, value: UserAccountDraft[Key]) {
     setDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
     setErrors((currentErrors) => ({ ...currentErrors, [key]: undefined }));
   }
@@ -103,15 +152,25 @@ export function UsersWorkspace() {
       return false;
     }
 
+    if (!draft.fullName.trim()) nextErrors.fullName = "Họ tên là bắt buộc.";
+    if (!draft.email.trim()) {
+      nextErrors.email = "Email là bắt buộc.";
+    } else if (!draft.email.includes("@")) {
+      nextErrors.email = "Email không đúng định dạng.";
+    }
+
     if (editor.mode === "create") {
-      if (!draft.fullName.trim()) nextErrors.fullName = "Họ tên là bắt buộc.";
       if (!draft.employeeCode.trim()) nextErrors.employeeCode = "Mã nhân viên là bắt buộc.";
       if (draft.username.trim().length < 3) nextErrors.username = "Tên đăng nhập cần có ít nhất 3 ký tự.";
-      if (draft.password.length < 6) nextErrors.password = "Mật khẩu cần có ít nhất 6 ký tự.";
+      if (!draft.password || draft.password.length < 6) nextErrors.password = "Mật khẩu cần có ít nhất 6 ký tự.";
       if (!draft.orgUnitId) nextErrors.orgUnitId = "Hãy chọn đơn vị tổ chức.";
     }
 
-    if (!draft.roleCode) nextErrors.roleCode = "Hãy chọn role.";
+    if (editor.mode === "edit") {
+      if (draft.password && draft.password.length < 6) nextErrors.password = "Mật khẩu mới phải có ít nhất 6 ký tự.";
+    }
+
+    if (!draft.roleCode) nextErrors.roleCode = "Hãy chọn vai trò (Role).";
     if (draft.dataScope === "ORGANIZATION_BRANCH" && !draft.scopeOrgUnitId) {
       nextErrors.scopeOrgUnitId = "Hãy chọn đơn vị tổ chức áp dụng.";
     }
@@ -120,7 +179,7 @@ export function UsersWorkspace() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  function saveUser(event: FormEvent<HTMLFormElement>) {
+  async function saveUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editor || !validateDraft()) {
       return;
@@ -132,29 +191,31 @@ export function UsersWorkspace() {
       return;
     }
 
+    const selectedOrgUnit = orgUnits.find((orgUnit) => orgUnit.id === Number(draft.orgUnitId));
+
     if (editor.mode === "create") {
-      const selectedOrgUnit = orgUnits.find((orgUnit) => orgUnit.id === Number(draft.orgUnitId));
       if (!selectedOrgUnit) {
         setErrors({ orgUnitId: "Hãy chọn đơn vị tổ chức hợp lệ." });
         return;
       }
 
-      const newUser: User = {
-        dataScope: selectedRole.code === "VT-06" ? "COMPANY" : "SELF",
-        employeeId: null,
-        fullName: draft.fullName.trim(),
-        id: Date.now(),
-        orgUnitId: selectedOrgUnit.id,
-        orgUnitName: selectedOrgUnit.unitName,
-        roleCode: selectedRole.code,
-        roleName: selectedRole.name,
-        scopeOrgUnitId: null,
-        status: "ACTIVE",
-        username: draft.username.trim(),
-      };
-      setUsers((currentUsers) => [newUser, ...currentUsers]);
-      setAnnouncement(`Đã tạo tài khoản ${newUser.fullName}.`);
-      closeEditor();
+      try {
+        const created = await createUser({
+          employeeCode: draft.employeeCode.trim() || undefined,
+          fullName: draft.fullName.trim(),
+          orgUnitId: selectedOrgUnit.id,
+          password: draft.password,
+          roleCode: selectedRole.code,
+          username: draft.username.trim(),
+        });
+        setUsers((currentUsers) => [created, ...currentUsers]);
+        setAnnouncement(`Đã tạo tài khoản ${created.fullName}.`);
+        closeEditor();
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setErrors({ username: err.message });
+        }
+      }
       return;
     }
 
@@ -163,85 +224,160 @@ export function UsersWorkspace() {
     }
 
     const scopeOrgUnitId = draft.dataScope === "ORGANIZATION_BRANCH" ? Number(draft.scopeOrgUnitId) : null;
-    setUsers((currentUsers) => currentUsers.map((user) => (
-      user.id === editingUser.id
-        ? {
-          ...user,
-          dataScope: draft.dataScope,
-          roleCode: selectedRole.code,
-          roleName: selectedRole.name,
-          scopeOrgUnitId,
-        }
-        : user
-    )));
-    setAnnouncement(`Đã cập nhật tài khoản ${editingUser.fullName}.`);
-    closeEditor();
+    try {
+      const updated = await updateUserRole(editingUser.id, {
+        dataScope: selectedRole.code === "VT-06" ? "COMPANY" : draft.dataScope,
+        roleCode: selectedRole.code,
+        scopeOrgUnitId,
+      });
+      setUsers((currentUsers) => currentUsers.map((u) => u.id === editingUser.id ? updated : u));
+      setAnnouncement(`Đã cập nhật tài khoản ${editingUser.fullName}.`);
+      closeEditor();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setErrors({ roleCode: err.message });
+      }
+    }
   }
 
   function requestLock(user: User) {
     setLockTarget(user);
   }
 
-  function confirmLock() {
+  async function confirmLock() {
     if (!lockTarget) {
       return;
     }
 
-    setUsers((currentUsers) => currentUsers.map((user) => (
-      user.id === lockTarget.id ? { ...user, status: "LOCKED" } : user
-    )));
-    setAnnouncement(`Đã khóa tài khoản ${lockTarget.fullName}.`);
+    try {
+      const updated = await toggleUserStatus(lockTarget.id, true);
+      setUsers((currentUsers) => currentUsers.map((u) => u.id === lockTarget.id ? updated : u));
+      setAnnouncement(`Đã khóa tài khoản ${lockTarget.fullName}.`);
+    } catch {
+      // ignore
+    }
     setLockTarget(null);
   }
 
-  function unlockUser(user: User) {
-    setUsers((currentUsers) => currentUsers.map((item) => (
-      item.id === user.id ? { ...item, status: "ACTIVE" } : item
-    )));
-    setAnnouncement(`Đã mở khóa tài khoản ${user.fullName}.`);
+  async function unlockUser(user: User) {
+    try {
+      const updated = await toggleUserStatus(user.id, false);
+      setUsers((currentUsers) => currentUsers.map((item) => (
+        item.id === user.id ? updated : item
+      )));
+      setAnnouncement(`Đã mở khóa tài khoản ${user.fullName}.`);
+    } catch {
+      // ignore
+    }
   }
 
   const editorMode = editor?.mode;
-  const editorTitle = editorMode === "edit" ? "Sửa tài khoản" : "Tạo tài khoản";
+  const editorTitle = editorMode === "edit" ? `Chỉnh sửa tài khoản: ${editingUser?.fullName ?? ""}` : "Tạo tài khoản mới";
 
   return (
     <div className="workspace-stack">
       <PageHeader
         actions={
-          <button className="button button--primary" onClick={openCreateDialog} type="button">
+          <button className="button button--primary create-user-cta" onClick={openCreateDialog} type="button">
             <Icon name="plus" />
-            Tạo tài khoản
+            <span>Tạo tài khoản</span>
           </button>
         }
-        description="Tìm kiếm, lọc và quản lý trạng thái tài khoản."
-        title="Quản lý tài khoản"
+        description="Quản trị danh sách người dùng, phân cấp đơn vị và phạm vi truy cập dữ liệu."
+        title="Quản lý tài khoản nhân sự"
       />
+
+      {fetchError && (
+        <div className="notice notice--error" style={{ marginBottom: "1rem" }}>
+          <Icon name="alert" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+            <span>{fetchError}</span>
+            <button className="button button--secondary" onClick={() => setReloadTick((t) => t + 1)} type="button" style={{ padding: "0.25rem 0.75rem", fontSize: "0.875rem" }}>
+              Thử lại
+            </button>
+          </div>
+        </div>
+      )}
 
       {announcement ? <p aria-live="polite" className="sr-only">{announcement}</p> : null}
 
+      {/* KPI Stats Cards */}
+      <section aria-label="Thống kê tài khoản" className="kpi-grid">
+        <button
+          className={`kpi-card ${statusFilter === "ALL" && roleFilter === "ALL" ? "is-active" : ""}`}
+          onClick={() => {
+            setStatusFilter("ALL");
+            setRoleFilter("ALL");
+          }}
+          type="button"
+        >
+          <div className="kpi-card__header">
+            <span className="kpi-card__label">Tổng tài khoản</span>
+            <span className="kpi-card__icon kpi-card__icon--indigo">
+              <Icon name="users" />
+            </span>
+          </div>
+          <div className="kpi-card__val">{stats.total}</div>
+          <div className="kpi-card__desc">Toàn hệ thống</div>
+        </button>
+
+        <button
+          className={`kpi-card ${statusFilter === "ACTIVE" ? "is-active" : ""}`}
+          onClick={() => setStatusFilter((prev) => (prev === "ACTIVE" ? "ALL" : "ACTIVE"))}
+          type="button"
+        >
+          <div className="kpi-card__header">
+            <span className="kpi-card__label">Đang hoạt động</span>
+            <span className="kpi-card__icon kpi-card__icon--emerald">
+              <Icon name="check" />
+            </span>
+          </div>
+          <div className="kpi-card__val kpi-card__val--emerald">{stats.active}</div>
+          <div className="kpi-card__desc">Sẵn sàng đăng nhập</div>
+        </button>
+
+        <button
+          className={`kpi-card ${statusFilter === "LOCKED" ? "is-active" : ""}`}
+          onClick={() => setStatusFilter((prev) => (prev === "LOCKED" ? "ALL" : "LOCKED"))}
+          type="button"
+        >
+          <div className="kpi-card__header">
+            <span className="kpi-card__label">Đã khóa</span>
+            <span className="kpi-card__icon kpi-card__icon--rose">
+              <Icon name="lock" />
+            </span>
+          </div>
+          <div className="kpi-card__val kpi-card__val--rose">{stats.locked}</div>
+          <div className="kpi-card__desc">Tạm ngưng quyền truy cập</div>
+        </button>
+
+        <button
+          className={`kpi-card ${roleFilter === "VT-06" ? "is-active" : ""}`}
+          onClick={() => setRoleFilter((prev) => (prev === "VT-06" ? "ALL" : "VT-06"))}
+          type="button"
+        >
+          <div className="kpi-card__header">
+            <span className="kpi-card__label">Quản trị viên (VT-06)</span>
+            <span className="kpi-card__icon kpi-card__icon--purple">
+              <Icon name="shield" />
+            </span>
+          </div>
+          <div className="kpi-card__val kpi-card__val--purple">{stats.admins}</div>
+          <div className="kpi-card__desc">DataScope: Toàn công ty</div>
+        </button>
+      </section>
+
+      {/* Main Data Panel */}
       <section aria-labelledby="users-table-title" className="data-panel">
         <div className="data-panel__header">
           <div>
-            <h2 id="users-table-title">Danh sách tài khoản</h2>
-            <p>{filteredUsers.length} tài khoản</p>
+            <h2 id="users-table-title">Danh sách tài khoản nhân sự</h2>
+            <p>Hiển thị {filteredUsers.length} trên tổng số {users.length} tài khoản</p>
           </div>
         </div>
 
         <div className="data-panel__body">
           <div className="filter-toolbar">
-            <div className="search-field">
-              <Icon name="search" />
-              <label className="sr-only" htmlFor="user-search">Tìm tài khoản</label>
-              <input
-                className="input"
-                id="user-search"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Tìm theo tên, username hoặc đơn vị"
-                type="search"
-                value={query}
-              />
-            </div>
-
             <div className="select-field">
               <label className="sr-only" htmlFor="role-filter">Lọc theo role</label>
               <select className="select" id="role-filter" onChange={(event) => setRoleFilter(event.target.value)} value={roleFilter}>
@@ -258,13 +394,64 @@ export function UsersWorkspace() {
                 <option value="LOCKED">Đã khóa</option>
               </select>
             </div>
+
+            {(query || roleFilter !== "ALL" || statusFilter !== "ALL") && (
+              <button
+                className="button button--secondary button--compact filter-reset-btn"
+                onClick={() => {
+                  setQuery("");
+                  setRoleFilter("ALL");
+                  setStatusFilter("ALL");
+                }}
+                type="button"
+              >
+                <Icon name="close" />
+                <span>Đặt lại lọc</span>
+              </button>
+            )}
+
+            {/* Search Box on the Right */}
+            <div className="search-field">
+              <Icon name="search" />
+              <label className="sr-only" htmlFor="user-search">Tìm tài khoản</label>
+              <input
+                className="input"
+                id="user-search"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Tìm theo tên, email, username, mã NV..."
+                type="search"
+                value={query}
+              />
+              {query && (
+                <button
+                  aria-label="Xóa từ khóa tìm kiếm"
+                  className="search-clear-btn"
+                  onClick={() => setQuery("")}
+                  type="button"
+                >
+                  <Icon name="close" />
+                </button>
+              )}
+            </div>
           </div>
 
           {filteredUsers.length === 0 ? (
             <EmptyState
-              action={<button className="button button--secondary" onClick={() => { setQuery(""); setRoleFilter("ALL"); setStatusFilter("ALL"); }} type="button">Xóa bộ lọc</button>}
+              action={
+                <button
+                  className="button button--secondary"
+                  onClick={() => {
+                    setQuery("");
+                    setRoleFilter("ALL");
+                    setStatusFilter("ALL");
+                  }}
+                  type="button"
+                >
+                  Xóa bộ lọc
+                </button>
+              }
               icon="search"
-              message="Thử điều chỉnh điều kiện tìm kiếm."
+              message="Không có tài khoản nào khớp với điều kiện tìm kiếm hiện tại."
               title="Không tìm thấy tài khoản"
             />
           ) : (
@@ -273,17 +460,23 @@ export function UsersWorkspace() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th scope="col">Tài khoản</th>
-                      <th scope="col">Role</th>
-                      <th scope="col">Đơn vị</th>
-                      <th scope="col">Data Scope</th>
+                      <th scope="col">Tài khoản & Email</th>
+                      <th scope="col">Vai trò (Role)</th>
+                      <th scope="col">Đơn vị tổ chức</th>
+                      <th scope="col">Phạm vi dữ liệu</th>
                       <th scope="col">Trạng thái</th>
-                      <th scope="col"><span className="sr-only">Thao tác</span></th>
+                      <th scope="col" style={{ textAlign: "right", width: "8.5rem" }}>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredUsers.map((user) => (
-                      <UserTableRow key={user.id} onEdit={openEditDialog} onRequestLock={requestLock} onUnlock={unlockUser} user={user} />
+                      <UserTableRow
+                        key={user.id}
+                        onEdit={openEditDialog}
+                        onRequestLock={requestLock}
+                        onUnlock={unlockUser}
+                        user={user}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -291,7 +484,13 @@ export function UsersWorkspace() {
 
               <div className="mobile-record-list">
                 {filteredUsers.map((user) => (
-                  <UserRecordCard key={user.id} onEdit={openEditDialog} onRequestLock={requestLock} onUnlock={unlockUser} user={user} />
+                  <UserRecordCard
+                    key={user.id}
+                    onEdit={openEditDialog}
+                    onRequestLock={requestLock}
+                    onUnlock={unlockUser}
+                    user={user}
+                  />
                 ))}
               </div>
             </>
@@ -299,11 +498,15 @@ export function UsersWorkspace() {
         </div>
       </section>
 
+      {/* Create / Edit User Dialog */}
       <Dialog
-        description={editorMode === "edit" ? "Cập nhật vai trò và phạm vi truy cập của tài khoản." : "Nhập thông tin để tạo tài khoản."}
+        className="dialog--user-form"
+        description={editorMode === "edit" ? "Cập nhật thông tin nhân sự, đơn vị công tác và cấu hình phân quyền." : "Điền thông tin tài khoản và cấu hình phân quyền ban đầu."}
         footer={
           <>
-            <button className="button button--quiet" onClick={closeEditor} type="button">Hủy</button>
+            <button className="button button--secondary" onClick={closeEditor} type="button">
+              Hủy
+            </button>
             <button className="button button--primary" form="user-account-form" ref={submitRef} type="submit">
               {editorMode === "edit" ? "Lưu thay đổi" : "Tạo tài khoản"}
             </button>
@@ -312,6 +515,7 @@ export function UsersWorkspace() {
         initialFocusRef={editorFocusRef}
         onClose={closeEditor}
         open={Boolean(editor)}
+        preventBackdropClose={true}
         title={editorTitle}
       >
         {editorMode ? (
@@ -330,26 +534,40 @@ export function UsersWorkspace() {
         ) : null}
       </Dialog>
 
+      {/* Lock User Confirmation Dialog */}
       <Dialog
+        className="dialog--compact"
         description="Xác nhận trước khi khóa quyền truy cập của tài khoản này."
         footer={
           <>
-            <button className="button button--quiet" onClick={() => setLockTarget(null)} ref={lockCancelRef} type="button">Hủy</button>
-            <button className="button button--danger" onClick={confirmLock} type="button">Khóa tài khoản</button>
+            <button className="button button--secondary" onClick={() => setLockTarget(null)} ref={lockCancelRef} type="button">
+              Hủy
+            </button>
+            <button className="button button--danger" onClick={confirmLock} type="button">
+              Xác nhận khóa
+            </button>
           </>
         }
         initialFocusRef={lockCancelRef}
         onClose={() => setLockTarget(null)}
         open={Boolean(lockTarget)}
-        title="Khóa tài khoản"
+        preventBackdropClose={true}
+        title="Khóa tài khoản người dùng"
       >
         {lockTarget ? (
           <div className="dialog-confirmation">
-            <div className="account-summary">
-              <strong>{lockTarget.fullName}</strong>
-              <span>{lockTarget.username}</span>
+            <div className="lock-warning-card">
+              <div className="lock-warning-card__icon">
+                <Icon name="alert" />
+              </div>
+              <div className="lock-warning-card__info">
+                <strong>{lockTarget.fullName || lockTarget.username}</strong>
+                <span>@{lockTarget.username} · {lockTarget.email ?? `${lockTarget.username}@company.com`}</span>
+              </div>
             </div>
-            <p>Tài khoản sẽ không thể đăng nhập cho đến khi được mở lại.</p>
+            <p className="dialog-confirmation__text">
+              Tài khoản này sẽ bị thu hồi phiên làm việc và không thể đăng nhập vào hệ thống cho đến khi được mở khóa lại.
+            </p>
           </div>
         ) : null}
       </Dialog>
@@ -368,55 +586,85 @@ function UserActions({ onEdit, onRequestLock, onUnlock, user }: UserActionProps)
   const isActive = user.status === "ACTIVE";
   return (
     <div className="table-actions">
-      <button className="table-action" onClick={() => onEdit(user)} type="button">
+      <button className="table-action table-action--edit" onClick={() => onEdit(user)} title="Chỉnh sửa tài khoản" type="button">
         <Icon name="settings" />
-        Chỉnh sửa
+        <span>Sửa</span>
       </button>
-      <button className={isActive ? "table-action table-action--danger" : "table-action"} onClick={() => (isActive ? onRequestLock(user) : onUnlock(user))} type="button">
+      <button
+        className={`table-action ${isActive ? "table-action--danger" : "table-action--unlock"}`}
+        onClick={() => (isActive ? onRequestLock(user) : onUnlock(user))}
+        title={isActive ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+        type="button"
+      >
         <Icon name={isActive ? "lock" : "unlock"} />
-        {isActive ? "Khóa" : "Mở khóa"}
+        <span>{isActive ? "Khóa" : "Mở"}</span>
       </button>
     </div>
   );
 }
 
 function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps) {
+  const displayName = user.fullName || user.username || "Người dùng";
   return (
-    <tr>
+    <tr className="user-table-row">
       <td>
         <div className="table-person">
-          <span aria-hidden="true" className="avatar avatar--small">{user.fullName.slice(0, 1)}</span>
+          <span aria-hidden="true" className="avatar avatar--medium avatar--gradient">
+            {displayName.slice(0, 1).toUpperCase()}
+          </span>
           <div className="table-person__copy">
-            <strong>{user.fullName}</strong>
-            <span>{user.username}</span>
+            <strong>{displayName}</strong>
+            <div className="table-person__meta">
+              <span className="table-person__username">@{user.username}</span>
+              {user.email && <span className="table-person__email">· {user.email}</span>}
+            </div>
           </div>
         </div>
       </td>
-      <td><RoleBadge code={user.roleCode} name={user.roleName} /></td>
-      <td>{user.orgUnitName ?? "Chưa gán đơn vị"}</td>
-      <td><ScopeBadge scope={user.dataScope} /></td>
-      <td><StatusBadge status={user.status} /></td>
-      <td><UserActions onEdit={onEdit} onRequestLock={onRequestLock} onUnlock={onUnlock} user={user} /></td>
+      <td>
+        <RoleBadge code={user.roleCode} name={user.roleName} />
+      </td>
+      <td>
+        <div className="table-org-cell">
+          <Icon name="organization" />
+          <span>{user.orgUnitName ?? "Chưa gán đơn vị"}</span>
+        </div>
+      </td>
+      <td>
+        <ScopeBadge scope={user.dataScope} />
+      </td>
+      <td>
+        <StatusBadge status={user.status} />
+      </td>
+      <td style={{ textAlign: "right" }}>
+        <UserActions onEdit={onEdit} onRequestLock={onRequestLock} onUnlock={onUnlock} user={user} />
+      </td>
     </tr>
   );
 }
 
 function UserRecordCard({ onEdit, onRequestLock, onUnlock, user }: UserActionProps) {
+  const displayName = user.fullName || user.username || "Người dùng";
   return (
     <article className="record-card">
       <div className="record-card__header">
         <div className="table-person">
-          <span aria-hidden="true" className="avatar avatar--small">{user.fullName.slice(0, 1)}</span>
+          <span aria-hidden="true" className="avatar avatar--small avatar--gradient">
+            {displayName.slice(0, 1).toUpperCase()}
+          </span>
           <div className="table-person__copy">
-            <strong>{user.fullName}</strong>
-            <span>{user.username}</span>
+            <strong>{displayName}</strong>
+            <div className="table-person__meta">
+              <span className="table-person__username">@{user.username}</span>
+              {user.email && <span className="table-person__email">· {user.email}</span>}
+            </div>
           </div>
         </div>
         <StatusBadge status={user.status} />
       </div>
       <dl className="record-card__facts">
-        <div><dt>Role</dt><dd><RoleBadge code={user.roleCode} name={user.roleName} /></dd></div>
-        <div><dt>Data Scope</dt><dd><ScopeBadge scope={user.dataScope} /></dd></div>
+        <div><dt>Vai trò</dt><dd><RoleBadge code={user.roleCode} name={user.roleName} /></dd></div>
+        <div><dt>Phạm vi</dt><dd><ScopeBadge scope={user.dataScope} /></dd></div>
         <div><dt>Đơn vị</dt><dd>{user.orgUnitName ?? "Chưa gán đơn vị"}</dd></div>
       </dl>
       <div className="record-card__footer">

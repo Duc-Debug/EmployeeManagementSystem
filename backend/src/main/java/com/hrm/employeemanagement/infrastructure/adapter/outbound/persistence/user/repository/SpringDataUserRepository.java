@@ -62,10 +62,7 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     );
 
     @Query(value = """
-        SELECT CASE
-                   WHEN COUNT(*) > 0 THEN TRUE
-                   ELSE FALSE
-               END
+        SELECT COUNT(*)
         FROM users u
         JOIN employees e
             ON e.user_id = u.id
@@ -77,10 +74,14 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
           AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
         """,
         nativeQuery = true)
-    boolean existsInOrgUnitBranch(
+    int countInOrgUnitBranch(
             @Param("userId") Long userId,
             @Param("scopeOrgUnitId") Long scopeOrgUnitId
     );
+
+    default boolean existsInOrgUnitBranch(Long userId, Long scopeOrgUnitId) {
+        return countInOrgUnitBranch(userId, scopeOrgUnitId) > 0;
+    }
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """

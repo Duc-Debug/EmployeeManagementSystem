@@ -18,5 +18,7 @@ public interface LoadOrgUnitPort {
 
     List<OrgUnit> findAllActive();
 
+    List<OrgUnit> findAll();
+
     List<OrgUnit> findSubTree(String treePath);
 }
