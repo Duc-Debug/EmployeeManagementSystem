@@ -6,4 +6,4 @@ public record SkillId(Long value) {
             throw new IllegalArgumentException("SkillId phải là số dương hợp lệ.");
         }
     }
-}
+}

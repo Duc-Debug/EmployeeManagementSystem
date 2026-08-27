@@ -11,8 +11,13 @@ import com.hrm.employeemanagement.application.dto.user.RoleResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
+<<<<<<< HEAD
 import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCase;
+=======
+import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
+>>>>>>> ccada48dc43c372bdbc7cb597b49965984e10894
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
@@ -51,7 +56,11 @@ public class UserService implements
         ToggleUserStatusUseCase,
         UpdateUserRoleUseCase,
         GetUserListUseCase,
+<<<<<<< HEAD
         GetRoleListUseCase,
+=======
+        GetRoleListUseCase {
+>>>>>>> ccada48dc43c372bdbc7cb597b49965984e10894
         GetCurrentUserProfileUseCase {
 
     private final LoadUserPort loadUserPort;
