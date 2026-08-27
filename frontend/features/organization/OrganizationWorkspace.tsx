@@ -556,7 +556,7 @@ export function OrganizationWorkspace() {
                       onClick={() => openEditDialog(selectedUnit)}
                       type="button"
                     >
-                      <Icon name="settings" />
+                      <Icon name="edit" />
                       <span>Sửa</span>
                     </button>
                     {selectedUnit.parentId !== null && (

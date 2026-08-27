@@ -98,13 +98,19 @@ export function UserAccountForm({
       </div>
 
       <div className="form-grid form-grid--two">
-        <FormField error={errors.employeeCode} id="user-employee-code" label="Mã nhân viên">
+        <FormField
+          error={errors.employeeCode}
+          hint={mode === "create" ? "Tự động tạo theo mã đơn vị và số thứ tự nhân viên" : undefined}
+          id="user-employee-code"
+          label="Mã nhân viên"
+        >
           <input
             aria-invalid={Boolean(errors.employeeCode)}
             className="input"
+            disabled
             id="user-employee-code"
             onChange={(event) => onChange("employeeCode", event.target.value)}
-            placeholder="vd. EMP-001"
+            placeholder="vd. HR-007"
             required
             type="text"
             value={value.employeeCode}

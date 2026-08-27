@@ -123,8 +123,27 @@ export function UsersWorkspace() {
     });
   }, [query, roleFilter, statusFilter, users]);
 
+  const getNextEmployeeCode = useCallback(
+    (targetOrgUnitId: string) => {
+      const nextSeqNum = users.length + 1;
+      const nextSeq = String(nextSeqNum).padStart(3, "0");
+      const selectedOrgUnit = orgUnits.find((u) => String(u.id) === String(targetOrgUnitId));
+      const prefix = selectedOrgUnit ? selectedOrgUnit.unitCode : (orgUnits[0]?.unitCode ?? "EMP");
+      return `${prefix}-${nextSeq}`;
+    },
+    [orgUnits, users.length],
+  );
+
   function openCreateDialog() {
-    setDraft(EMPTY_DRAFT);
+    const defaultOrgUnit = orgUnits.find((u) => u.status === "ACTIVE") ?? orgUnits[0];
+    const defaultOrgUnitId = defaultOrgUnit ? String(defaultOrgUnit.id) : "";
+    const autoEmployeeCode = getNextEmployeeCode(defaultOrgUnitId);
+
+    setDraft({
+      ...EMPTY_DRAFT,
+      employeeCode: autoEmployeeCode,
+      orgUnitId: defaultOrgUnitId,
+    });
     setErrors({});
     setEditor({ mode: "create" });
   }
@@ -142,7 +161,13 @@ export function UsersWorkspace() {
   }
 
   function updateDraft<Key extends keyof UserAccountDraft>(key: Key, value: UserAccountDraft[Key]) {
-    setDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
+    setDraft((currentDraft) => {
+      const nextDraft = { ...currentDraft, [key]: value };
+      if (key === "orgUnitId" && editor?.mode === "create") {
+        nextDraft.employeeCode = getNextEmployeeCode(String(value));
+      }
+      return nextDraft;
+    });
     setErrors((currentErrors) => ({ ...currentErrors, [key]: undefined }));
   }
 
@@ -561,7 +586,7 @@ function UserActions({ onEdit, onRequestLock, onUnlock, user }: UserActionProps)
   return (
     <div className="table-actions">
       <button className="table-action table-action--edit" onClick={() => onEdit(user)} title="Chỉnh sửa tài khoản" type="button">
-        <Icon name="settings" />
+        <Icon name="edit" />
         <span>Sửa</span>
       </button>
       <button
