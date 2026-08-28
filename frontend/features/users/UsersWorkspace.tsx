@@ -10,7 +10,7 @@ import { Icon } from "@/components/ui/Icon";
 import { flattenOrgTree } from "@/lib/organization";
 import { DEMO_ROLES } from "@/src/mocks/hrm";
 import type { OrgUnitTreeNode, User } from "@/src/types/hrm";
-import { createUser, getUsers, toggleUserStatus, updateUser, updateUserRole } from "@/lib/api/users";
+import { createUser, getUsers, toggleUserStatus, updateUser } from "@/lib/api/users";
 import { getOrgTree } from "@/lib/api/org-units";
 import { ApiError } from "@/lib/api-client";
 
