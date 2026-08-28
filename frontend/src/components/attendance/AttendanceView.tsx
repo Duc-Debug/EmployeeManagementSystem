@@ -36,7 +36,6 @@ export function AttendanceView({
         .toFixed(2)
         .replace(/\.?0+$/, "")
 
-    // State quản lý Modal Cấu hình ca làm
     const [isConfigOpen, setIsConfigOpen] = useState(false)
     const [shiftRules, setShiftRules] = useState<ShiftRulesData>({
         startTime: "08:00 AM",
