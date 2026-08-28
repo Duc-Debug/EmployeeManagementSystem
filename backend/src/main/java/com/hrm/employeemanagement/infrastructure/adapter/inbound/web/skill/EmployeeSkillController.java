@@ -42,7 +42,7 @@ public class EmployeeSkillController {
      * 403 Forbidden và ghi Security Log.
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('EMPLOYEE_SKILL_DECLARE') and hasRole('VT-04')")
+    @PreAuthorize("hasAuthority('VT-04') or hasRole('VT-04') or hasAuthority('EMPLOYEE_SKILL_DECLARE')")
     public ResponseEntity<ApiResponse<EmployeeSkillResponse>> declareSkill(
             @AuthenticationPrincipal UserPrincipal currentUser,
             @Valid @RequestBody DeclareSkillRequest request
