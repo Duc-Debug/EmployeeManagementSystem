@@ -71,9 +71,12 @@ public class CreateProjectService implements CreateProjectUseCase {
         OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
 
         if (command.managerId() != null) {
-            loadEmployeePort.findById(new EmployeeId(command.managerId()))
+            com.hrm.employeemanagement.domain.employee.Employee manager = loadEmployeePort.findById(new EmployeeId(command.managerId()))
                     .orElseThrow(() -> new InvalidProjectDataException(
                             "Không tìm thấy nhân viên quản lý dự án với ID: " + command.managerId()));
+            if (manager.getStatus() != com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE) {
+                throw new InvalidProjectDataException("Nhân viên quản lý dự án không ở trạng thái hoạt động");
+            }
         }
 
         String finalProjectCode = resolveProjectCode(orgUnit);
