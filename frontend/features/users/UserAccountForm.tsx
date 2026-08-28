@@ -1,6 +1,7 @@
-import { type FormEvent, type RefObject } from "react";
+import { useState, type FormEvent, type RefObject } from "react";
  
 import { FormField } from "@/components/ui/FormField";
+import { Icon } from "@/components/ui/Icon";
 import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import { DEMO_ROLES } from "@/src/mocks/hrm";
 import type { DataScope, User, UserStatus } from "@/src/types/hrm";
@@ -49,6 +50,7 @@ export function UserAccountForm({
   orgUnitOptions,
   value,
 }: UserAccountFormProps) {
+  const [showPassword, setShowPassword] = useState(false);
   const isSystemAdmin = value.roleCode === "VT-06";
 
   function handleRoleChange(roleCode: string) {
@@ -100,17 +102,16 @@ export function UserAccountForm({
       <div className="form-grid form-grid--two">
         <FormField
           error={errors.employeeCode}
-          hint={mode === "create" ? "Tự động tạo theo mã đơn vị và số thứ tự nhân viên" : undefined}
+          hint={mode === "create" ? "Tự động sinh mã chuẩn EMP-xxx hoặc có thể tự nhập" : undefined}
           id="user-employee-code"
           label="Mã nhân viên"
         >
           <input
             aria-invalid={Boolean(errors.employeeCode)}
             className="input"
-            disabled
             id="user-employee-code"
             onChange={(event) => onChange("employeeCode", event.target.value)}
-            placeholder="vd. HR-007"
+            placeholder="vd. EMP-001"
             required
             type="text"
             value={value.employeeCode}
@@ -140,17 +141,28 @@ export function UserAccountForm({
           id="user-password"
           label={mode === "create" ? "Mật khẩu khởi tạo" : "Mật khẩu mới"}
         >
-          <input
-            aria-invalid={Boolean(errors.password)}
-            autoComplete="new-password"
-            className="input"
-            id="user-password"
-            onChange={(event) => onChange("password", event.target.value)}
-            placeholder={mode === "create" ? "Tối thiểu 6 ký tự" : "Nhập nếu muốn đổi"}
-            required={mode === "create"}
-            type="password"
-            value={value.password ?? ""}
-          />
+          <div className="input-action-wrapper">
+            <input
+              aria-invalid={Boolean(errors.password)}
+              autoComplete="new-password"
+              className="input"
+              id="user-password"
+              onChange={(event) => onChange("password", event.target.value)}
+              placeholder={mode === "create" ? "Tối thiểu 6 ký tự" : "Nhập nếu muốn đổi"}
+              required={mode === "create"}
+              type={showPassword ? "text" : "password"}
+              value={value.password ?? ""}
+            />
+            <button
+              type="button"
+              className="input-action-btn"
+              onClick={() => setShowPassword(!showPassword)}
+              title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+            >
+              <Icon name={showPassword ? "eyeOff" : "eye"} />
+            </button>
+          </div>
         </FormField>
 
         <FormField error={errors.orgUnitId} id="user-org-unit" label="Đơn vị tổ chức trực thuộc">
@@ -159,7 +171,7 @@ export function UserAccountForm({
             id="user-org-unit"
             onChange={(nextValue) => onChange("orgUnitId", nextValue)}
             options={orgUnitOptions}
-            placeholder="Chọn đơn vị công tác"
+            placeholder="Chọn phòng ban / đơn vị công tác"
             value={value.orgUnitId}
           />
         </FormField>
