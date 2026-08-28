@@ -2,8 +2,11 @@ export interface EmployeeFormData {
     id?: string;
     fullName: string;
     email: string;
+    phone?: string;
     department: string;
     position: string;
+    joinDate?: string;
+    standardHoursPerDay?: number;
     status?: "active" | "locked";
 }
 

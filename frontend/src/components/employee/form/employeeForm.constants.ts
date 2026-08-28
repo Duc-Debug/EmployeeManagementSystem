@@ -13,4 +13,6 @@ export const DEFAULT_FORM_VALUES: EmployeeFormData = {
     email: "",
     department: "Kỹ thuật",
     position: "",
+    joinDate: "",
+    standardHoursPerDay: 8,
 };

@@ -1,186 +1,240 @@
-import { useState, useRef, useEffect } from "react";
-import { Plus, Search, Filter, ChevronDown, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
-import EmployeeCard from "../components/employee/EmployeeCard";
-import EmployeeProfileForm from "../components/employee/form/EmployeeProfileForm";
-import type { EmployeeFormData } from "../components/employee/form/employeeForm.types";
+"use client"
+
+import { useState, useRef, useEffect } from "react"
+import { Plus, Search, ChevronDown, Check, Users } from "lucide-react"
+import { cn } from "@/lib/utils"
+import EmployeeCard from "../components/employee/EmployeeCard"
+import EmployeeProfileForm from "../components/employee/form/EmployeeProfileForm"
+import EmployeeDetailModal from "../components/employee/form/EmployeeDetailModal"
+import type { EmployeeFormData } from "../components/employee/form/employeeForm.types"
 
 const INITIAL_EMPLOYEES: EmployeeFormData[] = [
     {
-        id: "EMP-002",
+        id: "EMP-001",
         fullName: "Nguyễn Thị Mai",
         email: "mai.nguyen@company.com",
+        phone: "0999999999",
         department: "Nhân sự",
         position: "HR Specialist",
-        joinDate: "2023-06-01",
-        standardHoursPerDay: 8,
+        joinDate: "04/12/2026",
+        status: "active",
     },
-];
+]
 
-const DEPARTMENT_OPTIONS = ["All", "Kỹ thuật", "Nhân sự", "Kinh doanh", "Marketing", "Tài chính"];
+const DEPARTMENT_OPTIONS = ["All", "Nhân sự", "Kỹ thuật", "Marketing", "Kinh doanh", "Tài chính"]
 
-function DepartmentFilterDropdown({
-                                      value,
-                                      onChange,
-                                  }: {
-    value: string;
-    onChange: (v: string) => void;
+function formatDeptLabel(dept: string) {
+    if (dept === "All") return "Tất cả phòng ban"
+    if (dept.startsWith("Phòng")) return dept
+    return `Phòng ${dept}`
+}
+
+/* ========================================================================
+   CUSTOM DROPDOWN COMPONENT (Đã sửa lỗi bo góc 100% bằng rounded-2xl & overflow-hidden)
+   ======================================================================== */
+export function CustomSelectDropdown({
+                                         value,
+                                         onChange,
+                                         options,
+                                         placeholder = "Chọn phòng ban",
+                                         labelPrefix = false,
+                                     }: {
+    value: string
+    onChange: (v: string) => void
+    options: string[]
+    placeholder?: string
+    labelPrefix?: boolean
 }) {
-    const [open, setOpen] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
             if (ref.current && !ref.current.contains(e.target as Node)) {
-                setOpen(false);
+                setOpen(false)
             }
         }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [])
 
-    const label = value === "All" ? "Tất cả phòng ban" : value;
+    const getDisplayLabel = (val: string) => {
+        if (!val) return placeholder
+        return labelPrefix ? formatDeptLabel(val) : val === "All" ? "Tất cả phòng ban" : val
+    }
 
     return (
-        <div className="relative" ref={ref}>
+        <div className="relative w-full sm:w-auto min-w-[180px]" ref={ref}>
+            {/* Nút bấm Kích hoạt Dropdown (Bo góc mượt dạng Capsule/Custom) */}
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-5 py-2.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/25 bg-purple-500/20 px-4 py-2.5 text-xs font-bold text-white shadow-sm backdrop-blur-md transition hover:bg-purple-500/30 active:scale-95"
             >
-                <span>{label}</span>
-                <ChevronDown
-                    className={cn(
-                        "h-3.5 w-3.5 text-white/70 transition-transform",
-                        open && "rotate-180"
-                    )}
-                />
+                <span className="truncate">{getDisplayLabel(value)}</span>
+                <ChevronDown className={cn("size-4 shrink-0 text-white/80 transition-transform duration-200", open && "rotate-180")} />
             </button>
 
+            {/* Khung Menu thả xuống: Cố định bo góc rounded-2xl + overflow-hidden + Glassmorphism */}
             {open && (
-                <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-white/15 bg-white/10 p-1 shadow-xl backdrop-blur-xl">
-                    {DEPARTMENT_OPTIONS.map((opt) => {
-                        const isActive = value === opt;
-                        return (
-                            <button
-                                key={opt}
-                                type="button"
-                                onClick={() => {
-                                    onChange(opt);
-                                    setOpen(false);
-                                }}
-                                className={cn(
-                                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition",
-                                    isActive
-                                        ? "bg-white/20 text-white"
-                                        : "text-white/60 hover:bg-white/10 hover:text-white"
-                                )}
-                            >
-                                {opt === "All" ? "Tất cả phòng ban" : opt}
-                                {isActive && <Check className="h-3.5 w-3.5" />}
-                            </button>
-                        );
-                    })}
+                <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-2xl border border-white/15 bg-white/[0.3] px-4 py-2.5 text-sm font-medium text-white/80 backdrop-blur-xl transition hover:text-purple-200">
+                    <div className="max-h-60 overflow-y-auto space-y-1 custom-scrollbar">
+                        {options.map((opt) => {
+                            const isActive = value === opt
+                            return (
+                                <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(opt)
+                                        setOpen(false)
+                                    }}
+                                    className={cn(
+                                        "flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs font-bold transition-all",
+                                        isActive
+                                            ? "bg-purple-600/50 text-white shadow-sm border border-white/20"
+                                            : "text-white/80 hover:bg-white/10 hover:text-white",
+                                    )}
+                                >
+                                    <span>{labelPrefix ? formatDeptLabel(opt) : opt === "All" ? "Tất cả phòng ban" : opt}</span>
+                                    {isActive && <Check className="size-3.5 text-purple-200 stroke-[2.5]" />}
+                                </button>
+                            )
+                        })}
+                    </div>
                 </div>
             )}
         </div>
-    );
+    )
 }
 
 export default function EmployeeProfilePage() {
-    const [employees, setEmployees] = useState<EmployeeFormData[]>(INITIAL_EMPLOYEES);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedDept, setSelectedDept] = useState("All");
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingEmployee, setEditingEmployee] = useState<EmployeeFormData | null>(null);
+    const [employees, setEmployees] = useState<EmployeeFormData[]>(INITIAL_EMPLOYEES)
+    const [searchTerm, setSearchTerm] = useState("")
+    const [selectedDept, setSelectedDept] = useState("All")
+
+    const [isFormOpen, setIsFormOpen] = useState(false)
+    const [editingEmployee, setEditingEmployee] = useState<EmployeeFormData | undefined>(undefined)
+    const [viewingEmployee, setViewingEmployee] = useState<EmployeeFormData | undefined>(undefined)
 
     const filteredEmployees = employees.filter((emp) => {
         const matchesSearch =
             emp.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            emp.email.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesDept = selectedDept === "All" || emp.department === selectedDept;
-        return matchesSearch && matchesDept;
-    });
+            emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+        const matchesDept = selectedDept === "All" || emp.department === selectedDept
+        return matchesSearch && matchesDept
+    })
 
     const handleOpenAdd = () => {
-        setEditingEmployee(null);
-        setIsFormOpen(true);
-    };
+        setEditingEmployee(undefined)
+        setIsFormOpen(true)
+    }
 
     const handleOpenEdit = (emp: EmployeeFormData) => {
-        setEditingEmployee(emp);
-        setIsFormOpen(true);
-    };
+        setEditingEmployee(emp)
+        setIsFormOpen(true)
+    }
 
     const handleDelete = (id?: string) => {
-        if (!id) return;
+        if (!id) return
         if (confirm("Bạn có chắc chắn muốn xóa hồ sơ nhân sự này?")) {
-            setEmployees(employees.filter((e) => e.id !== id));
+            setEmployees(employees.filter((e) => e.id !== id))
         }
-    };
+    }
 
     const handleSave = (data: EmployeeFormData) => {
         if (editingEmployee?.id) {
             setEmployees(
-                employees.map((e) => (e.id === editingEmployee.id ? { ...data, id: editingEmployee.id } : e))
-            );
+                employees.map((e) => (e.id === editingEmployee.id ? { ...data, id: editingEmployee.id } : e)),
+            )
         } else {
             const newEmp: EmployeeFormData = {
                 ...data,
                 id: `EMP-${Date.now().toString().slice(-3)}`,
-            };
-            setEmployees([newEmp, ...employees]);
+            }
+            setEmployees([newEmp, ...employees])
         }
-        setIsFormOpen(false);
-    };
+        setIsFormOpen(false)
+    }
 
     return (
-        <div className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-6">
+            {/* PHẦN 1: HEADER TRANG */}
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
-                    <h1 className="text-xl font-bold text-white">Quản lý hồ sơ nhân sự</h1>
-                    <p className="text-xs text-white/60">Khai báo, cập nhật và quản lý danh sách hồ sơ nhân sự HR.</p>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-white">
+                        Quản lý hồ sơ nhân sự
+                    </h1>
+                    <p className="mt-1 text-xs font-semibold text-white/80 sm:text-sm">
+                        Khai báo, cập nhật và quản lý danh sách hồ sơ nhân sự HR.
+                    </p>
                 </div>
             </div>
 
-            {/* Ô tìm kiếm chiếm trọn chiều rộng */}
-            <div className="relative w-full">
-                <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-white/40" />
-                <input
-                    type="text"
-                    placeholder="Tìm kiếm theo tên hoặc email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full rounded-full border border-white/15 bg-white/5 pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-white/40 outline-none focus:border-[#63ecc8]"
-                />
-            </div>
+            {/* PHẦN 2: KHUNG MAIN GLASSMORPHISM */}
+            <div className="rounded-2xl border border-white/20 bg-white/[0.08] p-5 shadow-[0_8px_24px_rgba(15,10,45,0.2)] backdrop-blur-xl space-y-4">
+                {/* Thanh điều khiển trên cùng */}
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    {/* Ô tìm kiếm */}
+                    <div className="relative flex-1">
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/50" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm theo tên hoặc email..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full rounded-xl border border-white/20 bg-white/10 py-2.5 pl-10 pr-4 text-xs font-medium text-white placeholder:text-white/50 outline-none transition focus:border-white/40 focus:bg-white/15"
+                        />
+                    </div>
 
-            {/* Bộ lọc + nút thêm nằm hàng riêng bên dưới */}
-            <div className="flex flex-wrap items-center justify-end gap-3">
-                <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-purple-300/70" />
-                    <DepartmentFilterDropdown value={selectedDept} onChange={setSelectedDept} />
+                    {/* Bộ lọc phòng ban (Custom Select Bo Góc) + Nút thêm mới */}
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                        <CustomSelectDropdown
+                            value={selectedDept}
+                            onChange={setSelectedDept}
+                            options={DEPARTMENT_OPTIONS}
+                            labelPrefix={true}
+                        />
+
+                        <button
+                            type="button"
+                            onClick={handleOpenAdd}
+                            className="flex items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-600/80 px-4 py-2.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition hover:bg-indigo-600 active:scale-95"
+                        >
+                            <Plus className="size-4 stroke-[2.5]" />
+                            <span>Thêm nhân sự mới</span>
+                        </button>
+                    </div>
                 </div>
-                <button
-                    type="button"
-                    onClick={handleOpenAdd}
-                    className="flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-5 py-2.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
-                >
-                    <Plus className="h-4 w-4 stroke-[2.5]" />
-                    <span>Thêm nhân sự mới</span>
-                </button>
+
+                {/* Danh sách nhân sự */}
+                <div className="space-y-3 pt-1">
+                    {filteredEmployees.map((emp) => (
+                        <EmployeeCard
+                            key={emp.id}
+                            employee={emp}
+                            onView={(employeeData) => setViewingEmployee(employeeData)}
+                            onEdit={handleOpenEdit}
+                            onDelete={handleDelete}
+                        />
+                    ))}
+                    {filteredEmployees.length === 0 && (
+                        <div className="py-12 text-center text-white/60">
+                            <Users className="mx-auto mb-2 size-8 text-white/40" />
+                            <p className="text-xs font-semibold">Không tìm thấy nhân sự phù hợp.</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredEmployees.map((emp) => (
-                    <EmployeeCard
-                        key={emp.id}
-                        employee={emp}
-                        onEdit={handleOpenEdit}
-                        onDelete={handleDelete}
-                    />
-                ))}
-            </div>
+            {/* Modal Xem chi tiết */}
+            <EmployeeDetailModal
+                isOpen={!!viewingEmployee}
+                employee={viewingEmployee || null}
+                onClose={() => setViewingEmployee(undefined)}
+            />
+
+            {/* Modal Thêm / Chỉnh sửa */}
             <EmployeeProfileForm
                 open={isFormOpen}
                 initialData={editingEmployee}
@@ -188,5 +242,5 @@ export default function EmployeeProfilePage() {
                 onSave={handleSave}
             />
         </div>
-    );
+    )
 }

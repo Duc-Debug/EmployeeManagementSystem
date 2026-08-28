@@ -1,262 +1,390 @@
-import { useState, useEffect, useRef } from "react";
-import { X, AlertCircle, ChevronDown, Check, Lock, Unlock } from "lucide-react";
-import type { EmployeeProfileFormProps, EmployeeFormData, FormErrors } from "./employeeForm.types";
-import { DEFAULT_FORM_VALUES, DEPARTMENT_OPTIONS } from "./employeeForm.constants";
-import { validateEmployeeForm } from "./employeeForm.validation";
+"use client"
 
-function DepartmentSelect({
-                              value,
-                              onChange,
-                          }: {
-    value: string;
-    onChange: (v: string) => void;
+import { useState, useRef, useEffect } from "react"
+import { X, Calendar, ChevronDown, ChevronLeft, ChevronRight, Check, UserCheck } from "lucide-react"
+import { cn } from "@/lib/utils"
+import type { EmployeeFormData } from "./employeeForm.types"
+import { DEPARTMENT_OPTIONS } from "./employeeForm.constants"
+
+interface EmployeeProfileFormProps {
+    open: boolean
+    initialData?: EmployeeFormData | null
+    onClose: () => void
+    onSave: (data: EmployeeFormData) => void
+}
+
+const DEFAULT_FORM_DATA: EmployeeFormData = {
+    fullName: "",
+    email: "",
+    phone: "",
+    department: "Kỹ thuật",
+    position: "",
+    joinDate: "",
+    status: "active",
+}
+
+/* ========================================================================
+   1. CUSTOM SELECT DROPDOWN
+   ======================================================================== */
+function CustomSelect({
+                          value,
+                          onChange,
+                          options,
+                          placeholder = "Chọn phòng ban",
+                      }: {
+    value: string
+    onChange: (val: string) => void
+    options: string[]
+    placeholder?: string
 }) {
-    const [open, setOpen] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
             if (ref.current && !ref.current.contains(e.target as Node)) {
-                setOpen(false);
+                setOpen(false)
             }
         }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [])
 
     return (
-        <div className="relative" ref={ref}>
+        <div className="relative w-full" ref={ref}>
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 outline-none transition hover:bg-slate-100/70 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
             >
-                <span>{value || "Chọn phòng ban"}</span>
-                <ChevronDown
-                    className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
-                        open ? "rotate-180" : ""
-                    }`}
-                />
+                <span className={value ? "text-slate-800" : "text-slate-400"}>
+                    {value || placeholder}
+                </span>
+                <ChevronDown className={cn("size-4 text-slate-400 transition-transform duration-200", open && "rotate-180")} />
             </button>
 
-            <div
-                className={`absolute left-0 right-0 z-30 mt-1.5 origin-top rounded-xl border border-slate-200 bg-white p-1 shadow-lg transition-all duration-150 ease-out ${
-                    open
-                        ? "scale-100 opacity-100 pointer-events-auto"
-                        : "scale-95 opacity-0 pointer-events-none"
-                }`}
-            >
-                {DEPARTMENT_OPTIONS.map((dept) => {
-                    const isActive = value === dept;
-                    return (
-                        <button
-                            key={dept}
-                            type="button"
-                            onClick={() => {
-                                onChange(dept);
-                                setOpen(false);
-                            }}
-                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-                                isActive
-                                    ? "bg-indigo-50 font-semibold text-indigo-600"
-                                    : "text-slate-600 hover:bg-slate-50"
-                            }`}
-                        >
-                            {dept}
-                            {isActive && <Check className="h-3.5 w-3.5" />}
-                        </button>
-                    );
-                })}
-            </div>
+            {open && (
+                <div className="absolute left-0 right-0 z-50 mt-1.5 overflow-hidden rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                    <div className="max-h-52 overflow-y-auto space-y-1 custom-scrollbar">
+                        {options.map((opt) => {
+                            const isActive = value === opt
+                            return (
+                                <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(opt)
+                                        setOpen(false)
+                                    }}
+                                    className={cn(
+                                        "flex w-full items-center justify-between rounded-xl px-3.5 py-2 text-left text-xs font-semibold transition-all",
+                                        isActive
+                                            ? "bg-indigo-50 text-indigo-600 font-bold"
+                                            : "text-slate-700 hover:bg-slate-100"
+                                    )}
+                                >
+                                    <span>{opt}</span>
+                                    {isActive && <Check className="size-3.5 text-indigo-600 stroke-[2.5]" />}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
-    );
+    )
 }
 
+/* ========================================================================
+   2. CUSTOM DATE PICKER
+   ======================================================================== */
+function CustomDatePicker({
+                              value,
+                              onChange,
+                              dropUp = true,
+                          }: {
+    value: string
+    onChange: (val: string) => void
+    dropUp?: boolean
+}) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+
+    const today = new Date()
+    const [viewDate, setViewDate] = useState(() => {
+        if (!value) return today
+        const parts = value.split("/")
+        if (parts.length === 3) {
+            return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]))
+        }
+        return today
+    })
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+                setOpen(false)
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [])
+
+    const year = viewDate.getFullYear()
+    const month = viewDate.getMonth()
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const firstDayIndex = new Date(year, month, 1).getDay()
+
+    const monthNames = [
+        "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+        "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+    ]
+    const weekDays = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"]
+
+    const handlePrevMonth = () => setViewDate(new Date(year, month - 1, 1))
+    const handleNextMonth = () => setViewDate(new Date(year, month + 1, 1))
+
+    const handleSelectDay = (day: number) => {
+        const d = String(day).padStart(2, "0")
+        const m = String(month + 1).padStart(2, "0")
+        const formatted = `${d}/${m}/${year}`
+        onChange(formatted)
+        setOpen(false)
+    }
+
+    return (
+        <div className="relative w-full" ref={ref}>
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 outline-none transition hover:bg-slate-100/70 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+            >
+                <span className={value ? "text-slate-800" : "text-slate-400"}>
+                    {value || "dd/mm/yyyy"}
+                </span>
+                <Calendar className="size-4 text-slate-400" />
+            </button>
+
+            {open && (
+                <div
+                    className={cn(
+                        "absolute left-0 z-50 w-72 rounded-2xl border border-slate-100 bg-white p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150",
+                        dropUp ? "bottom-full mb-2" : "top-full mt-2"
+                    )}
+                >
+                    <div className="flex items-center justify-between mb-3 text-slate-800">
+                        <button
+                            type="button"
+                            onClick={handlePrevMonth}
+                            className="rounded-lg p-1 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
+                        >
+                            <ChevronLeft className="size-4" />
+                        </button>
+                        <span className="text-xs font-bold">{monthNames[month]} {year}</span>
+                        <button
+                            type="button"
+                            onClick={handleNextMonth}
+                            className="rounded-lg p-1 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
+                        >
+                            <ChevronRight className="size-4" />
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 mb-2">
+                        {weekDays.map((wd) => (
+                            <span key={wd}>{wd}</span>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                        {Array.from({ length: firstDayIndex }).map((_, i) => (
+                            <div key={`empty-${i}`} />
+                        ))}
+                        {Array.from({ length: daysInMonth }).map((_, i) => {
+                            const dayNum = i + 1
+                            const dStr = String(dayNum).padStart(2, "0")
+                            const mStr = String(month + 1).padStart(2, "0")
+                            const isSelected = value === `${dStr}/${mStr}/${year}`
+
+                            return (
+                                <button
+                                    key={dayNum}
+                                    type="button"
+                                    onClick={() => handleSelectDay(dayNum)}
+                                    className={cn(
+                                        "flex size-7 items-center justify-center rounded-lg text-xs font-semibold transition-all mx-auto",
+                                        isSelected
+                                            ? "bg-indigo-600 text-white font-bold shadow-md shadow-indigo-200"
+                                            : "text-slate-700 hover:bg-slate-100"
+                                    )}
+                                >
+                                    {dayNum}
+                                </button>
+                            )}
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+/* ========================================================================
+   3. MODAL FORM CHÍNH
+   ======================================================================== */
 export default function EmployeeProfileForm({
                                                 open,
                                                 initialData,
                                                 onClose,
                                                 onSave,
                                             }: EmployeeProfileFormProps) {
-    const [formData, setFormData] = useState<EmployeeFormData>(DEFAULT_FORM_VALUES);
-    const [errors, setErrors] = useState<FormErrors>({});
+    const [formData, setFormData] = useState<EmployeeFormData>(DEFAULT_FORM_DATA)
+    const [prevInitialData, setPrevInitialData] = useState<EmployeeFormData | null | undefined>(initialData)
+    const [prevOpen, setPrevOpen] = useState<boolean>(open)
 
-    useEffect(() => {
-        if (initialData) {
-            setFormData({ status: "active", ...initialData });
-        } else {
-            setFormData(DEFAULT_FORM_VALUES);
-        }
-        setErrors({});
-    }, [initialData, open]);
+    // Khắc phục ESLint warning (react-hooks/set-state-in-effect):
+    // Đồng bộ state trực tiếp trong quá trình render khi props initialData / open thay đổi
+    if (open !== prevOpen || initialData !== prevInitialData) {
+        setPrevOpen(open)
+        setPrevInitialData(initialData)
+        setFormData(initialData ? { ...initialData } : DEFAULT_FORM_DATA)
+    }
 
-    if (!open) return null;
-
-    const isLocked = formData.status === "locked";
+    if (!open) return null
 
     const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        const validationErrors = validateEmployeeForm(formData);
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            return;
-        }
-
-        onSave(formData);
-    };
-
-    const toggleLock = () => {
-        setFormData((prev) => ({
-            ...prev,
-            status: prev.status === "locked" ? "active" : "locked",
-        }));
-    };
+        e.preventDefault()
+        onSave(formData)
+    }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop tối nhẹ mờ nền */}
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-
-            {/* Modal Container Light Mode */}
-            <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 text-slate-800 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl">
                 {/* Header Modal */}
-                <div className="mb-5 flex items-center justify-between">
-                    <h3 className="text-base font-bold text-slate-900">
-                        {initialData ? "Chỉnh sửa hồ sơ nhân sự" : "Khai báo nhân sự mới"}
-                    </h3>
+                <div className="flex items-center justify-between pb-5">
+                    <div className="flex items-center gap-3">
+                        <div className="flex size-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                            <UserCheck className="size-5" />
+                        </div>
+                        <h2 className="text-base font-bold text-slate-800">
+                            {initialData ? "Chỉnh sửa hồ sơ nhân sự" : "Thêm hồ sơ nhân sự mới"}
+                        </h2>
+                    </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                        className="rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                     >
-                        <X className="h-4 w-4" />
+                        <X className="size-4" />
                     </button>
                 </div>
 
-                {/* Trạng thái tài khoản - chỉ hiện khi chỉnh sửa */}
-                {initialData && (
-                    <div
-                        className={`mb-4 flex items-center justify-between rounded-xl border px-3.5 py-2.5 transition ${
-                            isLocked
-                                ? "border-rose-200 bg-rose-50"
-                                : "border-emerald-200 bg-emerald-50"
-                        }`}
-                    >
-                        <div className="flex items-center gap-2">
-                            {isLocked ? (
-                                <Lock className="h-4 w-4 text-rose-500" />
-                            ) : (
-                                <Unlock className="h-4 w-4 text-emerald-500" />
-                            )}
-                            <span
-                                className={`text-xs font-semibold ${
-                                    isLocked ? "text-rose-600" : "text-emerald-600"
-                                }`}
-                            >
-                                {isLocked ? "Tài khoản đã bị khóa" : "Tài khoản đang hoạt động"}
-                            </span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={toggleLock}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                                isLocked
-                                    ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                                    : "bg-rose-500 text-white hover:bg-rose-600"
-                            }`}
-                        >
-                            {isLocked ? "Mở khóa" : "Khóa tài khoản"}
-                        </button>
-                    </div>
-                )}
-
+                {/* Form Body */}
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Họ và tên */}
-                    <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-slate-600">Họ và tên</label>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-slate-600">Họ và tên *</label>
                         <input
                             type="text"
+                            required
+                            placeholder="vd: Nguyễn Văn A"
                             value={formData.fullName}
                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                            placeholder="VD: Nguyễn Văn A"
-                            className={`w-full rounded-xl border bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 ${
-                                errors.fullName ? "border-rose-500" : "border-slate-200"
-                            }`}
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
                         />
-                        {errors.fullName && (
-                            <p className="mt-1 flex items-center gap-1 text-xs text-rose-500">
-                                <AlertCircle className="h-3 w-3" /> {errors.fullName}
-                            </p>
-                        )}
                     </div>
 
-                    {/* Email & Phòng ban */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="mb-1.5 block text-xs font-semibold text-slate-600">Email</label>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Email *</label>
                             <input
                                 type="email"
+                                required
+                                placeholder="example@company.com"
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                placeholder="a.nguyen@company.com"
-                                className={`w-full rounded-xl border bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 ${
-                                    errors.email ? "border-rose-500" : "border-slate-200"
-                                }`}
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
                             />
-                            {errors.email && (
-                                <p className="mt-1 flex items-center gap-1 text-xs text-rose-500">
-                                    <AlertCircle className="h-3 w-3" /> {errors.email}
-                                </p>
-                            )}
                         </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Số điện thoại</label>
+                            <input
+                                type="text"
+                                placeholder="0912 345 678"
+                                value={formData.phone || ""}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                            />
+                        </div>
+                    </div>
 
-                        <div>
-                            <label className="mb-1.5 block text-xs font-semibold text-slate-600">Phòng ban</label>
-                            <DepartmentSelect
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Phòng ban *</label>
+                            <CustomSelect
                                 value={formData.department}
-                                onChange={(dept) => setFormData({ ...formData, department: dept })}
+                                onChange={(val) => setFormData({ ...formData, department: val })}
+                                options={DEPARTMENT_OPTIONS.filter((d) => d !== "All")}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Chức danh *</label>
+                            <input
+                                type="text"
+                                required
+                                placeholder="vd: HR Specialist"
+                                value={formData.position}
+                                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
                             />
                         </div>
                     </div>
 
-                    {/* Chức danh */}
-                    <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-slate-600">Chức danh</label>
-                        <input
-                            type="text"
-                            value={formData.position}
-                            onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                            placeholder="VD: Backend Developer"
-                            className={`w-full rounded-xl border bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 ${
-                                errors.position ? "border-rose-500" : "border-slate-200"
-                            }`}
-                        />
-                        {errors.position && (
-                            <p className="mt-1 flex items-center gap-1 text-xs text-rose-500">
-                                <AlertCircle className="h-3 w-3" /> {errors.position}
-                            </p>
-                        )}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Ngày tham gia *</label>
+                            <CustomDatePicker
+                                value={formData.joinDate || ""}
+                                onChange={(val) => setFormData({ ...formData, joinDate: val })}
+                                dropUp={true}
+                            />
+                        </div>
+
+                        {/* SỬA LỖI TS2322: Áp dụng kiểu "active" | "locked" khớp 100% với employeeForm.types.ts */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Trạng thái</label>
+                            <CustomSelect
+                                value={formData.status === "active" ? "Đang làm việc" : "Tạm khóa"}
+                                onChange={(val) =>
+                                    setFormData({
+                                        ...formData,
+                                        status: val === "Đang làm việc" ? "active" : "locked",
+                                    })
+                                }
+                                options={["Đang làm việc", "Tạm khóa"]}
+                            />
+                        </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-2 pt-4">
+                    {/* Footer Action Buttons */}
+                    <div className="flex items-center justify-end gap-3 pt-4">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
+                            className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                         >
                             Hủy
                         </button>
                         <button
                             type="submit"
-                            className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-xs font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-slate-900"
+                            className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 transition hover:bg-slate-50 hover:border-slate-300 active:scale-95"
                         >
-                            {initialData ? "Lưu thay đổi" : "Thêm hồ sơ"}
+                            {initialData ? "Lưu thay đổi" : "Tạo hồ sơ"}
                         </button>
                     </div>
                 </form>
             </div>
         </div>
-    );
+    )
 }

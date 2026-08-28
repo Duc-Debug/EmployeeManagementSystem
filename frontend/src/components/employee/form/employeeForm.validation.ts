@@ -15,5 +15,13 @@ export function validateEmployeeForm(data: EmployeeFormData): FormErrors {
         errors.position = "Vui lòng nhập chức danh";
     }
 
+    if (!data.joinDate) {
+        errors.joinDate = "Vui lòng chọn ngày vào làm";
+    }
+
+    if (!data.standardHoursPerDay || data.standardHoursPerDay <= 0) {
+        errors.standardHoursPerDay = "Giờ chuẩn/ngày phải lớn hơn 0";
+    }
+
     return errors;
 }
