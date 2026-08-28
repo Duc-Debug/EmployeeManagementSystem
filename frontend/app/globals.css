@@ -1046,6 +1046,19 @@ svg {
   box-shadow: var(--shadow-sm);
 }
 
+.session-card--borderless {
+  border: none !important;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.session-card--borderless:hover,
+.session-card--borderless.is-active {
+  background: var(--color-surface-raised, #f1f5f9);
+  border: none !important;
+  box-shadow: none !important;
+}
+
 /* Sidebar User Dropdown Positioning */
 .sidebar-user-dropdown-container {
   position: relative;
@@ -1909,6 +1922,11 @@ button:active {
 .table-person__email {
   color: #94a3b8;
   font-size: 0.6875rem;
+}
+
+.table-email {
+  color: #475569;
+  font-size: 0.75rem;
 }
 
 .table-org-cell {

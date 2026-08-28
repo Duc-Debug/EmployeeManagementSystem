@@ -6,8 +6,20 @@ public record CreateUserCommand(
         String roleCode,
         String employeeCode,
         String fullName,
-        Long orgUnitId
+        Long orgUnitId,
+        String email
 ) {
+    public CreateUserCommand(
+            String username,
+            String password,
+            String roleCode,
+            String employeeCode,
+            String fullName,
+            Long orgUnitId
+    ) {
+        this(username, password, roleCode, employeeCode, fullName, orgUnitId, null);
+    }
+
     public CreateUserCommand {
         if (username == null || username.isBlank()) {
             throw new IllegalArgumentException("Username không được để trống");
