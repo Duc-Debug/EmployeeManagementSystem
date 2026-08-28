@@ -169,7 +169,41 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
 
 ---
 
-#### 🔹 2.5 Khóa tài khoản thành công (`TC-05`)
+#### 🔹 2.5 Cập nhật thông tin tài khoản người dùng (Update User)
+* **Method**: `PUT`
+* **URL**: `http://localhost:8080/api/v1/users/2`
+* **Headers**: `Content-Type: application/json`, `Authorization: Bearer <jwt_token>`
+* **Body (JSON)**:
+  ```json
+  {
+    "fullName": "Nguyễn Văn IT Cập Nhật",
+    "email": "it_updated@company.com",
+    "employeeCode": "EMP-IT-001-UPD",
+    "orgUnitId": 2,
+    "roleCode": "VT-04",
+    "dataScope": "SELF"
+  }
+  ```
+* **Kỳ vọng (HTTP 200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Cập nhật thông tin tài khoản thành công",
+    "data": {
+      "id": 2,
+      "username": "nhanvien_it",
+      "roleCode": "VT-04",
+      "roleName": "Nhân viên chuyên môn",
+      "status": "ACTIVE",
+      "fullName": "Nguyễn Văn IT Cập Nhật",
+      "orgUnitId": 2
+    }
+  }
+  ```
+
+---
+
+#### 🔹 2.6 Khóa tài khoản thành công (`TC-05`)
 * **Method**: `PATCH`
 * **URL**: `http://localhost:8080/api/v1/users/2/status?lock=true`
 * **Kỳ vọng (HTTP 200 OK)**:

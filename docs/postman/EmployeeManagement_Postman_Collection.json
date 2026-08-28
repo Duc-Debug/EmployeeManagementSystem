@@ -401,7 +401,64 @@
 					"response": []
 				},
 				{
-					"name": "2.5 Cập nhật vai trò và bộ phận (HTTP 200 OK)",
+					"name": "2.5 Cập nhật thông tin tài khoản người dùng (HTTP 200 OK)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 OK\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Cập nhật thông tin tài khoản thành công\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.eql(true);",
+									"    pm.expect(jsonData.data.fullName).to.eql(\"Nguyễn Văn IT Cập Nhật\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"Nguyễn Văn IT Cập Nhật\",\n    \"email\": \"it_updated@company.com\",\n    \"employeeCode\": \"EMP-IT-001-UPD\",\n    \"orgUnitId\": 2,\n    \"roleCode\": \"VT-04\",\n    \"dataScope\": \"SELF\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/{{created_user_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								"{{created_user_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2.6 Cập nhật vai trò và bộ phận (HTTP 200 OK)",
 					"event": [
 						{
 							"listen": "test",
