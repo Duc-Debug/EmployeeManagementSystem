@@ -227,7 +227,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"username\": \"nhanvien_it\",\n    \"password\": \"it123456\",\n    \"roleCode\": \"VT-04\",\n    \"employeeCode\": \"EMP-IT-001\",\n    \"fullName\": \"Nguyễn Văn IT\",\n    \"departmentId\": 2\n}"
+							"raw": "{\n    \"username\": \"nhanvien_it\",\n    \"password\": \"it123456\",\n    \"roleCode\": \"VT-04\",\n    \"employeeCode\": \"EMP-IT-001\",\n    \"fullName\": \"Nguyễn Văn IT\",\n    \"orgUnitId\": 2\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/users",
@@ -283,7 +283,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"username\": \"nhanvien_it\",\n    \"password\": \"it123456\",\n    \"roleCode\": \"VT-04\",\n    \"employeeCode\": \"EMP-IT-001\",\n    \"fullName\": \"Nguyễn Văn IT\",\n    \"departmentId\": 2\n}"
+							"raw": "{\n    \"username\": \"nhanvien_it\",\n    \"password\": \"it123456\",\n    \"roleCode\": \"VT-04\",\n    \"employeeCode\": \"EMP-IT-001\",\n    \"fullName\": \"Nguyễn Văn IT\",\n    \"orgUnitId\": 2\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/users",

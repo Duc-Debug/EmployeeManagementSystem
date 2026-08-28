@@ -70,7 +70,7 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
     "roleCode": "VT-04",
     "employeeCode": "EMP-IT-001",
     "fullName": "Nguyễn Văn IT",
-    "departmentId": 2
+    "orgUnitId": 2
   }
   ```
 * **Kỳ vọng (HTTP 201 Created)**:
@@ -88,7 +88,7 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
         "status": "ACTIVE",
         "employeeId": 2,
         "fullName": "Nguyễn Văn IT",
-        "departmentId": 2
+        "orgUnitId": 2
       }
     }
     ```
@@ -150,7 +150,7 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
   ```json
   {
     "roleCode": "VT-02",
-    "departmentId": 3
+    "orgUnitId": 3
   }
   ```
 * **Kỳ vọng (HTTP 200 OK)**:
@@ -162,7 +162,7 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
       "id": 2,
       "roleCode": "VT-02",
       "roleName": "Quản lý dự án",
-      "departmentId": 3
+      "orgUnitId": 3
     }
   }
   ```
