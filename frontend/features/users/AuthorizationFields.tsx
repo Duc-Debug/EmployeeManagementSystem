@@ -43,7 +43,7 @@ export function AuthorizationFields({ errors, idPrefix, initialRoleFocusRef, onC
   return (
     <>
       <div className="form-grid form-grid--two">
-        <FormField error={errors.roleCode} id={roleId} label="Role">
+        <FormField error={errors.roleCode} id={roleId} label="Vai trò">
           <select
             aria-describedby={`${roleId}-message`}
             aria-invalid={Boolean(errors.roleCode)}
@@ -53,11 +53,11 @@ export function AuthorizationFields({ errors, idPrefix, initialRoleFocusRef, onC
             ref={initialRoleFocusRef}
             value={value.roleCode}
           >
-            <option value="">Chọn role</option>
+            <option value="">Chọn vai trò</option>
             {DEMO_ROLES.map((role) => <option key={role.code} value={role.code}>{role.code} · {role.name}</option>)}
           </select>
         </FormField>
-        <FormField error={errors.dataScope} hint={isSystemAdmin ? "Quản trị viên áp dụng cho toàn công ty." : undefined} id={dataScopeId} label="Data Scope">
+        <FormField error={errors.dataScope} hint={isSystemAdmin ? "Quản trị viên áp dụng cho toàn công ty." : undefined} id={dataScopeId} label="Phạm vi dữ liệu">
           <select
             aria-describedby={`${dataScopeId}-message`}
             aria-invalid={Boolean(errors.dataScope)}
