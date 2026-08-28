@@ -72,7 +72,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isTopbarUserMenuOpen, setIsTopbarUserMenuOpen] = useState(false);
-  const [isSidebarUserMenuOpen, setIsSidebarUserMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
 
@@ -88,7 +87,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const firstNavigationLinkRef = useRef<HTMLAnchorElement>(null);
   const notifDropdownRef = useRef<HTMLDivElement>(null);
   const topbarUserDropdownRef = useRef<HTMLDivElement>(null);
-  const sidebarUserDropdownRef = useRef<HTMLDivElement>(null);
   const authUser = useAuthUser();
 
   const userNavSections = useMemo(() => {
@@ -169,16 +167,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       if (topbarUserDropdownRef.current && !topbarUserDropdownRef.current.contains(target)) {
         setIsTopbarUserMenuOpen(false);
       }
-      if (sidebarUserDropdownRef.current && !sidebarUserDropdownRef.current.contains(target)) {
-        setIsSidebarUserMenuOpen(false);
-      }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsNotificationOpen(false);
         setIsTopbarUserMenuOpen(false);
-        setIsSidebarUserMenuOpen(false);
       }
     }
 
@@ -348,71 +342,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             </div>
           ))}
         </nav>
-
-        {/* Sidebar Footer User Info & Menu Container */}
-        <div className="side-nav__footer dropdown-container" ref={sidebarUserDropdownRef}>
-          <button
-            aria-expanded={isSidebarUserMenuOpen}
-            aria-haspopup="true"
-            aria-label="Tùy chọn tài khoản"
-            className={`session-card ${isSidebarUserMenuOpen ? "is-active" : ""}`}
-            onClick={() => {
-              setIsSidebarUserMenuOpen((prev) => !prev);
-              setIsNotificationOpen(false);
-              setIsTopbarUserMenuOpen(false);
-            }}
-            type="button"
-          >
-            <div className="session-card__avatar">
-              <span aria-hidden="true" className="avatar avatar--small">{(user.fullName || user.username || "U").slice(0, 1).toUpperCase()}</span>
-              <span className="session-card__status-dot" />
-            </div>
-            {!isCollapsed && (
-              <div className="session-card__info">
-                <strong>{user.fullName || user.username}</strong>
-                <span className="role-chip">{user.roleName}</span>
-              </div>
-            )}
-          </button>
-
-          {isSidebarUserMenuOpen && (
-            <div className="dropdown-menu user-dropdown side-nav__user-dropdown">
-              <div className="user-dropdown__header">
-                <div className="user-dropdown__avatar">
-                  <span className="avatar avatar--large">{(user.fullName || user.username || "U").slice(0, 1).toUpperCase()}</span>
-                  <span className="user-dropdown__online" />
-                </div>
-                <div className="user-dropdown__details">
-                  <strong>{user.fullName || user.username}</strong>
-                  <span className="user-dropdown__username">@{user.username}</span>
-                  <span className="role-chip">{user.roleName} ({user.roleCode})</span>
-                </div>
-              </div>
-
-              <div className="user-dropdown__menu-items">
-                <button
-                  className="user-dropdown__item"
-                  onClick={() => {
-                    setIsSidebarUserMenuOpen(false);
-                    setIsChangePasswordOpen(true);
-                  }}
-                  type="button"
-                >
-                  <Icon name="lock" />
-                  <span>Đổi mật khẩu</span>
-                </button>
-                <button
-                  className="user-dropdown__item user-dropdown__item--logout"
-                  onClick={handleLogout}
-                  type="button"
-                >
-                  <Icon name="logout" />
-                  <span>Đăng xuất</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </aside>
 
       <div
@@ -437,7 +366,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               <input
                 aria-label="Tìm kiếm nhanh"
                 className="topbar-search__input"
-                placeholder="Tìm kiếm nhanh nhân sự, đơn vị, quyền hạn... (Ctrl + K)"
+                placeholder="Tìm kiếm nhanh nhân sự, đơn vị, quyền hạn..."
                 readOnly
                 type="text"
               />
@@ -455,7 +384,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 onClick={() => {
                   setIsNotificationOpen((prev) => !prev);
                   setIsTopbarUserMenuOpen(false);
-                  setIsSidebarUserMenuOpen(false);
                 }}
                 title={unreadCount > 0 ? `Bạn có ${unreadCount} thông báo mới` : "Không có thông báo mới"}
                 type="button"
@@ -517,18 +445,20 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 aria-expanded={isTopbarUserMenuOpen}
                 aria-haspopup="true"
                 aria-label="Tùy chọn tài khoản"
-                className={`topbar-user topbar-user--interactive ${isTopbarUserMenuOpen ? "is-active" : ""}`}
+                className={`session-card session-card--interactive session-card--borderless ${isTopbarUserMenuOpen ? "is-active" : ""}`}
                 onClick={() => {
                   setIsTopbarUserMenuOpen((prev) => !prev);
                   setIsNotificationOpen(false);
-                  setIsSidebarUserMenuOpen(false);
                 }}
                 type="button"
               >
-                <span aria-hidden="true" className="avatar avatar--small">{(user.fullName || user.username || "U").slice(0, 1).toUpperCase()}</span>
-                <div className="topbar-user__info">
+                <div className="session-card__avatar">
+                  <span aria-hidden="true" className="avatar avatar--small">{(user.fullName || user.username || "U").slice(0, 1).toUpperCase()}</span>
+                  <span className="session-card__status-dot" />
+                </div>
+                <div className="session-card__info">
                   <strong>{user.fullName || user.username}</strong>
-                  <span className="topbar-user__role">{user.roleName}</span>
+                  <span className="role-chip">{user.roleName}</span>
                 </div>
               </button>
 

@@ -140,7 +140,8 @@ public class UserService implements
                 command.username(),
                 passwordHash,
                 role,
-                null
+                null,
+                command.email()
         );
 
         User savedUser = saveUserPort.save(newUser);
@@ -782,6 +783,7 @@ public UserResult updateUserRole(
         return new UserResult(
                 user.getIdValue(),
                 user.getUsername(),
+                user.getEmail(),
                 user.getRole().getCode().getCode(),
                 user.getRole().getName(),
                 user.getStatus(),
