@@ -10,7 +10,7 @@ import { Icon } from "@/components/ui/Icon";
 import { flattenOrgTree } from "@/lib/organization";
 import { DEMO_ROLES } from "@/src/mocks/hrm";
 import type { OrgUnitTreeNode, User } from "@/src/types/hrm";
-import { createUser, getUsers, toggleUserStatus, updateUserRole } from "@/lib/api/users";
+import { createUser, getUsers, toggleUserStatus, updateUser, updateUserRole } from "@/lib/api/users";
 import { getOrgTree } from "@/lib/api/org-units";
 import { ApiError } from "@/lib/api-client";
 
@@ -224,18 +224,23 @@ export function UsersWorkspace() {
     }
 
     const scopeOrgUnitId = draft.dataScope === "ORGANIZATION_BRANCH" ? Number(draft.scopeOrgUnitId) : null;
+    const orgUnitId = draft.orgUnitId ? Number(draft.orgUnitId) : null;
     try {
-      const updated = await updateUserRole(editingUser.id, {
+      const updated = await updateUser(editingUser.id, {
         dataScope: selectedRole.code === "VT-06" ? "COMPANY" : draft.dataScope,
+        email: draft.email.trim() || undefined,
+        employeeCode: draft.employeeCode.trim() || undefined,
+        fullName: draft.fullName.trim(),
+        orgUnitId,
         roleCode: selectedRole.code,
         scopeOrgUnitId,
       });
       setUsers((currentUsers) => currentUsers.map((u) => u.id === editingUser.id ? updated : u));
-      setAnnouncement(`Đã cập nhật tài khoản ${editingUser.fullName}.`);
+      setAnnouncement(`Đã cập nhật tài khoản ${updated.fullName || editingUser.fullName}.`);
       closeEditor();
     } catch (err) {
       if (err instanceof ApiError) {
-        setErrors({ roleCode: err.message });
+        setErrors({ fullName: err.message });
       }
     }
   }

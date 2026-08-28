@@ -61,6 +61,9 @@ class UserControllerTest {
     private UpdateUserRoleUseCase updateUserRoleUseCase;
 
     @Mock
+    private com.hrm.employeemanagement.application.port.inbound.user.UpdateUserUseCase updateUserUseCase;
+
+    @Mock
     private GetUserListUseCase getUserListUseCase;
 
     @BeforeEach
@@ -70,6 +73,7 @@ class UserControllerTest {
                         createUserUseCase,
                         toggleUserStatusUseCase,
                         updateUserRoleUseCase,
+                        updateUserUseCase,
                         getUserListUseCase
                 );
 
@@ -495,5 +499,44 @@ class UserControllerTest {
                         jsonPath("$.success")
                                 .value(false)
                 );
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/users/{id} trả về 200 OK khi cập nhật thông tin tài khoản thành công")
+    void testUpdateUser_Success() throws Exception {
+        com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.UpdateUserRequest request =
+                new com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.UpdateUserRequest();
+        request.setFullName("Updated Full Name");
+        request.setEmail("updated@company.com");
+        request.setEmployeeCode("EMP-999");
+        request.setOrgUnitId(5L);
+        request.setRoleCode("VT-04");
+
+        UserResult mockResult = new UserResult(
+                2L,
+                "user2",
+                "VT-04",
+                "Nhân viên chuyên môn",
+                UserStatus.ACTIVE,
+                20L,
+                "Updated Full Name",
+                5L,
+                "OrgUnit 5",
+                DataScope.SELF,
+                null
+        );
+
+        when(updateUserUseCase.updateUser(any(com.hrm.employeemanagement.application.dto.user.UpdateUserCommand.class)))
+                .thenReturn(mockResult);
+
+        mockMvc.perform(
+                        put("/api/v1/users/2")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Cập nhật thông tin tài khoản thành công"))
+                .andExpect(jsonPath("$.data.fullName").value("Updated Full Name"));
     }
 }

@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.RoleResult;
+import com.hrm.employeemanagement.application.dto.user.UpdateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
@@ -16,6 +17,7 @@ import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCa
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
@@ -50,6 +52,7 @@ public class UserService implements
         CreateUserUseCase,
         ToggleUserStatusUseCase,
         UpdateUserRoleUseCase,
+        UpdateUserUseCase,
         GetUserListUseCase,
         GetRoleListUseCase,
         GetCurrentUserProfileUseCase {
@@ -388,6 +391,117 @@ public UserResult updateUserRole(
             orgUnitName
     );
 }
+
+    @Override
+    public UserResult updateUser(UpdateUserCommand command) {
+        Long currentAdminId = authorizationService.require(
+                PermissionCode.USER_UPDATE
+        );
+
+        User currentUser = loadCurrentUserOrThrow(currentAdminId);
+
+        requireUserInDataScope(
+                currentAdminId,
+                currentUser,
+                command.userId(),
+                PermissionCode.USER_UPDATE
+        );
+
+        if (command.orgUnitId() != null) {
+            requireOrgUnitInDataScope(
+                    currentUser,
+                    command.orgUnitId(),
+                    PermissionCode.USER_UPDATE
+            );
+        }
+
+        if (command.dataScope() != null) {
+            requireAssignableDataScope(
+                    currentUser,
+                    command.dataScope(),
+                    command.scopeOrgUnitId(),
+                    PermissionCode.USER_UPDATE
+            );
+        }
+
+        UserId uId = new UserId(command.userId());
+        User user = loadUserPort.findById(uId)
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng với ID: " + command.userId()
+                        )
+                );
+
+        if (command.email() != null && !command.email().isBlank()) {
+            String normalizedEmail = command.email().trim().toLowerCase(java.util.Locale.ROOT);
+            if (user.getEmail() == null || !normalizedEmail.equalsIgnoreCase(user.getEmail())) {
+                if (loadUserPort.existsByEmail(normalizedEmail)) {
+                    throw new DuplicateUsernameException("Email '" + command.email() + "' đã được sử dụng bởi tài khoản khác");
+                }
+                user.setEmail(normalizedEmail);
+            }
+        }
+
+        if (command.roleCode() != null && !command.roleCode().isBlank()) {
+            RoleCode newRoleCode = RoleCode.fromCode(command.roleCode());
+            Role newRole = loadRolePort.findByCode(newRoleCode)
+                    .orElseGet(() ->
+                            loadRolePort.save(
+                                    new Role(null, newRoleCode, newRoleCode.getName())
+                            )
+                    );
+
+            if (user.isSystemAdmin() && !newRole.isSystemAdmin()) {
+                loadRolePort.lockRoleForUpdate(RoleCode.VT_06);
+            }
+
+            DataScope targetDataScope = command.dataScope() != null ? command.dataScope() : user.getDataScope();
+            Long targetScopeOrgUnitId = targetDataScope == DataScope.ORGANIZATION_BRANCH ? command.scopeOrgUnitId() : null;
+
+            if (targetDataScope == DataScope.ORGANIZATION_BRANCH) {
+                loadActiveOrgUnitOrThrow(targetScopeOrgUnitId);
+            }
+
+            long activeAdminCount = loadUserPort.countActiveAdmins();
+            user.changeAuthorization(newRole, targetDataScope, targetScopeOrgUnitId, activeAdminCount);
+        }
+
+        User updatedUser = saveUserPort.save(user);
+
+        Employee employee = loadEmployeePort.findByUserId(updatedUser.getId()).orElse(null);
+        if (employee != null) {
+            if (command.orgUnitId() != null) {
+                loadActiveOrgUnitOrThrow(command.orgUnitId());
+            }
+            employee.updateUserAccountDetails(command.fullName(), command.employeeCode(), command.orgUnitId());
+            employee = saveEmployeePort.save(employee);
+        } else if (command.fullName() != null && !command.fullName().isBlank()) {
+            if (command.orgUnitId() != null) {
+                loadActiveOrgUnitOrThrow(command.orgUnitId());
+            }
+            Employee newEmployee = Employee.createNew(
+                    updatedUser.getId(),
+                    command.orgUnitId(),
+                    command.employeeCode() != null ? command.employeeCode() : "EMP-" + updatedUser.getIdValue(),
+                    command.fullName()
+            );
+            employee = saveEmployeePort.save(newEmployee);
+            updatedUser.linkEmployee(employee.getId());
+            updatedUser = saveUserPort.save(updatedUser);
+        }
+
+        saveAuditLogPort.save(
+                AuditLog.create(
+                        currentAdminId,
+                        "UPDATE_USER",
+                        "users",
+                        updatedUser.getIdValue()
+                )
+        );
+
+        String orgUnitName = resolveOrgUnitName(employee);
+        return mapToUserResult(updatedUser, employee, orgUnitName);
+    }
 
 @Override
     public PageResult<UserResult> getUsers(int page, int size) {

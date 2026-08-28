@@ -79,6 +79,16 @@ public class Employee {
         }
     }
 
+    public void updateUserAccountDetails(String fullName, String employeeCode, Long orgUnitId) {
+        if (fullName != null && !fullName.isBlank()) {
+            this.fullName = fullName.trim();
+        }
+        if (employeeCode != null && !employeeCode.isBlank()) {
+            this.employeeCode = employeeCode.trim();
+        }
+        this.orgUnitId = orgUnitId;
+    }
+
     private void setStandardHoursPerWeek(Integer hours) {
         if (hours == null || hours <= 0 || hours > 168) {
             throw new InvalidEmployeeDataException("Số giờ làm việc chuẩn mỗi tuần phải lớn hơn 0 và nhỏ hơn hoặc bằng 168");
