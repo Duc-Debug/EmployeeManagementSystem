@@ -33,7 +33,7 @@ public class EmployeeSkillJpaEntity {
     @Column(name = "proficiency_level", nullable = false)
     private Integer proficiencyLevel;
 
-    @Column(name = "years_of_experience", nullable = false)
+    @Column(name = "years_of_experience", nullable = false, columnDefinition = "DECIMAL(4,1)")
     private Double yearsOfExperience;
 
     @Enumerated(EnumType.STRING)
