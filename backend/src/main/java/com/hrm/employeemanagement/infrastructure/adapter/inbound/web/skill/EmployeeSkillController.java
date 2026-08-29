@@ -11,12 +11,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.hrm.employeemanagement.application.dto.skill.DeclareEmployeeSkillCommand;
 import com.hrm.employeemanagement.application.dto.skill.EmployeeSkillResult;
-import com.hrm.employeemanagement.application.port.inbound.employee.GetEmployeeProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.skill.DeclareEmployeeSkillUseCase;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.skill.dto.DeclareSkillRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.skill.dto.EmployeeSkillResponse;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
-import com.hrm.employeemanagement.infrastructure.security.UserPrincipal;
 
 import jakarta.validation.Valid;
 
@@ -25,14 +27,14 @@ import jakarta.validation.Valid;
 public class EmployeeSkillController {
 
     private final DeclareEmployeeSkillUseCase declareEmployeeSkillUseCase;
-    private final GetEmployeeProfileUseCase getEmployeeProfileUseCase;
+    private final LoadEmployeePort loadEmployeePort;
 
     public EmployeeSkillController(
             DeclareEmployeeSkillUseCase declareEmployeeSkillUseCase,
-            GetEmployeeProfileUseCase getEmployeeProfileUseCase
+            LoadEmployeePort loadEmployeePort
     ) {
         this.declareEmployeeSkillUseCase = declareEmployeeSkillUseCase;
-        this.getEmployeeProfileUseCase = getEmployeeProfileUseCase;
+        this.loadEmployeePort = loadEmployeePort;
     }
 
     /**
@@ -44,14 +46,20 @@ public class EmployeeSkillController {
     @PostMapping
     @PreAuthorize("hasAuthority('VT-04') or hasRole('VT-04') or hasAuthority('EMPLOYEE_SKILL_DECLARE')")
     public ResponseEntity<ApiResponse<EmployeeSkillResponse>> declareSkill(
-            @AuthenticationPrincipal UserPrincipal currentUser,
+            @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody DeclareSkillRequest request
     ) {
-        // Lấy ID hồ sơ nhân sự dựa trên ID tài khoản đang đăng nhập
-        Long employeeId = getEmployeeProfileUseCase.getByUserId(currentUser.getId()).id();
+        if (currentUser == null || currentUser.getIdValue() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Bạn cần đăng nhập để thực hiện chức năng này"));
+        }
+
+        // Lấy hồ sơ nhân sự cá nhân dựa trên ID tài khoản đang đăng nhập
+        Employee employee = loadEmployeePort.findByUserId(currentUser.getId())
+                .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự của tài khoản đang đăng nhập"));
 
         DeclareEmployeeSkillCommand command = new DeclareEmployeeSkillCommand(
-                employeeId,
+                employee.getIdValue(),
                 request.getSkillId(),
                 request.getProficiencyLevel(),
                 request.getYearsOfExperience()
@@ -64,3 +72,5 @@ public class EmployeeSkillController {
                 .body(ApiResponse.success("Khai báo kỹ năng thành công. Hồ sơ đang ở trạng thái chờ duyệt.", response));
     }
 }
+
+
