@@ -35,8 +35,8 @@ export default function DepartmentsView() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/15 pb-4">
+        <div className={cn("flex flex-col", departmentSubTab === "tree" ? "h-full min-h-0 space-y-4 flex-1" : "space-y-6")}>
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-white/15 pb-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-white">
                         Quản lý phòng ban
@@ -81,7 +81,7 @@ export default function DepartmentsView() {
                     onDelete={handleDelete}
                 />
             ) : (
-                <div className="h-[calc(100vh-220px)] min-h-[680px] overflow-hidden rounded-2xl border border-white/15 bg-white/[0.05] p-2 backdrop-blur-xl relative">
+                <div className="flex-1 min-h-0 w-full overflow-hidden rounded-2xl border border-white/15 bg-white/[0.05] p-1 backdrop-blur-xl relative">
                     <OrgChart />
                 </div>
             )}

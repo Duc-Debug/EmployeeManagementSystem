@@ -80,6 +80,18 @@ export default function EmployeeDetailModal({
                     <div className="flex items-center justify-between">
                         <span className="font-medium text-slate-700">Ngày tham gia:</span>
                         <span className="font-normal text-slate-900">{employee.joinDate || "04/12/2026"}</span>
+                        <span className="font-medium text-slate-700">Ngày vào làm:</span>
+                        <span className="font-normal text-slate-900">{employee.joinDate || "—"}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="font-medium text-slate-700">Ngày kết thúc HĐLĐ:</span>
+                        <span className="font-normal text-slate-900">{employee.contractEndDate || "Không thời hạn"}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="font-medium text-slate-700">Giờ chuẩn / tuần:</span>
+                        <span className="font-normal text-slate-900">{employee.standardHoursPerWeek ? `${employee.standardHoursPerWeek} giờ` : "40 giờ"}</span>
                     </div>
                 </div>
             </div>

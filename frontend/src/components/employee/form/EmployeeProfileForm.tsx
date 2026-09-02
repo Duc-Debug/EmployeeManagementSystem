@@ -20,6 +20,8 @@ const DEFAULT_FORM_DATA: EmployeeFormData = {
     department: "Kỹ thuật",
     position: "",
     joinDate: "",
+    contractEndDate: "",
+    standardHoursPerWeek: 40,
     status: "active",
 }
 
@@ -344,6 +346,7 @@ export default function EmployeeProfileForm({
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
                             <label className="text-xs font-medium text-slate-600">Ngày tham gia *</label>
+                            <label className="text-xs font-medium text-slate-600">Ngày vào làm *</label>
                             <CustomDatePicker
                                 value={formData.joinDate || ""}
                                 onChange={(val) => setFormData({ ...formData, joinDate: val })}
@@ -352,6 +355,35 @@ export default function EmployeeProfileForm({
                         </div>
 
                         {/* SỬA LỖI TS2322: Áp dụng kiểu "active" | "locked" khớp 100% với employeeForm.types.ts */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Ngày kết thúc HĐLĐ</label>
+                            <CustomDatePicker
+                                value={formData.contractEndDate || ""}
+                                onChange={(val) => setFormData({ ...formData, contractEndDate: val })}
+                                dropUp={true}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Giờ chuẩn / tuần (giờ)</label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={168}
+                                placeholder="40"
+                                value={formData.standardHoursPerWeek ?? 40}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        standardHoursPerWeek: Number(e.target.value) || 0,
+                                    })
+                                }
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                            />
+                        </div>
+
                         <div className="space-y-1.5">
                             <label className="text-xs font-medium text-slate-600">Trạng thái</label>
                             <CustomSelect

@@ -109,8 +109,7 @@ export default function Dashboard() {
                 <div className="flex flex-1 min-h-0 overflow-hidden">
                     <SideBar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} />
 
-                    <main className="flex-1 min-h-0 overflow-y-auto p-6">
-                        {/* Thêm điều kiện render theo activeTab tại đây */}
+                    <main
                         {activeTab === "employees" && <EmployeeProfilePage />}
 
                         {activeTab === "attendance" && (

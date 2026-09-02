@@ -17,6 +17,8 @@ const INITIAL_EMPLOYEES: EmployeeFormData[] = [
         department: "Nhân sự",
         position: "HR Specialist",
         joinDate: "04/12/2026",
+        contractEndDate: "04/12/2028",
+        standardHoursPerWeek: 40,
         status: "active",
     },
 ]

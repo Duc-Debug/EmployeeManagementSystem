@@ -649,10 +649,10 @@ function RecursiveNode({
             {hasChildren && !isCollapsed && (
                 <div className="flex flex-col items-center w-full min-w-max">
                     {/* Vertical drop line directly below parent */}
-                    <div className="h-8 w-[2px] bg-white/30" />
+                    <div className="h-8 w-[2px] bg-white/40" />
 
-                    {/* Children Container (Horizontal Flex Row) */}
-                    <div className="flex flex-row items-start justify-center min-w-max gap-8">
+                    {/* Children Container (Horizontal Flex Row with seamless continuous bus line) */}
+                    <div className="flex flex-row items-start justify-center min-w-max">
                         {node.children.map((child, idx) => {
                             const isFirst = idx === 0;
                             const isLast = idx === node.children.length - 1;
@@ -663,11 +663,11 @@ function RecursiveNode({
                                     key={child.id}
                                     className="flex flex-col items-center min-w-max relative"
                                 >
-                                    {/* Horizontal bus line & vertical entry line into child */}
+                                    {/* Seamless continuous horizontal bus line & vertical drop line */}
                                     {!isOnly && (
                                         <div className="w-full h-8 relative mb-1">
                                             <div
-                                                className={`absolute top-0 h-[2px] bg-white/30 ${
+                                                className={`absolute top-0 h-[2px] bg-white/40 ${
                                                     isFirst
                                                         ? 'left-1/2 right-0'
                                                         : isLast
@@ -675,10 +675,10 @@ function RecursiveNode({
                                                         : 'left-0 right-0'
                                                 }`}
                                             />
-                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-full bg-white/30" />
+                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-full bg-white/40" />
                                         </div>
                                     )}
-                                    {isOnly && <div className="h-8 w-[2px] bg-white/30 mb-1" />}
+                                    {isOnly && <div className="h-8 w-[2px] bg-white/40 mb-1" />}
 
                                     {/* Recursive Child Node */}
                                     <RecursiveNode
