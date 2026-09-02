@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import SideBar from "./SideBar";
 import Header from "./Header";
 import DashboardHeader from "./DashboardHeader";
@@ -110,6 +111,13 @@ export default function Dashboard() {
                     <SideBar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} />
 
                     <main
+                        className={cn(
+                            "flex-1 min-h-0 p-6",
+                            activeTab === "departments"
+                                ? "overflow-hidden flex flex-col"
+                                : "overflow-y-auto"
+                        )}
+                    >
                         {activeTab === "employees" && <EmployeeProfilePage />}
 
                         {activeTab === "attendance" && (

@@ -78,8 +78,6 @@ export default function EmployeeDetailModal({
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <span className="font-medium text-slate-700">Ngày tham gia:</span>
-                        <span className="font-normal text-slate-900">{employee.joinDate || "04/12/2026"}</span>
                         <span className="font-medium text-slate-700">Ngày vào làm:</span>
                         <span className="font-normal text-slate-900">{employee.joinDate || "—"}</span>
                     </div>

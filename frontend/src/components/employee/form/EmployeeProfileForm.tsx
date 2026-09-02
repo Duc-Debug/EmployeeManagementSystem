@@ -345,7 +345,6 @@ export default function EmployeeProfileForm({
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Ngày tham gia *</label>
                             <label className="text-xs font-medium text-slate-600">Ngày vào làm *</label>
                             <CustomDatePicker
                                 value={formData.joinDate || ""}
@@ -354,7 +353,6 @@ export default function EmployeeProfileForm({
                             />
                         </div>
 
-                        {/* SỬA LỖI TS2322: Áp dụng kiểu "active" | "locked" khớp 100% với employeeForm.types.ts */}
                         <div className="space-y-1.5">
                             <label className="text-xs font-medium text-slate-600">Ngày kết thúc HĐLĐ</label>
                             <CustomDatePicker
