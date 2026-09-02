@@ -276,7 +276,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const user = authUser;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isCollapsed ? "app-shell--collapsed" : ""}`}>
       <button
         aria-label="Đóng menu điều hướng"
         className={`side-nav-backdrop ${isNavigationOpen ? "is-visible" : ""}`}
