@@ -146,7 +146,10 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
         private int offset(
                         int page,
                         int size) {
-                return page * size;
+                int safePage = Math.max(0, page);
+                int safeSize = Math.max(1, Math.min(size, 100));
+                long rawOffset = (long) safePage * safeSize;
+                return (int) Math.min(rawOffset, Integer.MAX_VALUE);
         }
 
         @Override
