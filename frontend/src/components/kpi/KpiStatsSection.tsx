@@ -15,8 +15,8 @@ export default function KpiStatsSection({ departments = [] }: KpiStatsSectionPro
                 badgeText="+12%"
                 badgeType="increase"
                 icon={<><ArrowUpRight className="sr-only" /><Users className="h-5 w-5" /></>}
-                iconBgColor="bg-purple-400/20"
-                iconTextColor="text-purple-200"
+                iconBgColor="bg-purple-50 border-purple-200"
+                iconTextColor="text-purple-600"
             />
             <KpiCard
                 title="Đang làm việc"
@@ -25,8 +25,8 @@ export default function KpiStatsSection({ departments = [] }: KpiStatsSectionPro
                 badgeText="89.1%"
                 badgeType="increase"
                 icon={<UserCheck className="h-5 w-5" />}
-                iconBgColor="bg-blue-400/20"
-                iconTextColor="text-blue-200"
+                iconBgColor="bg-blue-50 border-blue-200"
+                iconTextColor="text-blue-600"
             />
             <KpiCard
                 title="Đang nghỉ phép"
@@ -35,8 +35,8 @@ export default function KpiStatsSection({ departments = [] }: KpiStatsSectionPro
                 badgeText="-4.2%"
                 badgeType="decrease"
                 icon={<><ArrowDownRight className="sr-only" /><CalendarIcon className="h-5 w-5" /></>}
-                iconBgColor="bg-amber-400/20"
-                iconTextColor="text-amber-200"
+                iconBgColor="bg-amber-50 border-amber-200"
+                iconTextColor="text-amber-600"
             />
             <KpiCard
                 title="Số phòng ban"
@@ -45,8 +45,8 @@ export default function KpiStatsSection({ departments = [] }: KpiStatsSectionPro
                 badgeText="Trực thuộc"
                 badgeType="increase"
                 icon={<Building2 className="h-5 w-5" />}
-                iconBgColor="bg-emerald-400/20"
-                iconTextColor="text-emerald-200"
+                iconBgColor="bg-emerald-50 border-emerald-200"
+                iconTextColor="text-emerald-600"
             />
         </div>
     );

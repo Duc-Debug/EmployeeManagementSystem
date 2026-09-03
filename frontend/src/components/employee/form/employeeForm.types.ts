@@ -1,15 +1,23 @@
 export interface EmployeeFormData {
     id?: string;
+    employeeCode?: string;
     fullName: string;
     email: string;
-    phone?: string;
+    username?: string;
+    password?: string;
+    orgUnitId?: string;
     department: string;
-    position: string;
+    position?: string;
+    roleCode?: string;
+    roleName?: string;
+    dataScope?: "COMPANY" | "ORGANIZATION_BRANCH" | "SELF";
+    scopeOrgUnitId?: string;
+    phone?: string;
     joinDate?: string;
     contractEndDate?: string;
     standardHoursPerWeek?: number;
     standardHoursPerDay?: number;
-    status?: "active" | "locked";
+    status?: "ACTIVE" | "LOCKED" | "active" | "locked";
 }
 
 export type FormErrors = Partial<Record<keyof EmployeeFormData, string>>;

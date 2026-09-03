@@ -155,16 +155,16 @@ export const AccessControlView: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/15 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div className="flex items-center gap-3">
-                    <div className="rounded-xl border border-purple-400/30 bg-purple-600/30 p-2.5 text-purple-300">
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-2.5 text-indigo-600 shadow-2xs">
                         <ShieldCheck className="h-6 w-6" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
                             Quản lý Vai trò &amp; Phân quyền
                         </h1>
-                        <p className="mt-0.5 text-sm text-purple-200/70">
+                        <p className="mt-0.5 text-sm text-slate-500">
                             Cấu hình vai trò người dùng, phạm vi dữ liệu và quyền thao tác theo phòng ban.
                         </p>
                     </div>
@@ -174,11 +174,11 @@ export const AccessControlView: React.FC = () => {
                     <button
                         type="button"
                         onClick={() => setIsDeptModalOpen(true)}
-                        className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.07] px-4 py-2.5 text-sm font-medium text-white/80 backdrop-blur-xl transition hover:text-purple-200"
+                        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-900"
                     >
-                        <Building2 className="h-4 w-4 text-purple-400" />
+                        <Building2 className="h-4 w-4 text-slate-400" />
                         <span>Danh sách phòng ban</span>
-                        <span className="ml-1 rounded-full border border-purple-400/30 bg-purple-500/30 px-2 py-0.5 text-xs text-purple-200">
+                        <span className="ml-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">
                             {departments.length}
                         </span>
                     </button>
@@ -186,7 +186,7 @@ export const AccessControlView: React.FC = () => {
                         type="button"
                         onClick={handleSaveChanges}
                         disabled={!hasUnsavedChanges}
-                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/40 transition hover:from-purple-500 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex items-center gap-2 rounded-xl border border-indigo-600 bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         <Save className="h-4 w-4" />
                         <span>Lưu thay đổi</span>
@@ -210,27 +210,27 @@ export const AccessControlView: React.FC = () => {
                     />
                 </div>
 
-                <div className="col-span-12 rounded-2xl border border-purple-500/20 bg-white/[0.05] p-5 backdrop-blur-xl shadow-xl md:p-6 lg:col-span-8">
+                <div className="col-span-12 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs md:p-6 lg:col-span-8 text-slate-800">
                     {selectedRole && draftPermissions ? (
                         <div className="space-y-4">
-                            <div className="flex flex-col gap-3 border-b border-white/15 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h2 className="text-lg font-bold text-white sm:text-xl">{selectedRole.name}</h2>
+                                        <h2 className="text-lg font-bold text-slate-900 sm:text-xl">{selectedRole.name}</h2>
                                         {selectedRole.isSystemRole && (
-                                            <span className="rounded-full border border-amber-400/40 bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+                                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
                                                 Vai trò hệ thống
                                             </span>
                                         )}
                                     </div>
-                                    <p className="mt-1 text-xs text-purple-200/70 md:text-sm">{selectedRole.description}</p>
+                                    <p className="mt-1 text-xs text-slate-500 md:text-sm">{selectedRole.description}</p>
                                 </div>
 
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
                                         onClick={() => openEditModalFor(selectedRole)}
-                                        className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:bg-white/15 hover:text-white"
+                                        className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-900"
                                     >
                                         <Pencil className="w-3.5 h-3.5" />
                                         <span>Sửa thông tin</span>
@@ -239,7 +239,7 @@ export const AccessControlView: React.FC = () => {
                                         <button
                                             type="button"
                                             onClick={() => handleDeleteRole(selectedRole.id)}
-                                            className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:border-rose-400/40 hover:bg-rose-500/15 hover:text-rose-300"
+                                            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                             <span>Xóa</span>
@@ -248,14 +248,14 @@ export const AccessControlView: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="flex flex-col gap-3 rounded-xl border border-purple-400/20 bg-purple-900/40 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-purple-400/30 bg-purple-500/20 text-purple-300">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-2xs">
                                         <Building2 className="h-4 w-4" />
                                     </div>
                                     <div>
-                                        <div className="text-xs font-semibold text-purple-200">Phòng ban liên kết vai trò</div>
-                                        <div className="mt-0.5 text-xs text-purple-300/80">
+                                        <div className="text-xs font-bold text-slate-800">Phòng ban liên kết vai trò</div>
+                                        <div className="mt-0.5 text-xs text-slate-500">
                                             {selectedRoleDept
                                                 ? `Áp dụng riêng cho: ${selectedRoleDept.name}`
                                                 : 'Áp dụng cho: Tất cả phòng ban trong công ty'}
@@ -265,7 +265,7 @@ export const AccessControlView: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => openEditModalFor(selectedRole)}
-                                    className="flex items-center gap-1.5 self-start whitespace-nowrap rounded-lg border border-purple-400/40 bg-purple-600/40 px-3 py-1.5 text-xs font-medium text-purple-100 transition hover:bg-purple-600/60 sm:self-auto"
+                                    className="flex items-center gap-1.5 self-start whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 sm:self-auto"
                                 >
                                     <Building2 className="h-3.5 w-3.5" />
                                     <span>Đổi phòng ban</span>

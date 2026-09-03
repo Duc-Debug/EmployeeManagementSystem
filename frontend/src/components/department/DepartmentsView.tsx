@@ -1,70 +1,43 @@
 import { useState } from "react";
-import { List, Network } from "lucide-react";
+import { GitBranch, Network } from "lucide-react";
 import { cn } from "@/lib/utils";
-import DepartmentList from "./DepartmentList";
-import DepartmentModal, { type Department } from "./DepartmentModal";
+import DepartmentTree from "./DepartmentTree";
 import OrgChart from "./OrgChart";
-import { INITIAL_DEPARTMENTS } from "./department.constants";
 
 export default function DepartmentsView() {
-    const [departmentSubTab, setDepartmentSubTab] = useState<"list" | "tree">("tree");
-    const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
-    const [modalOpen, setModalOpen] = useState(false);
-    const [editingDept, setEditingDept] = useState<Department | null>(null);
-
-    function openAddModal() {
-        setEditingDept(null);
-        setModalOpen(true);
-    }
-
-    function openEditModal(dept: Department) {
-        setEditingDept(dept);
-        setModalOpen(true);
-    }
-
-    function handleSave(dept: Department) {
-        setDepartments((prev) => {
-            const exists = prev.some((d) => d.id === dept.id);
-            return exists ? prev.map((d) => (d.id === dept.id ? dept : d)) : [...prev, dept];
-        });
-        setModalOpen(false);
-    }
-
-    function handleDelete(id: string) {
-        setDepartments((prev) => prev.filter((d) => d.id !== id));
-    }
+    const [departmentSubTab, setDepartmentSubTab] = useState<"list" | "tree">("list");
 
     return (
-        <div className={cn("flex flex-col", departmentSubTab === "tree" ? "h-full min-h-0 space-y-4 flex-1" : "space-y-6")}>
-            <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-white/15 pb-4">
+        <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                         Quản lý phòng ban
                     </h1>
-                    <p className="text-sm text-white/60">
+                    <p className="text-sm text-slate-500">
                         Xem và điều chỉnh sơ đồ cơ cấu tổ chức doanh nghiệp
                     </p>
                 </div>
-                <div className="flex rounded-xl border border-white/15 bg-white/[0.07] p-1 backdrop-blur-xl">
+                <div className="flex rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-2xs">
                     <button
                         onClick={() => setDepartmentSubTab("list")}
                         className={cn(
-                            "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition",
+                            "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition",
                             departmentSubTab === "list"
-                                ? "bg-white/20 text-white"
-                                : "text-white/60 hover:text-white"
+                                ? "bg-white text-indigo-700 font-bold shadow-xs"
+                                : "text-slate-600 hover:text-slate-900"
                         )}
                     >
-                        <List className="h-4 w-4" />
-                        Danh sách phòng ban
+                        <GitBranch className="h-4 w-4" />
+                        Cây phân cấp đơn vị
                     </button>
                     <button
                         onClick={() => setDepartmentSubTab("tree")}
                         className={cn(
-                            "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition",
+                            "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition",
                             departmentSubTab === "tree"
-                                ? "bg-white/20 text-white"
-                                : "text-white/60 hover:text-white"
+                                ? "bg-white text-indigo-700 font-bold shadow-xs"
+                                : "text-slate-600 hover:text-slate-900"
                         )}
                     >
                         <Network className="h-4 w-4" />
@@ -74,24 +47,12 @@ export default function DepartmentsView() {
             </div>
 
             {departmentSubTab === "list" ? (
-                <DepartmentList
-                    departments={departments}
-                    onAdd={openAddModal}
-                    onEdit={openEditModal}
-                    onDelete={handleDelete}
-                />
+                <DepartmentTree />
             ) : (
-                <div className="flex-1 min-h-0 w-full overflow-hidden rounded-2xl border border-white/15 bg-white/[0.05] p-1 backdrop-blur-xl relative">
+                <div className="flex-1 min-h-0 w-full overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-1 shadow-xs relative">
                     <OrgChart />
                 </div>
             )}
-
-            <DepartmentModal
-                open={modalOpen}
-                initialData={editingDept}
-                onClose={() => setModalOpen(false)}
-                onSave={handleSave}
-            />
         </div>
     );
 }

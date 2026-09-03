@@ -4001,7 +4001,7 @@ button:active {
   min-inline-size: 0;
   outline: var(--rule-medium) solid var(--color-transparent);
   outline-offset: var(--rule-thin);
-  padding-inline: var(--space-sm) 3rem;
+  padding-inline: var(--space-sm) 1rem;
   text-align: start;
   transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
 }

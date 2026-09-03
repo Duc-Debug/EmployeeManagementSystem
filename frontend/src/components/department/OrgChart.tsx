@@ -34,39 +34,39 @@ const INITIAL_ORG_TREE: OrgTreeNode = {
     desc: 'Quyết định chiến lược & Tầm nhìn',
     subLeft: 'Hội đồng Quản trị',
     levelText: 'Tầng 1',
-    cardBg: 'bg-black/[100]',
-    borderColor: 'border-amber-200',
+    cardBg: 'bg-white',
+    borderColor: 'border-amber-300',
     icon: Crown,
     iconColor: 'text-amber-600',
-    isDark: true,
+    isDark: false,
     children: [
         {
             id: 'node-pm',
             badge: 'Quản Lý Vận Hành',
-            badgeBg: 'bg-blue-400/20',
-            badgeColor: 'text-blue-200',
+            badgeBg: 'bg-blue-50',
+            badgeColor: 'text-blue-700',
             title: 'Quản Lý Dự Án',
             desc: 'Điều phối tiến độ & mục tiêu sản phẩm',
             subLeft: 'Báo cáo trực tiếp BGĐ',
             levelText: 'Tầng 2',
-            cardBg: 'bg-white/[0.07]',
-            borderColor: 'border-blue-300/30',
+            cardBg: 'bg-white',
+            borderColor: 'border-blue-200',
             icon: BarChart2,
-            iconColor: 'text-blue-300',
+            iconColor: 'text-blue-600',
             children: [
                 {
                     id: 'node-dev',
                     badge: 'Thực Thi Chuyên Môn',
-                    badgeBg: 'bg-emerald-400/20',
-                    badgeColor: 'text-emerald-200',
+                    badgeBg: 'bg-emerald-50',
+                    badgeColor: 'text-emerald-700',
                     title: 'Nhân Viên Chuyên Môn',
                     desc: 'Kỹ sư, Lập trình viên, Designer & Chuyên gia',
                     subLeft: 'Thuộc Khối Dự Án',
                     levelText: 'Tầng 3',
-                    cardBg: 'bg-white/[0.07]',
-                    borderColor: 'border-emerald-300/30',
+                    cardBg: 'bg-white',
+                    borderColor: 'border-emerald-200',
                     icon: Code,
-                    iconColor: 'text-emerald-300',
+                    iconColor: 'text-emerald-600',
                     children: [],
                 },
             ],
@@ -74,44 +74,44 @@ const INITIAL_ORG_TREE: OrgTreeNode = {
         {
             id: 'node-rm',
             badge: 'Quản Lý Nguồn Lực',
-            badgeBg: 'bg-purple-400/20',
-            badgeColor: 'text-purple-200',
+            badgeBg: 'bg-purple-50',
+            badgeColor: 'text-purple-700',
             title: 'Quản Lý Nguồn Lực',
             desc: 'Tối ưu hóa nhân lực & cơ sở hạ tầng',
             subLeft: 'Báo cáo trực tiếp BGĐ',
             levelText: 'Tầng 2',
-            cardBg: 'bg-white/[0.07]',
-            borderColor: 'border-purple-300/30',
+            cardBg: 'bg-white',
+            borderColor: 'border-purple-200',
             icon: Archive,
-            iconColor: 'text-purple-300',
+            iconColor: 'text-purple-600',
             children: [
                 {
                     id: 'node-hr',
                     badge: 'Phòng Khối Nhân Sự',
-                    badgeBg: 'bg-pink-400/20',
-                    badgeColor: 'text-pink-200',
+                    badgeBg: 'bg-pink-50',
+                    badgeColor: 'text-pink-700',
                     title: 'Nhân Sự (HR)',
                     desc: 'Tuyển dụng, đào tạo & chế độ phúc lợi',
                     subLeft: 'Trực thuộc Nguồn Lực',
                     levelText: 'Tầng 3',
-                    cardBg: 'bg-white/[0.07]',
-                    borderColor: 'border-pink-300/30',
+                    cardBg: 'bg-white',
+                    borderColor: 'border-pink-200',
                     icon: Users,
-                    iconColor: 'text-pink-300',
+                    iconColor: 'text-pink-600',
                     children: [
                         {
                             id: 'node-admin',
                             badge: 'Vận Hành & Admin',
-                            badgeBg: 'bg-amber-400/20',
-                            badgeColor: 'text-amber-200',
+                            badgeBg: 'bg-amber-50',
+                            badgeColor: 'text-amber-700',
                             title: 'Quản Trị Viên',
                             desc: 'Quản lý hệ thống, nội quy & tài sản',
                             subLeft: 'Giám sát vận hành',
                             levelText: 'Tầng 4',
-                            cardBg: 'bg-white/[0.07]',
-                            borderColor: 'border-amber-300/30',
+                            cardBg: 'bg-white',
+                            borderColor: 'border-amber-200',
                             icon: Shield,
-                            iconColor: 'text-amber-300',
+                            iconColor: 'text-amber-600',
                             children: [],
                         },
                     ],
@@ -371,19 +371,19 @@ export default function OrgChart() {
             {/* Top Floating Controls */}
             <div className="absolute top-4 left-4 right-4 z-30 flex flex-wrap items-center justify-between gap-3 px-2 pointer-events-none">
                 {/* Search input */}
-                <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-white/20 bg-slate-950/75 px-3 py-1.5 backdrop-blur-xl shadow-lg">
-                    <Search className="h-4 w-4 text-white/50" />
+                <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 py-1.5 shadow-md">
+                    <Search className="h-4 w-4 text-slate-400" />
                     <input
                         type="text"
                         placeholder="Tìm kiếm phòng ban / vị trí..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="bg-transparent text-xs text-white placeholder-white/40 focus:outline-none w-48 sm:w-64"
+                        className="bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-48 sm:w-64"
                     />
                     {searchQuery && (
                         <button
                             onClick={() => setSearchQuery('')}
-                            className="text-xs text-white/50 hover:text-white"
+                            className="text-xs text-slate-400 hover:text-slate-700"
                         >
                             ✕
                         </button>
@@ -391,32 +391,32 @@ export default function OrgChart() {
                 </div>
 
                 {/* Toolbar */}
-                <div className="pointer-events-auto flex items-center gap-1.5 rounded-xl border border-white/20 bg-slate-950/75 px-3 py-1.5 backdrop-blur-xl shadow-lg">
+                <div className="pointer-events-auto flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3 py-1.5 shadow-md">
                     <button
                         onClick={zoomOut}
-                        className="rounded-lg p-1.5 text-white/70 hover:bg-white/15 hover:text-white transition"
+                        className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
                         title="Thu nhỏ"
                         type="button"
                     >
                         <ZoomOut className="h-4 w-4" />
                     </button>
-                    <span className="min-w-[44px] text-center text-xs font-bold text-white/90">
+                    <span className="min-w-[44px] text-center text-xs font-bold text-slate-800">
                         {Math.round(zoom * 100)}%
                     </span>
                     <button
                         onClick={zoomIn}
-                        className="rounded-lg p-1.5 text-white/70 hover:bg-white/15 hover:text-white transition"
+                        className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
                         title="Phóng to"
                         type="button"
                     >
                         <ZoomIn className="h-4 w-4" />
                     </button>
 
-                    <div className="h-4 w-[1px] bg-white/20 mx-0.5" />
+                    <div className="h-4 w-[1px] bg-slate-200 mx-0.5" />
 
                     <button
                         onClick={resetZoom}
-                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-white/75 hover:bg-white/15 hover:text-white transition"
+                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
                         title="Đặt lại kích thước chuẩn"
                         type="button"
                     >
@@ -551,21 +551,19 @@ function RecursiveNode({
                     e.stopPropagation();
                     onDrop(node.id);
                 }}
-                className={`org-tree-card relative w-[320px] rounded-3xl p-5 backdrop-blur-xl border transition-all duration-200 cursor-default ${
-                    node.cardBg
-                } ${node.borderColor} ${
+                className={`org-tree-card relative w-[320px] rounded-3xl p-5 border transition-all duration-200 cursor-default bg-white border-slate-200/90 shadow-sm ${
                     isDropTarget
-                        ? 'ring-4 ring-[#63ecc8] ring-offset-2 ring-offset-transparent bg-[#63ecc8]/15 scale-[1.03] shadow-[0_0_25px_rgba(99,236,200,0.4)]'
-                        : 'hover:shadow-2xl hover:border-white/40'
+                        ? 'ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-50/50 scale-[1.03] shadow-md'
+                        : 'hover:shadow-md hover:border-indigo-300'
                 } ${isBeingDragged ? 'opacity-35 scale-95 border-dashed' : ''} ${
-                    isMatch ? 'ring-4 ring-amber-400/80 shadow-[0_0_25px_rgba(251,191,36,0.5)]' : ''
+                    isMatch ? 'ring-4 ring-amber-400/80 shadow-md' : ''
                 }`}
             >
                 {/* Actions */}
                 <div className="absolute top-3 right-3 flex items-center gap-1">
                     {isDraggable && (
                         <span
-                            className="cursor-grab active:cursor-grabbing p-1 text-white/40 hover:text-white transition"
+                            className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-700 transition"
                             title="Kéo thả để chuyển phòng ban trực thuộc"
                         >
                             <GripVertical className="h-4 w-4" />
@@ -573,7 +571,7 @@ function RecursiveNode({
                     )}
                     <button
                         onClick={() => onEdit(node.id)}
-                        className="rounded-lg p-1.5 text-white/50 hover:bg-white/20 hover:text-white transition"
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
                         title="Chỉnh sửa thông tin"
                         type="button"
                     >
@@ -581,7 +579,7 @@ function RecursiveNode({
                     </button>
                     <button
                         onClick={() => onAddChild(node.id)}
-                        className="rounded-lg p-1.5 text-white/50 hover:bg-[#63ecc8]/20 hover:text-[#63ecc8] transition"
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
                         title="Thêm nhánh con trực thuộc"
                         type="button"
                     >
@@ -590,7 +588,7 @@ function RecursiveNode({
                     {isDraggable && (
                         <button
                             onClick={() => onDelete(node.id)}
-                            className="rounded-lg p-1.5 text-white/40 hover:bg-rose-500/20 hover:text-rose-300 transition"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
                             title="Xóa nhánh phòng ban này"
                             type="button"
                         >
@@ -610,21 +608,21 @@ function RecursiveNode({
                 </div>
 
                 {/* Title & Desc */}
-                <h3 className="text-lg font-bold text-white tracking-tight mb-1">{node.title}</h3>
-                <p className="text-xs text-white/65 leading-relaxed font-medium mb-4 min-h-[32px]">
+                <h3 className="text-lg font-bold text-slate-900 tracking-tight mb-1">{node.title}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium mb-4 min-h-[32px]">
                     {node.desc}
                 </p>
 
                 {/* Footer */}
-                <div className="border-t border-white/15 pt-3 flex items-center justify-between text-xs font-semibold">
-                    <span className="text-[11px] font-medium text-white/60">{node.subLeft}</span>
+                <div className="border-t border-slate-100 pt-3 flex items-center justify-between text-xs font-semibold">
+                    <span className="text-[11px] font-medium text-slate-400">{node.subLeft}</span>
                     <div className="flex items-center gap-2">
                         {hasChildren && (
-                            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/70">
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                                 {node.children.length} nhánh
                             </span>
                         )}
-                        <span className="font-bold text-white/90">{node.levelText}</span>
+                        <span className="font-bold text-slate-700">{node.levelText}</span>
                     </div>
                 </div>
 
@@ -632,7 +630,7 @@ function RecursiveNode({
                 {hasChildren && (
                     <button
                         onClick={(e) => onToggleCollapse(node.id, e)}
-                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center h-6 w-6 rounded-full border border-white/20 bg-slate-900 text-white/80 hover:bg-white hover:text-slate-900 hover:scale-110 shadow-md transition-all z-10"
+                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center h-6 w-6 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:scale-110 shadow-xs transition-all z-10"
                         title={isCollapsed ? 'Mở rộng nhánh' : 'Thu gọn nhánh'}
                         type="button"
                     >
@@ -649,7 +647,7 @@ function RecursiveNode({
             {hasChildren && !isCollapsed && (
                 <div className="flex flex-col items-center w-full min-w-max">
                     {/* Vertical drop line directly below parent */}
-                    <div className="h-8 w-[2px] bg-white/40" />
+                    <div className="h-8 w-[2px] bg-slate-300" />
 
                     {/* Children Container (Horizontal Flex Row with seamless continuous bus line) */}
                     <div className="flex flex-row items-start justify-center min-w-max">
@@ -667,7 +665,7 @@ function RecursiveNode({
                                     {!isOnly && (
                                         <div className="w-full h-8 relative mb-1">
                                             <div
-                                                className={`absolute top-0 h-[2px] bg-white/40 ${
+                                                className={`absolute top-0 h-[2px] bg-slate-300 ${
                                                     isFirst
                                                         ? 'left-1/2 right-0'
                                                         : isLast
@@ -675,10 +673,10 @@ function RecursiveNode({
                                                         : 'left-0 right-0'
                                                 }`}
                                             />
-                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-full bg-white/40" />
+                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-full bg-slate-300" />
                                         </div>
                                     )}
-                                    {isOnly && <div className="h-8 w-[2px] bg-white/40 mb-1" />}
+                                    {isOnly && <div className="h-8 w-[2px] bg-slate-300 mb-1" />}
 
                                     {/* Recursive Child Node */}
                                     <RecursiveNode

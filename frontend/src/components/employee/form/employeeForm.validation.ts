@@ -11,7 +11,7 @@ export function validateEmployeeForm(data: EmployeeFormData): FormErrors {
         errors.email = "Email không đúng định dạng";
     }
 
-    if (!data.position.trim()) {
+    if (data.position && !data.position.trim()) {
         errors.position = "Vui lòng nhập chức danh";
     }
 

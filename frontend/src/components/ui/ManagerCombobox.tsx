@@ -16,14 +16,13 @@ import {
 import { createPortal } from "react-dom";
 
 import { Icon } from "@/components/ui/Icon";
-import type { OrgUnitType } from "@/src/types/hrm";
 
-export interface OrgUnitOption {
-  depth: number;
-  id: number;
-  unitCode: string;
-  unitName: string;
-  unitType?: OrgUnitType;
+export interface ManagerOption {
+  employeeId: number;
+  fullName: string;
+  roleCode: string;
+  roleName: string;
+  username: string;
 }
 
 interface ComboboxMenuPosition {
@@ -34,7 +33,7 @@ interface ComboboxMenuPosition {
   width: number;
 }
 
-interface OrgUnitComboboxProps {
+interface ManagerComboboxProps {
   allowClear?: boolean;
   ariaDescribedBy?: string;
   ariaInvalid?: boolean;
@@ -43,26 +42,14 @@ interface OrgUnitComboboxProps {
   onChange: (value: string) => void;
   onEnter?: () => void;
   onKeyboardSelect?: () => void;
-  options: readonly OrgUnitOption[];
-  placeholder: string;
+  options: readonly ManagerOption[];
+  placeholder?: string;
   value: string;
 }
 
-function getUnitTypeMeta(unitType?: OrgUnitType, depth = 0) {
-  if (unitType === "COMPANY" || depth === 0) {
-    return { label: "Công ty", className: "unit-tag--company" };
-  }
-  if (unitType === "CENTER" || depth === 1) {
-    return { label: "Khối", className: "unit-tag--center" };
-  }
-  if (unitType === "DEPARTMENT" || depth === 2) {
-    return { label: "Phòng ban", className: "unit-tag--dept" };
-  }
-  return { label: "Nhóm", className: "unit-tag--team" };
-}
-
-export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProps>(function OrgUnitCombobox(
+export const ManagerCombobox = forwardRef<HTMLButtonElement, ManagerComboboxProps>(function ManagerCombobox(
   {
+    allowClear = true,
     ariaDescribedBy,
     ariaInvalid,
     disabled = false,
@@ -71,7 +58,7 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
     onEnter,
     onKeyboardSelect,
     options,
-    placeholder,
+    placeholder = "Chọn người quản lý",
     value,
   },
   forwardedRef,
@@ -86,15 +73,19 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [menuPortalTarget, setMenuPortalTarget] = useState<HTMLElement | null>(null);
   const [menuPosition, setMenuPosition] = useState<ComboboxMenuPosition | null>(null);
-  const selectedOption = options.find((option) => option.id === Number(value));
+
+  const selectedOption = options.find((option) => option.employeeId === Number(value));
+
   const filteredOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("vi");
     if (!normalizedQuery) {
       return options;
     }
 
-    return options.filter((option) => [option.unitCode, option.unitName]
-      .some((part) => part.toLocaleLowerCase("vi").includes(normalizedQuery)));
+    return options.filter((option) =>
+      [option.fullName, option.username, option.roleCode, option.roleName]
+        .some((part) => (part || "").toLocaleLowerCase("vi").includes(normalizedQuery)),
+    );
   }, [options, query]);
 
   useImperativeHandle(forwardedRef, () => triggerRef.current!);
@@ -124,7 +115,6 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
     if (!isOpen) {
       return;
     }
-
     updateMenuPosition();
   }, [filteredOptions.length, isOpen, updateMenuPosition]);
 
@@ -151,7 +141,7 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
       return;
     }
 
-    const selectedIndex = filteredOptions.findIndex((option) => option.id === Number(value));
+    const selectedIndex = filteredOptions.findIndex((option) => option.employeeId === Number(value));
     setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
     searchRef.current?.focus();
   }, [filteredOptions, isOpen, value]);
@@ -193,7 +183,6 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
     if (disabled) {
       return;
     }
-
     triggerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     setIsOpen(true);
   }
@@ -206,12 +195,19 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
     }
   }
 
-  function selectOption(option: OrgUnitOption, moveToNextField = false) {
-    onChange(String(option.id));
+  function selectOption(option: ManagerOption | null, moveToNextField = false) {
+    onChange(option ? String(option.employeeId) : "");
     closeMenu(!moveToNextField);
     if (moveToNextField) {
       onKeyboardSelect?.();
     }
+  }
+
+  function clearSelection(e: React.MouseEvent) {
+    e.stopPropagation();
+    onChange("");
+    setQuery("");
+    triggerRef.current?.focus();
   }
 
   function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
@@ -238,16 +234,12 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();
-        if (filteredOptions.length === 0) {
-          return;
-        }
+        if (filteredOptions.length === 0) return;
         setHighlightedIndex((current) => (current + 1) % filteredOptions.length);
         break;
       case "ArrowUp":
         event.preventDefault();
-        if (filteredOptions.length === 0) {
-          return;
-        }
+        if (filteredOptions.length === 0) return;
         setHighlightedIndex((current) => (current - 1 + filteredOptions.length) % filteredOptions.length);
         break;
       case "Enter": {
@@ -284,41 +276,61 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
       <div className="org-unit-combobox__search">
         <Icon name="search" />
         <input
-          aria-activedescendant={filteredOptions[highlightedIndex] ? `${listboxId}-${filteredOptions[highlightedIndex].id}` : undefined}
+          aria-activedescendant={filteredOptions[highlightedIndex] ? `${listboxId}-${filteredOptions[highlightedIndex].employeeId}` : undefined}
           aria-controls={listboxId}
           aria-expanded="true"
-          aria-label="Tìm đơn vị tổ chức"
+          aria-label="Tìm nhân sự quản lý"
           className="input"
           onChange={(event) => {
             setQuery(event.target.value);
             setHighlightedIndex(0);
           }}
           onKeyDown={handleSearchKeyDown}
-          placeholder="Tìm theo tên hoặc mã..."
+          placeholder="Tìm theo tên, vai trò hoặc mã..."
           ref={searchRef}
           role="combobox"
           type="search"
           value={query}
         />
       </div>
-      <ul aria-label="Kết quả đơn vị tổ chức" className="org-unit-combobox__list" id={listboxId} role="listbox">
+      <ul aria-label="Kết quả nhân sự quản lý" className="org-unit-combobox__list" id={listboxId} role="listbox">
+        {allowClear && (
+          <li className="org-unit-combobox__item" role="presentation">
+            <button
+              aria-selected={!selectedOption}
+              className={`org-unit-combobox__option ${!selectedOption ? "is-selected" : ""}`}
+              onClick={(e) => {
+                e.preventDefault();
+                selectOption(null);
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                selectOption(null);
+              }}
+              role="option"
+              type="button"
+            >
+              <div className="org-unit-combobox__option-main">
+                <div className="org-unit-combobox__text-group">
+                  <span style={{ color: "#64748b", fontStyle: "italic", fontSize: "0.75rem" }}>
+                    -- Không gán người quản lý --
+                  </span>
+                </div>
+              </div>
+            </button>
+          </li>
+        )}
+
         {filteredOptions.map((option, index) => {
-          const isSelected = option.id === selectedOption?.id;
+          const isSelected = option.employeeId === selectedOption?.employeeId;
           const isHighlighted = index === highlightedIndex;
-          const meta = getUnitTypeMeta(option.unitType, option.depth);
-          const isBlockStart = option.depth === 1;
 
           return (
-            <li
-              className={isBlockStart ? "org-unit-combobox__item org-unit-combobox__item--block-start" : "org-unit-combobox__item"}
-              key={option.id}
-              role="presentation"
-            >
+            <li className="org-unit-combobox__item" key={option.employeeId} role="presentation">
               <button
                 aria-selected={isSelected}
                 className={`org-unit-combobox__option ${isHighlighted ? "is-highlighted" : ""} ${isSelected ? "is-selected" : ""}`}
-                data-depth={Math.min(option.depth, 4)}
-                id={`${listboxId}-${option.id}`}
+                id={`${listboxId}-${option.employeeId}`}
                 onClick={(e) => {
                   e.preventDefault();
                   selectOption(option);
@@ -332,21 +344,14 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
                 type="button"
               >
                 <div className="org-unit-combobox__option-main">
-                  <div className="org-unit-combobox__tree-guide">
-                    {option.depth === 0 ? (
-                      <span className="org-unit-combobox__dot org-unit-combobox__dot--company" />
-                    ) : option.depth === 1 ? (
-                      <span className="org-unit-combobox__branch">├─</span>
-                    ) : (
-                      <span className="org-unit-combobox__branch">│&nbsp;&nbsp;└─</span>
-                    )}
-                  </div>
                   <div className="org-unit-combobox__text-group">
                     <div className="org-unit-combobox__title-row">
-                      <strong className="org-unit-combobox__unit-name">{option.unitName}</strong>
-                      <span className={`org-unit-tag ${meta.className}`}>{meta.label}</span>
+                      <strong className="org-unit-combobox__unit-name">{option.fullName}</strong>
+                      <span className="role-chip" style={{ fontSize: "0.625rem" }}>
+                        {option.roleCode} · {option.roleName}
+                      </span>
                     </div>
-                    <small className="org-unit-combobox__unit-code">{option.unitCode}</small>
+                    <small className="org-unit-combobox__unit-code">@{option.username}</small>
                   </div>
                 </div>
                 {isSelected ? (
@@ -359,7 +364,9 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
           );
         })}
       </ul>
-      {filteredOptions.length === 0 ? <p className="org-unit-combobox__empty">Không tìm thấy đơn vị phù hợp.</p> : null}
+      {filteredOptions.length === 0 ? (
+        <p className="org-unit-combobox__empty">Không tìm thấy nhân sự phù hợp.</p>
+      ) : null}
     </div>
   ) : null;
 
@@ -372,7 +379,7 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
           aria-expanded={isOpen}
           aria-haspopup="listbox"
           aria-invalid={ariaInvalid}
-          className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 text-left outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 flex items-center justify-between"
+          className={selectedOption ? "org-unit-combobox__trigger" : "org-unit-combobox__trigger is-placeholder"}
           disabled={disabled}
           id={id}
           onClick={openMenu}
@@ -380,10 +387,21 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
           ref={triggerRef}
           type="button"
         >
-          <span className="truncate">
-            {selectedOption ? `${selectedOption.unitCode} · ${selectedOption.unitName}` : placeholder}
+          <span>
+            {selectedOption ? `${selectedOption.fullName} (${selectedOption.roleCode}) ${selectedOption.roleName}` : placeholder}
           </span>
+          <Icon name="chevronDown" />
         </button>
+        {allowClear && selectedOption && !disabled ? (
+          <button
+            aria-label="Xóa lựa chọn quản lý"
+            className="org-unit-combobox__clear"
+            onClick={clearSelection}
+            type="button"
+          >
+            <Icon name="close" />
+          </button>
+        ) : null}
       </div>
       {menuPortalTarget && menu ? createPortal(menu, menuPortalTarget) : null}
     </div>

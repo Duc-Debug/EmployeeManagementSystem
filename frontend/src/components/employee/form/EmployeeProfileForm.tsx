@@ -1,420 +1,445 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { X, Calendar, ChevronDown, ChevronLeft, ChevronRight, Check, UserCheck } from "lucide-react"
-import { cn } from "@/lib/utils"
-import type { EmployeeFormData } from "./employeeForm.types"
-import { DEPARTMENT_OPTIONS } from "./employeeForm.constants"
+import { useState, type FormEvent } from "react";
+import {
+    X,
+    UserCheck,
+    Eye,
+    EyeOff,
+    ShieldCheck,
+    User,
+    Mail,
+    BadgeAlert,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { OrgUnitCombobox } from "@/components/ui/OrgUnitCombobox";
+import type { EmployeeFormData } from "./employeeForm.types";
+import {
+    DEFAULT_ORG_UNIT_OPTIONS,
+    ROLE_OPTIONS,
+    DATA_SCOPE_OPTIONS,
+    DEFAULT_FORM_VALUES,
+} from "./employeeForm.constants";
 
 interface EmployeeProfileFormProps {
-    open: boolean
-    initialData?: EmployeeFormData | null
-    onClose: () => void
-    onSave: (data: EmployeeFormData) => void
+    open: boolean;
+    initialData?: EmployeeFormData | null;
+    onClose: () => void;
+    onSave: (data: EmployeeFormData) => void;
+    nextEmployeeCode?: string;
 }
 
-const DEFAULT_FORM_DATA: EmployeeFormData = {
-    fullName: "",
-    email: "",
-    phone: "",
-    department: "Kỹ thuật",
-    position: "",
-    joinDate: "",
-    contractEndDate: "",
-    standardHoursPerWeek: 40,
-    status: "active",
-}
-
-/* ========================================================================
-   1. CUSTOM SELECT DROPDOWN
-   ======================================================================== */
-function CustomSelect({
-                          value,
-                          onChange,
-                          options,
-                          placeholder = "Chọn phòng ban",
-                      }: {
-    value: string
-    onChange: (val: string) => void
-    options: string[]
-    placeholder?: string
-}) {
-    const [open, setOpen] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
-            if (ref.current && !ref.current.contains(e.target as Node)) {
-                setOpen(false)
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside)
-        return () => document.removeEventListener("mousedown", handleClickOutside)
-    }, [])
-
-    return (
-        <div className="relative w-full" ref={ref}>
-            <button
-                type="button"
-                onClick={() => setOpen((o) => !o)}
-                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 outline-none transition hover:bg-slate-100/70 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-            >
-                <span className={value ? "text-slate-800" : "text-slate-400"}>
-                    {value || placeholder}
-                </span>
-                <ChevronDown className={cn("size-4 text-slate-400 transition-transform duration-200", open && "rotate-180")} />
-            </button>
-
-            {open && (
-                <div className="absolute left-0 right-0 z-50 mt-1.5 overflow-hidden rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-                    <div className="max-h-52 overflow-y-auto space-y-1 custom-scrollbar">
-                        {options.map((opt) => {
-                            const isActive = value === opt
-                            return (
-                                <button
-                                    key={opt}
-                                    type="button"
-                                    onClick={() => {
-                                        onChange(opt)
-                                        setOpen(false)
-                                    }}
-                                    className={cn(
-                                        "flex w-full items-center justify-between rounded-xl px-3.5 py-2 text-left text-xs font-semibold transition-all",
-                                        isActive
-                                            ? "bg-indigo-50 text-indigo-600 font-bold"
-                                            : "text-slate-700 hover:bg-slate-100"
-                                    )}
-                                >
-                                    <span>{opt}</span>
-                                    {isActive && <Check className="size-3.5 text-indigo-600 stroke-[2.5]" />}
-                                </button>
-                            )
-                        })}
-                    </div>
-                </div>
-            )}
-        </div>
-    )
-}
-
-/* ========================================================================
-   2. CUSTOM DATE PICKER
-   ======================================================================== */
-function CustomDatePicker({
-                              value,
-                              onChange,
-                              dropUp = true,
-                          }: {
-    value: string
-    onChange: (val: string) => void
-    dropUp?: boolean
-}) {
-    const [open, setOpen] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-
-    const today = new Date()
-    const [viewDate, setViewDate] = useState(() => {
-        if (!value) return today
-        const parts = value.split("/")
-        if (parts.length === 3) {
-            return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]))
-        }
-        return today
-    })
-
-    useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
-            if (ref.current && !ref.current.contains(e.target as Node)) {
-                setOpen(false)
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside)
-        return () => document.removeEventListener("mousedown", handleClickOutside)
-    }, [])
-
-    const year = viewDate.getFullYear()
-    const month = viewDate.getMonth()
-
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const firstDayIndex = new Date(year, month, 1).getDay()
-
-    const monthNames = [
-        "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
-        "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
-    ]
-    const weekDays = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"]
-
-    const handlePrevMonth = () => setViewDate(new Date(year, month - 1, 1))
-    const handleNextMonth = () => setViewDate(new Date(year, month + 1, 1))
-
-    const handleSelectDay = (day: number) => {
-        const d = String(day).padStart(2, "0")
-        const m = String(month + 1).padStart(2, "0")
-        const formatted = `${d}/${m}/${year}`
-        onChange(formatted)
-        setOpen(false)
-    }
-
-    return (
-        <div className="relative w-full" ref={ref}>
-            <button
-                type="button"
-                onClick={() => setOpen((o) => !o)}
-                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 outline-none transition hover:bg-slate-100/70 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-            >
-                <span className={value ? "text-slate-800" : "text-slate-400"}>
-                    {value || "dd/mm/yyyy"}
-                </span>
-                <Calendar className="size-4 text-slate-400" />
-            </button>
-
-            {open && (
-                <div
-                    className={cn(
-                        "absolute left-0 z-50 w-72 rounded-2xl border border-slate-100 bg-white p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150",
-                        dropUp ? "bottom-full mb-2" : "top-full mt-2"
-                    )}
-                >
-                    <div className="flex items-center justify-between mb-3 text-slate-800">
-                        <button
-                            type="button"
-                            onClick={handlePrevMonth}
-                            className="rounded-lg p-1 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
-                        >
-                            <ChevronLeft className="size-4" />
-                        </button>
-                        <span className="text-xs font-bold">{monthNames[month]} {year}</span>
-                        <button
-                            type="button"
-                            onClick={handleNextMonth}
-                            className="rounded-lg p-1 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
-                        >
-                            <ChevronRight className="size-4" />
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 mb-2">
-                        {weekDays.map((wd) => (
-                            <span key={wd}>{wd}</span>
-                        ))}
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                        {Array.from({ length: firstDayIndex }).map((_, i) => (
-                            <div key={`empty-${i}`} />
-                        ))}
-                        {Array.from({ length: daysInMonth }).map((_, i) => {
-                            const dayNum = i + 1
-                            const dStr = String(dayNum).padStart(2, "0")
-                            const mStr = String(month + 1).padStart(2, "0")
-                            const isSelected = value === `${dStr}/${mStr}/${year}`
-
-                            return (
-                                <button
-                                    key={dayNum}
-                                    type="button"
-                                    onClick={() => handleSelectDay(dayNum)}
-                                    className={cn(
-                                        "flex size-7 items-center justify-center rounded-lg text-xs font-semibold transition-all mx-auto",
-                                        isSelected
-                                            ? "bg-indigo-600 text-white font-bold shadow-md shadow-indigo-200"
-                                            : "text-slate-700 hover:bg-slate-100"
-                                    )}
-                                >
-                                    {dayNum}
-                                </button>
-                            )}
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    )
-}
-
-/* ========================================================================
-   3. MODAL FORM CHÍNH
-   ======================================================================== */
 export default function EmployeeProfileForm({
-                                                open,
-                                                initialData,
-                                                onClose,
-                                                onSave,
-                                            }: EmployeeProfileFormProps) {
-    const [formData, setFormData] = useState<EmployeeFormData>(DEFAULT_FORM_DATA)
-    const [prevInitialData, setPrevInitialData] = useState<EmployeeFormData | null | undefined>(initialData)
-    const [prevOpen, setPrevOpen] = useState<boolean>(open)
+    open,
+    initialData,
+    onClose,
+    onSave,
+    nextEmployeeCode = "EMP-001",
+}: EmployeeProfileFormProps) {
+    const isEdit = Boolean(initialData);
 
-    // Khắc phục ESLint warning (react-hooks/set-state-in-effect):
-    // Đồng bộ state trực tiếp trong quá trình render khi props initialData / open thay đổi
+    const [formData, setFormData] = useState<EmployeeFormData>(() => {
+        if (initialData) {
+            return {
+                ...initialData,
+                status: initialData.status === "locked" ? "LOCKED" : "ACTIVE",
+            };
+        }
+        return {
+            ...DEFAULT_FORM_VALUES,
+            employeeCode: nextEmployeeCode,
+            status: "ACTIVE",
+        };
+    });
+
+    const [prevInitialData, setPrevInitialData] = useState<EmployeeFormData | null | undefined>(initialData);
+    const [prevOpen, setPrevOpen] = useState<boolean>(open);
+    const [showPassword, setShowPassword] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
+
+    // Sync when initialData or open changes
     if (open !== prevOpen || initialData !== prevInitialData) {
-        setPrevOpen(open)
-        setPrevInitialData(initialData)
-        setFormData(initialData ? { ...initialData } : DEFAULT_FORM_DATA)
+        setPrevOpen(open);
+        setPrevInitialData(initialData);
+        setErrorMessage("");
+        setShowPassword(false);
+        if (initialData) {
+            setFormData({
+                ...initialData,
+                employeeCode: initialData.employeeCode || initialData.id || nextEmployeeCode,
+                status: initialData.status === "locked" ? "LOCKED" : "ACTIVE",
+            });
+        } else {
+            setFormData({
+                ...DEFAULT_FORM_VALUES,
+                employeeCode: nextEmployeeCode,
+                status: "ACTIVE",
+            });
+        }
     }
 
-    if (!open) return null
+    if (!open) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        onSave(formData)
-    }
+    const isSystemAdmin = formData.roleCode === "VT-06";
+
+    const handleRoleChange = (roleCode: string) => {
+        const found = ROLE_OPTIONS.find((r) => r.code === roleCode);
+        const roleName = found?.name || "";
+        if (roleCode === "VT-06") {
+            setFormData((prev) => ({
+                ...prev,
+                roleCode,
+                roleName,
+                dataScope: "COMPANY",
+                scopeOrgUnitId: "",
+            }));
+        } else {
+            setFormData((prev) => ({
+                ...prev,
+                roleCode,
+                roleName,
+            }));
+        }
+    };
+
+    const handleOrgUnitChange = (orgUnitId: string) => {
+        const selected = DEFAULT_ORG_UNIT_OPTIONS.find((opt) => String(opt.id) === String(orgUnitId));
+        setFormData((prev) => ({
+            ...prev,
+            orgUnitId,
+            department: selected ? selected.unitName : prev.department,
+        }));
+    };
+
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        setErrorMessage("");
+
+        // Validation
+        if (!formData.fullName.trim()) {
+            setErrorMessage("Vui lòng nhập họ và tên nhân viên.");
+            return;
+        }
+        if (!formData.email.trim()) {
+            setErrorMessage("Vui lòng nhập địa chỉ email.");
+            return;
+        }
+        if (!formData.employeeCode?.trim()) {
+            setErrorMessage("Vui lòng nhập hoặc để mã nhân viên tự động.");
+            return;
+        }
+        if (!formData.username?.trim()) {
+            setErrorMessage("Vui lòng nhập tên đăng nhập.");
+            return;
+        }
+        if (!isEdit && (!formData.password || formData.password.length < 6)) {
+            setErrorMessage("Mật khẩu khởi tạo phải có ít nhất 6 ký tự.");
+            return;
+        }
+        if (formData.dataScope === "ORGANIZATION_BRANCH" && !formData.scopeOrgUnitId) {
+            setErrorMessage("Vui lòng chọn đơn vị tổ chức áp dụng cho phạm vi dữ liệu.");
+            return;
+        }
+
+        onSave({
+            ...formData,
+            fullName: formData.fullName.trim(),
+            email: formData.email.trim(),
+            employeeCode: formData.employeeCode.trim().toUpperCase(),
+            username: formData.username.trim(),
+            department: formData.department || "Phòng Lập trình Frontend",
+        });
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="relative w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl">
+            <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-slate-200/90 bg-white shadow-2xl overflow-hidden">
                 {/* Header Modal */}
-                <div className="flex items-center justify-between pb-5">
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                     <div className="flex items-center gap-3">
-                        <div className="flex size-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                        <div className="flex size-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-2xs">
                             <UserCheck className="size-5" />
                         </div>
-                        <h2 className="text-base font-bold text-slate-800">
-                            {initialData ? "Chỉnh sửa hồ sơ nhân sự" : "Thêm hồ sơ nhân sự mới"}
-                        </h2>
+                        <div>
+                            <h2 className="text-base font-bold text-slate-900">
+                                {isEdit ? "Chỉnh sửa tài khoản nhân viên" : "Tạo tài khoản nhân viên mới"}
+                            </h2>
+                            <p className="text-xs text-slate-500">
+                                {isEdit
+                                    ? `Cập nhật thông tin và phân quyền cho ${formData.fullName}`
+                                    : "Khai báo thông tin cá nhân, tài khoản đăng nhập và phân quyền hệ thống"}
+                            </p>
+                        </div>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
                         className="rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                        title="Đóng"
                     >
                         <X className="size-4" />
                     </button>
                 </div>
 
-                {/* Form Body */}
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-slate-600">Họ và tên *</label>
-                        <input
-                            type="text"
-                            required
-                            placeholder="vd: Nguyễn Văn A"
-                            value={formData.fullName}
-                            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-                        />
+                {/* Form Content - Scrollable */}
+                <form
+                    id="employee-form"
+                    onSubmit={handleSubmit}
+                    className="flex-1 overflow-y-auto px-6 py-4 space-y-6 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full"
+                >
+                    {errorMessage && (
+                        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700">
+                            <BadgeAlert className="size-4 shrink-0" />
+                            <span>{errorMessage}</span>
+                        </div>
+                    )}
+
+                    {/* KHỐI 1: THÔNG TIN CÁ NHÂN & TÀI KHOẢN */}
+                    <div className="space-y-3.5">
+                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                            <User className="size-4 text-indigo-600" />
+                            <span>1. Thông tin cá nhân & Tài khoản</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Họ và tên */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">Họ và tên *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="VD: Chu Văn Hưng"
+                                    value={formData.fullName}
+                                    onChange={(e) => {
+                                        const name = e.target.value;
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            fullName: name,
+                                            // Gợi ý username nếu đang tạo mới và chưa nhập username
+                                            username: !isEdit && !prev.username
+                                                ? name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").slice(0, 15)
+                                                : prev.username,
+                                        }));
+                                    }}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                />
+                            </div>
+
+                            {/* Email */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">Email *</label>
+                                <div className="relative">
+                                    <input
+                                        type="email"
+                                        required
+                                        placeholder="hung@company.com"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                    />
+                                    <Mail className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Mã nhân viên */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">Mã nhân viên *</label>
+                                    <span className="text-[10px] text-slate-400 font-medium">(Tự sinh hoặc tự nhập)</span>
+                                </div>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="VD: EMP-001"
+                                    value={formData.employeeCode || ""}
+                                    onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-bold text-slate-800 placeholder:text-slate-400 uppercase outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                />
+                            </div>
+
+                            {/* Tên đăng nhập */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">Tên đăng nhập *</label>
+                                    {isEdit && <span className="text-[10px] text-slate-400">(Không thể đổi)</span>}
+                                </div>
+                                <input
+                                    type="text"
+                                    required
+                                    disabled={isEdit}
+                                    placeholder="VD: hung.cv"
+                                    value={formData.username || ""}
+                                    onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase() })}
+                                    className={cn(
+                                        "w-full rounded-xl border px-3.5 py-2 text-xs font-semibold outline-none transition",
+                                        isEdit
+                                            ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                                            : "border-slate-200 bg-slate-50/70 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                    )}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Mật khẩu khởi tạo / Mật khẩu mới */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">
+                                        {isEdit ? "Mật khẩu mới" : "Mật khẩu khởi tạo *"}
+                                    </label>
+                                    {isEdit && (
+                                        <span className="text-[10px] text-slate-400">(Để trống nếu không đổi)</span>
+                                    )}
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        required={!isEdit}
+                                        placeholder={isEdit ? "Nhập mật khẩu mới..." : "Tối thiểu 6 ký tự"}
+                                        value={formData.password || ""}
+                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 pl-3.5 pr-10 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((p) => !p)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Đơn vị tổ chức trực thuộc (CÂY COMBOBOX) */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">
+                                    Đơn vị tổ chức trực thuộc *
+                                </label>
+                                <OrgUnitCombobox
+                                    id="employee-org-unit"
+                                    options={DEFAULT_ORG_UNIT_OPTIONS}
+                                    value={formData.orgUnitId || "3"}
+                                    onChange={handleOrgUnitChange}
+                                    placeholder="Chọn phòng ban / đơn vị (dạng cây)..."
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Email *</label>
-                            <input
-                                type="email"
-                                required
-                                placeholder="example@company.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Số điện thoại</label>
-                            <input
-                                type="text"
-                                placeholder="0912 345 678"
-                                value={formData.phone || ""}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Phòng ban *</label>
-                            <CustomSelect
-                                value={formData.department}
-                                onChange={(val) => setFormData({ ...formData, department: val })}
-                                options={DEPARTMENT_OPTIONS.filter((d) => d !== "All")}
-                            />
+                    {/* KHỐI 2: PHÂN QUYỀN & PHẠM VI DỮ LIỆU */}
+                    <div className="space-y-3.5 pt-2">
+                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                            <ShieldCheck className="size-4 text-indigo-600" />
+                            <span>2. Phân quyền & Phạm vi dữ liệu</span>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Chức danh *</label>
-                            <input
-                                type="text"
-                                required
-                                placeholder="vd: HR Specialist"
-                                value={formData.position}
-                                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-                            />
-                        </div>
-                    </div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Vai trò */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">Vai trò (Role) *</label>
+                                <select
+                                    value={formData.roleCode || "VT-04"}
+                                    onChange={(e) => handleRoleChange(e.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                >
+                                    {ROLE_OPTIONS.map((role) => (
+                                        <option key={role.code} value={role.code}>
+                                            {role.code} · {role.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Ngày vào làm *</label>
-                            <CustomDatePicker
-                                value={formData.joinDate || ""}
-                                onChange={(val) => setFormData({ ...formData, joinDate: val })}
-                                dropUp={true}
-                            />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Ngày kết thúc HĐLĐ</label>
-                            <CustomDatePicker
-                                value={formData.contractEndDate || ""}
-                                onChange={(val) => setFormData({ ...formData, contractEndDate: val })}
-                                dropUp={true}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Giờ chuẩn / tuần (giờ)</label>
-                            <input
-                                type="number"
-                                min={1}
-                                max={168}
-                                placeholder="40"
-                                value={formData.standardHoursPerWeek ?? 40}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        standardHoursPerWeek: Number(e.target.value) || 0,
-                                    })
-                                }
-                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-                            />
+                            {/* Phạm vi dữ liệu */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">
+                                    Phạm vi dữ liệu *
+                                </label>
+                                <select
+                                    disabled={isSystemAdmin}
+                                    value={formData.dataScope || "SELF"}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            dataScope: e.target.value as "COMPANY" | "ORGANIZATION_BRANCH" | "SELF",
+                                            scopeOrgUnitId: e.target.value !== "ORGANIZATION_BRANCH" ? "" : formData.scopeOrgUnitId,
+                                        })
+                                    }
+                                    className={cn(
+                                        "w-full rounded-xl border px-3.5 py-2 text-xs font-semibold outline-none transition",
+                                        isSystemAdmin
+                                            ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                                            : "border-slate-200 bg-slate-50/70 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                    )}
+                                >
+                                    {DATA_SCOPE_OPTIONS.map((scope) => (
+                                        <option key={scope.value} value={scope.value}>
+                                            {scope.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600">Trạng thái</label>
-                            <CustomSelect
-                                value={formData.status === "active" ? "Đang làm việc" : "Tạm khóa"}
-                                onChange={(val) =>
-                                    setFormData({
-                                        ...formData,
-                                        status: val === "Đang làm việc" ? "active" : "locked",
-                                    })
-                                }
-                                options={["Đang làm việc", "Tạm khóa"]}
-                            />
-                        </div>
-                    </div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Trạng thái hoạt động */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">Trạng thái tài khoản *</label>
+                                <select
+                                    value={formData.status === "LOCKED" || formData.status === "locked" ? "LOCKED" : "ACTIVE"}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            status: e.target.value as "ACTIVE" | "LOCKED",
+                                        })
+                                    }
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                >
+                                    <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+                                    <option value="LOCKED">Đã khóa (LOCKED)</option>
+                                </select>
+                            </div>
 
-                    {/* Footer Action Buttons */}
-                    <div className="flex items-center justify-end gap-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-                        >
-                            Hủy
-                        </button>
-                        <button
-                            type="submit"
-                            className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 transition hover:bg-slate-50 hover:border-slate-300 active:scale-95"
-                        >
-                            {initialData ? "Lưu thay đổi" : "Tạo hồ sơ"}
-                        </button>
+                            {/* Nếu chọn Theo đơn vị: ComboBox chọn đơn vị áp dụng */}
+                            {formData.dataScope === "ORGANIZATION_BRANCH" && (
+                                <div className="space-y-1.5 animate-in fade-in duration-150">
+                                    <label className="text-xs font-semibold text-indigo-700">
+                                        Đơn vị tổ chức áp dụng (Phân cấp) *
+                                    </label>
+                                    <OrgUnitCombobox
+                                        id="employee-scope-org-unit"
+                                        options={DEFAULT_ORG_UNIT_OPTIONS}
+                                        value={formData.scopeOrgUnitId || formData.orgUnitId || "2"}
+                                        onChange={(val: string) => setFormData({ ...formData, scopeOrgUnitId: val })}
+                                        placeholder="Chọn đơn vị áp dụng..."
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </form>
+
+                {/* Footer Actions */}
+                <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-3.5">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-xs transition hover:bg-slate-50 hover:text-slate-800"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        type="submit"
+                        form="employee-form"
+                        className="rounded-xl border border-indigo-600 bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                    >
+                        {isEdit ? "Lưu thay đổi" : "Tạo tài khoản"}
+                    </button>
+                </div>
             </div>
         </div>
-    )
+    );
 }

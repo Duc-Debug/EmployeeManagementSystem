@@ -64,10 +64,10 @@ export function AttendanceView({
             {/* Header */}
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-white text-balance">
+                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 text-balance">
                         Quản lý giờ làm việc &amp; Chấm công
                     </h1>
-                    <p className="mt-1 text-xs font-semibold text-white/80 sm:text-sm">
+                    <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
                         Theo dõi thời gian vào/ra, tổng số giờ làm, ca làm việc và tăng ca.
                     </p>
                 </div>
@@ -76,17 +76,17 @@ export function AttendanceView({
                     <button
                         type="button"
                         onClick={() => setIsConfigOpen(true)}
-                        className="flex min-h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
+                        className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 active:scale-95"
                     >
-                        <SlidersHorizontal className="size-4 text-white" />
+                        <SlidersHorizontal className="size-4 text-slate-500" />
                         <span>Cấu hình ca làm</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => notify("Đang trích xuất dữ liệu bảng chấm công ra tệp Excel (.xlsx)...")}
-                        className="flex min-h-10 items-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/30 px-4 py-2 text-xs font-bold text-emerald-200 shadow-lg backdrop-blur-md transition hover:bg-emerald-500/40 hover:text-white"
+                        className="flex min-h-10 items-center gap-2 rounded-xl border border-emerald-600 bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700"
                     >
-                        <FileSpreadsheet className="size-4 text-emerald-300" />
+                        <FileSpreadsheet className="size-4 text-white" />
                         <span>Xuất báo cáo</span>
                     </button>
                 </div>
@@ -95,31 +95,31 @@ export function AttendanceView({
             {/* Thẻ thống kê */}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <StatCard
-                    icon={<Users className="size-5 text-blue-200" />}
-                    tone="text-blue-200 bg-blue-500/30 border border-blue-400/40"
+                    icon={<Users className="size-5 text-blue-600" />}
+                    tone="bg-blue-50 border border-blue-200"
                     label="Đi làm hôm nay"
                     value={`${present}/${records.length}`}
                 />
                 <StatCard
-                    icon={<History className="size-5 text-amber-200" />}
-                    tone="text-amber-200 bg-amber-500/30 border border-amber-400/40"
+                    icon={<History className="size-5 text-amber-600" />}
+                    tone="bg-amber-50 border border-amber-200"
                     label="Đi muộn / Về sớm"
                     value={String(late)}
-                    valueClass="text-amber-300"
+                    valueClass="text-amber-600"
                 />
                 <StatCard
-                    icon={<UserRoundX className="size-5 text-rose-200" />}
-                    tone="text-rose-200 bg-rose-500/30 border border-rose-400/40"
+                    icon={<UserRoundX className="size-5 text-rose-600" />}
+                    tone="bg-rose-50 border border-rose-200"
                     label="Vắng mặt / Nghỉ"
                     value={String(absent)}
-                    valueClass="text-rose-300"
+                    valueClass="text-rose-600"
                 />
                 <StatCard
-                    icon={<BriefcaseBusiness className="size-5 text-emerald-200" />}
-                    tone="text-emerald-200 bg-emerald-500/30 border border-emerald-400/40"
+                    icon={<BriefcaseBusiness className="size-5 text-emerald-600" />}
+                    tone="bg-emerald-50 border border-emerald-200"
                     label="Tổng giờ tăng ca (OT)"
                     value={`${totalOt || 0} hrs`}
-                    valueClass="text-emerald-300"
+                    valueClass="text-emerald-600"
                 />
             </div>
 

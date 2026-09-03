@@ -26,42 +26,42 @@ export default function MainCalendar({
         hour12: true,
     });
     return (
-        <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/[0.07] backdrop-blur-xl shadow-[0_8px_24px_rgba(15,10,45,0.15)]">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
             {/* Header Lịch */}
-            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                 <div>
-                    <h2 className="text-xl font-semibold text-white">
+                    <h2 className="text-xl font-bold text-slate-900">
                         {selectedDate.getDate()} tháng {selectedDate.getMonth() + 1} năm {selectedDate.getFullYear()}
                     </h2>
-                    <p className="text-sm text-white/50">
+                    <p className="text-sm text-slate-500">
                         {DAYS_OF_WEEK[selectedDate.getDay()]}
                     </p>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-white/70">
-                    <button className="flex items-center gap-1 hover:text-white">
-                        Ngày <ChevronDown className="h-4 w-4 text-white/50" />
+                <div className="flex items-center gap-4 text-sm text-slate-600">
+                    <button className="flex items-center gap-1 font-medium hover:text-slate-900">
+                        Ngày <ChevronDown className="h-4 w-4 text-slate-400" />
                     </button>
-                    <div className="flex items-center rounded-lg border border-white/15">
-                        <button onClick={onPrevDay} className="p-1 hover:bg-white/10">
-                            <ChevronLeft className="h-4 w-4 text-white/70" />
+                    <div className="flex items-center rounded-lg border border-slate-200 shadow-2xs">
+                        <button onClick={onPrevDay} className="p-1 hover:bg-slate-50 text-slate-600">
+                            <ChevronLeft className="h-4 w-4" />
                         </button>
                         <button
                             onClick={onGoToday}
-                            className="border-x border-white/15 px-2.5 py-0.5 text-xs font-medium hover:bg-white/10"
+                            className="border-x border-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                         >
                             Hôm nay
                         </button>
-                        <button onClick={onNextDay} className="p-1 hover:bg-white/10">
-                            <ChevronRight className="h-4 w-4 text-white/70" />
+                        <button onClick={onNextDay} className="p-1 hover:bg-slate-50 text-slate-600">
+                            <ChevronRight className="h-4 w-4" />
                         </button>
                     </div>
                 </div>
             </div>
-            <div className="border-b border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-white/50">
+            <div className="border-b border-slate-100 bg-slate-50 px-4 py-1.5 text-xs font-semibold text-slate-500">
                 Ngày
             </div>
             {/* mốc giờ & Vạch */}
-            <div className="relative h-[550px] overflow-y-auto">
+            <div className="relative h-[550px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full">
                 <div className="relative min-h-[1200px]">
                     {/* Vạch đỏ thời gian */}
                     {isTodaySelected && (
@@ -77,7 +77,7 @@ export default function MainCalendar({
                             <div className="h-[1.5px] flex-1 bg-red-500" />
                         </div>
                     )}
-                    <div className="divide-y divide-white/10">
+                    <div className="divide-y divide-slate-100">
                         {TIME_SLOTS.map((hour) => {
                             const label =
                                 hour === 0
@@ -89,10 +89,10 @@ export default function MainCalendar({
                                             : `${hour - 12} PM`;
                             return (
                                 <div key={hour} className="flex h-[50px] items-start">
-                                    <div className="w-16 flex-none py-1.5 pl-3 pr-2 text-right text-[11px] font-medium text-white/40">
+                                    <div className="w-16 flex-none py-1.5 pl-3 pr-2 text-right text-[11px] font-medium text-slate-400">
                                         {label}
                                     </div>
-                                    <div className="h-full flex-1 border-l border-white/10 px-3 py-1"></div>
+                                    <div className="h-full flex-1 border-l border-slate-100 px-3 py-1"></div>
                                 </div>
                             );
                         })}

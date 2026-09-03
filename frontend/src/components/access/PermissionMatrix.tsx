@@ -22,7 +22,7 @@ const ActionCheckbox: React.FC<{
             disabled={disabled}
             onChange={onChange}
             className={`peer h-5 w-5 appearance-none rounded-md border transition-all ${
-                'border-white/30 bg-white/5 checked:border-purple-400 checked:bg-purple-600 hover:border-purple-400 hover:bg-purple-500/15'
+                'border-slate-300 bg-slate-50 checked:border-indigo-600 checked:bg-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50'
             } ${disabled ? 'opacity-60' : ''}`}
         />
         <Check className="pointer-events-none absolute h-3.5 w-3.5 stroke-[3] text-white opacity-0 peer-checked:opacity-100" />
@@ -70,11 +70,11 @@ export const PermissionMatrix: React.FC<Props> = ({ permissions, departments, on
     };
 
     return (
-        <div className="w-full overflow-hidden rounded-lg border border-purple-500/20 bg-white/5">
+        <div className="w-full overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-xs">
             <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-white/90 border-collapse">
+                <table className="w-full text-left text-sm text-slate-800 border-collapse">
                     <thead>
-                    <tr className="border-b border-white/10 bg-white/10 text-xs font-semibold uppercase tracking-wider text-purple-200/80">
+                    <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
                         <th className="py-3 px-4 min-w-[180px]">Chức năng</th>
                         <th className="py-3 px-4 min-w-[200px]">Phạm vi dữ liệu</th>
                         {ACTIONS_HEADER.map((col) => (
@@ -84,10 +84,10 @@ export const PermissionMatrix: React.FC<Props> = ({ permissions, departments, on
                         ))}
                     </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/10">
+                    <tbody className="divide-y divide-slate-100">
                     {Object.values(permissions).map((module) => (
-                        <tr key={module.moduleId} className="transition-colors hover:bg-white/5">
-                            <td className="py-3 px-4 font-medium text-white">{module.moduleName}</td>
+                        <tr key={module.moduleId} className="transition-colors hover:bg-slate-50/80">
+                            <td className="py-3 px-4 font-semibold text-slate-900">{module.moduleName}</td>
                             <td className="py-3 px-4">
                                 <DataScopeSelector
                                     value={module.scope}
@@ -114,16 +114,16 @@ export const PermissionMatrix: React.FC<Props> = ({ permissions, departments, on
                 </table>
             </div>
 
-            <div className="flex flex-col items-center justify-between gap-2 border-t border-white/10 px-4 py-3 text-xs text-purple-300/200 sm:flex-row">
+            <div className="flex flex-col items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 sm:flex-row">
                 <span>
-                    Bấm vào ô <strong className="text-[#efc500]">Phạm vi dữ liệu</strong> để chọn đơn vị cụ thể.
+                    Bấm vào ô <strong className="text-indigo-600">Phạm vi dữ liệu</strong> để chọn đơn vị cụ thể.
                 </span>
                 <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1">
-                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-purple-500" /> Có quyền
+                    <span className="inline-flex items-center gap-1 font-medium">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-indigo-600" /> Có quyền
                     </span>
-                    <span className="inline-flex items-center gap-1">
-                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-white/20" /> Không có quyền
+                    <span className="inline-flex items-center gap-1 font-medium">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-300" /> Không có quyền
                     </span>
                 </div>
             </div>

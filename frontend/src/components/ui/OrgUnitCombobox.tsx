@@ -16,7 +16,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { Icon } from "@/components/ui/Icon";
-import type { OrgUnitType } from "@/src/types/hrm";
+import type { OrgUnitType } from "@/types/hrm";
 
 export interface OrgUnitOption {
   depth: number;

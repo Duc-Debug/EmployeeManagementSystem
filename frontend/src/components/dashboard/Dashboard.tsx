@@ -88,16 +88,9 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="relative flex h-screen w-full flex-col overflow-hidden text-[#f6f4ff] antialiased">
-            {/* ---------- ambient backdrop (matches login page) ---------- */}
-            <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
-                <div
-                    className="absolute inset-0"
-                    style={{
-                        background: "linear-gradient(165deg, #a855f7 0%, #7c3aed 22%, #5b21b6 38%, #4338ca 55%, #3b82f6 78%, #60a5fa 100%)",
-                    }}
-                />
-            </div>
+        <div className="relative flex h-screen w-full flex-col overflow-hidden bg-[#f8fafc] text-slate-800 antialiased">
+            {/* ---------- ambient clean light backdrop ---------- */}
+            <div className="pointer-events-none fixed inset-0 z-0 bg-slate-50/60" aria-hidden="true" />
 
             <div className="relative z-10 flex h-full w-full flex-col">
                 <Header setIsSidebarOpen={setIsSidebarOpen} />

@@ -49,20 +49,20 @@ export default function MiniCalendar({
         return days;
     };
     return (
-        <div className="rounded-2xl border border-white/15 bg-white/[0.07] p-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(15,10,45,0.15)]">
-            <div className="mb-4 flex items-center justify-between text-white/70">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs text-slate-800">
+            <div className="mb-4 flex items-center justify-between text-slate-600">
                 <button
                     onClick={() => onChangeMonth(-1)}
-                    className="rounded p-1 hover:bg-white/10"
+                    className="rounded-lg p-1 hover:bg-slate-100 text-slate-600 transition"
                 >
                     <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-sm font-semibold text-white">
+                <span className="text-sm font-bold text-slate-900">
                     tháng {miniCalMonth.getMonth() + 1} {miniCalMonth.getFullYear()}
                 </span>
                 <button
                     onClick={() => onChangeMonth(1)}
-                    className="rounded p-1 hover:bg-white/10"
+                    className="rounded-lg p-1 hover:bg-slate-100 text-slate-600 transition"
                 >
                     <ChevronRight className="h-4 w-4" />
                 </button>
@@ -70,7 +70,7 @@ export default function MiniCalendar({
 
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
                 {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day, idx) => (
-                    <div key={idx} className="py-1 font-semibold text-white/50">
+                    <div key={idx} className="py-1 font-semibold text-slate-400 text-[11px]">
                         {day}
                     </div>
                 ))}
@@ -82,14 +82,14 @@ export default function MiniCalendar({
                             key={idx}
                             onClick={() => onSelectDate(date)}
                             className={cn(
-                                "mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition",
+                                "mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition",
                                 isSelected
-                                    ? "bg-[#00d2ff] font-bold text-[#0d0a30] shadow-sm"
+                                    ? "bg-indigo-600 font-bold text-white shadow-xs"
                                     : isToday
-                                        ? "border border-[#00d2ff] font-bold text-[#00d2ff]"
+                                        ? "border border-indigo-600 font-bold text-indigo-600"
                                         : isCurrentMonth
-                                            ? "text-white/80 hover:bg-white/10"
-                                            : "text-white/25"
+                                            ? "text-slate-700 hover:bg-slate-100"
+                                            : "text-slate-300"
                             )}
                         >
                             {date.getDate()}
