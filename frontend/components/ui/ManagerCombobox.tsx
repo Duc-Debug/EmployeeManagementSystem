@@ -58,7 +58,7 @@ export const ManagerCombobox = forwardRef<HTMLButtonElement, ManagerComboboxProp
     onEnter,
     onKeyboardSelect,
     options,
-    placeholder = "Chọn người quản lý (Không bắt buộc)",
+    placeholder = "Chọn người quản lý",
     value,
   },
   forwardedRef,
@@ -388,7 +388,7 @@ export const ManagerCombobox = forwardRef<HTMLButtonElement, ManagerComboboxProp
           type="button"
         >
           <span>
-            {selectedOption ? `${selectedOption.fullName} (${selectedOption.roleCode} · ${selectedOption.roleName})` : placeholder}
+            {selectedOption ? `${selectedOption.fullName} (${selectedOption.roleCode}) ${selectedOption.roleName}` : placeholder}
           </span>
           <Icon name="chevronDown" />
         </button>

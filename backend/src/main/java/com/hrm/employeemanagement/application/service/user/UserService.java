@@ -7,10 +7,12 @@ import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.dto.user.RoleResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
@@ -49,6 +51,7 @@ public class UserService implements
         ToggleUserStatusUseCase,
         UpdateUserRoleUseCase,
         GetUserListUseCase,
+        GetRoleListUseCase,
         GetCurrentUserProfileUseCase {
 
     private final LoadUserPort loadUserPort;
@@ -137,7 +140,8 @@ public class UserService implements
                 command.username(),
                 passwordHash,
                 role,
-                null
+                null,
+                command.email()
         );
 
         User savedUser = saveUserPort.save(newUser);
@@ -748,6 +752,19 @@ public UserResult updateUserRole(
                 .orElse(null);
     }
 
+    @Override
+    public List<RoleResult> getRoles() {
+        authorizationService.require(PermissionCode.USER_READ);
+        return loadRolePort.findAll().stream()
+                .map(role -> new RoleResult(
+                        role.getId() != null ? role.getId().value() : null,
+                        role.getCode() != null ? role.getCode().getCode() : null,
+                        role.getName(),
+                        null
+                ))
+                .toList();
+    }
+
     private String authorizationAuditValue(
             String roleCode,
             DataScope dataScope,
@@ -766,6 +783,7 @@ public UserResult updateUserRole(
         return new UserResult(
                 user.getIdValue(),
                 user.getUsername(),
+                user.getEmail(),
                 user.getRole().getCode().getCode(),
                 user.getRole().getName(),
                 user.getStatus(),
