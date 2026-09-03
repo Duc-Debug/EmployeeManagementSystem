@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS employee_weekly_availabilities (
     holiday_hours INT NOT NULL DEFAULT 0,
     approved_leave_hours DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     net_available_hours DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT uk_emp_weekly_avail_year_week UNIQUE (employee_id, year_number, week_number),

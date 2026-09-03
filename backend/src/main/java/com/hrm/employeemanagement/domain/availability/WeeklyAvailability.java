@@ -12,9 +12,15 @@ public class WeeklyAvailability {
     private int holidayHours;
     private BigDecimal approvedLeaveHours;
     private BigDecimal netAvailableHours;
+    private Long version;
 
     public WeeklyAvailability(Long id, Long employeeId, YearWeek yearWeek, int standardHours,
                               int holidayHours, BigDecimal approvedLeaveHours, BigDecimal netAvailableHours) {
+        this(id, employeeId, yearWeek, standardHours, holidayHours, approvedLeaveHours, netAvailableHours, 0L);
+    }
+
+    public WeeklyAvailability(Long id, Long employeeId, YearWeek yearWeek, int standardHours,
+                              int holidayHours, BigDecimal approvedLeaveHours, BigDecimal netAvailableHours, Long version) {
         this.id = id;
         this.employeeId = Objects.requireNonNull(employeeId, "EmployeeId không được null");
         this.yearWeek = Objects.requireNonNull(yearWeek, "YearWeek không được null");
@@ -24,6 +30,7 @@ public class WeeklyAvailability {
         this.approvedLeaveHours = approvedLeaveHours != null ? approvedLeaveHours : BigDecimal.ZERO;
         this.netAvailableHours = netAvailableHours != null ? netAvailableHours :
                 WeeklyAvailabilityPolicy.calculateNetAvailableHours(this.standardHours, this.holidayHours, this.approvedLeaveHours);
+        this.version = version != null ? version : 0L;
     }
 
     public static WeeklyAvailability createCalculated(Long employeeId, YearWeek yearWeek, int standardHours,
@@ -77,5 +84,9 @@ public class WeeklyAvailability {
 
     public BigDecimal getNetAvailableHours() {
         return netAvailableHours;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 }

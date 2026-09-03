@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,6 +18,10 @@ public class WeeklyAvailabilityJpaEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
 
     @Column(name = "employee_id", nullable = false)
     private Long employeeId;
@@ -58,6 +63,21 @@ public class WeeklyAvailabilityJpaEntity {
         this.holidayHours = holidayHours;
         this.approvedLeaveHours = approvedLeaveHours;
         this.netAvailableHours = netAvailableHours;
+        this.version = 0L;
+    }
+
+    public WeeklyAvailabilityJpaEntity(Long id, Long employeeId, Integer year, Integer weekNumber,
+                                       Integer standardHours, Integer holidayHours,
+                                       BigDecimal approvedLeaveHours, BigDecimal netAvailableHours, Long version) {
+        this.id = id;
+        this.employeeId = employeeId;
+        this.year = year;
+        this.weekNumber = weekNumber;
+        this.standardHours = standardHours;
+        this.holidayHours = holidayHours;
+        this.approvedLeaveHours = approvedLeaveHours;
+        this.netAvailableHours = netAvailableHours;
+        this.version = version != null ? version : 0L;
     }
 
     public Long getId() {
@@ -130,5 +150,13 @@ public class WeeklyAvailabilityJpaEntity {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }

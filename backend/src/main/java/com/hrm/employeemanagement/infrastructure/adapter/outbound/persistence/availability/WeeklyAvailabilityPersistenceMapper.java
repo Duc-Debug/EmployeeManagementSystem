@@ -20,7 +20,8 @@ public class WeeklyAvailabilityPersistenceMapper {
                 entity.getStandardHours(),
                 entity.getHolidayHours(),
                 entity.getApprovedLeaveHours(),
-                entity.getNetAvailableHours()
+                entity.getNetAvailableHours(),
+                entity.getVersion()
         );
     }
 
@@ -36,7 +37,8 @@ public class WeeklyAvailabilityPersistenceMapper {
                 domain.getStandardHours(),
                 domain.getHolidayHours(),
                 domain.getApprovedLeaveHours(),
-                domain.getNetAvailableHours()
+                domain.getNetAvailableHours(),
+                domain.getVersion()
         );
         return entity;
     }

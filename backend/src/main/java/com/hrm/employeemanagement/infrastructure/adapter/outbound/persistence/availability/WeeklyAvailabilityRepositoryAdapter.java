@@ -58,6 +58,17 @@ public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabili
     }
 
     @Override
+    public List<com.hrm.employeemanagement.domain.availability.Holiday> getHolidaysBetween(LocalDate startDate, LocalDate endDate) {
+        return holidayRepository.findHolidaysBetween(startDate, endDate).stream()
+                .map(entity -> new com.hrm.employeemanagement.domain.availability.Holiday(
+                        entity.getHolidayDate(),
+                        entity.getName(),
+                        entity.getWorkingHoursDeducted() != null ? entity.getWorkingHoursDeducted() : 8
+                ))
+                .toList();
+    }
+
+    @Override
     public BigDecimal getTotalApprovedLeaveHoursBetween(Long employeeId, LocalDate startDate, LocalDate endDate) {
         BigDecimal total = leaveRequestRepository.sumApprovedLeaveHoursBetween(employeeId, startDate, endDate);
         return total != null ? total : BigDecimal.ZERO;

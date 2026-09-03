@@ -11,8 +11,14 @@ public record WeeklyAvailabilityResult(
         int standardHours,
         int holidayHours,
         BigDecimal approvedLeaveHours,
-        BigDecimal netAvailableHours
+        BigDecimal netAvailableHours,
+        Long version
 ) {
+    public WeeklyAvailabilityResult(Long employeeId, int year, int weekNumber, int standardHours,
+                                  int holidayHours, BigDecimal approvedLeaveHours, BigDecimal netAvailableHours) {
+        this(employeeId, year, weekNumber, standardHours, holidayHours, approvedLeaveHours, netAvailableHours, 0L);
+    }
+
     public static WeeklyAvailabilityResult fromDomain(WeeklyAvailability domain) {
         return new WeeklyAvailabilityResult(
                 domain.getEmployeeId(),
@@ -21,7 +27,8 @@ public record WeeklyAvailabilityResult(
                 domain.getStandardHours(),
                 domain.getHolidayHours(),
                 domain.getApprovedLeaveHours(),
-                domain.getNetAvailableHours()
+                domain.getNetAvailableHours(),
+                domain.getVersion()
         );
     }
 }

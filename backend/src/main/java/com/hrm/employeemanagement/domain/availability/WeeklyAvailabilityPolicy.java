@@ -57,6 +57,33 @@ public class WeeklyAvailabilityPolicy {
     }
 
     /**
+     * Tính tổng số giờ nghỉ lễ trong một tuần từ danh sách ngày lễ có số giờ khấu trừ linh hoạt.
+     * Chỉ tính các ngày lễ rơi vào ngày làm việc hành chính (Thứ 2 đến Thứ 6).
+     */
+    public static int calculateHolidayHoursFromHolidays(YearWeek yearWeek, List<Holiday> holidays) {
+        if (holidays == null || holidays.isEmpty()) {
+            return 0;
+        }
+
+        LocalDate startDate = yearWeek.getStartDate();
+        LocalDate endDate = yearWeek.getEndDate();
+
+        int totalHours = 0;
+        for (Holiday holiday : holidays) {
+            if (holiday != null && holiday.date() != null
+                    && !holiday.date().isBefore(startDate)
+                    && !holiday.date().isAfter(endDate)) {
+                DayOfWeek dow = holiday.date().getDayOfWeek();
+                if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+                    totalHours += holiday.workingHoursDeducted();
+                }
+            }
+        }
+
+        return totalHours;
+    }
+
+    /**
      * Tính số giờ khả dụng thực tế của nhân sự trong tuần theo QTN-10.
      *
      * @param standardHours Giờ chuẩn trong tuần của nhân viên

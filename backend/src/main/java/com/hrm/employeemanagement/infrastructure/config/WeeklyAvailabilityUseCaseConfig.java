@@ -5,6 +5,9 @@ import com.hrm.employeemanagement.application.port.outbound.availability.LoadHol
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.SaveWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.availability.WeeklyAvailabilityService;
 import com.hrm.employeemanagement.infrastructure.transaction.availability.TransactionalWeeklyAvailabilityServiceDecorator;
@@ -21,6 +24,9 @@ public class WeeklyAvailabilityUseCaseConfig {
             SaveWeeklyAvailabilityPort saveWeeklyAvailabilityPort,
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
+            SaveAuditLogPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
             AuthorizationService authorizationService) {
         WeeklyAvailabilityService service = new WeeklyAvailabilityService(
                 loadEmployeePort,
@@ -28,6 +34,9 @@ public class WeeklyAvailabilityUseCaseConfig {
                 saveWeeklyAvailabilityPort,
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
+                saveAuditLogPort,
+                loadUserPort,
+                loadOrgUnitPort,
                 authorizationService
         );
         return new TransactionalWeeklyAvailabilityServiceDecorator(service);

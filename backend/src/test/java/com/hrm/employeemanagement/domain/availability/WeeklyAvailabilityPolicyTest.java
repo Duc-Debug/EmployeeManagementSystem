@@ -137,4 +137,19 @@ class WeeklyAvailabilityPolicyTest {
         assertThrows(InvalidAvailabilityHoursException.class, () ->
                 WeeklyAvailabilityPolicy.validateStandardHours(169));
     }
+
+    @Test
+    @DisplayName("TC-QTN10-11: Ngày lễ với số giờ khấu trừ linh hoạt (4h nửa ngày) -> Khả dụng tính chính xác")
+    void tc_qtn10_11_dynamicHolidayHours() {
+        YearWeek yearWeek = YearWeek.of(2026, 36);
+        LocalDate friday = yearWeek.getStartDate().plusDays(4);
+
+        Holiday halfDayHoliday = new Holiday(friday, "Nghỉ lễ nửa ngày", 4);
+        int holidayHours = WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yearWeek, List.of(halfDayHoliday));
+
+        assertEquals(4, holidayHours);
+
+        BigDecimal netHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(40, holidayHours, BigDecimal.ZERO);
+        assertEquals(new BigDecimal("36.00"), netHours);
+    }
 }
