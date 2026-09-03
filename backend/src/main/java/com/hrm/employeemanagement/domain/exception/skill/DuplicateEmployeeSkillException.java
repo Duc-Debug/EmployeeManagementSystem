@@ -2,9 +2,9 @@ package com.hrm.employeemanagement.domain.exception.skill;
 
 import com.hrm.employeemanagement.domain.exception.DomainException;
 
-public class SkillNotFoundException extends DomainException {
+public class DuplicateEmployeeSkillException extends DomainException {
 
-    public SkillNotFoundException(String message) {
+    public DuplicateEmployeeSkillException(String message) {
         super(message);
     }
 }
