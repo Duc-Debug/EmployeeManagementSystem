@@ -31,7 +31,7 @@ public record EmployeeSkillResult(
                 skill != null ? skill.getName() : null,
                 skill != null ? skill.getCode() : null,
                 skill != null ? skill.getCategory() : null,
-                employeeSkill.getProficiencyLevel(),
+                employeeSkill.getProficiencyLevelValue(),
                 employeeSkill.getYearsOfExperience(),
                 employeeSkill.getStatus().name(),
                 employeeSkill.getApprovedBy(),

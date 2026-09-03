@@ -8,7 +8,7 @@ public class EmployeeSkill {
     private final Long id;
     private final Long employeeId;
     private final Long skillId;
-    private int proficiencyLevel;
+    private ProficiencyLevel proficiencyLevel;
     private BigDecimal yearsOfExperience;
     private SkillStatus status;
     private Long approvedBy;
@@ -21,7 +21,7 @@ public class EmployeeSkill {
             Long id,
             Long employeeId,
             Long skillId,
-            int proficiencyLevel,
+            ProficiencyLevel proficiencyLevel,
             BigDecimal yearsOfExperience,
             SkillStatus status,
             Long approvedBy,
@@ -44,11 +44,27 @@ public class EmployeeSkill {
         this.updatedAt = updatedAt != null ? updatedAt : LocalDateTime.now();
     }
 
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            int proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {
+        this(id, employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, createdAt, updatedAt);
+    }
+
     /**
      * Phương thức nghiệp vụ: Khai báo kỹ năng mới (TC-01). Luôn mặc định khởi
      * tạo ở trạng thái PENDING để Quản lý nguồn lực xác nhận.
      */
-    public static EmployeeSkill declare(Long employeeId, Long skillId, int proficiencyLevel, BigDecimal yearsOfExperience) {
+    public static EmployeeSkill declare(Long employeeId, Long skillId, ProficiencyLevel proficiencyLevel, BigDecimal yearsOfExperience) {
         return new EmployeeSkill(
                 null,
                 employeeId,
@@ -64,15 +80,23 @@ public class EmployeeSkill {
         );
     }
 
+    public static EmployeeSkill declare(Long employeeId, Long skillId, int proficiencyLevel, BigDecimal yearsOfExperience) {
+        return declare(employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience);
+    }
+
     /**
      * Cập nhật mức thành thạo và số năm kinh nghiệm
      */
-    public void updateProficiency(int newProficiencyLevel, BigDecimal newYearsOfExperience) {
+    public void updateProficiency(ProficiencyLevel newProficiencyLevel, BigDecimal newYearsOfExperience) {
         validateProficiencyAndExperience(newProficiencyLevel, newYearsOfExperience);
         this.proficiencyLevel = newProficiencyLevel;
         this.yearsOfExperience = newYearsOfExperience;
         this.status = SkillStatus.PENDING; // Yêu cầu duyệt lại khi có thay đổi
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateProficiency(int newProficiencyLevel, BigDecimal newYearsOfExperience) {
+        updateProficiency(ProficiencyLevel.fromValue(newProficiencyLevel), newYearsOfExperience);
     }
 
     /**
@@ -89,7 +113,7 @@ public class EmployeeSkill {
         this.updatedAt = LocalDateTime.now();
     }
 
-    private static void validateInputs(Long employeeId, Long skillId, int proficiencyLevel, BigDecimal yearsOfExperience) {
+    private static void validateInputs(Long employeeId, Long skillId, ProficiencyLevel proficiencyLevel, BigDecimal yearsOfExperience) {
         if (employeeId == null) {
             throw new IllegalArgumentException("ID nhân viên không được để trống");
         }
@@ -99,9 +123,10 @@ public class EmployeeSkill {
         validateProficiencyAndExperience(proficiencyLevel, yearsOfExperience);
     }
 
-    private static void validateProficiencyAndExperience(int proficiencyLevel, BigDecimal yearsOfExperience) {
-        // Tận dụng trực tiếp Domain Type ProficiencyLevel để kiểm tra ràng buộc mức thành thạo (1-5)
-        ProficiencyLevel.fromValue(proficiencyLevel);
+    private static void validateProficiencyAndExperience(ProficiencyLevel proficiencyLevel, BigDecimal yearsOfExperience) {
+        if (proficiencyLevel == null) {
+            throw new IllegalArgumentException("Mức thành thạo không được để trống");
+        }
         if (yearsOfExperience == null || yearsOfExperience.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Số năm kinh nghiệm không được nhỏ hơn 0");
         }
@@ -120,12 +145,12 @@ public class EmployeeSkill {
         return skillId;
     }
 
-    public int getProficiencyLevel() {
+    public ProficiencyLevel getProficiencyLevel() {
         return proficiencyLevel;
     }
 
-    public ProficiencyLevel getProficiencyLevelEnum() {
-        return ProficiencyLevel.fromValue(proficiencyLevel);
+    public int getProficiencyLevelValue() {
+        return proficiencyLevel != null ? proficiencyLevel.getValue() : 0;
     }
 
     public BigDecimal getYearsOfExperience() {

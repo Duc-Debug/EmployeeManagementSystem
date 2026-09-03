@@ -62,7 +62,7 @@ public class SkillPersistenceMapper {
                 domain.getId(),
                 domain.getEmployeeId(),
                 domain.getSkillId(),
-                domain.getProficiencyLevel(),
+                domain.getProficiencyLevelValue(),
                 domain.getYearsOfExperience(),
                 domain.getStatus(),
                 domain.getApprovedBy(),
