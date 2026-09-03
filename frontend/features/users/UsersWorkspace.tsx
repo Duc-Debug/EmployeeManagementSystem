@@ -93,13 +93,15 @@ export function UsersWorkspace() {
   }, [reloadTick]);
 
   const orgUnits = useMemo(() => flattenOrgTree(rawTree), [rawTree]);
-  const orgUnitOptions = useMemo(() => orgUnits.map((orgUnit) => ({
-    depth: orgUnit.level,
-    id: orgUnit.id,
-    unitCode: orgUnit.unitCode,
-    unitName: orgUnit.unitName,
-    unitType: orgUnit.unitType,
-  })), [orgUnits]);
+  const orgUnitOptions = useMemo(() => orgUnits
+    .filter((orgUnit) => orgUnit.unitType !== "COMPANY")
+    .map((orgUnit) => ({
+      depth: orgUnit.level,
+      id: orgUnit.id,
+      unitCode: orgUnit.unitCode,
+      unitName: orgUnit.unitName,
+      unitType: orgUnit.unitType,
+    })), [orgUnits]);
 
   const editingUser = editor?.mode === "edit" ? users.find((user) => user.id === editor.userId) : undefined;
   
@@ -123,8 +125,21 @@ export function UsersWorkspace() {
     });
   }, [query, roleFilter, statusFilter, users]);
 
+  const getNextEmployeeCode = useCallback(
+    () => {
+      const nextSeqNum = users.length + 1;
+      const nextSeq = String(nextSeqNum).padStart(3, "0");
+      return `EMP-${nextSeq}`;
+    },
+    [users.length],
+  );
+
   function openCreateDialog() {
-    setDraft(EMPTY_DRAFT);
+    setDraft({
+      ...EMPTY_DRAFT,
+      employeeCode: getNextEmployeeCode(),
+      orgUnitId: "",
+    });
     setErrors({});
     setEditor({ mode: "create" });
   }
@@ -201,6 +216,7 @@ export function UsersWorkspace() {
 
       try {
         const created = await createUser({
+          email: draft.email.trim() || undefined,
           employeeCode: draft.employeeCode.trim() || undefined,
           fullName: draft.fullName.trim(),
           orgUnitId: selectedOrgUnit.id,
@@ -363,7 +379,7 @@ export function UsersWorkspace() {
             </span>
           </div>
           <div className="kpi-card__val kpi-card__val--purple">{stats.admins}</div>
-          <div className="kpi-card__desc">DataScope: Toàn công ty</div>
+          <div className="kpi-card__desc">Phạm vi dữ liệu: Toàn công ty</div>
         </button>
       </section>
 
@@ -379,9 +395,9 @@ export function UsersWorkspace() {
         <div className="data-panel__body">
           <div className="filter-toolbar">
             <div className="select-field">
-              <label className="sr-only" htmlFor="role-filter">Lọc theo role</label>
+              <label className="sr-only" htmlFor="role-filter">Lọc theo vai trò</label>
               <select className="select" id="role-filter" onChange={(event) => setRoleFilter(event.target.value)} value={roleFilter}>
-                <option value="ALL">Tất cả role</option>
+                <option value="ALL">Tất cả vai trò</option>
                 {DEMO_ROLES.map((role) => <option key={role.code} value={role.code}>{role.code} · {role.name}</option>)}
               </select>
             </div>
@@ -394,21 +410,6 @@ export function UsersWorkspace() {
                 <option value="LOCKED">Đã khóa</option>
               </select>
             </div>
-
-            {(query || roleFilter !== "ALL" || statusFilter !== "ALL") && (
-              <button
-                className="button button--secondary button--compact filter-reset-btn"
-                onClick={() => {
-                  setQuery("");
-                  setRoleFilter("ALL");
-                  setStatusFilter("ALL");
-                }}
-                type="button"
-              >
-                <Icon name="close" />
-                <span>Đặt lại lọc</span>
-              </button>
-            )}
 
             {/* Search Box on the Right */}
             <div className="search-field">
@@ -437,19 +438,6 @@ export function UsersWorkspace() {
 
           {filteredUsers.length === 0 ? (
             <EmptyState
-              action={
-                <button
-                  className="button button--secondary"
-                  onClick={() => {
-                    setQuery("");
-                    setRoleFilter("ALL");
-                    setStatusFilter("ALL");
-                  }}
-                  type="button"
-                >
-                  Xóa bộ lọc
-                </button>
-              }
               icon="search"
               message="Không có tài khoản nào khớp với điều kiện tìm kiếm hiện tại."
               title="Không tìm thấy tài khoản"
@@ -460,8 +448,9 @@ export function UsersWorkspace() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th scope="col">Tài khoản & Email</th>
-                      <th scope="col">Vai trò (Role)</th>
+                      <th scope="col">Tài khoản</th>
+                      <th scope="col">Email</th>
+                      <th scope="col">Vai trò</th>
                       <th scope="col">Đơn vị tổ chức</th>
                       <th scope="col">Phạm vi dữ liệu</th>
                       <th scope="col">Trạng thái</th>
@@ -587,7 +576,7 @@ function UserActions({ onEdit, onRequestLock, onUnlock, user }: UserActionProps)
   return (
     <div className="table-actions">
       <button className="table-action table-action--edit" onClick={() => onEdit(user)} title="Chỉnh sửa tài khoản" type="button">
-        <Icon name="settings" />
+        <Icon name="edit" />
         <span>Sửa</span>
       </button>
       <button
@@ -605,6 +594,7 @@ function UserActions({ onEdit, onRequestLock, onUnlock, user }: UserActionProps)
 
 function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps) {
   const displayName = user.fullName || user.username || "Người dùng";
+  const displayEmail = user.email || `${user.username}@company.com`;
   return (
     <tr className="user-table-row">
       <td>
@@ -616,10 +606,12 @@ function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps
             <strong>{displayName}</strong>
             <div className="table-person__meta">
               <span className="table-person__username">@{user.username}</span>
-              {user.email && <span className="table-person__email">· {user.email}</span>}
             </div>
           </div>
         </div>
+      </td>
+      <td>
+        <span className="table-email">{displayEmail}</span>
       </td>
       <td>
         <RoleBadge code={user.roleCode} name={user.roleName} />
@@ -645,6 +637,7 @@ function UserTableRow({ onEdit, onRequestLock, onUnlock, user }: UserActionProps
 
 function UserRecordCard({ onEdit, onRequestLock, onUnlock, user }: UserActionProps) {
   const displayName = user.fullName || user.username || "Người dùng";
+  const displayEmail = user.email || `${user.username}@company.com`;
   return (
     <article className="record-card">
       <div className="record-card__header">
@@ -656,13 +649,13 @@ function UserRecordCard({ onEdit, onRequestLock, onUnlock, user }: UserActionPro
             <strong>{displayName}</strong>
             <div className="table-person__meta">
               <span className="table-person__username">@{user.username}</span>
-              {user.email && <span className="table-person__email">· {user.email}</span>}
             </div>
           </div>
         </div>
         <StatusBadge status={user.status} />
       </div>
       <dl className="record-card__facts">
+        <div><dt>Email</dt><dd>{displayEmail}</dd></div>
         <div><dt>Vai trò</dt><dd><RoleBadge code={user.roleCode} name={user.roleName} /></dd></div>
         <div><dt>Phạm vi</dt><dd><ScopeBadge scope={user.dataScope} /></dd></div>
         <div><dt>Đơn vị</dt><dd>{user.orgUnitName ?? "Chưa gán đơn vị"}</dd></div>
