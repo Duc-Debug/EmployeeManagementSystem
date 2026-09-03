@@ -26,6 +26,8 @@ public class CreateUserRequest {
     @NotNull(message = "ID đơn vị tổ chức không được để trống")
     private Long orgUnitId;
 
+    private String email;
+
     public String getUsername() {
         return username;
     }
@@ -72,5 +74,13 @@ public class CreateUserRequest {
 
     public void setOrgUnitId(Long orgUnitId) {
         this.orgUnitId = orgUnitId;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

@@ -40,13 +40,13 @@ export function getSuitableManagerRoles(unitType: OrgUnitType): Set<string> {
 export function getManagerRoleHint(unitType: OrgUnitType): string {
   switch (unitType) {
     case "COMPANY":
-      return "Cấp 1 (Công ty): Gán Ban giám đốc (VT-01) - Tổng Giám đốc / Giám đốc điều hành";
+      return "Cấp 1: Gán (VT-01) Ban giám đốc - Tổng Giám đốc / Giám đốc điều hành";
     case "CENTER":
-      return "Cấp 2 (Khối / Trung tâm): Gán Quản lý nguồn lực (VT-03) - Giám đốc khối";
+      return "Cấp 2: Gán (VT-03) Quản lý nguồn lực - Giám đốc khối";
     case "DEPARTMENT":
-      return "Cấp 3 (Phòng ban): Gán Quản lý nguồn lực (VT-03) - Trưởng phòng";
+      return "Cấp 3: Gán (VT-03) Quản lý nguồn lực - Trưởng phòng";
     case "TEAM":
-      return "Cấp 4 (Nhóm chuyên môn): Gán Quản lý nguồn lực (VT-03) - Trưởng nhóm hoặc Quản lý dự án (VT-02)";
+      return "Cấp 4: Gán (VT-03) Quản lý nguồn lực - Trưởng nhóm hoặc (VT-02) Quản lý dự án";
     default:
       return "Chọn nhân sự có vai trò quản lý phù hợp";
   }
@@ -199,7 +199,7 @@ export function OrgUnitForm({
         error={errors.managerId}
         hint={getManagerRoleHint(value.unitType)}
         id="org-unit-manager"
-        label="Người quản lý (Manager)"
+        label="Người quản lý"
       >
         <ManagerCombobox
           allowClear={true}
@@ -208,7 +208,7 @@ export function OrgUnitForm({
           id="org-unit-manager"
           onChange={(nextValue) => onChange("managerId", nextValue)}
           options={suitableManagerOptions}
-          placeholder="Chọn người quản lý đơn vị (Không bắt buộc)"
+          placeholder="Chọn người quản lý đơn vị"
           value={value.managerId}
         />
       </FormField>
