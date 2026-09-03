@@ -79,6 +79,13 @@ public class CreateProjectService implements CreateProjectUseCase {
             if (manager.getStatus() != EmployeeStatus.ACTIVE) {
                 throw new InvalidProjectDataException("Nhân viên quản lý dự án không ở trạng thái hoạt động");
             }
+
+            boolean isManagerInOrgUnit = Objects.equals(manager.getOrgUnitId(), command.orgUnitId())
+                    || (manager.getOrgUnitId() != null && loadOrgUnitPort.existsInOrgUnitBranch(manager.getOrgUnitId(), command.orgUnitId()));
+
+            if (!isManagerInOrgUnit) {
+                throw new InvalidProjectDataException("Người quản lý dự án (PM) phải thuộc đơn vị tổ chức quản lý dự án");
+            }
         }
 
         int maxAttempts = 3;

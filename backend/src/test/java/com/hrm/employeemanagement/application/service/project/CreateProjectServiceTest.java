@@ -294,6 +294,100 @@ class CreateProjectServiceTest {
         verify(saveProjectPort, times(3)).save(any(Project.class));
     }
 
+    @Test
+    @DisplayName("Báo lỗi khi Quản lý dự án (PM) không thuộc đơn vị tổ chức của dự án")
+    void testCreateProject_ManagerNotInOrgUnit_ThrowsException() {
+        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
+
+        // PM thuộc phòng ban khác (ID: 999L thay vì ORG_UNIT_ID = 100L)
+        Employee otherOrgManager = new Employee(
+                new EmployeeId(MANAGER_ID),
+                new UserId(CURRENT_USER_ID),
+                999L,
+                "EMP001",
+                "Nguyen Van PM",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(MANAGER_ID))).thenReturn(Optional.of(otherOrgManager));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(999L, ORG_UNIT_ID)).thenReturn(false);
+
+        CreateProjectCommand command = new CreateProjectCommand(
+                "Dự án PM Khác Phòng",
+                ORG_UNIT_ID,
+                MANAGER_ID,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 12, 31),
+                BigDecimal.valueOf(100),
+                null
+        );
+
+        assertThatThrownBy(() -> service.createProject(command))
+                .isInstanceOf(InvalidProjectDataException.class)
+                .hasMessageContaining("Người quản lý dự án (PM) phải thuộc đơn vị tổ chức quản lý dự án");
+    }
+
+    @Test
+    @DisplayName("Tạo dự án thành công khi PM thuộc đơn vị con trong cây tổ chức của dự án")
+    void testCreateProject_ManagerInSubOrgUnit_Success() {
+        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
+
+        // PM thuộc phòng ban con (ID: 101L) nằm trong nhánh của ORG_UNIT_ID (100L)
+        Employee subOrgManager = new Employee(
+                new EmployeeId(MANAGER_ID),
+                new UserId(CURRENT_USER_ID),
+                101L,
+                "EMP001",
+                "Nguyen Van PM SubUnit",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(MANAGER_ID))).thenReturn(Optional.of(subOrgManager));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(101L, ORG_UNIT_ID)).thenReturn(true);
+
+        when(saveProjectPort.save(any(Project.class))).thenAnswer(invocation -> {
+            Project input = invocation.getArgument(0);
+            return new Project(
+                    new ProjectId(3L),
+                    input.getProjectCode(),
+                    input.getProjectName(),
+                    input.getOrgUnitId(),
+                    input.getManagerId(),
+                    input.getStartDate(),
+                    input.getEndDate(),
+                    input.getEstimatedHours(),
+                    input.getDescription(),
+                    ProjectStatus.ACTIVE,
+                    input.getCreatedBy(),
+                    input.getCreatedAt(),
+                    null,
+                    0L
+            );
+        });
+
+        CreateProjectCommand command = new CreateProjectCommand(
+                "Dự án PM Đơn Vị Con",
+                ORG_UNIT_ID,
+                MANAGER_ID,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 12, 31),
+                BigDecimal.valueOf(100),
+                null
+        );
+
+        ProjectResult result = service.createProject(command);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(3L);
+        verify(saveProjectPort).save(any(Project.class));
+    }
+
     private User createAdminUser() {
         Role adminRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
         return new User(
