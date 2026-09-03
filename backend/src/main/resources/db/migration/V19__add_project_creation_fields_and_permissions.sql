@@ -16,12 +16,12 @@ WHERE NOT EXISTS (
     SELECT 1 FROM permissions WHERE code = 'PROJECT_CREATE'
 );
 
--- 4. Gán quyền PROJECT_CREATE cho các vai trò VT-01 (Ban giám đốc), VT-02 (Quản lý dự án), VT-06 (Quản trị viên)
+-- 4. Gán quyền PROJECT_CREATE cho vai trò VT-02 (Quản lý dự án)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code = 'PROJECT_CREATE'
-WHERE r.code IN ('VT-01', 'VT-02', 'VT-06')
+WHERE r.code IN ('VT-02')
 AND NOT EXISTS (
     SELECT 1
     FROM role_permissions rp
