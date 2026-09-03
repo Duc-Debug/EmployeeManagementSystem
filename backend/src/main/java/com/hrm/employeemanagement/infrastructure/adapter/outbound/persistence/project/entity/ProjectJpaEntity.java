@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
@@ -35,7 +37,14 @@ public class ProjectJpaEntity {
 
     @Column(name = "manager_id")
     private Long managerId;
-
+    @Column(name = "start_date")
+    private LocalDate startDate;
+    @Column(name = "end_date")
+    private LocalDate endDate;
+    @Column(name = "estimated_hours", nullable = false)
+    private BigDecimal estimatedHours;
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private ProjectStatus status;
@@ -67,11 +76,33 @@ public class ProjectJpaEntity {
             LocalDateTime updatedAt,
             Long version
     ) {
+        this(id, projectCode, projectName, orgUnitId, managerId, null, null, BigDecimal.ZERO, null, status, createdBy, createdAt, updatedAt, version);
+    }
+
+    public ProjectJpaEntity(
+            Long id,
+            String projectCode,
+            String projectName,
+            Long orgUnitId,
+            Long managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description,
+            ProjectStatus status,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
         this.id = id;
         this.projectCode = projectCode;
         this.projectName = projectName;
         this.orgUnitId = orgUnitId;
         this.managerId = managerId;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.estimatedHours = estimatedHours;
+        this.description = description;
         this.status = status;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
@@ -173,5 +204,37 @@ public class ProjectJpaEntity {
 
     public void setVersion(Long version) {
         this.version = version;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
+
+    public BigDecimal getEstimatedHours() {
+        return estimatedHours;
+    }
+
+    public void setEstimatedHours(BigDecimal estimatedHours) {
+        this.estimatedHours = estimatedHours;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }

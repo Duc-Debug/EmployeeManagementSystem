@@ -34,12 +34,15 @@ public class ProjectPersistenceMapper {
                 entity.getProjectName(),
                 entity.getOrgUnitId(),
                 managerId,
+                entity.getStartDate(),
+                entity.getEndDate(),
+                entity.getEstimatedHours(),
+                entity.getDescription(),
                 entity.getStatus(),
                 createdBy,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                entity.getVersion()
-        );
+                entity.getVersion());
     }
 
     public ProjectJpaEntity toJpaEntity(Project domain) {
@@ -53,11 +56,14 @@ public class ProjectPersistenceMapper {
                 domain.getProjectName(),
                 domain.getOrgUnitId(),
                 domain.getManagerIdValue(),
+                domain.getStartDate(),
+                domain.getEndDate(),
+                domain.getEstimatedHours(),
+                domain.getDescription(),
                 domain.getStatus(),
                 domain.getCreatedByValue(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt(),
-                domain.getVersion()
-        );
+                domain.getVersion());
     }
 }
