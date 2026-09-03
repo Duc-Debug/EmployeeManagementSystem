@@ -1,6 +1,7 @@
-import { type FormEvent, type RefObject } from "react";
+import { useState, type FormEvent, type RefObject } from "react";
  
 import { FormField } from "@/components/ui/FormField";
+import { Icon } from "@/components/ui/Icon";
 import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import { DEMO_ROLES } from "@/src/mocks/hrm";
 import type { DataScope, User, UserStatus } from "@/src/types/hrm";
@@ -49,6 +50,7 @@ export function UserAccountForm({
   orgUnitOptions,
   value,
 }: UserAccountFormProps) {
+  const [showPassword, setShowPassword] = useState(false);
   const isSystemAdmin = value.roleCode === "VT-06";
 
   function handleRoleChange(roleCode: string) {
@@ -98,7 +100,12 @@ export function UserAccountForm({
       </div>
 
       <div className="form-grid form-grid--two">
-        <FormField error={errors.employeeCode} id="user-employee-code" label="Mã nhân viên">
+        <FormField
+          error={errors.employeeCode}
+          hint={mode === "create" ? "Tự động sinh mã chuẩn EMP-xxx hoặc có thể tự nhập" : undefined}
+          id="user-employee-code"
+          label="Mã nhân viên"
+        >
           <input
             aria-invalid={Boolean(errors.employeeCode)}
             className="input"
@@ -132,19 +139,30 @@ export function UserAccountForm({
           error={errors.password}
           hint={mode === "edit" ? "Để trống nếu giữ nguyên mật khẩu cũ" : undefined}
           id="user-password"
-          label={mode === "create" ? "Mật khẩu khởi tạo" : "Mật khẩu mới (tùy chọn)"}
+          label={mode === "create" ? "Mật khẩu khởi tạo" : "Mật khẩu mới"}
         >
-          <input
-            aria-invalid={Boolean(errors.password)}
-            autoComplete="new-password"
-            className="input"
-            id="user-password"
-            onChange={(event) => onChange("password", event.target.value)}
-            placeholder={mode === "create" ? "Tối thiểu 6 ký tự" : "Nhập nếu muốn đổi"}
-            required={mode === "create"}
-            type="password"
-            value={value.password ?? ""}
-          />
+          <div className="input-action-wrapper">
+            <input
+              aria-invalid={Boolean(errors.password)}
+              autoComplete="new-password"
+              className="input"
+              id="user-password"
+              onChange={(event) => onChange("password", event.target.value)}
+              placeholder={mode === "create" ? "Tối thiểu 6 ký tự" : "Nhập nếu muốn đổi"}
+              required={mode === "create"}
+              type={showPassword ? "text" : "password"}
+              value={value.password ?? ""}
+            />
+            <button
+              type="button"
+              className="input-action-btn"
+              onClick={() => setShowPassword(!showPassword)}
+              title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+            >
+              <Icon name={showPassword ? "eyeOff" : "eye"} />
+            </button>
+          </div>
         </FormField>
 
         <FormField error={errors.orgUnitId} id="user-org-unit" label="Đơn vị tổ chức trực thuộc">
@@ -153,7 +171,7 @@ export function UserAccountForm({
             id="user-org-unit"
             onChange={(nextValue) => onChange("orgUnitId", nextValue)}
             options={orgUnitOptions}
-            placeholder="Chọn đơn vị công tác"
+            placeholder="Chọn phòng ban / đơn vị công tác"
             value={value.orgUnitId}
           />
         </FormField>
@@ -161,11 +179,11 @@ export function UserAccountForm({
 
       {/* Block 2: Phân quyền & Phạm vi dữ liệu */}
       <div className="form-section-title" style={{ marginTop: "0.5rem" }}>
-        <span>2. Phân quyền & Phạm vi dữ liệu (Data Scope)</span>
+        <span>2. Phân quyền & Phạm vi dữ liệu</span>
       </div>
 
       <div className="form-grid form-grid--two">
-        <FormField error={errors.roleCode} id="user-role" label="Vai trò (Role)">
+        <FormField error={errors.roleCode} id="user-role" label="Vai trò">
           <select
             aria-invalid={Boolean(errors.roleCode)}
             className="select"
@@ -186,7 +204,7 @@ export function UserAccountForm({
           error={errors.dataScope}
           hint={isSystemAdmin ? "Quản trị viên (VT-06) tự động áp dụng toàn công ty." : undefined}
           id="user-data-scope"
-          label="Phạm vi dữ liệu (Data Scope)"
+          label="Phạm vi dữ liệu"
         >
           <select
             aria-invalid={Boolean(errors.dataScope)}
@@ -219,8 +237,8 @@ export function UserAccountForm({
             onChange={(event) => onChange("status", event.target.value as UserStatus)}
             value={value.status}
           >
-            <option value="ACTIVE">Hoạt động (Active)</option>
-            <option value="LOCKED">Đã khóa (Locked)</option>
+            <option value="ACTIVE">Hoạt động</option>
+            <option value="LOCKED">Đã khóa</option>
           </select>
         </FormField>
 

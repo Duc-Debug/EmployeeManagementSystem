@@ -12,5 +12,11 @@ public enum PermissionCode {
     PROJECT_READ,
 
     EMPLOYEE_READ,
-    EMPLOYEE_UPDATE
+    EMPLOYEE_UPDATE,
+
+    SKILL_READ,
+    SKILL_CREATE,
+    SKILL_UPDATE,
+    SKILL_MERGE,
+    SKILL_DEACTIVATE
 }
