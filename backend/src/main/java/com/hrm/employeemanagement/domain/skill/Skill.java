@@ -64,11 +64,14 @@ public class Skill {
             return false;
         }
         Skill skill = (Skill) o;
-        return Objects.equals(id, skill.id) || Objects.equals(code, skill.code);
+        if (id != null && skill.id != null) {
+            return Objects.equals(id, skill.id);
+        }
+        return Objects.equals(code, skill.code);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, code);
+        return id != null ? Objects.hash(id) : Objects.hash(code);
     }
 }
