@@ -40,7 +40,7 @@ function hexFor(theme: { badgeColor: string }) {
     return (hue && HUE_HEX_400[hue]) || "#94a3b8";
 }
 
-const EMPTY_NODE_FORM = { badge: "", title: "", desc: "", subLeft: "", iconKey: "User", themeKey: "blue" };
+const EMPTY_NODE_FORM = { badge: "", title: "", desc: "", subLeft: "", manager: "", iconKey: "User", themeKey: "blue" };
 
 function formFromCard(card?: CardData | null) {
     return card
@@ -49,6 +49,7 @@ function formFromCard(card?: CardData | null) {
             title: card.title,
             desc: card.desc,
             subLeft: card.subLeft,
+            manager: card.manager ?? "",
             iconKey: iconKeyFor(card.icon),
             themeKey: themeKeyFor(card),
         }
@@ -94,6 +95,7 @@ export default function OrgNodeModal({ open, initialData, levelText, onClose, on
             title: form.title.trim(),
             desc: form.desc.trim(),
             subLeft: form.subLeft.trim(),
+            manager: form.manager.trim(),
             levelText,
             badgeBg: theme.badgeBg,
             badgeColor: theme.badgeColor,
@@ -125,6 +127,17 @@ export default function OrgNodeModal({ open, initialData, levelText, onClose, on
                             value={form.title}
                             onChange={(e) => setForm({ ...form, title: e.target.value })}
                             placeholder="VD: Quản Lý Dự Án"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-[#4338ca] focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-xs font-semibold text-slate-600">
+                            Người tổ chức / Người đứng đầu
+                        </label>
+                        <input
+                            value={form.manager}
+                            onChange={(e) => setForm({ ...form, manager: e.target.value })}
+                            placeholder="VD: Nguyễn Văn A (Trưởng phòng)..."
                             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-[#4338ca] focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                     </div>

@@ -17,6 +17,8 @@ export interface CardData {
     icon: LucideIcon;
     iconColor: string;
     isDark?: boolean;
+    manager?: string;
+    managerRole?: string;
 }
 
 export const ICON_OPTIONS: { key: string; icon: LucideIcon; label: string }[] = [

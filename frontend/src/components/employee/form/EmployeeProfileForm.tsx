@@ -12,7 +12,7 @@ import {
     BadgeAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { OrgUnitCombobox } from "@/components/ui/OrgUnitCombobox";
+import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import type { EmployeeFormData } from "./employeeForm.types";
 import {
     DEFAULT_ORG_UNIT_OPTIONS,
@@ -27,6 +27,7 @@ interface EmployeeProfileFormProps {
     onClose: () => void;
     onSave: (data: EmployeeFormData) => void;
     nextEmployeeCode?: string;
+    orgUnitOptions?: readonly OrgUnitOption[];
 }
 
 export default function EmployeeProfileForm({
@@ -35,6 +36,7 @@ export default function EmployeeProfileForm({
     onClose,
     onSave,
     nextEmployeeCode = "EMP-001",
+    orgUnitOptions = DEFAULT_ORG_UNIT_OPTIONS,
 }: EmployeeProfileFormProps) {
     const isEdit = Boolean(initialData);
 
@@ -103,7 +105,7 @@ export default function EmployeeProfileForm({
     };
 
     const handleOrgUnitChange = (orgUnitId: string) => {
-        const selected = DEFAULT_ORG_UNIT_OPTIONS.find((opt) => String(opt.id) === String(orgUnitId));
+        const selected = orgUnitOptions.find((opt) => String(opt.id) === String(orgUnitId));
         setFormData((prev) => ({
             ...prev,
             orgUnitId,
@@ -136,10 +138,16 @@ export default function EmployeeProfileForm({
             setErrorMessage("Mật khẩu khởi tạo phải có ít nhất 6 ký tự.");
             return;
         }
+        if (!formData.orgUnitId) {
+            setErrorMessage("Vui lòng chọn đơn vị tổ chức trực thuộc.");
+            return;
+        }
         if (formData.dataScope === "ORGANIZATION_BRANCH" && !formData.scopeOrgUnitId) {
             setErrorMessage("Vui lòng chọn đơn vị tổ chức áp dụng cho phạm vi dữ liệu.");
             return;
         }
+
+        const selectedOrg = orgUnitOptions.find((o) => String(o.id) === String(formData.orgUnitId));
 
         onSave({
             ...formData,
@@ -147,7 +155,7 @@ export default function EmployeeProfileForm({
             email: formData.email.trim(),
             employeeCode: formData.employeeCode.trim().toUpperCase(),
             username: formData.username.trim(),
-            department: formData.department || "Phòng Lập trình Frontend",
+            department: formData.department || selectedOrg?.unitName || "Chưa phân bổ",
         });
     };
 
@@ -320,8 +328,8 @@ export default function EmployeeProfileForm({
                                 </label>
                                 <OrgUnitCombobox
                                     id="employee-org-unit"
-                                    options={DEFAULT_ORG_UNIT_OPTIONS}
-                                    value={formData.orgUnitId || "3"}
+                                    options={orgUnitOptions}
+                                    value={formData.orgUnitId || ""}
                                     onChange={handleOrgUnitChange}
                                     placeholder="Chọn phòng ban / đơn vị (dạng cây)..."
                                 />
@@ -411,8 +419,8 @@ export default function EmployeeProfileForm({
                                     </label>
                                     <OrgUnitCombobox
                                         id="employee-scope-org-unit"
-                                        options={DEFAULT_ORG_UNIT_OPTIONS}
-                                        value={formData.scopeOrgUnitId || formData.orgUnitId || "2"}
+                                        options={orgUnitOptions}
+                                        value={formData.scopeOrgUnitId || ""}
                                         onChange={(val: string) => setFormData({ ...formData, scopeOrgUnitId: val })}
                                         placeholder="Chọn đơn vị áp dụng..."
                                     />

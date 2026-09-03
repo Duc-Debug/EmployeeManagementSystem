@@ -7,8 +7,11 @@ import EmployeeCard from "../components/employee/EmployeeCard";
 import EmployeeProfileForm from "../components/employee/form/EmployeeProfileForm";
 import EmployeeDetailModal from "../components/employee/form/EmployeeDetailModal";
 import type { EmployeeFormData } from "../components/employee/form/employeeForm.types";
-import { DEPARTMENT_OPTIONS } from "../components/employee/form/employeeForm.constants";
+import { DEFAULT_ORG_UNIT_OPTIONS, DEPARTMENT_OPTIONS } from "../components/employee/form/employeeForm.constants";
 import { getUsers, createUser, updateUserRole, toggleUserStatus } from "@/lib/api/users";
+import { getOrgTree } from "@/lib/api/org-units";
+import { flattenOrgTree } from "@/lib/organization";
+import type { OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import type { User as BackendUser, RoleCode, DataScope } from "@/types/hrm";
 
 const INITIAL_EMPLOYEES: EmployeeFormData[] = [
@@ -252,15 +255,34 @@ export default function EmployeeProfilePage() {
     const [editingEmployee, setEditingEmployee] = useState<EmployeeFormData | undefined>(undefined);
     const [viewingEmployee, setViewingEmployee] = useState<EmployeeFormData | undefined>(undefined);
     const [deleteTarget, setDeleteTarget] = useState<EmployeeFormData | null>(null);
+    const [orgUnitOptions, setOrgUnitOptions] = useState<readonly OrgUnitOption[]>(DEFAULT_ORG_UNIT_OPTIONS);
 
-    // Fetch users từ Backend API khi trang được tải
+    // Fetch users và OrgUnits từ Backend API khi trang được tải
     useEffect(() => {
         let isMounted = true;
-        async function fetchUsers() {
+        async function loadData() {
             try {
-                const res = await getUsers(0, 100);
-                if (isMounted && res?.content && res.content.length > 0) {
-                    const mapped: EmployeeFormData[] = res.content.map((u: BackendUser) => ({
+                const [userRes, treeRes] = await Promise.allSettled([
+                    getUsers(0, 100),
+                    getOrgTree(),
+                ]);
+
+                if (isMounted && treeRes.status === "fulfilled" && treeRes.value && treeRes.value.length > 0) {
+                    const flat = flattenOrgTree(treeRes.value);
+                    if (flat.length > 0) {
+                        const dynamicOptions: OrgUnitOption[] = flat.map((u) => ({
+                            id: u.id,
+                            unitCode: u.unitCode,
+                            unitName: u.unitName,
+                            unitType: u.unitType,
+                            depth: u.level ?? 0,
+                        }));
+                        setOrgUnitOptions(dynamicOptions);
+                    }
+                }
+
+                if (isMounted && userRes.status === "fulfilled" && userRes.value?.content && userRes.value.content.length > 0) {
+                    const mapped: EmployeeFormData[] = userRes.value.content.map((u: BackendUser) => ({
                         id: String(u.id),
                         employeeCode: u.employeeId ? `EMP-${String(u.employeeId).padStart(3, "0")}` : `EMP-${u.id}`,
                         fullName: u.fullName || u.username,
@@ -280,10 +302,10 @@ export default function EmployeeProfilePage() {
                     setEmployees(mapped);
                 }
             } catch {
-                // Backend offline: Tự động giữ INITIAL_EMPLOYEES để không bị gián đoạn giao diện
+                // Backend offline: Tự động giữ fallback an toàn
             }
         }
-        fetchUsers();
+        loadData();
         return () => {
             isMounted = false;
         };
@@ -462,6 +484,7 @@ export default function EmployeeProfilePage() {
                 onClose={() => setIsFormOpen(false)}
                 onSave={handleSave}
                 nextEmployeeCode={nextEmployeeCode}
+                orgUnitOptions={orgUnitOptions}
             />
 
             {/* MODAL XEM CHI TIẾT */}

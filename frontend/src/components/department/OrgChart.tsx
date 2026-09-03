@@ -16,8 +16,10 @@ import {
     Code,
     Users,
     Shield,
+    UserCheck,
 } from 'lucide-react';
 import OrgNodeModal from './OrgNodeModal';
+import OrgNodeDetailModal from './OrgNodeDetailModal';
 import type { CardData } from './orgNode.constants';
 
 export interface OrgTreeNode extends CardData {
@@ -32,6 +34,7 @@ const INITIAL_ORG_TREE: OrgTreeNode = {
     badgeColor: 'text-amber-800',
     title: 'Ban Giám Đốc',
     desc: 'Quyết định chiến lược & Tầm nhìn',
+    manager: 'Nguyễn Văn A (Tổng Giám Đốc)',
     subLeft: 'Hội đồng Quản trị',
     levelText: 'Tầng 1',
     cardBg: 'bg-white',
@@ -47,6 +50,7 @@ const INITIAL_ORG_TREE: OrgTreeNode = {
             badgeColor: 'text-blue-700',
             title: 'Quản Lý Dự Án',
             desc: 'Điều phối tiến độ & mục tiêu sản phẩm',
+            manager: 'Trần Quốc Bảo (Giám Đốc Dự Án)',
             subLeft: 'Báo cáo trực tiếp BGĐ',
             levelText: 'Tầng 2',
             cardBg: 'bg-white',
@@ -61,6 +65,7 @@ const INITIAL_ORG_TREE: OrgTreeNode = {
                     badgeColor: 'text-emerald-700',
                     title: 'Nhân Viên Chuyên Môn',
                     desc: 'Kỹ sư, Lập trình viên, Designer & Chuyên gia',
+                    manager: 'Lê Văn C (Trưởng Nhóm Kỹ Thuật)',
                     subLeft: 'Thuộc Khối Dự Án',
                     levelText: 'Tầng 3',
                     cardBg: 'bg-white',
@@ -78,6 +83,7 @@ const INITIAL_ORG_TREE: OrgTreeNode = {
             badgeColor: 'text-purple-700',
             title: 'Quản Lý Nguồn Lực',
             desc: 'Tối ưu hóa nhân lực & cơ sở hạ tầng',
+            manager: 'Phạm Thị D (Giám Đốc Nguồn Lực)',
             subLeft: 'Báo cáo trực tiếp BGĐ',
             levelText: 'Tầng 2',
             cardBg: 'bg-white',
@@ -92,6 +98,7 @@ const INITIAL_ORG_TREE: OrgTreeNode = {
                     badgeColor: 'text-pink-700',
                     title: 'Nhân Sự (HR)',
                     desc: 'Tuyển dụng, đào tạo & chế độ phúc lợi',
+                    manager: 'Lê Thị Mai (Trưởng Phòng HR)',
                     subLeft: 'Trực thuộc Nguồn Lực',
                     levelText: 'Tầng 3',
                     cardBg: 'bg-white',
@@ -106,6 +113,7 @@ const INITIAL_ORG_TREE: OrgTreeNode = {
                             badgeColor: 'text-amber-700',
                             title: 'Quản Trị Viên',
                             desc: 'Quản lý hệ thống, nội quy & tài sản',
+                            manager: 'Đặng Hữu Tài (Quản Trị Hệ Thống)',
                             subLeft: 'Giám sát vận hành',
                             levelText: 'Tầng 4',
                             cardBg: 'bg-white',
@@ -170,6 +178,7 @@ export default function OrgChart() {
     const [dropTargetId, setDropTargetId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [editTarget, setEditTarget] = useState<EditTarget>(null);
+    const [detailNode, setDetailNode] = useState<OrgTreeNode | null>(null);
 
     // Pan and Zoom
     const [zoom, setZoom] = useState(1);
@@ -461,10 +470,22 @@ export default function OrgChart() {
                         onEdit={(id) => setEditTarget({ kind: 'edit', nodeId: id })}
                         onAddChild={(parentId) => setEditTarget({ kind: 'addChild', parentId })}
                         onDelete={handleDirectDelete}
+                        onViewDetail={(n) => setDetailNode(n)}
                         searchQuery={normalizedQuery}
                     />
                 </div>
             </div>
+
+            {/* Modal Chi tiết phòng ban (Bấm vào icon 6 chấm) */}
+            <OrgNodeDetailModal
+                open={Boolean(detailNode)}
+                node={detailNode}
+                onClose={() => setDetailNode(null)}
+                onEdit={(id) => {
+                    setDetailNode(null);
+                    setEditTarget({ kind: 'edit', nodeId: id });
+                }}
+            />
 
             {/* Modal Edit / Add Node */}
             <OrgNodeModal
@@ -500,6 +521,7 @@ interface RecursiveNodeProps {
     onEdit: (id: string) => void;
     onAddChild: (parentId: string) => void;
     onDelete: (id: string) => void;
+    onViewDetail: (node: OrgTreeNode) => void;
     searchQuery: string;
 }
 
@@ -517,6 +539,7 @@ function RecursiveNode({
     onEdit,
     onAddChild,
     onDelete,
+    onViewDetail,
     searchQuery,
 }: RecursiveNodeProps) {
     const hasChildren = node.children && node.children.length > 0;
@@ -529,7 +552,8 @@ function RecursiveNode({
         searchQuery.length > 0 &&
         (node.title.toLowerCase().includes(searchQuery) ||
             node.desc.toLowerCase().includes(searchQuery) ||
-            node.badge.toLowerCase().includes(searchQuery));
+            node.badge.toLowerCase().includes(searchQuery) ||
+            (Boolean(node.manager) && node.manager!.toLowerCase().includes(searchQuery)));
 
     return (
         <div className="flex flex-col items-center min-w-max px-4">
@@ -551,7 +575,7 @@ function RecursiveNode({
                     e.stopPropagation();
                     onDrop(node.id);
                 }}
-                className={`org-tree-card relative w-[320px] rounded-3xl p-5 border transition-all duration-200 cursor-default bg-white border-slate-200/90 shadow-sm ${
+                className={`org-tree-card relative w-[350px] rounded-3xl p-5 border transition-all duration-200 cursor-default bg-white border-slate-200/90 shadow-sm ${
                     isDropTarget
                         ? 'ring-4 ring-indigo-500 ring-offset-2 ring-offset-transparent bg-indigo-50/50 scale-[1.03] shadow-md'
                         : 'hover:shadow-md hover:border-indigo-300'
@@ -559,59 +583,82 @@ function RecursiveNode({
                     isMatch ? 'ring-4 ring-amber-400/80 shadow-md' : ''
                 }`}
             >
-                {/* Actions */}
-                <div className="absolute top-3 right-3 flex items-center gap-1">
-                    {isDraggable && (
-                        <span
-                            className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-700 transition"
-                            title="Kéo thả để chuyển phòng ban trực thuộc"
-                        >
-                            <GripVertical className="h-4 w-4" />
-                        </span>
-                    )}
-                    <button
-                        onClick={() => onEdit(node.id)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-                        title="Chỉnh sửa thông tin"
-                        type="button"
-                    >
-                        <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                        onClick={() => onAddChild(node.id)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
-                        title="Thêm nhánh con trực thuộc"
-                        type="button"
-                    >
-                        <Plus className="h-3.5 w-3.5" />
-                    </button>
-                    {isDraggable && (
-                        <button
-                            onClick={() => onDelete(node.id)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                            title="Xóa nhánh phòng ban này"
-                            type="button"
-                        >
-                            <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                    )}
-                </div>
-
-                {/* Badge & Icon */}
-                <div className="flex items-center justify-between mb-3 pr-20">
+                {/* Header Row: Badge (Left), Actions (Right) */}
+                <div className="flex items-center justify-between gap-2 mb-2.5">
                     <span
-                        className={`rounded-full px-3 py-1 text-[10px] font-bold tracking-wider uppercase ${node.badgeBg} ${node.badgeColor}`}
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase shrink-0 ${node.badgeBg} ${node.badgeColor}`}
                     >
                         {node.badge}
                     </span>
-                    {node.icon && <node.icon className={`h-5 w-5 ${node.iconColor} shrink-0`} />}
+
+                    {/* Actions: 6-dot (Detail for ALL), Edit, Add, Delete */}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                            onClick={() => onViewDetail(node)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                            title="Xem chi tiết phòng ban"
+                            type="button"
+                        >
+                            <GripVertical className="h-4 w-4" />
+                        </button>
+                        <button
+                            onClick={() => onEdit(node.id)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                            title="Chỉnh sửa thông tin"
+                            type="button"
+                        >
+                            <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                            onClick={() => onAddChild(node.id)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                            title="Thêm nhánh con trực thuộc"
+                            type="button"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                        </button>
+                        {isDraggable && (
+                            <button
+                                onClick={() => onDelete(node.id)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                                title="Xóa nhánh phòng ban này"
+                                type="button"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                {/* Title & Desc */}
-                <h3 className="text-lg font-bold text-slate-900 tracking-tight mb-1">{node.title}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed font-medium mb-4 min-h-[32px]">
-                    {node.desc}
-                </p>
+                {/* Title Row: Icon + Full Department Name (Placed below badge row) */}
+                <div className="flex items-center gap-2 mb-2">
+                    {node.icon && <node.icon className={`h-5 w-5 ${node.iconColor} shrink-0`} />}
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight leading-snug">
+                        {node.title}
+                    </h3>
+                </div>
+
+                {/* Description */}
+                {node.desc && (
+                    <p className="text-xs text-slate-500 leading-relaxed font-medium mb-3 min-h-[32px]">
+                        {node.desc}
+                    </p>
+                )}
+
+                {/* Organizer / Manager Row */}
+                <div className="flex items-center gap-2.5 rounded-xl bg-slate-50/90 border border-slate-100 px-3 py-2 mb-3 text-xs">
+                    <div className="flex size-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                        <UserCheck className="size-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block leading-none mb-0.5">
+                            Người tổ chức
+                        </span>
+                        <span className="font-semibold text-slate-800 text-xs truncate block">
+                            {node.manager || "Chưa bổ nhiệm"}
+                        </span>
+                    </div>
+                </div>
 
                 {/* Footer */}
                 <div className="border-t border-slate-100 pt-3 flex items-center justify-between text-xs font-semibold">
@@ -692,6 +739,7 @@ function RecursiveNode({
                                         onEdit={onEdit}
                                         onAddChild={onAddChild}
                                         onDelete={onDelete}
+                                        onViewDetail={onViewDetail}
                                         searchQuery={searchQuery}
                                     />
                                 </div>
