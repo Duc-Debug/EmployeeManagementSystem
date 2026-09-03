@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.application.service.project;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,6 +35,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
@@ -104,7 +106,6 @@ class CreateProjectServiceTest {
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
         when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
         when(loadEmployeePort.findById(new EmployeeId(MANAGER_ID))).thenReturn(Optional.of(createEmployee(MANAGER_ID)));
-        when(loadProjectPort.existsByProjectCode(any())).thenReturn(false);
 
         when(saveProjectPort.save(any(Project.class))).thenAnswer(invocation -> {
             Project input = invocation.getArgument(0);
@@ -215,6 +216,82 @@ class CreateProjectServiceTest {
         assertThatThrownBy(() -> service.createProject(command))
                 .isInstanceOf(InvalidProjectDataException.class)
                 .hasMessageContaining("vô hiệu hóa");
+    }
+
+    @Test
+    @DisplayName("Tự động retry sinh mã mới khi lần đầu gặp trùng mã (DuplicateProjectCodeException)")
+    void testCreateProject_RetryOnDuplicateCode_Success() {
+        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
+
+        // Lần đầu save bị ném DuplicateProjectCodeException, lần 2 save thành công
+        when(saveProjectPort.save(any(Project.class)))
+                .thenThrow(new DuplicateProjectCodeException("Mã trùng"))
+                .thenAnswer(invocation -> {
+                    Project input = invocation.getArgument(0);
+                    return new Project(
+                            new ProjectId(2L),
+                            input.getProjectCode(),
+                            input.getProjectName(),
+                            input.getOrgUnitId(),
+                            input.getManagerId(),
+                            input.getStartDate(),
+                            input.getEndDate(),
+                            input.getEstimatedHours(),
+                            input.getDescription(),
+                            ProjectStatus.ACTIVE,
+                            input.getCreatedBy(),
+                            input.getCreatedAt(),
+                            null,
+                            0L
+                    );
+                });
+
+        CreateProjectCommand command = new CreateProjectCommand(
+                "Dự án Retry",
+                ORG_UNIT_ID,
+                null,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 12, 31),
+                BigDecimal.valueOf(100),
+                null
+        );
+
+        ProjectResult result = service.createProject(command);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(2L);
+        verify(saveProjectPort, times(2)).save(any(Project.class));
+    }
+
+    @Test
+    @DisplayName("Ném DuplicateProjectCodeException khi retry tối đa 3 lần vẫn bị trùng mã")
+    void testCreateProject_ExhaustRetries_ThrowsDuplicateProjectCodeException() {
+        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
+
+        // Cả 3 lần đều bị trùng
+        when(saveProjectPort.save(any(Project.class)))
+                .thenThrow(new DuplicateProjectCodeException("Mã trùng lần 1"))
+                .thenThrow(new DuplicateProjectCodeException("Mã trùng lần 2"))
+                .thenThrow(new DuplicateProjectCodeException("Mã trùng lần 3"));
+
+        CreateProjectCommand command = new CreateProjectCommand(
+                "Dự án Trùng 3 lần",
+                ORG_UNIT_ID,
+                null,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 12, 31),
+                BigDecimal.valueOf(100),
+                null
+        );
+
+        assertThatThrownBy(() -> service.createProject(command))
+                .isInstanceOf(DuplicateProjectCodeException.class);
+
+        verify(saveProjectPort, times(3)).save(any(Project.class));
     }
 
     private User createAdminUser() {

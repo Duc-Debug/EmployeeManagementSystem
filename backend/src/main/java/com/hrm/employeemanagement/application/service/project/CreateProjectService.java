@@ -17,7 +17,9 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
@@ -71,30 +73,44 @@ public class CreateProjectService implements CreateProjectUseCase {
         OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
 
         if (command.managerId() != null) {
-            com.hrm.employeemanagement.domain.employee.Employee manager = loadEmployeePort.findById(new EmployeeId(command.managerId()))
+            Employee manager = loadEmployeePort.findById(new EmployeeId(command.managerId()))
                     .orElseThrow(() -> new InvalidProjectDataException(
                             "Không tìm thấy nhân viên quản lý dự án với ID: " + command.managerId()));
-            if (manager.getStatus() != com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE) {
+            if (manager.getStatus() != EmployeeStatus.ACTIVE) {
                 throw new InvalidProjectDataException("Nhân viên quản lý dự án không ở trạng thái hoạt động");
             }
         }
 
-        String finalProjectCode = resolveProjectCode(orgUnit);
+        int maxAttempts = 3;
+        Project savedProject = null;
+        DuplicateProjectCodeException lastDuplicateProjectCodeException = null;
 
-        Project project = Project.createNew(
-                finalProjectCode,
-                command.projectName(),
-                command.orgUnitId(),
-                command.managerId() != null ? new EmployeeId(command.managerId()) : null,
-                command.startDate(),
-                command.endDate(),
-                command.estimatedHours(),
-                command.description(),
-                new UserId(currentUserId));
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            String generatedCode = generateProjectCode(orgUnit);
+            Project project = Project.createNew(
+                    generatedCode,
+                    command.projectName(),
+                    command.orgUnitId(),
+                    command.managerId() != null ? new EmployeeId(command.managerId()) : null,
+                    command.startDate(),
+                    command.endDate(),
+                    command.estimatedHours(),
+                    command.description(),
+                    new UserId(currentUserId));
 
-        Project savedProject = saveProjectPort.save(project);
+            try {
+                savedProject = saveProjectPort.save(project);
+                break;
+            } catch (DuplicateProjectCodeException ex) {
+                lastDuplicateProjectCodeException = ex;
+            }
+        }
+        if (savedProject == null) {
+            throw lastDuplicateProjectCodeException != null ? lastDuplicateProjectCodeException
+                    : new DuplicateProjectCodeException("Không thể khởi tạo mã dự án duy nhất sau nhiều lần thử");
+        }
+
         saveAuditLogPort.save(AuditLog.create(currentUserId, "CREATE_PROJECT", "projects", savedProject.getIdValue()));
-
         return mapToProjectResult(savedProject);
     }
 
@@ -156,28 +172,6 @@ public class CreateProjectService implements CreateProjectUseCase {
     }
 
     // ===== Generate project code =======
-    private String resolveProjectCode(OrgUnit orgUnit) {
-        String unitCode = (orgUnit.getUnitCode() != null && !orgUnit.getUnitCode().isBlank())
-                ? orgUnit.getUnitCode().trim().toUpperCase()
-                : "GEN";
-        String datePart = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
-        int attempts = 0;
-        int maxAttempts = 5;
-        while (attempts < maxAttempts) {
-            // Mỗi lần lặp bốc 4 ký tự hex ngẫu nhiên mới
-            String randomHex = String.format("%04X", java.util.concurrent.ThreadLocalRandom.current().nextInt(0x10000));
-            String generatedCode = String.format("PRJ-%s-%s-%s", unitCode, datePart, randomHex);
-            // Nếu chưa tồn tại trong DB -> Trả về ngay lập tức
-            if (!loadProjectPort.existsByProjectCode(generatedCode)) {
-                return generatedCode;
-            }
-            attempts++;
-        }
-        // Thêm timestamp nano giây để đảm bảo 100% duy nhất
-        String nanoTimePart = String.valueOf(System.nanoTime() % 10000);
-        return String.format("PRJ-%s-%s-%s", unitCode, datePart, nanoTimePart);
-    }
-
     private ProjectResult mapToProjectResult(Project project) {
         return new ProjectResult(
                 project.getIdValue(),
@@ -193,5 +187,14 @@ public class CreateProjectService implements CreateProjectUseCase {
                 project.getCreatedByValue(),
                 project.getCreatedAt(),
                 project.getUpdatedAt());
+    }
+
+    private String generateProjectCode(OrgUnit orgUnit) {
+        String unitCode = (orgUnit.getUnitCode() != null && !orgUnit.getUnitCode().isBlank())
+                ? orgUnit.getUnitCode().trim().toUpperCase()
+                : "GEN";
+        String datePart = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
+        String randomHex = String.format("%04X", ThreadLocalRandom.current().nextInt(0x10000));
+        return String.format("PRJ-%s-%s-%s", unitCode, datePart, randomHex);
     }
 }

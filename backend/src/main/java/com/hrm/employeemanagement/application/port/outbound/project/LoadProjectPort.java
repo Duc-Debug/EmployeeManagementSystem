@@ -30,6 +30,4 @@ public interface LoadProjectPort {
     boolean existsManagedBy(Long projectId, Long employeeId);
 
     boolean existsMember(Long projectId, Long employeeId);
-
-    boolean existsByProjectCode(String projectCode);
 }

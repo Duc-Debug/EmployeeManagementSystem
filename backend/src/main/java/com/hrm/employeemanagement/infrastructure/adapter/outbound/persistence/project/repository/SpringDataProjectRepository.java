@@ -160,6 +160,4 @@ public interface SpringDataProjectRepository
     default boolean existsMember(Long projectId, Long employeeId) {
         return countMember(projectId, employeeId) > 0;
     }
-    
-    boolean existsByProjectCode(String projectCode);
 }

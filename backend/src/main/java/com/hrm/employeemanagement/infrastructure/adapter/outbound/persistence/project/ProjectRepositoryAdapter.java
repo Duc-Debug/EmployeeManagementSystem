@@ -3,10 +3,12 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.p
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
+import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectJpaEntity;
@@ -149,16 +151,32 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
 
         @Override
         public Project save(Project project) {
-                ProjectJpaEntity entity = mapper.toJpaEntity(project);
-                ProjectJpaEntity savedEntity = projectRepository.save(entity);
-                return mapper.toDomain(savedEntity);
+                try {
+                        ProjectJpaEntity entity = mapper.toJpaEntity(project);
+                        ProjectJpaEntity savedEntity = projectRepository.saveAndFlush(entity);
+                        return mapper.toDomain(savedEntity);
+                } catch (DataIntegrityViolationException ex) {
+                        if (isProjectCodeDuplicate(ex)) {
+                                throw new DuplicateProjectCodeException(
+                                                "Mã dự án '" + project.getProjectCode()
+                                                                + "' đã tồn tại trong hệ thống");
+                        }
+                        throw ex;
+                }
         }
 
-        @Override
-        public boolean existsByProjectCode(String projectCode) {
-                if (projectCode == null || projectCode.isBlank()) {
-            return false;
-        }
-        return projectRepository.existsByProjectCode(projectCode.trim());
+        private boolean isProjectCodeDuplicate(DataIntegrityViolationException ex) {
+                Throwable current = ex;
+                while (current != null) {
+                        if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                                String constraintName = cve.getConstraintName();
+                                if (constraintName != null
+                                                && constraintName.toLowerCase().contains("uk_projects_project_code")) {
+                                        return true;
+                                }
+                        }
+                        current = current.getCause();
+                }
+                return false;
         }
 }
