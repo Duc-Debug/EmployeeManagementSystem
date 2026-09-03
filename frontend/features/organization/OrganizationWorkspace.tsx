@@ -593,7 +593,7 @@ export function OrganizationWorkspace() {
               <div className="org-modal-sidebar__content">
                 <div className="org-modal-unit-card">
                   <div className="org-modal-unit-card__title">
-                    <Icon name={selectedUnit.unitType === "COMPANY" ? "building" : selectedUnit.unitType === "CENTER" ? "branch" : selectedUnit.unitType === "DEPARTMENT" ? "users" : "user"} />
+                    <Icon name={selectedUnit.unitType === "COMPANY" ? "organization" : selectedUnit.unitType === "CENTER" ? "branch" : selectedUnit.unitType === "DEPARTMENT" ? "users" : "user"} />
                     <strong>{selectedUnit.unitName}</strong>
                   </div>
                   <div style={{ display: "flex", gap: "0.35rem", alignItems: "center", marginTop: "0.35rem", flexWrap: "wrap" }}>
@@ -605,13 +605,47 @@ export function OrganizationWorkspace() {
                 <div className="org-modal-info-rows">
                   <div className="org-modal-info-row">
                     <span className="label">Đơn vị cha:</span>
-                    <span className="val">{parentUnit ? parentUnit.unitName : "Gốc (Công ty)"}</span>
+                    <span className="val">
+                      {parentUnit ? (
+                        <button
+                          className="org-parent-link"
+                          onClick={() => setSelectedUnitId(parentUnit.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "inherit",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                            textDecoration: "underline",
+                            padding: 0
+                          }}
+                          type="button"
+                        >
+                          <Icon name="branch" />
+                          <span>{parentUnit.unitName}</span>
+                          <small>({parentUnit.unitCode})</small>
+                        </button>
+                      ) : (
+                        "Gốc (Công ty)"
+                      )}
+                    </span>
                   </div>
 
                   <div className="org-modal-info-row">
                     <span className="label">Người quản lý:</span>
                     <span className="val">
-                      {managerUser ? (managerUser.fullName || managerUser.username) : "Chưa chỉ định"}
+                      {managerUser ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontWeight: 600 }}>
+                          <span>{managerUser.fullName || managerUser.username}</span>
+                          {managerUser.roleName ? (
+                            <small style={{ color: "#6366f1", fontWeight: "normal" }}>({managerUser.roleName})</small>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Chưa chỉ định</span>
+                      )}
                     </span>
                   </div>
 
@@ -621,7 +655,7 @@ export function OrganizationWorkspace() {
                   </div>
 
                   <div className="org-modal-info-row">
-                    <span className="label">Nhân sự:</span>
+                    <span className="label">Nhân sự trực thuộc:</span>
                     <span className="val">{unitMembers.length} thành viên</span>
                   </div>
                 </div>

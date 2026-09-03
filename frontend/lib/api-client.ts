@@ -2,7 +2,13 @@
 
 import { clearAuthSession, getAuthToken } from "./auth-session";
 
+const metaEnv = typeof import.meta !== "undefined"
+  ? (import.meta as unknown as { env?: Record<string, string> }).env
+  : undefined;
+
 export const API_BASE_URL =
+  metaEnv?.VITE_API_BASE_URL ||
+  (typeof window !== "undefined" ? "/api/v1" : "http://localhost:8080/api/v1");
 
 export class ApiError extends Error {
   status: number;
