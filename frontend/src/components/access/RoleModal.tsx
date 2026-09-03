@@ -1,160 +1,199 @@
-import React, { useState } from "react";
-import { ShieldCheck, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { THEME_OPTIONS, THEME_SOLID_BG, type ThemeOption } from "./access.constants";
-import type { Department, RoleBasicInfo } from "./access.types";
+import { useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronUp, ChevronDown, Check, X } from 'lucide-react';
+import type { Department, RoleBasicInfo, RoleTheme } from './access.types';
+import { THEME_OPTIONS, THEME_SOLID_BG } from './access.constants';
 
-interface RoleModalProps {
+export interface RoleModalProps {
+    /** Khớp với prop AccessControlView đang truyền vào (`open={isModalOpen}`). */
     open: boolean;
-    initialData?: RoleBasicInfo | null;
-    departments: Department[];
     onClose: () => void;
+    /** Danh sách phòng ban thật lấy từ state, thay vì hard-code. */
+    departments: Department[];
+    /** null/undefined => đang thêm mới. Có `id` => đang sửa vai trò đó. */
+    initialData?: RoleBasicInfo | null;
     onSave: (data: RoleBasicInfo) => void;
 }
 
-const emptyForm: RoleBasicInfo = { name: "", description: "", theme: "blue", departmentId: "all", isSystemRole: false };
+const emptyForm: RoleBasicInfo = {
+    name: '',
+    description: '',
+    theme: 'blue',
+    departmentId: 'all',
+};
 
-export default function RoleModal({ open, initialData, departments, onClose, onSave }: RoleModalProps) {
-    const [form, setForm] = useState<RoleBasicInfo>(initialData ?? emptyForm);
-    const [error, setError] = useState("");
+const emptySubscribe = () => () => {};
 
-    const [wasOpen, setWasOpen] = useState(open);
-    if (open !== wasOpen) {
-        setWasOpen(open);
-        if (open) {
-            setForm(initialData ?? emptyForm);
-            setError("");
-        }
-    }
+/** Thay cho pattern "useEffect(() => setMounted(true), [])": tránh gọi
+ *  setState bên trong effect (ESLint: react-hooks/set-state-in-effect) mà
+ *  vẫn an toàn cho SSR — server luôn trả `false`, client luôn trả `true`. */
+function useIsClient() {
+    return useSyncExternalStore(
+        emptySubscribe,
+        () => true,
+        () => false
+    );
+}
+
+export default function RoleModal({ open, onClose, departments, initialData, onSave }: RoleModalProps) {
+    const isClient = useIsClient();
+
+    // Không dùng useEffect để "đồng bộ lại form khi initialData/open đổi" —
+    // AccessControlView truyền `key` khác nhau mỗi lần mở modal, nên React
+    // sẽ tự remount component này và state khởi tạo ở đây luôn đúng dữ liệu
+    // mới nhất, không gây thêm 1 lần render phụ (set-state-in-effect).
+    const [form, setForm] = useState<RoleBasicInfo>(() => initialData ?? emptyForm);
+    const [isDeptOpen, setIsDeptOpen] = useState(false);
 
     const isEdit = Boolean(initialData?.id);
 
-    if (!open) return null;
+    if (!open || !isClient) return null;
 
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        if (!form.name.trim()) {
-            setError("Vui lòng nhập tên vai trò.");
-            return;
-        }
-        onSave({ ...form, id: initialData?.id, name: form.name.trim(), description: form.description.trim() });
-    }
+    const departmentOptions = [{ id: 'all', name: 'Tất cả phòng ban' }, ...departments];
+    const selectedDept = departmentOptions.find((d) => d.id === form.departmentId) ?? departmentOptions[0];
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
+    const handleSave = () => {
+        if (!form.name.trim()) return;
+        onSave({ ...form, id: initialData?.id, isSystemRole: initialData?.isSystemRole });
+    };
 
-            <div className="relative w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl transition-all">
-                <div className="mb-5 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100">
-                            <ShieldCheck className="h-4.5 w-4.5 text-indigo-600" />
-                        </span>
-                        <h2 className="text-base font-bold text-slate-800">{isEdit ? "Sửa vai trò" : "Thêm vai trò"}</h2>
-                    </div>
-                    <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
-                        <X className="h-4 w-4" />
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            {/* Nền mờ phía sau */}
+            <div className="fixed inset-0" onClick={onClose} />
+
+            {/* Bảng Modal chính */}
+            <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-5">
+
+                {/* Header */}
+                <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+                    <h3 className="text-lg font-bold text-slate-800">
+                        {isEdit ? "Sửa vai trò" : "Thêm vai trò"}
+                    </h3>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors"
+                    >
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Body */}
+                <div className="space-y-4">
+                    {/* Ô nhập tên vai trò */}
                     <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-slate-600">Tên vai trò</label>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                            Tên vai trò <span className="text-red-500">*</span>
+                        </label>
                         <input
-                            autoFocus
+                            type="text"
                             value={form.name}
-                            onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            placeholder="VD: Trưởng phòng"
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                            placeholder="Nhập tên vai trò"
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                         />
                     </div>
 
+                    {/* Mô tả vai trò */}
                     <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-slate-600">Mô tả</label>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                            Mô tả
+                        </label>
                         <textarea
                             value={form.description}
-                            onChange={(e) => setForm({ ...form, description: e.target.value })}
-                            placeholder="Mô tả ngắn về trách nhiệm của vai trò này"
+                            onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                            placeholder="Mô tả ngắn về vai trò"
                             rows={2}
-                            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
                         />
                     </div>
 
-                    <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-slate-600">Thuộc phòng ban</label>
-                        <select
-                            value={form.departmentId}
-                            onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                        >
-                            <option value="all">Tất cả phòng ban (Toàn công ty)</option>
-                            {departments.map((dept) => (
-                                <option key={dept.id} value={dept.id}>
-                                    {dept.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-slate-600">Màu nhận diện</label>
-                        <div className="flex flex-wrap gap-2">
-                            {THEME_OPTIONS.map((opt: ThemeOption) => {
-                                const isActive = form.theme === opt.key;
-                                return (
-                                    <button
-                                        key={opt.key}
-                                        type="button"
-                                        onClick={() => setForm({ ...form, theme: opt.key })}
-                                        className={cn(
-                                            "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
-                                            isActive
-                                                ? `${THEME_SOLID_BG[opt.key]} border-transparent text-white`
-                                                : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300"
-                                        )}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <label className="flex items-center gap-2 pt-1 text-xs font-medium text-slate-600">
-                        <input
-                            type="checkbox"
-                            checked={Boolean(form.isSystemRole)}
-                            onChange={(e) => setForm({ ...form, isSystemRole: e.target.checked })}
-                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        Đánh dấu là vai trò hệ thống
-                    </label>
-
-                    {!isEdit && (
-                        <p className="rounded-xl border border-indigo-100 bg-indigo-50/70 px-3.5 py-2.5 text-[11px] leading-relaxed text-indigo-700">
-                            Sau khi tạo, bạn có thể thiết lập phạm vi dữ liệu và ma trận quyền chi tiết cho vai trò ở màn hình chính.
-                        </p>
-                    )}
-
-                    {error && <p className="text-xs font-medium text-rose-500">{error}</p>}
-
-                    <div className="flex justify-end gap-2 pt-2">
+                    {/* Custom Dropdown Chọn Phòng ban */}
+                    <div className="relative">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                            Phòng ban <span className="text-indigo-500">*</span>
+                        </label>
                         <button
                             type="button"
-                            onClick={onClose}
-                            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                            onClick={() => setIsDeptOpen(!isDeptOpen)}
+                            className="w-full px-4 py-2.5 bg-white border border-indigo-400 rounded-2xl flex items-center justify-between text-sm font-semibold text-slate-800 shadow-sm focus:outline-none"
                         >
-                            Hủy
+                            <span>{selectedDept.name}</span>
+                            {isDeptOpen ? (
+                                <ChevronUp className="w-4 h-4 text-indigo-400 stroke-[2.5]" />
+                            ) : (
+                                <ChevronDown className="w-4 h-4 text-slate-400 stroke-[2.5]" />
+                            )}
                         </button>
-                        <button
-                            type="submit"
-                            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-500"
-                        >
-                            {isEdit ? "Lưu thay đổi" : "Tạo vai trò"}
-                        </button>
+
+                        {isDeptOpen && (
+                            <div className="absolute left-0 right-0 mt-2 p-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 space-y-1 max-h-48 overflow-y-auto">
+                                {departmentOptions.map((dept) => (
+                                    <button
+                                        key={dept.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setForm((prev) => ({ ...prev, departmentId: dept.id }));
+                                            setIsDeptOpen(false);
+                                        }}
+                                        className={`w-full px-4 py-2 text-left text-sm rounded-xl font-medium flex items-center justify-between transition-colors ${
+                                            form.departmentId === dept.id
+                                                ? 'bg-indigo-50 text-indigo-600 font-bold'
+                                                : 'text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <span>{dept.name}</span>
+                                        {form.departmentId === dept.id && <Check className="w-4 h-4 text-indigo-600 stroke-[2.5]" />}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                </form>
+
+                    {/* Chọn màu chủ đề */}
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                            Màu chủ đề
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                            {THEME_OPTIONS.map((opt) => (
+                                <button
+                                    key={opt.key}
+                                    type="button"
+                                    title={opt.label}
+                                    onClick={() => setForm((prev) => ({ ...prev, theme: opt.key as RoleTheme }))}
+                                    className={`h-7 w-7 rounded-full ${THEME_SOLID_BG[opt.key]} flex items-center justify-center ring-offset-2 transition ${
+                                        form.theme === opt.key ? 'ring-2 ring-slate-400' : ''
+                                    }`}
+                                >
+                                    {form.theme === opt.key && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSave}
+                        className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm"
+                    >
+                        Lưu thay đổi
+                    </button>
+                </div>
+
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

@@ -32,6 +32,9 @@ export const AccessControlView: React.FC = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRole, setEditingRole] = useState<RoleBasicInfo | null>(null);
+    // Đổi mỗi lần mở RoleModal để component remount với state khởi tạo mới,
+    // thay cho việc RoleModal tự dùng useEffect đồng bộ lại initialData.
+    const [modalKey, setModalKey] = useState(0);
     const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
 
     // Toast notification helper
@@ -84,6 +87,7 @@ export const AccessControlView: React.FC = () => {
             isSystemRole: role.isSystemRole,
         });
         setIsModalOpen(true);
+        setModalKey((k) => k + 1);
     };
 
     const handleSaveRole = (data: RoleBasicInfo) => {
@@ -204,6 +208,7 @@ export const AccessControlView: React.FC = () => {
                         onAdd={() => {
                             setEditingRole(null);
                             setIsModalOpen(true);
+                            setModalKey((k) => k + 1);
                         }}
                         onEdit={openEditModalFor}
                         onDelete={handleDeleteRole}
@@ -313,6 +318,7 @@ export const AccessControlView: React.FC = () => {
             </div>
 
             <RoleModal
+                key={modalKey}
                 open={isModalOpen}
                 initialData={editingRole}
                 departments={departments}
