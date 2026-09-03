@@ -63,9 +63,6 @@ class CreateProjectServiceTest {
     private SaveProjectPort saveProjectPort;
 
     @Mock
-    private LoadProjectPort loadProjectPort;
-
-    @Mock
     private LoadOrgUnitPort loadOrgUnitPort;
 
     @Mock
@@ -89,7 +86,6 @@ class CreateProjectServiceTest {
     void setUp() {
         service = new CreateProjectService(
                 saveProjectPort,
-                loadProjectPort,
                 loadOrgUnitPort,
                 loadEmployeePort,
                 loadUserPort,
@@ -219,67 +215,17 @@ class CreateProjectServiceTest {
     }
 
     @Test
-    @DisplayName("Tự động retry sinh mã mới khi lần đầu gặp trùng mã (DuplicateProjectCodeException)")
-    void testCreateProject_RetryOnDuplicateCode_Success() {
+    @DisplayName("Ném DuplicateProjectCodeException khi mã dự án bị trùng trên database")
+    void testCreateProject_DuplicateCode_ThrowsDuplicateProjectCodeException() {
         when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
         when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
 
-        // Lần đầu save bị ném DuplicateProjectCodeException, lần 2 save thành công
         when(saveProjectPort.save(any(Project.class)))
-                .thenThrow(new DuplicateProjectCodeException("Mã trùng"))
-                .thenAnswer(invocation -> {
-                    Project input = invocation.getArgument(0);
-                    return new Project(
-                            new ProjectId(2L),
-                            input.getProjectCode(),
-                            input.getProjectName(),
-                            input.getOrgUnitId(),
-                            input.getManagerId(),
-                            input.getStartDate(),
-                            input.getEndDate(),
-                            input.getEstimatedHours(),
-                            input.getDescription(),
-                            ProjectStatus.ACTIVE,
-                            input.getCreatedBy(),
-                            input.getCreatedAt(),
-                            null,
-                            0L
-                    );
-                });
+                .thenThrow(new DuplicateProjectCodeException("Mã dự án đã tồn tại"));
 
         CreateProjectCommand command = new CreateProjectCommand(
-                "Dự án Retry",
-                ORG_UNIT_ID,
-                null,
-                LocalDate.of(2026, 9, 1),
-                LocalDate.of(2026, 12, 31),
-                BigDecimal.valueOf(100),
-                null
-        );
-
-        ProjectResult result = service.createProject(command);
-
-        assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(2L);
-        verify(saveProjectPort, times(2)).save(any(Project.class));
-    }
-
-    @Test
-    @DisplayName("Ném DuplicateProjectCodeException khi retry tối đa 3 lần vẫn bị trùng mã")
-    void testCreateProject_ExhaustRetries_ThrowsDuplicateProjectCodeException() {
-        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
-        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
-        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
-
-        // Cả 3 lần đều bị trùng
-        when(saveProjectPort.save(any(Project.class)))
-                .thenThrow(new DuplicateProjectCodeException("Mã trùng lần 1"))
-                .thenThrow(new DuplicateProjectCodeException("Mã trùng lần 2"))
-                .thenThrow(new DuplicateProjectCodeException("Mã trùng lần 3"));
-
-        CreateProjectCommand command = new CreateProjectCommand(
-                "Dự án Trùng 3 lần",
+                "Dự án Trùng Mã",
                 ORG_UNIT_ID,
                 null,
                 LocalDate.of(2026, 9, 1),
@@ -289,9 +235,10 @@ class CreateProjectServiceTest {
         );
 
         assertThatThrownBy(() -> service.createProject(command))
-                .isInstanceOf(DuplicateProjectCodeException.class);
+                .isInstanceOf(DuplicateProjectCodeException.class)
+                .hasMessageContaining("Mã dự án đã tồn tại");
 
-        verify(saveProjectPort, times(3)).save(any(Project.class));
+        verify(saveProjectPort).save(any(Project.class));
     }
 
     @Test

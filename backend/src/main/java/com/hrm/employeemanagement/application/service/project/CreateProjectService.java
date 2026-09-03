@@ -33,7 +33,6 @@ import com.hrm.employeemanagement.domain.user.UserId;
 
 public class CreateProjectService implements CreateProjectUseCase {
     private final SaveProjectPort saveProjectPort;
-    private final LoadProjectPort loadProjectPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadEmployeePort loadEmployeePort;
     private final LoadUserPort loadUserPort;
@@ -44,7 +43,6 @@ public class CreateProjectService implements CreateProjectUseCase {
 
     public CreateProjectService(
             SaveProjectPort saveProjectPort,
-            LoadProjectPort loadProjectPort,
             LoadOrgUnitPort loadOrgUnitPort,
             LoadEmployeePort loadEmployeePort,
             LoadUserPort loadUserPort,
@@ -52,7 +50,6 @@ public class CreateProjectService implements CreateProjectUseCase {
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
         this.saveProjectPort = Objects.requireNonNull(saveProjectPort, "SaveProjectPort must not be null");
-        this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
@@ -88,34 +85,19 @@ public class CreateProjectService implements CreateProjectUseCase {
             }
         }
 
-        int maxAttempts = 3;
-        Project savedProject = null;
-        DuplicateProjectCodeException lastDuplicateProjectCodeException = null;
+        String generatedCode = generateProjectCode(orgUnit);
+        Project project = Project.createNew(
+                generatedCode,
+                command.projectName(),
+                command.orgUnitId(),
+                command.managerId() != null ? new EmployeeId(command.managerId()) : null,
+                command.startDate(),
+                command.endDate(),
+                command.estimatedHours(),
+                command.description(),
+                new UserId(currentUserId));
 
-        for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            String generatedCode = generateProjectCode(orgUnit);
-            Project project = Project.createNew(
-                    generatedCode,
-                    command.projectName(),
-                    command.orgUnitId(),
-                    command.managerId() != null ? new EmployeeId(command.managerId()) : null,
-                    command.startDate(),
-                    command.endDate(),
-                    command.estimatedHours(),
-                    command.description(),
-                    new UserId(currentUserId));
-
-            try {
-                savedProject = saveProjectPort.save(project);
-                break;
-            } catch (DuplicateProjectCodeException ex) {
-                lastDuplicateProjectCodeException = ex;
-            }
-        }
-        if (savedProject == null) {
-            throw lastDuplicateProjectCodeException != null ? lastDuplicateProjectCodeException
-                    : new DuplicateProjectCodeException("Không thể khởi tạo mã dự án duy nhất sau nhiều lần thử");
-        }
+        Project savedProject = saveProjectPort.save(project);
 
         saveAuditLogPort.save(AuditLog.create(currentUserId, "CREATE_PROJECT", "projects", savedProject.getIdValue()));
         return mapToProjectResult(savedProject);
@@ -201,7 +183,7 @@ public class CreateProjectService implements CreateProjectUseCase {
                 ? orgUnit.getUnitCode().trim().toUpperCase()
                 : "GEN";
         String datePart = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
-        String randomHex = String.format("%04X", ThreadLocalRandom.current().nextInt(0x10000));
+        String randomHex = String.format("%06X", ThreadLocalRandom.current().nextInt(0x1000000));
         return String.format("PRJ-%s-%s-%s", unitCode, datePart, randomHex);
     }
 }

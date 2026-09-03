@@ -170,8 +170,7 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
                 while (current != null) {
                         if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
                                 String constraintName = cve.getConstraintName();
-                                if (constraintName != null
-                                                && constraintName.toLowerCase().contains("uk_projects_project_code")) {
+                                if ("uk_projects_project_code".equalsIgnoreCase(constraintName)) {
                                         return true;
                                 }
                         }

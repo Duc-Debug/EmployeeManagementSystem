@@ -41,7 +41,6 @@ public class ProjectUseCaseConfig {
         @Bean
         public CreateProjectUseCase createProjectUseCase(
                         SaveProjectPort saveProjectPort,
-                        LoadProjectPort loadProjectPort,
                         LoadOrgUnitPort loadOrgUnitPort,
                         LoadEmployeePort loadEmployeePort,
                         LoadUserPort loadUserPort,
@@ -50,7 +49,6 @@ public class ProjectUseCaseConfig {
                         AuthorizationService authorizationService) {
                 CreateProjectService pureService = new CreateProjectService(
                                 saveProjectPort,
-                                loadProjectPort,
                                 loadOrgUnitPort,
                                 loadEmployeePort,
                                 loadUserPort,
