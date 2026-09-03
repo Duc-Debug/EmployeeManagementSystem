@@ -43,6 +43,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
@@ -2889,6 +2890,129 @@ void testUpdateUserRole_DoesNotChangeEmployeeOrgUnit() {
         assertEquals("John Doe Updated", employee.getFullName());
         assertEquals("Phòng ban mới", result.getOrgUnitName());
 
+        verify(saveEmployeePort).save(employee);
+    }
+
+    @Test
+    @DisplayName("updateUser ném DuplicateEmployeeCodeException khi mã nhân viên bị trùng với nhân viên khác")
+    void testUpdateUser_DuplicateEmployeeCode_ThrowsException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "john_doe",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        Employee employee = new Employee(
+                new EmployeeId(20L),
+                new UserId(2L),
+                15L,
+                "EMP-002",
+                "John Doe",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "John Doe Updated",
+                "john.updated@company.com",
+                "EMP-EXISTS",
+                null,
+                "VT-04",
+                DataScope.COMPANY,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.of(employee));
+        when(saveUserPort.save(user))
+                .thenReturn(user);
+        when(loadEmployeePort.existsByEmployeeCodeAndIdNot("EMP-EXISTS", new EmployeeId(20L)))
+                .thenReturn(true);
+
+        assertThrows(
+                DuplicateEmployeeCodeException.class,
+                () -> userService.updateUser(command)
+        );
+
+        verify(saveEmployeePort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateUser không kiểm tra trùng nếu employeeCode được giữ nguyên như cũ")
+    void testUpdateUser_SameEmployeeCode_DoesNotQueryDuplicate() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "john_doe",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        Employee employee = new Employee(
+                new EmployeeId(20L),
+                new UserId(2L),
+                15L,
+                "EMP-002",
+                "John Doe",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "John Doe Updated",
+                "john.updated@company.com",
+                "EMP-002",
+                null,
+                "VT-04",
+                DataScope.COMPANY,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.of(employee));
+        when(saveUserPort.save(user))
+                .thenReturn(user);
+        when(saveEmployeePort.save(employee))
+                .thenReturn(employee);
+        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        15L,
+                                        "OU-15",
+                                        "Phòng hiện tại"
+                                )
+                        )
+                );
+
+        UserResult result = userService.updateUser(command);
+
+        assertEquals("EMP-002", result.getFullName() != null ? employee.getEmployeeCode() : null);
+        verify(loadEmployeePort, never()).existsByEmployeeCodeAndIdNot(any(), any());
         verify(saveEmployeePort).save(employee);
     }
 }

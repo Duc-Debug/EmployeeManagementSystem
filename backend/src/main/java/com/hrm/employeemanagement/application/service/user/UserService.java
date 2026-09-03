@@ -33,6 +33,7 @@ import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
@@ -470,19 +471,32 @@ public UserResult updateUserRole(
 
         Employee employee = loadEmployeePort.findByUserId(updatedUser.getId()).orElse(null);
         if (employee != null) {
+            if (command.employeeCode() != null && !command.employeeCode().isBlank()) {
+                String trimmedCode = command.employeeCode().trim();
+                if (!trimmedCode.equalsIgnoreCase(employee.getEmployeeCode())
+                        && loadEmployeePort.existsByEmployeeCodeAndIdNot(trimmedCode, employee.getId())) {
+                    throw new DuplicateEmployeeCodeException(trimmedCode);
+                }
+            }
             if (command.orgUnitId() != null) {
                 loadActiveOrgUnitOrThrow(command.orgUnitId());
             }
             employee.updateUserAccountDetails(command.fullName(), command.employeeCode(), command.orgUnitId());
             employee = saveEmployeePort.save(employee);
         } else if (command.fullName() != null && !command.fullName().isBlank()) {
+            String newEmpCode = command.employeeCode() != null && !command.employeeCode().isBlank()
+                    ? command.employeeCode().trim()
+                    : "EMP-" + updatedUser.getIdValue();
+            if (loadEmployeePort.existsByEmployeeCode(newEmpCode)) {
+                throw new DuplicateEmployeeCodeException(newEmpCode);
+            }
             if (command.orgUnitId() != null) {
                 loadActiveOrgUnitOrThrow(command.orgUnitId());
             }
             Employee newEmployee = Employee.createNew(
                     updatedUser.getId(),
                     command.orgUnitId(),
-                    command.employeeCode() != null ? command.employeeCode() : "EMP-" + updatedUser.getIdValue(),
+                    newEmpCode,
                     command.fullName()
             );
             employee = saveEmployeePort.save(newEmployee);
