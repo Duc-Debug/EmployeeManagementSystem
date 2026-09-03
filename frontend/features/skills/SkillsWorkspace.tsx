@@ -47,7 +47,6 @@ export function SkillsWorkspace() {
   // Fetch catalog & my skills
   useEffect(() => {
     let ignore = false;
-    setIsLoading(true);
 
     Promise.all([
       getMySkills(),

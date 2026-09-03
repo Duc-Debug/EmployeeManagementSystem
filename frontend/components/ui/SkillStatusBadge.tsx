@@ -1,5 +1,3 @@
-import { Icon } from "@/components/ui/Icon";
-
 export type SkillApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 interface SkillStatusBadgeProps {

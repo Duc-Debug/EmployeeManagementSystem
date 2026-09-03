@@ -38,7 +38,7 @@ export async function getSkillCatalog(): Promise<Skill[]> {
     return await apiRequest<Skill[]>("/skills/catalog", {
       method: "GET",
     });
-  } catch (err) {
+  } catch {
     // Trả về danh mục kỹ năng mặc định nếu endpoint catalog chưa bật
     return [
       { id: 1, code: "JAVA", name: "Java", category: "Backend" },
@@ -60,7 +60,7 @@ export async function getMySkills(): Promise<EmployeeSkill[]> {
     return await apiRequest<EmployeeSkill[]>("/employees/me/skills", {
       method: "GET",
     });
-  } catch (err) {
+  } catch {
     return [];
   }
 }
