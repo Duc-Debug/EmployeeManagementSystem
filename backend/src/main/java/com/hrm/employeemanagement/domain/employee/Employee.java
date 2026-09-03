@@ -86,7 +86,9 @@ public class Employee {
         if (employeeCode != null && !employeeCode.isBlank()) {
             this.employeeCode = employeeCode.trim();
         }
-        this.orgUnitId = orgUnitId;
+        if (orgUnitId != null) {
+            this.orgUnitId = orgUnitId;
+        }
     }
 
     private void setStandardHoursPerWeek(Integer hours) {

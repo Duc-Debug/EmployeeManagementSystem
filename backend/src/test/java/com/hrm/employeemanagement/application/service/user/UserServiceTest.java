@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.dto.user.UpdateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -2751,4 +2752,143 @@ void testUpdateUserRole_DoesNotChangeEmployeeOrgUnit() {
     verify(loadOrgUnitPort, never())
             .findById(new OrgUnitId(99L));
 }
+
+    @Test
+    @DisplayName("updateUser không làm mất orgUnitId hiện tại của Employee khi orgUnitId truyền vào là null")
+    void testUpdateUser_NullOrgUnitId_PreservesEmployeeOrgUnit() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "john_doe",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        Employee employee = new Employee(
+                new EmployeeId(20L),
+                new UserId(2L),
+                15L,
+                "EMP-002",
+                "John Doe",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "John Doe Updated",
+                "john.updated@company.com",
+                "EMP-002-UPDATED",
+                null,
+                "VT-04",
+                DataScope.COMPANY,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.of(employee));
+        when(saveUserPort.save(user))
+                .thenReturn(user);
+        when(saveEmployeePort.save(employee))
+                .thenReturn(employee);
+        when(loadOrgUnitPort.findById(new OrgUnitId(15L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        15L,
+                                        "OU-15",
+                                        "Phòng hiện tại"
+                                )
+                        )
+                );
+
+        UserResult result = userService.updateUser(command);
+
+        assertEquals(15L, employee.getOrgUnitId(), "orgUnitId của Employee phải được bảo toàn khi command.orgUnitId() là null");
+        assertEquals(15L, result.getOrgUnitId(), "result.orgUnitId phải phản ánh đúng orgUnitId hiện tại");
+        assertEquals("John Doe Updated", employee.getFullName());
+        assertEquals("EMP-002-UPDATED", employee.getEmployeeCode());
+        assertEquals("Phòng hiện tại", result.getOrgUnitName());
+
+        verify(saveEmployeePort).save(employee);
+    }
+
+    @Test
+    @DisplayName("updateUser cập nhật orgUnitId mới cho Employee khi orgUnitId truyền vào có giá trị hợp lệ")
+    void testUpdateUser_NonNullOrgUnitId_UpdatesEmployeeOrgUnit() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "john_doe",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        Employee employee = new Employee(
+                new EmployeeId(20L),
+                new UserId(2L),
+                15L,
+                "EMP-002",
+                "John Doe",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "John Doe Updated",
+                "john.updated@company.com",
+                "EMP-002-UPDATED",
+                25L,
+                "VT-04",
+                DataScope.COMPANY,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.of(employee));
+        when(saveUserPort.save(user))
+                .thenReturn(user);
+        when(saveEmployeePort.save(employee))
+                .thenReturn(employee);
+        when(loadOrgUnitPort.findById(new OrgUnitId(25L)))
+                .thenReturn(
+                        Optional.of(
+                                activeOrgUnit(
+                                        25L,
+                                        "OU-25",
+                                        "Phòng ban mới"
+                                )
+                        )
+                );
+
+        UserResult result = userService.updateUser(command);
+
+        assertEquals(25L, employee.getOrgUnitId(), "orgUnitId của Employee phải được cập nhật sang đơn vị mới");
+        assertEquals(25L, result.getOrgUnitId(), "result.orgUnitId phải phản ánh đơn vị mới");
+        assertEquals("John Doe Updated", employee.getFullName());
+        assertEquals("Phòng ban mới", result.getOrgUnitName());
+
+        verify(saveEmployeePort).save(employee);
+    }
 }
