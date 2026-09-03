@@ -3058,4 +3058,216 @@ void testUpdateUserRole_DoesNotChangeEmployeeOrgUnit() {
         verify(saveUserPort, never()).save(any());
         verify(saveEmployeePort, never()).save(any());
     }
+
+    @Test
+    @DisplayName("updateUser ném DuplicateUsernameException khi email bị trùng với tài khoản khác")
+    void testUpdateUser_DuplicateEmail_ThrowsDuplicateUsernameException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "john_doe",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "John Doe",
+                "duplicate@company.com",
+                null,
+                null,
+                "VT-04",
+                DataScope.COMPANY,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+        when(loadUserPort.existsByEmail("duplicate@company.com"))
+                .thenReturn(true);
+
+        assertThrows(
+                DuplicateUsernameException.class,
+                () -> userService.updateUser(command)
+        );
+
+        verify(saveUserPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateUser ném PermissionDeniedException khi target user nằm ngoài data scope của admin")
+    void testUpdateUser_TargetUserOutsideDataScope_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User branchAdmin = new User(
+                new UserId(ADMIN_ID),
+                "branch_admin",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+        branchAdmin.changeDataScope(DataScope.ORGANIZATION_BRANCH, 10L);
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(branchAdmin));
+
+        when(loadUserPort.existsInOrgUnitBranch(99L, 10L))
+                .thenReturn(false);
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                99L,
+                "Outside User",
+                "outside@company.com",
+                null,
+                null,
+                "VT-04",
+                DataScope.SELF,
+                null
+        );
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.updateUser(command)
+        );
+
+        verify(saveUserPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateUser ném PermissionDeniedException khi OrgUnit được chọn nằm ngoài data scope của admin")
+    void testUpdateUser_OrgUnitOutsideDataScope_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User branchAdmin = new User(
+                new UserId(ADMIN_ID),
+                "branch_admin",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(10L)
+        );
+        branchAdmin.changeDataScope(DataScope.ORGANIZATION_BRANCH, 10L);
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(branchAdmin));
+
+        when(loadUserPort.existsInOrgUnitBranch(2L, 10L))
+                .thenReturn(true);
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(99L, 10L))
+                .thenReturn(false);
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "User 2",
+                "user2@company.com",
+                null,
+                99L,
+                "VT-04",
+                DataScope.SELF,
+                null
+        );
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.updateUser(command)
+        );
+
+        verify(saveUserPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateUser ném OrgUnitNotFoundException khi gán dataScope ORGANIZATION_BRANCH nhưng scopeOrgUnitId không tồn tại")
+    void testUpdateUser_OrganizationBranch_ScopeOrgUnitNotFound_ThrowsOrgUnitNotFoundException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "john_doe",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "John Doe",
+                "john@company.com",
+                null,
+                null,
+                "VT-04",
+                DataScope.ORGANIZATION_BRANCH,
+                999L
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+        when(loadOrgUnitPort.findById(new OrgUnitId(999L)))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                OrgUnitNotFoundException.class,
+                () -> userService.updateUser(command)
+        );
+
+        verify(saveUserPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateUser ném LastAdminProtectionException khi cố gắng hạ quyền Quản trị viên duy nhất của hệ thống")
+    void testUpdateUser_DowngradeLastAdmin_ThrowsLastAdminProtectionException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User systemAdminUser = new User(
+                new UserId(2L),
+                "admin_target",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "Admin Target",
+                "admin_target@company.com",
+                null,
+                null,
+                "VT-04",
+                DataScope.COMPANY,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(systemAdminUser));
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.of(staffRole));
+        when(loadUserPort.countActiveAdmins())
+                .thenReturn(1L);
+
+        assertThrows(
+                LastAdminProtectionException.class,
+                () -> userService.updateUser(command)
+        );
+
+        verify(loadRolePort).lockRoleForUpdate(RoleCode.VT_06);
+        verify(saveUserPort, never()).save(any());
+    }
 }
