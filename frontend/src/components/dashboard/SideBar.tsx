@@ -3,11 +3,13 @@ import {
     Users,
     Clock,
     Calendar as CalendarIcon,
+    Target,
     Building2,
     BarChart3,
     ShieldCheck,
     Settings,
     ChevronRight,
+    User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +18,7 @@ const SIDEBAR_WORKSPACE = [
     { name: "Nhân sự", icon: Users, id: "employees" },
     { name: "Chấm công", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
+    { name: "Khai báo kỹ năng", icon: Target, id: "skills" },
     { name: "Phòng ban", icon: Building2, id: "departments" },
     { name: "Báo cáo", icon: BarChart3, id: "reports" },
 ];
@@ -25,13 +28,25 @@ const SIDEBAR_SETTINGS = [
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
 
+interface SideBarUser {
+    name: string;
+    position: string;
+    avatarUrl?: string;
+}
+
 interface SideBarProps {
     activeTab: string;
     setActiveTab: (tab: string) => void;
     isOpen: boolean;
+    user?: SideBarUser;
 }
 
-export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProps) {
+export default function SideBar({
+                                    activeTab,
+                                    setActiveTab,
+                                    isOpen,
+                                    user = { name: "Người dùng", position: "Chưa cập nhật chức vụ" },
+                                }: SideBarProps) {
     return (
         <aside
             className={cn(
@@ -101,12 +116,22 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                 </div>
             </div>
 
-            <div className="w-[208px] rounded-2xl border border-white/15 bg-white/[0.06] p-4 flex-none backdrop-blur-xl">
-                <p className="text-xs font-bold text-white">Cần hỗ trợ?</p>
-                <p className="mt-1 text-xs text-white/60">Xem hướng dẫn quản lý nhân sự.</p>
-                <a href="#" className="mt-2 block text-xs font-semibold text-[#63ecc8] hover:underline">
-                    Tìm hiểu thêm →
-                </a>
+            <div className="w-[208px] flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.06] p-3 flex-none backdrop-blur-xl">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/20 text-white">
+                    {user.avatarUrl ? (
+                        <img
+                            src={user.avatarUrl}
+                            alt={user.name}
+                            className="h-full w-full object-cover"
+                        />
+                    ) : (
+                        <User className="h-4 w-4" />
+                    )}
+                </div>
+                <div className="min-w-0">
+                    <p className="truncate text-xs font-bold text-white">{user.name}</p>
+                    <p className="truncate text-[11px] text-white/60">{user.position}</p>
+                </div>
             </div>
         </aside>
     );

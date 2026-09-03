@@ -8,6 +8,7 @@ import DepartmentsView from "../department/DepartmentsView";
 import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
 import AccessControlView from "../access/AccessControlView";
 import AttendanceView from "../attendance/AttendanceView";
+import SkilldeclarationView from "../skilldeclaration/SkilldeclarationView";
 import type { AttendanceRecord } from "@/lib/hr-data";
 
 // Dữ liệu chấm công mẫu — thay bằng dữ liệu thật (API/store) khi có sẵn.
@@ -125,6 +126,8 @@ export default function Dashboard() {
                         {activeTab === "departments" && <DepartmentsView />}
 
                         {activeTab === "access" && <AccessControlView />}
+
+                        {activeTab === "skills" && <SkilldeclarationView />}
 
                         {activeTab === "overview" && (
                             <div>
