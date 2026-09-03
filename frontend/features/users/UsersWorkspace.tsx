@@ -93,13 +93,15 @@ export function UsersWorkspace() {
   }, [reloadTick]);
 
   const orgUnits = useMemo(() => flattenOrgTree(rawTree), [rawTree]);
-  const orgUnitOptions = useMemo(() => orgUnits.map((orgUnit) => ({
-    depth: orgUnit.level,
-    id: orgUnit.id,
-    unitCode: orgUnit.unitCode,
-    unitName: orgUnit.unitName,
-    unitType: orgUnit.unitType,
-  })), [orgUnits]);
+  const orgUnitOptions = useMemo(() => orgUnits
+    .filter((orgUnit) => orgUnit.unitType !== "COMPANY")
+    .map((orgUnit) => ({
+      depth: orgUnit.level,
+      id: orgUnit.id,
+      unitCode: orgUnit.unitCode,
+      unitName: orgUnit.unitName,
+      unitType: orgUnit.unitType,
+    })), [orgUnits]);
 
   const editingUser = editor?.mode === "edit" ? users.find((user) => user.id === editor.userId) : undefined;
   
@@ -124,25 +126,19 @@ export function UsersWorkspace() {
   }, [query, roleFilter, statusFilter, users]);
 
   const getNextEmployeeCode = useCallback(
-    (targetOrgUnitId: string) => {
+    () => {
       const nextSeqNum = users.length + 1;
       const nextSeq = String(nextSeqNum).padStart(3, "0");
-      const selectedOrgUnit = orgUnits.find((u) => String(u.id) === String(targetOrgUnitId));
-      const prefix = selectedOrgUnit ? selectedOrgUnit.unitCode : (orgUnits[0]?.unitCode ?? "EMP");
-      return `${prefix}-${nextSeq}`;
+      return `EMP-${nextSeq}`;
     },
-    [orgUnits, users.length],
+    [users.length],
   );
 
   function openCreateDialog() {
-    const defaultOrgUnit = orgUnits.find((u) => u.status === "ACTIVE") ?? orgUnits[0];
-    const defaultOrgUnitId = defaultOrgUnit ? String(defaultOrgUnit.id) : "";
-    const autoEmployeeCode = getNextEmployeeCode(defaultOrgUnitId);
-
     setDraft({
       ...EMPTY_DRAFT,
-      employeeCode: autoEmployeeCode,
-      orgUnitId: defaultOrgUnitId,
+      employeeCode: getNextEmployeeCode(),
+      orgUnitId: "",
     });
     setErrors({});
     setEditor({ mode: "create" });
@@ -161,13 +157,7 @@ export function UsersWorkspace() {
   }
 
   function updateDraft<Key extends keyof UserAccountDraft>(key: Key, value: UserAccountDraft[Key]) {
-    setDraft((currentDraft) => {
-      const nextDraft = { ...currentDraft, [key]: value };
-      if (key === "orgUnitId" && editor?.mode === "create") {
-        nextDraft.employeeCode = getNextEmployeeCode(String(value));
-      }
-      return nextDraft;
-    });
+    setDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
     setErrors((currentErrors) => ({ ...currentErrors, [key]: undefined }));
   }
 
