@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.domain.skill;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class EmployeeSkill {
@@ -8,7 +9,7 @@ public class EmployeeSkill {
     private final Long employeeId;
     private final Long skillId;
     private int proficiencyLevel;
-    private double yearsOfExperience;
+    private BigDecimal yearsOfExperience;
     private SkillStatus status;
     private Long approvedBy;
     private LocalDateTime approvedAt;
@@ -21,7 +22,7 @@ public class EmployeeSkill {
             Long employeeId,
             Long skillId,
             int proficiencyLevel,
-            double yearsOfExperience,
+            BigDecimal yearsOfExperience,
             SkillStatus status,
             Long approvedBy,
             LocalDateTime approvedAt,
@@ -47,7 +48,7 @@ public class EmployeeSkill {
      * Phương thức nghiệp vụ: Khai báo kỹ năng mới (TC-01). Luôn mặc định khởi
      * tạo ở trạng thái PENDING để Quản lý nguồn lực xác nhận.
      */
-    public static EmployeeSkill declare(Long employeeId, Long skillId, int proficiencyLevel, double yearsOfExperience) {
+    public static EmployeeSkill declare(Long employeeId, Long skillId, int proficiencyLevel, BigDecimal yearsOfExperience) {
         return new EmployeeSkill(
                 null,
                 employeeId,
@@ -66,7 +67,7 @@ public class EmployeeSkill {
     /**
      * Cập nhật mức thành thạo và số năm kinh nghiệm
      */
-    public void updateProficiency(int newProficiencyLevel, double newYearsOfExperience) {
+    public void updateProficiency(int newProficiencyLevel, BigDecimal newYearsOfExperience) {
         validateProficiencyAndExperience(newProficiencyLevel, newYearsOfExperience);
         this.proficiencyLevel = newProficiencyLevel;
         this.yearsOfExperience = newYearsOfExperience;
@@ -88,7 +89,7 @@ public class EmployeeSkill {
         this.updatedAt = LocalDateTime.now();
     }
 
-    private static void validateInputs(Long employeeId, Long skillId, int proficiencyLevel, double yearsOfExperience) {
+    private static void validateInputs(Long employeeId, Long skillId, int proficiencyLevel, BigDecimal yearsOfExperience) {
         if (employeeId == null) {
             throw new IllegalArgumentException("ID nhân viên không được để trống");
         }
@@ -98,11 +99,10 @@ public class EmployeeSkill {
         validateProficiencyAndExperience(proficiencyLevel, yearsOfExperience);
     }
 
-    private static void validateProficiencyAndExperience(int proficiencyLevel, double yearsOfExperience) {
-        if (proficiencyLevel < 1 || proficiencyLevel > 5) {
-            throw new IllegalArgumentException("Mức thành thạo phải từ 1 đến 5");
-        }
-        if (yearsOfExperience < 0) {
+    private static void validateProficiencyAndExperience(int proficiencyLevel, BigDecimal yearsOfExperience) {
+        // Tận dụng trực tiếp Domain Type ProficiencyLevel để kiểm tra ràng buộc mức thành thạo (1-5)
+        ProficiencyLevel.fromValue(proficiencyLevel);
+        if (yearsOfExperience == null || yearsOfExperience.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Số năm kinh nghiệm không được nhỏ hơn 0");
         }
     }
@@ -124,7 +124,11 @@ public class EmployeeSkill {
         return proficiencyLevel;
     }
 
-    public double getYearsOfExperience() {
+    public ProficiencyLevel getProficiencyLevelEnum() {
+        return ProficiencyLevel.fromValue(proficiencyLevel);
+    }
+
+    public BigDecimal getYearsOfExperience() {
         return yearsOfExperience;
     }
 

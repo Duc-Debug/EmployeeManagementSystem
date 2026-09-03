@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.hrm.employeemanagement.domain.skill.SkillStatus;
@@ -33,8 +34,8 @@ public class EmployeeSkillJpaEntity {
     @Column(name = "proficiency_level", nullable = false)
     private Integer proficiencyLevel;
 
-    @Column(name = "years_of_experience", nullable = false, columnDefinition = "DECIMAL(4,1)")
-    private Double yearsOfExperience;
+    @Column(name = "years_of_experience", nullable = false, precision = 4, scale = 1)
+    private BigDecimal yearsOfExperience;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -59,7 +60,7 @@ public class EmployeeSkillJpaEntity {
     }
 
     public EmployeeSkillJpaEntity(
-            Long id, Long employeeId, Long skillId, Integer proficiencyLevel, Double yearsOfExperience,
+            Long id, Long employeeId, Long skillId, Integer proficiencyLevel, BigDecimal yearsOfExperience,
             SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
             LocalDateTime createdAt, LocalDateTime updatedAt
     ) {
@@ -108,11 +109,11 @@ public class EmployeeSkillJpaEntity {
         this.proficiencyLevel = proficiencyLevel;
     }
 
-    public Double getYearsOfExperience() {
+    public BigDecimal getYearsOfExperience() {
         return yearsOfExperience;
     }
 
-    public void setYearsOfExperience(Double yearsOfExperience) {
+    public void setYearsOfExperience(BigDecimal yearsOfExperience) {
         this.yearsOfExperience = yearsOfExperience;
     }
 

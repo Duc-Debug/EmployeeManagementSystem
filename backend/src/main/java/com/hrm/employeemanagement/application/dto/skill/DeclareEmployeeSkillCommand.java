@@ -1,10 +1,12 @@
 package com.hrm.employeemanagement.application.dto.skill;
 
+import java.math.BigDecimal;
+
 public record DeclareEmployeeSkillCommand(
         Long employeeId,
         Long skillId,
         Integer proficiencyLevel,
-        Double yearsOfExperience
+        BigDecimal yearsOfExperience
 ) {
     public DeclareEmployeeSkillCommand {
         if (employeeId == null) {

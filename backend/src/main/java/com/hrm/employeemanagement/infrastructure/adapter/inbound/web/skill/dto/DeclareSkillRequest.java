@@ -1,5 +1,8 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.skill.dto;
 
+import java.math.BigDecimal;
+
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -15,13 +18,13 @@ public class DeclareSkillRequest {
     private Integer proficiencyLevel;
 
     @NotNull(message = "Số năm kinh nghiệm không được để trống")
-    @Min(value = 0, message = "Số năm kinh nghiệm không được nhỏ hơn 0")
-    private Double yearsOfExperience;
+    @DecimalMin(value = "0.0", message = "Số năm kinh nghiệm không được nhỏ hơn 0")
+    private BigDecimal yearsOfExperience;
 
     public DeclareSkillRequest() {
     }
 
-    public DeclareSkillRequest(Long skillId, Integer proficiencyLevel, Double yearsOfExperience) {
+    public DeclareSkillRequest(Long skillId, Integer proficiencyLevel, BigDecimal yearsOfExperience) {
         this.skillId = skillId;
         this.proficiencyLevel = proficiencyLevel;
         this.yearsOfExperience = yearsOfExperience;
@@ -43,11 +46,11 @@ public class DeclareSkillRequest {
         this.proficiencyLevel = proficiencyLevel;
     }
 
-    public Double getYearsOfExperience() {
+    public BigDecimal getYearsOfExperience() {
         return yearsOfExperience;
     }
 
-    public void setYearsOfExperience(Double yearsOfExperience) {
+    public void setYearsOfExperience(BigDecimal yearsOfExperience) {
         this.yearsOfExperience = yearsOfExperience;
     }
 }

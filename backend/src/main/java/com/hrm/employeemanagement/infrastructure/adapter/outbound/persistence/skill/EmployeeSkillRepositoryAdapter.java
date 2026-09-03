@@ -29,12 +29,31 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
             EmployeeSkillJpaEntity saved = repository.save(jpaEntity);
             return SkillPersistenceMapper.toDomain(saved);
         } catch (DataIntegrityViolationException ex) {
-            String msg = ex.getRootCause() != null ? ex.getRootCause().getMessage().toLowerCase() : "";
-            if (msg.contains("uq_employee_skill") || msg.contains("duplicate")) {
+            if (isDuplicateSkillConstraintViolation(ex)) {
                 throw new DuplicateEmployeeSkillException("Kỹ năng này đã có trong hồ sơ của nhân viên.");
             }
             throw ex;
         }
+    }
+
+    private boolean isDuplicateSkillConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable cause = ex.getMostSpecificCause();
+        String message = cause != null && cause.getMessage() != null ? cause.getMessage().toLowerCase() : "";
+
+        // 1. Kiểm tra chính xác tên constraint unique "uq_employee_skill"
+        if (message.contains("uq_employee_skill")) {
+            return true;
+        }
+
+        // 2. Kiểm tra mã lỗi SQL / SQLState dành cho lỗi trùng lặp dữ liệu (MySQL: 1062, ANSI SQLState: 23000 / 23505)
+        if (cause instanceof java.sql.SQLException sqlEx) {
+            int errorCode = sqlEx.getErrorCode();
+            String sqlState = sqlEx.getSQLState();
+            if (errorCode == 1062 || "23000".equals(sqlState) || "23505".equals(sqlState)) {
+                return message.contains("employee_skills") || message.contains("employee_id");
+            }
+        }
+        return false;
     }
 
     @Override

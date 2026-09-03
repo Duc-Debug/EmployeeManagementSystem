@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.dto.skill;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
@@ -13,7 +14,7 @@ public record EmployeeSkillResult(
         String skillCode,
         String skillCategory,
         Integer proficiencyLevel,
-        Double yearsOfExperience,
+        BigDecimal yearsOfExperience,
         String status,
         Long approvedBy,
         LocalDateTime approvedAt,

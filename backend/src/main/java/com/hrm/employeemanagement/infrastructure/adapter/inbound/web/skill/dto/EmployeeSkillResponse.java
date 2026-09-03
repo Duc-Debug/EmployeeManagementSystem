@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.skill.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.hrm.employeemanagement.application.dto.skill.EmployeeSkillResult;
@@ -13,7 +14,7 @@ public class EmployeeSkillResponse {
     private String skillCode;
     private String skillCategory;
     private Integer proficiencyLevel;
-    private Double yearsOfExperience;
+    private BigDecimal yearsOfExperience;
     private String status;
     private Long approvedBy;
     private LocalDateTime approvedAt;
@@ -71,7 +72,7 @@ public class EmployeeSkillResponse {
         return proficiencyLevel;
     }
 
-    public Double getYearsOfExperience() {
+    public BigDecimal getYearsOfExperience() {
         return yearsOfExperience;
     }
 

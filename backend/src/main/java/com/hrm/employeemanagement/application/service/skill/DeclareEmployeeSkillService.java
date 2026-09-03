@@ -16,6 +16,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.skill.DuplicateEmployeeSkillException;
+import com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException;
 import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
 import com.hrm.employeemanagement.domain.skill.Skill;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -58,7 +59,7 @@ public class DeclareEmployeeSkillService implements DeclareEmployeeSkillUseCase 
 
         // 3. Kiểm tra kỹ năng có tồn tại trong danh mục không
         Skill skill = skillCatalogRepository.findById(command.skillId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy kỹ năng trong danh mục với ID: " + command.skillId()));
+                .orElseThrow(() -> new SkillNotFoundException("Không tìm thấy kỹ năng trong danh mục với ID: " + command.skillId()));
 
         // 4. Kiểm tra dữ liệu trùng lặp (TC-02)
         if (employeeSkillRepository.existsByEmployeeIdAndSkillId(command.employeeId(), command.skillId())) {
