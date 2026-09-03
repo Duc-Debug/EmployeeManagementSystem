@@ -703,6 +703,10 @@ class ProjectServiceTest {
                 managerId != null
                         ? new EmployeeId(managerId)
                         : null,
+                null,
+                null,
+                java.math.BigDecimal.ZERO,
+                null,
                 ProjectStatus.ACTIVE,
                 new UserId(CURRENT_USER_ID),
                 LocalDateTime.now(),
