@@ -35,6 +35,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
@@ -446,11 +447,7 @@ public UserResult updateUserRole(
         if (command.roleCode() != null && !command.roleCode().isBlank()) {
             RoleCode newRoleCode = RoleCode.fromCode(command.roleCode());
             Role newRole = loadRolePort.findByCode(newRoleCode)
-                    .orElseGet(() ->
-                            loadRolePort.save(
-                                    new Role(null, newRoleCode, newRoleCode.getName())
-                            )
-                    );
+                    .orElseThrow(() -> new RoleNotFoundException(newRoleCode));
 
             if (user.isSystemAdmin() && !newRole.isSystemAdmin()) {
                 loadRolePort.lockRoleForUpdate(RoleCode.VT_06);

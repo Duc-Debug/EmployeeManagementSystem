@@ -4,6 +4,7 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
@@ -53,6 +54,17 @@ class UserExceptionHandlerTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertFalse(response.getBody().isSuccess());
         assertEquals("Không tìm thấy người dùng", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("Ánh xạ RoleNotFoundException thành HTTP 404 NOT FOUND")
+    void testHandleRoleNotFound() {
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleRoleNotFound(
+                new RoleNotFoundException("Không tìm thấy vai trò")
+        );
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("Không tìm thấy vai trò", response.getBody().getMessage());
     }
 
     @Test

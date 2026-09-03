@@ -45,6 +45,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.exception.user.SelfLockingException;
@@ -3014,5 +3015,47 @@ void testUpdateUserRole_DoesNotChangeEmployeeOrgUnit() {
         assertEquals("EMP-002", result.getFullName() != null ? employee.getEmployeeCode() : null);
         verify(loadEmployeePort, never()).existsByEmployeeCodeAndIdNot(any(), any());
         verify(saveEmployeePort).save(employee);
+    }
+
+    @Test
+    @DisplayName("updateUser ném RoleNotFoundException khi roleCode không tồn tại trong database thay vì tự động tạo mới")
+    void testUpdateUser_RoleNotFound_ThrowsRoleNotFoundException() {
+        when(authorizationService.require(
+                PermissionCode.USER_UPDATE
+        )).thenReturn(ADMIN_ID);
+
+        User user = new User(
+                new UserId(2L),
+                "john_doe",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(20L)
+        );
+
+        UpdateUserCommand command = new UpdateUserCommand(
+                2L,
+                "John Doe Updated",
+                "john.updated@company.com",
+                "EMP-002",
+                null,
+                "VT-04",
+                DataScope.COMPANY,
+                null
+        );
+
+        when(loadUserPort.findById(new UserId(2L)))
+                .thenReturn(Optional.of(user));
+        when(loadRolePort.findByCode(RoleCode.VT_04))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                RoleNotFoundException.class,
+                () -> userService.updateUser(command)
+        );
+
+        verify(loadRolePort, never()).save(any());
+        verify(saveUserPort, never()).save(any());
+        verify(saveEmployeePort, never()).save(any());
     }
 }
