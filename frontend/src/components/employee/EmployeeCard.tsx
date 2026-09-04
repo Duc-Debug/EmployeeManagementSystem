@@ -1,7 +1,8 @@
 "use client"
 
-import { User, Mail, Building2, Briefcase, CalendarDays, Pencil, Trash2 } from "lucide-react"
+import { User, Mail, Phone, Building2, Briefcase, CalendarDays, Pencil, Trash2 } from "lucide-react"
 import type { EmployeeFormData } from "./form/employeeForm.types"
+import { formatDisplayDate } from "@/lib/employee-storage"
 
 interface EmployeeCardProps {
     employee: EmployeeFormData
@@ -11,6 +12,8 @@ interface EmployeeCardProps {
 }
 
 export default function EmployeeCard({ employee, onEdit, onDelete, onView }: EmployeeCardProps) {
+    const displayJoinDate = formatDisplayDate(employee.joinDate || employee.startDate)
+
     return (
         <div
             onClick={() => onView && onView(employee)}
@@ -43,12 +46,24 @@ export default function EmployeeCard({ employee, onEdit, onDelete, onView }: Emp
                 </div>
             </div>
 
-            {/* Cột 2: Email, Phòng ban, Vai trò */}
+            {/* Cột 2: Email, SĐT, Phòng ban, Vai trò */}
             <div className="grid flex-1 grid-cols-1 gap-2 text-xs font-medium text-slate-600 sm:grid-cols-3 sm:px-4">
-                <span className="flex items-center gap-1.5 truncate">
-                    <Mail className="size-3.5 shrink-0 text-slate-400" />
-                    <span className="truncate">{employee.email}</span>
-                </span>
+                <div className="flex flex-col gap-1 min-w-0">
+                    <span className="flex items-center gap-1.5 truncate">
+                        <Mail className="size-3.5 shrink-0 text-slate-400" />
+                        {employee.email ? (
+                            <span className="truncate">{employee.email}</span>
+                        ) : (
+                            <span className="truncate text-slate-400 italic font-normal">Chưa có email</span>
+                        )}
+                    </span>
+                    {employee.phone && (
+                        <span className="flex items-center gap-1.5 truncate text-[11px] text-slate-500 font-mono">
+                            <Phone className="size-3 shrink-0 text-slate-400" />
+                            <span className="truncate">{employee.phone}</span>
+                        </span>
+                    )}
+                </div>
                 <span className="flex items-center gap-1.5 truncate">
                     <Building2 className="size-3.5 shrink-0 text-slate-400" />
                     <span className="truncate">{employee.department}</span>
@@ -65,7 +80,11 @@ export default function EmployeeCard({ employee, onEdit, onDelete, onView }: Emp
             <div className="flex items-center justify-between gap-3 sm:justify-end">
                 <span className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-2xs">
                     <CalendarDays className="size-3 text-slate-400" />
-                    {employee.joinDate || "—"}
+                    {displayJoinDate ? (
+                        <span>{displayJoinDate}</span>
+                    ) : (
+                        <span className="text-slate-400 italic font-normal">Chưa có dữ liệu</span>
+                    )}
                 </span>
 
                 <div className="flex items-center gap-1">

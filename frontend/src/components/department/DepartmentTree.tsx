@@ -275,7 +275,7 @@ export default function DepartmentTree() {
     const [dropTargetId, setDropTargetId] = useState<string | null>(null);
     const [modal, setModal] = useState<ModalState>(null);
     const [deleteTargetNode, setDeleteTargetNode] = useState<DepartmentNode | null>(null);
-    const [notification, setNotification] = useState<string>("");
+    const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     // Tải cấu trúc cây đơn vị từ Backend API khi mở trang
     useEffect(() => {
@@ -298,9 +298,9 @@ export default function DepartmentTree() {
 
     const q = searchQuery.trim().toLowerCase();
 
-    function showNotify(msg: string) {
-        setNotification(msg);
-        setTimeout(() => setNotification(""), 3500);
+    function showNotify(msg: string, type: "success" | "error" = "success") {
+        setNotification({ message: msg, type });
+        setTimeout(() => setNotification(null), 4000);
     }
 
     // Toggle collapse
@@ -338,63 +338,107 @@ export default function DepartmentTree() {
         return true;
     }
 
-    function handleDropNode(sourceId: string, targetId: string) {
+    async function handleDropNode(sourceId: string, targetId: string) {
         if (!canDrop(sourceId, targetId)) return;
 
         const sNum = parseInt(sourceId, 10);
         const tNum = parseInt(targetId, 10);
         if (!isNaN(sNum) && !isNaN(tNum)) {
-            moveOrgUnit(sNum, tNum).catch(() => {});
-        }
+            try {
+                await moveOrgUnit(sNum, tNum);
+                setTree((current) => {
+                    const root = cloneTree(current);
+                    const parent = findParent(root, sourceId);
+                    const target = findNode(root, targetId);
+                    const dragged = findNode(root, sourceId);
 
-        setTree((current) => {
-            const root = cloneTree(current);
-            const parent = findParent(root, sourceId);
-            const target = findNode(root, targetId);
-            const dragged = findNode(root, sourceId);
+                    if (!parent || !target || !dragged) return current;
 
-            if (!parent || !target || !dragged) return current;
+                    // Remove from old parent
+                    parent.children = parent.children.filter((c) => c.id !== sourceId);
+                    // Append to new target parent
+                    target.children.push(dragged);
 
-            // Remove from old parent
-            parent.children = parent.children.filter((c) => c.id !== sourceId);
-            // Append to new target parent
-            target.children.push(dragged);
+                    // Auto expand target
+                    setCollapsed((prev) => {
+                        const next = new Set(prev);
+                        next.delete(target.id);
+                        return next;
+                    });
 
-            // Auto expand target
-            setCollapsed((prev) => {
-                const next = new Set(prev);
-                next.delete(target.id);
-                return next;
+                    showNotify(`Đã chuyển "${dragged.name}" vào trực thuộc "${target.name}"`);
+                    return root;
+                });
+            } catch (err: any) {
+                console.error("Lỗi khi di chuyển phòng ban:", err);
+                const msg = err?.message || "Di chuyển đơn vị thất bại do lỗi từ máy chủ (400/403/500). Cây cơ cấu được giữ nguyên.";
+                showNotify(msg, "error");
+            }
+        } else {
+            setTree((current) => {
+                const root = cloneTree(current);
+                const parent = findParent(root, sourceId);
+                const target = findNode(root, targetId);
+                const dragged = findNode(root, sourceId);
+
+                if (!parent || !target || !dragged) return current;
+
+                // Remove from old parent
+                parent.children = parent.children.filter((c) => c.id !== sourceId);
+                // Append to new target parent
+                target.children.push(dragged);
+
+                // Auto expand target
+                setCollapsed((prev) => {
+                    const next = new Set(prev);
+                    next.delete(target.id);
+                    return next;
+                });
+
+                showNotify(`Đã chuyển "${dragged.name}" vào trực thuộc "${target.name}"`);
+                return root;
             });
-
-            showNotify(`Đã chuyển "${dragged.name}" vào trực thuộc "${target.name}"`);
-            return root;
-        });
+        }
     }
 
     // Toggle status Lock/Unlock
-    function handleToggleStatus(id: string) {
+    async function handleToggleStatus(id: string) {
         if (id === tree.id) return;
 
         const numId = parseInt(id, 10);
         const nodeTarget = findNode(tree, id);
         if (!isNaN(numId) && nodeTarget) {
-            if (nodeTarget.status === "ACTIVE") {
-                deactivateOrgUnit(numId).catch(() => {});
-            } else {
-                activateOrgUnit(numId).catch(() => {});
+            try {
+                if (nodeTarget.status === "ACTIVE") {
+                    await deactivateOrgUnit(numId);
+                } else {
+                    await activateOrgUnit(numId);
+                }
+                setTree((current) => {
+                    const root = cloneTree(current);
+                    const node = findNode(root, id);
+                    if (node) {
+                        node.status = node.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+                        showNotify(`Đã ${node.status === "ACTIVE" ? "mở khóa" : "tạm khóa"} "${node.name}"`);
+                    }
+                    return root;
+                });
+            } catch (err: any) {
+                console.error("Lỗi khi đổi trạng thái đơn vị:", err);
+                const msg = err?.message || "Không thể thay đổi trạng thái đơn vị do lỗi từ máy chủ.";
+                showNotify(msg, "error");
             }
+        } else {
+            setTree((current) => {
+                const root = cloneTree(current);
+                const node = findNode(root, id);
+                if (node) {
+                    node.status = node.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+                    showNotify(`Đã ${node.status === "ACTIVE" ? "mở khóa" : "tạm khóa"} "${node.name}"`);
+                }
+                return root;
+            });
         }
-
-        setTree((current) => {
-            const root = cloneTree(current);
-            const node = findNode(root, id);
-            if (node) {
-                node.status = node.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-                showNotify(`Đã ${node.status === "ACTIVE" ? "mở khóa" : "tạm khóa"} "${node.name}"`);
-            }
-            return root;
-        });
     }
 
     // Yêu cầu xóa đơn vị -> Mở Dialog xác nhận
@@ -404,26 +448,42 @@ export default function DepartmentTree() {
     }
 
     // Xác nhận xóa đơn vị sau khi người dùng bấm xác nhận trên Dialog
-    function handleConfirmDelete() {
+    async function handleConfirmDelete() {
         if (!deleteTargetNode) return;
         const targetId = deleteTargetNode.id;
         const targetName = deleteTargetNode.name;
 
         const numId = parseInt(targetId, 10);
         if (!isNaN(numId)) {
-            deactivateOrgUnit(numId).catch(() => {});
-        }
-
-        setTree((current) => {
-            const root = cloneTree(current);
-            const parent = findParent(root, targetId);
-            if (parent) {
-                parent.children = parent.children.filter((c) => c.id !== targetId);
-                showNotify(`Đã xóa đơn vị "${targetName}"`);
+            try {
+                await deactivateOrgUnit(numId);
+                setTree((current) => {
+                    const root = cloneTree(current);
+                    const parent = findParent(root, targetId);
+                    if (parent) {
+                        parent.children = parent.children.filter((c) => c.id !== targetId);
+                        showNotify(`Đã xóa đơn vị "${targetName}"`);
+                    }
+                    return root;
+                });
+                setDeleteTargetNode(null);
+            } catch (err: any) {
+                console.error("Lỗi khi xóa đơn vị:", err);
+                const msg = err?.message || "Không thể xóa đơn vị do lỗi từ máy chủ.";
+                showNotify(msg, "error");
             }
-            return root;
-        });
-        setDeleteTargetNode(null);
+        } else {
+            setTree((current) => {
+                const root = cloneTree(current);
+                const parent = findParent(root, targetId);
+                if (parent) {
+                    parent.children = parent.children.filter((c) => c.id !== targetId);
+                    showNotify(`Đã xóa đơn vị "${targetName}"`);
+                }
+                return root;
+            });
+            setDeleteTargetNode(null);
+        }
     }
 
     // Save modal
@@ -440,27 +500,49 @@ export default function DepartmentTree() {
         if (modal.mode === "edit") {
             const numId = parseInt(modal.node.id, 10);
             if (!isNaN(numId)) {
-                updateOrgUnit(numId, {
-                    unitName: data.name,
-                    unitType: data.unitType,
-                    description: data.description,
-                }).catch(() => {});
-            }
-
-            setTree((current) => {
-                const root = cloneTree(current);
-                const node = findNode(root, modal.node.id);
-                if (node) {
-                    node.name = data.name;
-                    node.unitCode = data.unitCode;
-                    node.manager = data.manager;
-                    node.count = data.count;
-                    node.unitType = data.unitType;
-                    node.description = data.description;
-                    showNotify(`Đã cập nhật thông tin "${data.name}"`);
+                try {
+                    await updateOrgUnit(numId, {
+                        unitName: data.name,
+                        unitType: data.unitType,
+                        description: data.description,
+                    });
+                    setTree((current) => {
+                        const root = cloneTree(current);
+                        const node = findNode(root, modal.node.id);
+                        if (node) {
+                            node.name = data.name;
+                            node.unitCode = data.unitCode;
+                            node.manager = data.manager;
+                            node.count = data.count;
+                            node.unitType = data.unitType;
+                            node.description = data.description;
+                            showNotify(`Đã cập nhật thông tin "${data.name}"`);
+                        }
+                        return root;
+                    });
+                    setModal(null);
+                } catch (err: any) {
+                    console.error("Lỗi khi cập nhật đơn vị:", err);
+                    const msg = err?.message || "Cập nhật đơn vị thất bại do lỗi từ máy chủ.";
+                    showNotify(msg, "error");
                 }
-                return root;
-            });
+            } else {
+                setTree((current) => {
+                    const root = cloneTree(current);
+                    const node = findNode(root, modal.node.id);
+                    if (node) {
+                        node.name = data.name;
+                        node.unitCode = data.unitCode;
+                        node.manager = data.manager;
+                        node.count = data.count;
+                        node.unitType = data.unitType;
+                        node.description = data.description;
+                        showNotify(`Đã cập nhật thông tin "${data.name}"`);
+                    }
+                    return root;
+                });
+                setModal(null);
+            }
         } else if (modal.mode === "create") {
             const parentNum = parseInt(modal.parentId, 10);
             let createdId = nextId();
@@ -475,46 +557,53 @@ export default function DepartmentTree() {
                 if (res?.id) {
                     createdId = String(res.id);
                 }
-            } catch {
-                // Backend offline fallback
+                setTree((current) => {
+                    const root = cloneTree(current);
+                    const parent = findNode(root, modal.parentId);
+                    if (parent) {
+                        const newNode: DepartmentNode = {
+                            id: createdId,
+                            name: data.name,
+                            unitCode: data.unitCode.toUpperCase(),
+                            manager: data.manager,
+                            count: data.count,
+                            unitType: data.unitType,
+                            status: "ACTIVE",
+                            description: data.description,
+                            children: [],
+                        };
+                        parent.children.push(newNode);
+                        setCollapsed((prev) => {
+                            const next = new Set(prev);
+                            next.delete(parent.id);
+                            return next;
+                        });
+                        showNotify(`Đã tạo mới đơn vị "${data.name}"`);
+                    }
+                    return root;
+                });
+                setModal(null);
+            } catch (err: any) {
+                console.error("Lỗi khi tạo mới đơn vị:", err);
+                const msg = err?.message || "Không thể tạo mới đơn vị do lỗi từ máy chủ.";
+                showNotify(msg, "error");
             }
-
-            setTree((current) => {
-                const root = cloneTree(current);
-                const parent = findNode(root, modal.parentId);
-                if (parent) {
-                    const newNode: DepartmentNode = {
-                        id: createdId,
-                        name: data.name,
-                        unitCode: data.unitCode.toUpperCase(),
-                        manager: data.manager,
-                        count: data.count,
-                        unitType: data.unitType,
-                        status: "ACTIVE",
-                        description: data.description,
-                        children: [],
-                    };
-                    parent.children.push(newNode);
-                    setCollapsed((prev) => {
-                        const next = new Set(prev);
-                        next.delete(parent.id);
-                        return next;
-                    });
-                    showNotify(`Đã tạo mới đơn vị "${data.name}"`);
-                }
-                return root;
-            });
         }
-
-        setModal(null);
     }
 
     return (
         <div className="flex-1 min-h-0 flex flex-col space-y-3">
             {/* Notification Toast */}
             {notification && (
-                <div className="fixed top-5 right-5 z-50 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-xs font-semibold text-emerald-700 shadow-xl animate-in fade-in slide-in-from-top-3 duration-200">
-                    ✓ {notification}
+                <div
+                    className={cn(
+                        "fixed top-5 right-5 z-50 rounded-xl border px-4 py-2.5 text-xs font-semibold shadow-xl animate-in fade-in slide-in-from-top-3 duration-200",
+                        notification.type === "success"
+                            ? "border-emerald-300 bg-white text-emerald-700"
+                            : "border-rose-300 bg-white text-rose-700"
+                    )}
+                >
+                    {notification.type === "success" ? `✓ ${notification.message}` : `⚠ ${notification.message}`}
                 </div>
             )}
 

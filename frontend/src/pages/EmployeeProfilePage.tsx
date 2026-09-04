@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Plus, Search, ChevronDown, Check, AlertTriangle, X, User, Trash2 } from "lucide-react";
+import { Plus, Search, ChevronDown, Check, AlertTriangle, X, User, Trash2, Users, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import EmployeeCard from "../components/employee/EmployeeCard";
 import EmployeeProfileForm from "../components/employee/form/EmployeeProfileForm";
@@ -9,78 +9,24 @@ import EmployeeDetailModal from "../components/employee/form/EmployeeDetailModal
 import type { EmployeeFormData } from "../components/employee/form/employeeForm.types";
 import { DEFAULT_ORG_UNIT_OPTIONS, DEPARTMENT_OPTIONS } from "../components/employee/form/employeeForm.constants";
 import { getUsers, createUser, updateUserRole, toggleUserStatus } from "@/lib/api/users";
+import {
+    getEmployeeProfile,
+    getEmployeeProfileByUserId,
+    updateEmployeeProfile,
+    createEmployeeProfile,
+    type EmployeeProfile,
+} from "@/lib/api/employees";
+import {
+    getStoredPhone,
+    saveStoredPhone,
+    getStoredDates,
+    saveStoredDates,
+    formatToDateInput,
+} from "@/lib/employee-storage";
 import { getOrgTree } from "@/lib/api/org-units";
 import { flattenOrgTree } from "@/lib/organization";
 import type { OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import type { User as BackendUser, RoleCode, DataScope } from "@/types/hrm";
-
-const INITIAL_EMPLOYEES: EmployeeFormData[] = [
-    {
-        id: "EMP-001",
-        employeeCode: "EMP-001",
-        fullName: "Chu Văn Hưng",
-        username: "hung.cv",
-        email: "hungwgg01@gmail.com",
-        phone: "0912345678",
-        orgUnitId: "3",
-        department: "Phòng Lập trình Frontend",
-        position: "Trưởng phòng",
-        roleCode: "VT-03",
-        roleName: "Quản lý nguồn lực",
-        dataScope: "ORGANIZATION_BRANCH",
-        scopeOrgUnitId: "3",
-        status: "ACTIVE",
-        joinDate: "15/01/2024",
-    },
-    {
-        id: "EMP-002",
-        employeeCode: "EMP-002",
-        fullName: "Nguyễn Thị Mai",
-        username: "mai.nt",
-        email: "mai.nguyen@company.com",
-        phone: "0999999999",
-        orgUnitId: "14",
-        department: "Phòng Quản trị nhân sự (HR)",
-        position: "HR Specialist",
-        roleCode: "VT-05",
-        roleName: "Nhân sự (HR)",
-        dataScope: "COMPANY",
-        status: "ACTIVE",
-        joinDate: "04/12/2024",
-    },
-    {
-        id: "EMP-003",
-        employeeCode: "EMP-003",
-        fullName: "Trần Quốc Bảo",
-        username: "bao.tq",
-        email: "bao.tran@company.com",
-        phone: "0988888888",
-        orgUnitId: "2",
-        department: "Khối Kỹ thuật & Công nghệ",
-        position: "Giám đốc kỹ thuật",
-        roleCode: "VT-01",
-        roleName: "Ban giám đốc",
-        dataScope: "COMPANY",
-        status: "ACTIVE",
-        joinDate: "10/08/2023",
-    },
-    {
-        id: "EMP-004",
-        employeeCode: "EMP-004",
-        fullName: "Lê Hoàng Long",
-        username: "long.lh",
-        email: "long.le@company.com",
-        phone: "0977777777",
-        orgUnitId: "4",
-        department: "Phòng Lập trình Backend",
-        position: "Backend Developer",
-        roleCode: "VT-04",
-        roleName: "Nhân viên chuyên môn",
-        dataScope: "SELF",
-        status: "LOCKED",
-        joinDate: "01/03/2025",
-    },
-];
 
 function formatDeptLabel(dept: string) {
     if (dept === "All") return "Tất cả phòng ban";
@@ -171,10 +117,14 @@ function DeleteConfirmDialog({
     target,
     onClose,
     onConfirm,
+    isSubmitting = false,
+    errorMessage = null,
 }: {
     target: EmployeeFormData | null;
     onClose: () => void;
     onConfirm: () => void;
+    isSubmitting?: boolean;
+    errorMessage?: string | null;
 }) {
     if (!target) return null;
 
@@ -196,7 +146,8 @@ function DeleteConfirmDialog({
                     </div>
                     <button
                         onClick={onClose}
-                        className="rounded-xl p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                        disabled={isSubmitting}
+                        className="rounded-xl p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition disabled:opacity-50"
                     >
                         <X className="size-4" />
                     </button>
@@ -223,22 +174,35 @@ function DeleteConfirmDialog({
                     </div>
                 </div>
 
+                {/* Hiển thị lỗi nếu API xóa thất bại */}
+                {errorMessage && (
+                    <div className="mt-3 flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                        <AlertTriangle className="size-4 shrink-0 mt-0.5 text-rose-600" />
+                        <div className="flex-1">
+                            <p className="font-bold">Không thể xóa nhân viên</p>
+                            <p className="text-[11px] text-rose-600 mt-0.5 leading-relaxed">{errorMessage}</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="mt-6 flex items-center justify-end gap-3">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+                        disabled={isSubmitting}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
                     >
                         Hủy
                     </button>
                     <button
                         type="button"
                         onClick={onConfirm}
-                        className="flex items-center gap-1.5 rounded-xl border border-rose-600 bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-rose-700 active:scale-95"
+                        disabled={isSubmitting}
+                        className="flex items-center gap-1.5 rounded-xl border border-rose-600 bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-rose-700 active:scale-95 disabled:opacity-50"
                     >
                         <Trash2 className="size-3.5" />
-                        <span>Xác nhận xóa</span>
+                        <span>{isSubmitting ? "Đang xử lý..." : "Xác nhận xóa"}</span>
                     </button>
                 </div>
             </div>
@@ -247,7 +211,9 @@ function DeleteConfirmDialog({
 }
 
 export default function EmployeeProfilePage() {
-    const [employees, setEmployees] = useState<EmployeeFormData[]>(INITIAL_EMPLOYEES);
+    const [employees, setEmployees] = useState<EmployeeFormData[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedDept, setSelectedDept] = useState("All");
 
@@ -255,40 +221,51 @@ export default function EmployeeProfilePage() {
     const [editingEmployee, setEditingEmployee] = useState<EmployeeFormData | undefined>(undefined);
     const [viewingEmployee, setViewingEmployee] = useState<EmployeeFormData | undefined>(undefined);
     const [deleteTarget, setDeleteTarget] = useState<EmployeeFormData | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [actionNotification, setActionNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
     const [orgUnitOptions, setOrgUnitOptions] = useState<readonly OrgUnitOption[]>(DEFAULT_ORG_UNIT_OPTIONS);
 
-    // Fetch users và OrgUnits từ Backend API khi trang được tải
-    useEffect(() => {
-        let isMounted = true;
-        async function loadData() {
-            try {
-                const [userRes, treeRes] = await Promise.allSettled([
-                    getUsers(0, 100),
-                    getOrgTree(),
-                ]);
+    // Fetch users và OrgUnits từ Backend API khi trang được tải hoặc khi bấm thử lại
+    const loadData = async () => {
+        setIsLoading(true);
+        setLoadError(null);
+        try {
+            const [userRes, treeRes] = await Promise.allSettled([
+                getUsers(0, 100),
+                getOrgTree(),
+            ]);
 
-                if (isMounted && treeRes.status === "fulfilled" && treeRes.value && treeRes.value.length > 0) {
-                    const flat = flattenOrgTree(treeRes.value);
-                    if (flat.length > 0) {
-                        const dynamicOptions: OrgUnitOption[] = flat.map((u) => ({
-                            id: u.id,
-                            unitCode: u.unitCode,
-                            unitName: u.unitName,
-                            unitType: u.unitType,
-                            depth: u.level ?? 0,
-                        }));
-                        setOrgUnitOptions(dynamicOptions);
-                    }
+            if (treeRes.status === "fulfilled" && treeRes.value && treeRes.value.length > 0) {
+                const flat = flattenOrgTree(treeRes.value);
+                if (flat.length > 0) {
+                    const dynamicOptions: OrgUnitOption[] = flat.map((u) => ({
+                        id: u.id,
+                        unitCode: u.unitCode,
+                        unitName: u.unitName,
+                        unitType: u.unitType,
+                        depth: u.level ?? 0,
+                    }));
+                    setOrgUnitOptions(dynamicOptions);
                 }
+            }
 
-                if (isMounted && userRes.status === "fulfilled" && userRes.value?.content && userRes.value.content.length > 0) {
-                    const mapped: EmployeeFormData[] = userRes.value.content.map((u: BackendUser) => ({
+            if (userRes.status === "fulfilled") {
+                const users = userRes.value?.content || [];
+                const mapped: EmployeeFormData[] = users.map((u: BackendUser) => {
+                    const empCode = u.employeeId ? `EMP-${String(u.employeeId).padStart(3, "0")}` : `EMP-${u.id}`;
+                    const phone = getStoredPhone(u.id) || (u.employeeId ? getStoredPhone(u.employeeId) : undefined) || getStoredPhone(empCode);
+                    const dates = getStoredDates(u.id) || (u.employeeId ? getStoredDates(u.employeeId) : undefined) || getStoredDates(empCode);
+                    return {
                         id: String(u.id),
-                        employeeCode: u.employeeId ? `EMP-${String(u.employeeId).padStart(3, "0")}` : `EMP-${u.id}`,
+                        employeeId: u.employeeId ?? undefined,
+                        employeeCode: empCode,
                         fullName: u.fullName || u.username,
                         username: u.username,
-                        email: u.email || `${u.username}@company.com`,
-                        phone: "0912345678",
+                        email: u.email || "",
+                        phone: phone || undefined,
                         orgUnitId: u.orgUnitId ? String(u.orgUnitId) : undefined,
                         department: u.orgUnitName || "Chưa phân bổ",
                         position: u.roleName || "Nhân viên",
@@ -297,18 +274,29 @@ export default function EmployeeProfilePage() {
                         dataScope: u.dataScope,
                         scopeOrgUnitId: u.scopeOrgUnitId ? String(u.scopeOrgUnitId) : undefined,
                         status: u.status,
-                        joinDate: "01/01/2025",
-                    }));
-                    setEmployees(mapped);
-                }
-            } catch {
-                // Backend offline: Tự động giữ fallback an toàn
+                        standardHoursPerWeek: 40,
+                        joinDate: dates?.joinDate,
+                        startDate: dates?.joinDate,
+                        contractEndDate: dates?.contractEndDate,
+                    };
+                });
+                setEmployees(mapped);
+            } else {
+                const reason = userRes.reason;
+                const errMsg = reason?.message || "Không thể kết nối đến máy chủ Backend để tải danh sách nhân sự.";
+                setLoadError(errMsg);
+                setEmployees([]);
             }
+        } catch (err: any) {
+            setLoadError(err?.message || "Đã xảy ra lỗi khi tải dữ liệu nhân sự.");
+            setEmployees([]);
+        } finally {
+            setIsLoading(false);
         }
+    };
+
+    useEffect(() => {
         loadData();
-        return () => {
-            isMounted = false;
-        };
     }, []);
 
     const nextEmployeeCode = `EMP-${String(employees.length + 1).padStart(3, "0")}`;
@@ -316,7 +304,7 @@ export default function EmployeeProfilePage() {
     const filteredEmployees = employees.filter((emp) => {
         const matchesSearch =
             emp.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (emp.email && emp.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (emp.employeeCode && emp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (emp.username && emp.username.toLowerCase().includes(searchTerm.toLowerCase()));
         const matchesDept = selectedDept === "All" || emp.department === selectedDept;
@@ -325,56 +313,303 @@ export default function EmployeeProfilePage() {
 
     const handleOpenAdd = () => {
         setEditingEmployee(undefined);
+        setFormError(null);
         setIsFormOpen(true);
     };
 
-    const handleOpenEdit = (emp: EmployeeFormData) => {
+    const handleOpenEdit = async (emp: EmployeeFormData) => {
         setEditingEmployee(emp);
+        setFormError(null);
         setIsFormOpen(true);
+
+        const numId = typeof emp.id === "number" ? emp.id : parseInt(String(emp.id).replace(/\D/g, ""), 10);
+        try {
+            let profile: EmployeeProfile | null = null;
+            if (emp.employeeId) {
+                try {
+                    profile = await getEmployeeProfile(emp.employeeId);
+                } catch {
+                    // fallback
+                }
+            }
+            if (!profile && !isNaN(numId)) {
+                try {
+                    profile = await getEmployeeProfileByUserId(numId);
+                } catch {
+                    profile = null;
+                }
+            }
+            if (profile) {
+                setEditingEmployee((prev) => {
+                    if (!prev || (prev.id !== emp.id && prev.employeeCode !== emp.employeeCode)) return prev;
+                    return {
+                        ...prev,
+                        fullName: profile.fullName || prev.fullName,
+                        orgUnitId: String(profile.orgUnitId || prev.orgUnitId),
+                        department: profile.orgUnitName || prev.department,
+                        joinDate: profile.startDate || prev.joinDate,
+                        startDate: profile.startDate || prev.startDate,
+                        contractEndDate: profile.contractEndDate || prev.contractEndDate,
+                        standardHoursPerWeek: profile.standardHoursPerWeek || prev.standardHoursPerWeek || 40,
+                    };
+                });
+            }
+        } catch {
+            // Keep current values
+        }
+    };
+
+    const handleOpenView = async (emp: EmployeeFormData) => {
+        setViewingEmployee(emp);
+        const numId = typeof emp.id === "number" ? emp.id : parseInt(String(emp.id).replace(/\D/g, ""), 10);
+        try {
+            let profile: EmployeeProfile | null = null;
+            if (emp.employeeId) {
+                try {
+                    profile = await getEmployeeProfile(emp.employeeId);
+                } catch {
+                    // fallback
+                }
+            }
+            if (!profile && !isNaN(numId)) {
+                try {
+                    profile = await getEmployeeProfileByUserId(numId);
+                } catch {
+                    profile = null;
+                }
+            }
+            if (profile) {
+                setViewingEmployee((prev) => {
+                    if (!prev || (prev.id !== emp.id && prev.employeeCode !== emp.employeeCode)) return prev;
+                    return {
+                        ...prev,
+                        fullName: profile.fullName || prev.fullName,
+                        orgUnitId: String(profile.orgUnitId || prev.orgUnitId),
+                        department: profile.orgUnitName || prev.department,
+                        joinDate: profile.startDate || prev.joinDate,
+                        startDate: profile.startDate || prev.startDate,
+                        contractEndDate: profile.contractEndDate || prev.contractEndDate,
+                        standardHoursPerWeek: profile.standardHoursPerWeek || prev.standardHoursPerWeek || 40,
+                    };
+                });
+            }
+        } catch {
+            // Keep current values
+        }
     };
 
     const handleDeleteClick = (emp: EmployeeFormData) => {
         setDeleteTarget(emp);
+        setDeleteError(null);
     };
 
     const handleConfirmDelete = async () => {
-        if (deleteTarget) {
-            const numId = typeof deleteTarget.id === "number" ? deleteTarget.id : parseInt(String(deleteTarget.id).replace(/\D/g, ""), 10);
-            if (!isNaN(numId)) {
-                try {
-                    await toggleUserStatus(numId, true);
-                } catch {
-                    // Backend offline: Tiếp tục xử lý xóa trên state
-                }
+        if (!deleteTarget) return;
+
+        const numId = typeof deleteTarget.id === "number" ? deleteTarget.id : parseInt(String(deleteTarget.id).replace(/\D/g, ""), 10);
+        if (!isNaN(numId)) {
+            setIsDeleting(true);
+            setDeleteError(null);
+            try {
+                await toggleUserStatus(numId, true);
+
+                // CHỈ cập nhật state UI sau khi API thành công
+                setEmployees((prev) => prev.filter((e) => (e.id || e.employeeCode) !== (deleteTarget.id || deleteTarget.employeeCode)));
+                setActionNotification({
+                    type: "success",
+                    message: `Đã xóa/khóa tài khoản nhân viên ${deleteTarget.fullName} thành công.`,
+                });
+                setDeleteTarget(null);
+            } catch (err: any) {
+                console.error("Lỗi khi xóa tài khoản nhân viên:", err);
+                const errorMsg = err?.message || "Máy chủ phản hồi lỗi (403/500) hoặc lỗi mạng. Thao tác xóa không thành công và dữ liệu được giữ nguyên.";
+                setDeleteError(errorMsg);
+                // GIỮ NGUYÊN dữ liệu hiện tại, KHÔNG xóa khỏi employees!
+            } finally {
+                setIsDeleting(false);
             }
+        } else {
+            // Đối với mock data cục bộ chưa có ID backend
             setEmployees((prev) => prev.filter((e) => (e.id || e.employeeCode) !== (deleteTarget.id || deleteTarget.employeeCode)));
             setDeleteTarget(null);
         }
     };
 
     const handleSave = async (data: EmployeeFormData) => {
+        setIsSaving(true);
+        setFormError(null);
+
         if (editingEmployee?.id || editingEmployee?.employeeCode) {
             const targetId = editingEmployee.id || editingEmployee.employeeCode;
             const numId = typeof editingEmployee.id === "number" ? editingEmployee.id : parseInt(String(editingEmployee.id).replace(/\D/g, ""), 10);
             if (!isNaN(numId)) {
                 try {
-                    await updateUserRole(numId, {
+                    // 1. Cập nhật phân quyền tài khoản (Role & DataScope)
+                    const roleRes = await updateUserRole(numId, {
                         roleCode: (data.roleCode as RoleCode) || "VT-04",
                         dataScope: (data.dataScope as DataScope) || "COMPANY",
                         scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
                     });
-                    if (data.status) {
-                        await toggleUserStatus(numId, data.status === "LOCKED");
+
+                    // 2. Cập nhật trạng thái tài khoản (Status) nếu có thay đổi
+                    let finalStatus = data.status;
+                    if (data.status && data.status !== editingEmployee.status) {
+                        const statusRes = await toggleUserStatus(numId, data.status === "LOCKED");
+                        if (statusRes?.status) {
+                            finalStatus = statusRes.status;
+                        }
                     }
-                } catch {
-                    // Backend offline fallback
+
+                    // 3. Cập nhật hoặc tạo mới hồ sơ nhân sự (fullName, orgUnitId, standardHours, startDate, contractEndDate) qua API /employees
+                    let updatedFullName = data.fullName.trim() || editingEmployee.fullName;
+                    let updatedOrgUnitId = data.orgUnitId || editingEmployee.orgUnitId;
+                    let updatedDepartment = data.department || editingEmployee.department;
+                    let updatedStandardHours = Number(data.standardHoursPerWeek) || 40;
+
+                    const empId = editingEmployee.employeeId;
+                    const reqStartDate = data.joinDate ? formatToDateInput(data.joinDate) : undefined;
+                    const reqContractEndDate = data.contractEndDate ? formatToDateInput(data.contractEndDate) : undefined;
+
+                    try {
+                        let profile: EmployeeProfile | null = null;
+                        if (empId) {
+                            try {
+                                profile = await getEmployeeProfile(empId);
+                            } catch {
+                                // fallback to getEmployeeProfileByUserId
+                            }
+                        }
+                        if (!profile && numId) {
+                            try {
+                                profile = await getEmployeeProfileByUserId(numId);
+                            } catch {
+                                profile = null;
+                            }
+                        }
+
+                        if (profile) {
+                            const newOrgId = data.orgUnitId ? Number(data.orgUnitId) : profile.orgUnitId;
+                            const updatedProfile = await updateEmployeeProfile(profile.id, {
+                                version: profile.version ?? 0,
+                                fullName: data.fullName.trim(),
+                                orgUnitId: newOrgId,
+                                professionalRole: profile.professionalRole,
+                                startDate: reqStartDate || profile.startDate,
+                                contractEndDate: reqContractEndDate || profile.contractEndDate,
+                                standardHoursPerWeek: Number(data.standardHoursPerWeek) || profile.standardHoursPerWeek || 40,
+                            });
+                            updatedFullName = updatedProfile.fullName;
+                            updatedOrgUnitId = String(updatedProfile.orgUnitId);
+                            updatedDepartment = updatedProfile.orgUnitName || data.department || editingEmployee.department;
+                            updatedStandardHours = updatedProfile.standardHoursPerWeek;
+                        } else if (numId && data.orgUnitId) {
+                            const createdProfile = await createEmployeeProfile({
+                                userId: numId,
+                                orgUnitId: Number(data.orgUnitId),
+                                employeeCode: data.employeeCode || `EMP-${String(numId).padStart(3, "0")}`,
+                                fullName: data.fullName.trim(),
+                                startDate: reqStartDate,
+                                contractEndDate: reqContractEndDate,
+                                standardHoursPerWeek: Number(data.standardHoursPerWeek) || 40,
+                            });
+                            updatedFullName = createdProfile.fullName;
+                            updatedOrgUnitId = String(createdProfile.orgUnitId);
+                            updatedDepartment = createdProfile.orgUnitName || data.department || editingEmployee.department;
+                            updatedStandardHours = createdProfile.standardHoursPerWeek;
+                        }
+                    } catch (profErr: any) {
+                        console.warn("Không thể đồng bộ hồ sơ nhân sự backend:", profErr);
+                    }
+
+                    // 4. Lưu số điện thoại và ngày tháng vào localStorage
+                    if (data.phone !== undefined) {
+                        saveStoredPhone(
+                            [numId, editingEmployee.id, editingEmployee.employeeId, editingEmployee.employeeCode, data.employeeCode],
+                            data.phone
+                        );
+                    }
+                    saveStoredDates(
+                        [numId, editingEmployee.id, editingEmployee.employeeId, editingEmployee.employeeCode, data.employeeCode],
+                        { joinDate: data.joinDate, contractEndDate: data.contractEndDate }
+                    );
+
+                    // Cập nhật state UI với các trường đã được backend xác nhận lưu thành công
+                    setEmployees((prev) =>
+                        prev.map((e) =>
+                            (e.id || e.employeeCode) === targetId
+                                ? {
+                                      ...e,
+                                      fullName: updatedFullName,
+                                      orgUnitId: updatedOrgUnitId,
+                                      department: updatedDepartment,
+                                      phone: data.phone || undefined,
+                                      joinDate: data.joinDate || e.joinDate,
+                                      startDate: data.joinDate || e.startDate,
+                                      contractEndDate: data.contractEndDate || e.contractEndDate,
+                                      standardHoursPerWeek: updatedStandardHours,
+                                      roleCode: roleRes?.roleCode || data.roleCode,
+                                      roleName: roleRes?.roleName || data.roleName || e.roleName,
+                                      dataScope: roleRes?.dataScope || data.dataScope,
+                                      scopeOrgUnitId:
+                                          roleRes?.scopeOrgUnitId !== undefined
+                                              ? (roleRes.scopeOrgUnitId ? String(roleRes.scopeOrgUnitId) : undefined)
+                                              : data.scopeOrgUnitId,
+                                      status: finalStatus || e.status,
+                                  }
+                                : e
+                        )
+                    );
+                    setActionNotification({
+                        type: "success",
+                        message: `Cập nhật thông tin nhân viên ${updatedFullName} thành công.`,
+                    });
+                    setIsFormOpen(false);
+                } catch (err: any) {
+                    console.error("Lỗi cập nhật nhân sự:", err);
+                    const msg = err?.message || "Cập nhật nhân viên thất bại do máy chủ phản hồi lỗi. Dữ liệu chưa được lưu.";
+                    setFormError(msg);
+                    setActionNotification({
+                        type: "error",
+                        message: msg,
+                    });
+                    // Giữ nguyên form, KHÔNG cập nhật state cục bộ
+                } finally {
+                    setIsSaving(false);
                 }
+            } else {
+                if (data.phone !== undefined) {
+                    saveStoredPhone([targetId, data.employeeCode], data.phone);
+                }
+                saveStoredDates([targetId, data.employeeCode], {
+                    joinDate: data.joinDate,
+                    contractEndDate: data.contractEndDate,
+                });
+                setEmployees((prev) =>
+                    prev.map((e) =>
+                        (e.id || e.employeeCode) === targetId
+                            ? {
+                                  ...e,
+                                  fullName: data.fullName,
+                                  department: data.department,
+                                  phone: data.phone || undefined,
+                                  joinDate: data.joinDate || e.joinDate,
+                                  startDate: data.joinDate || e.startDate,
+                                  contractEndDate: data.contractEndDate || e.contractEndDate,
+                                  standardHoursPerWeek: Number(data.standardHoursPerWeek) || 40,
+                                  roleCode: data.roleCode,
+                                  roleName: data.roleName || e.roleName,
+                                  dataScope: data.dataScope,
+                                  scopeOrgUnitId: data.scopeOrgUnitId,
+                                  status: data.status || e.status,
+                              }
+                            : e
+                    )
+                );
+                setIsFormOpen(false);
+                setIsSaving(false);
             }
-            setEmployees((prev) =>
-                prev.map((e) => ((e.id || e.employeeCode) === targetId ? { ...data, id: e.id || data.employeeCode || String(targetId) } : e))
-            );
         } else {
-            let createdId: string = data.employeeCode || `EMP-${Date.now().toString().slice(-3)}`;
+            // TẠO MỚI TÀI KHOẢN: GỌI API THẬT, KHÔNG FALLBACK TẠO STATE CỤC BỘ KHI THẤT BẠI
             try {
                 const res = await createUser({
                     fullName: data.fullName,
@@ -385,26 +620,59 @@ export default function EmployeeProfilePage() {
                     orgUnitId: data.orgUnitId ? Number(data.orgUnitId) : null,
                     roleCode: (data.roleCode as RoleCode) || "VT-04",
                 });
-                if (res?.id) {
-                    createdId = String(res.id);
-                    if (data.dataScope && data.dataScope !== "COMPANY") {
-                        await updateUserRole(res.id, {
-                            roleCode: (data.roleCode as RoleCode) || "VT-04",
-                            dataScope: (data.dataScope as DataScope) || "COMPANY",
-                            scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
-                        });
-                    }
+
+                if (!res || !res.id) {
+                    throw new Error("Máy chủ phản hồi nhưng không tạo được tài khoản hợp lệ.");
                 }
-            } catch {
-                // Backend offline fallback
+
+                if (data.dataScope && data.dataScope !== "COMPANY") {
+                    await updateUserRole(res.id, {
+                        roleCode: (data.roleCode as RoleCode) || "VT-04",
+                        dataScope: (data.dataScope as DataScope) || "COMPANY",
+                        scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
+                    });
+                }
+
+                if (data.phone) {
+                    saveStoredPhone([res.id, data.employeeCode], data.phone);
+                }
+                if (data.joinDate || data.contractEndDate) {
+                    saveStoredDates([res.id, data.employeeCode], {
+                        joinDate: data.joinDate,
+                        contractEndDate: data.contractEndDate,
+                    });
+                }
+
+                // CHỈ THÊM EMPLOYEE VÀO STATE SAU KHI BACKEND TRẢ VỀ SUCCESS VÀ CÓ ID THẬT
+                const newEmp: EmployeeFormData = {
+                    ...data,
+                    id: String(res.id),
+                    employeeCode: data.employeeCode,
+                    phone: data.phone || undefined,
+                    joinDate: data.joinDate || undefined,
+                    startDate: data.joinDate || undefined,
+                    contractEndDate: data.contractEndDate || undefined,
+                    standardHoursPerWeek: Number(data.standardHoursPerWeek) || 40,
+                };
+                setEmployees((prev) => [newEmp, ...prev]);
+                setActionNotification({
+                    type: "success",
+                    message: `Tạo mới nhân viên ${data.fullName} thành công.`,
+                });
+                setIsFormOpen(false);
+            } catch (err: any) {
+                console.error("Lỗi tạo nhân sự:", err);
+                const msg = err?.message || "Tạo mới nhân viên thất bại do lỗi từ máy chủ. Dữ liệu chưa được lưu vào hệ thống.";
+                setFormError(msg);
+                setActionNotification({
+                    type: "error",
+                    message: msg,
+                });
+                // TUYỆT ĐỐI KHÔNG TẠO EMPLOYEE LOCAL VÀ KHÔNG ĐÓNG FORM KHI API THẤT BẠI!
+            } finally {
+                setIsSaving(false);
             }
-            const newEmp: EmployeeFormData = {
-                ...data,
-                id: createdId,
-            };
-            setEmployees((prev) => [newEmp, ...prev]);
         }
-        setIsFormOpen(false);
     };
 
     return (
@@ -420,6 +688,34 @@ export default function EmployeeProfilePage() {
                     </p>
                 </div>
             </div>
+
+            {/* THÔNG BÁO KẾT QUẢ THAO TÁC */}
+            {actionNotification && (
+                <div
+                    className={cn(
+                        "flex items-center justify-between rounded-2xl border p-4 text-xs font-semibold shadow-xs transition animate-fadeIn",
+                        actionNotification.type === "success"
+                            ? "border-emerald-200 bg-emerald-50/90 text-emerald-800"
+                            : "border-rose-200 bg-rose-50/90 text-rose-800"
+                    )}
+                >
+                    <div className="flex items-center gap-2.5">
+                        {actionNotification.type === "success" ? (
+                            <Check className="size-4 shrink-0 text-emerald-600" />
+                        ) : (
+                            <AlertTriangle className="size-4 shrink-0 text-rose-600" />
+                        )}
+                        <span>{actionNotification.message}</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setActionNotification(null)}
+                        className="rounded-lg p-1 hover:bg-black/5 text-slate-500 transition"
+                    >
+                        <X className="size-3.5" />
+                    </button>
+                </div>
+            )}
 
             {/* PHẦN 2: KHUNG MAIN WHITE THEME */}
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
@@ -459,20 +755,114 @@ export default function EmployeeProfilePage() {
 
                 {/* Danh sách nhân sự */}
                 <div className="space-y-3 pt-1">
-                    {filteredEmployees.map((emp) => (
-                        <EmployeeCard
-                            key={emp.id || emp.employeeCode}
-                            employee={emp}
-                            onView={(employeeData) => setViewingEmployee(employeeData)}
-                            onEdit={handleOpenEdit}
-                            onDelete={() => handleDeleteClick(emp)}
-                        />
-                    ))}
-
-                    {filteredEmployees.length === 0 && (
-                        <div className="py-12 text-center text-xs text-slate-400">
-                            Không tìm thấy nhân viên nào phù hợp với bộ lọc tìm kiếm.
+                    {/* Trạng thái 1: Đang tải dữ liệu (Skeleton Loading) */}
+                    {isLoading && (
+                        <div className="space-y-3">
+                            {[1, 2, 3, 4].map((idx) => (
+                                <div
+                                    key={idx}
+                                    className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 animate-pulse sm:flex-row sm:items-center"
+                                >
+                                    <div className="flex min-w-[200px] items-center gap-3">
+                                        <div className="size-10 rounded-xl bg-slate-200 shrink-0" />
+                                        <div className="space-y-2">
+                                            <div className="h-4 w-32 rounded-md bg-slate-200" />
+                                            <div className="h-3 w-20 rounded-md bg-slate-100" />
+                                        </div>
+                                    </div>
+                                    <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3 sm:px-4">
+                                        <div className="h-3.5 w-32 rounded-md bg-slate-100" />
+                                        <div className="h-3.5 w-24 rounded-md bg-slate-100" />
+                                        <div className="h-3.5 w-28 rounded-md bg-slate-100" />
+                                    </div>
+                                    <div className="h-8 w-20 rounded-xl bg-slate-200/60 shrink-0" />
+                                </div>
+                            ))}
                         </div>
+                    )}
+
+                    {/* Trạng thái 2: Lỗi kết nối / Máy chủ Backend phản hồi lỗi */}
+                    {!isLoading && loadError && (
+                        <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-200 bg-rose-50/50 p-10 text-center animate-in fade-in duration-200">
+                            <div className="flex size-12 items-center justify-center rounded-2xl border border-rose-200 bg-rose-100 text-rose-600 shadow-2xs">
+                                <AlertTriangle className="size-6" />
+                            </div>
+                            <h3 className="mt-3.5 text-sm font-bold text-slate-900">
+                                Không thể tải danh sách nhân sự
+                            </h3>
+                            <p className="mt-1 max-w-md text-xs text-slate-600 leading-relaxed">
+                                {loadError}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={loadData}
+                                className="mt-4 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-indigo-600 active:scale-95"
+                            >
+                                <RefreshCw className="size-3.5 text-indigo-600" />
+                                <span>Thử lại</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Trạng thái 3: Danh sách rỗng trong CSDL (Chưa có nhân sự nào) */}
+                    {!isLoading && !loadError && employees.length === 0 && (
+                        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-12 text-center animate-in fade-in duration-200">
+                            <div className="flex size-14 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-2xs">
+                                <Users className="size-7" />
+                            </div>
+                            <h3 className="mt-4 text-base font-bold text-slate-900">
+                                Chưa có hồ sơ nhân sự nào
+                            </h3>
+                            <p className="mt-1 max-w-sm text-xs text-slate-500 leading-relaxed">
+                                Hệ thống chưa ghi nhận tài khoản nhân sự nào trong cơ sở dữ liệu. Nhấn nút bên dưới để tạo hồ sơ đầu tiên.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={handleOpenAdd}
+                                className="mt-5 flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                            >
+                                <Plus className="size-4 stroke-[2.5]" />
+                                <span>Thêm nhân sự mới</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Trạng thái 4: Có nhân sự nhưng không khớp bộ lọc tìm kiếm */}
+                    {!isLoading && !loadError && employees.length > 0 && filteredEmployees.length === 0 && (
+                        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-10 text-center animate-in fade-in duration-200">
+                            <div className="flex size-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                                <Search className="size-5" />
+                            </div>
+                            <h3 className="mt-3 text-sm font-bold text-slate-800">
+                                Không tìm thấy nhân viên phù hợp
+                            </h3>
+                            <p className="mt-1 text-xs text-slate-500">
+                                Không có kết quả nào khớp với điều kiện tìm kiếm hoặc bộ lọc phòng ban đã chọn.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearchTerm("");
+                                    setSelectedDept("All");
+                                }}
+                                className="mt-3.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-indigo-600 shadow-2xs hover:bg-slate-50"
+                            >
+                                Xóa bộ lọc tìm kiếm
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Trạng thái 5: Danh sách nhân sự bình thường */}
+                    {!isLoading && !loadError && filteredEmployees.length > 0 && (
+                        filteredEmployees.map((emp) => (
+                            <EmployeeCard
+                                key={emp.id || emp.employeeCode}
+                                employee={emp}
+                                onView={handleOpenView}
+                                onEdit={handleOpenEdit}
+                                onDelete={() => handleDeleteClick(emp)}
+                            />
+                        ))
                     )}
                 </div>
             </div>
@@ -481,10 +871,15 @@ export default function EmployeeProfilePage() {
             <EmployeeProfileForm
                 open={isFormOpen}
                 initialData={editingEmployee}
-                onClose={() => setIsFormOpen(false)}
+                onClose={() => {
+                    setIsFormOpen(false);
+                    setFormError(null);
+                }}
                 onSave={handleSave}
                 nextEmployeeCode={nextEmployeeCode}
                 orgUnitOptions={orgUnitOptions}
+                isSubmitting={isSaving}
+                apiError={formError}
             />
 
             {/* MODAL XEM CHI TIẾT */}
@@ -497,8 +892,13 @@ export default function EmployeeProfilePage() {
             {/* DIALOG XÁC NHẬN XÓA (TỰ TẠO - THAY THẾ WINDOW.CONFIRM) */}
             <DeleteConfirmDialog
                 target={deleteTarget}
-                onClose={() => setDeleteTarget(null)}
+                onClose={() => {
+                    setDeleteTarget(null);
+                    setDeleteError(null);
+                }}
                 onConfirm={handleConfirmDelete}
+                isSubmitting={isDeleting}
+                errorMessage={deleteError}
             />
         </div>
     );

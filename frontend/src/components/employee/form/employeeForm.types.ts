@@ -14,10 +14,12 @@ export interface EmployeeFormData {
     scopeOrgUnitId?: string;
     phone?: string;
     joinDate?: string;
+    startDate?: string;
     contractEndDate?: string;
     standardHoursPerWeek?: number;
     standardHoursPerDay?: number;
     status?: "ACTIVE" | "LOCKED" | "active" | "locked";
+    employeeId?: number;
 }
 
 export type FormErrors = Partial<Record<keyof EmployeeFormData, string>>;

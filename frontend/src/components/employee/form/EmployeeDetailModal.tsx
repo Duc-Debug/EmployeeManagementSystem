@@ -1,5 +1,6 @@
 import { X, User } from "lucide-react";
 import type { EmployeeFormData } from "./employeeForm.types";
+import { formatDisplayDate } from "@/lib/employee-storage";
 
 interface EmployeeDetailModalProps {
     isOpen: boolean;
@@ -91,19 +92,43 @@ export default function EmployeeDetailModal({
                         <span className="font-medium text-slate-800">{getScopeLabel(employee.dataScope)}</span>
                     </div>
 
-                    {employee.phone && (
-                        <div className="flex items-center justify-between">
-                            <span className="font-semibold text-slate-500">Số điện thoại:</span>
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-500">Số điện thoại:</span>
+                        {employee.phone ? (
                             <span className="font-medium text-slate-800">{employee.phone}</span>
-                        </div>
-                    )}
+                        ) : (
+                            <span className="text-slate-400 italic text-[11px]">Chưa có dữ liệu</span>
+                        )}
+                    </div>
 
-                    {employee.joinDate && (
-                        <div className="flex items-center justify-between">
-                            <span className="font-semibold text-slate-500">Ngày tham gia:</span>
-                            <span className="font-medium text-slate-800">{employee.joinDate}</span>
-                        </div>
-                    )}
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-500">Giờ chuẩn / tuần:</span>
+                        <span className="font-medium text-slate-800">
+                            {employee.standardHoursPerWeek ? `${employee.standardHoursPerWeek} giờ` : "40 giờ"}
+                        </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-500">Ngày vào làm:</span>
+                        {employee.joinDate || employee.startDate ? (
+                            <span className="font-medium text-slate-800">
+                                {formatDisplayDate(employee.joinDate || employee.startDate)}
+                            </span>
+                        ) : (
+                            <span className="text-slate-400 italic text-[11px]">Chưa có dữ liệu</span>
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-500">Ngày kết thúc HĐLĐ:</span>
+                        {employee.contractEndDate ? (
+                            <span className="font-medium text-slate-800">
+                                {formatDisplayDate(employee.contractEndDate)}
+                            </span>
+                        ) : (
+                            <span className="text-slate-400 italic text-[11px]">Không thời hạn / Chưa có</span>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

@@ -27,6 +27,7 @@ interface OrgUnitComboboxProps {
   ariaDescribedBy?: string;
   ariaInvalid?: boolean;
   disabled?: boolean;
+  disallowRoot?: boolean;
   id: string;
   onChange: (value: string) => void;
   onEnter?: () => void;
@@ -54,6 +55,7 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
     ariaDescribedBy,
     ariaInvalid,
     disabled = false,
+    disallowRoot = false,
     id,
     onChange,
     onEnter,
@@ -142,6 +144,9 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
   }
 
   function selectOption(option: OrgUnitOption, moveToNextField = false) {
+    if (disallowRoot && (option.unitCode === "COMPANY_ROOT" || option.depth === 0)) {
+      return;
+    }
     onChange(String(option.id));
     closeMenu(!moveToNextField);
     if (moveToNextField) {
@@ -282,6 +287,7 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
               const isSelected = String(option.id) === String(value);
               const isHighlighted = index === highlightedIndex;
               const meta = getUnitTypeMeta(option.unitType, option.depth);
+              const isRootDisabled = Boolean(disallowRoot && (option.unitCode === "COMPANY_ROOT" || option.depth === 0));
 
               return (
                 <li
@@ -291,20 +297,30 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
                 >
                   <button
                     aria-selected={isSelected}
+                    aria-disabled={isRootDisabled}
+                    disabled={isRootDisabled}
                     className={cn(
-                      "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs transition cursor-pointer group",
-                      isSelected
-                        ? "bg-indigo-50 text-indigo-900 font-bold"
+                      "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs transition group",
+                      isRootDisabled
+                        ? "opacity-50 cursor-not-allowed bg-slate-50 text-slate-400"
+                        : isSelected
+                        ? "bg-indigo-50 text-indigo-900 font-bold cursor-pointer"
                         : isHighlighted
-                        ? "bg-slate-100 text-slate-900"
-                        : "text-slate-700 hover:bg-slate-50"
+                        ? "bg-slate-100 text-slate-900 cursor-pointer"
+                        : "text-slate-700 hover:bg-slate-50 cursor-pointer"
                     )}
                     id={`${listboxId}-${option.id}`}
                     onClick={(e) => {
                       e.preventDefault();
-                      selectOption(option);
+                      if (!isRootDisabled) {
+                        selectOption(option);
+                      }
                     }}
-                    onMouseEnter={() => setHighlightedIndex(index)}
+                    onMouseEnter={() => {
+                      if (!isRootDisabled) {
+                        setHighlightedIndex(index);
+                      }
+                    }}
                     role="option"
                     type="button"
                   >
@@ -328,6 +344,11 @@ export const OrgUnitCombobox = forwardRef<HTMLButtonElement, OrgUnitComboboxProp
                       >
                         {meta.label}
                       </span>
+                      {isRootDisabled && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0 font-normal">
+                          Không gán vào gốc
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 ml-2">
