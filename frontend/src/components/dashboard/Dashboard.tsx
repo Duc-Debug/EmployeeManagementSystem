@@ -289,7 +289,7 @@ export default function Dashboard() {
                                 <DashboardHeader />
 
                                 {/* Section KPI Cards */}
-                                <KpiStatsSection />
+                                <KpiStatsSection departments={departments} />
 
                                 {/* Lịch Workspace */}
                                 <CalendarView />

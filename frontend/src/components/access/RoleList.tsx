@@ -75,47 +75,52 @@ export default function RoleList({ roles, departments, selectedId, onSelect, onA
                         <button
                             type="button"
                             onClick={() => setIsDeptDropdownOpen((prev) => !prev)}
-                            className="flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
+                            className="flex w-48 items-center justify-between gap-2 rounded-full border border-white/30 bg-white/15 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
                         >
-                            <span>{deptFilter === "all" ? "Tất cả phòng ban" : departments.find((d) => d.id === deptFilter)?.name}</span>
-                            <ChevronDown className={cn("h-3.5 w-3.5 text-white/70 transition-transform", isDeptDropdownOpen && "rotate-180")} />
+                            <span className="truncate">{deptFilter === "all" ? "Tất cả phòng ban" : departments.find((d) => d.id === deptFilter)?.name}</span>
+                            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-white/70 transition-transform", isDeptDropdownOpen && "rotate-180")} />
                         </button>
 
-                        {isDeptDropdownOpen && (
-                            <div className="absolute right-0 top-full z-20 mt-2 w-48 overflow-hidden rounded-xl border border-white/15 bg-white/10 p-1 shadow-xl backdrop-blur-xl">
+                        <div
+                            className={cn(
+                                "absolute right-0 top-full z-20 mt-2 max-h-60 w-48 origin-top-right overflow-y-auto rounded-xl border border-white/15 bg-white/10 p-1 shadow-xl backdrop-blur-xl transition-all duration-150 ease-out",
+                                isDeptDropdownOpen
+                                    ? "scale-100 opacity-100"
+                                    : "pointer-events-none scale-95 opacity-0"
+                            )}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeptFilter("all");
+                                    setIsDeptDropdownOpen(false);
+                                }}
+                                className={cn(
+                                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition",
+                                    deptFilter === "all" ? "bg-white/20 text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
+                                )}
+                            >
+                                Tất cả phòng ban
+                                {deptFilter === "all" && <Check className="h-3.5 w-3.5" />}
+                            </button>
+                            {departments.map((dept) => (
                                 <button
+                                    key={dept.id}
                                     type="button"
                                     onClick={() => {
-                                        setDeptFilter("all");
+                                        setDeptFilter(dept.id);
                                         setIsDeptDropdownOpen(false);
                                     }}
                                     className={cn(
                                         "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition",
-                                        deptFilter === "all" ? "bg-white/20 text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
+                                        deptFilter === dept.id ? "bg-white/20 text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
                                     )}
                                 >
-                                    Tất cả phòng ban
-                                    {deptFilter === "all" && <Check className="h-3.5 w-3.5" />}
+                                    {dept.name}
+                                    {deptFilter === dept.id && <Check className="h-3.5 w-3.5" />}
                                 </button>
-                                {departments.map((dept) => (
-                                    <button
-                                        key={dept.id}
-                                        type="button"
-                                        onClick={() => {
-                                            setDeptFilter(dept.id);
-                                            setIsDeptDropdownOpen(false);
-                                        }}
-                                        className={cn(
-                                            "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition",
-                                            deptFilter === dept.id ? "bg-white/20 text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
-                                        )}
-                                    >
-                                        {dept.name}
-                                        {deptFilter === dept.id && <Check className="h-3.5 w-3.5" />}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
