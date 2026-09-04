@@ -94,7 +94,7 @@ public class WeeklyAvailabilityService implements DeclareWeeklyAvailabilityUseCa
         WeeklyAvailability availability;
         if (existing.isPresent()) {
             availability = existing.get();
-            availability.updateStandardHours(command.standardHours());
+            availability.update(command.standardHours(), holidayHours, approvedLeaveHours);
         } else {
             availability = WeeklyAvailability.createCalculated(
                     resolvedEmployeeId, yearWeek, command.standardHours(), holidayHours, approvedLeaveHours);

@@ -45,6 +45,14 @@ public class WeeklyAvailability {
         recalculate();
     }
 
+    public void update(int newStandardHours, int holidayHours, BigDecimal approvedLeaveHours) {
+        WeeklyAvailabilityPolicy.validateStandardHours(newStandardHours);
+        this.standardHours = newStandardHours;
+        this.holidayHours = Math.max(0, holidayHours);
+        this.approvedLeaveHours = approvedLeaveHours != null ? approvedLeaveHours : BigDecimal.ZERO;
+        recalculate();
+    }
+
     public void recalculate() {
         this.netAvailableHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(
                 this.standardHours, this.holidayHours, this.approvedLeaveHours);

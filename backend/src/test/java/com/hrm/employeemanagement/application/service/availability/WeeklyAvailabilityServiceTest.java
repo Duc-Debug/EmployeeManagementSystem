@@ -131,6 +131,49 @@ class WeeklyAvailabilityServiceTest {
     }
 
     @Test
+    @DisplayName("Khai báo lại giờ chuẩn tuần khi record đã tồn tại -> Áp dụng đúng holidayHours và approvedLeaveHours mới nhất")
+    void declareAvailability_ExistingRecord_AppliesLatestHolidaysAndLeaves() {
+        Long employeeId = 100L;
+        Employee employee = new Employee(new EmployeeId(employeeId), new UserId(1L), 1L, "EMP001", "Nguyễn Văn A", null, null, null, false, 40, EmployeeStatus.ACTIVE);
+
+        YearWeek yearWeek = YearWeek.of(2026, 36);
+        // Record cũ: 40h standard, 0h holiday, 0h leave, net = 40.00
+        WeeklyAvailability existingAvailability = new WeeklyAvailability(
+                10L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, new BigDecimal("40.00"), 1L);
+
+        LocalDate wednesday = yearWeek.getStartDate().plusDays(2);
+        Holiday holiday = new Holiday(wednesday, "Lễ Quốc Khánh", 8);
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_UPDATE)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(companyAdminUser));
+        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(eq(employeeId), any(YearWeek.class)))
+                .thenReturn(Optional.of(existingAvailability));
+        when(loadHolidaysPort.getHolidaysBetween(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(holiday));
+        when(loadApprovedLeavesPort.getTotalApprovedLeaveHoursBetween(eq(employeeId), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(new BigDecimal("8.00"));
+        when(saveWeeklyAvailabilityPort.save(any(WeeklyAvailability.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        DeclareWeeklyAvailabilityCommand command = new DeclareWeeklyAvailabilityCommand(employeeId, 2026, 36, 40);
+        WeeklyAvailabilityResult result = service.execute(command);
+
+        assertNotNull(result);
+        assertEquals(40, result.standardHours());
+        assertEquals(8, result.holidayHours());
+        assertEquals(new BigDecimal("8.00"), result.approvedLeaveHours());
+        assertEquals(new BigDecimal("24.00"), result.netAvailableHours());
+
+        verify(saveWeeklyAvailabilityPort).save(argThat(saved ->
+                saved.getStandardHours() == 40 &&
+                saved.getHolidayHours() == 8 &&
+                saved.getApprovedLeaveHours().compareTo(new BigDecimal("8.00")) == 0 &&
+                saved.getNetAvailableHours().compareTo(new BigDecimal("24.00")) == 0
+        ));
+    }
+
+    @Test
     @DisplayName("Bán thời gian: Tính năng lực tuần dùng 20 giờ thay vì mặc định 40 giờ (TC-02)")
     void calculate_PartTime_Uses20Hours() {
         Long employeeId = 100L;
