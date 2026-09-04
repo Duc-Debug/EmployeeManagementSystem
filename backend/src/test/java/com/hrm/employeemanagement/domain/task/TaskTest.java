@@ -166,4 +166,52 @@ class TaskTest {
 
         assertThrows(InvalidTaskDataException.class, () -> category.assignTo(new EmployeeId(5L)));
     }
+
+    @Test
+    @DisplayName("Cập nhật thông tin chi tiết của Task thành công")
+    void shouldUpdateTaskDetailsSuccessfully() {
+        Task task = Task.createNew(
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Tên cũ",
+                "Mô tả cũ",
+                TaskType.TASK,
+                null,
+                BigDecimal.ONE,
+                1,
+                new UserId(1L));
+
+        task.updateDetails("Tên mới", "Mô tả mới", new BigDecimal("8.0"), 2);
+
+        assertEquals("Tên mới", task.getName());
+        assertEquals("Mô tả mới", task.getDescription());
+        assertEquals(new BigDecimal("8.0"), task.getEstimatedHours());
+        assertEquals(2, task.getSortOrder());
+        assertNotNull(task.getUpdatedAt());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái và kiểm tra isCategory, isTask thành công")
+    void shouldUpdateStatusAndCheckType() {
+        Task task = Task.createNew(
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Công việc",
+                null,
+                TaskType.TASK,
+                null,
+                BigDecimal.ONE,
+                1,
+                new UserId(1L));
+
+        assertEquals(true, task.isTask());
+        assertEquals(false, task.isCategory());
+
+        task.updateStatus(TaskStatus.IN_PROGRESS);
+        assertEquals(TaskStatus.IN_PROGRESS, task.getStatus());
+
+        assertThrows(InvalidTaskDataException.class, () -> task.updateStatus(null));
+    }
 }

@@ -128,6 +128,22 @@ public class Task {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void updateStatus(TaskStatus newStatus) {
+        if (newStatus == null) {
+            throw new InvalidTaskDataException("Trạng thái công việc không được để trống");
+        }
+        this.status = newStatus;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isCategory() {
+        return this.taskType == TaskType.CATEGORY;
+    }
+
+    public boolean isTask() {
+        return this.taskType == TaskType.TASK;
+    }
+
     // Validations
     private void validateProjectId(ProjectId projectId) {
         if (projectId == null || projectId.value() == null) {

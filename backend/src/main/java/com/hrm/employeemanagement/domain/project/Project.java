@@ -196,6 +196,27 @@ public class Project {
         }
     }
 
+    public boolean isManagedBy(EmployeeId employeeId) {
+        return this.managerId != null && this.managerId.equals(employeeId);
+    }
+
+    public void close() {
+        if (this.status == ProjectStatus.CLOSED) {
+            throw new InvalidProjectDataException("Dự án đã ở trạng thái đóng từ trước");
+        }
+        this.status = ProjectStatus.CLOSED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void activate() {
+        this.status = ProjectStatus.ACTIVE;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isActive() {
+        return this.status == ProjectStatus.ACTIVE;
+    }
+
     public boolean isClosed() {
         return this.status == ProjectStatus.CLOSED;
     }
