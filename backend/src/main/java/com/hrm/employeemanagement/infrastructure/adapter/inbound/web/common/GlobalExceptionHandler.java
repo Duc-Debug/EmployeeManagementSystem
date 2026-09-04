@@ -66,6 +66,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSkillNotFound(com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SKILL_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler({EmployeeVersionConflictException.class,
             org.springframework.orm.ObjectOptimisticLockingFailureException.class,
             jakarta.persistence.OptimisticLockException.class})

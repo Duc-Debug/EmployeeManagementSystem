@@ -20,7 +20,6 @@ public class Employee {
     private EmployeeStatus status;
     private Long version;
 
-    // 11-argument constructor
     public Employee(EmployeeId id, UserId userId, Long orgUnitId, String employeeCode, String fullName,
                     String professionalRole, LocalDate startDate, LocalDate contractEndDate,
                     Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status) {
@@ -45,23 +44,22 @@ public class Employee {
         validateContractDates(startDate, contractEndDate);
         this.version = version;
     }
-
-    // 8-argument constructor for backwards compatibility
+    // Constructor retained for backwards compatibility.
     public Employee(EmployeeId id, UserId userId, Long orgUnitId, String employeeCode, String fullName,
                     Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status) {
         this(id, userId, orgUnitId, employeeCode, fullName, null, null, null, isOutsourced, standardHoursPerWeek, status);
     }
 
-    // Static Factory Method for UserService (4 parameters)
     public static Employee createNew(UserId userId, Long orgUnitId, String employeeCode, String fullName) {
-        return new Employee(null, userId, orgUnitId, employeeCode, fullName, null, null, null, false, 40, EmployeeStatus.ACTIVE);
+        return new Employee(null, userId, orgUnitId, employeeCode, fullName, null, null, null,
+                false, 40, EmployeeStatus.ACTIVE);
     }
 
-    // Static Factory Method for EmployeeProfileService (8 parameters)
     public static Employee createNewProfile(UserId userId, Long orgUnitId, String employeeCode, String fullName,
                                            String professionalRole, LocalDate startDate, LocalDate contractEndDate,
                                            Integer standardHoursPerWeek) {
-        return new Employee(null, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate, contractEndDate, false, standardHoursPerWeek, EmployeeStatus.ACTIVE);
+        return new Employee(null, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate,
+                contractEndDate, false, standardHoursPerWeek, EmployeeStatus.ACTIVE);
     }
 
     public void updateProfile(String fullName, Long orgUnitId, String professionalRole,
@@ -131,7 +129,6 @@ public class Employee {
     public String getFullName() {
         return fullName;
     }
-
     public String getProfessionalRole() {
         return professionalRole;
     }

@@ -4,6 +4,7 @@ import { apiRequest } from "../api-client";
 import type { DataScope, RoleCode, User } from "@/src/types/hrm";
 
 export interface CreateUserPayload {
+  email?: string;
   employeeCode?: string;
   fullName: string;
   orgUnitId?: number | null;
