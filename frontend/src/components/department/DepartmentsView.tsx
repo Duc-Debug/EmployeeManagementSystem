@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { GitBranch, Network } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DepartmentTree from "./DepartmentTree";
 import OrgChart from "./OrgChart";
 
 export default function DepartmentsView() {
-    const [departmentSubTab, setDepartmentSubTab] = useState<"list" | "tree">("list");
+    const [searchParams, setSearchParams] = useSearchParams();
+    const currentTab = searchParams.get("tab");
+    const departmentSubTab = currentTab === "chart" ? "tree" : "list";
+
+    const handleSubTabChange = (tab: "list" | "tree") => {
+        if (tab === "tree") {
+            setSearchParams({ tab: "chart" });
+        } else {
+            setSearchParams({});
+        }
+    };
 
     return (
         <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
@@ -20,7 +30,7 @@ export default function DepartmentsView() {
                 </div>
                 <div className="flex rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-2xs">
                     <button
-                        onClick={() => setDepartmentSubTab("list")}
+                        onClick={() => handleSubTabChange("list")}
                         className={cn(
                             "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition",
                             departmentSubTab === "list"
@@ -32,7 +42,7 @@ export default function DepartmentsView() {
                         Cây phân cấp đơn vị
                     </button>
                     <button
-                        onClick={() => setDepartmentSubTab("tree")}
+                        onClick={() => handleSubTabChange("tree")}
                         className={cn(
                             "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition",
                             departmentSubTab === "tree"

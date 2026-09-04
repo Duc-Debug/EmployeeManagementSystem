@@ -41,7 +41,6 @@ function hexFor(theme: { badgeColor: string }) {
 }
 
 const EMPTY_NODE_FORM = { badge: "", title: "", desc: "", subLeft: "", manager: "", iconKey: "User", themeKey: "blue" };
-
 function formFromCard(card?: CardData | null) {
     return card
         ? {

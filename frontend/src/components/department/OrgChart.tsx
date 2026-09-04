@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
     Plus,
     Pencil,
@@ -14,6 +14,7 @@ import {
     BarChart2,
     Archive,
     Code,
+    User,
     Users,
     Shield,
     UserCheck,
@@ -21,6 +22,15 @@ import {
 import OrgNodeModal from './OrgNodeModal';
 import OrgNodeDetailModal from './OrgNodeDetailModal';
 import type { CardData } from './orgNode.constants';
+import {
+    getOrgTree,
+    createOrgUnit,
+    updateOrgUnit,
+    moveOrgUnit,
+    deactivateOrgUnit,
+} from '@/lib/api/org-units';
+import { getUsers } from '@/lib/api/users';
+import type { OrgUnitTreeNode } from '@/types/hrm';
 
 export interface OrgTreeNode extends CardData {
     id: string;
@@ -171,6 +181,77 @@ type EditTarget =
     | { kind: 'addChild'; parentId: string }
     | null;
 
+function getMetaForUnit(unitType?: string, level?: number) {
+    if (unitType === 'COMPANY' || level === 1) {
+        return {
+            badge: 'CẤP CAO NHẤT',
+            badgeBg: 'bg-amber-100',
+            badgeColor: 'text-amber-800',
+            borderColor: 'border-amber-300',
+            iconColor: 'text-amber-600',
+            icon: Crown,
+        };
+    }
+    if (unitType === 'CENTER' || level === 2) {
+        return {
+            badge: 'KHỐI TRUNG TÂM',
+            badgeBg: 'bg-blue-50',
+            badgeColor: 'text-blue-700',
+            borderColor: 'border-blue-200',
+            iconColor: 'text-blue-600',
+            icon: BarChart2,
+        };
+    }
+    if (unitType === 'DEPARTMENT' || level === 3) {
+        return {
+            badge: 'PHÒNG BAN',
+            badgeBg: 'bg-indigo-50',
+            badgeColor: 'text-indigo-700',
+            borderColor: 'border-indigo-200',
+            iconColor: 'text-indigo-600',
+            icon: Users,
+        };
+    }
+    return {
+        badge: 'TỔ NHÓM',
+        badgeBg: 'bg-purple-50',
+        badgeColor: 'text-purple-700',
+        borderColor: 'border-purple-200',
+        iconColor: 'text-purple-600',
+        icon: User,
+    };
+}
+
+function convertBackendNodeToOrgChartNode(
+    node: OrgUnitTreeNode,
+    userMap: Map<number, string>,
+    parentName: string | null
+): OrgTreeNode {
+    const meta = getMetaForUnit(node.unitType, node.level);
+    const managerName = node.managerId
+        ? userMap.get(node.managerId) || `Quản lý #${node.managerId}`
+        : 'Chưa bổ nhiệm';
+
+    return {
+        id: String(node.id),
+        badge: meta.badge,
+        badgeBg: meta.badgeBg,
+        badgeColor: meta.badgeColor,
+        borderColor: meta.borderColor,
+        iconColor: meta.iconColor,
+        icon: meta.icon,
+        title: node.unitName,
+        desc: node.description || 'Chức năng, vai trò và mục tiêu phòng ban',
+        manager: managerName,
+        subLeft: parentName ? `Trực thuộc: ${parentName}` : 'Hội đồng Quản trị',
+        levelText: `Tầng ${node.level || 1}`,
+        cardBg: 'bg-white',
+        children: node.children
+            ? node.children.map((c: OrgUnitTreeNode) => convertBackendNodeToOrgChartNode(c, userMap, node.unitName))
+            : [],
+    };
+}
+
 export default function OrgChart() {
     const [tree, setTree] = useState<OrgTreeNode>(INITIAL_ORG_TREE);
     const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
@@ -179,6 +260,34 @@ export default function OrgChart() {
     const [searchQuery, setSearchQuery] = useState('');
     const [editTarget, setEditTarget] = useState<EditTarget>(null);
     const [detailNode, setDetailNode] = useState<OrgTreeNode | null>(null);
+
+    // Tải dữ liệu thật từ Backend API (GET /api/v1/org-units/tree)
+    useEffect(() => {
+        let isMounted = true;
+        async function loadBackendData() {
+            try {
+                const [treeRes, usersRes] = await Promise.all([
+                    getOrgTree(),
+                    getUsers(0, 100).catch(() => null),
+                ]);
+                if (!isMounted) return;
+                const userMap = new Map<number, string>();
+                if (usersRes?.content) {
+                    usersRes.content.forEach((u) => userMap.set(u.id, u.fullName || u.username));
+                }
+                if (treeRes && treeRes.length > 0) {
+                    const converted = convertBackendNodeToOrgChartNode(treeRes[0], userMap, null);
+                    setTree(converted);
+                }
+            } catch (err) {
+                console.warn('Backend API chưa sẵn sàng hoặc lỗi, dùng dữ liệu dự phòng:', err);
+            }
+        }
+        loadBackendData();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     // Pan and Zoom
     const [zoom, setZoom] = useState(1);
@@ -260,6 +369,15 @@ export default function OrgChart() {
     function handleDropNode(sourceId: string, targetId: string) {
         if (!canDrop(sourceId, targetId)) return;
 
+        // Gửi API chuyển nhánh trực thuộc lên backend (PATCH /api/v1/org-units/{id}/move)
+        const sNum = parseInt(sourceId, 10);
+        const tNum = parseInt(targetId, 10);
+        if (!isNaN(sNum) && !isNaN(tNum)) {
+            moveOrgUnit(sNum, tNum).catch((err) => {
+                console.error('Lỗi khi gọi API moveOrgUnit:', err);
+            });
+        }
+
         setTree((current) => {
             const root = cloneTree(current);
             const parent = findParentNode(root, sourceId);
@@ -269,6 +387,7 @@ export default function OrgChart() {
             if (!parent || !target || !dragged) return current;
 
             parent.children = parent.children.filter((c) => c.id !== sourceId);
+            dragged.subLeft = `Trực thuộc: ${target.title}`;
             target.children.push(dragged);
 
             return root;
@@ -276,13 +395,24 @@ export default function OrgChart() {
     }
 
     // Modal Add / Edit / Delete Handlers
-    function handleSaveNode(card: CardData) {
+    async function handleSaveNode(card: CardData) {
         if (!editTarget) return;
 
-        setTree((current) => {
-            const root = cloneTree(current);
+        if (editTarget.kind === 'edit') {
+            // Gửi API cập nhật phòng ban lên backend (PUT /api/v1/org-units/{id})
+            const numId = parseInt(editTarget.nodeId, 10);
+            if (!isNaN(numId)) {
+                updateOrgUnit(numId, {
+                    unitName: card.title,
+                    unitType: 'DEPARTMENT',
+                    description: card.desc,
+                }).catch((err) => {
+                    console.error('Lỗi khi gọi API updateOrgUnit:', err);
+                });
+            }
 
-            if (editTarget.kind === 'edit') {
+            setTree((current) => {
+                const root = cloneTree(current);
                 const node = findNode(root, editTarget.nodeId);
                 if (node) {
                     node.badge = card.badge;
@@ -290,19 +420,44 @@ export default function OrgChart() {
                     node.badgeColor = card.badgeColor;
                     node.title = card.title;
                     node.desc = card.desc;
+                    node.manager = card.manager;
                     node.subLeft = card.subLeft;
                     node.icon = card.icon;
                     node.iconColor = card.iconColor;
                     node.cardBg = card.cardBg;
                     node.borderColor = card.borderColor;
                 }
-            } else if (editTarget.kind === 'addChild') {
+                return root;
+            });
+        } else if (editTarget.kind === 'addChild') {
+            // Gửi API tạo mới phòng ban con lên backend (POST /api/v1/org-units)
+            const parentNum = parseInt(editTarget.parentId, 10);
+            let createdId = nextNodeId();
+
+            try {
+                const code = `PB-${Date.now().toString().slice(-4)}`;
+                const res = await createOrgUnit({
+                    unitCode: code,
+                    unitName: card.title,
+                    unitType: 'DEPARTMENT',
+                    parentId: !isNaN(parentNum) ? parentNum : null,
+                    description: card.desc,
+                });
+                if (res?.id) {
+                    createdId = String(res.id);
+                }
+            } catch (err) {
+                console.error('Lỗi khi gọi API createOrgUnit:', err);
+            }
+
+            setTree((current) => {
+                const root = cloneTree(current);
                 const parent = findNode(root, editTarget.parentId);
                 if (parent) {
                     const parentLvl = parseInt(parent.levelText.replace(/\D/g, '') || '1', 10);
                     const newChild: OrgTreeNode = {
                         ...card,
-                        id: nextNodeId(),
+                        id: createdId,
                         levelText: `Tầng ${parentLvl + 1}`,
                         children: [],
                     };
@@ -313,14 +468,22 @@ export default function OrgChart() {
                         return next;
                     });
                 }
-            }
-            return root;
-        });
+                return root;
+            });
+        }
         setEditTarget(null);
     }
 
     function handleDeleteNode() {
         if (!editTarget || editTarget.kind !== 'edit' || editTarget.nodeId === tree.id) return;
+
+        // Gửi API vô hiệu hóa phòng ban (PATCH /api/v1/org-units/{id}/deactivate)
+        const numId = parseInt(editTarget.nodeId, 10);
+        if (!isNaN(numId)) {
+            deactivateOrgUnit(numId).catch((err) => {
+                console.error('Lỗi khi gọi API deactivateOrgUnit:', err);
+            });
+        }
 
         setTree((current) => {
             const root = cloneTree(current);
@@ -335,6 +498,15 @@ export default function OrgChart() {
 
     function handleDirectDelete(nodeId: string) {
         if (nodeId === tree.id) return;
+
+        // Gửi API vô hiệu hóa phòng ban (PATCH /api/v1/org-units/{id}/deactivate)
+        const numId = parseInt(nodeId, 10);
+        if (!isNaN(numId)) {
+            deactivateOrgUnit(numId).catch((err) => {
+                console.error('Lỗi khi gọi API deactivateOrgUnit:', err);
+            });
+        }
+
         setTree((current) => {
             const root = cloneTree(current);
             const parent = findParentNode(root, nodeId);

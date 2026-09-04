@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import SideBar from "./SideBar";
 import Header from "./Header";
@@ -50,7 +51,27 @@ const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
 const CURRENT_EMPLOYEE_ID = "NV001";
 
 export default function Dashboard() {
-    const [activeTab, setActiveTab] = useState("overview");
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // Đồng bộ URL trình duyệt với tab tương ứng
+    const activeTab = useMemo(() => {
+        const path = location.pathname.toLowerCase();
+        if (path.includes("employee") || path.includes("nhan-su")) return "employees";
+        if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
+        if (path.includes("attendance") || path.includes("cham-cong")) return "attendance";
+        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
+        if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
+        if (path.includes("report") || path.includes("bao-cao")) return "reports";
+        if (path.includes("setting")) return "settings";
+        return "overview";
+    }, [location.pathname]);
+
+    const handleTabChange = (tabId: string) => {
+        const targetPath = tabId === "overview" ? "/" : `/${tabId}`;
+        navigate(targetPath);
+    };
+
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(
         INITIAL_ATTENDANCE_RECORDS
@@ -101,7 +122,7 @@ export default function Dashboard() {
                     overflow-y-auto của <main> bên dưới không bao giờ kích hoạt
                     và cả trang bị đẩy tràn, không cuộn xem hết được. */}
                 <div className="flex flex-1 min-h-0 overflow-hidden">
-                    <SideBar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} />
+                    <SideBar activeTab={activeTab} setActiveTab={handleTabChange} isOpen={isSidebarOpen} />
 
                     <main
                         className={cn(

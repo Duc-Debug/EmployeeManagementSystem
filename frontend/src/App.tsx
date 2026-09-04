@@ -1,5 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import LoginRoute from "./app/login/Page";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./components/dashboard/Dashboard";
 import RequireAuth from "./components/auth/Requireauth";
 
@@ -9,14 +8,12 @@ function App() {
             <Routes>
                 <Route path="/login" element={<LoginRoute />} />
                 <Route
-                    path="/"
+                    path="/*"
                     element={
-                        <RequireAuth>
                             <Dashboard />
                         </RequireAuth>
                     }
                 />
-                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
     );
