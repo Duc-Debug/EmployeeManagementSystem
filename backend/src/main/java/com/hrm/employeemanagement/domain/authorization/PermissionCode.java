@@ -4,6 +4,7 @@ public enum PermissionCode {
 
     USER_READ,
     USER_CREATE,
+    USER_UPDATE,
     USER_UPDATE_ROLE,
     USER_TOGGLE_STATUS,
     ORG_UNIT_READ,

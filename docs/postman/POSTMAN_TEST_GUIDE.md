@@ -70,7 +70,7 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
     "roleCode": "VT-04",
     "employeeCode": "EMP-IT-001",
     "fullName": "Nguyễn Văn IT",
-    "departmentId": 2
+    "orgUnitId": 2
   }
   ```
 * **Kỳ vọng (HTTP 201 Created)**:
@@ -88,7 +88,7 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
         "status": "ACTIVE",
         "employeeId": 2,
         "fullName": "Nguyễn Văn IT",
-        "departmentId": 2
+        "orgUnitId": 2
       }
     }
     ```
@@ -150,7 +150,7 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
   ```json
   {
     "roleCode": "VT-02",
-    "departmentId": 3
+    "orgUnitId": 3
   }
   ```
 * **Kỳ vọng (HTTP 200 OK)**:
@@ -162,14 +162,48 @@ Tài liệu này cung cấp hướng dẫn từng bước để kiểm thử to�
       "id": 2,
       "roleCode": "VT-02",
       "roleName": "Quản lý dự án",
-      "departmentId": 3
+      "orgUnitId": 3
     }
   }
   ```
 
 ---
 
-#### 🔹 2.5 Khóa tài khoản thành công (`TC-05`)
+#### 🔹 2.5 Cập nhật thông tin tài khoản người dùng (Update User)
+* **Method**: `PUT`
+* **URL**: `http://localhost:8080/api/v1/users/2`
+* **Headers**: `Content-Type: application/json`, `Authorization: Bearer <jwt_token>`
+* **Body (JSON)**:
+  ```json
+  {
+    "fullName": "Nguyễn Văn IT Cập Nhật",
+    "email": "it_updated@company.com",
+    "employeeCode": "EMP-IT-001-UPD",
+    "orgUnitId": 2,
+    "roleCode": "VT-04",
+    "dataScope": "SELF"
+  }
+  ```
+* **Kỳ vọng (HTTP 200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Cập nhật thông tin tài khoản thành công",
+    "data": {
+      "id": 2,
+      "username": "nhanvien_it",
+      "roleCode": "VT-04",
+      "roleName": "Nhân viên chuyên môn",
+      "status": "ACTIVE",
+      "fullName": "Nguyễn Văn IT Cập Nhật",
+      "orgUnitId": 2
+    }
+  }
+  ```
+
+---
+
+#### 🔹 2.6 Khóa tài khoản thành công (`TC-05`)
 * **Method**: `PATCH`
 * **URL**: `http://localhost:8080/api/v1/users/2/status?lock=true`
 * **Kỳ vọng (HTTP 200 OK)**:
