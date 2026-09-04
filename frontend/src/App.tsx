@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LoginRoute from "./app/login/Page";
 import Dashboard from "./components/dashboard/Dashboard";
 import RequireAuth from "./components/auth/Requireauth";
 
@@ -10,6 +11,7 @@ function App() {
                 <Route
                     path="/*"
                     element={
+                        <RequireAuth>
                             <Dashboard />
                         </RequireAuth>
                     }
