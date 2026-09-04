@@ -152,4 +152,74 @@ class WeeklyAvailabilityPolicyTest {
         BigDecimal netHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(40, holidayHours, BigDecimal.ZERO);
         assertEquals(new BigDecimal("36.00"), netHours);
     }
+
+    @Test
+    @DisplayName("QTN-10: Đơn nghỉ phép kéo dài nhiều tuần (9 ngày = 72h) -> Phân bổ đúng 32h cho Tuần 36 và 40h cho Tuần 37")
+    void tc_qtn10_multiWeekLeavePartition() {
+        YearWeek week36 = YearWeek.of(2026, 36); // 2026-08-31 (Mon) to 2026-09-06 (Sun)
+        YearWeek week37 = YearWeek.of(2026, 37); // 2026-09-07 (Mon) to 2026-09-13 (Sun)
+
+        // Đơn nghỉ phép: 2026-09-01 (Tue) đến 2026-09-11 (Fri) = 9 working days, 72 hours
+        LocalDate leaveStart = LocalDate.of(2026, 9, 1);
+        LocalDate leaveEnd = LocalDate.of(2026, 9, 11);
+        BigDecimal totalHours = new BigDecimal("72.00");
+
+        BigDecimal week36Hours = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                leaveStart, leaveEnd, totalHours, week36.getStartDate(), week36.getEndDate());
+        BigDecimal week37Hours = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                leaveStart, leaveEnd, totalHours, week37.getStartDate(), week37.getEndDate());
+
+        // Tuần 36 có 4 ngày làm việc (Tue, Wed, Thu, Fri) -> 72 * 4 / 9 = 32.00h
+        assertEquals(new BigDecimal("32.00"), week36Hours);
+        // Tuần 37 có 5 ngày làm việc (Mon, Tue, Wed, Thu, Fri) -> 72 * 5 / 9 = 40.00h
+        assertEquals(new BigDecimal("40.00"), week37Hours);
+        // Tổng phân bổ đúng bằng 72.00h
+        assertEquals(totalHours, week36Hours.add(week37Hours));
+    }
+
+    @Test
+    @DisplayName("QTN-10: Đơn nghỉ phép vắt qua cuối tuần (Thứ Sáu đến Thứ Hai: 16h) -> Phân bổ 8h mỗi tuần")
+    void tc_qtn10_weekendSpanningLeavePartition() {
+        YearWeek week36 = YearWeek.of(2026, 36);
+        YearWeek week37 = YearWeek.of(2026, 37);
+
+        // Thứ Sáu tuần 36 (2026-09-04) đến Thứ Hai tuần 37 (2026-09-07) = 2 working days (16h)
+        LocalDate friday = LocalDate.of(2026, 9, 4);
+        LocalDate monday = LocalDate.of(2026, 9, 7);
+        BigDecimal totalHours = new BigDecimal("16.00");
+
+        BigDecimal week36Hours = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                friday, monday, totalHours, week36.getStartDate(), week36.getEndDate());
+        BigDecimal week37Hours = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                friday, monday, totalHours, week37.getStartDate(), week37.getEndDate());
+
+        assertEquals(new BigDecimal("8.00"), week36Hours);
+        assertEquals(new BigDecimal("8.00"), week37Hours);
+        assertEquals(totalHours, week36Hours.add(week37Hours));
+    }
+
+    @Test
+    @DisplayName("QTN-10: Đơn nghỉ nửa ngày (4h) nằm trọn trong tuần -> Giữ nguyên 4.00h")
+    void tc_qtn10_halfDayLeaveInWeek() {
+        YearWeek week36 = YearWeek.of(2026, 36);
+        LocalDate wednesday = LocalDate.of(2026, 9, 2);
+
+        BigDecimal hours = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                wednesday, wednesday, new BigDecimal("4.00"), week36.getStartDate(), week36.getEndDate());
+
+        assertEquals(new BigDecimal("4.00"), hours);
+    }
+
+    @Test
+    @DisplayName("QTN-10: Đơn nghỉ nằm ngoài tuần hoàn toàn -> 0.00h")
+    void tc_qtn10_leaveOutsideWeek() {
+        YearWeek week36 = YearWeek.of(2026, 36);
+        LocalDate oct1 = LocalDate.of(2026, 10, 1);
+        LocalDate oct5 = LocalDate.of(2026, 10, 5);
+
+        BigDecimal hours = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                oct1, oct5, new BigDecimal("24.00"), week36.getStartDate(), week36.getEndDate());
+
+        assertEquals(new BigDecimal("0.00"), hours);
+    }
 }

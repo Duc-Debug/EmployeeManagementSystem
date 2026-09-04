@@ -109,4 +109,63 @@ public class WeeklyAvailabilityPolicy {
 
         return netHours.setScale(2, RoundingMode.HALF_UP);
     }
+
+    /**
+     * Đếm số ngày làm việc hành chính (Thứ 2 đến Thứ 6) trong khoảng [startDate, endDate].
+     */
+    public static int countWorkingDaysBetween(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null || startDate.isAfter(endDate)) {
+            return 0;
+        }
+        int count = 0;
+        LocalDate current = startDate;
+        while (!current.isAfter(endDate)) {
+            DayOfWeek dow = current.getDayOfWeek();
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+                count++;
+            }
+            current = current.plusDays(1);
+        }
+        return count;
+    }
+
+    /**
+     * Tính số giờ nghỉ phép thực tế thuộc về khoảng thời gian [windowStart, windowEnd] (ví dụ: tuần làm việc).
+     * Phân bổ số giờ nghỉ theo tỷ lệ ngày làm việc thực tế rơi vào khoảng thời gian đó,
+     * tránh việc một đơn nghỉ phép kéo dài nhiều tuần bị trừ toàn bộ vào từng tuần có giao nhau.
+     */
+    public static BigDecimal calculateLeaveHoursInWindow(
+            LocalDate leaveStartDate, LocalDate leaveEndDate, BigDecimal totalHoursDeducted,
+            LocalDate windowStart, LocalDate windowEnd) {
+        if (totalHoursDeducted == null || totalHoursDeducted.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        if (leaveStartDate == null || leaveEndDate == null || windowStart == null || windowEnd == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        if (leaveStartDate.isAfter(windowEnd) || leaveEndDate.isBefore(windowStart)) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        int totalWorkingDays = countWorkingDaysBetween(leaveStartDate, leaveEndDate);
+        if (totalWorkingDays == 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        LocalDate overlapStart = leaveStartDate.isAfter(windowStart) ? leaveStartDate : windowStart;
+        LocalDate overlapEnd = leaveEndDate.isBefore(windowEnd) ? leaveEndDate : windowEnd;
+
+        int overlapWorkingDays = countWorkingDaysBetween(overlapStart, overlapEnd);
+        if (overlapWorkingDays == 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        if (overlapWorkingDays == totalWorkingDays) {
+            return totalHoursDeducted.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        return totalHoursDeducted
+                .multiply(BigDecimal.valueOf(overlapWorkingDays))
+                .divide(BigDecimal.valueOf(totalWorkingDays), 2, RoundingMode.HALF_UP);
+    }
 }

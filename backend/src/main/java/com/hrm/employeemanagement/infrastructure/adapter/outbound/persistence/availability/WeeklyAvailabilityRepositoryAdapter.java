@@ -5,7 +5,9 @@ import com.hrm.employeemanagement.application.port.outbound.availability.LoadHol
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.SaveWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.entity.LeaveRequestJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.entity.WeeklyAvailabilityJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.repository.SpringDataHolidayRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.repository.SpringDataLeaveRequestRepository;
@@ -13,6 +15,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.av
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
@@ -70,7 +73,22 @@ public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabili
 
     @Override
     public BigDecimal getTotalApprovedLeaveHoursBetween(Long employeeId, LocalDate startDate, LocalDate endDate) {
-        BigDecimal total = leaveRequestRepository.sumApprovedLeaveHoursBetween(employeeId, startDate, endDate);
-        return total != null ? total : BigDecimal.ZERO;
+        List<LeaveRequestJpaEntity> leaves = leaveRequestRepository.findApprovedLeavesBetween(employeeId, startDate, endDate);
+        if (leaves == null || leaves.isEmpty()) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (LeaveRequestJpaEntity leave : leaves) {
+            BigDecimal allocatedHours = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                    leave.getStartDate(),
+                    leave.getEndDate(),
+                    leave.getHoursDeducted(),
+                    startDate,
+                    endDate
+            );
+            total = total.add(allocatedHours);
+        }
+        return total.setScale(2, RoundingMode.HALF_UP);
     }
 }
