@@ -30,7 +30,6 @@ const navSections: ReadonlyArray<NavSection> = [
     items: [
       { href: "/users", icon: "users", label: "Tài khoản nhân sự" },
       { href: "/organization", icon: "organization", label: "Sơ đồ cây tổ chức" },
-      { href: "/access", icon: "access", label: "Phân quyền hệ thống" },
       { href: "/skills", icon: "shield", label: "Khai báo kỹ năng" },
     ],
   },
