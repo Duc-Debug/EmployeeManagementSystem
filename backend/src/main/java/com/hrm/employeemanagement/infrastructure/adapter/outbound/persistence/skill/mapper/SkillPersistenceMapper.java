@@ -9,28 +9,24 @@ public class SkillPersistenceMapper {
     public static Skill toDomain(SkillJpaEntity entity) {
         if (entity == null) return null;
         return new Skill(
-                entity.getId() != null ? new SkillId(entity.getId()) : null,
-                entity.getGroupId(),
+                entity.getId(),
+                entity.getCode(),
                 entity.getName(),
+                entity.getCategory(),
                 entity.getDescription(),
-                entity.getStatus() != null ? SkillStatus.valueOf(entity.getStatus()) : SkillStatus.ACTIVE,
-                entity.getMergedIntoSkillId() != null ? new SkillId(entity.getMergedIntoSkillId()) : null,
-                entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getCreatedAt()
         );
     }
 
     public static SkillJpaEntity toJpaEntity(Skill domain) {
         if (domain == null) return null;
         return new SkillJpaEntity(
-                domain.getId() != null ? domain.getId().value() : null,
-                domain.getGroupId(),
+                domain.getId(),
+                domain.getCode(),
                 domain.getName(),
+                domain.getCategory(),
                 domain.getDescription(),
-                domain.getStatus() != null ? domain.getStatus().name() : "ACTIVE",
-                domain.getMergedIntoSkillId() != null ? domain.getMergedIntoSkillId().value() : null,
-                domain.getCreatedAt(),
-                domain.getUpdatedAt()
+                domain.getCreatedAt()
         );
     }
 

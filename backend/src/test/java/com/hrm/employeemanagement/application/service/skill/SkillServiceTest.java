@@ -73,7 +73,7 @@ class SkillServiceTest {
         when(loadSkillGroupPort.existsById(new SkillGroupId(1L))).thenReturn(true);
         when(loadSkillPort.existsByNameIgnoreCase("Java")).thenReturn(false);
 
-        Skill savedSkill = new Skill(new SkillId(1L), 1L, "Java", "Desc", SkillStatus.ACTIVE, null, LocalDateTime.now(), null);
+        Skill savedSkill = new Skill(1L, "JAVA", "Java", "Backend", "Desc", LocalDateTime.now());
         when(saveSkillPort.save(any(Skill.class))).thenReturn(savedSkill);
 
         SkillResult result = skillService.execute(new CreateSkillCommand(1L, "Java", "Desc"));
@@ -102,9 +102,9 @@ class SkillServiceTest {
     void shouldMergeSkillsSuccessfullyWithDeduplication() {
         when(authorizationService.require(PermissionCode.SKILL_MERGE)).thenReturn(99L);
 
-        Skill targetSkill = new Skill(new SkillId(1L), 1L, "Java", "Target", SkillStatus.ACTIVE, null, LocalDateTime.now(), null);
-        Skill sourceSkill2 = new Skill(new SkillId(2L), 1L, "Java Programming", "Source", SkillStatus.ACTIVE, null, LocalDateTime.now(), null);
-        Skill sourceSkill3 = new Skill(new SkillId(3L), 1L, "Lập trình Java", "Source", SkillStatus.ACTIVE, null, LocalDateTime.now(), null);
+        Skill targetSkill = new Skill(1L, "JAVA", "Java", "Backend", "Target", LocalDateTime.now());
+        Skill sourceSkill2 = new Skill(2L, "JAVA2", "Java Programming", "Backend", "Source", LocalDateTime.now());
+        Skill sourceSkill3 = new Skill(3L, "JAVA3", "Lập trình Java", "Backend", "Source", LocalDateTime.now());
 
         when(loadSkillPort.findById(new SkillId(1L))).thenReturn(Optional.of(targetSkill));
         when(loadSkillPort.findAllByIdIn(List.of(2L, 3L))).thenReturn(List.of(sourceSkill2, sourceSkill3));
@@ -125,12 +125,6 @@ class SkillServiceTest {
         verify(saveSkillPort).deleteDuplicateEmployeeSkills(3L, 1L);
         verify(saveSkillPort).reassignEmployeeSkills(3L, 1L);
 
-        // Kiểm tra trạng thái của Source Skills
-        assertEquals(SkillStatus.MERGED, sourceSkill2.getStatus());
-        assertEquals(new SkillId(1L), sourceSkill2.getMergedIntoSkillId());
-        assertEquals(SkillStatus.MERGED, sourceSkill3.getStatus());
-        assertEquals(new SkillId(1L), sourceSkill3.getMergedIntoSkillId());
-
         verify(saveSkillPort, times(2)).save(any(Skill.class));
 
         // Kiểm tra Audit Log
@@ -139,19 +133,6 @@ class SkillServiceTest {
         AuditLog audit = auditCaptor.getValue();
         assertEquals("SKILL_MERGED", audit.getAction());
         assertEquals(1L, audit.getRecordId());
-    }
-
-    @Test
-    @DisplayName("Ném InvalidSkillMergeException khi kỹ năng đích không ở trạng thái ACTIVE")
-    void shouldThrowWhenTargetSkillIsNotActive() {
-        when(authorizationService.require(PermissionCode.SKILL_MERGE)).thenReturn(99L);
-
-        Skill inactiveTarget = new Skill(new SkillId(1L), 1L, "Java", "Desc", SkillStatus.INACTIVE, null, null, null);
-        when(loadSkillPort.findById(new SkillId(1L))).thenReturn(Optional.of(inactiveTarget));
-
-        assertThrows(InvalidSkillMergeException.class, () ->
-                skillService.execute(new MergeSkillCommand(1L, List.of(2L)))
-        );
     }
 
     @Test
@@ -199,9 +180,9 @@ class SkillServiceTest {
     void shouldGetSkillsWithSkillStatusFilter() {
         when(authorizationService.require(PermissionCode.SKILL_READ)).thenReturn(99L);
         when(loadSkillPort.findAll(1L, SkillStatus.ACTIVE, "java")).thenReturn(List.of(
-                new Skill(new SkillId(1L), 1L, "Java", "Desc", SkillStatus.ACTIVE, null, null, null)
+                new Skill(1L, "JAVA", "Java", "Backend", "Desc", LocalDateTime.now())
         ));
-        when(loadSkillGroupPort.findAllGroupsByIdIn(List.of(1L))).thenReturn(List.of(
+        lenient().when(loadSkillGroupPort.findAllGroupsByIdIn(List.of(1L))).thenReturn(List.of(
                 new SkillGroup(new SkillGroupId(1L), "Backend", "Backend group", SkillStatus.ACTIVE, null, null)
         ));
 

@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.application.dto.project;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
@@ -14,6 +16,10 @@ public class ProjectResult {
     private final Long createdBy;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
+    private final LocalDate startDate;
+    private final LocalDate endDate;
+    private final BigDecimal estimatedHours;
+    private final String description;
 
     public ProjectResult(
             Long id,
@@ -21,16 +27,23 @@ public class ProjectResult {
             String projectName,
             Long orgUnitId,
             Long managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description,
             ProjectStatus status,
             Long createdBy,
             LocalDateTime createdAt,
-            LocalDateTime updatedAt
-    ) {
+            LocalDateTime updatedAt) {
         this.id = id;
         this.projectCode = projectCode;
         this.projectName = projectName;
         this.orgUnitId = orgUnitId;
         this.managerId = managerId;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.estimatedHours = estimatedHours;
+        this.description = description;
         this.status = status;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
@@ -71,5 +84,21 @@ public class ProjectResult {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public BigDecimal getEstimatedHours() {
+        return estimatedHours;
+    }
+
+    public String getDescription() {
+        return description;
     }
 }

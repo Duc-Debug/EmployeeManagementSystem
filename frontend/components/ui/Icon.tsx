@@ -30,6 +30,8 @@ export type IconName =
   | "shield"
   | "sparkles"
   | "spinner"
+  | "star"
+  | "time"
   | "unlock"
   | "user"
   | "users";
@@ -98,6 +100,10 @@ function Glyph({ name }: Pick<IconProps, "name">) {
       return <><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z" /><path d="M19 3v4M21 5h-4" /></>;
     case "spinner":
       return <><path d="M21 12a9 9 0 1 1-6.219-8.56" className="animate-spin" /></>;
+    case "star":
+      return <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />;
+    case "time":
+      return <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>;
     case "unlock":
       return <><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 7.4-2.1" /></>;
     case "user":
