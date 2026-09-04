@@ -3,7 +3,6 @@ package com.hrm.employeemanagement.domain.project;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Objects;
 
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
@@ -73,7 +72,7 @@ public class Project {
             BigDecimal estimatedHours,
             String description,
             UserId createdBy) {
-                if (createdBy == null) {
+        if (createdBy == null) {
             throw new InvalidProjectDataException("Người tạo dự án không được để trống");
         }
         return new Project(
@@ -195,6 +194,10 @@ public class Project {
         if (description != null && description.trim().length() > 2000) {
             throw new InvalidProjectDataException("Mô tả dự án không được vượt quá 2000 ký tự");
         }
+    }
+
+    public boolean isClosed() {
+        return this.status == ProjectStatus.CLOSED;
     }
 
     public ProjectId getId() {
