@@ -19,6 +19,16 @@ export interface UpdateUserRolePayload {
   scopeOrgUnitId?: number | null;
 }
 
+export interface UpdateUserPayload {
+  dataScope?: DataScope;
+  email?: string;
+  employeeCode?: string;
+  fullName: string;
+  orgUnitId?: number | null;
+  roleCode: RoleCode;
+  scopeOrgUnitId?: number | null;
+}
+
 export interface PageResult<T> {
   content: T[];
   first: boolean;
@@ -45,6 +55,13 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
   return await apiRequest<User>("/users", {
     body: JSON.stringify(payload),
     method: "POST",
+  });
+}
+
+export async function updateUser(id: number, payload: UpdateUserPayload): Promise<User> {
+  return await apiRequest<User>(`/users/${id}`, {
+    body: JSON.stringify(payload),
+    method: "PUT",
   });
 }
 
