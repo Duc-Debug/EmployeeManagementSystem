@@ -1,56 +1,8 @@
 import { useState } from 'react';
-import { Award, Check, Plus, Trash2, UserCheck, Edit3, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Award, Check, Plus, Trash2, Edit3, X } from 'lucide-react';
 import { PROFICIENCY_LEVELS } from './Types.ts';
 import type { CatalogSkill, DeclaredSkill, FormMode, Role, SkillPayload } from './Types.ts';
 import { SkillSelect } from './SkillSelect.tsx';
-
-/* ============================= TopBar ================================ */
-
-interface TopBarProps {
-    currentRole: Role;
-    onRoleChange: (role: Role) => void;
-}
-
-export function TopBar({ currentRole, onRoleChange }: TopBarProps) {
-    return (
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/20 pb-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-white">
-                    Khai báo Kỹ năng cá nhân
-                </h1>
-                <p className="text-sm text-white/70">
-                    Quản lý hồ sơ năng lực — khai báo kỹ năng, mức thành thạo và theo dõi trạng thái phê duyệt.
-                </p>
-            </div>
-            <div className="flex rounded-xl border border-white/20 bg-white/10 p-1 backdrop-blur-md">
-                <button
-                    onClick={() => onRoleChange('VT-04')}
-                    className={cn(
-                        "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition",
-                        currentRole === 'VT-04'
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-white/80 hover:text-white"
-                    )}
-                >
-                    VT-04 · Nhân viên
-                </button>
-                <button
-                    onClick={() => onRoleChange('OTHER')}
-                    className={cn(
-                        "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition",
-                        currentRole === 'OTHER'
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-white/80 hover:text-white"
-                    )}
-                >
-                    <UserCheck className="h-4 w-4" />
-                    VT-01 · Quản lý (Duyệt)
-                </button>
-            </div>
-        </div>
-    );
-}
 
 /* ============================= SkillsTable ============================= */
 
@@ -91,13 +43,13 @@ function StatusBadge({ status }: { status: DeclaredSkill['status'] }) {
 
 interface SkillsTableProps {
     skills: DeclaredSkill[];
-    highlightSkillId: number | string | null;
-    demoEmpty: boolean;
+    highlightSkillId?: number | string | null;
+    demoEmpty?: boolean;
     currentRole: Role;
-    onToggleDemoEmpty: (checked: boolean) => void;
-    onAdd: () => void;
-    onEdit: (skillId: number | string) => void;
-    onDelete: (skill: DeclaredSkill) => void;
+    onToggleDemoEmpty?: (checked: boolean) => void;
+    onAdd?: () => void;
+    onEdit?: (skillId: number | string) => void;
+    onDelete?: (skill: DeclaredSkill) => void;
     onApprove?: (skillId: number | string) => void;
     onReject?: (skillId: number | string) => void;
 }
@@ -111,7 +63,7 @@ export function SkillsTable({
                                 onApprove,
                                 onReject,
                             }: SkillsTableProps) {
-    const isManager = currentRole === 'OTHER';
+    const isManager = currentRole === 'VT-01';
 
     return (
         <div className="space-y-4">
@@ -124,10 +76,10 @@ export function SkillsTable({
                         {isManager ? 'Xem và phê duyệt yêu cầu từ nhân viên' : `Bạn đã khai báo ${skills.length} kỹ năng`}
                     </p>
                 </div>
-                {!isManager && (
+                {!isManager && onAdd && (
                     <button
                         onClick={onAdd}
-                        className="flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2 text-xs font-bold text-white transition shadow-md"
+                        className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-bold text-violet-700 hover:bg-slate-50 transition shadow-md"
                     >
                         <Plus className="h-4 w-4" />
                         Khai báo kỹ năng mới
@@ -135,7 +87,7 @@ export function SkillsTable({
                 )}
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg text-slate-900">
                 {skills.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-12 text-center text-slate-500">
                         <Award className="h-12 w-12 mb-3 stroke-1 text-slate-400" />
@@ -177,29 +129,29 @@ export function SkillsTable({
                                     </td>
                                     <td className="px-5 py-4 text-right">
                                         <div className="flex items-center justify-end gap-1.5">
-                                            {isManager && (
+                                            {isManager ? (
                                                 <>
                                                     <button
                                                         title="Phê duyệt"
+                                                        disabled={s.status === 'approved'}
                                                         onClick={() => onApprove?.(s.skillId)}
-                                                        className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50 transition"
+                                                        className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50 transition disabled:opacity-30"
                                                     >
                                                         <Check className="h-4 w-4" />
                                                     </button>
                                                     <button
                                                         title="Từ chối"
+                                                        disabled={s.status === 'rejected'}
                                                         onClick={() => onReject?.(s.skillId)}
-                                                        className="rounded-lg p-2 text-rose-600 hover:bg-rose-50 transition"
+                                                        className="rounded-lg p-2 text-rose-600 hover:bg-rose-50 transition disabled:opacity-30"
                                                     >
                                                         <X className="h-4 w-4" />
                                                     </button>
                                                 </>
-                                            )}
-
-                                            {!isManager && (
+                                            ) : (
                                                 <button
                                                     title="Sửa"
-                                                    onClick={() => onEdit(s.skillId)}
+                                                    onClick={() => onEdit?.(s.skillId)}
                                                     className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
                                                 >
                                                     <Edit3 className="h-4 w-4" />
@@ -207,7 +159,7 @@ export function SkillsTable({
                                             )}
                                             <button
                                                 title="Xóa kỹ năng"
-                                                onClick={() => onDelete(s)}
+                                                onClick={() => onDelete?.(s)}
                                                 className="rounded-lg p-2 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -292,7 +244,6 @@ function SkillFormModalContent({
                                    onConfirmSwitchToUpdate,
                                    onDismissDuplicateWarning,
                                }: SkillFormModalProps) {
-    // Khởi tạo state trực tiếp từ props khi component mount
     const [skillId, setSkillId] = useState(
         mode === 'update' && editingSkill ? String(editingSkill.skillId) : ''
     );
@@ -361,7 +312,6 @@ function SkillFormModalContent({
                     </div>
                 )}
 
-                {/* Tên kỹ năng */}
                 <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-700">
                         Tên kỹ năng <span className="text-rose-500">*</span>
@@ -386,7 +336,6 @@ function SkillFormModalContent({
                     {errors.skillId && <p className="text-xs text-rose-500">Vui lòng chọn kỹ năng.</p>}
                 </div>
 
-                {/* Mức thành thạo */}
                 <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-700">
                         Mức thành thạo <span className="text-rose-500">*</span>
@@ -400,12 +349,11 @@ function SkillFormModalContent({
                                     setLevel(l.level);
                                     setErrors((prev) => ({ ...prev, level: false }));
                                 }}
-                                className={cn(
-                                    "flex flex-col items-center justify-center rounded-xl border p-2.5 transition text-center",
+                                className={`flex flex-col items-center justify-center rounded-xl border p-2.5 transition text-center ${
                                     level === l.level
                                         ? "border-violet-600 bg-violet-50 text-violet-700 font-bold ring-1 ring-violet-600 shadow-sm"
                                         : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                                )}
+                                }`}
                             >
                                 <span className="text-base font-bold">{l.level}</span>
                                 <span className="text-[10px] opacity-80 mt-0.5">{l.label}</span>
@@ -415,7 +363,6 @@ function SkillFormModalContent({
                     {errors.level && <p className="text-xs text-rose-500">Vui lòng chọn 1 mức thành thạo từ 1 đến 5.</p>}
                 </div>
 
-                {/* Số năm kinh nghiệm */}
                 <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-700">
                         Số năm kinh nghiệm <span className="text-rose-500">*</span>
@@ -431,7 +378,7 @@ function SkillFormModalContent({
                                 setYears(e.target.value);
                                 setErrors((prev) => ({ ...prev, years: false }));
                             }}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                         />
                         <span className="absolute right-3.5 text-xs font-medium text-slate-400">năm</span>
                     </div>
@@ -462,9 +409,6 @@ function SkillFormModalContent({
 
 export function SkillFormModal(props: SkillFormModalProps) {
     if (!props.open) return null;
-
-    // Dùng key để tự động reset state mỗi khi mở modal hoặc thay đổi kỹ năng chỉnh sửa
     const key = props.mode === 'update' && props.editingSkill ? `edit-${props.editingSkill.skillId}` : 'create';
-
     return <SkillFormModalContent key={key} {...props} />;
 }

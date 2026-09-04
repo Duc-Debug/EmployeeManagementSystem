@@ -1,4 +1,8 @@
+// src/components/department/department.constants.ts
 import type { Department } from "./DepartmentModal";
+
+// Re-export type Department để các nơi khác có thể import trực tiếp từ file này
+export type { Department };
 
 export const INITIAL_DEPARTMENTS: Department[] = [
     { id: "dept-1", name: "Phòng Nhân sự", manager: "Nguyễn Minh Anh", count: 12 },

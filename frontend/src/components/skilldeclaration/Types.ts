@@ -1,6 +1,5 @@
-
 export type SkillStatus = 'pending' | 'approved' | 'rejected';
-export type Role = 'VT-04' | 'OTHER';
+export type Role = 'VT-01' | 'VT-04' | 'OTHER'; // Thêm 'VT-01' vào đây
 export type FormMode = 'create' | 'update';
 
 /** Một mục trong danh mục kỹ năng chuẩn */

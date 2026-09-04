@@ -1,18 +1,38 @@
 import { useState } from 'react';
+import { ClipboardList, Search as SearchIcon, ShieldCheck } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
     ConfirmDeleteModal,
     SkillFormModal,
     SkillsTable,
-    TopBar,
 } from './Components.tsx';
 import { ToastList } from './ToastNotification.tsx';
+import SkillresourceSearch from './SkillresourceSearch.tsx';
+import type { DepartmentItem, ResourceEmployee } from './SkillresourceSearch.tsx';
 import { INITIAL_SKILLS, SKILL_CATALOG } from './Types.ts';
-import type { CatalogSkill, DeclaredSkill, FormMode, Role, SkillPayload, ToastItem } from './Types.ts';
+import type { CatalogSkill, DeclaredSkill, FormMode, SkillPayload, ToastItem } from './Types.ts';
 
 let toastSeq = 0;
 
-export default function SkilldeclarationView() {
-    const [currentRole, setCurrentRole] = useState<Role>('VT-04');
+export type ModuleTab = 'declare' | 'search' | 'approve';
+
+const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon }[] = [
+    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList },
+    { id: 'search', label: 'Tra cứu & Tìm kiếm nhân sự', icon: SearchIcon },
+    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck },
+];
+
+export interface SkilldeclarationViewProps {
+    // Nhận danh sách phòng ban & nhân sự từ ứng dụng cha (đồng bộ với module Phòng ban)
+    departments?: DepartmentItem[];
+    employees?: ResourceEmployee[];
+}
+
+export default function SkilldeclarationView({
+                                                 departments = [],
+                                                 employees = [],
+                                             }: SkilldeclarationViewProps) {
+    const [activeTab, setActiveTab] = useState<ModuleTab>('declare');
 
     const [catalog, setCatalog] = useState<CatalogSkill[]>(SKILL_CATALOG);
     const catalogById = Object.fromEntries(catalog.map((c) => [c.id, c]));
@@ -161,23 +181,78 @@ export default function SkilldeclarationView() {
     }
 
     return (
-        <div className="space-y-6 w-full">
+        <div className="w-full space-y-6">
             <ToastList toasts={toasts} onDone={removeToast} />
 
-            <TopBar currentRole={currentRole} onRoleChange={setCurrentRole} />
+            <div className="w-full rounded-3xl bg-gradient-to-br from-[#7c3aed] via-[#4f46e5] to-[#2563eb] p-6 text-white shadow-xl sm:p-8">
 
-            <SkillsTable
-                skills={skills}
-                currentRole={currentRole}
-                highlightSkillId={highlightSkillId}
-                demoEmpty={demoEmpty}
-                onToggleDemoEmpty={toggleDemoEmpty}
-                onAdd={openCreateModal}
-                onEdit={openEditModal}
-                onDelete={handleDeleteClick}
-                onApprove={handleApprove}
-                onReject={handleReject}
-            />
+                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Khai báo Kỹ năng</h1>
+                        <p className="mt-1 text-sm text-white/70">
+                            Quản lý hồ sơ năng lực, tra cứu nhân sự theo kỹ năng và mức độ rảnh để gán vào dự án.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-white/20 bg-white/10 p-1.5 backdrop-blur-md">
+                        {MODULE_TABS.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={cn(
+                                        'inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all',
+                                        isActive
+                                            ? 'bg-white text-[#4338ca] shadow-sm'
+                                            : 'text-white/80 hover:bg-white/10 hover:text-white'
+                                    )}
+                                >
+                                    <Icon className="h-4 w-4" />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="my-6 border-t border-white/15" />
+
+                {/* Tab Khai báo: gắn quyền VT-04 (Nhân viên) */}
+                {activeTab === 'declare' && (
+                    <SkillsTable
+                        skills={skills}
+                        currentRole="VT-04"
+                        highlightSkillId={highlightSkillId}
+                        demoEmpty={demoEmpty}
+                        onToggleDemoEmpty={toggleDemoEmpty}
+                        onAdd={openCreateModal}
+                        onEdit={openEditModal}
+                        onDelete={handleDeleteClick}
+                    />
+                )}
+
+                {/* Tab Tra cứu: truyền departments/employees để luôn đồng bộ với module Phòng ban */}
+                {activeTab === 'search' && (
+                    <SkillresourceSearch embedded departments={departments} employees={employees} />
+                )}
+
+                {/* Tab Duyệt: gắn quyền VT-01 (Quản lý) */}
+                {activeTab === 'approve' && (
+                    <SkillsTable
+                        skills={skills}
+                        currentRole="VT-01"
+                        highlightSkillId={highlightSkillId}
+                        demoEmpty={demoEmpty}
+                        onToggleDemoEmpty={toggleDemoEmpty}
+                        onDelete={handleDeleteClick}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
+                    />
+                )}
+            </div>
 
             <SkillFormModal
                 key={modalOpen ? `modal-${formMode}-${editingSkillId ?? 'new'}` : 'closed'}
