@@ -2,7 +2,9 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user;
 
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException;
@@ -55,6 +57,17 @@ class UserExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Ánh xạ RoleNotFoundException thành HTTP 404 NOT FOUND")
+    void testHandleRoleNotFound() {
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleRoleNotFound(
+                new RoleNotFoundException("Không tìm thấy vai trò")
+        );
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("Không tìm thấy vai trò", response.getBody().getMessage());
+    }
+
+    @Test
     @DisplayName("Ánh xạ DuplicateUsernameException thành HTTP 409 CONFLICT")
     void testHandleDuplicateUsername() {
         ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleDuplicateUsername(
@@ -63,6 +76,17 @@ class UserExceptionHandlerTest {
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertFalse(response.getBody().isSuccess());
         assertEquals("Tên đăng nhập đã tồn tại", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("Ánh xạ DuplicateEmployeeCodeException thành HTTP 409 CONFLICT")
+    void testHandleDuplicateEmployeeCode() {
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleDuplicateEmployeeCode(
+                new DuplicateEmployeeCodeException("EMP-999")
+        );
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("Mã nhân viên 'EMP-999' đã tồn tại trong hệ thống", response.getBody().getMessage());
     }
 
     @Test
