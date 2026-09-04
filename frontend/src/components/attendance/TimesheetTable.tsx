@@ -31,7 +31,9 @@ const formatDisplayDate = (date: Date) =>
 const POPOVER_WIDTH = 280
 
 export function TimesheetTable({ records, onEditRecord }: TimesheetTableProps) {
-    const [selectedDate, setSelectedDate] = useState(() => new Date(2026, 7, 27))
+    // Mặc định chọn ngày hiện tại (thời gian thật của thiết bị), thay vì một
+    // ngày cố định — để đồng bộ với đồng hồ thời gian thực ở Trạm chấm công.
+    const [selectedDate, setSelectedDate] = useState(() => new Date())
     const [miniCalMonth, setMiniCalMonth] = useState(selectedDate)
     const [isCalendarOpen, setIsCalendarOpen] = useState(false)
     const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null)

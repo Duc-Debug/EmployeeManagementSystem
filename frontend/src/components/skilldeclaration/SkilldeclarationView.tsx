@@ -186,7 +186,7 @@ export default function SkilldeclarationView({
 
             <div className="w-full rounded-3xl bg-gradient-to-br from-[#7c3aed] via-[#4f46e5] to-[#2563eb] p-6 text-white shadow-xl sm:p-8">
 
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight">Khai báo Kỹ năng</h1>
                         <p className="mt-1 text-sm text-white/70">
@@ -194,7 +194,7 @@ export default function SkilldeclarationView({
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-white/20 bg-white/10 p-1.5 backdrop-blur-md">
+                    <div className="flex w-full flex-wrap items-center gap-1.5 rounded-2xl border border-white/20 bg-white/10 p-1.5 backdrop-blur-md lg:w-auto">
                         {MODULE_TABS.map((tab) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
@@ -204,7 +204,7 @@ export default function SkilldeclarationView({
                                     type="button"
                                     onClick={() => setActiveTab(tab.id)}
                                     className={cn(
-                                        'inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all',
+                                        'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-bold transition-all',
                                         isActive
                                             ? 'bg-white text-[#4338ca] shadow-sm'
                                             : 'text-white/80 hover:bg-white/10 hover:text-white'

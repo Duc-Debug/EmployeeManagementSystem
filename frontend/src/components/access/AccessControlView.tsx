@@ -23,11 +23,24 @@ const buildInitialPermissions = (): Record<string, ModulePermission> => {
     return result;
 };
 
-export const AccessControlView: React.FC = () => {
+export interface AccessControlViewProps {
+    // Danh sách phòng ban dùng chung với module "Phòng ban" (nếu được truyền vào
+    // từ Dashboard). Khi không có, component tự quản lý danh sách nội bộ như cũ.
+    departments?: Department[];
+    onAddDepartment?: (name: string) => void;
+    onRemoveDepartment?: (id: string) => void;
+}
+
+export const AccessControlView: React.FC<AccessControlViewProps> = ({
+                                                                        departments: sharedDepartments,
+                                                                        onAddDepartment,
+                                                                        onRemoveDepartment,
+                                                                    }) => {
     const [roles, setRoles] = useState<Role[]>(() =>
         ROLES.map((role) => ({ ...role, permissions: buildInitialPermissions() }))
     );
-    const [departments, setDepartments] = useState<Department[]>(DEPARTMENTS);
+    const [localDepartments, setLocalDepartments] = useState<Department[]>(DEPARTMENTS);
+    const departments = sharedDepartments && sharedDepartments.length > 0 ? sharedDepartments : localDepartments;
     const [selectedRoleId, setSelectedRoleId] = useState<string>(ROLES[0]?.id ?? '');
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -138,8 +151,14 @@ export const AccessControlView: React.FC = () => {
     };
 
     const handleAddDepartment = (name: string) => {
-        const newDept: Department = { id: `dept_${Date.now()}`, name };
-        setDepartments((prev) => [...prev, newDept]);
+        // Nếu có nguồn dùng chung (từ module Phòng ban) thì đẩy việc thêm lên đó
+        // để đồng bộ; ngược lại giữ hành vi cũ (state nội bộ).
+        if (onAddDepartment) {
+            onAddDepartment(name);
+        } else {
+            const newDept: Department = { id: `dept_${Date.now()}`, name };
+            setLocalDepartments((prev) => [...prev, newDept]);
+        }
         showToast(`Đã thêm phòng ban "${name}"!`);
     };
 
@@ -148,7 +167,11 @@ export const AccessControlView: React.FC = () => {
             showToast('Hệ thống cần ít nhất 1 phòng ban!');
             return;
         }
-        setDepartments((prev) => prev.filter((d) => d.id !== id));
+        if (onRemoveDepartment) {
+            onRemoveDepartment(id);
+        } else {
+            setLocalDepartments((prev) => prev.filter((d) => d.id !== id));
+        }
         showToast('Đã xóa phòng ban!');
     };
 

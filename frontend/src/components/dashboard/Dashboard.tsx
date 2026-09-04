@@ -211,6 +211,17 @@ export default function Dashboard() {
         return true;
     };
 
+    // Thêm phòng ban từ modal "Danh sách phòng ban" trong Phân quyền — tạo đủ
+    // các trường (manager, count) để tương thích với dữ liệu phòng ban gốc.
+    const handleAddDepartmentFromAccess = (name: string) => {
+        handleSaveDepartment({
+            id: `dept-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            name,
+            manager: "",
+            count: 0,
+        });
+    };
+
     const handleEditRecord = (id: string) => {
         // TODO: mở modal/điều hướng chỉnh sửa bản ghi chấm công theo id.
         console.log("Sửa bản ghi chấm công:", id);
@@ -260,7 +271,13 @@ export default function Dashboard() {
                             />
                         )}
 
-                        {activeTab === "access" && <AccessControlView />}
+                        {activeTab === "access" && (
+                            <AccessControlView
+                                departments={departments}
+                                onAddDepartment={handleAddDepartmentFromAccess}
+                                onRemoveDepartment={handleDeleteDepartment}
+                            />
+                        )}
 
                         {activeTab === "skills" && (
                             <SkilldeclarationView departments={departments} employees={employees} />
