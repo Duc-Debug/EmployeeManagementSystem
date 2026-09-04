@@ -26,364 +26,300 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 public class ProjectService implements
-        GetProjectListUseCase,
-        GetProjectDetailUseCase {
+                GetProjectListUseCase,
+                GetProjectDetailUseCase {
 
-    private final LoadProjectPort loadProjectPort;
-    private final LoadUserPort loadUserPort;
-    private final LoadEmployeePort loadEmployeePort;
-    private final SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
-    private final AuthorizationService authorizationService;
+        private final LoadProjectPort loadProjectPort;
+        private final LoadUserPort loadUserPort;
+        private final LoadEmployeePort loadEmployeePort;
+        private final SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
+        private final AuthorizationService authorizationService;
 
-    public ProjectService(
-            LoadProjectPort loadProjectPort,
-            LoadUserPort loadUserPort,
-            LoadEmployeePort loadEmployeePort,
-            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
-            AuthorizationService authorizationService
-    ) {
-        this.loadProjectPort = Objects.requireNonNull(
-                loadProjectPort,
-                "LoadProjectPort must not be null"
-        );
-        this.loadUserPort = Objects.requireNonNull(
-                loadUserPort,
-                "LoadUserPort must not be null"
-        );
-        this.loadEmployeePort = Objects.requireNonNull(
-                loadEmployeePort,
-                "LoadEmployeePort must not be null"
-        );
-        this.saveDeniedAuditLogPort = Objects.requireNonNull(
-                saveDeniedAuditLogPort,
-                "SaveAuditLogInNewTransactionPort must not be null"
-        );
-        this.authorizationService = Objects.requireNonNull(
-                authorizationService,
-                "AuthorizationService must not be null"
-        );
-    }
-
-    @Override
-    public ProjectResult getProjectById(Long projectId) {
-        Long currentUserId = authorizationService.require(
-                PermissionCode.PROJECT_READ
-        );
-
-        User currentUser =
-                loadCurrentUserOrThrow(currentUserId);
-
-        if (!canAccessProject(
-                currentUser,
-                currentUserId,
-                projectId
-        )) {
-            saveDeniedAudit(
-                    currentUserId,
-                    currentUser,
-                    projectId
-            );
-
-            throw new PermissionDeniedException(
-                    PermissionCode.PROJECT_READ
-            );
+        public ProjectService(
+                        LoadProjectPort loadProjectPort,
+                        LoadUserPort loadUserPort,
+                        LoadEmployeePort loadEmployeePort,
+                        SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+                        AuthorizationService authorizationService) {
+                this.loadProjectPort = Objects.requireNonNull(
+                                loadProjectPort,
+                                "LoadProjectPort must not be null");
+                this.loadUserPort = Objects.requireNonNull(
+                                loadUserPort,
+                                "LoadUserPort must not be null");
+                this.loadEmployeePort = Objects.requireNonNull(
+                                loadEmployeePort,
+                                "LoadEmployeePort must not be null");
+                this.saveDeniedAuditLogPort = Objects.requireNonNull(
+                                saveDeniedAuditLogPort,
+                                "SaveAuditLogInNewTransactionPort must not be null");
+                this.authorizationService = Objects.requireNonNull(
+                                authorizationService,
+                                "AuthorizationService must not be null");
         }
 
-        Project project = loadProjectPort
-                .findById(
-                        new ProjectId(projectId)
-                )
-                .orElseThrow(() ->
-                        new ProjectNotFoundException(
-                                "Khong tim thay du an voi ID: "
-                                        + projectId
-                        )
-                );
+        @Override
+        public ProjectResult getProjectById(Long projectId) {
+                Long currentUserId = authorizationService.require(
+                                PermissionCode.PROJECT_READ);
 
-        return mapToProjectResult(project);
-    }
+                User currentUser = loadCurrentUserOrThrow(currentUserId);
 
-    @Override
-    public PageResult<ProjectResult> getProjects(
-            int page,
-            int size
-    ) {
-        Long currentUserId = authorizationService.require(
-                PermissionCode.PROJECT_READ
-        );
-
-        User currentUser =
-                loadCurrentUserOrThrow(currentUserId);
-
-        int safePage = Math.max(
-                0,
-                page
-        );
-
-        int safeSize = Math.min(
-                Math.max(1, size),
-                100
-        );
-
-        ProjectPage pageData =
-                loadScopedProjects(
-                        currentUser,
-                        currentUserId,
-                        safePage,
-                        safeSize
-                );
-
-        return new PageResult<>(
-                pageData.projects()
-                        .stream()
-                        .map(this::mapToProjectResult)
-                        .toList(),
-                safePage,
-                safeSize,
-                pageData.totalElements()
-        );
-    }
-
-    private ProjectPage loadScopedProjects(
-            User currentUser,
-            Long currentUserId,
-            int page,
-            int size
-    ) {
-        DataScope dataScope =
-                currentUser.getDataScope();
-
-        return switch (dataScope) {
-            case COMPANY -> new ProjectPage(
-                    loadProjectPort.findAll(page, size),
-                    loadProjectPort.count()
-            );
-            case ORGANIZATION_BRANCH -> new ProjectPage(
-                    loadProjectPort.findByOrgUnitBranch(
-                            currentUser.getScopeOrgUnitId(),
-                            page,
-                            size
-                    ),
-                    loadProjectPort.countByOrgUnitBranch(
-                            currentUser.getScopeOrgUnitId()
-                    )
-            );
-            case SELF -> loadSelfScopedProjects(
-                    currentUser,
-                    currentUserId,
-                    page,
-                    size
-            );
-        };
-    }
-
-    private ProjectPage loadSelfScopedProjects(
-            User currentUser,
-            Long currentUserId,
-            int page,
-            int size
-    ) {
-        RoleCode roleCode =
-                currentUser.getRole().getCode();
-
-        return switch (roleCode) {
-            case VT_02 -> {
-                Long employeeId =
-                        loadCurrentEmployeeIdOrDeny(
-                                currentUserId,
-                                currentUser
-                        );
-
-                yield new ProjectPage(
-                        loadProjectPort.findManagedBy(
-                                employeeId,
-                                page,
-                                size
-                        ),
-                        loadProjectPort.countManagedBy(
-                                employeeId
-                        )
-                );
-            }
-            case VT_04 -> {
-                Long employeeId =
-                        loadCurrentEmployeeIdOrDeny(
-                                currentUserId,
-                                currentUser
-                        );
-
-                yield new ProjectPage(
-                        loadProjectPort.findMemberProjects(
-                                employeeId,
-                                page,
-                                size
-                        ),
-                        loadProjectPort.countMemberProjects(
-                                employeeId
-                        )
-                );
-            }
-            default -> {
-                saveDeniedAudit(
-                        currentUserId,
-                        currentUser,
-                        null,
-                        "UNSUPPORTED_SELF_ROLE"
-                );
-
-                throw new PermissionDeniedException(
-                        PermissionCode.PROJECT_READ
-                );
-            }
-        };
-    }
-
-    private boolean canAccessProject(
-            User currentUser,
-            Long currentUserId,
-            Long projectId
-    ) {
-        return switch (currentUser.getDataScope()) {
-            case COMPANY -> true;
-            case ORGANIZATION_BRANCH ->
-                    loadProjectPort.existsInOrgUnitBranch(
-                            projectId,
-                            currentUser.getScopeOrgUnitId()
-                    );
-            case SELF -> canAccessSelfProject(
-                    currentUser,
-                    currentUserId,
-                    projectId
-            );
-        };
-    }
-
-    private boolean canAccessSelfProject(
-            User currentUser,
-            Long currentUserId,
-            Long projectId
-    ) {
-        Long employeeId = loadEmployeePort
-                .findByUserId(
-                        new UserId(currentUserId)
-                )
-                .map(Employee::getIdValue)
-                .orElse(null);
-
-        if (employeeId == null) {
-            return false;
-        }
-
-        return switch (currentUser.getRole().getCode()) {
-            case VT_02 -> loadProjectPort.existsManagedBy(
-                    projectId,
-                    employeeId
-            );
-            case VT_04 -> loadProjectPort.existsMember(
-                    projectId,
-                    employeeId
-            );
-            default -> false;
-        };
-    }
-
-    private Long loadCurrentEmployeeIdOrDeny(
-            Long currentUserId,
-            User currentUser
-    ) {
-        return loadEmployeePort
-                .findByUserId(
-                        new UserId(currentUserId)
-                )
-                .map(Employee::getIdValue)
-                .orElseThrow(() -> {
-                    saveDeniedAudit(
-                            currentUserId,
-                            currentUser,
-                            null,
-                            "NO_EMPLOYEE_PROFILE"
-                    );
-
-                    return new PermissionDeniedException(
-                            PermissionCode.PROJECT_READ
-                    );
-                });
-    }
-
-    private void saveDeniedAudit(
-            Long currentUserId,
-            User currentUser,
-            Long projectId
-    ) {
-        saveDeniedAudit(
-                currentUserId,
-                currentUser,
-                projectId,
-                "OUTSIDE_DATA_SCOPE"
-        );
-    }
-
-    private void saveDeniedAudit(
-            Long currentUserId,
-            User currentUser,
-            Long projectId,
-            String reason
-    ) {
-        saveDeniedAuditLogPort.save(
-                AuditLog.createChange(
-                        currentUserId,
-                        "PROJECT_ACCESS_DENIED",
-                        "projects",
-                        projectId,
-                        null,
-                        deniedAuditDetails(
+                if (!canAccessProject(
                                 currentUser,
-                                reason
-                        )
-                )
-        );
-    }
+                                currentUserId,
+                                projectId)) {
+                        saveDeniedAudit(
+                                        currentUserId,
+                                        currentUser,
+                                        projectId);
 
-    private String deniedAuditDetails(
-            User currentUser,
-            String reason
-    ) {
-        return "permission=PROJECT_READ"
-                + ";dataScope=" + currentUser.getDataScope()
-                + ";scopeOrgUnitId=" + currentUser.getScopeOrgUnitId()
-                + ";reason=" + reason;
-    }
+                        throw new PermissionDeniedException(
+                                        PermissionCode.PROJECT_READ);
+                }
 
-    private User loadCurrentUserOrThrow(Long currentUserId) {
-        return loadUserPort
-                .findById(
-                        new UserId(currentUserId)
-                )
-                .orElseThrow(() ->
-                        new UserNotFoundException(
-                                "Khong tim thay nguoi dung hien tai voi ID: "
-                                        + currentUserId
-                        )
-                );
-    }
+                Project project = loadProjectPort
+                                .findById(
+                                                new ProjectId(projectId))
+                                .orElseThrow(() -> new ProjectNotFoundException(
+                                                "Khong tim thay du an voi ID: "
+                                                                + projectId));
 
-    private ProjectResult mapToProjectResult(Project project) {
-        return new ProjectResult(
-                project.getIdValue(),
-                project.getProjectCode(),
-                project.getProjectName(),
-                project.getOrgUnitId(),
-                project.getManagerIdValue(),
-                project.getStatus(),
-                project.getCreatedByValue(),
-                project.getCreatedAt(),
-                project.getUpdatedAt()
-        );
-    }
+                return mapToProjectResult(project);
+        }
 
-    private record ProjectPage(
-            List<Project> projects,
-            long totalElements
-    ) {
-    }
+        @Override
+        public PageResult<ProjectResult> getProjects(
+                        int page,
+                        int size) {
+                Long currentUserId = authorizationService.require(
+                                PermissionCode.PROJECT_READ);
+
+                User currentUser = loadCurrentUserOrThrow(currentUserId);
+
+                int safePage = Math.max(
+                                0,
+                                page);
+
+                int safeSize = Math.min(
+                                Math.max(1, size),
+                                100);
+
+                ProjectPage pageData = loadScopedProjects(
+                                currentUser,
+                                currentUserId,
+                                safePage,
+                                safeSize);
+
+                return new PageResult<>(
+                                pageData.projects()
+                                                .stream()
+                                                .map(this::mapToProjectResult)
+                                                .toList(),
+                                safePage,
+                                safeSize,
+                                pageData.totalElements());
+        }
+
+        private ProjectPage loadScopedProjects(
+                        User currentUser,
+                        Long currentUserId,
+                        int page,
+                        int size) {
+                DataScope dataScope = currentUser.getDataScope();
+
+                return switch (dataScope) {
+                        case COMPANY -> new ProjectPage(
+                                        loadProjectPort.findAll(page, size),
+                                        loadProjectPort.count());
+                        case ORGANIZATION_BRANCH -> new ProjectPage(
+                                        loadProjectPort.findByOrgUnitBranch(
+                                                        currentUser.getScopeOrgUnitId(),
+                                                        page,
+                                                        size),
+                                        loadProjectPort.countByOrgUnitBranch(
+                                                        currentUser.getScopeOrgUnitId()));
+                        case SELF -> loadSelfScopedProjects(
+                                        currentUser,
+                                        currentUserId,
+                                        page,
+                                        size);
+                };
+        }
+
+        private ProjectPage loadSelfScopedProjects(
+                        User currentUser,
+                        Long currentUserId,
+                        int page,
+                        int size) {
+                RoleCode roleCode = currentUser.getRole().getCode();
+
+                return switch (roleCode) {
+                        case VT_02 -> {
+                                Long employeeId = loadCurrentEmployeeIdOrDeny(
+                                                currentUserId,
+                                                currentUser);
+
+                                yield new ProjectPage(
+                                                loadProjectPort.findManagedBy(
+                                                                employeeId,
+                                                                page,
+                                                                size),
+                                                loadProjectPort.countManagedBy(
+                                                                employeeId));
+                        }
+                        case VT_04 -> {
+                                Long employeeId = loadCurrentEmployeeIdOrDeny(
+                                                currentUserId,
+                                                currentUser);
+
+                                yield new ProjectPage(
+                                                loadProjectPort.findMemberProjects(
+                                                                employeeId,
+                                                                page,
+                                                                size),
+                                                loadProjectPort.countMemberProjects(
+                                                                employeeId));
+                        }
+                        default -> {
+                                saveDeniedAudit(
+                                                currentUserId,
+                                                currentUser,
+                                                null,
+                                                "UNSUPPORTED_SELF_ROLE");
+
+                                throw new PermissionDeniedException(
+                                                PermissionCode.PROJECT_READ);
+                        }
+                };
+        }
+
+        private boolean canAccessProject(
+                        User currentUser,
+                        Long currentUserId,
+                        Long projectId) {
+                return switch (currentUser.getDataScope()) {
+                        case COMPANY -> true;
+                        case ORGANIZATION_BRANCH ->
+                                loadProjectPort.existsInOrgUnitBranch(
+                                                projectId,
+                                                currentUser.getScopeOrgUnitId());
+                        case SELF -> canAccessSelfProject(
+                                        currentUser,
+                                        currentUserId,
+                                        projectId);
+                };
+        }
+
+        private boolean canAccessSelfProject(
+                        User currentUser,
+                        Long currentUserId,
+                        Long projectId) {
+                Long employeeId = loadEmployeePort
+                                .findByUserId(
+                                                new UserId(currentUserId))
+                                .map(Employee::getIdValue)
+                                .orElse(null);
+
+                if (employeeId == null) {
+                        return false;
+                }
+
+                return switch (currentUser.getRole().getCode()) {
+                        case VT_02 -> loadProjectPort.existsManagedBy(
+                                        projectId,
+                                        employeeId);
+                        case VT_04 -> loadProjectPort.existsMember(
+                                        projectId,
+                                        employeeId);
+                        default -> false;
+                };
+        }
+
+        private Long loadCurrentEmployeeIdOrDeny(
+                        Long currentUserId,
+                        User currentUser) {
+                return loadEmployeePort
+                                .findByUserId(
+                                                new UserId(currentUserId))
+                                .map(Employee::getIdValue)
+                                .orElseThrow(() -> {
+                                        saveDeniedAudit(
+                                                        currentUserId,
+                                                        currentUser,
+                                                        null,
+                                                        "NO_EMPLOYEE_PROFILE");
+
+                                        return new PermissionDeniedException(
+                                                        PermissionCode.PROJECT_READ);
+                                });
+        }
+
+        private void saveDeniedAudit(
+                        Long currentUserId,
+                        User currentUser,
+                        Long projectId) {
+                saveDeniedAudit(
+                                currentUserId,
+                                currentUser,
+                                projectId,
+                                "OUTSIDE_DATA_SCOPE");
+        }
+
+        private void saveDeniedAudit(
+                        Long currentUserId,
+                        User currentUser,
+                        Long projectId,
+                        String reason) {
+                saveDeniedAuditLogPort.save(
+                                AuditLog.createChange(
+                                                currentUserId,
+                                                "PROJECT_ACCESS_DENIED",
+                                                "projects",
+                                                projectId,
+                                                null,
+                                                deniedAuditDetails(
+                                                                currentUser,
+                                                                reason)));
+        }
+
+        private String deniedAuditDetails(
+                        User currentUser,
+                        String reason) {
+                return "permission=PROJECT_READ"
+                                + ";dataScope=" + currentUser.getDataScope()
+                                + ";scopeOrgUnitId=" + currentUser.getScopeOrgUnitId()
+                                + ";reason=" + reason;
+        }
+
+        private User loadCurrentUserOrThrow(Long currentUserId) {
+                return loadUserPort
+                                .findById(
+                                                new UserId(currentUserId))
+                                .orElseThrow(() -> new UserNotFoundException(
+                                                "Khong tim thay nguoi dung hien tai voi ID: "
+                                                                + currentUserId));
+        }
+
+        private ProjectResult mapToProjectResult(Project project) {
+                return new ProjectResult(
+                                project.getIdValue(),
+                                project.getProjectCode(),
+                                project.getProjectName(),
+                                project.getOrgUnitId(),
+                                project.getManagerIdValue(),
+                                project.getStartDate(),
+                                project.getEndDate(),
+                                project.getEstimatedHours(),
+                                project.getDescription(),
+                                project.getStatus(),
+                                project.getCreatedByValue(),
+                                project.getCreatedAt(),
+                                project.getUpdatedAt());
+        }
+
+        private record ProjectPage(
+                        List<Project> projects,
+                        long totalElements) {
+        }
 }

@@ -11,5 +11,6 @@ import java.util.Optional;
 public interface SpringDataEmployeeRepository extends JpaRepository<EmployeeJpaEntity, Long> {
     Optional<EmployeeJpaEntity> findByUserId(Long userId);
     boolean existsByEmployeeCode(String employeeCode);
+    boolean existsByEmployeeCodeAndIdNot(String employeeCode, Long id);
     List<EmployeeJpaEntity> findByUserIdIn(List<Long> userIds);
 }
