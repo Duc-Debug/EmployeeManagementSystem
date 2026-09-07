@@ -130,35 +130,44 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
 
         DataScope scope = dataScope != null ? dataScope : DataScope.COMPANY;
 
-        List<PendingEmployeeSkillProjection> projections = List.of();
-        long totalElements = 0;
-
-        switch (scope) {
+        return switch (scope) {
             case ORGANIZATION_BRANCH -> {
                 if (scopeOrgUnitId == null) {
-                    return new PageResult<>(List.of(), safePage, safeSize, 0);
+                    yield new PageResult<>(List.of(), safePage, safeSize, 0);
                 }
-                projections = repository.findPendingBranchScope(scopeOrgUnitId, normalizedKeyword, safeSize, offset);
-                totalElements = repository.countPendingBranchScope(scopeOrgUnitId, normalizedKeyword);
+                List<PendingEmployeeSkillProjection> projections =
+                        repository.findPendingBranchScope(scopeOrgUnitId, normalizedKeyword, safeSize, offset);
+                long totalElements = repository.countPendingBranchScope(scopeOrgUnitId, normalizedKeyword);
+                yield toPageResult(projections, safePage, safeSize, totalElements);
             }
             case SELF -> {
                 if (currentUserId == null) {
-                    return new PageResult<>(List.of(), safePage, safeSize, 0);
+                    yield new PageResult<>(List.of(), safePage, safeSize, 0);
                 }
-                projections = repository.findPendingSelfScope(currentUserId, normalizedKeyword, safeSize, offset);
-                totalElements = repository.countPendingSelfScope(currentUserId, normalizedKeyword);
+                List<PendingEmployeeSkillProjection> projections =
+                        repository.findPendingSelfScope(currentUserId, normalizedKeyword, safeSize, offset);
+                long totalElements = repository.countPendingSelfScope(currentUserId, normalizedKeyword);
+                yield toPageResult(projections, safePage, safeSize, totalElements);
             }
             case COMPANY -> {
-                projections = repository.findPendingCompanyScope(normalizedKeyword, safeSize, offset);
-                totalElements = repository.countPendingCompanyScope(normalizedKeyword);
+                List<PendingEmployeeSkillProjection> projections =
+                        repository.findPendingCompanyScope(normalizedKeyword, safeSize, offset);
+                long totalElements = repository.countPendingCompanyScope(normalizedKeyword);
+                yield toPageResult(projections, safePage, safeSize, totalElements);
             }
-        }
+        };
+    }
 
+    private PageResult<PendingEmployeeSkillItemResult> toPageResult(
+            List<PendingEmployeeSkillProjection> projections,
+            int page,
+            int size,
+            long totalElements
+    ) {
         List<PendingEmployeeSkillItemResult> content = projections.stream()
                 .map(this::toItemResult)
                 .collect(Collectors.toList());
-
-        return new PageResult<>(content, safePage, safeSize, totalElements);
+        return new PageResult<>(content, page, size, totalElements);
     }
 
     private PendingEmployeeSkillItemResult toItemResult(PendingEmployeeSkillProjection p) {
