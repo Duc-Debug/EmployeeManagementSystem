@@ -67,15 +67,23 @@ public class OrgUnitService implements
     }
 
     private void validateManagerInTree(Employee manager, OrgUnit targetUnit) {
-        if (manager == null || targetUnit == null || manager.getOrgUnitId() == null) {
+        if (manager == null) {
             return;
         }
-        boolean isEligible = (targetUnit.getId() != null && Objects.equals(manager.getOrgUnitId(), targetUnit.getId().getValue()))
-                || isManagerInAncestorTree(manager.getOrgUnitId(), targetUnit);
 
-        if (!isEligible) {
+        if (manager.getOrgUnitId() == null) {
             throw new InvalidOrgUnitManagerException(
                     "Trưởng phòng được chỉ định phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên trong cùng nhánh cơ cấu tổ chức.");
+        }
+
+        if (targetUnit != null) {
+            boolean isEligible = (targetUnit.getId() != null && Objects.equals(manager.getOrgUnitId(), targetUnit.getId().getValue()))
+                    || isManagerInAncestorTree(manager.getOrgUnitId(), targetUnit);
+
+            if (!isEligible) {
+                throw new InvalidOrgUnitManagerException(
+                        "Trưởng phòng được chỉ định phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên trong cùng nhánh cơ cấu tổ chức.");
+            }
         }
     }
 

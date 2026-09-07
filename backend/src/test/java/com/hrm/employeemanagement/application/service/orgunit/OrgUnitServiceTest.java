@@ -275,6 +275,33 @@ class OrgUnitServiceTest {
     }
 
     @Test
+    @DisplayName("TC-06: Chặn gán nhân viên ACTIVE nhưng chưa thuộc đơn vị nào (orgUnitId == null) làm Trưởng phòng")
+    void shouldThrowInvalidOrgUnitManagerExceptionWhenActiveManagerHasNoOrgUnit() {
+        UpdateOrgUnitCommand command = new UpdateOrgUnitCommand(
+                2L, "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT, 25L, "Mô tả"
+        );
+
+        OrgUnit targetUnit = new OrgUnit(
+                new OrgUnitId(2L), "TECH-DEPT", "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả cũ", null, LocalDateTime.now(), null
+        );
+
+        // Nhân viên ACTIVE nhưng orgUnitId = null (chưa biên chế vào phòng ban nào)
+        Employee unassignedEmployee = new Employee(
+                new EmployeeId(25L), new UserId(25L), null, "EMP025", "Nhân viên tự do", false, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(targetUnit));
+        when(loadEmployeePort.findById(new EmployeeId(25L))).thenReturn(Optional.of(unassignedEmployee));
+
+        InvalidOrgUnitManagerException ex = assertThrows(
+                InvalidOrgUnitManagerException.class, () -> orgUnitService.execute(command)
+        );
+        assertTrue(ex.getMessage().contains("phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên"));
+        verify(saveOrgUnitPort, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Should move org unit and invoke bulk updateSubTreePaths")
     void shouldMoveOrgUnitSuccessfully() {
         MoveOrgUnitCommand command = new MoveOrgUnitCommand(2L, 3L);
