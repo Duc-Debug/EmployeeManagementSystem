@@ -50,6 +50,9 @@ public class EmployeeSkillJpaEntity {
     @Column(name = "rejection_reason")
     private String rejectionReason;
 
+    @Column(name = "review_notes", length = 500)
+    private String reviewNotes;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -64,6 +67,14 @@ public class EmployeeSkillJpaEntity {
             SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
             LocalDateTime createdAt, LocalDateTime updatedAt
     ) {
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, null, createdAt, updatedAt);
+    }
+
+    public EmployeeSkillJpaEntity(
+            Long id, Long employeeId, Long skillId, Integer proficiencyLevel, BigDecimal yearsOfExperience,
+            SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
+            String reviewNotes, LocalDateTime createdAt, LocalDateTime updatedAt
+    ) {
         this.id = id;
         this.employeeId = employeeId;
         this.skillId = skillId;
@@ -73,6 +84,7 @@ public class EmployeeSkillJpaEntity {
         this.approvedBy = approvedBy;
         this.approvedAt = approvedAt;
         this.rejectionReason = rejectionReason;
+        this.reviewNotes = reviewNotes;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -147,6 +159,14 @@ public class EmployeeSkillJpaEntity {
 
     public void setRejectionReason(String rejectionReason) {
         this.rejectionReason = rejectionReason;
+    }
+
+    public String getReviewNotes() {
+        return reviewNotes;
+    }
+
+    public void setReviewNotes(String reviewNotes) {
+        this.reviewNotes = reviewNotes;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -18,6 +18,11 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
 
     List<EmployeeSkillJpaEntity> findByEmployeeId(Long employeeId);
 
+    List<EmployeeSkillJpaEntity> findByStatus(com.hrm.employeemanagement.domain.skill.SkillStatus status);
+
+    List<EmployeeSkillJpaEntity> findByStatusAndEmployeeIdIn(com.hrm.employeemanagement.domain.skill.SkillStatus status, List<Long> employeeIds);
+
+
     @Query("SELECT es.employeeId FROM EmployeeSkillJpaEntity es WHERE es.skillId = :skillId")
     List<Long> findEmployeeIdsBySkillId(@Param("skillId") Long skillId);
 

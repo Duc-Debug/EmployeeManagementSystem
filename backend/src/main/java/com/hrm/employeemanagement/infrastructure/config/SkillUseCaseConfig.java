@@ -5,13 +5,17 @@ import org.springframework.context.annotation.Configuration;
 
 import com.hrm.employeemanagement.application.port.inbound.skill.*;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
 import com.hrm.employeemanagement.application.port.outbound.skill.*;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.service.skill.ApproveEmployeeSkillService;
 import com.hrm.employeemanagement.application.service.skill.DeclareEmployeeSkillService;
 import com.hrm.employeemanagement.application.service.skill.SkillService;
+import com.hrm.employeemanagement.infrastructure.transaction.skill.TransactionalApproveEmployeeSkillService;
 import com.hrm.employeemanagement.infrastructure.transaction.skill.TransactionalDeclareEmployeeSkillService;
 
 @Configuration
@@ -99,5 +103,36 @@ public class SkillUseCaseConfig {
     @Bean("transactionalDeactivateSkillGroupUseCase")
     public DeactivateSkillGroupUseCase deactivateSkillGroupUseCase(SkillService skillService) {
         return skillService;
+    }
+
+    @Bean
+    public ApproveEmployeeSkillService approveEmployeeSkillService(
+            EmployeeSkillRepository employeeSkillRepository,
+            SkillCatalogRepository skillCatalogRepository,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            AuthorizationService authorizationService
+    ) {
+        return new ApproveEmployeeSkillService(
+                employeeSkillRepository,
+                skillCatalogRepository,
+                loadEmployeePort,
+                loadUserPort,
+                loadOrgUnitPort,
+                saveAuditLogPort,
+                authorizationService
+        );
+    }
+
+    @Bean
+    public ApproveEmployeeSkillUseCase approveEmployeeSkillUseCase(ApproveEmployeeSkillService service) {
+        return new TransactionalApproveEmployeeSkillService(service);
+    }
+
+    @Bean
+    public GetPendingEmployeeSkillsUseCase getPendingEmployeeSkillsUseCase(ApproveEmployeeSkillService service) {
+        return service;
     }
 }

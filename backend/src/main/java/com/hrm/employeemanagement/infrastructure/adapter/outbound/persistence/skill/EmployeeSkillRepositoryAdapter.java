@@ -89,4 +89,24 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
                 .map(SkillPersistenceMapper::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<EmployeeSkill> findByStatus(com.hrm.employeemanagement.domain.skill.SkillStatus status) {
+        if (status == null) {
+            return List.of();
+        }
+        return repository.findByStatus(status).stream()
+                .map(SkillPersistenceMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<EmployeeSkill> findByStatusAndEmployeeIdIn(com.hrm.employeemanagement.domain.skill.SkillStatus status, List<Long> employeeIds) {
+        if (status == null || employeeIds == null || employeeIds.isEmpty()) {
+            return List.of();
+        }
+        return repository.findByStatusAndEmployeeIdIn(status, employeeIds).stream()
+                .map(SkillPersistenceMapper::toDomain)
+                .collect(Collectors.toList());
+    }
 }
