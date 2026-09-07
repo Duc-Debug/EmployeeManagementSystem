@@ -8,6 +8,20 @@ import {
 } from "./orgNode.constants";
 import ComboSelect from "./ComboSelect";
 import type { Employee } from "./Employees data.ts";
+import type { OrgUnitType } from "@/types/hrm";
+
+export const ORG_UNIT_TYPE_OPTIONS: {
+    value: OrgUnitType;
+    label: string;
+    badge: string;
+    themeKey: string;
+    iconKey: string;
+}[] = [
+    { value: "COMPANY", label: "Công ty (Company)", badge: "CÔNG TY", themeKey: "amber", iconKey: "Crown" },
+    { value: "CENTER", label: "Khối / Trung tâm (Center)", badge: "KHỐI", themeKey: "blue", iconKey: "Building2" },
+    { value: "DEPARTMENT", label: "Phòng ban (Department)", badge: "PHÒNG BAN", themeKey: "emerald", iconKey: "Users" },
+    { value: "TEAM", label: "Bộ phận / Nhóm chuyên môn (Team)", badge: "TỔ NHÓM", themeKey: "purple", iconKey: "User" },
+];
 
 function themeKeyFor(card: CardData): string {
     return THEME_OPTIONS.find((t) => t.badgeBg === card.badgeBg && t.badgeColor === card.badgeColor)?.key ?? "neutral";
@@ -42,19 +56,29 @@ function hexFor(theme: { badgeColor: string }) {
     return (hue && HUE_HEX_400[hue]) || "#94a3b8";
 }
 
-const EMPTY_NODE_FORM = { badge: "", title: "", desc: "", subLeft: "", manager: "", iconKey: "User", themeKey: "blue" };
+const EMPTY_NODE_FORM = {
+    title: "",
+    desc: "",
+    subLeft: "",
+    manager: "",
+    unitType: "DEPARTMENT" as OrgUnitType,
+    iconKey: "Users",
+    themeKey: "emerald",
+};
+
 function formFromCard(card?: CardData | null) {
-    return card
-        ? {
-            badge: card.badge,
-            title: card.title,
-            desc: card.desc,
-            subLeft: card.subLeft,
-            manager: card.manager ?? "",
-            iconKey: iconKeyFor(card.icon),
-            themeKey: themeKeyFor(card),
-        }
-        : EMPTY_NODE_FORM;
+    if (!card) return EMPTY_NODE_FORM;
+    const unitType = card.unitType || "DEPARTMENT";
+    const typeMeta = ORG_UNIT_TYPE_OPTIONS.find((t) => t.value === unitType) || ORG_UNIT_TYPE_OPTIONS[2];
+    return {
+        title: card.title,
+        desc: card.desc,
+        subLeft: card.subLeft,
+        manager: card.manager ?? "",
+        unitType,
+        iconKey: iconKeyFor(card.icon) || typeMeta.iconKey,
+        themeKey: themeKeyFor(card) || typeMeta.themeKey,
+    };
 }
 
 interface OrgNodeModalProps {
@@ -105,10 +129,12 @@ export default function OrgNodeModal({ open, initialData, levelText, employees, 
             setError("Vui lòng nhập tên chức danh / bộ phận.");
             return;
         }
-        const theme = THEME_OPTIONS.find((t) => t.key === form.themeKey)!;
-        const iconEntry = ICON_OPTIONS.find((i) => i.key === form.iconKey)!;
+        const typeMeta = ORG_UNIT_TYPE_OPTIONS.find((t) => t.value === form.unitType) || ORG_UNIT_TYPE_OPTIONS[2];
+        const theme = THEME_OPTIONS.find((t) => t.key === form.themeKey) || THEME_OPTIONS[2];
+        const iconEntry = ICON_OPTIONS.find((i) => i.key === form.iconKey) || ICON_OPTIONS[4];
         onSave({
-            badge: form.badge.trim() || form.title.trim(),
+            badge: typeMeta.badge,
+            unitType: form.unitType,
             title: form.title.trim(),
             desc: form.desc.trim(),
             subLeft: form.subLeft.trim(),
@@ -119,7 +145,7 @@ export default function OrgNodeModal({ open, initialData, levelText, employees, 
             borderColor: theme.borderColor,
             iconColor: theme.iconColor,
             icon: iconEntry.icon,
-            cardBg: initialData?.cardBg ?? "bg-white/[0.07]",
+            cardBg: initialData?.cardBg ?? "bg-white",
             isDark: initialData?.isDark,
         });
     }
@@ -173,13 +199,29 @@ export default function OrgNodeModal({ open, initialData, levelText, employees, 
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-semibold text-slate-600">Nhãn (badge)</label>
-                        <input
-                            value={form.badge}
-                            onChange={(e) => setForm({ ...form, badge: e.target.value })}
-                            placeholder="VD: Quản Lý Vận Hành"
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-[#4338ca] focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                        />
+                        <label className="mb-1 block text-xs font-semibold text-slate-700">
+                            Loại đơn vị / Loại phòng *
+                        </label>
+                        <select
+                            value={form.unitType}
+                            onChange={(e) => {
+                                const newType = e.target.value as OrgUnitType;
+                                const typeMeta = ORG_UNIT_TYPE_OPTIONS.find((t) => t.value === newType) || ORG_UNIT_TYPE_OPTIONS[2];
+                                setForm({
+                                    ...form,
+                                    unitType: newType,
+                                    themeKey: typeMeta.themeKey,
+                                    iconKey: typeMeta.iconKey,
+                                });
+                            }}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-600 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                        >
+                            {ORG_UNIT_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label className="mb-1 block text-xs font-semibold text-slate-600">Mô tả</label>

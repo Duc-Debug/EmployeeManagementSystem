@@ -1,9 +1,11 @@
-import { X, UserCheck, GitBranch, Layers, FileText, Pencil } from "lucide-react";
+import { X, UserCheck, GitBranch, Layers, FileText, Pencil, Users } from "lucide-react";
 import type { OrgTreeNode } from "./OrgChart";
+import type { User } from "@/types/hrm";
 
 interface OrgNodeDetailModalProps {
     open: boolean;
     node: OrgTreeNode | null;
+    users?: User[];
     onClose: () => void;
     onEdit?: (nodeId: string) => void;
 }
@@ -11,6 +13,7 @@ interface OrgNodeDetailModalProps {
 export default function OrgNodeDetailModal({
     open,
     node,
+    users,
     onClose,
     onEdit,
 }: OrgNodeDetailModalProps) {
@@ -18,6 +21,10 @@ export default function OrgNodeDetailModal({
 
     const Icon = node.icon;
     const hasChildren = node.children && node.children.length > 0;
+    const nodeNumId = parseInt(node.id, 10);
+    const members = (users || []).filter(
+        (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.title.toLowerCase())
+    );
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -110,6 +117,47 @@ export default function OrgNodeDetailModal({
                                 {hasChildren ? `${node.children.length} đơn vị con` : "Đơn vị cơ sở"}
                             </span>
                         </div>
+                    </div>
+
+                    {/* Danh sách nhân sự / Thành viên đơn vị */}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5">
+                        <div className="flex items-center justify-between text-slate-700 font-bold mb-2">
+                            <span className="flex items-center gap-1.5 text-xs">
+                                <Users className="h-3.5 w-3.5 text-indigo-500" />
+                                <span>Thành viên đơn vị ({members.length} nhân sự)</span>
+                            </span>
+                        </div>
+                        {members.length > 0 ? (
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {members.map((member) => (
+                                    <div
+                                        key={member.id}
+                                        className="flex items-center justify-between rounded-xl bg-white border border-slate-100 px-3 py-2 text-xs shadow-2xs"
+                                    >
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="h-7 w-7 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[11px] shrink-0">
+                                                {member.fullName ? member.fullName.charAt(0).toUpperCase() : "U"}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="font-bold text-slate-800 truncate">
+                                                    {member.fullName || member.username}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 truncate">
+                                                    {member.employeeId ? `Mã NV: ${member.employeeId}` : `@${member.username}`}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full shrink-0 ml-2">
+                                            {member.roleName || "Nhân viên"}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-3 text-slate-400 italic text-[11px]">
+                                Chưa có nhân sự trực thuộc đơn vị này.
+                            </div>
+                        )}
                     </div>
 
                     {/* Danh sách các phòng ban trực thuộc */}

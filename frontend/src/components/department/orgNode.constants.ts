@@ -3,6 +3,7 @@ import {
     User, Briefcase, Building2, Wallet, Megaphone,
     HeartHandshake, type LucideIcon
 } from "lucide-react";
+import type { OrgUnitType } from "@/types/hrm";
 
 export interface CardData {
     badge: string;
@@ -19,6 +20,8 @@ export interface CardData {
     isDark?: boolean;
     manager?: string;
     managerRole?: string;
+    unitType?: OrgUnitType;
+    memberCount?: number;
 }
 
 export const ICON_OPTIONS: { key: string; icon: LucideIcon; label: string }[] = [

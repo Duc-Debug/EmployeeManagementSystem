@@ -750,6 +750,7 @@ export default function DepartmentTree() {
                         node={tree}
                         level={0}
                         isRoot={true}
+                        users={users}
                         collapsed={collapsed}
                         onToggle={toggleCollapse}
                         draggedId={draggedId}
@@ -810,6 +811,7 @@ interface TreeNodeItemProps {
     node: DepartmentNode;
     level: number;
     isRoot?: boolean;
+    users?: User[];
     collapsed: Set<string>;
     onToggle: (id: string) => void;
     draggedId: string | null;
@@ -829,6 +831,7 @@ function TreeNodeItem({
                           node,
                           level,
                           isRoot = false,
+                          users,
                           collapsed,
                           onToggle,
                           draggedId,
@@ -849,6 +852,11 @@ function TreeNodeItem({
     const isBeingDragged = draggedId === node.id;
     const isTarget = dropTargetId === node.id;
     const isInactive = node.status === "INACTIVE";
+
+    const nodeNumId = parseInt(node.id, 10);
+    const memberCount = (users || []).filter(
+        (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.name.toLowerCase())
+    ).length;
 
     const meta = getUnitMeta(node.unitType);
     const IconComponent = meta.icon;
@@ -979,8 +987,14 @@ function TreeNodeItem({
                     </div>
                 </div>
 
-                {/* Right Part: Manager, Count, Status, Actions */}
+                {/* Right Part: Member Count, Manager, Status, Actions */}
                 <div className="flex items-center gap-4 shrink-0">
+                    {/* Member Count */}
+                    <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-600 w-24">
+                        <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                        <span className="font-semibold text-slate-700">{memberCount} NV</span>
+                    </div>
+
                     {/* Manager Name */}
                     <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 w-40 truncate">
                         <UserCheck className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -1067,6 +1081,7 @@ function TreeNodeItem({
                             node={child}
                             level={level + 1}
                             isRoot={false}
+                            users={users}
                             collapsed={collapsed}
                             onToggle={onToggle}
                             draggedId={draggedId}

@@ -13,7 +13,6 @@ import {
     Clock,
     CalendarDays,
     BadgeAlert,
-    Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
@@ -230,19 +229,6 @@ export default function EmployeeProfileForm({
                         <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700">
                             <BadgeAlert className="size-4 shrink-0 text-rose-600" />
                             <span>{errorMessage || apiError}</span>
-                        </div>
-                    )}
-
-                    {/* BANNER THÔNG TIN KHI Ở CHẾ ĐỘ CHỈNH SỬA */}
-                    {isEdit && (
-                        <div className="flex items-start gap-2.5 rounded-2xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-900 shadow-2xs">
-                            <Info className="size-4 shrink-0 mt-0.5 text-blue-600" />
-                            <div className="space-y-1 leading-relaxed">
-                                <span className="font-bold">Chế độ phân quyền & thông tin nhân sự:</span>
-                                <p className="text-[11px] text-blue-700">
-                                    Bạn có thể cập nhật <strong>Họ và tên</strong>, <strong>Đơn vị trực thuộc</strong>, <strong>Vai trò hệ thống</strong>, <strong>Phạm vi dữ liệu</strong> và <strong>Trạng thái</strong>. Các trường định danh tài khoản (Mã NV, Email, Tên đăng nhập) được giữ cố định theo tài khoản hệ thống.
-                                </p>
-                            </div>
                         </div>
                     )}
 

@@ -72,28 +72,28 @@ export const DataScopeSelector: React.FC<Props> = ({ value, departments, onChang
                 type="button"
                 disabled={disabled}
                 onClick={openModal}
-                className={`inline-flex max-w-[220px] items-center justify-between gap-2 truncate rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`inline-flex max-w-[220px] items-center justify-between gap-2 truncate rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors shadow-2xs ${
                     disabled
-                        ? 'cursor-not-allowed border-white/10 bg-white/5 text-white/40'
+                        ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
                         : isUnresolvedCustomTree
-                            ? 'border-amber-400/40 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
-                            : 'border-indigo-300/40 bg-indigo-500/20 text-indigo-100 hover:border-indigo-200 hover:bg-indigo-500/30'
+                            ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 hover:border-amber-400'
+                            : 'border-indigo-200 bg-indigo-50/90 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100'
                 }`}
             >
                 <span className="flex items-center gap-1.5 truncate">
                     {SCOPE_ICONS[currentOption.value]}
                     <span className="truncate">{currentLabel}</span>
                 </span>
-                {!disabled && <ChevronDown className="w-3 h-3 shrink-0 opacity-70" />}
+                {!disabled && <ChevronDown className="w-3.5 h-3.5 shrink-0 text-indigo-500 opacity-80" />}
             </button>
 
             {isOpen && !disabled && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-                    <div className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-purple-500/30 bg-[#1c1338]/95 p-6 shadow-2xl backdrop-blur-xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+                    <div className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl text-slate-800 animate-in zoom-in-95 duration-150">
                         <button
                             type="button"
                             onClick={() => setIsOpen(false)}
-                            className="absolute right-4 top-4 p-2 text-purple-200/70 hover:text-white"
+                            className="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -101,12 +101,12 @@ export const DataScopeSelector: React.FC<Props> = ({ value, departments, onChang
                         {!showTreeStep ? (
                             <>
                                 <div className="mb-4 flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-purple-400/30 bg-purple-600/30 text-purple-300">
-                                        <Shield className="w-4.5 h-4.5" />
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600">
+                                        <Shield className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-white">Chọn phạm vi dữ liệu</h3>
-                                        <p className="text-xs text-purple-200/70">Áp dụng cho chức năng đang cấu hình</p>
+                                        <h3 className="text-base font-bold text-slate-900">Chọn phạm vi dữ liệu</h3>
+                                        <p className="text-xs text-slate-500">Áp dụng cho chức năng đang cấu hình</p>
                                     </div>
                                 </div>
 
@@ -120,24 +120,28 @@ export const DataScopeSelector: React.FC<Props> = ({ value, departments, onChang
                                                 onClick={() => handlePick(option)}
                                                 className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-xs font-semibold transition ${
                                                     isSelected
-                                                        ? 'border-purple-400/50 bg-purple-600/30 text-white'
-                                                        : 'border-white/10 bg-white/[0.03] text-white/80 hover:border-purple-400/30 hover:bg-white/[0.07]'
+                                                        ? 'border-indigo-500 bg-indigo-50/80 text-indigo-900 shadow-xs'
+                                                        : 'border-slate-200 bg-slate-50/60 text-slate-700 hover:border-slate-300 hover:bg-slate-100/80'
                                                 }`}
                                             >
-                                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-purple-400/30 bg-purple-500/20 text-purple-300">
+                                                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+                                                    isSelected
+                                                        ? 'border-indigo-200 bg-indigo-100 text-indigo-700'
+                                                        : 'border-slate-200 bg-white text-slate-500'
+                                                }`}>
                                                     {SCOPE_ICONS[option.value]}
                                                 </span>
-                                                {option.label}
+                                                <span>{option.label}</span>
                                             </button>
                                         );
                                     })}
                                 </div>
 
-                                <div className="mt-5 flex items-center justify-end border-t border-white/10 pt-4">
+                                <div className="mt-5 flex items-center justify-end border-t border-slate-100 pt-4">
                                     <button
                                         type="button"
                                         onClick={() => setIsOpen(false)}
-                                        className="rounded-xl border border-white/15 bg-white/[0.07] px-4 py-2 text-xs font-medium text-white/70 hover:text-white"
+                                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
                                     >
                                         Đóng
                                     </button>
@@ -146,21 +150,21 @@ export const DataScopeSelector: React.FC<Props> = ({ value, departments, onChang
                         ) : (
                             <>
                                 <div className="mb-4 flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-purple-400/30 bg-purple-600/30 text-purple-300">
-                                        <TreePine className="w-4.5 h-4.5" />
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600">
+                                        <TreePine className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-white">Chọn đơn vị áp dụng</h3>
-                                        <p className="text-xs text-purple-200/70">Cấu hình danh sách đơn vị cho chức năng này</p>
+                                        <h3 className="text-base font-bold text-slate-900">Chọn đơn vị áp dụng</h3>
+                                        <p className="text-xs text-slate-500">Cấu hình danh sách đơn vị cho chức năng này</p>
                                     </div>
                                 </div>
 
-                                <div className="mb-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                                    <span className="text-xs font-medium text-white/90">Chọn tất cả đơn vị</span>
+                                <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <span className="text-xs font-semibold text-slate-700">Chọn tất cả đơn vị</span>
                                     <button
                                         type="button"
                                         onClick={toggleAllDraftIds}
-                                        className="text-xs font-semibold text-purple-300 underline hover:text-purple-200"
+                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
                                     >
                                         {draftIds.length === departments.length && departments.length > 0
                                             ? 'Bỏ chọn tất cả'
@@ -174,17 +178,17 @@ export const DataScopeSelector: React.FC<Props> = ({ value, departments, onChang
                                         return (
                                             <label
                                                 key={dept.id}
-                                                className="flex cursor-pointer select-none items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left text-xs font-semibold text-white/90 transition hover:border-purple-400/30 hover:bg-white/[0.07]"
+                                                className="flex cursor-pointer select-none items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-left text-xs font-semibold text-slate-800 transition hover:border-indigo-300 hover:bg-indigo-50/40"
                                             >
                                                 <span className="flex items-center gap-3">
-                                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-purple-400/30 bg-purple-500/20 text-purple-300">
+                                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500">
                                                         <Building2 className="w-3.5 h-3.5" />
                                                     </span>
                                                     {dept.name}
                                                 </span>
                                                 <span
                                                     className={`relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-all ${
-                                                        isChecked ? 'border-purple-400 bg-purple-600' : 'border-white/30 bg-white/10'
+                                                        isChecked ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white'
                                                     }`}
                                                 >
                                                     <input
@@ -199,22 +203,22 @@ export const DataScopeSelector: React.FC<Props> = ({ value, departments, onChang
                                         );
                                     })}
                                     {departments.length === 0 && (
-                                        <p className="py-6 text-center text-xs text-white/50">Chưa có đơn vị nào được thiết lập.</p>
+                                        <p className="py-6 text-center text-xs text-slate-400 font-medium">Chưa có đơn vị nào được thiết lập.</p>
                                     )}
                                 </div>
 
-                                <div className="mt-5 flex items-center justify-end gap-3 border-t border-white/10 pt-4">
+                                <div className="mt-5 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
                                     <button
                                         type="button"
                                         onClick={() => setShowTreeStep(false)}
-                                        className="rounded-xl border border-white/15 bg-white/[0.07] px-4 py-2 text-xs font-medium text-white/70 hover:text-white"
+                                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
                                     >
                                         Quay lại
                                     </button>
                                     <button
                                         type="button"
                                         onClick={confirmTreeSelection}
-                                        className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-500"
+                                        className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs"
                                     >
                                         Xác nhận
                                     </button>

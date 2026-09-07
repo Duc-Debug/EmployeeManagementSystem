@@ -14,7 +14,7 @@ import {
     BarChart2,
     Archive,
     Code,
-    User,
+    User as UserIcon,
     Users,
     Shield,
     UserCheck,
@@ -32,7 +32,7 @@ import {
 } from '@/lib/api/org-units';
 import { getUsers } from '@/lib/api/users';
 import { cn } from '@/lib/utils';
-import type { OrgUnitTreeNode } from '@/types/hrm';
+import type { OrgUnitTreeNode, User } from '@/types/hrm';
 
 export interface OrgTreeNode extends CardData {
     id: string;
@@ -220,19 +220,25 @@ function getMetaForUnit(unitType?: string, level?: number) {
         badgeColor: 'text-purple-700',
         borderColor: 'border-purple-200',
         iconColor: 'text-purple-600',
-        icon: User,
+        icon: UserIcon,
     };
 }
 
 function convertBackendNodeToOrgChartNode(
     node: OrgUnitTreeNode,
     userMap: Map<number, string>,
-    parentName: string | null
+    parentName: string | null,
+    users?: User[]
 ): OrgTreeNode {
     const meta = getMetaForUnit(node.unitType, node.level);
     const managerName = node.managerId
         ? userMap.get(node.managerId) || `Quản lý #${node.managerId}`
         : 'Chưa bổ nhiệm';
+
+    const nodeNumId = typeof node.id === 'number' ? node.id : parseInt(String(node.id), 10);
+    const memberCount = (users || []).filter(
+        (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.unitName.toLowerCase())
+    ).length;
 
     return {
         id: String(node.id),
@@ -248,8 +254,10 @@ function convertBackendNodeToOrgChartNode(
         subLeft: parentName ? `Trực thuộc: ${parentName}` : 'Hội đồng Quản trị',
         levelText: `Tầng ${node.level || 1}`,
         cardBg: 'bg-white',
+        unitType: node.unitType,
+        memberCount,
         children: node.children
-            ? node.children.map((c: OrgUnitTreeNode) => convertBackendNodeToOrgChartNode(c, userMap, node.unitName))
+            ? node.children.map((c: OrgUnitTreeNode) => convertBackendNodeToOrgChartNode(c, userMap, node.unitName, users))
             : [],
     };
 }
@@ -270,6 +278,7 @@ export default function OrgChart() {
     }
 
     const [realEmployees, setRealEmployees] = useState<Employee[]>([]);
+    const [rawUsers, setRawUsers] = useState<User[]>([]);
 
     // Tải dữ liệu thật từ Backend API (GET /api/v1/org-units/tree)
     useEffect(() => {
@@ -283,6 +292,7 @@ export default function OrgChart() {
                 if (!isMounted) return;
                 const userMap = new Map<number, string>();
                 if (usersRes?.content) {
+                    setRawUsers(usersRes.content);
                     usersRes.content.forEach((u) => userMap.set(u.id, u.fullName || u.username));
                     setRealEmployees(
                         usersRes.content.map((u) => ({
@@ -293,7 +303,7 @@ export default function OrgChart() {
                     );
                 }
                 if (treeRes && treeRes.length > 0) {
-                    const converted = convertBackendNodeToOrgChartNode(treeRes[0], userMap, null);
+                    const converted = convertBackendNodeToOrgChartNode(treeRes[0], userMap, null, usersRes?.content);
                     setTree(converted);
                 }
             } catch (err) {
@@ -443,7 +453,7 @@ export default function OrgChart() {
                     const managerId = matchedEmp ? parseInt(matchedEmp.id, 10) : null;
                     await updateOrgUnit(numId, {
                         unitName: card.title,
-                        unitType: 'DEPARTMENT',
+                        unitType: card.unitType || 'DEPARTMENT',
                         managerId: managerId && !isNaN(managerId) ? managerId : null,
                         description: card.desc,
                     });
@@ -462,6 +472,7 @@ export default function OrgChart() {
                             node.iconColor = card.iconColor;
                             node.cardBg = card.cardBg;
                             node.borderColor = card.borderColor;
+                            node.unitType = card.unitType;
                         }
                         return root;
                     });
@@ -505,7 +516,7 @@ export default function OrgChart() {
                 const res = await createOrgUnit({
                     unitCode: code,
                     unitName: card.title,
-                    unitType: 'DEPARTMENT',
+                    unitType: card.unitType || 'DEPARTMENT',
                     managerId: managerId && !isNaN(managerId) ? managerId : null,
                     parentId: !isNaN(parentNum) ? parentNum : null,
                     description: card.desc,
@@ -522,6 +533,7 @@ export default function OrgChart() {
                             ...card,
                             id: createdId,
                             levelText: `Tầng ${parentLvl + 1}`,
+                            unitType: card.unitType || 'DEPARTMENT',
                             children: [],
                         };
                         parent.children.push(newChild);
@@ -762,6 +774,7 @@ export default function OrgChart() {
             <OrgNodeDetailModal
                 open={Boolean(detailNode)}
                 node={detailNode}
+                users={rawUsers}
                 onClose={() => setDetailNode(null)}
                 onEdit={(id) => {
                     setDetailNode(null);
@@ -945,7 +958,15 @@ function RecursiveNode({
 
                 {/* Footer */}
                 <div className="border-t border-slate-100 pt-3 flex items-center justify-between text-xs font-semibold">
-                    <span className="text-[11px] font-medium text-slate-400">{node.subLeft}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-medium text-slate-400">{node.subLeft}</span>
+                        {typeof node.memberCount === 'number' && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                                <Users className="h-3 w-3" />
+                                {node.memberCount} NV
+                            </span>
+                        )}
+                    </div>
                     <div className="flex items-center gap-2">
                         {hasChildren && (
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
