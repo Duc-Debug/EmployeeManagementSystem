@@ -1,6 +1,9 @@
 import { Download, Plus } from "lucide-react";
+import { useAuthUser } from "@/lib/auth-session";
+
 export default function DashboardHeader() {
-    const userName = "Chu Văn Hưng";
+    const user = useAuthUser();
+    const userName = user?.fullName || user?.username || "bạn";
     const today = new Date();
     const formattedDate = today.toLocaleDateString("vi-VN", {
         weekday: "long",

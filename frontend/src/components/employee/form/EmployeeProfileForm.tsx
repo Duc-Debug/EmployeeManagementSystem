@@ -262,7 +262,7 @@ export default function EmployeeProfileForm({
                                 <input
                                     type="text"
                                     required
-                                    placeholder="VD: Chu Văn Hưng"
+                                    placeholder="VD: Nguyễn Văn A"
                                     value={formData.fullName}
                                     onChange={(e) => {
                                         const name = e.target.value;

@@ -1,20 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Settings, Lock, Edit3, X } from "lucide-react";
 import EditProfileModal from "./EditProfileModal";
 import ChangePasswordModal from "./ChangePasswordModal";
+import { useAuthUser } from "@/lib/auth-session";
 interface UserProfileModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 export default function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
+    const authUser = useAuthUser();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
     const [userInfo, setUserInfo] = useState({
-        name: "Chu Văn Hưng",
-        email: "hungwgg01@gmail.com",
-        role: "Trưởng phòng",
-        department: "Phòng Công Nghệ Thông Tin",
+        name: authUser?.fullName || authUser?.username || "Chưa cập nhật",
+        email: authUser?.email || (authUser?.username ? `${authUser.username}@hrm.local` : "Chưa cập nhật"),
+        role: authUser?.roleName || authUser?.roleCode || "Nhân viên",
+        department: authUser?.orgUnitName || "Chưa chỉ định",
     });
+
+    useEffect(() => {
+        if (authUser) {
+            setUserInfo({
+                name: authUser.fullName || authUser.username,
+                email: authUser.email || (authUser.username ? `${authUser.username}@hrm.local` : "Chưa cập nhật"),
+                role: authUser.roleName || authUser.roleCode || "Nhân viên",
+                department: authUser.orgUnitName || "Chưa chỉ định",
+            });
+        }
+    }, [authUser, isOpen]);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     if (!isOpen) return null;
     return (

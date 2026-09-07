@@ -2,12 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, Bell, Settings, Clock, User, LogOut } from "lucide-react";
 import UserProfileModal from "../profile/UserProfileModal";
+import { useAuthUser, clearAuthSession } from "@/lib/auth-session";
 
 interface HeaderProps {
     setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function Header({ setIsSidebarOpen }: HeaderProps) {
+    const user = useAuthUser();
+    const displayName = user?.fullName || user?.username || "Tài khoản";
+    const displayEmail = user?.email || (user?.username ? `${user.username}@hrm.local` : "Chưa cập nhật email");
+
     const [currentTime, setCurrentTime] = useState<string>("");
     const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
     const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState<boolean>(false);
@@ -43,8 +48,10 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
 
     const handleLogout = () => {
         setIsMenuOpen(false);
+        clearAuthSession();
         localStorage.removeItem("accessToken");
         localStorage.removeItem("token");
+        localStorage.removeItem("currentUser");
         sessionStorage.clear();
         navigate("/login", { replace: true });
     };
@@ -96,15 +103,15 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
                                 <User className="h-5 w-5" />
                             </div>
                             <span className="text-xs font-bold text-slate-800 max-w-[120px] truncate hidden sm:inline-block">
-                                Chu Văn Hưng
+                                {displayName}
                             </span>
                         </button>
 
                         {isMenuOpen && (
                             <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-1.5 text-slate-700 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150">
                                 <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                                    <p className="text-xs font-bold text-slate-900">Chu Văn Hưng</p>
-                                    <p className="text-[11px] text-slate-500 truncate">hungwgg01@gmail.com</p>
+                                    <p className="text-xs font-bold text-slate-900">{displayName}</p>
+                                    <p className="text-[11px] text-slate-500 truncate">{displayEmail}</p>
                                 </div>
                                 <button
                                     onClick={() => {
