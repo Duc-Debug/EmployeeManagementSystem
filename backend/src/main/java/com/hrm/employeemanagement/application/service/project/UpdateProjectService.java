@@ -76,6 +76,7 @@ public class UpdateProjectService implements UpdateProjectUseCase {
             throw new PermissionDeniedException(PermissionCode.PROJECT_UPDATE);
         }
 
+        EmployeeId updatedManagerId;
         if (command.managerId() != null) {
             Employee manager = loadEmployeePort.findById(new EmployeeId(command.managerId()))
                     .orElseThrow(() -> new InvalidProjectDataException(
@@ -91,11 +92,14 @@ public class UpdateProjectService implements UpdateProjectUseCase {
             if (!isManagerInOrgUnit) {
                 throw new InvalidProjectDataException("Người quản lý dự án (PM) phải thuộc đơn vị tổ chức quản lý dự án");
             }
+            updatedManagerId = manager.getId();
+        } else {
+            updatedManagerId = project.getManagerId();
         }
 
         project.updateInfo(
                 command.projectName(),
-                command.managerId() != null ? new EmployeeId(command.managerId()) : null,
+                updatedManagerId,
                 command.startDate(),
                 command.endDate(),
                 command.estimatedHours(),
