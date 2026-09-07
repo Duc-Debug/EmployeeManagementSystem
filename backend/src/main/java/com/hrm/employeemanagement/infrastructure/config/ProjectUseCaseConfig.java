@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
@@ -14,9 +15,11 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.project.CreateProjectService;
 import com.hrm.employeemanagement.application.service.project.ProjectService;
+import com.hrm.employeemanagement.application.service.project.UpdateProjectService;
 import com.hrm.employeemanagement.infrastructure.transaction.project.RetryableCreateProjectUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalCreateProjectUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalProjectServiceDecorator;
+import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalUpdateProjectUseCase;
 
 @Configuration
 public class ProjectUseCaseConfig {
@@ -58,5 +61,27 @@ public class ProjectUseCaseConfig {
                                 authorizationService);
                 TransactionalCreateProjectUseCase transactionalUseCase = new TransactionalCreateProjectUseCase(pureService);
                 return new RetryableCreateProjectUseCaseDecorator(transactionalUseCase);
+        }
+
+        @Bean
+        public UpdateProjectUseCase updateProjectUseCase(
+                        LoadProjectPort loadProjectPort,
+                        SaveProjectPort saveProjectPort,
+                        LoadOrgUnitPort loadOrgUnitPort,
+                        LoadEmployeePort loadEmployeePort,
+                        LoadUserPort loadUserPort,
+                        SaveAuditLogPort saveAuditLogPort,
+                        SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+                        AuthorizationService authorizationService) {
+                UpdateProjectService pureService = new UpdateProjectService(
+                                loadProjectPort,
+                                saveProjectPort,
+                                loadOrgUnitPort,
+                                loadEmployeePort,
+                                loadUserPort,
+                                saveAuditLogPort,
+                                saveDeniedAuditLogPort,
+                                authorizationService);
+                return new TransactionalUpdateProjectUseCase(pureService);
         }
 }

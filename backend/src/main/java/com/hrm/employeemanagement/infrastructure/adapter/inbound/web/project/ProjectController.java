@@ -4,7 +4,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,11 +14,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.hrm.employeemanagement.application.dto.project.CreateProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
+import com.hrm.employeemanagement.application.dto.project.UpdateProjectCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.CreateProjectRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.UpdateProjectRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 import jakarta.validation.Valid;
@@ -31,13 +36,17 @@ public class ProjectController {
         private final GetProjectListUseCase getProjectListUseCase;
         private final GetProjectDetailUseCase getProjectDetailUseCase;
         private final CreateProjectUseCase createProjectUseCase;
+        private final UpdateProjectUseCase updateProjectUseCase;
 
         public ProjectController(
                         GetProjectListUseCase getProjectListUseCase,
-                        GetProjectDetailUseCase getProjectDetailUseCase, CreateProjectUseCase createProjectUseCase) {
+                        GetProjectDetailUseCase getProjectDetailUseCase,
+                        CreateProjectUseCase createProjectUseCase,
+                        UpdateProjectUseCase updateProjectUseCase) {
                 this.getProjectListUseCase = getProjectListUseCase;
                 this.getProjectDetailUseCase = getProjectDetailUseCase;
                 this.createProjectUseCase = createProjectUseCase;
+                this.updateProjectUseCase = updateProjectUseCase;
         }
 
         @GetMapping
@@ -79,5 +88,21 @@ public class ProjectController {
                 ProjectResult result = createProjectUseCase.createProject(command);
                 return ResponseEntity.status(HttpStatus.CREATED)
                                 .body(ApiResponse.success("Tạo dự án thành công", result));
+        }
+
+        @PutMapping("/{id}")
+        public ResponseEntity<ApiResponse<ProjectResult>> updateProject(
+                        @PathVariable Long id,
+                        @Valid @RequestBody UpdateProjectRequest request) {
+                UpdateProjectCommand command = new UpdateProjectCommand(
+                                id,
+                                request.projectName(),
+                                request.managerId(),
+                                request.startDate(),
+                                request.endDate(),
+                                request.estimatedHours(),
+                                request.description());
+                ProjectResult result = updateProjectUseCase.updateProject(command);
+                return ResponseEntity.ok(ApiResponse.success("Cập nhật dự án thành công", result));
         }
 }

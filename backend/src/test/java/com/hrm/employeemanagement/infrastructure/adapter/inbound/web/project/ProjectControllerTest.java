@@ -5,9 +5,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,18 +20,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
+import com.hrm.employeemanagement.application.dto.project.UpdateProjectCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectControllerTest {
@@ -44,19 +51,24 @@ class ProjectControllerTest {
     @Mock
     private CreateProjectUseCase createProjectUseCase;
 
+    @Mock
+    private UpdateProjectUseCase updateProjectUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectController controller =
                 new ProjectController(
                         getProjectListUseCase,
                         getProjectDetailUseCase,
-                        createProjectUseCase
+                        createProjectUseCase,
+                        updateProjectUseCase
                 );
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
                 .setControllerAdvice(
-                        new ProjectExceptionHandler()
+                        new ProjectExceptionHandler(),
+                        new GlobalExceptionHandler()
                 )
                 .build();
     }
@@ -185,6 +197,106 @@ class ProjectControllerTest {
                 .andExpect(jsonPath("$.message").value(
                         containsString("999")
                 ));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{id} cap nhat thanh cong")
+    void testUpdateProject_Success() throws Exception {
+        String jsonPayload = """
+            {
+                "projectName": "Dự án mới",
+                "managerId": 10,
+                "startDate": "2026-01-01",
+                "endDate": "2026-12-31",
+                "estimatedHours": 100.50,
+                "description": "Mô tả hợp lệ"
+            }
+            """;
+
+        ProjectResult result = projectResult(1L);
+        when(updateProjectUseCase.updateProject(any(UpdateProjectCommand.class))).thenReturn(result);
+
+        mockMvc.perform(
+                put("/api/v1/projects/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Cập nhật dự án thành công"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{id} tra ve 400 khi estimatedHours co qua 2 chu so thap phan (e.g. 0.00000001)")
+    void testUpdateProject_InvalidEstimatedHoursFraction_Returns400() throws Exception {
+        String jsonPayload = """
+            {
+                "projectName": "Dự án mới",
+                "managerId": 10,
+                "startDate": "2026-01-01",
+                "endDate": "2026-12-31",
+                "estimatedHours": 0.00000001,
+                "description": "Mô tả hợp lệ"
+            }
+            """;
+
+        mockMvc.perform(
+                put("/api/v1/projects/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(containsString("estimatedHours")));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{id} tra ve 400 khi description vuot qua 2000 ky tu")
+    void testUpdateProject_DescriptionTooLong_Returns400() throws Exception {
+        String longDescription = "X".repeat(2001);
+        String jsonPayload = String.format("""
+            {
+                "projectName": "Dự án mới",
+                "managerId": 10,
+                "startDate": "2026-01-01",
+                "endDate": "2026-12-31",
+                "estimatedHours": 100.00,
+                "description": "%s"
+            }
+            """, longDescription);
+
+        mockMvc.perform(
+                put("/api/v1/projects/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(containsString("description")));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{id} tra ve 400 khi projectName de trong")
+    void testUpdateProject_BlankProjectName_Returns400() throws Exception {
+        String jsonPayload = """
+            {
+                "projectName": "   ",
+                "managerId": 10,
+                "startDate": "2026-01-01",
+                "endDate": "2026-12-31",
+                "estimatedHours": 100.00,
+                "description": "Mô tả"
+            }
+            """;
+
+        mockMvc.perform(
+                put("/api/v1/projects/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(containsString("projectName")));
     }
 
     private ProjectResult projectResult(Long id) {
