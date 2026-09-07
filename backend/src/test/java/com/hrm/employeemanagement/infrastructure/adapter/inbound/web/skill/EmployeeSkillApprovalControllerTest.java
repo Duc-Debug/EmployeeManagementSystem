@@ -116,4 +116,39 @@ class EmployeeSkillApprovalControllerTest {
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Không tìm thấy bản ghi kỹ năng nhân sự với ID: 999"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/employee-skills/pending?page=0&size=10 -> Trả về dữ liệu phân trang PageResult")
+    void getPendingSkills_WithPagination_ReturnsPageResult() throws Exception {
+        PendingEmployeeSkillItemResult item = new PendingEmployeeSkillItemResult(
+                10L, 101L, "EMP001", "Nguyễn Văn A", 10L, "Phòng IT",
+                1L, "JAVA", "Java", "Backend", 3, new BigDecimal("2.0"),
+                "PENDING", LocalDateTime.now()
+        );
+        com.hrm.employeemanagement.application.dto.user.PageResult<PendingEmployeeSkillItemResult> pageResult =
+                new com.hrm.employeemanagement.application.dto.user.PageResult<>(List.of(item), 0, 10, 1);
+
+        when(getPendingEmployeeSkillsUseCase.execute(null, 0, 10)).thenReturn(pageResult);
+
+        mockMvc.perform(get("/api/v1/employee-skills/pending?page=0&size=10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].id").value(10))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/employee-skills/{id}/approve -> Xung đột phiên bản đồng thời trả về 409 Conflict")
+    void approveSkill_OptimisticLockConflict_Returns409() throws Exception {
+        when(approveEmployeeSkillUseCase.execute(any(ApproveEmployeeSkillCommand.class)))
+                .thenThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException("EmployeeSkill", 10L));
+
+        mockMvc.perform(put("/api/v1/employee-skills/10/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"adjustedProficiencyLevel\": 3, \"reviewNotes\": \"Ghi chú hợp lệ\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("EMPLOYEE_SKILL_VERSION_CONFLICT"));
+    }
 }

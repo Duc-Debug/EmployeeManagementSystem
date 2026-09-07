@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.hrm.employeemanagement.application.dto.skill.ApproveEmployeeSkillCommand;
 import com.hrm.employeemanagement.application.dto.skill.EmployeeSkillResult;
 import com.hrm.employeemanagement.application.dto.skill.PendingEmployeeSkillItemResult;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.skill.ApproveEmployeeSkillUseCase;
 import com.hrm.employeemanagement.application.port.inbound.skill.GetPendingEmployeeSkillsUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.skill.dto.ApproveEmployeeSkillRequest;
@@ -43,9 +44,18 @@ public class EmployeeSkillApprovalController {
      */
     @GetMapping("/pending")
     @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_APPROVE') or hasAuthority('VT-06') or hasRole('VT-06')")
-    public ResponseEntity<ApiResponse<List<PendingEmployeeSkillItemResult>>> getPendingSkills(
-            @RequestParam(required = false) String keyword
+    public ResponseEntity<ApiResponse<?>> getPendingSkills(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
     ) {
+        if (page != null || size != null) {
+            int p = page != null ? page : 0;
+            int s = size != null ? size : 10;
+            PageResult<PendingEmployeeSkillItemResult> result = getPendingEmployeeSkillsUseCase.execute(keyword, p, s);
+            return ResponseEntity.ok(ApiResponse.success("Lấy danh sách kỹ năng chờ xác nhận thành công", result));
+        }
+
         List<PendingEmployeeSkillItemResult> results = getPendingEmployeeSkillsUseCase.execute(keyword);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách kỹ năng chờ xác nhận thành công", results));
     }

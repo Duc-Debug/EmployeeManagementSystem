@@ -254,24 +254,18 @@ class ApproveEmployeeSkillServiceTest {
     }
 
     @Test
-    @DisplayName("Xem danh sách kỹ năng chờ xác nhận: Lọc đúng phạm vi và từ khóa")
+    @DisplayName("Xem danh sách kỹ năng chờ xác nhận: Lọc đúng phạm vi và từ khóa qua persistence port")
     void getPendingSkills_FiltersByScopeAndKeyword_Success() {
-        EmployeeSkill es1 = EmployeeSkill.declare(101L, 1L, ProficiencyLevel.ADVANCED, new BigDecimal("2.5"));
-        OrgUnit orgUnit = new OrgUnit(
-                new OrgUnitId(10L), "DEV", "Trung tâm Phát triển",
-                com.hrm.employeemanagement.domain.orgunit.OrgUnitType.DEPARTMENT,
-                null, "/10/", 1,
-                com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus.ACTIVE,
-                "Trung tâm", null, LocalDateTime.now(), LocalDateTime.now()
+        PendingEmployeeSkillItemResult item = new PendingEmployeeSkillItemResult(
+                10L, 101L, "EMP001", "Nguyễn Văn A", 10L, "Trung tâm Phát triển",
+                1L, "JAVA", "Java", "Backend", 3, new BigDecimal("2.5"),
+                "PENDING", LocalDateTime.now()
         );
 
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE)).thenReturn(2L);
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
-        when(employeeSkillRepository.findByStatus(SkillStatus.PENDING)).thenReturn(List.of(es1));
-        when(loadEmployeePort.findById(new EmployeeId(101L))).thenReturn(Optional.of(employee));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
-        when(skillCatalogRepository.findById(1L)).thenReturn(Optional.of(javaSkill));
-        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(orgUnit));
+        when(employeeSkillRepository.findPendingSkills(DataScope.ORGANIZATION_BRANCH, 10L, 2L, "Java", 0, 1000))
+                .thenReturn(new com.hrm.employeemanagement.application.dto.user.PageResult<>(List.of(item), 0, 1000, 1));
 
         List<PendingEmployeeSkillItemResult> results = service.execute("Java");
 
@@ -281,5 +275,28 @@ class ApproveEmployeeSkillServiceTest {
         assertEquals("Nguyễn Văn A", results.get(0).employeeName());
         assertEquals("Java", results.get(0).skillName());
         assertEquals("Trung tâm Phát triển", results.get(0).orgUnitName());
+    }
+
+    @Test
+    @DisplayName("Xem danh sách kỹ năng chờ xác nhận: Phân trang thành công")
+    void getPendingSkills_WithPagination_Success() {
+        PendingEmployeeSkillItemResult item = new PendingEmployeeSkillItemResult(
+                10L, 101L, "EMP001", "Nguyễn Văn A", 10L, "Trung tâm Phát triển",
+                1L, "JAVA", "Java", "Backend", 3, new BigDecimal("2.5"),
+                "PENDING", LocalDateTime.now()
+        );
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(employeeSkillRepository.findPendingSkills(DataScope.ORGANIZATION_BRANCH, 10L, 2L, null, 0, 10))
+                .thenReturn(new com.hrm.employeemanagement.application.dto.user.PageResult<>(List.of(item), 0, 10, 1));
+
+        com.hrm.employeemanagement.application.dto.user.PageResult<PendingEmployeeSkillItemResult> pageResult = service.execute(null, 0, 10);
+
+        assertNotNull(pageResult);
+        assertEquals(1, pageResult.getTotalElements());
+        assertEquals(0, pageResult.getPage());
+        assertEquals(10, pageResult.getSize());
+        assertEquals(1, pageResult.getContent().size());
     }
 }

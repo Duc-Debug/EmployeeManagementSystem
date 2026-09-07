@@ -7,10 +7,14 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
+import com.hrm.employeemanagement.application.dto.skill.PendingEmployeeSkillItemResult;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.exception.skill.DuplicateEmployeeSkillException;
 import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.EmployeeSkillJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.PendingEmployeeSkillProjection;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataEmployeeSkillRepository;
 
 @Component
@@ -108,5 +112,71 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
         return repository.findByStatusAndEmployeeIdIn(status, employeeIds).stream()
                 .map(SkillPersistenceMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public PageResult<PendingEmployeeSkillItemResult> findPendingSkills(
+            DataScope dataScope,
+            Long scopeOrgUnitId,
+            Long currentUserId,
+            String keyword,
+            int page,
+            int size
+    ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        int offset = safePage * safeSize;
+        String normalizedKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+
+        DataScope scope = dataScope != null ? dataScope : DataScope.COMPANY;
+
+        List<PendingEmployeeSkillProjection> projections;
+        long totalElements;
+
+        switch (scope) {
+            case ORGANIZATION_BRANCH -> {
+                if (scopeOrgUnitId == null) {
+                    return new PageResult<>(List.of(), safePage, safeSize, 0);
+                }
+                projections = repository.findPendingBranchScope(scopeOrgUnitId, normalizedKeyword, safeSize, offset);
+                totalElements = repository.countPendingBranchScope(scopeOrgUnitId, normalizedKeyword);
+            }
+            case SELF -> {
+                if (currentUserId == null) {
+                    return new PageResult<>(List.of(), safePage, safeSize, 0);
+                }
+                projections = repository.findPendingSelfScope(currentUserId, normalizedKeyword, safeSize, offset);
+                totalElements = repository.countPendingSelfScope(currentUserId, normalizedKeyword);
+            }
+            case COMPANY -> {
+                projections = repository.findPendingCompanyScope(normalizedKeyword, safeSize, offset);
+                totalElements = repository.countPendingCompanyScope(normalizedKeyword);
+            }
+        }
+
+        List<PendingEmployeeSkillItemResult> content = projections.stream()
+                .map(this::toItemResult)
+                .collect(Collectors.toList());
+
+        return new PageResult<>(content, safePage, safeSize, totalElements);
+    }
+
+    private PendingEmployeeSkillItemResult toItemResult(PendingEmployeeSkillProjection p) {
+        return new PendingEmployeeSkillItemResult(
+                p.getId(),
+                p.getEmployeeId(),
+                p.getEmployeeCode(),
+                p.getEmployeeName(),
+                p.getOrgUnitId(),
+                p.getOrgUnitName(),
+                p.getSkillId(),
+                p.getSkillCode(),
+                p.getSkillName(),
+                p.getSkillCategory(),
+                p.getProficiencyLevel(),
+                p.getYearsOfExperience(),
+                p.getStatus(),
+                p.getCreatedAt()
+        );
     }
 }

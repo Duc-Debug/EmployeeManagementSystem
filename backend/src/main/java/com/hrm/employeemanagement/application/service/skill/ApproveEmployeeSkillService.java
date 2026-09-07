@@ -8,6 +8,7 @@ import java.util.Optional;
 import com.hrm.employeemanagement.application.dto.skill.ApproveEmployeeSkillCommand;
 import com.hrm.employeemanagement.application.dto.skill.EmployeeSkillResult;
 import com.hrm.employeemanagement.application.dto.skill.PendingEmployeeSkillItemResult;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.skill.ApproveEmployeeSkillUseCase;
 import com.hrm.employeemanagement.application.port.inbound.skill.GetPendingEmployeeSkillsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
@@ -120,75 +121,25 @@ public class ApproveEmployeeSkillService implements ApproveEmployeeSkillUseCase,
 
     @Override
     public List<PendingEmployeeSkillItemResult> execute(String keyword) {
+        return execute(keyword, 0, 1000).getContent();
+    }
+
+    @Override
+    public PageResult<PendingEmployeeSkillItemResult> execute(String keyword, int page, int size) {
         // 1. Kiểm tra quyền truy cập của Quản lý nguồn lực (TC-03)
         Long currentUserId = authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE);
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        // 2. Lấy danh sách toàn bộ kỹ năng đang chờ xác nhận (PENDING)
-        List<EmployeeSkill> pendingSkills = employeeSkillRepository.findByStatus(SkillStatus.PENDING);
-        if (pendingSkills.isEmpty()) {
-            return List.of();
-        }
-
-        List<PendingEmployeeSkillItemResult> results = new ArrayList<>();
-        String normalizedKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim().toLowerCase() : null;
-
-        for (EmployeeSkill es : pendingSkills) {
-            Optional<Employee> employeeOpt = loadEmployeePort.findById(new EmployeeId(es.getEmployeeId()));
-            if (employeeOpt.isEmpty()) {
-                continue;
-            }
-            Employee emp = employeeOpt.get();
-
-            // Kiểm tra xem nhân sự có thuộc phạm vi Data Scope của currentUser không
-            if (!isEmployeeInScope(currentUser, emp)) {
-                continue;
-            }
-
-            Skill skill = skillCatalogRepository.findById(es.getSkillId()).orElse(null);
-            String skillName = skill != null ? skill.getName() : null;
-            String skillCode = skill != null ? skill.getCode() : null;
-            String skillCategory = skill != null ? skill.getCategory() : null;
-
-            String orgUnitName = null;
-            if (emp.getOrgUnitId() != null) {
-                Optional<OrgUnit> orgUnitOpt = loadOrgUnitPort.findById(new OrgUnitId(emp.getOrgUnitId()));
-                if (orgUnitOpt.isPresent()) {
-                    orgUnitName = orgUnitOpt.get().getUnitName();
-                }
-            }
-
-            // Lọc theo từ khóa nếu có
-            if (normalizedKeyword != null) {
-                boolean matches = (emp.getFullName() != null && emp.getFullName().toLowerCase().contains(normalizedKeyword))
-                        || (emp.getEmployeeCode() != null && emp.getEmployeeCode().toLowerCase().contains(normalizedKeyword))
-                        || (skillName != null && skillName.toLowerCase().contains(normalizedKeyword))
-                        || (skillCode != null && skillCode.toLowerCase().contains(normalizedKeyword));
-                if (!matches) {
-                    continue;
-                }
-            }
-
-            results.add(new PendingEmployeeSkillItemResult(
-                    es.getId(),
-                    emp.getIdValue(),
-                    emp.getEmployeeCode(),
-                    emp.getFullName(),
-                    emp.getOrgUnitId(),
-                    orgUnitName,
-                    es.getSkillId(),
-                    skillCode,
-                    skillName,
-                    skillCategory,
-                    es.getProficiencyLevelValue(),
-                    es.getYearsOfExperience(),
-                    es.getStatus().name(),
-                    es.getCreatedAt()
-            ));
-        }
-
-        return results;
+        // 2. Đưa toàn bộ việc lọc Data Scope, tìm kiếm từ khóa và phân trang xuống Persistence Layer
+        return employeeSkillRepository.findPendingSkills(
+                currentUser.getDataScope(),
+                currentUser.getScopeOrgUnitId(),
+                currentUser.getIdValue(),
+                keyword,
+                page,
+                size
+        );
     }
 
     private void requireEmployeeInScope(User currentUser, Employee employee, PermissionCode permission) {
