@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.dto.skill.EmployeeSkillResult;
 import com.hrm.employeemanagement.application.dto.skill.PendingEmployeeSkillItemResult;
 import com.hrm.employeemanagement.application.port.inbound.skill.ApproveEmployeeSkillUseCase;
 import com.hrm.employeemanagement.application.port.inbound.skill.GetPendingEmployeeSkillsUseCase;
+import com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -100,5 +101,19 @@ class EmployeeSkillApprovalControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"adjustedProficiencyLevel\": 6, \"reviewNotes\": \"Ghi chú\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/employee-skills/{id}/approve -> Không tìm thấy bản ghi kỹ năng trả về 404 Not Found")
+    void approveSkill_NotFound_Returns404() throws Exception {
+        when(approveEmployeeSkillUseCase.execute(any(ApproveEmployeeSkillCommand.class)))
+                .thenThrow(new EmployeeSkillNotFoundException("Không tìm thấy bản ghi kỹ năng nhân sự với ID: 999"));
+
+        mockMvc.perform(put("/api/v1/employee-skills/999/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"adjustedProficiencyLevel\": 3, \"reviewNotes\": \"Ghi chú hợp lệ\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy bản ghi kỹ năng nhân sự với ID: 999"));
     }
 }

@@ -30,6 +30,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.role.Role;
@@ -234,6 +235,21 @@ class ApproveEmployeeSkillServiceTest {
         ApproveEmployeeSkillCommand command = new ApproveEmployeeSkillCommand(skillRecordId, null, "Note");
 
         assertThrows(PermissionDeniedException.class, () -> service.execute(command));
+        verify(employeeSkillRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Duyệt kỹ năng: Không tìm thấy bản ghi kỹ năng -> Ném EmployeeSkillNotFoundException")
+    void approveSkill_NotFound_ThrowsEmployeeSkillNotFoundException() {
+        Long skillRecordId = 999L;
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(employeeSkillRepository.findById(skillRecordId)).thenReturn(Optional.empty());
+
+        ApproveEmployeeSkillCommand command = new ApproveEmployeeSkillCommand(skillRecordId, null, "Note");
+
+        assertThrows(EmployeeSkillNotFoundException.class, () -> service.execute(command));
         verify(employeeSkillRepository, never()).save(any());
     }
 

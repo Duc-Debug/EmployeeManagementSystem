@@ -15,7 +15,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.Erro
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SkillExceptionHandler {
 
-    @ExceptionHandler({SkillNotFoundException.class, SkillGroupNotFoundException.class})
+    @ExceptionHandler({SkillNotFoundException.class, SkillGroupNotFoundException.class, EmployeeSkillNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("NOT_FOUND", ex.getMessage(), HttpStatus.NOT_FOUND.value()));

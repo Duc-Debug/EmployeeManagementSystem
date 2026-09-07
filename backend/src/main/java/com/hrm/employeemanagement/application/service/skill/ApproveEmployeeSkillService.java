@@ -23,6 +23,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
@@ -74,7 +75,7 @@ public class ApproveEmployeeSkillService implements ApproveEmployeeSkillUseCase,
 
         // 2. Tìm bản ghi kỹ năng của nhân viên
         EmployeeSkill employeeSkill = employeeSkillRepository.findById(command.employeeSkillId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy bản ghi kỹ năng nhân sự với ID: " + command.employeeSkillId()));
+                .orElseThrow(() -> new EmployeeSkillNotFoundException("Không tìm thấy bản ghi kỹ năng nhân sự với ID: " + command.employeeSkillId()));
 
         // 3. Tìm thông tin nhân viên sở hữu kỹ năng
         Employee employee = loadEmployeePort.findById(new EmployeeId(employeeSkill.getEmployeeId()))
