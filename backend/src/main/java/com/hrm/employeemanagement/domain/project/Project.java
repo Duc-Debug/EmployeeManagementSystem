@@ -118,6 +118,7 @@ public class Project {
         this.description = description != null ? description.trim() : null;
         this.updatedAt = LocalDateTime.now();
     }
+
     /**
      * Kiểm tra PM phụ trách dự án
      */
@@ -196,9 +197,6 @@ public class Project {
         }
     }
 
-    public boolean isManagedBy(EmployeeId employeeId) {
-        return this.managerId != null && this.managerId.equals(employeeId);
-    }
 
     public void close() {
         if (this.status == ProjectStatus.CLOSED) {
