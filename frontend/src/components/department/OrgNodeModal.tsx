@@ -7,7 +7,7 @@ import {
     type CardData,
 } from "./orgNode.constants";
 import ComboSelect from "./ComboSelect";
-import { MOCK_EMPLOYEES, type Employee } from "./Employees data.ts";
+import type { Employee } from "./Employees data.ts";
 
 function themeKeyFor(card: CardData): string {
     return THEME_OPTIONS.find((t) => t.badgeBg === card.badgeBg && t.badgeColor === card.badgeColor)?.key ?? "neutral";
@@ -61,7 +61,7 @@ interface OrgNodeModalProps {
     open: boolean;
     initialData?: CardData | null;
     levelText: string;
-    /** Danh sách nhân sự để chọn Người tổ chức (nếu không truyền, dùng MOCK_EMPLOYEES) */
+    /** Danh sách nhân sự để chọn Người tổ chức */
     employees?: Employee[];
     onClose: () => void;
     onSave: (card: CardData) => void;
@@ -84,8 +84,8 @@ export default function OrgNodeModal({ open, initialData, levelText, employees, 
 
     if (!open) return null;
 
-    /** Danh sách option cho ComboSelect — dùng prop hoặc fallback về mock */
-    const empList = employees ?? MOCK_EMPLOYEES;
+    /** Danh sách option cho ComboSelect — dùng prop hoặc danh sách rỗng */
+    const empList = employees ?? [];
     const employeeOptions = empList.map((e) => ({
         id: e.id,
         label: e.name,

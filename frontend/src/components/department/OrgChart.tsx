@@ -22,6 +22,7 @@ import {
 import OrgNodeModal from './OrgNodeModal';
 import OrgNodeDetailModal from './OrgNodeDetailModal';
 import type { CardData } from './orgNode.constants';
+import type { Employee } from './Employees data.ts';
 import {
     getOrgTree,
     createOrgUnit,
@@ -268,6 +269,8 @@ export default function OrgChart() {
         setTimeout(() => setNotification(null), 4000);
     }
 
+    const [realEmployees, setRealEmployees] = useState<Employee[]>([]);
+
     // Tải dữ liệu thật từ Backend API (GET /api/v1/org-units/tree)
     useEffect(() => {
         let isMounted = true;
@@ -281,6 +284,13 @@ export default function OrgChart() {
                 const userMap = new Map<number, string>();
                 if (usersRes?.content) {
                     usersRes.content.forEach((u) => userMap.set(u.id, u.fullName || u.username));
+                    setRealEmployees(
+                        usersRes.content.map((u) => ({
+                            id: String(u.id),
+                            name: u.fullName || u.username,
+                            position: u.roleName || (u.employeeId ? `Mã NV: ${u.employeeId}` : undefined),
+                        }))
+                    );
                 }
                 if (treeRes && treeRes.length > 0) {
                     const converted = convertBackendNodeToOrgChartNode(treeRes[0], userMap, null);
@@ -429,9 +439,12 @@ export default function OrgChart() {
             const numId = parseInt(editTarget.nodeId, 10);
             if (!isNaN(numId)) {
                 try {
+                    const matchedEmp = realEmployees.find((e) => card.manager && card.manager.startsWith(e.name));
+                    const managerId = matchedEmp ? parseInt(matchedEmp.id, 10) : null;
                     await updateOrgUnit(numId, {
                         unitName: card.title,
                         unitType: 'DEPARTMENT',
+                        managerId: managerId && !isNaN(managerId) ? managerId : null,
                         description: card.desc,
                     });
                     setTree((current) => {
@@ -486,11 +499,14 @@ export default function OrgChart() {
             let createdId = nextNodeId();
 
             try {
+                const matchedEmp = realEmployees.find((e) => card.manager && card.manager.startsWith(e.name));
+                const managerId = matchedEmp ? parseInt(matchedEmp.id, 10) : null;
                 const code = `PB-${Date.now().toString().slice(-4)}`;
                 const res = await createOrgUnit({
                     unitCode: code,
                     unitName: card.title,
                     unitType: 'DEPARTMENT',
+                    managerId: managerId && !isNaN(managerId) ? managerId : null,
                     parentId: !isNaN(parentNum) ? parentNum : null,
                     description: card.desc,
                 });
@@ -758,6 +774,7 @@ export default function OrgChart() {
                 open={editTarget !== null}
                 initialData={currentModalData}
                 levelText={modalLevelText}
+                employees={realEmployees}
                 onClose={() => setEditTarget(null)}
                 onSave={handleSaveNode}
                 onDelete={

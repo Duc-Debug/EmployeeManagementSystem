@@ -3,7 +3,7 @@ import {
     Building2,
     GitBranch,
     Users,
-    User,
+    User as UserIcon,
     ChevronDown,
     ChevronRight,
     GripVertical,
@@ -30,9 +30,9 @@ import {
     deactivateOrgUnit,
     activateOrgUnit,
 } from "@/lib/api/org-units";
-import type { OrgUnitTreeNode } from "@/types/hrm";
+import { getUsers } from "@/lib/api/users";
+import type { OrgUnitTreeNode, User } from "@/types/hrm";
 import ComboSelect, { type ComboOption } from "./ComboSelect";
-import { MOCK_EMPLOYEES } from "./Employees data.ts";
 
 export type UnitType = "COMPANY" | "CENTER" | "DEPARTMENT" | "TEAM";
 
@@ -208,7 +208,7 @@ function getUnitMeta(type: UnitType) {
             };
         case "TEAM":
             return {
-                icon: User,
+                icon: UserIcon,
                 label: "Nhóm",
                 color: "text-purple-700 bg-purple-50 border-purple-200",
             };
@@ -271,24 +271,26 @@ type ModalState =
     | { mode: "edit"; node: DepartmentNode }
     | null;
 
-function mapOrgUnitNodeToDepartmentNode(node: OrgUnitTreeNode): DepartmentNode {
+function mapOrgUnitNodeToDepartmentNode(node: OrgUnitTreeNode, userMap?: Map<number, User>): DepartmentNode {
     const managerId = node.managerId ? String(node.managerId) : null;
-    const knownManager = managerId ? MOCK_EMPLOYEES.find((e) => e.id === managerId) : undefined;
+    const user = node.managerId && userMap ? userMap.get(node.managerId) : undefined;
+    const managerName = user ? (user.fullName || user.username) : undefined;
     return {
         id: String(node.id),
         name: node.unitName,
         unitCode: node.unitCode,
         managerId,
-        manager: knownManager?.name ?? (managerId ? `Quản lý #${managerId}` : "Chưa chỉ định"),
+        manager: managerName ?? (managerId ? `Quản lý #${managerId}` : "Chưa chỉ định"),
         unitType: node.unitType,
         status: node.status === "ACTIVE" ? "ACTIVE" : "INACTIVE",
         description: node.description || undefined,
-        children: node.children ? node.children.map(mapOrgUnitNodeToDepartmentNode) : [],
+        children: node.children ? node.children.map((c) => mapOrgUnitNodeToDepartmentNode(c, userMap)) : [],
     };
 }
 
 export default function DepartmentTree() {
     const [tree, setTree] = useState<DepartmentNode>(INITIAL_DEPARTMENT_TREE);
+    const [users, setUsers] = useState<User[]>([]);
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState("");
     const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -297,20 +299,27 @@ export default function DepartmentTree() {
     const [deleteTargetNode, setDeleteTargetNode] = useState<DepartmentNode | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-    // Tải cấu trúc cây đơn vị từ Backend API khi mở trang
+    // Tải cấu trúc cây đơn vị và danh sách nhân sự từ Backend API khi mở trang
     useEffect(() => {
         let isMounted = true;
-        async function fetchOrgTree() {
+        async function fetchInitialData() {
             try {
-                const res = await getOrgTree();
-                if (isMounted && res && res.length > 0) {
-                    setTree(mapOrgUnitNodeToDepartmentNode(res[0]));
+                const [treeRes, usersRes] = await Promise.all([
+                    getOrgTree().catch(() => null),
+                    getUsers(0, 100).catch(() => null),
+                ]);
+                if (!isMounted) return;
+                const userList = usersRes?.content || [];
+                setUsers(userList);
+                const userMap = new Map<number, User>(userList.map((u) => [u.id, u]));
+                if (treeRes && treeRes.length > 0) {
+                    setTree(mapOrgUnitNodeToDepartmentNode(treeRes[0], userMap));
                 }
             } catch {
                 // Backend offline: Tự động giữ cây ban đầu để không gián đoạn thao tác
             }
         }
-        fetchOrgTree();
+        fetchInitialData();
         return () => {
             isMounted = false;
         };
@@ -525,9 +534,11 @@ export default function DepartmentTree() {
 
             if (!isNaN(numId)) {
                 try {
+                    const managerNum = data.managerId ? parseInt(data.managerId, 10) : null;
                     await updateOrgUnit(numId, {
                         unitName: data.name,
                         unitType: data.unitType,
+                        managerId: managerNum && !isNaN(managerNum) ? managerNum : null,
                         description: data.description,
                     });
 
@@ -608,10 +619,12 @@ export default function DepartmentTree() {
             const parentNum = parseInt(targetParentId, 10);
             let createdId = nextId();
             try {
+                const managerNum = data.managerId ? parseInt(data.managerId, 10) : null;
                 const res = await createOrgUnit({
                     unitCode: data.unitCode,
                     unitName: data.name,
                     unitType: data.unitType,
+                    managerId: managerNum && !isNaN(managerNum) ? managerNum : null,
                     parentId: !isNaN(parentNum) ? parentNum : null,
                     description: data.description,
                 });
@@ -772,6 +785,7 @@ export default function DepartmentTree() {
                 <DepartmentTreeModal
                     modal={modal}
                     tree={tree}
+                    users={users}
                     onClose={() => setModal(null)}
                     onSave={handleSaveModal}
                 />
@@ -1081,6 +1095,8 @@ interface DepartmentTreeModalProps {
     modal: NonNullable<ModalState>;
     /** Cây gốc hiện tại, dùng để liệt kê danh sách "Đơn vị cha" có thể chọn */
     tree: DepartmentNode;
+    /** Danh sách người dùng/nhân sự thật từ hệ thống */
+    users: User[];
     onClose: () => void;
     onSave: (data: {
         name: string;
@@ -1093,7 +1109,7 @@ interface DepartmentTreeModalProps {
     }) => void;
 }
 
-function DepartmentTreeModal({ modal, tree, onClose, onSave }: DepartmentTreeModalProps) {
+function DepartmentTreeModal({ modal, tree, users, onClose, onSave }: DepartmentTreeModalProps) {
     const isEdit = modal.mode === "edit";
     const isRootNode = isEdit && modal.node.id === tree.id;
 
@@ -1124,8 +1140,13 @@ function DepartmentTreeModal({ modal, tree, onClose, onSave }: DepartmentTreeMod
     }, [tree, modal]);
 
     const managerOptions = useMemo(
-        () => MOCK_EMPLOYEES.map((m) => ({ id: m.id, label: m.name, sublabel: m.position })),
-        []
+        () =>
+            users.map((u) => ({
+                id: String(u.id),
+                label: u.fullName || u.username,
+                sublabel: u.roleName || (u.employeeId ? `Mã NV: ${u.employeeId}` : undefined),
+            })),
+        [users]
     );
 
     function handleSubmit(e: React.FormEvent) {
@@ -1143,13 +1164,13 @@ function DepartmentTreeModal({ modal, tree, onClose, onSave }: DepartmentTreeMod
             return;
         }
 
-        const manager = MOCK_EMPLOYEES.find((m) => m.id === managerId);
+        const manager = users.find((u) => String(u.id) === managerId);
 
         onSave({
             name: name.trim(),
             unitCode: unitCode.trim().toUpperCase(),
             managerId: managerId || null,
-            managerName: manager?.name ?? "Chưa chỉ định",
+            managerName: manager ? (manager.fullName || manager.username) : "Chưa chỉ định",
             parentId,
             unitType,
             description: description.trim() || undefined,
