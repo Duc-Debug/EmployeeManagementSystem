@@ -26,8 +26,8 @@ export default function DepartmentList({ departments, onAdd, onEdit, onDelete }:
                     <thead>
                     <tr className="text-white/50">
                         <th className="pb-3 pl-4 font-semibold">Tên phòng ban</th>
-                        <th className="pb-3 font-semibold">Trưởng phòng</th>
-                        <th className="pb-3 font-semibold">Số nhân sự</th>
+                        <th className="pb-3 font-semibold">Người quản lý</th>
+                        <th className="pb-3 font-semibold">Đơn vị cha</th>
                         <th className="pb-3 pr-4 font-semibold text-right">Thao tác</th>
                     </tr>
                     </thead>
@@ -44,12 +44,12 @@ export default function DepartmentList({ departments, onAdd, onEdit, onDelete }:
 
                             {/* Ô giữa */}
                             <td className="py-3.5 font-medium text-white/80 transition bg-transparent group-hover:bg-white/[0.08]">
-                                {dept.manager}
+                                {dept.managerName || "Chưa chỉ định"}
                             </td>
 
                             {/* Ô giữa */}
                             <td className="py-3.5 text-white/60 transition bg-transparent group-hover:bg-white/[0.08]">
-                                {dept.count} thành viên
+                                {dept.parentName ?? "— Đơn vị gốc —"}
                             </td>
 
                             {/* Ô cuối cùng - Bo góc phải */}

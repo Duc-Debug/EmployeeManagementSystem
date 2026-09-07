@@ -18,6 +18,8 @@ import {
     UserCheck,
     X,
     AlertTriangle,
+    UserCircle2,
+    Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +31,8 @@ import {
     activateOrgUnit,
 } from "@/lib/api/org-units";
 import type { OrgUnitTreeNode } from "@/types/hrm";
+import ComboSelect, { type ComboOption } from "./ComboSelect";
+import { MOCK_EMPLOYEES } from "./Employees data.ts";
 
 export type UnitType = "COMPANY" | "CENTER" | "DEPARTMENT" | "TEAM";
 
@@ -36,8 +40,8 @@ export interface DepartmentNode {
     id: string;
     unitCode: string;
     name: string;
+    managerId: string | null;
     manager: string;
-    count: number;
     unitType: UnitType;
     status: "ACTIVE" | "INACTIVE";
     description?: string;
@@ -48,8 +52,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
     id: "unit-corp",
     unitCode: "CORP",
     name: "Tập đoàn Doanh nghiệp",
+    managerId: null,
     manager: "Hội đồng Quản trị",
-    count: 145,
     unitType: "COMPANY",
     status: "ACTIVE",
     description: "Cơ quan đầu não chiến lược và điều hành toàn bộ tập đoàn",
@@ -58,8 +62,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
             id: "unit-tech",
             unitCode: "TECH",
             name: "Khối Kỹ thuật & Công nghệ",
+            managerId: "emp-01",
             manager: "Trần Quốc Bảo",
-            count: 55,
             unitType: "CENTER",
             status: "ACTIVE",
             description: "Nghiên cứu, phát triển sản phẩm phần mềm và hạ tầng số",
@@ -68,8 +72,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
                     id: "unit-tech-fe",
                     unitCode: "TECH-FE",
                     name: "Phòng Lập trình Frontend",
+                    managerId: "emp-02",
                     manager: "Nguyễn Văn A",
-                    count: 22,
                     unitType: "DEPARTMENT",
                     status: "ACTIVE",
                     description: "Phát triển giao diện web, mobile app và trải nghiệm người dùng",
@@ -78,8 +82,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
                             id: "unit-tech-ui",
                             unitCode: "FE-UI",
                             name: "Nhóm UI/UX & Design System",
+                            managerId: "emp-03",
                             manager: "Lê Thị Mai",
-                            count: 6,
                             unitType: "TEAM",
                             status: "ACTIVE",
                             description: "Thiết kế đồ họa và hệ thống design token",
@@ -91,8 +95,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
                     id: "unit-tech-be",
                     unitCode: "TECH-BE",
                     name: "Phòng Lập trình Backend",
+                    managerId: "emp-04",
                     manager: "Lê Văn C",
-                    count: 25,
                     unitType: "DEPARTMENT",
                     status: "ACTIVE",
                     description: "Xây dựng hệ thống microservices, cơ sở dữ liệu và API",
@@ -102,8 +106,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
                     id: "unit-tech-devops",
                     unitCode: "TECH-OPS",
                     name: "Nhóm Cloud & DevOps",
+                    managerId: "emp-05",
                     manager: "Vũ Hoàng D",
-                    count: 8,
                     unitType: "TEAM",
                     status: "ACTIVE",
                     description: "Quản trị hạ tầng đám mây, CI/CD và bảo mật",
@@ -115,8 +119,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
             id: "unit-ops",
             unitCode: "OPS",
             name: "Khối Vận hành & Nhân sự",
+            managerId: "emp-06",
             manager: "Nguyễn Minh Anh",
-            count: 35,
             unitType: "CENTER",
             status: "ACTIVE",
             description: "Quản trị nguồn nhân lực, tuyển dụng và hỗ trợ vận hành",
@@ -125,8 +129,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
                     id: "unit-hr",
                     unitCode: "HR",
                     name: "Phòng Nhân sự & Tuyển dụng",
+                    managerId: "emp-07",
                     manager: "Phạm Mai E",
-                    count: 18,
                     unitType: "DEPARTMENT",
                     status: "ACTIVE",
                     description: "Tuyển chọn nhân tài, đánh giá KPI và chính sách phúc lợi",
@@ -136,8 +140,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
                     id: "unit-admin",
                     unitCode: "ADM",
                     name: "Phòng Hành chính & Quản trị",
+                    managerId: "emp-08",
                     manager: "Đỗ Thị G",
-                    count: 17,
                     unitType: "DEPARTMENT",
                     status: "ACTIVE",
                     description: "Quản lý cơ sở vật chất, tài sản và dịch vụ nội bộ",
@@ -149,8 +153,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
             id: "unit-biz",
             unitCode: "BIZ",
             name: "Khối Kinh doanh & Marketing",
+            managerId: "emp-09",
             manager: "Lê Thu Hà",
-            count: 55,
             unitType: "CENTER",
             status: "ACTIVE",
             description: "Mở rộng thị trường, bán hàng và quảng bá thương hiệu",
@@ -159,8 +163,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
                     id: "unit-sales",
                     unitCode: "SALES",
                     name: "Phòng Phát triển Kinh doanh",
+                    managerId: "emp-10",
                     manager: "Phạm Hoàng Nam",
-                    count: 32,
                     unitType: "DEPARTMENT",
                     status: "ACTIVE",
                     description: "Tìm kiếm khách hàng doanh nghiệp và chăm sóc đối tác",
@@ -170,8 +174,8 @@ export const INITIAL_DEPARTMENT_TREE: DepartmentNode = {
                     id: "unit-mkt",
                     unitCode: "MKT",
                     name: "Phòng Truyền thông & Marketing",
+                    managerId: "emp-11",
                     manager: "Võ Ngọc Linh",
-                    count: 23,
                     unitType: "DEPARTMENT",
                     status: "ACTIVE",
                     description: "Quảng cáo trực tuyến, quan hệ công chúng và sự kiện",
@@ -211,6 +215,13 @@ function getUnitMeta(type: UnitType) {
     }
 }
 
+const UNIT_TYPE_OPTIONS: ComboOption[] = [
+    { id: "CENTER", label: "Khối (Center)" },
+    { id: "DEPARTMENT", label: "Phòng ban (Dept)" },
+    { id: "TEAM", label: "Tổ / Nhóm (Team)" },
+    { id: "COMPANY", label: "Công ty (Company)" },
+];
+
 function findNode(root: DepartmentNode, id: string): DepartmentNode | null {
     if (root.id === id) return root;
     for (const child of root.children) {
@@ -242,6 +253,13 @@ function cloneTree(node: DepartmentNode): DepartmentNode {
     };
 }
 
+/** Làm phẳng cây thành danh sách phẳng, kèm cấp độ (level) để hiển thị thụt lề trong dropdown */
+function flattenTree(node: DepartmentNode, level = 0, acc: { id: string; name: string; level: number }[] = []) {
+    acc.push({ id: node.id, name: node.name, level });
+    node.children.forEach((c) => flattenTree(c, level + 1, acc));
+    return acc;
+}
+
 let newIdCounter = 100;
 function nextId() {
     newIdCounter += 1;
@@ -254,12 +272,14 @@ type ModalState =
     | null;
 
 function mapOrgUnitNodeToDepartmentNode(node: OrgUnitTreeNode): DepartmentNode {
+    const managerId = node.managerId ? String(node.managerId) : null;
+    const knownManager = managerId ? MOCK_EMPLOYEES.find((e) => e.id === managerId) : undefined;
     return {
         id: String(node.id),
         name: node.unitName,
         unitCode: node.unitCode,
-        manager: node.managerId ? `Quản lý #${node.managerId}` : "Chưa chỉ định",
-        count: (node.children ? node.children.length : 0) * 4 + 6,
+        managerId,
+        manager: knownManager?.name ?? (managerId ? `Quản lý #${managerId}` : "Chưa chỉ định"),
         unitType: node.unitType,
         status: node.status === "ACTIVE" ? "ACTIVE" : "INACTIVE",
         description: node.description || undefined,
@@ -490,8 +510,9 @@ export default function DepartmentTree() {
     async function handleSaveModal(data: {
         name: string;
         unitCode: string;
-        manager: string;
-        count: number;
+        managerId: string | null;
+        managerName: string;
+        parentId: string;
         unitType: UnitType;
         description?: string;
     }) {
@@ -499,6 +520,9 @@ export default function DepartmentTree() {
 
         if (modal.mode === "edit") {
             const numId = parseInt(modal.node.id, 10);
+            const currentParent = findParent(tree, modal.node.id);
+            const parentChanged = Boolean(currentParent) && currentParent!.id !== data.parentId;
+
             if (!isNaN(numId)) {
                 try {
                     await updateOrgUnit(numId, {
@@ -506,16 +530,37 @@ export default function DepartmentTree() {
                         unitType: data.unitType,
                         description: data.description,
                     });
+
+                    const parentNum = parseInt(data.parentId, 10);
+                    if (parentChanged && !isNaN(parentNum)) {
+                        await moveOrgUnit(numId, parentNum);
+                    }
+
                     setTree((current) => {
                         const root = cloneTree(current);
                         const node = findNode(root, modal.node.id);
                         if (node) {
                             node.name = data.name;
                             node.unitCode = data.unitCode;
-                            node.manager = data.manager;
-                            node.count = data.count;
+                            node.managerId = data.managerId;
+                            node.manager = data.managerName;
                             node.unitType = data.unitType;
                             node.description = data.description;
+                        }
+                        if (node && parentChanged) {
+                            const oldParent = findParent(root, modal.node.id);
+                            const newParent = findNode(root, data.parentId);
+                            if (oldParent && newParent) {
+                                oldParent.children = oldParent.children.filter((c) => c.id !== modal.node.id);
+                                newParent.children.push(node);
+                                setCollapsed((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(newParent.id);
+                                    return next;
+                                });
+                            }
+                        }
+                        if (node) {
                             showNotify(`Đã cập nhật thông tin "${data.name}"`);
                         }
                         return root;
@@ -533,10 +578,25 @@ export default function DepartmentTree() {
                     if (node) {
                         node.name = data.name;
                         node.unitCode = data.unitCode;
-                        node.manager = data.manager;
-                        node.count = data.count;
+                        node.managerId = data.managerId;
+                        node.manager = data.managerName;
                         node.unitType = data.unitType;
                         node.description = data.description;
+                    }
+                    if (node && parentChanged) {
+                        const oldParent = findParent(root, modal.node.id);
+                        const newParent = findNode(root, data.parentId);
+                        if (oldParent && newParent) {
+                            oldParent.children = oldParent.children.filter((c) => c.id !== modal.node.id);
+                            newParent.children.push(node);
+                            setCollapsed((prev) => {
+                                const next = new Set(prev);
+                                next.delete(newParent.id);
+                                return next;
+                            });
+                        }
+                    }
+                    if (node) {
                         showNotify(`Đã cập nhật thông tin "${data.name}"`);
                     }
                     return root;
@@ -544,7 +604,8 @@ export default function DepartmentTree() {
                 setModal(null);
             }
         } else if (modal.mode === "create") {
-            const parentNum = parseInt(modal.parentId, 10);
+            const targetParentId = data.parentId || modal.parentId;
+            const parentNum = parseInt(targetParentId, 10);
             let createdId = nextId();
             try {
                 const res = await createOrgUnit({
@@ -559,14 +620,14 @@ export default function DepartmentTree() {
                 }
                 setTree((current) => {
                     const root = cloneTree(current);
-                    const parent = findNode(root, modal.parentId);
+                    const parent = findNode(root, targetParentId);
                     if (parent) {
                         const newNode: DepartmentNode = {
                             id: createdId,
                             name: data.name,
                             unitCode: data.unitCode.toUpperCase(),
-                            manager: data.manager,
-                            count: data.count,
+                            managerId: data.managerId,
+                            manager: data.managerName,
                             unitType: data.unitType,
                             status: "ACTIVE",
                             description: data.description,
@@ -614,7 +675,7 @@ export default function DepartmentTree() {
                     <Search className="h-4 w-4 text-slate-400 shrink-0" />
                     <input
                         type="text"
-                        placeholder="Tìm theo tên, mã phòng, trưởng phòng..."
+                        placeholder="Tìm theo tên, mã phòng, người quản lý..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-full"
@@ -666,8 +727,7 @@ export default function DepartmentTree() {
                 <div className="shrink-0 mb-3 flex items-center justify-between border-b border-slate-100 pb-3 px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     <span>Cơ cấu phân cấp & Tên đơn vị</span>
                     <div className="hidden sm:flex items-center gap-8 pr-28">
-                        <span>Trưởng đơn vị</span>
-                        <span>Nhân sự</span>
+                        <span>Người quản lý</span>
                         <span>Trạng thái</span>
                     </div>
                 </div>
@@ -711,6 +771,7 @@ export default function DepartmentTree() {
             {modal && (
                 <DepartmentTreeModal
                     modal={modal}
+                    tree={tree}
                     onClose={() => setModal(null)}
                     onSave={handleSaveModal}
                 />
@@ -751,23 +812,23 @@ interface TreeNodeItemProps {
 }
 
 function TreeNodeItem({
-    node,
-    level,
-    isRoot = false,
-    collapsed,
-    onToggle,
-    draggedId,
-    dropTargetId,
-    onDragStart,
-    onDragEnd,
-    onDragOver,
-    onDrop,
-    onAddChild,
-    onEdit,
-    onToggleStatus,
-    onDelete,
-    searchQuery,
-}: TreeNodeItemProps) {
+                          node,
+                          level,
+                          isRoot = false,
+                          collapsed,
+                          onToggle,
+                          draggedId,
+                          dropTargetId,
+                          onDragStart,
+                          onDragEnd,
+                          onDragOver,
+                          onDrop,
+                          onAddChild,
+                          onEdit,
+                          onToggleStatus,
+                          onDelete,
+                          searchQuery,
+                      }: TreeNodeItemProps) {
     const hasChildren = node.children && node.children.length > 0;
     const isCollapsed = collapsed.has(node.id) && !searchQuery;
     const isDraggable = !isRoot;
@@ -907,14 +968,9 @@ function TreeNodeItem({
                 {/* Right Part: Manager, Count, Status, Actions */}
                 <div className="flex items-center gap-4 shrink-0">
                     {/* Manager Name */}
-                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 w-36 truncate">
+                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 w-40 truncate">
                         <UserCheck className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                         <span className="truncate font-medium">{node.manager}</span>
-                    </div>
-
-                    {/* Members Count */}
-                    <div className="hidden sm:block text-xs font-semibold text-slate-500 w-24">
-                        {node.count} nhân sự
                     </div>
 
                     {/* Status Badge */}
@@ -1023,27 +1079,54 @@ function TreeNodeItem({
 // ----------------------------------------------------------------------
 interface DepartmentTreeModalProps {
     modal: NonNullable<ModalState>;
+    /** Cây gốc hiện tại, dùng để liệt kê danh sách "Đơn vị cha" có thể chọn */
+    tree: DepartmentNode;
     onClose: () => void;
     onSave: (data: {
         name: string;
         unitCode: string;
-        manager: string;
-        count: number;
+        managerId: string | null;
+        managerName: string;
+        parentId: string;
         unitType: UnitType;
         description?: string;
     }) => void;
 }
 
-function DepartmentTreeModal({ modal, onClose, onSave }: DepartmentTreeModalProps) {
+function DepartmentTreeModal({ modal, tree, onClose, onSave }: DepartmentTreeModalProps) {
     const isEdit = modal.mode === "edit";
+    const isRootNode = isEdit && modal.node.id === tree.id;
 
     const [name, setName] = useState(isEdit ? modal.node.name : "");
     const [unitCode, setUnitCode] = useState(isEdit ? modal.node.unitCode : "");
-    const [manager, setManager] = useState(isEdit ? modal.node.manager : "");
-    const [count, setCount] = useState<number>(isEdit ? modal.node.count : 0);
+    const [managerId, setManagerId] = useState<string>(isEdit ? modal.node.managerId ?? "" : "");
     const [unitType, setUnitType] = useState<UnitType>(isEdit ? modal.node.unitType : "DEPARTMENT");
     const [description, setDescription] = useState(isEdit ? modal.node.description ?? "" : "");
     const [error, setError] = useState("");
+
+    const defaultParentId = isEdit ? findParent(tree, modal.node.id)?.id ?? "" : modal.parentId;
+    const [parentId, setParentId] = useState<string>(defaultParentId);
+
+    // Đơn vị cha có thể chọn: loại bỏ chính nó và toàn bộ nhánh con của nó (tránh vòng lặp cha-con)
+    const parentOptions = useMemo(() => {
+        const flat = flattenTree(tree);
+        const toOption = (u: { id: string; name: string; level: number }) => ({
+            id: u.id,
+            label: `${"— ".repeat(u.level)}${u.name}`.trim(),
+        });
+        if (modal.mode !== "edit") {
+            return flat.map(toOption);
+        }
+        const selfId = modal.node.id;
+        return flat
+            .filter((u) => u.id !== selfId && !isDescendant(tree, selfId, u.id))
+            .map(toOption);
+    }, [tree, modal]);
+
+    const managerOptions = useMemo(
+        () => MOCK_EMPLOYEES.map((m) => ({ id: m.id, label: m.name, sublabel: m.position })),
+        []
+    );
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -1055,12 +1138,19 @@ function DepartmentTreeModal({ modal, onClose, onSave }: DepartmentTreeModalProp
             setError("Vui lòng nhập mã đơn vị.");
             return;
         }
+        if (!isRootNode && !parentId) {
+            setError("Vui lòng chọn đơn vị cha.");
+            return;
+        }
+
+        const manager = MOCK_EMPLOYEES.find((m) => m.id === managerId);
 
         onSave({
             name: name.trim(),
             unitCode: unitCode.trim().toUpperCase(),
-            manager: manager.trim() || "Chưa chỉ định",
-            count: count || 0,
+            managerId: managerId || null,
+            managerName: manager?.name ?? "Chưa chỉ định",
+            parentId,
             unitType,
             description: description.trim() || undefined,
         });
@@ -1121,46 +1211,51 @@ function DepartmentTreeModal({ modal, onClose, onSave }: DepartmentTreeModalProp
                             <label className="text-xs font-semibold text-slate-700">
                                 Loại phân cấp *
                             </label>
-                            <select
+                            <ComboSelect
                                 value={unitType}
-                                onChange={(e) => setUnitType(e.target.value as UnitType)}
-                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition"
-                            >
-                                <option value="CENTER">Khối (Center)</option>
-                                <option value="DEPARTMENT">Phòng ban (Dept)</option>
-                                <option value="TEAM">Tổ / Nhóm (Team)</option>
-                                <option value="COMPANY">Công ty (Company)</option>
-                            </select>
+                                options={UNIT_TYPE_OPTIONS}
+                                onChange={(id) => setUnitType((id as UnitType) ?? "DEPARTMENT")}
+                                hideSearch
+                                icon={<GitBranch className="h-3.5 w-3.5 text-slate-400" />}
+                            />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-slate-700">
-                                Trưởng đơn vị
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="VD: Nguyễn Văn A"
-                                value={manager}
-                                onChange={(e) => setManager(e.target.value)}
-                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition"
-                            />
-                        </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700">
+                            Người quản lý
+                        </label>
+                        <ComboSelect
+                            value={managerId || null}
+                            options={managerOptions}
+                            onChange={(id) => setManagerId(id ?? "")}
+                            placeholder="Chọn người quản lý..."
+                            searchPlaceholder="Tìm theo tên nhân sự..."
+                            emptyText="Không tìm thấy nhân sự phù hợp."
+                            icon={<UserCircle2 className="h-3.5 w-3.5 text-slate-400" />}
+                        />
+                    </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-slate-700">
-                                Số lượng nhân sự
-                            </label>
-                            <input
-                                type="number"
-                                min={0}
-                                placeholder="12"
-                                value={count}
-                                onChange={(e) => setCount(Number(e.target.value) || 0)}
-                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition"
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700">
+                            Đơn vị cha {!isRootNode && "*"}
+                        </label>
+                        {isRootNode ? (
+                            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-400">
+                                <Network className="h-3.5 w-3.5" />
+                                Đây là đơn vị gốc, không có đơn vị cha
+                            </div>
+                        ) : (
+                            <ComboSelect
+                                value={parentId || null}
+                                options={parentOptions}
+                                onChange={(id) => setParentId(id ?? "")}
+                                placeholder="Chọn đơn vị cha..."
+                                searchPlaceholder="Tìm đơn vị..."
+                                emptyText="Không có đơn vị phù hợp."
+                                icon={<Network className="h-3.5 w-3.5 text-slate-400" />}
                             />
-                        </div>
+                        )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -1257,15 +1352,9 @@ function DepartmentDeleteDialog({ target, onClose, onConfirm }: DepartmentDelete
                         </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-200/70 text-[11px] text-slate-600 grid grid-cols-2 gap-2">
-                        <div>
-                            <span className="text-slate-400">Trưởng đơn vị: </span>
-                            <span className="font-semibold text-slate-800">{target.manager}</span>
-                        </div>
-                        <div>
-                            <span className="text-slate-400">Nhân sự: </span>
-                            <span className="font-semibold text-slate-800">{target.count} người</span>
-                        </div>
+                    <div className="pt-2 border-t border-slate-200/70 text-[11px] text-slate-600">
+                        <span className="text-slate-400">Người quản lý: </span>
+                        <span className="font-semibold text-slate-800">{target.manager}</span>
                     </div>
 
                     {childCount > 0 && (

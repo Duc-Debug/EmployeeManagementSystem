@@ -1,25 +1,43 @@
 import { useState } from "react";
-import { X, FolderKanban } from "lucide-react";
+import { X, FolderKanban, UserCircle2, Network } from "lucide-react";
+import ComboSelect from "./ComboSelect.tsx";
+import type { Employee } from "./Employees data.ts";
 
 export interface Department {
     id: string;
     name: string;
-    manager: string;
-    count: number;
+    managerId: string | null;
+    managerName: string;
+    parentId: string | null;
+    parentName: string | null;
 }
 
 interface DepartmentModalProps {
     open: boolean;
     initialData?: Department | null;
+    /** Danh sách phòng ban hiện có, dùng để chọn Đơn vị cha */
+    departments: Department[];
+    /** Danh sách nhân sự, dùng để chọn Người quản lý */
+    managers: Employee[];
     onClose: () => void;
     onSave: (dept: Department) => void;
 }
 
-const emptyForm = { name: "", manager: "", count: "" };
+interface FormState {
+    name: string;
+    managerId: string;
+    parentId: string;
+}
 
-function formFromInitialData(initialData?: Department | null) {
+const emptyForm: FormState = { name: "", managerId: "", parentId: "" };
+
+function formFromInitialData(initialData?: Department | null): FormState {
     return initialData
-        ? { name: initialData.name, manager: initialData.manager, count: String(initialData.count) }
+        ? {
+            name: initialData.name,
+            managerId: initialData.managerId ?? "",
+            parentId: initialData.parentId ?? "",
+        }
         : emptyForm;
 }
 
@@ -29,8 +47,15 @@ function nextDeptId() {
     return `dept-new-${deptIdCounter}`;
 }
 
-export default function DepartmentModal({ open, initialData, onClose, onSave }: DepartmentModalProps) {
-    const [form, setForm] = useState(() => formFromInitialData(initialData));
+export default function DepartmentModal({
+                                            open,
+                                            initialData,
+                                            departments,
+                                            managers,
+                                            onClose,
+                                            onSave,
+                                        }: DepartmentModalProps) {
+    const [form, setForm] = useState<FormState>(() => formFromInitialData(initialData));
     const [error, setError] = useState("");
     const [prevOpen, setPrevOpen] = useState(open);
 
@@ -46,17 +71,38 @@ export default function DepartmentModal({ open, initialData, onClose, onSave }: 
 
     if (!open) return null;
 
+    // Không cho phép chọn chính phòng ban đang sửa làm đơn vị cha của chính nó
+    const parentOptions = departments
+        .filter((d) => d.id !== initialData?.id)
+        .map((d) => ({ id: d.id, label: d.name }));
+
+    const managerOptions = managers.map((m) => ({
+        id: m.id,
+        label: m.name,
+        sublabel: m.position,
+    }));
+
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!form.name.trim() || !form.manager.trim()) {
-            setError("Vui lòng nhập đầy đủ tên phòng ban và trưởng phòng.");
+        if (!form.name.trim()) {
+            setError("Vui lòng nhập tên phòng ban.");
             return;
         }
+        if (!form.managerId) {
+            setError("Vui lòng chọn người quản lý.");
+            return;
+        }
+
+        const manager = managers.find((m) => m.id === form.managerId);
+        const parent = departments.find((d) => d.id === form.parentId);
+
         onSave({
             id: initialData?.id ?? nextDeptId(),
             name: form.name.trim(),
-            manager: form.manager.trim(),
-            count: Number(form.count) || 0,
+            managerId: form.managerId,
+            managerName: manager?.name ?? "",
+            parentId: form.parentId || null,
+            parentName: parent?.name ?? null,
         });
     }
 
@@ -100,28 +146,35 @@ export default function DepartmentModal({ open, initialData, onClose, onSave }: 
                             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                     </div>
+
                     <div>
                         <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-                            Trưởng phòng
+                            Người quản lý
                         </label>
-                        <input
-                            value={form.manager}
-                            onChange={(e) => setForm({ ...form, manager: e.target.value })}
-                            placeholder="VD: Trần Quốc Bảo"
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                        <ComboSelect
+                            value={form.managerId || null}
+                            options={managerOptions}
+                            onChange={(id) => setForm({ ...form, managerId: id ?? "" })}
+                            placeholder="Chọn người quản lý..."
+                            searchPlaceholder="Tìm theo tên nhân sự..."
+                            emptyText="Không tìm thấy nhân sự phù hợp."
+                            icon={<UserCircle2 className="h-3.5 w-3.5 text-slate-400" />}
                         />
                     </div>
+
                     <div>
                         <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-                            Số nhân sự
+                            Đơn vị cha
                         </label>
-                        <input
-                            type="number"
-                            min={0}
-                            value={form.count}
-                            onChange={(e) => setForm({ ...form, count: e.target.value })}
-                            placeholder="0"
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                        <ComboSelect
+                            value={form.parentId || null}
+                            options={parentOptions}
+                            onChange={(id) => setForm({ ...form, parentId: id ?? "" })}
+                            placeholder="Không có (đây là đơn vị gốc)"
+                            searchPlaceholder="Tìm phòng ban..."
+                            emptyText="Chưa có phòng ban nào khác."
+                            allowClear
+                            icon={<Network className="h-3.5 w-3.5 text-slate-400" />}
                         />
                     </div>
 

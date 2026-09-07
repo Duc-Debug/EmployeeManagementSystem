@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, UserCircle2 } from "lucide-react";
 import {
     ICON_OPTIONS,
     THEME_OPTIONS,
     iconKeyFor,
     type CardData,
 } from "./orgNode.constants";
+import ComboSelect from "./ComboSelect";
+import { MOCK_EMPLOYEES, type Employee } from "./Employees data.ts";
 
 function themeKeyFor(card: CardData): string {
     return THEME_OPTIONS.find((t) => t.badgeBg === card.badgeBg && t.badgeColor === card.badgeColor)?.key ?? "neutral";
@@ -59,12 +61,13 @@ interface OrgNodeModalProps {
     open: boolean;
     initialData?: CardData | null;
     levelText: string;
+    /** Danh sách nhân sự để chọn Người tổ chức (nếu không truyền, dùng MOCK_EMPLOYEES) */
+    employees?: Employee[];
     onClose: () => void;
     onSave: (card: CardData) => void;
     onDelete?: () => void;
 }
-
-export default function OrgNodeModal({ open, initialData, levelText, onClose, onSave, onDelete }: OrgNodeModalProps) {
+export default function OrgNodeModal({ open, initialData, levelText, employees, onClose, onSave, onDelete }: OrgNodeModalProps) {
     const [form, setForm] = useState(() => formFromCard(initialData));
     const [error, setError] = useState("");
     const [prevOpen, setPrevOpen] = useState(open);
@@ -80,6 +83,21 @@ export default function OrgNodeModal({ open, initialData, levelText, onClose, on
     const isEdit = Boolean(initialData);
 
     if (!open) return null;
+
+    /** Danh sách option cho ComboSelect — dùng prop hoặc fallback về mock */
+    const empList = employees ?? MOCK_EMPLOYEES;
+    const employeeOptions = empList.map((e) => ({
+        id: e.id,
+        label: e.name,
+        sublabel: e.position,
+    }));
+
+    /**
+     * form.manager lưu chuỗi hiển thị tự do (ví dụ "Nguyễn Văn A (Trưởng phòng)").
+     * Để ComboSelect hoạt động ta cần id. Ta ánh xạ ngược tên → id khi mở form.
+     */
+    const selectedManagerId =
+        empList.find((e) => form.manager.startsWith(e.name))?.id ?? null;
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -120,7 +138,7 @@ export default function OrgNodeModal({ open, initialData, levelText, onClose, on
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="mb-1 block text-xs font-semibold text-slate-600">Tên chức danh / bộ phận</label>
+                        <label className="mb-1 block text-xs font-semibold text-slate-600">Tên bộ phận</label>
                         <input
                             autoFocus
                             value={form.title}
@@ -133,11 +151,25 @@ export default function OrgNodeModal({ open, initialData, levelText, onClose, on
                         <label className="mb-1 block text-xs font-semibold text-slate-600">
                             Người tổ chức / Người đứng đầu
                         </label>
-                        <input
-                            value={form.manager}
-                            onChange={(e) => setForm({ ...form, manager: e.target.value })}
-                            placeholder="VD: Nguyễn Văn A (Trưởng phòng)..."
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-[#4338ca] focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                        <ComboSelect
+                            value={selectedManagerId}
+                            options={employeeOptions}
+                            onChange={(id) => {
+                                const emp = empList.find((e) => e.id === id);
+                                setForm({
+                                    ...form,
+                                    manager: emp
+                                        ? emp.position
+                                            ? `${emp.name} (${emp.position})`
+                                            : emp.name
+                                        : "",
+                                });
+                            }}
+                            placeholder="Chọn người tổ chức..."
+                            searchPlaceholder="Tìm theo tên nhân sự..."
+                            emptyText="Không tìm thấy nhân sự phù hợp."
+                            allowClear
+                            icon={<UserCircle2 className="h-3.5 w-3.5 text-slate-400" />}
                         />
                     </div>
                     <div>
@@ -232,7 +264,7 @@ export default function OrgNodeModal({ open, initialData, levelText, onClose, on
                                     onClick={onDelete}
                                     className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
                                 >
-                                    Xóa nút
+                                    Xóa nhánh
                                 </button>
                             )}
                         </div>
@@ -248,7 +280,7 @@ export default function OrgNodeModal({ open, initialData, levelText, onClose, on
                                 type="submit"
                                 className="rounded-xl bg-[#4338ca] hover:bg-[#3730a3] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition"
                             >
-                                {isEdit ? "Lưu thay đổi" : "Thêm nút"}
+                                {isEdit ? "Lưu thay đổi" : "Thêm nhánh"}
                             </button>
                         </div>
                     </div>
