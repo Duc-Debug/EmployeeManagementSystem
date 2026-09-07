@@ -51,7 +51,8 @@ public class SkillPersistenceMapper {
                 entity.getRejectionReason(),
                 entity.getReviewNotes(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getVersion()
         );
     }
 
@@ -71,7 +72,8 @@ public class SkillPersistenceMapper {
                 domain.getRejectionReason(),
                 domain.getReviewNotes(),
                 domain.getCreatedAt(),
-                domain.getUpdatedAt()
+                domain.getUpdatedAt(),
+                domain.getVersion()
         );
     }
 }

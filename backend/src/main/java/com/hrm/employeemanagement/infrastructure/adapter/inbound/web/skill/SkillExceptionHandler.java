@@ -27,6 +27,14 @@ public class SkillExceptionHandler {
                 .body(ErrorResponse.of("DUPLICATE_SKILL_NAME", ex.getMessage(), HttpStatus.CONFLICT.value()));
     }
 
+    @ExceptionHandler({org.springframework.orm.ObjectOptimisticLockingFailureException.class, jakarta.persistence.OptimisticLockException.class})
+    public ResponseEntity<ErrorResponse> handleOptimisticLockConflict(Exception ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("EMPLOYEE_SKILL_VERSION_CONFLICT",
+                        "Bản ghi kỹ năng đã được cập nhật bởi một yêu cầu khác. Vui lòng tải lại trang.",
+                        HttpStatus.CONFLICT.value()));
+    }
+
     @ExceptionHandler(InvalidSkillMergeException.class)
     public ResponseEntity<ErrorResponse> handleInvalidMerge(InvalidSkillMergeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

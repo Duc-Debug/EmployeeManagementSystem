@@ -14,6 +14,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "employee_skills", uniqueConstraints = {
@@ -59,6 +60,10 @@ public class EmployeeSkillJpaEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     public EmployeeSkillJpaEntity() {
     }
 
@@ -67,13 +72,21 @@ public class EmployeeSkillJpaEntity {
             SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
             LocalDateTime createdAt, LocalDateTime updatedAt
     ) {
-        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, null, createdAt, updatedAt);
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, null, createdAt, updatedAt, null);
     }
 
     public EmployeeSkillJpaEntity(
             Long id, Long employeeId, Long skillId, Integer proficiencyLevel, BigDecimal yearsOfExperience,
             SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
             String reviewNotes, LocalDateTime createdAt, LocalDateTime updatedAt
+    ) {
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, null);
+    }
+
+    public EmployeeSkillJpaEntity(
+            Long id, Long employeeId, Long skillId, Integer proficiencyLevel, BigDecimal yearsOfExperience,
+            SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
+            String reviewNotes, LocalDateTime createdAt, LocalDateTime updatedAt, Long version
     ) {
         this.id = id;
         this.employeeId = employeeId;
@@ -87,6 +100,7 @@ public class EmployeeSkillJpaEntity {
         this.reviewNotes = reviewNotes;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.version = version;
     }
 
     public Long getId() {
@@ -183,5 +197,13 @@ public class EmployeeSkillJpaEntity {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }

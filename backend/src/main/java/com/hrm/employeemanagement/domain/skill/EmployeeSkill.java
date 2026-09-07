@@ -17,6 +17,7 @@ public class EmployeeSkill {
     private String reviewNotes;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private final Long version;
 
     public EmployeeSkill(
             Long id,
@@ -32,6 +33,24 @@ public class EmployeeSkill {
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, null);
+    }
+
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            ProficiencyLevel proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            String reviewNotes,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
         validateInputs(employeeId, skillId, proficiencyLevel, yearsOfExperience);
         this.id = id;
         this.employeeId = employeeId;
@@ -45,6 +64,7 @@ public class EmployeeSkill {
         this.reviewNotes = reviewNotes;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
         this.updatedAt = updatedAt != null ? updatedAt : LocalDateTime.now();
+        this.version = version;
     }
 
     public EmployeeSkill(
@@ -256,5 +276,9 @@ public class EmployeeSkill {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 }
