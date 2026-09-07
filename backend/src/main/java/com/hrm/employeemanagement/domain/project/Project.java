@@ -46,6 +46,7 @@ public class Project {
         validateOrgUnitId(orgUnitId);
         validateProjectDates(startDate, endDate);
         validateEstimatedHours(estimatedHours);
+        validateDescription(description);
         this.id = id;
         this.projectCode = projectCode.trim();
         this.projectName = projectName.trim();
@@ -93,6 +94,38 @@ public class Project {
         );
     }
 
+    /**
+     * Cập nhật thông tin dự án (Chỉ cho phép khi dự án đang ở trạng thái ACTIVE).
+     */
+    public void updateInfo(
+            String projectName,
+            EmployeeId managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description) {
+        if (this.status != ProjectStatus.ACTIVE) {
+            throw new InvalidProjectDataException("Chỉ có thể chỉnh sửa thông tin dự án đang ở trạng thái hoạt động");
+        }
+        validateProjectName(projectName);
+        validateProjectDates(startDate, endDate);
+        validateEstimatedHours(estimatedHours);
+        validateDescription(description);
+        this.projectName = projectName.trim();
+        this.managerId = managerId;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
+        this.description = description != null ? description.trim() : null;
+        this.updatedAt = LocalDateTime.now();
+    }
+    /**
+     * Kiểm tra PM phụ trách dự án
+     */
+    public boolean isManagedBy(EmployeeId employeeId) {
+        return this.managerId != null && this.managerId.equals(employeeId);
+    }
+
     // ======validation====
     /**
      * Kiểm tra mã dự án: không null, không rỗng và không vượt quá 50 ký tự.
@@ -136,12 +169,31 @@ public class Project {
         }
     }
 
+    private static final BigDecimal MAX_ESTIMATED_HOURS = new BigDecimal("99999999.99");
+
     /**
-     * Kiểm tra tổng giờ dự kiến: không được là số âm.
+     * Kiểm tra tổng giờ dự kiến: không được là số âm, không vượt quá giới hạn DECIMAL(10,2), và tối đa 2 chữ số thập phân.
      */
     private void validateEstimatedHours(BigDecimal hours) {
-        if (hours != null && hours.compareTo(BigDecimal.ZERO) < 0) {
-            throw new InvalidProjectDataException("Tổng giờ dự kiến không được nhỏ hơn 0");
+        if (hours != null) {
+            if (hours.compareTo(BigDecimal.ZERO) < 0) {
+                throw new InvalidProjectDataException("Tổng giờ dự kiến không được nhỏ hơn 0");
+            }
+            if (hours.compareTo(MAX_ESTIMATED_HOURS) > 0) {
+                throw new InvalidProjectDataException("Tổng giờ dự kiến không được vượt quá 99,999,999.99");
+            }
+            if (hours.compareTo(BigDecimal.ZERO) > 0 && hours.stripTrailingZeros().scale() > 2) {
+                throw new InvalidProjectDataException("Tổng giờ dự kiến chỉ được có tối đa 2 chữ số thập phân");
+            }
+        }
+    }
+
+    /**
+     * Kiểm tra mô tả dự án: không được vượt quá 2000 ký tự.
+     */
+    private void validateDescription(String description) {
+        if (description != null && description.trim().length() > 2000) {
+            throw new InvalidProjectDataException("Mô tả dự án không được vượt quá 2000 ký tự");
         }
     }
 
