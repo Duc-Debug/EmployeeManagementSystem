@@ -1,4 +1,4 @@
-﻿package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository;
+package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository;
 
 import static org.junit.jupiter.api.Assertions.*;
 

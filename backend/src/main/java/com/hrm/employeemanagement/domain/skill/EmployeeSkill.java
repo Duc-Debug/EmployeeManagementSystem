@@ -113,7 +113,25 @@ public class EmployeeSkill {
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
-        this(id, employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt);
+        this(id, employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, null);
+    }
+
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            int proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            String reviewNotes,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
+        this(id, employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, version);
     }
 
     /**

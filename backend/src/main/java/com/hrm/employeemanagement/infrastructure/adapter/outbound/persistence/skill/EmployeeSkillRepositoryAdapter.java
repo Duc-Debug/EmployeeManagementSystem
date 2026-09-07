@@ -130,8 +130,8 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
 
         DataScope scope = dataScope != null ? dataScope : DataScope.COMPANY;
 
-        List<PendingEmployeeSkillProjection> projections;
-        long totalElements;
+        List<PendingEmployeeSkillProjection> projections = List.of();
+        long totalElements = 0;
 
         switch (scope) {
             case ORGANIZATION_BRANCH -> {
