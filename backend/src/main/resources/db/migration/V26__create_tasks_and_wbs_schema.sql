@@ -4,11 +4,14 @@
 -- Story: NCL-03-CN-002 (Chia hạng mục và công việc của dự án)
 -- ============================================================
 
--- 1. Bổ sung trạng thái 'CLOSED' cho bảng projects (phục vụ tiêu chí AC-02 / TC-02)
+-- 1. Bổ sung trạng thái 'CLOSED' và bộ đếm task_seq_counter cho bảng projects
 ALTER TABLE projects DROP CONSTRAINT chk_projects_status;
 ALTER TABLE projects 
     ADD CONSTRAINT chk_projects_status 
     CHECK (status IN ('ACTIVE', 'INACTIVE', 'CLOSED'));
+
+ALTER TABLE projects 
+    ADD COLUMN task_seq_counter INT NOT NULL DEFAULT 0;
 
 -- 2. Tạo bảng tasks hỗ trợ cấu trúc WBS phân cấp nhiều tầng (AC-01 / TC-01)
 CREATE TABLE IF NOT EXISTS tasks (
@@ -48,6 +51,9 @@ CREATE TABLE IF NOT EXISTS tasks (
         FOREIGN KEY (created_by)
         REFERENCES users(id)
         ON DELETE RESTRICT,
+
+    CONSTRAINT uk_tasks_project_task_code
+        UNIQUE (project_id, task_code),
 
     CONSTRAINT chk_tasks_type
         CHECK (task_type IN ('CATEGORY', 'TASK')),

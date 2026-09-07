@@ -1,17 +1,25 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectJpaEntity;
 
+import jakarta.persistence.LockModeType;
+
 @Repository
 public interface SpringDataProjectRepository
         extends JpaRepository<ProjectJpaEntity, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProjectJpaEntity p WHERE p.id = :id")
+    Optional<ProjectJpaEntity> findByIdForUpdate(@Param("id") Long id);
 
     @Query(value = """
         SELECT p.*

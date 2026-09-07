@@ -42,7 +42,8 @@ public class ProjectPersistenceMapper {
                 createdBy,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                entity.getVersion());
+                entity.getVersion(),
+                entity.getTaskSeqCounter());
     }
 
     public ProjectJpaEntity toJpaEntity(Project domain) {
@@ -64,6 +65,7 @@ public class ProjectPersistenceMapper {
                 domain.getCreatedByValue(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt(),
-                domain.getVersion());
+                domain.getVersion(),
+                domain.getTaskSeqCounter());
     }
 }

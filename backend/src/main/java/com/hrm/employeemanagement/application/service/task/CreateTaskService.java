@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.dto.task.TaskResult;
 import com.hrm.employeemanagement.application.port.inbound.task.CreateTaskUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
@@ -39,6 +40,7 @@ public class CreateTaskService implements CreateTaskUseCase {
     private final LoadTaskPort loadTaskPort;
     private final SaveTaskPort saveTaskPort;
     private final LoadProjectPort loadProjectPort;
+    private final SaveProjectPort saveProjectPort;
     private final LoadEmployeePort loadEmployeePort;
     private final LoadUserPort loadUserPort;
     private final SaveAuditLogPort saveAuditLogPort;
@@ -49,6 +51,7 @@ public class CreateTaskService implements CreateTaskUseCase {
             LoadTaskPort loadTaskPort,
             SaveTaskPort saveTaskPort,
             LoadProjectPort loadProjectPort,
+            SaveProjectPort saveProjectPort,
             LoadEmployeePort loadEmployeePort,
             LoadUserPort loadUserPort,
             SaveAuditLogPort saveAuditLogPort,
@@ -57,6 +60,7 @@ public class CreateTaskService implements CreateTaskUseCase {
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
         this.saveTaskPort = Objects.requireNonNull(saveTaskPort, "SaveTaskPort must not be null");
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
+        this.saveProjectPort = Objects.requireNonNull(saveProjectPort, "SaveProjectPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
@@ -75,7 +79,7 @@ public class CreateTaskService implements CreateTaskUseCase {
         Long currentUserId = authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE);
         User currentUser = loadCurrentUserOrThrow(currentUserId);
 
-        Project project = loadProjectPort.findById(new ProjectId(command.projectId()))
+        Project project = loadProjectPort.findByIdForUpdate(new ProjectId(command.projectId()))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
 
         if (!canManageWbs(currentUser, currentUserId, project)) {
@@ -117,10 +121,20 @@ public class CreateTaskService implements CreateTaskUseCase {
             assigneeEmployeeId = assignee.getId();
         }
 
+        String taskCode;
+        if (command.taskCode() != null && !command.taskCode().isBlank()) {
+            taskCode = command.taskCode().trim().toUpperCase();
+        } else {
+            int nextSeq = project.nextTaskSequence();
+            saveProjectPort.save(project);
+            String projectPrefix = project.getProjectCode() != null ? project.getProjectCode() : "PRJ";
+            taskCode = String.format("%s-T%03d", projectPrefix, nextSeq);
+        }
+
         Task task = Task.createNew(
                 project.getId(),
                 parentTaskId,
-                command.taskCode(),
+                taskCode,
                 command.name(),
                 command.description(),
                 command.taskType(),
