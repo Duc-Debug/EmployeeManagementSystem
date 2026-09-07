@@ -16,4 +16,9 @@ public interface EmployeeSkillRepository {
     boolean existsByEmployeeIdAndSkillId(Long employeeId, Long skillId);
 
     List<EmployeeSkill> findByEmployeeId(Long employeeId);
+
+    List<EmployeeSkill> findByStatus(com.hrm.employeemanagement.domain.skill.SkillStatus status);
+
+    List<EmployeeSkill> findByStatusAndEmployeeIdIn(com.hrm.employeemanagement.domain.skill.SkillStatus status, List<Long> employeeIds);
 }
+
