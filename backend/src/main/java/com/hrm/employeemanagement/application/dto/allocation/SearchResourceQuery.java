@@ -91,5 +91,8 @@ public record SearchResourceQuery(
         if (size != null && size <= 0) {
             throw new IllegalArgumentException("Kích thước trang (size) phải lớn hơn 0");
         }
+        if (size != null && size > 100) {
+            throw new IllegalArgumentException("Kích thước trang không được vượt quá 100");
+        }
     }
 }

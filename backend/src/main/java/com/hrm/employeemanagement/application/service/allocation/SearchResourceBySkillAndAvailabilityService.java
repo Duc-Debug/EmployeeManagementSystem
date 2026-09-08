@@ -218,7 +218,11 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
         // Phân trang kết quả nếu có cấu hình size
         if (query.size() != null && query.size() > 0) {
             int pageIndex = query.page() != null ? query.page() : 0;
-            int fromIndex = Math.min(pageIndex * query.size(), results.size());
+            long offset = (long) pageIndex * query.size();
+            if (offset >= results.size()) {
+                return List.of();
+            }
+            int fromIndex = (int) offset;
             int toIndex = Math.min(fromIndex + query.size(), results.size());
             return new ArrayList<>(results.subList(fromIndex, toIndex));
         }

@@ -393,5 +393,32 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         SearchResourceQuery query = new SearchResourceQuery(999L, 1, null, 2026, 10, 2026, 10);
         assertThrows(SkillNotFoundException.class, () -> service.search(query));
     }
+
+    @Test
+    @DisplayName("Edge case 11: size > 100 ném IllegalArgumentException")
+    void testSearch_SizeGreaterThan100_ThrowsIllegalArgumentException() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10, 0, 101)
+        );
+        assertTrue(ex.getMessage().contains("Kích thước trang không được vượt quá 100"));
+    }
+
+    @Test
+    @DisplayName("Edge case 12: page rất lớn (nguy cơ integer overflow) trả về danh sách rỗng an toàn")
+    void testSearch_LargePageOverflow_ReturnsEmptyList() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(100L);
+        User globalUser = createUserWithScope(100L, DataScope.COMPANY, null);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(globalUser));
+
+        ResourceCandidate c1 = createCandidate(101L, 1L, 10L, "NV01", "A");
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(c1));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        // page = Integer.MAX_VALUE / 2, size = 100 -> page * size overflows int
+        SearchResourceQuery overflowQuery = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10, 1_500_000_000, 100);
+        List<ResourceSearchResult> results = service.search(overflowQuery);
+        assertTrue(results.isEmpty());
+    }
 }
 
