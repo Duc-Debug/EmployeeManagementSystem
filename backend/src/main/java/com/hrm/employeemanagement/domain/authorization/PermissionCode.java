@@ -11,6 +11,7 @@ public enum PermissionCode {
     PROJECT_READ,
     PROJECT_CREATE,
     PROJECT_UPDATE,
+    PROJECT_WBS_MANAGE,
 
     EMPLOYEE_READ,
     EMPLOYEE_UPDATE,

@@ -61,6 +61,9 @@ public class ProjectJpaEntity {
     @Version
     private Long version;
 
+    @Column(name = "task_seq_counter", nullable = false)
+    private Integer taskSeqCounter = 0;
+
     public ProjectJpaEntity() {
     }
 
@@ -76,7 +79,7 @@ public class ProjectJpaEntity {
             LocalDateTime updatedAt,
             Long version
     ) {
-        this(id, projectCode, projectName, orgUnitId, managerId, null, null, BigDecimal.ZERO, null, status, createdBy, createdAt, updatedAt, version);
+        this(id, projectCode, projectName, orgUnitId, managerId, null, null, BigDecimal.ZERO, null, status, createdBy, createdAt, updatedAt, version, 0);
     }
 
     public ProjectJpaEntity(
@@ -94,6 +97,25 @@ public class ProjectJpaEntity {
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             Long version) {
+        this(id, projectCode, projectName, orgUnitId, managerId, startDate, endDate, estimatedHours, description, status, createdBy, createdAt, updatedAt, version, 0);
+    }
+
+    public ProjectJpaEntity(
+            Long id,
+            String projectCode,
+            String projectName,
+            Long orgUnitId,
+            Long managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description,
+            ProjectStatus status,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Integer taskSeqCounter) {
         this.id = id;
         this.projectCode = projectCode;
         this.projectName = projectName;
@@ -108,6 +130,7 @@ public class ProjectJpaEntity {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+        this.taskSeqCounter = taskSeqCounter != null ? taskSeqCounter : 0;
     }
 
     @PrePersist
@@ -236,5 +259,13 @@ public class ProjectJpaEntity {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Integer getTaskSeqCounter() {
+        return taskSeqCounter != null ? taskSeqCounter : 0;
+    }
+
+    public void setTaskSeqCounter(Integer taskSeqCounter) {
+        this.taskSeqCounter = taskSeqCounter != null ? taskSeqCounter : 0;
     }
 }
