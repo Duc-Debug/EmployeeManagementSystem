@@ -20,6 +20,7 @@ public record UpdateTaskRequest(
         @DecimalMin(value = "0.0", inclusive = true, message = "Thời gian dự kiến không được nhỏ hơn 0")
         @Digits(integer = 8, fraction = 2, message = "Thời gian dự kiến chỉ được có tối đa 8 chữ số phần nguyên và 2 chữ số phần thập phân")
         BigDecimal estimatedHours,
+        @jakarta.validation.constraints.Min(value = 0, message = "Thứ tự sắp xếp không được nhỏ hơn 0")
         Integer sortOrder) {
 
     public UpdateTaskCommand toCommand(Long projectId, Long taskId) {

@@ -218,4 +218,41 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("Không tìm thấy hạng mục/công việc với ID: 999")));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/tasks - sortOrder âm trả về 400 Bad Request")
+    void testCreateTask_NegativeSortOrder_Returns400() throws Exception {
+        String requestJson = """
+                {
+                    "name": "Task âm",
+                    "sortOrder": -1
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/projects/100/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/tasks - Vi phạm toàn vẹn dữ liệu trả về 409 Conflict")
+    void testCreateTask_DataIntegrityViolation_Returns409() throws Exception {
+        when(createTaskUseCase.createTask(any(CreateTaskCommand.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate key uk_tasks_project_task_code"));
+
+        String requestJson = """
+                {
+                    "name": "Task trùng"
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/projects/100/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(containsString("Mã công việc đã tồn tại")));
+    }
 }

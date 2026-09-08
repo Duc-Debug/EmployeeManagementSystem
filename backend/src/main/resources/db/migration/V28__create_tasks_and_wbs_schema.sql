@@ -65,7 +65,10 @@ CREATE TABLE IF NOT EXISTS tasks (
         CHECK (estimated_hours >= 0),
 
     CONSTRAINT chk_tasks_actual_hours
-        CHECK (actual_hours >= 0)
+        CHECK (actual_hours >= 0),
+
+    CONSTRAINT chk_tasks_sort_order
+        CHECK (sort_order >= 0)
 );
 
 -- 3. Tạo các chỉ mục tối ưu hóa truy vấn dựng cây WBS và tìm kiếm

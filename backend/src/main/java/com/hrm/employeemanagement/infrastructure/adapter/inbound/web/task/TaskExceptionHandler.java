@@ -66,4 +66,10 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleTaskHasTimesheet(TaskHasTimesheetException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
     }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error("Mã công việc đã tồn tại trong dự án hoặc vi phạm toàn vẹn dữ liệu"));
+    }
 }

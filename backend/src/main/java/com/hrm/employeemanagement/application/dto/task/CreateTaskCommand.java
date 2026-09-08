@@ -9,7 +9,6 @@ import com.hrm.employeemanagement.domain.task.TaskType;
 public record CreateTaskCommand(
     Long projectId,
     Long parentId,
-    String taskCode,
     String name,
     String description,
     TaskType taskType,

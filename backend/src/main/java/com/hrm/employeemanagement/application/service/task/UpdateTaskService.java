@@ -1,6 +1,9 @@
 package com.hrm.employeemanagement.application.service.task;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -108,7 +111,7 @@ public class UpdateTaskService implements UpdateTaskUseCase {
                 if (!Objects.equals(parentTask.getProjectIdValue(), project.getIdValue())) {
                     throw new InvalidTaskDataException("Công việc cha không thuộc cùng dự án này");
                 }
-                validateNoCyclicDependency(task.getId(), newParentId);
+                validateNoCyclicDependency(project.getIdValue(), task.getId(), newParentId);
             }
             task.changeParent(newParentId);
         }
@@ -140,13 +143,23 @@ public class UpdateTaskService implements UpdateTaskUseCase {
         return mapToResult(savedTask);
     }
 
-    private void validateNoCyclicDependency(TaskId taskId, TaskId newParentId) {
+    private void validateNoCyclicDependency(Long projectId, TaskId taskId, TaskId newParentId) {
         if (newParentId == null) {
             return;
         }
         if (Objects.equals(taskId, newParentId)) {
             throw CyclicTaskHierarchyException.forCycle(taskId.value(), newParentId.value());
         }
+
+        // Single query to load all tasks of the project into an in-memory lookup map, eliminating N+1 queries
+        List<Task> projectTasks = loadTaskPort.findAllByProjectId(new ProjectId(projectId));
+        Map<TaskId, TaskId> parentMap = new HashMap<>();
+        for (Task t : projectTasks) {
+            if (t.getId() != null) {
+                parentMap.put(t.getId(), t.getParentId());
+            }
+        }
+
         TaskId currentParentId = newParentId;
         Set<TaskId> visited = new HashSet<>();
         while (currentParentId != null) {
@@ -156,9 +169,7 @@ public class UpdateTaskService implements UpdateTaskUseCase {
             if (Objects.equals(currentParentId, taskId)) {
                 throw CyclicTaskHierarchyException.forCycle(taskId.value(), newParentId.value());
             }
-            currentParentId = loadTaskPort.findById(currentParentId)
-                    .map(Task::getParentId)
-                    .orElse(null);
+            currentParentId = parentMap.get(currentParentId);
         }
     }
 

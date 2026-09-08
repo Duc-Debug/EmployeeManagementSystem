@@ -214,4 +214,38 @@ class TaskTest {
 
         assertThrows(InvalidTaskDataException.class, () -> task.updateStatus(null));
     }
+
+    @Test
+    @DisplayName("Chặn khởi tạo task với sortOrder âm")
+    void shouldThrowWhenSortOrderIsNegative() {
+        assertThrows(InvalidTaskDataException.class, () -> Task.createNew(
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Công việc",
+                null,
+                TaskType.TASK,
+                null,
+                BigDecimal.ONE,
+                -1,
+                new UserId(1L)));
+    }
+
+    @Test
+    @DisplayName("Chặn cập nhật task với sortOrder âm")
+    void shouldThrowWhenUpdatingWithNegativeSortOrder() {
+        Task task = Task.createNew(
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Công việc",
+                null,
+                TaskType.TASK,
+                null,
+                BigDecimal.ONE,
+                1,
+                new UserId(1L));
+
+        assertThrows(InvalidTaskDataException.class, () -> task.updateDetails("Tên mới", "Mô tả", BigDecimal.ONE, -5));
+    }
 }

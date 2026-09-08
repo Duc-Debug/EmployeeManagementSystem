@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -193,6 +194,7 @@ class UpdateTaskServiceTest {
 
         when(loadTaskPort.findById(new TaskId(1L))).thenReturn(Optional.of(task1));
         when(loadTaskPort.findById(new TaskId(2L))).thenReturn(Optional.of(task2));
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(task1, task2));
 
         // Cố tình chuyển Task 1 làm con của Task 2 (vòng lặp 1 -> 2 -> 1)
         UpdateTaskCommand command = new UpdateTaskCommand(

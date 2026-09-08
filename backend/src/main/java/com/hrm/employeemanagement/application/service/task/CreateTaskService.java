@@ -121,15 +121,10 @@ public class CreateTaskService implements CreateTaskUseCase {
             assigneeEmployeeId = assignee.getId();
         }
 
-        String taskCode;
-        if (command.taskCode() != null && !command.taskCode().isBlank()) {
-            taskCode = command.taskCode().trim().toUpperCase();
-        } else {
-            int nextSeq = project.nextTaskSequence();
-            saveProjectPort.save(project);
-            String projectPrefix = project.getProjectCode() != null ? project.getProjectCode() : "PRJ";
-            taskCode = String.format("%s-T%03d", projectPrefix, nextSeq);
-        }
+        int nextSeq = project.nextTaskSequence();
+        saveProjectPort.save(project);
+        String projectPrefix = project.getProjectCode() != null ? project.getProjectCode() : "PRJ";
+        String taskCode = String.format("%s-T%03d", projectPrefix, nextSeq);
 
         Task task = Task.createNew(
                 project.getId(),

@@ -49,6 +49,7 @@ public class Task {
         validateEstimatedHours(estimatedHours);
         validateActualHours(actualHours);
         validateTaskTypeAndAssignee(taskType, assigneeId);
+        validateSortOrder(sortOrder);
         this.id = id;
         this.projectId = projectId;
         this.parentId = parentId;
@@ -100,6 +101,7 @@ public class Task {
     public void updateDetails(String name, String description, BigDecimal estimatedHours, Integer sortOrder) {
         validateName(name);
         validateEstimatedHours(estimatedHours);
+        validateSortOrder(sortOrder);
         this.name = name.trim();
         this.description = description != null ? description.trim() : null;
         if (estimatedHours != null) {
@@ -169,6 +171,12 @@ public class Task {
     private void validateActualHours(BigDecimal hours) {
         if (hours != null && hours.compareTo(BigDecimal.ZERO) < 0) {
             throw new InvalidTaskDataException("Thời gian thực tế không được nhỏ hơn 0");
+        }
+    }
+
+    private void validateSortOrder(Integer sortOrder) {
+        if (sortOrder != null && sortOrder < 0) {
+            throw new InvalidTaskDataException("Thứ tự sắp xếp không được nhỏ hơn 0");
         }
     }
 

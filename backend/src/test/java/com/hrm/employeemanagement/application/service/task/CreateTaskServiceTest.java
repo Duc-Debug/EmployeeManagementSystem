@@ -171,7 +171,6 @@ class CreateTaskServiceTest {
         CreateTaskCommand command = new CreateTaskCommand(
                 PROJECT_ID,
                 null,
-                null,
                 "Hạng mục Backend",
                 "Mô tả",
                 TaskType.CATEGORY,
@@ -218,7 +217,6 @@ class CreateTaskServiceTest {
         CreateTaskCommand command = new CreateTaskCommand(
                 PROJECT_ID,
                 null,
-                null,
                 "Task mới",
                 null,
                 TaskType.TASK,
@@ -250,7 +248,6 @@ class CreateTaskServiceTest {
 
         CreateTaskCommand command = new CreateTaskCommand(
                 PROJECT_ID,
-                null,
                 null,
                 "Task mới",
                 null,
@@ -288,7 +285,6 @@ class CreateTaskServiceTest {
         CreateTaskCommand command = new CreateTaskCommand(
                 PROJECT_ID,
                 null,
-                null,
                 "Task lập trình",
                 null,
                 TaskType.TASK,
@@ -309,7 +305,6 @@ class CreateTaskServiceTest {
 
         CreateTaskCommand command = new CreateTaskCommand(
                 PROJECT_ID,
-                null,
                 null,
                 "Hạng mục gom",
                 null,
@@ -334,7 +329,6 @@ class CreateTaskServiceTest {
         CreateTaskCommand command = new CreateTaskCommand(
                 PROJECT_ID,
                 999L,
-                null,
                 "Task con",
                 null,
                 TaskType.TASK,
