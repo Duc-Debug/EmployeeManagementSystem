@@ -197,7 +197,7 @@ class ResourceAllocationServiceTest {
     @DisplayName("TC-04: Từ chối khi User không có quyền RM")
     void testTC04_Unauthorized_NonResourceManager() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE))
-                .thenThrow(new PermissionDeniedException("Người dùng không có quyền quản lý phân bổ nguồn lực"));
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE));
 
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
 
