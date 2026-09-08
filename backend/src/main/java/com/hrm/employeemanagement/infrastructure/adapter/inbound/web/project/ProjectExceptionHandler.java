@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeE
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
+import com.hrm.employeemanagement.domain.exception.projecttemplate.ProjectTemplateNotFoundException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 @RestControllerAdvice(basePackages = "com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project")
@@ -49,5 +50,10 @@ public class ProjectExceptionHandler {
         @ExceptionHandler(InvalidProjectDateRangeException.class)
         public ResponseEntity<ApiResponse<Void>> handleInvalidProjectDateRange(InvalidProjectDateRangeException ex) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectTemplateNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectTemplateNotFound(ProjectTemplateNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
 }

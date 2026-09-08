@@ -54,6 +54,9 @@ class ProjectControllerTest {
     @Mock
     private UpdateProjectUseCase updateProjectUseCase;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectController controller =
@@ -61,7 +64,8 @@ class ProjectControllerTest {
                         getProjectListUseCase,
                         getProjectDetailUseCase,
                         createProjectUseCase,
-                        updateProjectUseCase
+                        updateProjectUseCase,
+                        createProjectFromTemplateUseCase
                 );
 
         mockMvc = MockMvcBuilders

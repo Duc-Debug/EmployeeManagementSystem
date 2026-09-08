@@ -5,14 +5,18 @@ import org.springframework.context.annotation.Configuration;
 
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
+import com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.projecttemplate.LoadProjectTemplatePort;
+import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.service.project.CreateProjectFromTemplateService;
 import com.hrm.employeemanagement.application.service.project.CreateProjectService;
 import com.hrm.employeemanagement.application.service.project.ProjectService;
 import com.hrm.employeemanagement.application.service.project.UpdateProjectService;
@@ -20,6 +24,7 @@ import com.hrm.employeemanagement.infrastructure.transaction.project.RetryableCr
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalCreateProjectUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalProjectServiceDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalUpdateProjectUseCase;
+import com.hrm.employeemanagement.infrastructure.transaction.projecttemplate.TransactionalCreateProjectFromTemplateUseCase;
 
 @Configuration
 public class ProjectUseCaseConfig {
@@ -83,5 +88,31 @@ public class ProjectUseCaseConfig {
                                 saveDeniedAuditLogPort,
                                 authorizationService);
                 return new TransactionalUpdateProjectUseCase(pureService);
+        }
+
+        @Bean
+        public CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase(
+                        LoadProjectTemplatePort loadProjectTemplatePort,
+                        SaveProjectPort saveProjectPort,
+                        LoadProjectPort loadProjectPort,
+                        SaveTaskPort saveTaskPort,
+                        LoadOrgUnitPort loadOrgUnitPort,
+                        LoadEmployeePort loadEmployeePort,
+                        LoadUserPort loadUserPort,
+                        SaveAuditLogPort saveAuditLogPort,
+                        SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+                        AuthorizationService authorizationService) {
+                CreateProjectFromTemplateService pureService = new CreateProjectFromTemplateService(
+                                loadProjectTemplatePort,
+                                saveProjectPort,
+                                loadProjectPort,
+                                saveTaskPort,
+                                loadOrgUnitPort,
+                                loadEmployeePort,
+                                loadUserPort,
+                                saveAuditLogPort,
+                                saveDeniedAuditLogPort,
+                                authorizationService);
+                return new TransactionalCreateProjectFromTemplateUseCase(pureService);
         }
 }
