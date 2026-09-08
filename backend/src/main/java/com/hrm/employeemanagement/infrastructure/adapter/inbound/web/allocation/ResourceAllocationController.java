@@ -68,16 +68,25 @@ public class ResourceAllocationController {
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách năng lực nhân sự theo tuần thành công", results));
     }
 
+    /**
+     * NCL-02-CN-004: Tìm kiếm nhân sự theo kỹ năng và độ rảnh trong khoảng tuần.
+     *
+     * @param minProficiencyLevel Mức độ thành thạo tối thiểu (chuẩn mới).
+     * @param minLevel Tham số cũ (đã deprecated, dùng minProficiencyLevel thay thế).
+     */
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<ResourceSearchResult>>> searchResources(
             @RequestParam Long skillId,
             @RequestParam(name = "minProficiencyLevel", required = false) Integer minProficiencyLevel,
-            @RequestParam(name = "minLevel", required = false) Integer minLevel,
+            @Deprecated @RequestParam(name = "minLevel", required = false) Integer minLevel,
             @RequestParam(required = false) Long orgUnitId,
             @RequestParam Integer fromYear,
             @RequestParam Integer fromWeek,
             @RequestParam Integer toYear,
             @RequestParam Integer toWeek) {
+        if (minProficiencyLevel != null && minLevel != null && !minProficiencyLevel.equals(minLevel)) {
+            throw new IllegalArgumentException("Không được truyền đồng thời cả minProficiencyLevel và minLevel với giá trị khác nhau");
+        }
         Integer effectiveMinLevel = minProficiencyLevel != null ? minProficiencyLevel : (minLevel != null ? minLevel : 1);
         SearchResourceQuery query = new SearchResourceQuery(
                 skillId,

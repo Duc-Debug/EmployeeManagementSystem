@@ -64,12 +64,19 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
 
     @Override
     public List<ResourceSearchResult> search(SearchResourceQuery query) {
-        // [TC-03] Kiểm tra quyền hạn chức năng
+        // [TC-03] Kiểm tra quyền hạn chức năng và phạm vi phòng ban
         Long currentUserId;
+        User currentUser;
         try {
             currentUserId = authorizationService.require(PermissionCode.RESOURCE_SEARCH);
+            currentUser = loadUserPort.findById(new UserId(currentUserId))
+                    .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng: " + currentUserId));
+
+            if (query.orgUnitId() != null) {
+                validateOrgUnitScopeAccess(currentUser, query.orgUnitId());
+            }
         } catch (PermissionDeniedException ex) {
-            // [TC-03] Ghi nhật ký từ chối truy cập
+            // [TC-03] Ghi nhật ký từ chối truy cập (bao gồm cả khi thiếu quyền hoặc truy cập ngoài scope)
             saveAuditLogPort.save(AuditLog.create(
                     null,
                     "ACCESS_DENIED",
@@ -77,14 +84,6 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
                     query.skillId()
             ));
             throw ex;
-        }
-
-        User currentUser = loadUserPort.findById(new UserId(currentUserId))
-                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng: " + currentUserId));
-
-        // Kiểm tra quyền hạn đối với orgUnitId được yêu cầu (nếu có)
-        if (query.orgUnitId() != null) {
-            validateOrgUnitScopeAccess(currentUser, query.orgUnitId());
         }
 
         List<YearWeek> targetWeeks = buildYearWeeksRange(query);
@@ -101,9 +100,10 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
             return List.of();
         }
 
-        // Lọc ứng viên theo DataScope và orgUnitId (nếu có)
+        // Lọc ứng viên theo DataScope (dùng cache để tránh gọi N queries branch-check) và orgUnitId (nếu có)
+        Map<Long, Boolean> orgUnitScopeCache = new java.util.HashMap<>();
         List<ResourceCandidate> filteredCandidates = candidates.stream()
-                .filter(candidate -> isCandidateInDataScope(currentUser, candidate))
+                .filter(candidate -> isCandidateInDataScope(currentUser, candidate, orgUnitScopeCache))
                 .filter(candidate -> query.orgUnitId() == null || query.orgUnitId().equals(candidate.orgUnitId()))
                 .toList();
 
@@ -135,7 +135,14 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
                         Collectors.reducing(BigDecimal.ZERO, WeeklyProjectAllocation::getAllocatedHours, BigDecimal::add)
                 ));
 
-        Map<Long, String> orgUnitNames = loadOrgUnitPort.findAll().stream()
+        // 3. Chỉ tải tên các phòng ban thực sự có trong danh sách candidates thay vì load toàn bộ
+        List<Long> orgUnitIds = filteredCandidates.stream()
+                .map(ResourceCandidate::orgUnitId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, String> orgUnitNames = orgUnitIds.isEmpty() ? Map.of() : loadOrgUnitPort.findAllByIdIn(orgUnitIds).stream()
                 .collect(Collectors.toMap(
                         u -> u.getId().getValue(),
                         OrgUnit::getUnitName,
@@ -224,13 +231,17 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
         }
     }
 
-    private boolean isCandidateInDataScope(User currentUser, ResourceCandidate candidate) {
+    private boolean isCandidateInDataScope(User currentUser, ResourceCandidate candidate, Map<Long, Boolean> orgUnitScopeCache) {
         return switch (currentUser.getDataScope()) {
             case COMPANY -> true;
             case SELF -> currentUser.getIdValue() != null && currentUser.getIdValue().equals(candidate.userId());
-            case ORGANIZATION_BRANCH -> candidate.orgUnitId() != null
-                    && currentUser.getScopeOrgUnitId() != null
-                    && loadOrgUnitPort.existsInOrgUnitBranch(candidate.orgUnitId(), currentUser.getScopeOrgUnitId());
+            case ORGANIZATION_BRANCH -> {
+                if (candidate.orgUnitId() == null || currentUser.getScopeOrgUnitId() == null) {
+                    yield false;
+                }
+                yield orgUnitScopeCache.computeIfAbsent(candidate.orgUnitId(), id ->
+                        loadOrgUnitPort.existsInOrgUnitBranch(id, currentUser.getScopeOrgUnitId()));
+            }
         };
     }
 
@@ -249,7 +260,15 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
     }
 
     private void recordSuccessAuditLog(User user, SearchResourceQuery query, int resultCount) {
-        String detail = String.format("Found %d resources", resultCount);
+        String detail = String.format(
+                "Search resources: skillId=%d, minLevel=%d, orgUnitId=%s, range=%d-W%02d..%d-W%02d, found=%d",
+                query.skillId(),
+                query.minProficiencyLevel(),
+                query.orgUnitId() != null ? query.orgUnitId() : "all",
+                query.fromYear(), query.fromWeek(),
+                query.toYear(), query.toWeek(),
+                resultCount
+        );
         saveAuditLogPort.save(AuditLog.createChange(
                 user.getId().value(),
                 "SEARCH",

@@ -137,13 +137,13 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         assertEquals(3, results.size());
         // Thứ tự mong đợi: NV02 (40h) -> NV03 (20h) -> NV01 (10h)
         assertEquals(102L, results.get(0).employeeId());
-        assertEquals(new BigDecimal("40"), results.get(0).totalRemainingHours());
+        assertEquals(0, new BigDecimal("40").compareTo(results.get(0).totalRemainingHours()));
 
         assertEquals(103L, results.get(1).employeeId());
-        assertEquals(new BigDecimal("20"), results.get(1).totalRemainingHours());
+        assertEquals(0, new BigDecimal("20").compareTo(results.get(1).totalRemainingHours()));
 
         assertEquals(101L, results.get(2).employeeId());
-        assertEquals(new BigDecimal("10"), results.get(2).totalRemainingHours());
+        assertEquals(0, new BigDecimal("10").compareTo(results.get(2).totalRemainingHours()));
     }
 
     @Test
@@ -209,7 +209,7 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
 
         assertEquals(1, results.size());
         assertEquals(4, results.get(0).weeklyAvailabilities().size());
-        assertEquals(new BigDecimal("160"), results.get(0).totalRemainingHours());
+        assertEquals(0, new BigDecimal("160").compareTo(results.get(0).totalRemainingHours()));
     }
 
     @Test
@@ -243,9 +243,9 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         List<ResourceSearchResult> results = service.search(query);
 
         assertEquals(1, results.size());
-        assertEquals(BigDecimal.ZERO, results.get(0).totalRemainingHours());
-        assertEquals(BigDecimal.ZERO, results.get(0).weeklyAvailabilities().get(0).netAvailableHours());
-        assertEquals(BigDecimal.ZERO, results.get(0).weeklyAvailabilities().get(0).remainingHours());
+        assertEquals(0, BigDecimal.ZERO.compareTo(results.get(0).totalRemainingHours()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(results.get(0).weeklyAvailabilities().get(0).netAvailableHours()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(results.get(0).weeklyAvailabilities().get(0).remainingHours()));
     }
 
     @Test
@@ -267,8 +267,8 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         List<ResourceSearchResult> results = service.search(query);
 
         assertEquals(1, results.size());
-        assertEquals(BigDecimal.ZERO, results.get(0).totalRemainingHours());
-        assertEquals(BigDecimal.ZERO, results.get(0).weeklyAvailabilities().get(0).remainingHours());
+        assertEquals(0, BigDecimal.ZERO.compareTo(results.get(0).totalRemainingHours()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(results.get(0).weeklyAvailabilities().get(0).remainingHours()));
     }
 
     @Test
@@ -296,7 +296,7 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
     }
 
     @Test
-    @DisplayName("Edge case 6b: Scope ORGANIZATION_BRANCH yêu cầu orgUnitId ngoài nhánh bị từ chối")
+    @DisplayName("Edge case 6b: Scope ORGANIZATION_BRANCH yêu cầu orgUnitId ngoài nhánh bị từ chối và ghi audit log")
     void testSearch_OrganizationBranchScope_RequestingOrgUnitOutsideBranch_ThrowsPermissionDenied() {
         when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(1L);
         User branchUser = createUserWithScope(1L, DataScope.ORGANIZATION_BRANCH, 10L);
@@ -305,6 +305,7 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
 
         SearchResourceQuery query = new SearchResourceQuery(1L, 1, 99L, 2026, 10, 2026, 10);
         assertThrows(PermissionDeniedException.class, () -> service.search(query));
+        verify(saveAuditLogPort).save(any(AuditLog.class));
     }
 
     @Test
@@ -329,7 +330,7 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
     }
 
     @Test
-    @DisplayName("Edge case 7b: Scope SELF cố tình lọc theo orgUnitId bị từ chối PermissionDenied")
+    @DisplayName("Edge case 7b: Scope SELF cố tình lọc theo orgUnitId bị từ chối và ghi audit log")
     void testSearch_SelfScope_RequestingOrgUnit_ThrowsPermissionDenied() {
         when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(500L);
         User selfUser = createUserWithScope(500L, DataScope.SELF, null);
@@ -337,5 +338,6 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
 
         SearchResourceQuery query = new SearchResourceQuery(1L, 1, 10L, 2026, 10, 2026, 10);
         assertThrows(PermissionDeniedException.class, () -> service.search(query));
+        verify(saveAuditLogPort).save(any(AuditLog.class));
     }
 }

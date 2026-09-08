@@ -61,7 +61,11 @@ public class SearchResourceRepositoryAdapter implements SearchResourcePort {
                 .collect(Collectors.toMap(EmployeeJpaEntity::getId, Function.identity(), (a, b) -> a));
 
         List<ResourceCandidate> candidates = new ArrayList<>();
+        java.util.Set<Long> seenEmployeeIds = new java.util.HashSet<>();
         for (EmployeeSkillJpaEntity record : skillRecords) {
+            if (!seenEmployeeIds.add(record.getEmployeeId())) {
+                continue;
+            }
             EmployeeJpaEntity empEntity = employeeMap.get(record.getEmployeeId());
             if (empEntity != null) {
                 candidates.add(new ResourceCandidate(
