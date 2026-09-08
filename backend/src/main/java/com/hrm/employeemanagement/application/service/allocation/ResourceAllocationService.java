@@ -153,12 +153,15 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         YearWeek yearWeek = YearWeek.of(year, weekNumber);
 
         return employeeIds.stream().map(empId -> {
-            Employee employee = loadEmployeePort.findById(new EmployeeId(empId)).orElse(null);
-            if (employee == null || !isOrgUnitInDataScope(currentUser, employee.getOrgUnitId())) {
-                return null;
-            }
+            // 🔴 FIX: Throw EmployeeNotFoundException nếu employeeId không tồn tại (Không silently ignore)
+            Employee employee = loadEmployeePort.findById(new EmployeeId(empId))
+                    .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + empId));
+
+            // 🔴 FIX: Validate Data Scope từng employee -> Ném PermissionDeniedException nếu ngoài Scope
+            requireOrgUnitInDataScope(currentUser, employee.getOrgUnitId(), PermissionCode.RESOURCE_ALLOCATION_READ);
+
             return calculateCapacity(employee, yearWeek);
-        }).filter(Objects::nonNull).toList();
+        }).toList();
     }
 
     private void requireOrgUnitInDataScope(User currentUser, Long orgUnitId, PermissionCode permission) {
