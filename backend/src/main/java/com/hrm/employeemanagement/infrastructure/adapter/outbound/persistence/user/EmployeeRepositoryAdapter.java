@@ -53,6 +53,12 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
     }
 
     @Override
+    public Optional<Employee> findByIdForUpdate(EmployeeId id) {
+        if (id == null || id.value() == null) return Optional.empty();
+        return springDataEmployeeRepository.findByIdForUpdate(id.value()).map(mapper::toDomain);
+    }
+
+    @Override
     public boolean existsByEmployeeCode(String employeeCode) {
         return springDataEmployeeRepository.existsByEmployeeCode(employeeCode);
     }
@@ -73,7 +79,17 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
         List<Long> ids = userIds.stream().map(UserId::value).filter(java.util.Objects::nonNull).toList();
         return springDataEmployeeRepository.findByUserIdIn(ids).stream().map(mapper::toDomain).toList();
     }
-      @Override
+
+    @Override
+    public List<Employee> findAllByIdIn(List<EmployeeId> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Long> rawIds = ids.stream().map(EmployeeId::value).filter(java.util.Objects::nonNull).toList();
+        return springDataEmployeeRepository.findAllById(rawIds).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
     public List<Employee> findByOrgUnitId(Long orgUnitId) {
         if (orgUnitId == null) {
             return List.of();
@@ -82,6 +98,7 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
                 .map(mapper::toDomain)
                 .toList();
     }
+
     @Override
     public List<Employee> findActiveByOrgUnitId(Long orgUnitId) {
         if (orgUnitId == null) {
