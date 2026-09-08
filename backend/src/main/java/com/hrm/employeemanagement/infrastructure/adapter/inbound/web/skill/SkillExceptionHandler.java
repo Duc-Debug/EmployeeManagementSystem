@@ -15,7 +15,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.Erro
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SkillExceptionHandler {
 
-    @ExceptionHandler({SkillNotFoundException.class, SkillGroupNotFoundException.class})
+    @ExceptionHandler({SkillNotFoundException.class, SkillGroupNotFoundException.class, EmployeeSkillNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("NOT_FOUND", ex.getMessage(), HttpStatus.NOT_FOUND.value()));
@@ -25,6 +25,14 @@ public class SkillExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDuplicate(DuplicateSkillNameException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of("DUPLICATE_SKILL_NAME", ex.getMessage(), HttpStatus.CONFLICT.value()));
+    }
+
+    @ExceptionHandler({org.springframework.orm.ObjectOptimisticLockingFailureException.class, jakarta.persistence.OptimisticLockException.class})
+    public ResponseEntity<ErrorResponse> handleOptimisticLockConflict(Exception ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("EMPLOYEE_SKILL_VERSION_CONFLICT",
+                        "Bản ghi kỹ năng đã được cập nhật bởi một yêu cầu khác. Vui lòng tải lại trang.",
+                        HttpStatus.CONFLICT.value()));
     }
 
     @ExceptionHandler(InvalidSkillMergeException.class)

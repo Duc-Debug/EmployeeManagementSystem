@@ -1,16 +1,18 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Component;
+
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.Optional;
 
 @Component
 public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployeePort {
@@ -79,5 +81,22 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
         }
         List<Long> rawIds = ids.stream().map(EmployeeId::value).filter(java.util.Objects::nonNull).toList();
         return springDataEmployeeRepository.findAllById(rawIds).stream().map(mapper::toDomain).toList();
+      @Override
+    public List<Employee> findByOrgUnitId(Long orgUnitId) {
+        if (orgUnitId == null) {
+            return List.of();
+        }
+        return springDataEmployeeRepository.findByOrgUnitId(orgUnitId).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+    @Override
+    public List<Employee> findActiveByOrgUnitId(Long orgUnitId) {
+        if (orgUnitId == null) {
+            return List.of();
+        }
+        return springDataEmployeeRepository.findByOrgUnitIdAndStatus(orgUnitId, EmployeeStatus.ACTIVE.name()).stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 }

@@ -52,9 +52,9 @@ public class OrgUnitService implements
         return currentUserPort != null ? currentUserPort.getCurrentUserId().orElse(null) : null;
     }
 
-    private void validateActiveManager(Long managerId) {
+    private Employee validateActiveManager(Long managerId) {
         if (managerId == null) {
-            return;
+            return null;
         }
         Employee manager = loadEmployeePort.findById(new EmployeeId(managerId))
                 .orElseThrow(() -> new EmployeeNotFoundException(
@@ -63,6 +63,36 @@ public class OrgUnitService implements
             throw new InvalidOrgUnitManagerException(
                     "Nhân viên quản lý (ID: " + managerId + ") hiện không ở trạng thái hoạt động.");
         }
+        return manager;
+    }
+
+    private void validateManagerInTree(Employee manager, OrgUnit targetUnit) {
+        if (manager == null) {
+            return;
+        }
+
+        if (manager.getOrgUnitId() == null) {
+            throw new InvalidOrgUnitManagerException(
+                    "Trưởng phòng được chỉ định phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên trong cùng nhánh cơ cấu tổ chức.");
+        }
+
+        if (targetUnit != null) {
+            boolean isEligible = (targetUnit.getId() != null && Objects.equals(manager.getOrgUnitId(), targetUnit.getId().getValue()))
+                    || isManagerInAncestorTree(manager.getOrgUnitId(), targetUnit);
+
+            if (!isEligible) {
+                throw new InvalidOrgUnitManagerException(
+                        "Trưởng phòng được chỉ định phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên trong cùng nhánh cơ cấu tổ chức.");
+            }
+        }
+    }
+
+    private boolean isManagerInAncestorTree(Long managerOrgUnitId, OrgUnit targetUnit) {
+        if (targetUnit == null || targetUnit.getTreePath() == null || managerOrgUnitId == null) {
+            return false;
+        }
+        String targetPath = targetUnit.getTreePath();
+        return targetPath.contains("/" + managerOrgUnitId + "/");
     }
 
     @Override
@@ -73,7 +103,7 @@ public class OrgUnitService implements
         }
 
         // Validate business reference: Manager must exist and be ACTIVE
-        validateActiveManager(command.managerId());
+        Employee manager = validateActiveManager(command.managerId());
 
         OrgUnitId parentId = null;
         String parentTreePath = "/";
@@ -86,6 +116,8 @@ public class OrgUnitService implements
             parentId = parent.getId();
             parentTreePath = parent.getTreePath();
             level = parent.getLevel() + 1;
+
+            validateManagerInTree(manager, parent);
         }
         OrgUnit newUnit = new OrgUnit(
                 null,
@@ -115,8 +147,9 @@ public class OrgUnitService implements
                 .orElseThrow(
                         () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
 
-        // Validate business reference: Manager must exist and be ACTIVE
-        validateActiveManager(command.managerId());
+        // Validate business reference: Manager must exist, be ACTIVE, and belong to unit or ancestor tree
+        Employee manager = validateActiveManager(command.managerId());
+        validateManagerInTree(manager, unit);
 
         String oldValue = "unitName=" + unit.getUnitName() + ";unitType=" + unit.getUnitType()
                 + ";managerId=" + unit.getManagerId() + ";description=" + unit.getDescription();
