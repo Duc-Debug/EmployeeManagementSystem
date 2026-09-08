@@ -102,38 +102,42 @@ public class UpdateTaskService implements UpdateTaskUseCase {
         // Cập nhật thông tin chi tiết
         task.updateDetails(command.name(), command.description(), command.estimatedHours(), command.sortOrder());
 
-        // Cập nhật công việc cha và kiểm tra chống chu trình (Cycle Detection)
-        TaskId newParentId = command.parentId() != null ? new TaskId(command.parentId()) : null;
-        if (!Objects.equals(task.getParentId(), newParentId)) {
-            if (newParentId != null) {
-                Task parentTask = loadTaskPort.findById(newParentId)
-                        .orElseThrow(() -> new TaskNotFoundException(command.parentId()));
-                if (!Objects.equals(parentTask.getProjectIdValue(), project.getIdValue())) {
-                    throw new InvalidTaskDataException("Công việc cha không thuộc cùng dự án này");
+        // Cập nhật công việc cha (null = giữ nguyên, <= 0 = chuyển thành task gốc/root)
+        if (command.parentId() != null) {
+            TaskId newParentId = command.parentId() > 0 ? new TaskId(command.parentId()) : null;
+            if (!Objects.equals(task.getParentId(), newParentId)) {
+                if (newParentId != null) {
+                    Task parentTask = loadTaskPort.findById(newParentId)
+                            .orElseThrow(() -> new TaskNotFoundException(command.parentId()));
+                    if (!Objects.equals(parentTask.getProjectIdValue(), project.getIdValue())) {
+                        throw new InvalidTaskDataException("Công việc cha không thuộc cùng dự án này");
+                    }
+                    validateNoCyclicDependency(project.getIdValue(), task.getId(), newParentId);
                 }
-                validateNoCyclicDependency(project.getIdValue(), task.getId(), newParentId);
+                task.changeParent(newParentId);
             }
-            task.changeParent(newParentId);
         }
 
-        // Cập nhật người được gán nếu có thay đổi
-        EmployeeId newAssigneeId = command.assigneeId() != null ? new EmployeeId(command.assigneeId()) : null;
-        if (!Objects.equals(task.getAssigneeId(), newAssigneeId)) {
-            if (newAssigneeId != null) {
-                Employee assignee = loadEmployeePort.findById(newAssigneeId)
-                        .orElseThrow(() -> new InvalidTaskDataException(
-                                "Không tìm thấy nhân viên được gán với ID: " + command.assigneeId()));
-                if (assignee.getStatus() != EmployeeStatus.ACTIVE) {
-                    throw new InvalidTaskDataException("Nhân viên được phân công không ở trạng thái hoạt động");
+        // Cập nhật người được gán (null = giữ nguyên, <= 0 = hủy phân công/unassign)
+        if (command.assigneeId() != null) {
+            EmployeeId newAssigneeId = command.assigneeId() > 0 ? new EmployeeId(command.assigneeId()) : null;
+            if (!Objects.equals(task.getAssigneeId(), newAssigneeId)) {
+                if (newAssigneeId != null) {
+                    Employee assignee = loadEmployeePort.findById(newAssigneeId)
+                            .orElseThrow(() -> new InvalidTaskDataException(
+                                    "Không tìm thấy nhân viên được gán với ID: " + command.assigneeId()));
+                    if (assignee.getStatus() != EmployeeStatus.ACTIVE) {
+                        throw new InvalidTaskDataException("Nhân viên được phân công không ở trạng thái hoạt động");
+                    }
+                    boolean isMember = (project.getManagerId() != null
+                            && Objects.equals(project.getManagerId().value(), assignee.getIdValue()))
+                            || loadProjectPort.existsMember(project.getIdValue(), assignee.getIdValue());
+                    if (!isMember) {
+                        throw new AssigneeNotInProjectException(assignee.getIdValue(), project.getIdValue());
+                    }
                 }
-                boolean isMember = (project.getManagerId() != null
-                        && Objects.equals(project.getManagerId().value(), assignee.getIdValue()))
-                        || loadProjectPort.existsMember(project.getIdValue(), assignee.getIdValue());
-                if (!isMember) {
-                    throw new AssigneeNotInProjectException(assignee.getIdValue(), project.getIdValue());
-                }
+                task.assignTo(newAssigneeId);
             }
-            task.assignTo(newAssigneeId);
         }
 
         Task savedTask = saveTaskPort.save(task);

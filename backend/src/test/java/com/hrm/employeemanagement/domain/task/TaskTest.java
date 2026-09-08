@@ -248,4 +248,29 @@ class TaskTest {
 
         assertThrows(InvalidTaskDataException.class, () -> task.updateDetails("Tên mới", "Mô tả", BigDecimal.ONE, -5));
     }
+
+    @Test
+    @DisplayName("Cập nhật với description null thì giữ nguyên mô tả cũ, chuỗi rỗng thì xóa về null")
+    void testUpdateDetails_DescriptionSemantics() {
+        Task task = Task.createNew(
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Công việc",
+                "Mô tả ban đầu",
+                TaskType.TASK,
+                null,
+                BigDecimal.ONE,
+                1,
+                new UserId(1L));
+
+        // description = null -> giữ nguyên mô tả cũ
+        task.updateDetails("Tên đổi", null, null, null);
+        assertEquals("Mô tả ban đầu", task.getDescription());
+        assertEquals("Tên đổi", task.getName());
+
+        // description = "" -> xóa về null
+        task.updateDetails("Tên đổi", "   ", null, null);
+        assertNull(task.getDescription());
+    }
 }

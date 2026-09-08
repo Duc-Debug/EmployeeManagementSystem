@@ -103,7 +103,9 @@ public class Task {
         validateEstimatedHours(estimatedHours);
         validateSortOrder(sortOrder);
         this.name = name.trim();
-        this.description = description != null ? description.trim() : null;
+        if (description != null) {
+            this.description = description.trim().isEmpty() ? null : description.trim();
+        }
         if (estimatedHours != null) {
             this.estimatedHours = estimatedHours;
         }

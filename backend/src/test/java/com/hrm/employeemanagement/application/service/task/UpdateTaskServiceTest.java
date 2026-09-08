@@ -249,4 +249,95 @@ class UpdateTaskServiceTest {
         assertThatThrownBy(() -> service.updateTask(command))
                 .isInstanceOf(ProjectClosedException.class);
     }
+
+    @Test
+    @DisplayName("Cập nhật với parentId null và assigneeId null -> giữ nguyên parent và assignee cũ")
+    void testUpdateTask_NullParentAndAssignee_PreservesExistingValues() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Task existingTask = new Task(
+                new TaskId(TASK_ID),
+                new ProjectId(PROJECT_ID),
+                new TaskId(2L), // parent cũ
+                "PRJ-01-T001",
+                "Tên cũ",
+                "Mô tả cũ",
+                TaskType.TASK,
+                new EmployeeId(10L), // assignee cũ
+                BigDecimal.TEN,
+                BigDecimal.ZERO,
+                TaskStatus.TODO,
+                0,
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(existingTask));
+        when(saveTaskPort.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateTaskCommand command = new UpdateTaskCommand(
+                PROJECT_ID,
+                TASK_ID,
+                null, // null -> giữ nguyên parent 2L
+                "Tên mới",
+                null, // null -> giữ nguyên mô tả cũ
+                null, // null -> giữ nguyên assignee 10L
+                BigDecimal.TEN,
+                0);
+
+        TaskResult result = service.updateTask(command);
+
+        assertThat(result.parentId()).isEqualTo(2L);
+        assertThat(result.assigneeId()).isEqualTo(10L);
+        assertThat(result.description()).isEqualTo("Mô tả cũ");
+        assertThat(result.name()).isEqualTo("Tên mới");
+    }
+
+    @Test
+    @DisplayName("Cập nhật với parentId = 0 và assigneeId = 0 -> đưa về root và unassign")
+    void testUpdateTask_ZeroParentAndAssignee_UnassignsAndMovesToRoot() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Task existingTask = new Task(
+                new TaskId(TASK_ID),
+                new ProjectId(PROJECT_ID),
+                new TaskId(2L), // parent cũ
+                "PRJ-01-T001",
+                "Tên cũ",
+                "Mô tả cũ",
+                TaskType.TASK,
+                new EmployeeId(10L), // assignee cũ
+                BigDecimal.TEN,
+                BigDecimal.ZERO,
+                TaskStatus.TODO,
+                0,
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(existingTask));
+        when(saveTaskPort.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateTaskCommand command = new UpdateTaskCommand(
+                PROJECT_ID,
+                TASK_ID,
+                0L, // 0 -> đưa về root (parentId = null)
+                "Tên mới",
+                "", // chuỗi rỗng -> xóa mô tả
+                0L, // 0 -> gỡ assignee (assigneeId = null)
+                BigDecimal.TEN,
+                0);
+
+        TaskResult result = service.updateTask(command);
+
+        assertThat(result.parentId()).isNull();
+        assertThat(result.assigneeId()).isNull();
+        assertThat(result.description()).isNull();
+    }
 }

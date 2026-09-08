@@ -10,12 +10,21 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record UpdateTaskRequest(
+        /**
+         * ID công việc cha: null = giữ nguyên; 0 hoặc <= 0 = đưa về root (không có cha); > 0 = chuyển sang cha mới
+         */
         Long parentId,
         @NotBlank(message = "Tên hạng mục / công việc không được để trống")
         @Size(max = 255, message = "Tên hạng mục / công việc không được vượt quá 255 ký tự")
         String name,
+        /**
+         * Mô tả công việc: null = giữ nguyên; chuỗi rỗng "" = xóa mô tả về null
+         */
         @Size(max = 2000, message = "Mô tả công việc không được vượt quá 2000 ký tự")
         String description,
+        /**
+         * ID nhân viên thực hiện: null = giữ nguyên; 0 hoặc <= 0 = hủy phân công (unassign); > 0 = gán người mới
+         */
         Long assigneeId,
         @DecimalMin(value = "0.0", inclusive = true, message = "Thời gian dự kiến không được nhỏ hơn 0")
         @Digits(integer = 8, fraction = 2, message = "Thời gian dự kiến chỉ được có tối đa 8 chữ số phần nguyên và 2 chữ số phần thập phân")
