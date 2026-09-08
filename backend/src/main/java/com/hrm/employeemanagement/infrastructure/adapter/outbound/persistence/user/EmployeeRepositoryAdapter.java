@@ -81,9 +81,8 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
         }
         List<Long> rawIds = ids.stream().map(EmployeeId::value).filter(java.util.Objects::nonNull).toList();
         return springDataEmployeeRepository.findAllById(rawIds).stream().map(mapper::toDomain).toList();
-    }
-
-    @Override
+=========
+      @Override
     public List<Employee> findByOrgUnitId(Long orgUnitId) {
         if (orgUnitId == null) {
             return List.of();
