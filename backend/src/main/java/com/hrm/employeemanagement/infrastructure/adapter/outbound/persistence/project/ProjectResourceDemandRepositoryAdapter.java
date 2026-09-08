@@ -114,20 +114,35 @@ public class ProjectResourceDemandRepositoryAdapter implements
     }
 
     private boolean isDuplicateDemandConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable current = ex;
+        while (current != null) {
+            // 1. Kiểm tra Hibernate ConstraintViolationException theo tên unique constraint
+            if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                String constraintName = cve.getConstraintName();
+                if ("uk_proj_res_demand_proj_role_week".equalsIgnoreCase(constraintName)) {
+                    return true;
+                }
+            }
+
+            // 2. Kiểm tra SQLException với mã lỗi trùng lặp chuyên biệt (MySQL: 1062, PostgreSQL/H2/ANSI: 23505)
+            // và xác thực chính xác tên constraint uk_proj_res_demand_proj_role_week
+            if (current instanceof java.sql.SQLException sqlEx) {
+                int errorCode = sqlEx.getErrorCode();
+                String sqlState = sqlEx.getSQLState();
+                String msg = sqlEx.getMessage() != null ? sqlEx.getMessage().toLowerCase() : "";
+
+                boolean isUniqueErrorCode = (errorCode == 1062) || "23505".equals(sqlState);
+                if (isUniqueErrorCode && (msg.contains("uk_proj_res_demand_proj_role_week") || msg.contains("uk_proj_res_demand"))) {
+                    return true;
+                }
+            }
+
+            current = current.getCause();
+        }
+
+        // 3. Fallback kiểm tra thông điệp lỗi của root cause có chứa chính xác tên unique constraint
         Throwable cause = ex.getMostSpecificCause();
         String message = cause != null && cause.getMessage() != null ? cause.getMessage().toLowerCase() : "";
-
-        if (message.contains("uk_proj_res_demand_proj_role_week")) {
-            return true;
-        }
-
-        if (cause instanceof java.sql.SQLException sqlEx) {
-            int errorCode = sqlEx.getErrorCode();
-            String sqlState = sqlEx.getSQLState();
-            if (errorCode == 1062 || "23000".equals(sqlState) || "23505".equals(sqlState)) {
-                return message.contains("project_resource_demands") || message.contains("uk_proj_res_demand");
-            }
-        }
-        return false;
+        return message.contains("uk_proj_res_demand_proj_role_week");
     }
 }
