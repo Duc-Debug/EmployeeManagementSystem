@@ -65,7 +65,7 @@ public class ProjectExceptionHandler {
         public ResponseEntity<ApiResponse<Void>> handleProjectTemplateNotFound(ProjectTemplateNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
-}
+
         @ExceptionHandler(InvalidResourceDemandException.class)
         public ResponseEntity<ApiResponse<Void>> handleInvalidResourceDemand(InvalidResourceDemandException ex) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
