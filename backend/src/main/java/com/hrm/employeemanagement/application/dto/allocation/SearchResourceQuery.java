@@ -80,8 +80,8 @@ public record SearchResourceQuery(
             );
         }
 
-        long weeksBetween = ChronoUnit.WEEKS.between(from.getStartDate(), to.getStartDate());
-        if (weeksBetween > 52) {
+        long weekCount = ChronoUnit.WEEKS.between(from.getStartDate(), to.getStartDate()) + 1;
+        if (weekCount > 52) {
             throw new IllegalArgumentException("Khoảng thời gian tìm kiếm không được vượt quá 52 tuần");
         }
 

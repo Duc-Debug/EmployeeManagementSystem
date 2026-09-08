@@ -27,6 +27,7 @@ import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
@@ -167,6 +168,18 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
                 int standardHours = candidate.standardHoursPerWeek() != null ? candidate.standardHoursPerWeek() : 40;
                 WeeklyAvailability avail = availabilityMap.get(new EmployeeWeekKey(candidate.employeeId(), yw));
                 BigDecimal netAvailable = avail != null ? avail.getNetAvailableHours() : BigDecimal.valueOf(standardHours);
+
+                // Xử lý trường hợp hợp đồng kết thúc ở giữa tuần (contractEndDate nằm trong khoảng từ thứ Hai đến thứ Bảy)
+                if (candidate.contractEndDate() != null && !candidate.contractEndDate().isAfter(yw.getEndDate())) {
+                    int remainingWorkingDays = WeeklyAvailabilityPolicy.countWorkingDaysBetween(yw.getStartDate(), candidate.contractEndDate());
+                    if (remainingWorkingDays == 0) {
+                        netAvailable = BigDecimal.ZERO;
+                    } else if (remainingWorkingDays < 5) {
+                        // Tính tỷ lệ giờ khả dụng theo số ngày làm việc thực tế còn lại trước khi kết thúc hợp đồng
+                        netAvailable = netAvailable.multiply(BigDecimal.valueOf(remainingWorkingDays))
+                                .divide(BigDecimal.valueOf(5), 2, java.math.RoundingMode.HALF_UP);
+                    }
+                }
 
                 BigDecimal totalAllocated = allocationMap.getOrDefault(
                         new EmployeeWeekKey(candidate.employeeId(), yw), BigDecimal.ZERO);

@@ -343,12 +343,17 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
     }
 
     @Test
-    @DisplayName("Edge case 8: Khoảng thời gian tìm kiếm vượt quá 52 tuần bị từ chối")
-    void testSearch_RangeGreaterThan52Weeks_ThrowsIllegalArgumentException() {
-        // From 2026-W01 to 2027-W05 is > 52 weeks
-        assertThrows(IllegalArgumentException.class, () ->
-                new SearchResourceQuery(1L, 1, null, 2026, 1, 2027, 5)
+    @DisplayName("Edge case 8: Kiểm tra biên chính xác 52 tuần được chấp nhận, 53 tuần bị từ chối")
+    void testSearch_BoundaryWeekCount_52WeeksPass_53WeeksReject() {
+        // 2026-W01 đến 2026-W52: đúng 52 tuần -> hợp lệ
+        SearchResourceQuery query52 = new SearchResourceQuery(1L, 1, null, 2026, 1, 2026, 52);
+        assertEquals(52, query52.toWeek());
+
+        // 2026-W01 đến 2026-W53: đúng 53 tuần -> bị từ chối
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                new SearchResourceQuery(1L, 1, null, 2026, 1, 2026, 53)
         );
+        assertTrue(ex.getMessage().contains("Khoảng thời gian tìm kiếm không được vượt quá 52 tuần"));
     }
 
     @Test
@@ -419,6 +424,37 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         SearchResourceQuery overflowQuery = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10, 1_500_000_000, 100);
         List<ResourceSearchResult> results = service.search(overflowQuery);
         assertTrue(results.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Edge case 13: Hợp đồng kết thúc giữa tuần (ví dụ thứ 4 - 3 ngày làm việc) tính tỷ lệ giờ khả dụng chính xác")
+    void testSearch_ContractEndsMidWeek_ProRatesAvailableHours() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(100L);
+        User globalUser = createUserWithScope(100L, DataScope.COMPANY, null);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(globalUser));
+
+        YearWeek yw = YearWeek.of(2026, 10);
+        // Thứ 2 là 2026-03-02, Thứ 4 là 2026-03-04 (3 ngày làm việc: T2, T3, T4)
+        LocalDate wednesday = yw.getStartDate().plusDays(2);
+
+        ResourceCandidate midWeekCandidate = new ResourceCandidate(
+                101L, 101L, "NV01", "Nguyễn Văn A", 10L, "Developer", 40,
+                wednesday, 1L, "Java", 3, BigDecimal.valueOf(3)
+        );
+
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(midWeekCandidate));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10);
+        List<ResourceSearchResult> results = service.search(query);
+
+        assertEquals(1, results.size());
+        // 40h * 3 / 5 = 24.00h khả dụng
+        BigDecimal expectedHours = new BigDecimal("24.00");
+        assertEquals(0, expectedHours.compareTo(results.get(0).totalRemainingHours()));
+        assertEquals(0, expectedHours.compareTo(results.get(0).weeklyAvailabilities().get(0).netAvailableHours()));
+        assertEquals(0, expectedHours.compareTo(results.get(0).weeklyAvailabilities().get(0).remainingHours()));
     }
 }
 
