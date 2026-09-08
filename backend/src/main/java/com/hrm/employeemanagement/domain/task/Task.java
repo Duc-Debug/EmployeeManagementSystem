@@ -231,17 +231,7 @@ public class Task {
     }
 
     public TaskBudgetBurnStatus getBudgetBurnStatus() {
-        if (this.budgetHours == null || this.budgetHours.compareTo(BigDecimal.ZERO) <= 0) {
-            return TaskBudgetBurnStatus.NOT_SET;
-        }
-        BigDecimal burnedPct = calculateBurnedPercentage();
-        if (burnedPct.compareTo(BigDecimal.valueOf(80)) < 0) {
-            return TaskBudgetBurnStatus.SAFE;
-        }
-        if (burnedPct.compareTo(BigDecimal.valueOf(100)) < 0) {
-            return TaskBudgetBurnStatus.WARNING;
-        }
-        return TaskBudgetBurnStatus.OVER_BUDGET;
+        return TaskBudgetPolicy.determineBurnStatus(this.budgetHours, calculateBurnedPercentage());
     }
 
     // Validations
