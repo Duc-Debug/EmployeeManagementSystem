@@ -23,6 +23,7 @@ public record TaskNodeResult(
         Long assigneeId,
         BigDecimal estimatedHours,
         BigDecimal actualHours,
+        BigDecimal budgetHours,
         TaskStatus status,
         Integer sortOrder,
         Long createdBy,
@@ -30,14 +31,57 @@ public record TaskNodeResult(
         LocalDateTime updatedAt,
         Long version,
         List<TaskNodeResult> children) {
+
     public TaskNodeResult {
         if (children == null) {
             children = new ArrayList<>();
         }
     }
 
+    public TaskNodeResult(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            TaskStatus status,
+            Integer sortOrder,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            List<TaskNodeResult> children
+    ) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                BigDecimal.ZERO,
+                status,
+                sortOrder,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version,
+                children
+        );
+    }
+
     public static TaskNodeResult from(TaskResult task) {
-        return new TaskNodeResult(task.id(),
+        return new TaskNodeResult(
+                task.id(),
                 task.projectId(),
                 task.parentId(),
                 task.taskCode(),
@@ -47,12 +91,14 @@ public record TaskNodeResult(
                 task.assigneeId(),
                 task.estimatedHours(),
                 task.actualHours(),
+                task.budgetHours(),
                 task.status(),
                 task.sortOrder(),
                 task.createdBy(),
                 task.createdAt(),
                 task.updatedAt(),
                 task.version(),
-                new ArrayList<>());
+                new ArrayList<>()
+        );
     }
 }

@@ -14,12 +14,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.hrm.employeemanagement.application.dto.task.TaskBudgetResult;
 import com.hrm.employeemanagement.application.dto.task.TaskNodeResult;
 import com.hrm.employeemanagement.application.dto.task.TaskResult;
 import com.hrm.employeemanagement.application.port.inbound.task.CreateTaskUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.GetProjectWbsUseCase;
+import com.hrm.employeemanagement.application.port.inbound.task.SetTaskBudgetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.UpdateTaskUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task.dto.CreateTaskRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task.dto.SetTaskBudgetRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task.dto.UpdateTaskRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
@@ -33,14 +36,17 @@ public class TaskController {
     private final CreateTaskUseCase createTaskUseCase;
     private final UpdateTaskUseCase updateTaskUseCase;
     private final GetProjectWbsUseCase getProjectWbsUseCase;
+    private final SetTaskBudgetUseCase setTaskBudgetUseCase;
 
     public TaskController(
             CreateTaskUseCase createTaskUseCase,
             UpdateTaskUseCase updateTaskUseCase,
-            GetProjectWbsUseCase getProjectWbsUseCase) {
+            GetProjectWbsUseCase getProjectWbsUseCase,
+            SetTaskBudgetUseCase setTaskBudgetUseCase) {
         this.createTaskUseCase = Objects.requireNonNull(createTaskUseCase, "CreateTaskUseCase must not be null");
         this.updateTaskUseCase = Objects.requireNonNull(updateTaskUseCase, "UpdateTaskUseCase must not be null");
         this.getProjectWbsUseCase = Objects.requireNonNull(getProjectWbsUseCase, "GetProjectWbsUseCase must not be null");
+        this.setTaskBudgetUseCase = Objects.requireNonNull(setTaskBudgetUseCase, "SetTaskBudgetUseCase must not be null");
     }
 
     @PostMapping("/{projectId}/tasks")
@@ -66,5 +72,14 @@ public class TaskController {
             @PathVariable Long projectId) {
         List<TaskNodeResult> wbs = getProjectWbsUseCase.getProjectWbs(projectId);
         return ResponseEntity.ok(ApiResponse.success("Lấy cây công việc WBS thành công", wbs));
+    }
+
+    @RequestMapping(value = "/{projectId}/tasks/{taskId}/budget", method = {org.springframework.web.bind.annotation.RequestMethod.PATCH, org.springframework.web.bind.annotation.RequestMethod.PUT})
+    public ResponseEntity<ApiResponse<TaskBudgetResult>> setTaskBudget(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            @Valid @RequestBody SetTaskBudgetRequest request) {
+        TaskBudgetResult result = setTaskBudgetUseCase.setTaskBudget(request.toCommand(projectId, taskId));
+        return ResponseEntity.ok(ApiResponse.success("Đặt ngân sách giờ công thành công", result));
     }
 }

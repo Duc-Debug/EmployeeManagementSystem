@@ -297,4 +297,102 @@ class TaskTest {
         // name = "" hoặc "   " -> ném lỗi
         assertThrows(InvalidTaskDataException.class, () -> task.updateDetails("   ", null, null, null));
     }
+
+    @Test
+    @DisplayName("Thiết lập ngân sách giờ công hợp lệ thành công")
+    void shouldSetBudgetHoursSuccessfully() {
+        Task task = Task.createNew(
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Phân tích hệ thống",
+                null,
+                TaskType.TASK,
+                null,
+                BigDecimal.TEN,
+                1,
+                new UserId(1L));
+
+        assertEquals(BigDecimal.ZERO, task.getBudgetHours());
+        assertEquals(TaskBudgetBurnStatus.NOT_SET, task.getBudgetBurnStatus());
+
+        task.setBudgetHours(new BigDecimal("40.00"));
+        assertEquals(new BigDecimal("40.00"), task.getBudgetHours());
+        assertEquals(BigDecimal.ZERO.setScale(2), task.calculateBurnedPercentage());
+        assertEquals(new BigDecimal("40.00"), task.getRemainingBudgetHours());
+        assertEquals(false, task.isOverBudget());
+        assertEquals(TaskBudgetBurnStatus.SAFE, task.getBudgetBurnStatus());
+    }
+
+    @Test
+    @DisplayName("Ném ngoại lệ khi đặt ngân sách giờ công âm")
+    void shouldThrowWhenBudgetHoursIsNegative() {
+        Task task = Task.createNew(
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Phân tích hệ thống",
+                null,
+                TaskType.TASK,
+                null,
+                BigDecimal.TEN,
+                1,
+                new UserId(1L));
+
+        assertThrows(InvalidTaskDataException.class, () -> task.setBudgetHours(new BigDecimal("-5.0")));
+    }
+
+    @Test
+    @DisplayName("Tính toán tỷ lệ đã dùng và phát hiện vượt ngân sách ăn mòn lợi nhuận chính xác")
+    void shouldCalculateBurnedPercentageAndOverBudgetCorrectly() {
+        // Task có actualHours = 35, budgetHours = 40 (dùng 87.5% -> WARNING)
+        Task taskWarning = new Task(
+                new TaskId(1L),
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Thiết kế UI",
+                null,
+                TaskType.TASK,
+                null,
+                new BigDecimal("40.00"),
+                new BigDecimal("35.00"),
+                new BigDecimal("40.00"),
+                TaskStatus.IN_PROGRESS,
+                1,
+                new UserId(1L),
+                null,
+                null,
+                1L);
+
+        assertEquals(new BigDecimal("87.50"), taskWarning.calculateBurnedPercentage());
+        assertEquals(TaskBudgetBurnStatus.WARNING, taskWarning.getBudgetBurnStatus());
+        assertEquals(false, taskWarning.isOverBudget());
+        assertEquals(new BigDecimal("5.00"), taskWarning.getRemainingBudgetHours());
+
+        // Task có actualHours = 50, budgetHours = 40 (dùng 125% -> OVER_BUDGET)
+        Task taskOver = new Task(
+                new TaskId(2L),
+                new ProjectId(1L),
+                null,
+                "WBS-02",
+                "Lập trình Backend",
+                null,
+                TaskType.TASK,
+                null,
+                new BigDecimal("40.00"),
+                new BigDecimal("50.00"),
+                new BigDecimal("40.00"),
+                TaskStatus.IN_PROGRESS,
+                2,
+                new UserId(1L),
+                null,
+                null,
+                1L);
+
+        assertEquals(new BigDecimal("125.00"), taskOver.calculateBurnedPercentage());
+        assertEquals(TaskBudgetBurnStatus.OVER_BUDGET, taskOver.getBudgetBurnStatus());
+        assertEquals(true, taskOver.isOverBudget());
+        assertEquals(new BigDecimal("-10.00"), taskOver.getRemainingBudgetHours());
+    }
 }

@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.domain.task;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -20,6 +21,7 @@ public class Task {
     private EmployeeId assigneeId;
     private BigDecimal estimatedHours;
     private BigDecimal actualHours;
+    private BigDecimal budgetHours;
     private TaskStatus status;
     private Integer sortOrder;
     private UserId createdBy;
@@ -38,6 +40,7 @@ public class Task {
             EmployeeId assigneeId,
             BigDecimal estimatedHours,
             BigDecimal actualHours,
+            BigDecimal budgetHours,
             TaskStatus status,
             Integer sortOrder,
             UserId createdBy,
@@ -48,6 +51,7 @@ public class Task {
         validateName(name);
         validateEstimatedHours(estimatedHours);
         validateActualHours(actualHours);
+        validateBudgetHours(budgetHours);
         validateTaskTypeAndAssignee(taskType, assigneeId);
         validateSortOrder(sortOrder);
         this.id = id;
@@ -60,12 +64,50 @@ public class Task {
         this.assigneeId = assigneeId;
         this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
         this.actualHours = actualHours != null ? actualHours : BigDecimal.ZERO;
+        this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+    }
+
+    public Task(
+            TaskId id,
+            ProjectId projectId,
+            TaskId parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            EmployeeId assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            TaskStatus status,
+            Integer sortOrder,
+            UserId createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                BigDecimal.ZERO,
+                status,
+                sortOrder,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version);
     }
 
     public static Task createNew(
@@ -150,6 +192,49 @@ public class Task {
         return this.taskType == TaskType.TASK;
     }
 
+    public void setBudgetHours(BigDecimal budgetHours) {
+        validateBudgetHours(budgetHours);
+        this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public BigDecimal calculateBurnedPercentage() {
+        if (this.budgetHours == null || this.budgetHours.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal actual = this.actualHours != null ? this.actualHours : BigDecimal.ZERO;
+        return actual.multiply(BigDecimal.valueOf(100)).divide(this.budgetHours, 2, RoundingMode.HALF_UP);
+    }
+
+    public boolean isOverBudget() {
+        return this.budgetHours != null
+                && this.budgetHours.compareTo(BigDecimal.ZERO) > 0
+                && this.actualHours != null
+                && this.actualHours.compareTo(this.budgetHours) > 0;
+    }
+
+    public BigDecimal getRemainingBudgetHours() {
+        if (this.budgetHours == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal actual = this.actualHours != null ? this.actualHours : BigDecimal.ZERO;
+        return this.budgetHours.subtract(actual);
+    }
+
+    public TaskBudgetBurnStatus getBudgetBurnStatus() {
+        if (this.budgetHours == null || this.budgetHours.compareTo(BigDecimal.ZERO) <= 0) {
+            return TaskBudgetBurnStatus.NOT_SET;
+        }
+        BigDecimal burnedPct = calculateBurnedPercentage();
+        if (burnedPct.compareTo(BigDecimal.valueOf(80)) < 0) {
+            return TaskBudgetBurnStatus.SAFE;
+        }
+        if (burnedPct.compareTo(BigDecimal.valueOf(100)) < 0) {
+            return TaskBudgetBurnStatus.WARNING;
+        }
+        return TaskBudgetBurnStatus.OVER_BUDGET;
+    }
+
     // Validations
     private void validateProjectId(ProjectId projectId) {
         if (projectId == null || projectId.value() == null) {
@@ -175,6 +260,12 @@ public class Task {
     private void validateActualHours(BigDecimal hours) {
         if (hours != null && hours.compareTo(BigDecimal.ZERO) < 0) {
             throw new InvalidTaskDataException("Thời gian thực tế không được nhỏ hơn 0");
+        }
+    }
+
+    private void validateBudgetHours(BigDecimal hours) {
+        if (hours != null && hours.compareTo(BigDecimal.ZERO) < 0) {
+            throw new InvalidTaskDataException("Ngân sách giờ công không được nhỏ hơn 0");
         }
     }
 
@@ -245,6 +336,10 @@ public class Task {
 
     public BigDecimal getActualHours() {
         return actualHours;
+    }
+
+    public BigDecimal getBudgetHours() {
+        return budgetHours;
     }
 
     public TaskStatus getStatus() {
