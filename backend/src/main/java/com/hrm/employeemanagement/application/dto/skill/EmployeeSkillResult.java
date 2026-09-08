@@ -19,6 +19,7 @@ public record EmployeeSkillResult(
         Long approvedBy,
         LocalDateTime approvedAt,
         String rejectionReason,
+        String reviewNotes,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
         ) {
@@ -37,6 +38,7 @@ public record EmployeeSkillResult(
                 employeeSkill.getApprovedBy(),
                 employeeSkill.getApprovedAt(),
                 employeeSkill.getRejectionReason(),
+                employeeSkill.getReviewNotes(),
                 employeeSkill.getCreatedAt(),
                 employeeSkill.getUpdatedAt()
         );

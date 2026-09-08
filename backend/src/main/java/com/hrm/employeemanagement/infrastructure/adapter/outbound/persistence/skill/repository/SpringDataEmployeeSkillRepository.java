@@ -18,6 +18,11 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
 
     List<EmployeeSkillJpaEntity> findByEmployeeId(Long employeeId);
 
+    List<EmployeeSkillJpaEntity> findByStatus(com.hrm.employeemanagement.domain.skill.SkillStatus status);
+
+    List<EmployeeSkillJpaEntity> findByStatusAndEmployeeIdIn(com.hrm.employeemanagement.domain.skill.SkillStatus status, List<Long> employeeIds);
+
+
     @Query("SELECT es.employeeId FROM EmployeeSkillJpaEntity es WHERE es.skillId = :skillId")
     List<Long> findEmployeeIdsBySkillId(@Param("skillId") Long skillId);
 
@@ -30,4 +35,172 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
     int reassignEmployeeSkills(@Param("sourceSkillId") Long sourceSkillId, @Param("targetSkillId") Long targetSkillId);
 
     void deleteByEmployeeIdAndSkillId(Long employeeId, Long skillId);
+
+    @Query(value = """
+        SELECT 
+            es.id AS id,
+            e.id AS employeeId,
+            e.employee_code AS employeeCode,
+            e.full_name AS employeeName,
+            e.org_unit_id AS orgUnitId,
+            ou.unit_name AS orgUnitName,
+            s.id AS skillId,
+            s.code AS skillCode,
+            s.name AS skillName,
+            s.category AS skillCategory,
+            es.proficiency_level AS proficiencyLevel,
+            es.years_of_experience AS yearsOfExperience,
+            es.status AS status,
+            es.created_at AS createdAt
+        FROM employee_skills es
+        JOIN employees e ON e.id = es.employee_id
+        JOIN skills s ON s.id = es.skill_id
+        LEFT JOIN org_units ou ON ou.id = e.org_unit_id
+        WHERE es.status = 'PENDING'
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        ORDER BY es.created_at DESC, es.id DESC
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.PendingEmployeeSkillProjection> findPendingCompanyScope(
+            @Param("keyword") String keyword,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM employee_skills es
+        JOIN employees e ON e.id = es.employee_id
+        JOIN skills s ON s.id = es.skill_id
+        WHERE es.status = 'PENDING'
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        """, nativeQuery = true)
+    long countPendingCompanyScope(@Param("keyword") String keyword);
+
+    @Query(value = """
+        SELECT 
+            es.id AS id,
+            e.id AS employeeId,
+            e.employee_code AS employeeCode,
+            e.full_name AS employeeName,
+            e.org_unit_id AS orgUnitId,
+            ou.unit_name AS orgUnitName,
+            s.id AS skillId,
+            s.code AS skillCode,
+            s.name AS skillName,
+            s.category AS skillCategory,
+            es.proficiency_level AS proficiencyLevel,
+            es.years_of_experience AS yearsOfExperience,
+            es.status AS status,
+            es.created_at AS createdAt
+        FROM employee_skills es
+        JOIN employees e ON e.id = es.employee_id
+        JOIN skills s ON s.id = es.skill_id
+        JOIN org_units ou ON ou.id = e.org_unit_id
+        JOIN org_units scope ON scope.id = :scopeOrgUnitId
+        WHERE es.status = 'PENDING'
+          AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        ORDER BY es.created_at DESC, es.id DESC
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.PendingEmployeeSkillProjection> findPendingBranchScope(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("keyword") String keyword,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM employee_skills es
+        JOIN employees e ON e.id = es.employee_id
+        JOIN skills s ON s.id = es.skill_id
+        JOIN org_units ou ON ou.id = e.org_unit_id
+        JOIN org_units scope ON scope.id = :scopeOrgUnitId
+        WHERE es.status = 'PENDING'
+          AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        """, nativeQuery = true)
+    long countPendingBranchScope(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("keyword") String keyword
+    );
+
+    @Query(value = """
+        SELECT 
+            es.id AS id,
+            e.id AS employeeId,
+            e.employee_code AS employeeCode,
+            e.full_name AS employeeName,
+            e.org_unit_id AS orgUnitId,
+            ou.unit_name AS orgUnitName,
+            s.id AS skillId,
+            s.code AS skillCode,
+            s.name AS skillName,
+            s.category AS skillCategory,
+            es.proficiency_level AS proficiencyLevel,
+            es.years_of_experience AS yearsOfExperience,
+            es.status AS status,
+            es.created_at AS createdAt
+        FROM employee_skills es
+        JOIN employees e ON e.id = es.employee_id
+        JOIN skills s ON s.id = es.skill_id
+        LEFT JOIN org_units ou ON ou.id = e.org_unit_id
+        WHERE es.status = 'PENDING'
+          AND e.user_id = :currentUserId
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        ORDER BY es.created_at DESC, es.id DESC
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.PendingEmployeeSkillProjection> findPendingSelfScope(
+            @Param("currentUserId") Long currentUserId,
+            @Param("keyword") String keyword,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM employee_skills es
+        JOIN employees e ON e.id = es.employee_id
+        JOIN skills s ON s.id = es.skill_id
+        WHERE es.status = 'PENDING'
+          AND e.user_id = :currentUserId
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        """, nativeQuery = true)
+    long countPendingSelfScope(
+            @Param("currentUserId") Long currentUserId,
+            @Param("keyword") String keyword
+    );
 }
