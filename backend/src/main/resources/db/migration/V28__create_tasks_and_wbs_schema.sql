@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V23: CREATE TASKS & WBS SCHEMA
+-- FLYWAY MIGRATION V28: CREATE TASKS & WBS SCHEMA
 -- Epic: NCL-03 (Dự án và cây công việc)
 -- Story: NCL-03-CN-002 (Chia hạng mục và công việc của dự án)
 -- ============================================================
