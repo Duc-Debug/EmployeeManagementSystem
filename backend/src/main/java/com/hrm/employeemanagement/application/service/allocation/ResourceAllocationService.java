@@ -30,12 +30,14 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
+import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -104,6 +106,11 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
 
         // Kiểm tra Phạm vi dữ liệu (Data Scope) cho Dự án
         requireOrgUnitInDataScope(currentUser, project.getOrgUnitId(), PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+
+        // Kiểm tra trạng thái Dự án (chỉ cho phép phân bổ cho dự án ở trạng thái ACTIVE)
+        if (project.getStatus() != ProjectStatus.ACTIVE) {
+            throw new ProjectInactiveException("Không thể phân bổ nhân sự vào dự án không ở trạng thái hoạt động");
+        }
 
         // Load khả dụng của nhân sự trong tuần
         Optional<WeeklyAvailability> availabilityOpt = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(command.employeeId(), yearWeek);

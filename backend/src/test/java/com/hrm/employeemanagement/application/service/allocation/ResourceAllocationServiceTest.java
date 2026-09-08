@@ -22,11 +22,13 @@ import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationHoursException;
+import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import org.junit.jupiter.api.BeforeEach;
@@ -122,6 +124,7 @@ class ResourceAllocationServiceTest {
         when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
         when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
 
         YearWeek yearWeek = YearWeek.of(year, weekNumber);
         WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.valueOf(10), BigDecimal.valueOf(30));
@@ -161,6 +164,7 @@ class ResourceAllocationServiceTest {
         when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
         when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
 
         YearWeek yearWeek = YearWeek.of(year, weekNumber);
         WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
@@ -194,6 +198,7 @@ class ResourceAllocationServiceTest {
         when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
         when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
 
         YearWeek yearWeek = YearWeek.of(year, weekNumber);
         WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
@@ -299,6 +304,7 @@ class ResourceAllocationServiceTest {
         when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
         when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
 
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(-10));
 
@@ -308,6 +314,56 @@ class ResourceAllocationServiceTest {
         );
 
         assertTrue(exception.getMessage().contains("không được là số âm"));
+        verify(saveAllocationPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Project Lifecycle Check: Chặn phân bổ cho Dự án ở trạng thái CLOSED")
+    void testAllocationToClosedProject_ThrowsProjectInactiveException() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.CLOSED);
+
+        AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
+
+        ProjectInactiveException exception = assertThrows(
+                ProjectInactiveException.class,
+                () -> service.allocateResource(command)
+        );
+
+        assertTrue(exception.getMessage().contains("không ở trạng thái hoạt động"));
+        verify(saveAllocationPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Project Lifecycle Check: Chặn phân bổ cho Dự án ở trạng thái INACTIVE")
+    void testAllocationToInactiveProject_ThrowsProjectInactiveException() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.INACTIVE);
+
+        AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
+
+        ProjectInactiveException exception = assertThrows(
+                ProjectInactiveException.class,
+                () -> service.allocateResource(command)
+        );
+
+        assertTrue(exception.getMessage().contains("không ở trạng thái hoạt động"));
         verify(saveAllocationPort, never()).save(any());
     }
 
