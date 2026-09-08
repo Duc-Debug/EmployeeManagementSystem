@@ -144,6 +144,163 @@ class OrgUnitServiceTest {
         verify(saveOrgUnitPort, never()).save(any());
     }
 
+    // =========================================================================
+    // TC-01 đến TC-05: Hierarchical Manager Assignment (NCL-01)
+    // =========================================================================
+
+    @Test
+    @DisplayName("TC-01: Gán nhân viên thuộc chính phòng ban làm Trưởng phòng -> Thành công")
+    void shouldAssignManagerFromSameOrgUnitSuccessfully() {
+        UpdateOrgUnitCommand command = new UpdateOrgUnitCommand(
+                2L, "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT, 20L, "Mô tả cập nhật"
+        );
+
+        OrgUnit targetUnit = new OrgUnit(
+                new OrgUnitId(2L), "TECH-DEPT", "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả cũ", null, LocalDateTime.now(), null
+        );
+
+        Employee manager = new Employee(
+                new EmployeeId(20L), new UserId(20L), 2L, "EMP020", "Trưởng phòng nội bộ", false, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(targetUnit));
+        when(loadEmployeePort.findById(new EmployeeId(20L))).thenReturn(Optional.of(manager));
+        when(saveOrgUnitPort.save(any(OrgUnit.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrgUnitResult result = orgUnitService.execute(command);
+
+        assertNotNull(result);
+        assertEquals(20L, result.managerId());
+        verify(saveOrgUnitPort).save(any(OrgUnit.class));
+        verify(saveAuditLogPort).save(any());
+    }
+
+    @Test
+    @DisplayName("TC-02: Giám đốc ở Khối (cấp cha) kiêm nhiệm Trưởng phòng (cấp con) -> Thành công")
+    void shouldAllowParentOrgUnitManagerToLeadChildUnit() {
+        UpdateOrgUnitCommand command = new UpdateOrgUnitCommand(
+                3L, "Nhóm AI", OrgUnitType.DEPARTMENT, 10L, "Mô tả"
+        );
+
+        OrgUnit childUnit = new OrgUnit(
+                new OrgUnitId(3L), "AI-TEAM", "Nhóm AI", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/3/", 2, OrgUnitStatus.ACTIVE, "Mô tả cũ", null, LocalDateTime.now(), null
+        );
+
+        Employee directorManager = new Employee(
+                new EmployeeId(10L), new UserId(10L), 1L, "EMP010", "Giám Đốc Khối", false, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(3L))).thenReturn(Optional.of(childUnit));
+        when(loadEmployeePort.findById(new EmployeeId(10L))).thenReturn(Optional.of(directorManager));
+        when(saveOrgUnitPort.save(any(OrgUnit.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrgUnitResult result = orgUnitService.execute(command);
+
+        assertNotNull(result);
+        assertEquals(10L, result.managerId());
+        verify(saveOrgUnitPort).save(any(OrgUnit.class));
+    }
+
+    @Test
+    @DisplayName("TC-03: Gán nhân viên phòng Kế toán làm Trưởng phòng IT (nhánh khác) -> Ném InvalidOrgUnitManagerException")
+    void shouldThrowInvalidOrgUnitManagerExceptionWhenManagerFromUnrelatedBranch() {
+        UpdateOrgUnitCommand command = new UpdateOrgUnitCommand(
+                3L, "Phòng IT", OrgUnitType.DEPARTMENT, 99L, "Mô tả"
+        );
+
+        OrgUnit itUnit = new OrgUnit(
+                new OrgUnitId(3L), "IT-DEPT", "Phòng IT", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/3/", 2, OrgUnitStatus.ACTIVE, "Mô tả cũ", null, LocalDateTime.now(), null
+        );
+
+        Employee accountant = new Employee(
+                new EmployeeId(99L), new UserId(99L), 50L, "EMP099", "Kế toán viên", false, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(3L))).thenReturn(Optional.of(itUnit));
+        when(loadEmployeePort.findById(new EmployeeId(99L))).thenReturn(Optional.of(accountant));
+
+        InvalidOrgUnitManagerException ex = assertThrows(
+                InvalidOrgUnitManagerException.class, () -> orgUnitService.execute(command)
+        );
+        assertTrue(ex.getMessage().contains("phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên"));
+        verify(saveOrgUnitPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("TC-04: Gán nhân viên đã bị khóa (TERMINATED) -> Ném InvalidOrgUnitManagerException")
+    void shouldThrowInvalidOrgUnitManagerExceptionWhenUpdatingWithInactiveManager() {
+        UpdateOrgUnitCommand command = new UpdateOrgUnitCommand(
+                2L, "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT, 20L, "Mô tả"
+        );
+
+        OrgUnit targetUnit = new OrgUnit(
+                new OrgUnitId(2L), "TECH-DEPT", "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả cũ", null, LocalDateTime.now(), null
+        );
+
+        Employee terminatedEmployee = new Employee(
+                new EmployeeId(20L), new UserId(20L), 2L, "EMP020", "Nhân viên cũ", false, 40, EmployeeStatus.TERMINATED
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(targetUnit));
+        when(loadEmployeePort.findById(new EmployeeId(20L))).thenReturn(Optional.of(terminatedEmployee));
+
+        assertThrows(InvalidOrgUnitManagerException.class, () -> orgUnitService.execute(command));
+        verify(saveOrgUnitPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("TC-05: Gán managerId = null (gỡ trưởng phòng hoặc chưa bổ nhiệm) -> Thành công")
+    void shouldAllowNullManagerIdWhenUpdatingOrgUnit() {
+        UpdateOrgUnitCommand command = new UpdateOrgUnitCommand(
+                2L, "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT, null, "Không có trưởng phòng"
+        );
+
+        OrgUnit targetUnit = new OrgUnit(
+                new OrgUnitId(2L), "TECH-DEPT", "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả cũ", 10L, LocalDateTime.now(), null
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(targetUnit));
+        when(saveOrgUnitPort.save(any(OrgUnit.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrgUnitResult result = orgUnitService.execute(command);
+
+        assertNotNull(result);
+        assertNull(result.managerId());
+        verify(saveOrgUnitPort).save(any(OrgUnit.class));
+    }
+
+    @Test
+    @DisplayName("TC-06: Chặn gán nhân viên ACTIVE nhưng chưa thuộc đơn vị nào (orgUnitId == null) làm Trưởng phòng")
+    void shouldThrowInvalidOrgUnitManagerExceptionWhenActiveManagerHasNoOrgUnit() {
+        UpdateOrgUnitCommand command = new UpdateOrgUnitCommand(
+                2L, "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT, 25L, "Mô tả"
+        );
+
+        OrgUnit targetUnit = new OrgUnit(
+                new OrgUnitId(2L), "TECH-DEPT", "Phòng Kỹ Thuật", OrgUnitType.DEPARTMENT,
+                new OrgUnitId(1L), "/1/2/", 2, OrgUnitStatus.ACTIVE, "Mô tả cũ", null, LocalDateTime.now(), null
+        );
+
+        // Nhân viên ACTIVE nhưng orgUnitId = null (chưa biên chế vào phòng ban nào)
+        Employee unassignedEmployee = new Employee(
+                new EmployeeId(25L), new UserId(25L), null, "EMP025", "Nhân viên tự do", false, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadOrgUnitPort.findById(new OrgUnitId(2L))).thenReturn(Optional.of(targetUnit));
+        when(loadEmployeePort.findById(new EmployeeId(25L))).thenReturn(Optional.of(unassignedEmployee));
+
+        InvalidOrgUnitManagerException ex = assertThrows(
+                InvalidOrgUnitManagerException.class, () -> orgUnitService.execute(command)
+        );
+        assertTrue(ex.getMessage().contains("phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên"));
+        verify(saveOrgUnitPort, never()).save(any());
+    }
+
     @Test
     @DisplayName("Should move org unit and invoke bulk updateSubTreePaths")
     void shouldMoveOrgUnitSuccessfully() {
