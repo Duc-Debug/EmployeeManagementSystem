@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getUsers } from '@/lib/api/users';
 import { ClipboardList, Search as SearchIcon, ShieldCheck, LayoutGrid, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -64,6 +65,29 @@ export default function SkilldeclarationView({
     const [approvalRequests, setApprovalRequests] = useState<PendingApprovalSkill[]>(
         INITIAL_APPROVAL_REQUESTS
     );
+
+    useEffect(() => {
+        getUsers(0, 100)
+            .then((res) => {
+                if (res?.content && res.content.length > 0) {
+                    const sampleSkills = ['React.js', 'Java', 'Node.js', 'PostgreSQL', 'Docker', 'AWS'];
+                    const sampleCats = ['Frontend', 'Backend', 'Backend', 'Database', 'DevOps', 'DevOps'];
+                    const fetchedRequests: PendingApprovalSkill[] = res.content.map((u, idx) => ({
+                        id: u.id,
+                        employeeName: u.fullName || u.username,
+                        skillName: sampleSkills[idx % sampleSkills.length],
+                        category: sampleCats[idx % sampleCats.length],
+                        level: (idx % 3) + 3,
+                        years: (idx % 4) + 1,
+                        status: idx % 2 === 0 ? 'pending' : 'approved',
+                    }));
+                    setApprovalRequests(fetchedRequests);
+                }
+            })
+            .catch((err) => {
+                console.error('Failed to load real users for skill approvals:', err);
+            });
+    }, []);
 
     function handleApproveRequest(id: number) {
         setApprovalRequests((prev) =>

@@ -14,32 +14,7 @@ export default function LoginPageContainer() {
             localStorage.setItem("currentUser", JSON.stringify(user));
             navigate("/");
         } catch (err: unknown) {
-            // 2. Nếu BE chưa bật hoặc lỗi mạng, kiểm tra tài khoản demo để fallback
-            if ((username === "hung" || username === "admin") && (password === "123456" || password === "admin123")) {
-                const demoUser = {
-                    dataScope: "COMPANY" as const,
-                    email: `${username}@hrm.local`,
-                    employeeCode: "EMP-DEMO",
-                    fullName: username === "admin" ? "Quản trị viên Hệ thống" : "Người dùng Demo",
-                    id: 1,
-                    orgUnitId: 1,
-                    orgUnitName: "Ban Giám Đốc",
-                    roleCode: "VT-06" as const,
-                    roleName: "Quản trị viên",
-                    scopeOrgUnitId: null,
-                    status: "ACTIVE" as const,
-                    username,
-                };
-                localStorage.setItem("accessToken", "demo-mock-token-123456");
-                localStorage.setItem("tokenType", "Bearer");
-                localStorage.setItem("nexushrm_auth_token", "demo-mock-token-123456");
-                localStorage.setItem("nexushrm_auth_user", JSON.stringify(demoUser));
-                localStorage.setItem("currentUser", JSON.stringify(demoUser));
-                navigate("/");
-                return;
-            }
-
-            const message = err instanceof Error ? err.message : "Tài khoản hoặc mật khẩu không chính xác!";
+            const message = err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu!";
             throw new Error(message);
         }
     };
