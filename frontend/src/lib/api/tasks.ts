@@ -11,6 +11,7 @@ export interface TaskBudgetResult {
   burnedPercentage: number;
   burnStatus: 'NOT_SET' | 'SAFE' | 'WARNING' | 'OVER_BUDGET';
   remainingHours: number;
+  overBudgetHours?: number;
   isOverBudget: boolean;
 }
 

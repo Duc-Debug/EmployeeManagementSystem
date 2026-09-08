@@ -17,8 +17,34 @@ public record TaskBudgetResult(
         BigDecimal burnedPercentage,
         TaskBudgetBurnStatus burnStatus,
         BigDecimal remainingHours,
+        BigDecimal overBudgetHours,
         boolean isOverBudget
 ) {
+    public TaskBudgetResult(
+            Long taskId,
+            String taskCode,
+            String name,
+            BigDecimal budgetHours,
+            BigDecimal actualHours,
+            BigDecimal burnedPercentage,
+            TaskBudgetBurnStatus burnStatus,
+            BigDecimal remainingHours,
+            boolean isOverBudget
+    ) {
+        this(
+                taskId,
+                taskCode,
+                name,
+                budgetHours,
+                actualHours,
+                burnedPercentage,
+                burnStatus,
+                remainingHours,
+                BigDecimal.ZERO,
+                isOverBudget
+        );
+    }
+
     public static TaskBudgetResult from(Task task) {
         return new TaskBudgetResult(
                 task.getIdValue(),
@@ -29,6 +55,7 @@ public record TaskBudgetResult(
                 task.calculateBurnedPercentage(),
                 task.getBudgetBurnStatus(),
                 task.getRemainingBudgetHours(),
+                task.getOverBudgetHours(),
                 task.isOverBudget()
         );
     }

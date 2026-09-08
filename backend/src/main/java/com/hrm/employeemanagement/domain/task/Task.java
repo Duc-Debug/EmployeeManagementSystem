@@ -218,7 +218,16 @@ public class Task {
             return BigDecimal.ZERO;
         }
         BigDecimal actual = this.actualHours != null ? this.actualHours : BigDecimal.ZERO;
-        return this.budgetHours.subtract(actual);
+        BigDecimal remaining = this.budgetHours.subtract(actual);
+        return remaining.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : remaining;
+    }
+
+    public BigDecimal getOverBudgetHours() {
+        if (this.budgetHours == null || this.actualHours == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal over = this.actualHours.subtract(this.budgetHours);
+        return over.compareTo(BigDecimal.ZERO) > 0 ? over : BigDecimal.ZERO;
     }
 
     public TaskBudgetBurnStatus getBudgetBurnStatus() {

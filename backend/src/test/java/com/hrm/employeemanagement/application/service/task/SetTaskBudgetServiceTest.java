@@ -197,7 +197,8 @@ class SetTaskBudgetServiceTest {
         assertThat(result.burnedPercentage()).isEqualTo(new BigDecimal("110.00"));
         assertThat(result.burnStatus()).isEqualTo(TaskBudgetBurnStatus.OVER_BUDGET);
         assertThat(result.isOverBudget()).isTrue();
-        assertThat(result.remainingHours()).isEqualTo(new BigDecimal("-5.00"));
+        assertThat(result.remainingHours()).isEqualTo(BigDecimal.ZERO);
+        assertThat(result.overBudgetHours()).isEqualTo(new BigDecimal("5.00"));
     }
 
     @Test

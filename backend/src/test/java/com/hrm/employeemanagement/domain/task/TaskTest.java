@@ -392,7 +392,7 @@ class TaskTest {
 
         assertEquals(new BigDecimal("125.00"), taskOver.calculateBurnedPercentage());
         assertEquals(TaskBudgetBurnStatus.OVER_BUDGET, taskOver.getBudgetBurnStatus());
-        assertEquals(true, taskOver.isOverBudget());
-        assertEquals(new BigDecimal("-10.00"), taskOver.getRemainingBudgetHours());
+        assertEquals(BigDecimal.ZERO, taskOver.getRemainingBudgetHours());
+        assertEquals(new BigDecimal("10.00"), taskOver.getOverBudgetHours());
     }
 }
