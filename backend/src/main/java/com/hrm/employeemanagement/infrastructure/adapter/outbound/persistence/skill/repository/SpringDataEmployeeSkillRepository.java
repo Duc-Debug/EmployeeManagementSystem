@@ -22,7 +22,6 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
 
     List<EmployeeSkillJpaEntity> findByStatusAndEmployeeIdIn(com.hrm.employeemanagement.domain.skill.SkillStatus status, List<Long> employeeIds);
 
-
     @Query("SELECT es.employeeId FROM EmployeeSkillJpaEntity es WHERE es.skillId = :skillId")
     List<Long> findEmployeeIdsBySkillId(@Param("skillId") Long skillId);
 
@@ -202,5 +201,16 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
     long countPendingSelfScope(
             @Param("currentUserId") Long currentUserId,
             @Param("keyword") String keyword
+    );
+
+    @Query("""
+        SELECT es FROM EmployeeSkillJpaEntity es
+        WHERE es.skillId = :skillId
+          AND es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
+          AND es.proficiencyLevel >= :minLevel
+    """)
+    List<EmployeeSkillJpaEntity> findApprovedBySkillAndMinLevel(
+            @Param("skillId") Long skillId,
+            @Param("minLevel") int minLevel
     );
 }
