@@ -11,7 +11,7 @@ public record WeeklyCapacityResult(
         Integer standardHours,
         BigDecimal netAvailableHours,
         BigDecimal totalAllocatedHours,
-        BigDecimal remainingAvailableHours
-        ) {
-
-}
+        BigDecimal remainingAvailableHours,
+        boolean isOverAllocated,
+        String warningMessage
+) {}

@@ -1,16 +1,15 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation;
 
-import java.util.List;
-import java.util.Optional;
-
-import org.springframework.stereotype.Component;
-
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.entity.WeeklyProjectAllocationJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.repository.SpringDataWeeklyProjectAllocationRepository;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
 
 @Component
 public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProjectAllocationPort, LoadWeeklyProjectAllocationPort {
@@ -23,15 +22,34 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
 
     @Override
     public WeeklyProjectAllocation save(WeeklyProjectAllocation allocation) {
-        WeeklyProjectAllocationJpaEntity entity = new WeeklyProjectAllocationJpaEntity(
-                allocation.getId(),
-                allocation.getEmployeeId(),
-                allocation.getProjectId(),
-                allocation.getYear(),
-                allocation.getWeekNumber(),
-                allocation.getAllocatedHours(),
-                allocation.getVersion()
-        );
+        WeeklyProjectAllocationJpaEntity entity;
+        if (allocation.getId() != null) {
+            entity = repository.findById(allocation.getId())
+                    .orElseGet(() -> new WeeklyProjectAllocationJpaEntity(
+                            allocation.getId(),
+                            allocation.getEmployeeId(),
+                            allocation.getProjectId(),
+                            allocation.getYear(),
+                            allocation.getWeekNumber(),
+                            allocation.getAllocatedHours(),
+                            allocation.getVersion()
+                    ));
+            entity.setAllocatedHours(allocation.getAllocatedHours());
+            if (allocation.getVersion() != null) {
+                entity.setVersion(allocation.getVersion());
+            }
+        } else {
+            entity = new WeeklyProjectAllocationJpaEntity(
+                    null,
+                    allocation.getEmployeeId(),
+                    allocation.getProjectId(),
+                    allocation.getYear(),
+                    allocation.getWeekNumber(),
+                    allocation.getAllocatedHours(),
+                    allocation.getVersion()
+            );
+        }
+
         WeeklyProjectAllocationJpaEntity saved = repository.save(entity);
         return new WeeklyProjectAllocation(
                 saved.getId(),
@@ -48,9 +66,9 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
         return repository.findByEmployeeIdAndProjectIdAndYearAndWeekNumber(
                 employeeId, projectId, yearWeek.year(), yearWeek.weekNumber())
                 .map(e -> new WeeklyProjectAllocation(
-                e.getId(), e.getEmployeeId(), e.getProjectId(),
-                YearWeek.of(e.getYear(), e.getWeekNumber()),
-                e.getAllocatedHours(), e.getVersion()));
+                        e.getId(), e.getEmployeeId(), e.getProjectId(),
+                        YearWeek.of(e.getYear(), e.getWeekNumber()),
+                        e.getAllocatedHours(), e.getVersion()));
     }
 
     @Override
@@ -58,9 +76,9 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
         return repository.findByEmployeeIdAndYearAndWeekNumber(employeeId, yearWeek.year(), yearWeek.weekNumber())
                 .stream()
                 .map(e -> new WeeklyProjectAllocation(
-                e.getId(), e.getEmployeeId(), e.getProjectId(),
-                YearWeek.of(e.getYear(), e.getWeekNumber()),
-                e.getAllocatedHours(), e.getVersion()))
+                        e.getId(), e.getEmployeeId(), e.getProjectId(),
+                        YearWeek.of(e.getYear(), e.getWeekNumber()),
+                        e.getAllocatedHours(), e.getVersion()))
                 .toList();
     }
 
@@ -69,9 +87,9 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
         return repository.findByEmployeeIdInAndYearAndWeekNumberBetween(employeeIds, year, startWeek, endWeek)
                 .stream()
                 .map(e -> new WeeklyProjectAllocation(
-                e.getId(), e.getEmployeeId(), e.getProjectId(),
-                YearWeek.of(e.getYear(), e.getWeekNumber()),
-                e.getAllocatedHours(), e.getVersion()))
+                        e.getId(), e.getEmployeeId(), e.getProjectId(),
+                        YearWeek.of(e.getYear(), e.getWeekNumber()),
+                        e.getAllocatedHours(), e.getVersion()))
                 .toList();
     }
 }
