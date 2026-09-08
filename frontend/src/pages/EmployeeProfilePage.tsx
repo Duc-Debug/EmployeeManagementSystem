@@ -681,7 +681,7 @@ export default function EmployeeProfilePage() {
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                     <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-                        Quản lý hồ sơ nhân sự
+                        Quản tài lý khoản người dùng
                     </h1>
                     <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
                         Khai báo, phân quyền vai trò và quản lý danh sách hồ sơ nhân sự toàn công ty.

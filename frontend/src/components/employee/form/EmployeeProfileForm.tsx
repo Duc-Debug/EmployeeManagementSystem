@@ -10,8 +10,6 @@ import {
     User,
     Mail,
     Phone,
-    Clock,
-    CalendarDays,
     BadgeAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +22,7 @@ import {
     DATA_SCOPE_OPTIONS,
     DEFAULT_FORM_VALUES,
 } from "./employeeForm.constants";
+import TaskSelect from "../../task/TaskSelect";
 
 interface EmployeeProfileFormProps {
     open: boolean;
@@ -165,24 +164,11 @@ export default function EmployeeProfileForm({
             return;
         }
 
-        if (formData.joinDate && formData.contractEndDate) {
-            if (formData.contractEndDate < formData.joinDate) {
-                setErrorMessage("Ngày kết thúc hợp đồng không được trước ngày vào làm.");
-                return;
-            }
-        }
-
-        const selectedOrg = orgUnitOptions.find((o) => String(o.id) === String(formData.orgUnitId));
-
         onSave({
             ...formData,
             fullName: formData.fullName.trim(),
             email: formData.email.trim(),
             phone: formData.phone?.trim() || "",
-            joinDate: formData.joinDate?.trim() || undefined,
-            startDate: formData.joinDate?.trim() || undefined,
-            contractEndDate: formData.contractEndDate?.trim() || undefined,
-            standardHoursPerWeek: Number(formData.standardHoursPerWeek) || 40,
             employeeCode: formData.employeeCode.trim().toUpperCase(),
             username: formData.username.trim(),
             department: formData.department || selectedOrg?.unitName || "Chưa phân bổ",
@@ -411,111 +397,25 @@ export default function EmployeeProfileForm({
                         </div>
                     </div>
 
-                    {/* KHỐI 2: HỢP ĐỒNG & THỜI GIAN LÀM VIỆC */}
-                    <div className="space-y-3.5 pt-2">
-                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-                            <CalendarDays className="size-4 text-indigo-600" />
-                            <span>2. Hợp đồng & Thời gian làm việc</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            {/* Ngày vào làm */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-slate-700">Ngày vào làm</label>
-                                    <span className="text-[10px] text-slate-400 font-medium">(Bắt đầu HĐLĐ)</span>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={formData.joinDate || ""}
-                                        onChange={(e) =>
-                                            setFormData((prev) => ({
-                                                ...prev,
-                                                joinDate: e.target.value,
-                                                startDate: e.target.value,
-                                            }))
-                                        }
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 [color-scheme:light]"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Ngày kết thúc HĐLĐ */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-slate-700">Ngày kết thúc HĐLĐ</label>
-                                    <span className="text-[10px] text-slate-400 font-medium">(Để trống nếu vô thời hạn)</span>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={formData.contractEndDate || ""}
-                                        min={formData.joinDate || undefined}
-                                        onChange={(e) =>
-                                            setFormData((prev) => ({
-                                                ...prev,
-                                                contractEndDate: e.target.value,
-                                            }))
-                                        }
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 [color-scheme:light]"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            {/* Giờ làm việc chuẩn / tuần */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-slate-700">Giờ làm việc chuẩn / tuần *</label>
-                                    <span className="text-[10px] text-slate-400 font-medium">(Mặc định: 40h)</span>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={168}
-                                        step={1}
-                                        required
-                                        placeholder="40"
-                                        value={formData.standardHoursPerWeek ?? 40}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                standardHoursPerWeek: Number(e.target.value) || 0,
-                                            })
-                                        }
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                                    />
-                                    <Clock className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* KHỐI 3: PHÂN QUYỀN & PHẠM VI DỮ LIỆU */}
+                    {/* KHỐI 2: PHÂN QUYỀN & PHẠM VI DỮ LIỆU */}
                     <div className="space-y-3.5 pt-2">
                         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
                             <ShieldCheck className="size-4 text-indigo-600" />
-                            <span>3. Phân quyền & Phạm vi dữ liệu</span>
+                            <span>2. Phân quyền & Phạm vi dữ liệu</span>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {/* Vai trò */}
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-slate-700">Vai trò (Role) *</label>
-                                <select
+                                <TaskSelect
                                     value={formData.roleCode || "VT-04"}
-                                    onChange={(e) => handleRoleChange(e.target.value)}
-                                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                                >
-                                    {ROLE_OPTIONS.map((role) => (
-                                        <option key={role.code} value={role.code}>
-                                            {role.code} · {role.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={ROLE_OPTIONS.map((r) => ({ id: r.code, label: `${r.code} · ${r.name}` }))}
+                                    onChange={(val) => handleRoleChange(val)}
+                                    placeholder="Chọn vai trò..."
+                                    hideSearch={true}
+                                    buttonClassName="bg-slate-50/70 border-slate-200 py-2 rounded-xl"
+                                />
                             </div>
 
                             {/* Phạm vi dữ liệu */}
@@ -523,29 +423,21 @@ export default function EmployeeProfileForm({
                                 <label className="text-xs font-semibold text-slate-700">
                                     Phạm vi dữ liệu *
                                 </label>
-                                <select
+                                <TaskSelect
                                     disabled={isSystemAdmin}
                                     value={formData.dataScope || "SELF"}
-                                    onChange={(e) =>
+                                    options={DATA_SCOPE_OPTIONS.map((s) => ({ id: s.value, label: s.label }))}
+                                    onChange={(val) =>
                                         setFormData({
                                             ...formData,
-                                            dataScope: e.target.value as "COMPANY" | "ORGANIZATION_BRANCH" | "SELF",
-                                            scopeOrgUnitId: e.target.value !== "ORGANIZATION_BRANCH" ? "" : formData.scopeOrgUnitId,
+                                            dataScope: val as "COMPANY" | "ORGANIZATION_BRANCH" | "SELF",
+                                            scopeOrgUnitId: val !== "ORGANIZATION_BRANCH" ? "" : formData.scopeOrgUnitId,
                                         })
                                     }
-                                    className={cn(
-                                        "w-full rounded-xl border px-3.5 py-2 text-xs font-semibold outline-none transition",
-                                        isSystemAdmin
-                                            ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
-                                            : "border-slate-200 bg-slate-50/70 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                                    )}
-                                >
-                                    {DATA_SCOPE_OPTIONS.map((scope) => (
-                                        <option key={scope.value} value={scope.value}>
-                                            {scope.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                    placeholder="Chọn phạm vi..."
+                                    hideSearch={true}
+                                    buttonClassName={isSystemAdmin ? "bg-slate-100 border-slate-200 py-2 rounded-xl text-slate-500 cursor-not-allowed" : "bg-slate-50/70 border-slate-200 py-2 rounded-xl"}
+                                />
                             </div>
                         </div>
 
@@ -553,19 +445,21 @@ export default function EmployeeProfileForm({
                             {/* Trạng thái hoạt động */}
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-slate-700">Trạng thái tài khoản *</label>
-                                <select
+                                <TaskSelect
                                     value={formData.status === "LOCKED" || formData.status === "locked" ? "LOCKED" : "ACTIVE"}
-                                    onChange={(e) =>
+                                    options={[
+                                        { id: "ACTIVE", label: "Hoạt động (ACTIVE)" },
+                                        { id: "LOCKED", label: "Đã khóa (LOCKED)" },
+                                    ]}
+                                    onChange={(val) =>
                                         setFormData({
                                             ...formData,
-                                            status: e.target.value as "ACTIVE" | "LOCKED",
+                                            status: val as "ACTIVE" | "LOCKED",
                                         })
                                     }
-                                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                                >
-                                    <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-                                    <option value="LOCKED">Đã khóa (LOCKED)</option>
-                                </select>
+                                    hideSearch={true}
+                                    buttonClassName="bg-slate-50/70 border-slate-200 py-2 rounded-xl"
+                                />
                             </div>
 
                             {/* Nếu chọn Theo đơn vị: ComboBox chọn đơn vị áp dụng */}

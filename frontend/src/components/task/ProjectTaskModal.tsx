@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, ClipboardCheck } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember } from './projectData';
+import ComboSelect from '../department/ComboSelect';
 
 interface ProjectTaskModalProps {
     open: boolean;
@@ -86,18 +87,14 @@ export function ProjectTaskModal({
                 <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
                     <div>
                         <label className="mb-1 block font-semibold text-slate-700">Hạng mục chính (Phase/Category) *</label>
-                        <select
+                        <ComboSelect
                             value={catId}
-                            onChange={(e) => setCatId(e.target.value)}
-                            required
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                        >
-                            {categories.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.code} - {c.name}
-                                </option>
-                            ))}
-                        </select>
+                            options={categories.map((c) => ({ id: c.id, label: `${c.code} - ${c.name}` }))}
+                            onChange={(id) => id && setCatId(id)}
+                            placeholder="Chọn hạng mục..."
+                            hideSearch
+                            buttonClassName="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none hover:border-slate-400"
+                        />
                     </div>
 
                     <div>
@@ -108,37 +105,36 @@ export function ProjectTaskModal({
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="VD: Thiết kế giao diện chi tiết màn hình Dashboard"
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="mb-1 block font-semibold text-slate-700">Người phụ trách chính *</label>
-                            <select
+                            <ComboSelect
                                 value={assigneeId}
-                                onChange={(e) => setAssigneeId(e.target.value)}
-                                required
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                            >
-                                {members.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                        {m.name} ({m.role})
-                                    </option>
-                                ))}
-                            </select>
+                                options={members.map((m) => ({ id: m.id, label: m.name, sublabel: m.role }))}
+                                onChange={(id) => id && setAssigneeId(id)}
+                                placeholder="Chọn người phụ trách..."
+                                searchPlaceholder="Tìm tên hoặc vai trò..."
+                                buttonClassName="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none hover:border-slate-400"
+                            />
                         </div>
                         <div>
                             <label className="mb-1 block font-semibold text-slate-700">Mức độ ưu tiên</label>
-                            <select
+                            <ComboSelect
                                 value={priority}
-                                onChange={(e) => setPriority(e.target.value as any)}
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                            >
-                                <option value="Cao">Cao (High)</option>
-                                <option value="Trung bình">Trung bình (Medium)</option>
-                                <option value="Thấp">Thấp (Low)</option>
-                            </select>
+                                options={[
+                                    { id: 'Cao', label: 'Cao (High)' },
+                                    { id: 'Trung bình', label: 'Trung bình (Medium)' },
+                                    { id: 'Thấp', label: 'Thấp (Low)' },
+                                ]}
+                                onChange={(id) => id && setPriority(id as any)}
+                                placeholder="Chọn mức độ..."
+                                hideSearch
+                                buttonClassName="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none hover:border-slate-400"
+                            />
                         </div>
                     </div>
 
@@ -152,36 +148,42 @@ export function ProjectTaskModal({
                                 required
                                 value={hours}
                                 onChange={(e) => setHours(Number(e.target.value))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </div>
                         <div>
                             <label className="mb-1 block font-semibold text-slate-700">Tuần bắt đầu</label>
-                            <select
+                            <ComboSelect
                                 value={startWeekKey}
-                                onChange={(e) => setStartWeekKey(e.target.value)}
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                            >
-                                <option value="W1">Tuần 1 (01/09 - 07/09)</option>
-                                <option value="W2">Tuần 2 (08/09 - 14/09)</option>
-                                <option value="W3">Tuần 3 (15/09 - 21/09)</option>
-                                <option value="W4">Tuần 4 (22/09 - 28/09)</option>
-                                <option value="W5">Tuần 5 (29/09 - 30/09)</option>
-                            </select>
+                                options={[
+                                    { id: 'W1', label: 'Tuần 1 (01/09 - 07/09)' },
+                                    { id: 'W2', label: 'Tuần 2 (08/09 - 14/09)' },
+                                    { id: 'W3', label: 'Tuần 3 (15/09 - 21/09)' },
+                                    { id: 'W4', label: 'Tuần 4 (22/09 - 28/09)' },
+                                    { id: 'W5', label: 'Tuần 5 (29/09 - 30/09)' },
+                                ]}
+                                onChange={(id) => id && setStartWeekKey(id)}
+                                placeholder="Chọn tuần..."
+                                hideSearch
+                                buttonClassName="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none hover:border-slate-400"
+                            />
                         </div>
                         <div>
                             <label className="mb-1 block font-semibold text-slate-700">Tuần kết thúc</label>
-                            <select
+                            <ComboSelect
                                 value={endWeekKey}
-                                onChange={(e) => setEndWeekKey(e.target.value)}
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                            >
-                                <option value="W1">Tuần 1 (01/09 - 07/09)</option>
-                                <option value="W2">Tuần 2 (08/09 - 14/09)</option>
-                                <option value="W3">Tuần 3 (15/09 - 21/09)</option>
-                                <option value="W4">Tuần 4 (22/09 - 28/09)</option>
-                                <option value="W5">Tuần 5 (29/09 - 30/09)</option>
-                            </select>
+                                options={[
+                                    { id: 'W1', label: 'Tuần 1 (01/09 - 07/09)' },
+                                    { id: 'W2', label: 'Tuần 2 (08/09 - 14/09)' },
+                                    { id: 'W3', label: 'Tuần 3 (15/09 - 21/09)' },
+                                    { id: 'W4', label: 'Tuần 4 (22/09 - 28/09)' },
+                                    { id: 'W5', label: 'Tuần 5 (29/09 - 30/09)' },
+                                ]}
+                                onChange={(id) => id && setEndWeekKey(id)}
+                                placeholder="Chọn tuần..."
+                                hideSearch
+                                buttonClassName="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none hover:border-slate-400"
+                            />
                         </div>
                     </div>
 

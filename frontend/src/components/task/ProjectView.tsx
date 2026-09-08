@@ -13,6 +13,7 @@ import {
     Search,
     CheckCircle2,
     Info,
+    UserCheck,
 } from 'lucide-react';
 import {
     INITIAL_CATEGORIES,
@@ -25,9 +26,11 @@ import { ProjectWbsView } from './ProjectWbsView';
 import { ProjectWeeklyMatrix } from './ProjectWeeklyMatrix';
 import { ProjectTaskModal } from './ProjectTaskModal';
 import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
+import { ProjectResourceSearch } from './ProjectResourceSearch';
+import TaskSelect from './TaskSelect';
 
 export default function ProjectView() {
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'search'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>(INITIAL_CATEGORIES);
     const [members, setMembers] = useState<ProjectMember[]>(INITIAL_PROJECT_MEMBERS);
     const [months] = useState(INITIAL_MONTHS_LIST);
@@ -345,36 +348,55 @@ export default function ProjectView() {
                         <CalendarDays className="h-4 w-4" />
                         <span>Phân bổ theo tuần</span>
                     </button>
-                </div>
-
-                {/* Filters */}
-                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-                    {/* Search */}
-                    <div className="relative flex-1 sm:w-56">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Tìm việc, nhân sự..."
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
-                        />
-                    </div>
-
-                    {/* Filter Role */}
-                    <select
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('search')}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
+                            viewMode === 'search'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
                     >
-                        <option value="ALL">Tất cả vai trò</option>
-                        <option value="Product Owner / BA">Product / BA</option>
-                        <option value="UI/UX Designer">UI/UX Design</option>
-                        <option value="Frontend Dev">Frontend</option>
-                        <option value="Backend Dev">Backend</option>
-                        <option value="QA / QC Tester">QA / QC</option>
-                    </select>
+                        <UserCheck className="h-4 w-4" />
+                        <span>Tra cứu nguồn lực</span>
+                    </button>
                 </div>
+
+                {/* Filters (Chỉ hiển thị khi chọn 3 tab đầu: Split View, WBS, Workload) */}
+                {viewMode !== 'search' && (
+                    <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto animate-in fade-in">
+                        {/* Search */}
+                        <div className="relative flex-1 sm:w-56">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Tìm việc, nhân sự..."
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </div>
+
+                        {/* Filter Role */}
+                        <div className="w-44">
+                            <TaskSelect
+                                value={roleFilter}
+                                options={[
+                                    { id: 'ALL', label: 'Tất cả vai trò' },
+                                    { id: 'Product Owner / BA', label: 'Product / BA' },
+                                    { id: 'UI/UX Designer', label: 'UI/UX Design' },
+                                    { id: 'Frontend Dev', label: 'Frontend' },
+                                    { id: 'Backend Dev', label: 'Backend' },
+                                    { id: 'QA / QC Tester', label: 'QA / QC' },
+                                ]}
+                                onChange={(id) => id && setRoleFilter(id)}
+                                placeholder="Tất cả vai trò"
+                                hideSearch
+                                buttonClassName="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none hover:bg-white"
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Main Views Container Grid */}
@@ -404,6 +426,13 @@ export default function ProjectView() {
                             onNavigateMonth={handleNavigateMonth}
                             onOpenAdjustModal={handleOpenAdjustModal}
                         />
+                    </div>
+                )}
+
+                {/* Section 3: Resource Search */}
+                {viewMode === 'search' && (
+                    <div className="lg:col-span-12">
+                        <ProjectResourceSearch />
                     </div>
                 )}
             </div>

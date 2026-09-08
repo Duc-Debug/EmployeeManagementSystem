@@ -8,12 +8,14 @@ import {
     ChevronRight,
     ClipboardList,
     FolderKanban,
+    FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
-    { name: "Nhân sự", icon: Users, id: "employees" },
+    { name: "Quản lý tài khoản", icon: Users, id: "employees" },
+    { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Chấm công", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
     { name: "Phòng ban", icon: Building2, id: "departments" },
