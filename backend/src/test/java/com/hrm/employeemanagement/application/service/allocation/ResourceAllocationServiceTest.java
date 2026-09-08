@@ -6,10 +6,13 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeekl
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
@@ -22,6 +25,8 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,7 +69,16 @@ class ResourceAllocationServiceTest {
     private SaveAuditLogInNewTransactionPort saveAuditLogPort;
 
     @Mock
+    private LoadUserPort loadUserPort;
+
+    @Mock
+    private LoadOrgUnitPort loadOrgUnitPort;
+
+    @Mock
     private Project projectMock;
+
+    @Mock
+    private User currentUserMock;
 
     private ResourceAllocationService service;
 
@@ -82,14 +96,22 @@ class ResourceAllocationServiceTest {
                 loadWeeklyAvailabilityPort,
                 saveAllocationPort,
                 loadAllocationPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                loadUserPort,
+                loadOrgUnitPort
         );
+    }
+
+    private void setupCurrentUserWithCompanyScope() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(currentUserMock));
+        when(currentUserMock.getDataScope()).thenReturn(DataScope.COMPANY);
     }
 
     @Test
     @DisplayName("TC-01: Phân bổ 20h cho nhân sự có 30h rảnh -> Giờ rảnh còn lại 10h")
     void testTC01_Success_AllocationDeductsRemainingCapacity() {
-        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(1L);
+        setupCurrentUserWithCompanyScope();
 
         Employee employee = new Employee(
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
@@ -97,6 +119,7 @@ class ResourceAllocationServiceTest {
         );
         when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
 
         YearWeek yearWeek = YearWeek.of(year, weekNumber);
         WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.valueOf(10), BigDecimal.valueOf(30));
@@ -128,7 +151,7 @@ class ResourceAllocationServiceTest {
     @Test
     @DisplayName("TC-02: Chặn phân bổ cho nhân sự có hợp đồng lao động đã hết hạn trước tuần chọn")
     void testTC02_Exception_EmployeeContractExpired() {
-        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(1L);
+        setupCurrentUserWithCompanyScope();
 
         Employee employee = new Employee(
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn B",
@@ -148,9 +171,36 @@ class ResourceAllocationServiceTest {
     }
 
     @Test
+    @DisplayName("Data Scope Authorization Check: Chặn phân bổ khi Nhân sự ngoài phạm vi quản lý ORGANIZATION_BRANCH")
+    void testDataScopeRestriction_EmployeeOutsideBranch_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(currentUserMock));
+        when(currentUserMock.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(currentUserMock.getScopeOrgUnitId()).thenReturn(100L); // Current user manages org unit 100
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 200L, "EMP001", "Nguyễn Văn X",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+
+        // Employee's org unit 200 is NOT in branch of RM's scope org unit 100
+        when(loadOrgUnitPort.existsInOrgUnitBranch(200L, 100L)).thenReturn(false);
+
+        AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> service.allocateResource(command)
+        );
+
+        verify(saveAllocationPort, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Blocking Issue Check: Chặn phân bổ cho Dự án không tồn tại")
     void testProjectNotFound_ThrowsException() {
-        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(1L);
+        setupCurrentUserWithCompanyScope();
 
         Employee employee = new Employee(
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn C",
@@ -171,9 +221,9 @@ class ResourceAllocationServiceTest {
     }
 
     @Test
-    @DisplayName("TC-03: Nhập số giờ phân bổ âm -> Thống báo lỗi và không lưu DB")
+    @DisplayName("TC-03: Nhập số giờ phân bổ âm -> Thông báo lỗi và không lưu DB")
     void testTC03_InvalidData_NegativeHours() {
-        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(1L);
+        setupCurrentUserWithCompanyScope();
 
         Employee employee = new Employee(
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn C",
@@ -181,6 +231,7 @@ class ResourceAllocationServiceTest {
         );
         when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
 
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(-10));
 

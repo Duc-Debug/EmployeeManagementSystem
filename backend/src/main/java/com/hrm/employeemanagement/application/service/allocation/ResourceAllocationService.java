@@ -15,8 +15,10 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeekl
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
@@ -27,9 +29,14 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
+import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
+import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
 
 public class ResourceAllocationService implements AllocateResourceUseCase {
 
@@ -40,6 +47,8 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
     private final SaveWeeklyProjectAllocationPort saveAllocationPort;
     private final LoadWeeklyProjectAllocationPort loadAllocationPort;
     private final SaveAuditLogInNewTransactionPort saveAuditLogPort;
+    private final LoadUserPort loadUserPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
 
     public ResourceAllocationService(
             AuthorizationService authorizationService,
@@ -48,7 +57,9 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             SaveWeeklyProjectAllocationPort saveAllocationPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
-            SaveAuditLogInNewTransactionPort saveAuditLogPort
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort
     ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
@@ -57,18 +68,25 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         this.saveAllocationPort = Objects.requireNonNull(saveAllocationPort, "SaveWeeklyProjectAllocationPort must not be null");
         this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "LoadWeeklyProjectAllocationPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
     }
 
     @Override
     public WeeklyCapacityResult allocateResource(AllocateResourceCommand command) {
-        // [TC-04] Kiểm tra quyền hạn của Quản lý nguồn lực (RESOURCE_ALLOCATION_MANAGE)
+        // [TC-04] Kiểm tra quyền hạn cơ bản
         Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + currentUserId));
 
         YearWeek yearWeek = YearWeek.of(command.year(), command.weekNumber());
 
-        // [TC-02] Load nhân sự thông qua EmployeeId
+        // [TC-02] Load nhân sự
         Employee employee = loadEmployeePort.findById(new EmployeeId(command.employeeId()))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + command.employeeId()));
+
+        // Kiểm tra Phạm vi dữ liệu (Data Scope) cho Nhân sự
+        requireOrgUnitInDataScope(currentUser, employee.getOrgUnitId(), PermissionCode.RESOURCE_ALLOCATION_MANAGE);
 
         if (employee.getStatus() != EmployeeStatus.ACTIVE) {
             throw new EmployeeInactiveException("Không thể phân bổ cho nhân sự không còn ở trạng thái hoạt động");
@@ -79,9 +97,12 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             throw new EmployeeInactiveException("Nhân sự đã kết thúc hợp đồng lao động trước tuần được chọn (" + yearWeek.weekNumber() + "/" + yearWeek.year() + ")");
         }
 
-        // 🔴 FIX: Kiểm tra Dự án có tồn tại hay không
-        loadProjectPort.findById(new ProjectId(command.projectId()))
+        // Load Dự án
+        Project project = loadProjectPort.findById(new ProjectId(command.projectId()))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
+
+        // Kiểm tra Phạm vi dữ liệu (Data Scope) cho Dự án
+        requireOrgUnitInDataScope(currentUser, project.getOrgUnitId(), PermissionCode.RESOURCE_ALLOCATION_MANAGE);
 
         // Tìm bản ghi phân bổ hiện tại hoặc tạo mới
         Optional<WeeklyProjectAllocation> existingOpt = loadAllocationPort.loadAllocation(
@@ -90,15 +111,13 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         WeeklyProjectAllocation allocation;
         if (existingOpt.isPresent()) {
             allocation = existingOpt.get();
-            // [TC-03] Kiểm tra số giờ âm tự động trong domain model
             allocation.updateAllocatedHours(command.allocatedHours());
         } else {
-            // [TC-03] Kiểm tra số giờ âm tự động trong domain model
             allocation = WeeklyProjectAllocation.createNew(
                     command.employeeId(), command.projectId(), yearWeek, command.allocatedHours());
         }
 
-        // 🟠 FIX Major: Xử lý Race Condition với Unique Constraint (employee_id, project_id, year, week)
+        // Lưu bản ghi với Race Condition handling
         WeeklyProjectAllocation saved;
         try {
             saved = saveAllocationPort.save(allocation);
@@ -122,44 +141,60 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 "Số giờ phân bổ mới: " + newValue + "h cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
         ));
 
-        // [TC-01] Tính toán công suất và số giờ còn rảnh
         return calculateCapacity(employee, yearWeek);
     }
 
     @Override
     public List<WeeklyCapacityResult> getWeeklyCapacities(List<Long> employeeIds, Integer year, Integer weekNumber) {
-        authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + currentUserId));
+
         YearWeek yearWeek = YearWeek.of(year, weekNumber);
 
         return employeeIds.stream().map(empId -> {
             Employee employee = loadEmployeePort.findById(new EmployeeId(empId)).orElse(null);
-            if (employee == null) {
+            if (employee == null || !isOrgUnitInDataScope(currentUser, employee.getOrgUnitId())) {
                 return null;
             }
             return calculateCapacity(employee, yearWeek);
         }).filter(Objects::nonNull).toList();
     }
 
+    private void requireOrgUnitInDataScope(User currentUser, Long orgUnitId, PermissionCode permission) {
+        if (!isOrgUnitInDataScope(currentUser, orgUnitId)) {
+            throw new PermissionDeniedException(permission);
+        }
+    }
+
+    private boolean isOrgUnitInDataScope(User currentUser, Long orgUnitId) {
+        if (orgUnitId == null) {
+            return false;
+        }
+        return switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> false;
+            case ORGANIZATION_BRANCH -> currentUser.getScopeOrgUnitId() != null
+                    && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, currentUser.getScopeOrgUnitId());
+        };
+    }
+
     private WeeklyCapacityResult calculateCapacity(Employee employee, YearWeek yearWeek) {
         Optional<WeeklyAvailability> availabilityOpt = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employee.getIdValue(), yearWeek);
 
-        // 🟠 FIX Major: Fallback standardHours chuẩn hóa 40h và không bị null trong Response DTO
         int standardHours = employee.getStandardHoursPerWeek() != null ? employee.getStandardHoursPerWeek() : 40;
 
         BigDecimal netAvailable = availabilityOpt.map(WeeklyAvailability::getNetAvailableHours)
                 .orElse(BigDecimal.valueOf(standardHours));
 
-        // Tính tổng số giờ đã phân bổ cho tất cả dự án trong tuần đó
         List<WeeklyProjectAllocation> allAllocations = loadAllocationPort.loadAllocationsForEmployee(employee.getIdValue(), yearWeek);
 
         BigDecimal totalAllocated = allAllocations.stream()
                 .map(WeeklyProjectAllocation::getAllocatedHours)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // [TC-01] Số giờ rảnh còn lại = Net Available Hours - Total Allocated Hours
         BigDecimal remainingHours = netAvailable.subtract(totalAllocated);
 
-        // 🟠 FIX Major: Đánh dấu Over-allocation và trả warning message rõ ràng
         boolean isOverAllocated = remainingHours.compareTo(BigDecimal.ZERO) < 0;
         String warningMessage = isOverAllocated
                 ? "Cảnh báo: Nhân sự bị phân bổ vượt quá " + remainingHours.abs() + " giờ khả dụng"

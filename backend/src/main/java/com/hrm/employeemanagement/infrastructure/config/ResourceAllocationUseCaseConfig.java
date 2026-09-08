@@ -7,8 +7,10 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeekl
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.allocation.ResourceAllocationService;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 
@@ -23,7 +25,9 @@ public class ResourceAllocationUseCaseConfig {
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             SaveWeeklyProjectAllocationPort saveAllocationPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
-            SaveAuditLogInNewTransactionPort saveAuditLogPort) {
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort) {
 
         return new ResourceAllocationService(
                 authorizationService,
@@ -32,7 +36,9 @@ public class ResourceAllocationUseCaseConfig {
                 loadWeeklyAvailabilityPort,
                 saveAllocationPort,
                 loadAllocationPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                loadUserPort,
+                loadOrgUnitPort
         );
     }
 }
