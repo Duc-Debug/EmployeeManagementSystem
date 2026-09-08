@@ -260,4 +260,62 @@ class ResourceAllocationServiceTest {
         verify(loadEmployeePort, never()).findById(any());
         verify(saveAllocationPort, never()).save(any());
     }
+
+    @Test
+    @DisplayName("getWeeklyCapacities: Ném lỗi EmployeeNotFoundException khi nhân sự không tồn tại")
+    void testGetWeeklyCapacities_EmployeeNotFound_ThrowsException() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(currentUserMock));
+        when(loadEmployeePort.findById(new EmployeeId(999L))).thenReturn(Optional.empty());
+
+        assertThrows(
+                com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException.class,
+                () -> service.getWeeklyCapacities(List.of(999L), year, weekNumber)
+        );
+    }
+
+    @Test
+    @DisplayName("getWeeklyCapacities: Ném lỗi PermissionDeniedException khi nhân sự ngoài phạm vi Data Scope")
+    void testGetWeeklyCapacities_EmployeeOutsideDataScope_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(currentUserMock));
+        when(currentUserMock.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(currentUserMock.getScopeOrgUnitId()).thenReturn(100L);
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 200L, "EMP001", "Nguyễn Văn X",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(200L, 100L)).thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> service.getWeeklyCapacities(List.of(employeeId), year, weekNumber)
+        );
+    }
+
+    @Test
+    @DisplayName("getWeeklyCapacities: Thành công trả về danh sách capacity của nhân sự trong Data Scope")
+    void testGetWeeklyCapacities_Success() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(currentUserMock));
+        when(currentUserMock.getDataScope()).thenReturn(DataScope.COMPANY);
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+
+        YearWeek yearWeek = YearWeek.of(year, weekNumber);
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.empty());
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek)).thenReturn(List.of());
+
+        List<WeeklyCapacityResult> results = service.getWeeklyCapacities(List.of(employeeId), year, weekNumber);
+
+        assertEquals(1, results.size());
+        assertEquals(employeeId, results.get(0).employeeId());
+        assertEquals(BigDecimal.valueOf(40), results.get(0).remainingAvailableHours());
+    }
 }
