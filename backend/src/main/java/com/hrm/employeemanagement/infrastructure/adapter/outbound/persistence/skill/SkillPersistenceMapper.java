@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill;
 
 import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
+import com.hrm.employeemanagement.domain.skill.ProficiencyLevel;
 import com.hrm.employeemanagement.domain.skill.Skill;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.EmployeeSkillJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.SkillJpaEntity;
@@ -43,14 +44,16 @@ public class SkillPersistenceMapper {
                 entity.getId(),
                 entity.getEmployeeId(),
                 entity.getSkillId(),
-                entity.getProficiencyLevel(),
+                entity.getProficiencyLevel() != null ? ProficiencyLevel.fromValue(entity.getProficiencyLevel()) : null,
                 entity.getYearsOfExperience(),
                 entity.getStatus(),
                 entity.getApprovedBy(),
                 entity.getApprovedAt(),
                 entity.getRejectionReason(),
+                entity.getReviewNotes(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getVersion()
         );
     }
 
@@ -68,8 +71,10 @@ public class SkillPersistenceMapper {
                 domain.getApprovedBy(),
                 domain.getApprovedAt(),
                 domain.getRejectionReason(),
+                domain.getReviewNotes(),
                 domain.getCreatedAt(),
-                domain.getUpdatedAt()
+                domain.getUpdatedAt(),
+                domain.getVersion()
         );
     }
 }
