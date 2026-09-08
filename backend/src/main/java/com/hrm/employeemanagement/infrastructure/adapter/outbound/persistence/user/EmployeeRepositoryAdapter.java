@@ -53,6 +53,12 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
     }
 
     @Override
+    public Optional<Employee> findByIdForUpdate(EmployeeId id) {
+        if (id == null || id.value() == null) return Optional.empty();
+        return springDataEmployeeRepository.findByIdForUpdate(id.value()).map(mapper::toDomain);
+    }
+
+    @Override
     public boolean existsByEmployeeCode(String employeeCode) {
         return springDataEmployeeRepository.existsByEmployeeCode(employeeCode);
     }

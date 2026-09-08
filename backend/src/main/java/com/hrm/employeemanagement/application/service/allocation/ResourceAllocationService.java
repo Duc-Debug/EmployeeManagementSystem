@@ -82,8 +82,8 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
 
         YearWeek yearWeek = YearWeek.of(command.year(), command.weekNumber());
 
-        // [TC-02] Load nhân sự
-        Employee employee = loadEmployeePort.findById(new EmployeeId(command.employeeId()))
+        // [TC-02] Load nhân sự (Pessimistic write lock trên employee row để serialize concurrent allocations)
+        Employee employee = loadEmployeePort.findByIdForUpdate(new EmployeeId(command.employeeId()))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + command.employeeId()));
 
         // Kiểm tra Phạm vi dữ liệu (Data Scope) cho Nhân sự

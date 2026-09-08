@@ -119,7 +119,7 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
         when(projectMock.getOrgUnitId()).thenReturn(1L);
 
@@ -158,7 +158,7 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
         when(projectMock.getOrgUnitId()).thenReturn(1L);
 
@@ -191,7 +191,7 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
         when(projectMock.getOrgUnitId()).thenReturn(1L);
 
@@ -226,7 +226,7 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn B",
                 "Tester", LocalDate.of(2025, 1, 1), LocalDate.of(2026, 8, 1), false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
 
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(15));
 
@@ -251,7 +251,7 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 200L, "EMP001", "Nguyễn Văn X",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadOrgUnitPort.existsInOrgUnitBranch(200L, 100L)).thenReturn(false);
 
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
@@ -273,7 +273,7 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn C",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.empty());
 
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
@@ -296,7 +296,7 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn C",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
         when(projectMock.getOrgUnitId()).thenReturn(1L);
 
@@ -333,7 +333,7 @@ class ResourceAllocationServiceTest {
                 () -> service.allocateResource(command)
         );
 
-        verify(loadEmployeePort, never()).findById(any());
+        verify(loadEmployeePort, never()).findByIdForUpdate(any());
         verify(saveAllocationPort, never()).save(any());
     }
 
