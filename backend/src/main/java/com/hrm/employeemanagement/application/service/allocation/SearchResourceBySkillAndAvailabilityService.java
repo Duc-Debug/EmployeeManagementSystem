@@ -215,6 +215,14 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
         // [TC-04] Ghi lại lịch sử tìm kiếm thành công vào Audit Log
         recordSuccessAuditLog(currentUser, query, results.size());
 
+        // Phân trang kết quả nếu có cấu hình size
+        if (query.size() != null && query.size() > 0) {
+            int pageIndex = query.page() != null ? query.page() : 0;
+            int fromIndex = Math.min(pageIndex * query.size(), results.size());
+            int toIndex = Math.min(fromIndex + query.size(), results.size());
+            return new ArrayList<>(results.subList(fromIndex, toIndex));
+        }
+
         return results;
     }
 

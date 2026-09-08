@@ -32,6 +32,7 @@ import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;
@@ -340,4 +341,57 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         assertThrows(PermissionDeniedException.class, () -> service.search(query));
         verify(saveAuditLogPort).save(any(AuditLog.class));
     }
+
+    @Test
+    @DisplayName("Edge case 8: Khoảng thời gian tìm kiếm vượt quá 52 tuần bị từ chối")
+    void testSearch_RangeGreaterThan52Weeks_ThrowsIllegalArgumentException() {
+        // From 2026-W01 to 2027-W05 is > 52 weeks
+        assertThrows(IllegalArgumentException.class, () ->
+                new SearchResourceQuery(1L, 1, null, 2026, 1, 2027, 5)
+        );
+    }
+
+    @Test
+    @DisplayName("Edge case 9: Phân trang page=0 size=2 và page=1 size=2 hoạt động chính xác")
+    void testSearch_Pagination_ReturnsCorrectPageAndSize() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(100L);
+        User globalUser = createUserWithScope(100L, DataScope.COMPANY, null);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(globalUser));
+
+        ResourceCandidate c1 = createCandidate(101L, 1L, 10L, "NV01", "A");
+        ResourceCandidate c2 = createCandidate(102L, 2L, 10L, "NV02", "B");
+        ResourceCandidate c3 = createCandidate(103L, 3L, 10L, "NV03", "C");
+
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(c1, c2, c3));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        // Page 0, size 2 -> should return first 2
+        SearchResourceQuery page0Query = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10, 0, 2);
+        List<ResourceSearchResult> page0 = service.search(page0Query);
+        assertEquals(2, page0.size());
+        assertEquals(101L, page0.get(0).employeeId());
+        assertEquals(102L, page0.get(1).employeeId());
+
+        // Page 1, size 2 -> should return last 1
+        SearchResourceQuery page1Query = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10, 1, 2);
+        List<ResourceSearchResult> page1 = service.search(page1Query);
+        assertEquals(1, page1.size());
+        assertEquals(103L, page1.get(0).employeeId());
+    }
+
+    @Test
+    @DisplayName("Edge case 10: Skill không tồn tại ném SkillNotFoundException")
+    void testSearch_SkillNotFound_ThrowsSkillNotFoundException() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(100L);
+        User globalUser = createUserWithScope(100L, DataScope.COMPANY, null);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(globalUser));
+
+        when(searchResourcePort.findActiveEmployeesBySkill(999L, 1))
+                .thenThrow(new SkillNotFoundException("Không tìm thấy kỹ năng với ID: 999"));
+
+        SearchResourceQuery query = new SearchResourceQuery(999L, 1, null, 2026, 10, 2026, 10);
+        assertThrows(SkillNotFoundException.class, () -> service.search(query));
+    }
 }
+

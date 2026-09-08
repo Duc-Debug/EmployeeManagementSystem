@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.dto.allocation;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.WeekFields;
 import java.util.Objects;
 
@@ -16,6 +17,8 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
  * @param fromWeek Tuần bắt đầu theo chuẩn ISO-8601
  * @param toYear Năm kết thúc
  * @param toWeek Tuần kết thúc theo chuẩn ISO-8601
+ * @param page Số trang cần lấy (0-indexed, tùy chọn)
+ * @param size Kích thước trang (tùy chọn)
  */
 public record SearchResourceQuery(
         Long skillId,
@@ -24,8 +27,22 @@ public record SearchResourceQuery(
         Integer fromYear,
         Integer fromWeek,
         Integer toYear,
-        Integer toWeek
+        Integer toWeek,
+        Integer page,
+        Integer size
 ) {
+
+    public SearchResourceQuery(
+            Long skillId,
+            Integer minProficiencyLevel,
+            Long orgUnitId,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer toYear,
+            Integer toWeek
+    ) {
+        this(skillId, minProficiencyLevel, orgUnitId, fromYear, fromWeek, toYear, toWeek, null, null);
+    }
 
     public SearchResourceQuery {
         Objects.requireNonNull(skillId, "skillId không được để trống");
@@ -61,6 +78,18 @@ public record SearchResourceQuery(
             throw new IllegalArgumentException(
                     "Khoảng thời gian bắt đầu phải nhỏ hơn hoặc bằng khoảng thời gian kết thúc"
             );
+        }
+
+        long weeksBetween = ChronoUnit.WEEKS.between(from.getStartDate(), to.getStartDate());
+        if (weeksBetween > 52) {
+            throw new IllegalArgumentException("Khoảng thời gian tìm kiếm không được vượt quá 52 tuần");
+        }
+
+        if (page != null && page < 0) {
+            throw new IllegalArgumentException("Số trang (page) không được nhỏ hơn 0");
+        }
+        if (size != null && size <= 0) {
+            throw new IllegalArgumentException("Kích thước trang (size) phải lớn hơn 0");
         }
     }
 }

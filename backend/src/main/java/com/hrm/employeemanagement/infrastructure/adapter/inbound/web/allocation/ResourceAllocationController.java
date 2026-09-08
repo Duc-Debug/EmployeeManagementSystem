@@ -83,7 +83,9 @@ public class ResourceAllocationController {
             @RequestParam Integer fromYear,
             @RequestParam Integer fromWeek,
             @RequestParam Integer toYear,
-            @RequestParam Integer toWeek) {
+            @RequestParam Integer toWeek,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         if (minProficiencyLevel != null && minLevel != null && !minProficiencyLevel.equals(minLevel)) {
             throw new IllegalArgumentException("Không được truyền đồng thời cả minProficiencyLevel và minLevel với giá trị khác nhau");
         }
@@ -95,7 +97,9 @@ public class ResourceAllocationController {
                 fromYear,
                 fromWeek,
                 toYear,
-                toWeek
+                toWeek,
+                page,
+                size
         );
         List<ResourceSearchResult> results = searchResourceUseCase.search(query);
         return ResponseEntity.ok(ApiResponse.success("Tìm kiếm nhân sự theo kỹ năng và mức độ rảnh thành công", results));
