@@ -62,6 +62,9 @@ export interface TaskNodeResult {
   estimatedHours?: number;
   actualHours?: number;
   budgetHours?: number;
+  burnedPercentage?: number;
+  burnStatus?: 'NOT_SET' | 'SAFE' | 'WARNING' | 'OVER_BUDGET';
+  isOverBudget?: boolean;
   status: BackendTaskStatus;
   sortOrder?: number;
   createdBy?: number;

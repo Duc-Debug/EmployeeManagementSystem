@@ -7,6 +7,9 @@ export interface TaskItem {
     hours: number;
     budgetHours?: number; // Ngân sách giờ công do PM đặt
     actualHours?: number; // Giờ công thực tế đã duyệt
+    burnedPercentage?: number; // Tỷ lệ đã dùng (%) từ Backend
+    burnStatus?: 'NOT_SET' | 'SAFE' | 'WARNING' | 'OVER_BUDGET'; // Trạng thái ngân sách từ Backend
+    isOverBudget?: boolean; // Cờ vượt ngân sách từ Backend
     status: 'Hoàn thành' | 'Đang làm' | 'Chờ duyệt' | 'Chưa làm';
     startWeek: string;
     endWeek: string;

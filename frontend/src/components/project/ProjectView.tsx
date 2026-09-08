@@ -24,6 +24,7 @@ import {
     Search,
     CheckCircle2,
     Info,
+    AlertCircle,
     Database,
     RefreshCw,
     FolderPlus,
@@ -85,8 +86,11 @@ function mapBackendWbsToUiCategories(
                     assigneeId: member ? member.id : (child.assigneeId ? `u-${child.assigneeId}` : ''),
                     priority: 'Trung bình',
                     hours: Number(child.estimatedHours || 0),
-                    budgetHours: Number(child.budgetHours || 0),
+                    budgetHours: child.budgetHours !== undefined ? Number(child.budgetHours) : undefined,
                     actualHours: Number(child.actualHours || 0),
+                    burnedPercentage: child.burnedPercentage !== undefined ? Number(child.burnedPercentage) : undefined,
+                    burnStatus: child.burnStatus,
+                    isOverBudget: child.isOverBudget,
                     status: statusMap[child.status] || 'Chưa làm',
                     startWeek: 'Tuần 1',
                     endWeek: 'Tuần 3',
@@ -117,8 +121,11 @@ function mapBackendWbsToUiCategories(
                 assigneeId: member ? member.id : (node.assigneeId ? `u-${node.assigneeId}` : ''),
                 priority: 'Trung bình',
                 hours: Number(node.estimatedHours || 0),
-                budgetHours: Number(node.budgetHours || 0),
+                budgetHours: node.budgetHours !== undefined ? Number(node.budgetHours) : undefined,
                 actualHours: Number(node.actualHours || 0),
+                burnedPercentage: node.burnedPercentage !== undefined ? Number(node.burnedPercentage) : undefined,
+                burnStatus: node.burnStatus,
+                isOverBudget: node.isOverBudget,
                 status: statusMap[node.status] || 'Chưa làm',
                 startWeek: 'Tuần 1',
                 endWeek: 'Tuần 3',
@@ -162,9 +169,9 @@ export default function ProjectView() {
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
 
     // Toast state
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-    const showToast = useCallback((message: string, type: 'success' | 'info' = 'success') => {
+    const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'success') => {
         setToast({ message, type });
         setTimeout(() => {
             setToast(null);
@@ -448,24 +455,43 @@ export default function ProjectView() {
 
     // Đặt ngân sách: Gọi API PATCH /api/v1/projects/{projectId}/tasks/{taskId}/budget
     const handleSaveTaskBudget = async (taskId: string, newBudgetHours: number) => {
-        setCategories((prev) =>
-            prev.map((cat) => ({
-                ...cat,
-                tasks: cat.tasks.map((t) => (t.id === taskId ? { ...t, budgetHours: newBudgetHours } : t)),
-            }))
-        );
-
-        const taskName = selectedBudgetTask?.name || taskId;
-        showToast(`Đã lưu ngân sách ${newBudgetHours}h cho công việc: ${taskName}`, 'success');
-
         const numTaskId = parseInt(taskId.replace(/\D/g, ''), 10);
         const projIdToUse = selectedProjectId || 1;
-        if (!isNaN(numTaskId) && numTaskId > 0) {
-            try {
-                await setTaskBudget(projIdToUse, numTaskId, newBudgetHours);
-            } catch (err) {
-                console.warn('Backend budget sync skipped/failed, keeping UI state:', err);
+        const taskName = selectedBudgetTask?.name || taskId;
+
+        try {
+            let budgetResult = null;
+            if (!isNaN(numTaskId) && numTaskId > 0) {
+                budgetResult = await setTaskBudget(projIdToUse, numTaskId, newBudgetHours);
             }
+
+            setCategories((prev) =>
+                prev.map((cat) => ({
+                    ...cat,
+                    tasks: cat.tasks.map((t) => {
+                        if (t.id === taskId) {
+                            return {
+                                ...t,
+                                budgetHours: newBudgetHours,
+                                burnedPercentage: budgetResult?.burnedPercentage !== undefined 
+                                    ? Number(budgetResult.burnedPercentage) 
+                                    : t.burnedPercentage,
+                                burnStatus: budgetResult?.burnStatus || t.burnStatus,
+                                isOverBudget: budgetResult?.isOverBudget !== undefined 
+                                    ? budgetResult.isOverBudget 
+                                    : t.isOverBudget,
+                            };
+                        }
+                        return t;
+                    }),
+                }))
+            );
+
+            showToast(`Đã lưu ngân sách ${newBudgetHours}h cho công việc: ${taskName}`, 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi lưu ngân sách công việc:', err);
+            const errMsg = err?.message || 'Không thể lưu ngân sách công việc. Vui lòng kiểm tra lại.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
         }
     };
 
@@ -485,7 +511,10 @@ export default function ProjectView() {
     const totalTasksCount = categories.reduce((sum, c) => sum + c.tasks.length, 0);
     const overBudgetTasks = categories
         .flatMap((c) => c.tasks)
-        .filter((t) => (t.budgetHours || 0) > 0 && (t.actualHours || 0) > (t.budgetHours || 0));
+        .filter((t) => t.isOverBudget !== undefined
+            ? t.isOverBudget
+            : ((t.budgetHours || 0) > 0 && (t.actualHours || 0) > (t.budgetHours || 0))
+        );
     const totalBudgetHours = categories
         .flatMap((c) => c.tasks)
         .reduce((sum, t) => sum + (t.budgetHours || 0), 0);
@@ -833,6 +862,8 @@ export default function ProjectView() {
                 <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-xs text-white shadow-2xl">
                     {toast.type === 'success' ? (
                         <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    ) : toast.type === 'error' ? (
+                        <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
                     ) : (
                         <Info className="h-4 w-4 text-sky-400 shrink-0" />
                     )}

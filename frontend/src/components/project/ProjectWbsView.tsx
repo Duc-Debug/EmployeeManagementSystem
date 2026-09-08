@@ -279,26 +279,34 @@ export function ProjectWbsView({
                                                                     {t.budgetHours && t.budgetHours > 0 ? (
                                                                         (() => {
                                                                             const actual = t.actualHours || 0;
-                                                                            const pct = Math.round((actual / t.budgetHours) * 100);
-                                                                            const isOver = actual > t.budgetHours;
-                                                                            const isWarn = pct >= 80 && pct < 100;
+                                                                            const pct = t.burnedPercentage !== undefined 
+                                                                                ? Number(t.burnedPercentage) 
+                                                                                : Math.round((actual / t.budgetHours) * 100);
+                                                                            
+                                                                            // Ưu tiên burnStatus do backend phân định (Single Source of Truth)
+                                                                            const status = t.burnStatus || (
+                                                                                actual > t.budgetHours 
+                                                                                    ? 'OVER_BUDGET' 
+                                                                                    : (pct >= 80 ? 'WARNING' : 'SAFE')
+                                                                            );
+                                                                            const overHours = Math.max(0, Math.round((actual - t.budgetHours) * 100) / 100);
 
-                                                                            if (isOver) {
+                                                                            if (status === 'OVER_BUDGET') {
                                                                                 return (
                                                                                     <span
                                                                                         className="inline-flex items-center gap-1 rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-rose-700 animate-pulse"
-                                                                                        title={`Cảnh báo: Làm quá lâu, vượt ngân sách ${actual - t.budgetHours}h (${pct}%) đang ăn mòn lợi nhuận!`}
+                                                                                        title={`Cảnh báo: Làm quá lâu, vượt ngân sách ${overHours}h (${pct}%) đang ăn mòn lợi nhuận!`}
                                                                                     >
                                                                                         <AlertTriangle className="h-3 w-3 text-rose-600 shrink-0" />
-                                                                                        Vượt {actual - t.budgetHours}h ({pct}%)
+                                                                                        Vượt {overHours}h ({pct}%)
                                                                                     </span>
                                                                                 );
                                                                             }
-                                                                            if (isWarn) {
+                                                                            if (status === 'WARNING') {
                                                                                 return (
                                                                                     <span
                                                                                         className="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-700"
-                                                                                        title={`Tiệm cận ngân sách: ${pct}%`}
+                                                                                        title={`Tiệm cận hạn mức ngân sách: ${pct}%`}
                                                                                     >
                                                                                         {pct}%
                                                                                     </span>

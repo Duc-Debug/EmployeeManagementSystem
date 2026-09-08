@@ -30,13 +30,14 @@ export function ProjectBudgetModal({
     const actualHours = task.actualHours || 0;
     const parsedBudget = Number(budgetHours) || 0;
     const burnedPct = parsedBudget > 0 ? Math.round((actualHours / parsedBudget) * 100) : 0;
-    const remainingHours = parsedBudget - actualHours;
+    const remainingHours = Math.max(0, parsedBudget - actualHours);
+    const overBudgetHours = Math.max(0, actualHours - parsedBudget);
     const isOverBudget = parsedBudget > 0 && actualHours > parsedBudget;
-    const isWarning = parsedBudget > 0 && burnedPct >= 80 && burnedPct < 100;
+    const isWarning = parsedBudget > 0 && burnedPct >= 80 && !isOverBudget;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (parsedBudget < 0) return;
+        if (parsedBudget <= 0) return;
         onSave(task.id, parsedBudget);
         onClose();
     };
@@ -126,7 +127,7 @@ export function ProjectBudgetModal({
                             <input
                                 type="number"
                                 required
-                                min="0"
+                                min="0.1"
                                 step="0.5"
                                 value={budgetHours}
                                 onChange={(e) => setBudgetHours(parseFloat(e.target.value) || 0)}
@@ -178,7 +179,7 @@ export function ProjectBudgetModal({
                                     </p>
                                     <p className="mt-0.5 text-[10px] text-rose-700">
                                         Công việc đã làm <strong>{actualHours}h</strong>, vượt ngân sách định mức{' '}
-                                        <strong>{Math.abs(remainingHours)}h</strong> ({burnedPct}%). Cần trao đổi với nhân sự để kiểm tra nguyên nhân bị làm quá lâu.
+                                        <strong>{overBudgetHours}h</strong> ({burnedPct}%). Cần trao đổi với nhân sự để kiểm tra nguyên nhân bị làm quá lâu.
                                     </p>
                                 </div>
                             </div>
