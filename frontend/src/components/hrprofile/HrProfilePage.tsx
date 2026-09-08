@@ -3,6 +3,7 @@ import { Plus, Search, X, Check, AlertTriangle, Users } from "lucide-react";
 import type { HrProfileData } from "./hrprofile.types";
 import HrProfileCard from "./HrProfileCard";
 import HrProfileForm from "./HrProfileForm";
+import { useAuthUser } from "@/lib/auth-session";
 
 const SAMPLE_PROFILES: HrProfileData[] = [
     {
@@ -22,6 +23,10 @@ const SAMPLE_PROFILES: HrProfileData[] = [
 ];
 
 export default function HrProfilePage() {
+    const currentUser = useAuthUser();
+    const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
+    const canManage = roleCode === "VT-05" || roleCode === "VT-06";
+
     const [profiles, setProfiles] = useState<HrProfileData[]>(SAMPLE_PROFILES);
     const [searchTerm, setSearchTerm] = useState("");
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -118,14 +123,16 @@ export default function HrProfilePage() {
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleOpenAdd}
-                        className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
-                    >
-                        <Plus className="size-4 stroke-[2.5]" />
-                        <span>Tạo hồ sơ mới</span>
-                    </button>
+                    {canManage && (
+                        <button
+                            type="button"
+                            onClick={handleOpenAdd}
+                            className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                        >
+                            <Plus className="size-4 stroke-[2.5]" />
+                            <span>Tạo hồ sơ mới</span>
+                        </button>
+                    )}
                 </div>
 
                 {/* List */}
@@ -146,15 +153,19 @@ export default function HrProfilePage() {
                                 <Users className="size-7" />
                             </div>
                             <h3 className="mt-4 text-base font-bold text-slate-900">Chưa có hồ sơ nhân sự nào</h3>
-                            <p className="mt-1 max-w-sm text-xs text-slate-500 leading-relaxed">Nhấn nút bên dưới để tạo hồ sơ đầu tiên.</p>
-                            <button type="button" onClick={handleOpenAdd} className="mt-5 flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95">
-                                <Plus className="size-4 stroke-[2.5]" />
-                                <span>Tạo hồ sơ mới</span>
-                            </button>
+                            <p className="mt-1 max-w-sm text-xs text-slate-500 leading-relaxed">
+                                {canManage ? "Nhấn nút bên dưới để tạo hồ sơ đầu tiên." : "Hệ thống chưa có hồ sơ nhân sự nào để hiển thị."}
+                            </p>
+                            {canManage && (
+                                <button type="button" onClick={handleOpenAdd} className="mt-5 flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95">
+                                    <Plus className="size-4 stroke-[2.5]" />
+                                    <span>Tạo hồ sơ mới</span>
+                                </button>
+                            )}
                         </div>
                     )}
                     {filtered.map((p) => (
-                        <HrProfileCard key={p.id} profile={p} onEdit={handleOpenEdit} onDelete={handleDelete} />
+                        <HrProfileCard key={p.id} profile={p} canManage={canManage} onEdit={handleOpenEdit} onDelete={handleDelete} />
                     ))}
                 </div>
             </div>

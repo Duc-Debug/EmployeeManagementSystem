@@ -1,8 +1,9 @@
-﻿import { User, Phone, Building2, Briefcase, CalendarDays, Clock, Pencil, Trash2 } from "lucide-react";
+import { User, Phone, Building2, Briefcase, CalendarDays, Clock, Pencil, Trash2 } from "lucide-react";
 import type { HrProfileData } from "./hrprofile.types";
 
 interface HrProfileCardProps {
     profile: HrProfileData;
+    canManage?: boolean;
     onEdit: (profile: HrProfileData) => void;
     onDelete: (id: string) => void;
 }
@@ -18,7 +19,7 @@ function formatDate(dateStr?: string): string | null {
     }
 }
 
-export default function HrProfileCard({ profile, onEdit, onDelete }: HrProfileCardProps) {
+export default function HrProfileCard({ profile, canManage = false, onEdit, onDelete }: HrProfileCardProps) {
     const joinDateDisplay = formatDate(profile.startDate);
     const contractEndDisplay = formatDate(profile.contractEndDate);
 
@@ -82,24 +83,26 @@ export default function HrProfileCard({ profile, onEdit, onDelete }: HrProfileCa
                     </span>
                 </div>
 
-                <div className="flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={() => onEdit(profile)}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                        title="Chỉnh sửa"
-                    >
-                        <Pencil className="size-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onDelete(profile.id)}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                        title="Xóa"
-                    >
-                        <Trash2 className="size-4" />
-                    </button>
-                </div>
+                {canManage && (
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => onEdit(profile)}
+                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                            title="Chỉnh sửa"
+                        >
+                            <Pencil className="size-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onDelete(profile.id)}
+                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                            title="Xóa"
+                        >
+                            <Trash2 className="size-4" />
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -737,20 +737,16 @@ export default function DepartmentTree() {
                         <span className="hidden sm:inline">Thu gọn</span>
                     </button>
 
-                    <button
-                        onClick={() => {
-                            if (!isAdmin) {
-                                showNotify("Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.", "error");
-                                return;
-                            }
-                            setModal({ mode: "create", parentId: tree.id });
-                        }}
-                        className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 hover:shadow-md active:scale-95"
-                        type="button"
-                    >
-                        <Plus className="h-4 w-4" />
-                        <span>Thêm đơn vị mới</span>
-                    </button>
+                    {isAdmin && (
+                        <button
+                            onClick={() => setModal({ mode: "create", parentId: tree.id })}
+                            className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 hover:shadow-md active:scale-95"
+                            type="button"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span>Thêm đơn vị mới</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -769,6 +765,7 @@ export default function DepartmentTree() {
                         node={tree}
                         level={0}
                         isRoot={true}
+                        canEdit={isAdmin}
                         users={users}
                         collapsed={collapsed}
                         onToggle={toggleCollapse}
@@ -860,6 +857,7 @@ interface TreeNodeItemProps {
     node: DepartmentNode;
     level: number;
     isRoot?: boolean;
+    canEdit?: boolean;
     users?: User[];
     collapsed: Set<string>;
     onToggle: (id: string) => void;
@@ -880,6 +878,7 @@ function TreeNodeItem({
                           node,
                           level,
                           isRoot = false,
+                          canEdit = true,
                           users,
                           collapsed,
                           onToggle,
@@ -897,7 +896,7 @@ function TreeNodeItem({
                       }: TreeNodeItemProps) {
     const hasChildren = node.children && node.children.length > 0;
     const isCollapsed = collapsed.has(node.id) && !searchQuery;
-    const isDraggable = !isRoot;
+    const isDraggable = Boolean(canEdit) && !isRoot;
     const isBeingDragged = draggedId === node.id;
     const isTarget = dropTargetId === node.id;
     const isInactive = node.status === "INACTIVE";
@@ -1065,59 +1064,62 @@ function TreeNodeItem({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-1">
-                        {/* Add Child */}
-                        <button
-                            type="button"
-                            onClick={() => onAddChild(node.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition"
-                            title="Thêm đơn vị con trực thuộc"
-                        >
-                            <Plus className="h-3.5 w-3.5" />
-                        </button>
-
-                        {/* Edit */}
-                        <button
-                            type="button"
-                            onClick={() => onEdit(node)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-                            title="Chỉnh sửa thông tin"
-                        >
-                            <Pencil className="h-3.5 w-3.5" />
-                        </button>
-
-                        {/* Lock / Unlock */}
-                        {!isRoot && (
+                    {canEdit && (
+                        <div className="flex items-center gap-1">
+                            {/* Add Child */}
                             <button
                                 type="button"
-                                onClick={() => onToggleStatus(node.id)}
-                                className={cn(
-                                    "flex h-7 w-7 items-center justify-center rounded-lg transition",
-                                    isInactive
-                                        ? "text-emerald-600 hover:bg-emerald-50"
-                                        : "text-amber-600 hover:bg-amber-50"
-                                )}
-                                title={isInactive ? "Mở khóa đơn vị này" : "Tạm khóa đơn vị này"}
+                                onClick={() => onAddChild(node.id)}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition"
+                                title="Thêm đơn vị con trực thuộc"
                             >
-                                {isInactive ? (
-                                    <Unlock className="h-3.5 w-3.5" />
-                                ) : (
-                                    <Lock className="h-3.5 w-3.5" />
-                                )}
+                                <Plus className="h-3.5 w-3.5" />
                             </button>
-                        )}
 
-                        {/* Delete */}
-                        {!isRoot && (
+                            {/* Edit */}
                             <button
                                 type="button"
-                                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                                title="Xóa đơn vị này"
+                                onClick={() => onEdit(node)}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                                title="Chỉnh sửa thông tin"
                             >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Pencil className="h-3.5 w-3.5" />
                             </button>
-                        )}
-                    </div>
+
+                            {/* Lock / Unlock */}
+                            {!isRoot && (
+                                <button
+                                    type="button"
+                                    onClick={() => onToggleStatus(node.id)}
+                                    className={cn(
+                                        "flex h-7 w-7 items-center justify-center rounded-lg transition",
+                                        isInactive
+                                            ? "text-emerald-600 hover:bg-emerald-50"
+                                            : "text-amber-600 hover:bg-amber-50"
+                                    )}
+                                    title={isInactive ? "Mở khóa đơn vị này" : "Tạm khóa đơn vị này"}
+                                >
+                                    {isInactive ? (
+                                        <Unlock className="h-3.5 w-3.5" />
+                                    ) : (
+                                        <Lock className="h-3.5 w-3.5" />
+                                    )}
+                                </button>
+                            )}
+
+                            {/* Delete */}
+                            {!isRoot && (
+                                <button
+                                    type="button"
+                                    onClick={() => onDelete(node)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                                    title="Xóa đơn vị này"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1130,6 +1132,7 @@ function TreeNodeItem({
                             node={child}
                             level={level + 1}
                             isRoot={false}
+                            canEdit={canEdit}
                             users={users}
                             collapsed={collapsed}
                             onToggle={onToggle}

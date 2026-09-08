@@ -9,6 +9,7 @@ import {
     CheckCircle2,
     FolderOpen,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { TaskCategoryGroup, ProjectMember } from './projectData';
 
 interface ProjectWbsViewProps {
@@ -16,6 +17,7 @@ interface ProjectWbsViewProps {
     members: ProjectMember[];
     searchTerm: string;
     selectedRole: string;
+    canEdit?: boolean;
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
 }
@@ -25,6 +27,7 @@ export function ProjectWbsView({
     members,
     searchTerm,
     selectedRole,
+    canEdit = false,
     onQuickAddTask,
     onToggleTaskStatus,
 }: ProjectWbsViewProps) {
@@ -113,15 +116,17 @@ export function ProjectWbsView({
                         <p className="text-[11px] text-slate-500">Phân rã giai đoạn thành các task thực thi cụ thể</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => onQuickAddTask(categories[0]?.id || 'cat-1')}
-                        className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                    >
-                        <Plus className="h-3.5 w-3.5" /> Thêm việc
-                    </button>
-                </div>
+                {canEdit && (
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => onQuickAddTask(categories[0]?.id || 'cat-1')}
+                            className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                        >
+                            <Plus className="h-3.5 w-3.5" /> Thêm việc
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Tree Content Container */}
@@ -175,17 +180,19 @@ export function ProjectWbsView({
                                                 />
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onQuickAddTask(cat.id);
-                                            }}
-                                            className="p-1 text-slate-400 hover:text-indigo-600 transition"
-                                            title="Thêm việc vào mục này"
-                                        >
-                                            <Plus className="h-3.5 w-3.5" />
-                                        </button>
+                                        {canEdit && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onQuickAddTask(cat.id);
+                                                }}
+                                                className="p-1 text-slate-400 hover:text-indigo-600 transition cursor-pointer"
+                                                title="Thêm việc vào mục này"
+                                            >
+                                                <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -209,9 +216,13 @@ export function ProjectWbsView({
                                                         <div className="flex min-w-0 flex-1 items-center gap-3">
                                                             <button
                                                                 type="button"
-                                                                onClick={() => onToggleTaskStatus(cat.id, t.id)}
-                                                                className="text-slate-300 transition group-hover:text-slate-400 cursor-pointer"
-                                                                title="Đánh dấu hoàn tất"
+                                                                disabled={!canEdit}
+                                                                onClick={() => canEdit && onToggleTaskStatus(cat.id, t.id)}
+                                                                className={cn(
+                                                                    "transition",
+                                                                    canEdit ? "text-slate-300 group-hover:text-slate-400 cursor-pointer" : "text-slate-300 cursor-default"
+                                                                )}
+                                                                title={canEdit ? "Đánh dấu hoàn tất" : "Trạng thái công việc"}
                                                             >
                                                                 {isDone ? (
                                                                     <CircleCheck className="h-4 w-4 text-emerald-500" />

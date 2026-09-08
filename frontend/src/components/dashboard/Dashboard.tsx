@@ -32,12 +32,12 @@ export default function Dashboard() {
     // Đồng bộ URL trình duyệt với tab tương ứng
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
-        if (path.includes("employee") || path.includes("nhan-su")) return "employees";
+        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
         if (path.includes("hrprofile") || path.includes("ho-so")) return "hrprofile";
+        if (path.includes("user") || path.includes("tai-khoan") || path.includes("employee") || path.includes("nhan-su")) return "users";
         if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
         if (path.includes("attendance") || path.includes("cham-cong")) return "attendance";
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
-        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
         if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
@@ -154,7 +154,7 @@ export default function Dashboard() {
                             </div>
                         ) : (
                             <>
-                                {activeTab === "employees" && <EmployeeProfilePage />}
+                                {activeTab === "users" && <EmployeeProfilePage />}
 
                                 {activeTab === "hrprofile" && <HrProfilePage />}
 

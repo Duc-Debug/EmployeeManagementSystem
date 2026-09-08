@@ -29,8 +29,13 @@ import { ProjectTaskModal } from './ProjectTaskModal';
 import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectResourceSearch } from './ProjectResourceSearch';
 import TaskSelect from './TaskSelect';
+import { useAuthUser } from '@/lib/auth-session';
 
 export default function ProjectView() {
+    const currentUser = useAuthUser();
+    const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
+    const isPM = roleCode === "VT-02";
+
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'search'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>(INITIAL_CATEGORIES);
     const [members, setMembers] = useState<ProjectMember[]>(INITIAL_PROJECT_MEMBERS);
@@ -246,14 +251,16 @@ export default function ProjectView() {
 
                     {/* Top Actions */}
                     <div className="flex items-center gap-2.5 self-start sm:self-auto">
-                        <button
-                            type="button"
-                            onClick={() => handleQuickAddTask()}
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
-                        >
-                            <Plus className="h-4 w-4 stroke-[2.5]" />
-                            <span>Thêm công việc</span>
-                        </button>
+                        {isPM && (
+                            <button
+                                type="button"
+                                onClick={() => handleQuickAddTask()}
+                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
+                            >
+                                <Plus className="h-4 w-4 stroke-[2.5]" />
+                                <span>Thêm công việc</span>
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={handleExportReport}
@@ -430,6 +437,7 @@ export default function ProjectView() {
                             members={members}
                             searchTerm={search}
                             selectedRole={roleFilter}
+                            canEdit={isPM}
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
                         />
@@ -444,6 +452,7 @@ export default function ProjectView() {
                             members={members}
                             selectedRole={roleFilter}
                             searchTerm={search}
+                            canEdit={isPM}
                             onNavigateMonth={handleNavigateMonth}
                             onOpenAdjustModal={handleOpenAdjustModal}
                         />

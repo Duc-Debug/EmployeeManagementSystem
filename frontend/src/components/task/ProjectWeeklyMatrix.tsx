@@ -6,6 +6,7 @@ interface ProjectWeeklyMatrixProps {
     members: ProjectMember[];
     selectedRole: string;
     searchTerm: string;
+    canEdit?: boolean;
     onNavigateMonth: (direction: number) => void;
     onOpenAdjustModal: (memberId: string, weekKey: string, weekLabel: string) => void;
 }
@@ -15,6 +16,7 @@ export function ProjectWeeklyMatrix({
     members,
     selectedRole,
     searchTerm,
+    canEdit = false,
     onNavigateMonth,
     onOpenAdjustModal,
 }: ProjectWeeklyMatrixProps) {
@@ -209,8 +211,11 @@ export function ProjectWeeklyMatrix({
                                                     className={`px-2 py-2 text-center ${w.isCurrent ? 'bg-indigo-50/30' : ''}`}
                                                 >
                                                     <div
-                                                        onClick={() => onOpenAdjustModal(member.id, w.key, w.label)}
-                                                        className={`cursor-pointer select-none rounded-lg p-1.5 transition transform hover:scale-105 active:scale-95 border ${cellStyle.bg} ${cellStyle.border} ${cellStyle.text}`}
+                                                        onClick={() => canEdit && onOpenAdjustModal(member.id, w.key, w.label)}
+                                                        className={`select-none rounded-lg p-1.5 transition border ${cellStyle.bg} ${cellStyle.border} ${cellStyle.text} ${
+                                                            canEdit ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-default'
+                                                        }`}
+                                                        title={canEdit ? "Nhấn để điều chỉnh giờ phân bổ" : undefined}
                                                     >
                                                         <div className="text-xs font-bold">{hours}h</div>
                                                         <div className="mt-0.5 text-[9px] font-medium leading-none opacity-90">
