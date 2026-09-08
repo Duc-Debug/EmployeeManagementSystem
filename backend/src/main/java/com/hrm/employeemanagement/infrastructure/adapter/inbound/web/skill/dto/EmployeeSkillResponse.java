@@ -19,6 +19,7 @@ public class EmployeeSkillResponse {
     private Long approvedBy;
     private LocalDateTime approvedAt;
     private String rejectionReason;
+    private String reviewNotes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -39,6 +40,7 @@ public class EmployeeSkillResponse {
         response.approvedBy = result.approvedBy();
         response.approvedAt = result.approvedAt();
         response.rejectionReason = result.rejectionReason();
+        response.reviewNotes = result.reviewNotes();
         response.createdAt = result.createdAt();
         response.updatedAt = result.updatedAt();
         return response;
@@ -90,6 +92,10 @@ public class EmployeeSkillResponse {
 
     public String getRejectionReason() {
         return rejectionReason;
+    }
+
+    public String getReviewNotes() {
+        return reviewNotes;
     }
 
     public LocalDateTime getCreatedAt() {
