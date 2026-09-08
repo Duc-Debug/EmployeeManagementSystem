@@ -1,15 +1,12 @@
 package com.hrm.employeemanagement.application.service.project;
 
-import java.time.LocalDate;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 
 import com.hrm.employeemanagement.application.dto.project.CreateProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
-import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -21,13 +18,13 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 import com.hrm.employeemanagement.domain.project.Project;
+import com.hrm.employeemanagement.domain.project.ProjectCodeGenerator;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -78,14 +75,16 @@ public class CreateProjectService implements CreateProjectUseCase {
             }
 
             boolean isManagerInOrgUnit = Objects.equals(manager.getOrgUnitId(), command.orgUnitId())
-                    || (manager.getOrgUnitId() != null && loadOrgUnitPort.existsInOrgUnitBranch(manager.getOrgUnitId(), command.orgUnitId()));
+                    || (manager.getOrgUnitId() != null
+                            && loadOrgUnitPort.existsInOrgUnitBranch(manager.getOrgUnitId(), command.orgUnitId()));
 
             if (!isManagerInOrgUnit) {
-                throw new InvalidProjectDataException("Người quản lý dự án (PM) phải thuộc đơn vị tổ chức quản lý dự án");
+                throw new InvalidProjectDataException(
+                        "Người quản lý dự án (PM) phải thuộc đơn vị tổ chức quản lý dự án");
             }
         }
 
-        String generatedCode = generateProjectCode(orgUnit);
+        String generatedCode = ProjectCodeGenerator.generate(orgUnit);
         Project project = Project.createNew(
                 generatedCode,
                 command.projectName(),
@@ -176,14 +175,5 @@ public class CreateProjectService implements CreateProjectUseCase {
                 project.getCreatedByValue(),
                 project.getCreatedAt(),
                 project.getUpdatedAt());
-    }
-
-    private String generateProjectCode(OrgUnit orgUnit) {
-        String unitCode = (orgUnit.getUnitCode() != null && !orgUnit.getUnitCode().isBlank())
-                ? orgUnit.getUnitCode().trim().toUpperCase()
-                : "GEN";
-        String datePart = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
-        String randomHex = String.format("%06X", ThreadLocalRandom.current().nextInt(0x1000000));
-        return String.format("PRJ-%s-%s-%s", unitCode, datePart, randomHex);
     }
 }
