@@ -8,10 +8,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import com.hrm.employeemanagement.application.dto.allocation.EmployeeSkillCandidate;
+import com.hrm.employeemanagement.application.dto.allocation.ResourceCandidate;
 import com.hrm.employeemanagement.application.dto.allocation.ResourceSearchResult;
 import com.hrm.employeemanagement.application.dto.allocation.SearchResourceQuery;
 import com.hrm.employeemanagement.application.dto.allocation.WeeklyAvailableHoursResult;
@@ -28,8 +28,6 @@ import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
-import com.hrm.employeemanagement.domain.employee.Employee;
-import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
@@ -66,7 +64,7 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
 
     @Override
     public List<ResourceSearchResult> search(SearchResourceQuery query) {
-        // [TC-03] Kiểm tra quyền hạn
+        // [TC-03] Kiểm tra quyền hạn chức năng
         Long currentUserId;
         try {
             currentUserId = authorizationService.require(PermissionCode.RESOURCE_SEARCH);
@@ -84,10 +82,15 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng: " + currentUserId));
 
+        // Kiểm tra quyền hạn đối với orgUnitId được yêu cầu (nếu có)
+        if (query.orgUnitId() != null) {
+            validateOrgUnitScopeAccess(currentUser, query.orgUnitId());
+        }
+
         List<YearWeek> targetWeeks = buildYearWeeksRange(query);
 
-        // 1. Tải danh sách nhân sự có kỹ năng đã được duyệt và đạt mức thành thạo tối thiểu
-        List<EmployeeSkillCandidate> candidates = searchResourcePort.findActiveEmployeesBySkill(
+        // 1. Tải danh sách ứng viên đạt yêu cầu kỹ năng từ port
+        List<ResourceCandidate> candidates = searchResourcePort.findActiveEmployeesBySkill(
                 query.skillId(),
                 query.minProficiencyLevel()
         );
@@ -98,6 +101,40 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
             return List.of();
         }
 
+        // Lọc ứng viên theo DataScope và orgUnitId (nếu có)
+        List<ResourceCandidate> filteredCandidates = candidates.stream()
+                .filter(candidate -> isCandidateInDataScope(currentUser, candidate))
+                .filter(candidate -> query.orgUnitId() == null || query.orgUnitId().equals(candidate.orgUnitId()))
+                .toList();
+
+        if (filteredCandidates.isEmpty()) {
+            recordSuccessAuditLog(currentUser, query, 0);
+            return List.of();
+        }
+
+        List<Long> employeeIds = filteredCandidates.stream()
+                .map(ResourceCandidate::employeeId)
+                .distinct()
+                .toList();
+
+        // 2. Batch load tính khả dụng (WeeklyAvailability) và phân bổ (WeeklyProjectAllocation)
+        List<WeeklyAvailability> allAvailabilities = loadWeeklyAvailabilityPort
+                .loadAvailabilityForEmployeesAndWeeks(employeeIds, targetWeeks);
+        Map<EmployeeWeekKey, WeeklyAvailability> availabilityMap = allAvailabilities.stream()
+                .collect(Collectors.toMap(
+                        a -> new EmployeeWeekKey(a.getEmployeeId(), a.getYearWeek()),
+                        Function.identity(),
+                        (existing, replacing) -> existing
+                ));
+
+        List<WeeklyProjectAllocation> allAllocations = loadAllocationPort
+                .loadAllocationsForEmployeesAndWeeks(employeeIds, targetWeeks);
+        Map<EmployeeWeekKey, BigDecimal> allocationMap = allAllocations.stream()
+                .collect(Collectors.groupingBy(
+                        a -> new EmployeeWeekKey(a.getEmployeeId(), a.getYearWeek()),
+                        Collectors.reducing(BigDecimal.ZERO, WeeklyProjectAllocation::getAllocatedHours, BigDecimal::add)
+                ));
+
         Map<Long, String> orgUnitNames = loadOrgUnitPort.findAll().stream()
                 .collect(Collectors.toMap(
                         u -> u.getId().getValue(),
@@ -107,42 +144,25 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
 
         List<ResourceSearchResult> results = new ArrayList<>();
 
-        for (EmployeeSkillCandidate candidate : candidates) {
-            Employee emp = candidate.employee();
-
-            if (emp.getStatus() != EmployeeStatus.ACTIVE) {
-                continue;
-            }
-
-            if (query.orgUnitId() != null && !query.orgUnitId().equals(emp.getOrgUnitId())) {
-                continue;
-            }
-
-            if (!isOrgUnitInDataScope(currentUser, emp.getOrgUnitId())) {
-                continue;
-            }
-
-            // 2. Tính toán số giờ rảnh từng tuần trong khoảng lọc
+        for (ResourceCandidate candidate : filteredCandidates) {
             BigDecimal totalRemainingAccumulated = BigDecimal.ZERO;
             List<WeeklyAvailableHoursResult> weeklyResults = new ArrayList<>();
 
             for (YearWeek yw : targetWeeks) {
-                if (emp.getContractEndDate() != null && emp.getContractEndDate().isBefore(yw.getStartDate())) {
+                // Kiểm tra hợp đồng hết hạn trước tuần mục tiêu
+                if (candidate.contractEndDate() != null && candidate.contractEndDate().isBefore(yw.getStartDate())) {
                     weeklyResults.add(new WeeklyAvailableHoursResult(
                             yw.year(), yw.weekNumber(), 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
                     ));
                     continue;
                 }
 
-                int standardHours = emp.getStandardHoursPerWeek() != null ? emp.getStandardHoursPerWeek() : 40;
-                Optional<WeeklyAvailability> availOpt = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(emp.getIdValue(), yw);
-                BigDecimal netAvailable = availOpt.map(WeeklyAvailability::getNetAvailableHours)
-                        .orElse(BigDecimal.valueOf(standardHours));
+                int standardHours = candidate.standardHoursPerWeek() != null ? candidate.standardHoursPerWeek() : 40;
+                WeeklyAvailability avail = availabilityMap.get(new EmployeeWeekKey(candidate.employeeId(), yw));
+                BigDecimal netAvailable = avail != null ? avail.getNetAvailableHours() : BigDecimal.valueOf(standardHours);
 
-                List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployee(emp.getIdValue(), yw);
-                BigDecimal totalAllocated = allocations.stream()
-                        .map(WeeklyProjectAllocation::getAllocatedHours)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal totalAllocated = allocationMap.getOrDefault(
+                        new EmployeeWeekKey(candidate.employeeId(), yw), BigDecimal.ZERO);
 
                 // Số giờ rảnh còn lại = Giờ khả dụng thực tế - Tổng giờ đã gán vào các dự án
                 BigDecimal remaining = netAvailable.subtract(totalAllocated);
@@ -162,15 +182,17 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
                 ));
             }
 
-            String orgUnitName = emp.getOrgUnitId() != null ? orgUnitNames.getOrDefault(emp.getOrgUnitId(), "Chưa gán") : "Chưa gán";
+            String orgUnitName = candidate.orgUnitId() != null
+                    ? orgUnitNames.getOrDefault(candidate.orgUnitId(), "Chưa gán")
+                    : "Chưa gán";
 
             results.add(new ResourceSearchResult(
-                    emp.getIdValue(),
-                    emp.getEmployeeCode(),
-                    emp.getFullName(),
-                    emp.getOrgUnitId(),
+                    candidate.employeeId(),
+                    candidate.employeeCode(),
+                    candidate.fullName(),
+                    candidate.orgUnitId(),
                     orgUnitName,
-                    emp.getProfessionalRole() != null ? emp.getProfessionalRole() : "Nhân viên",
+                    candidate.professionalRole() != null ? candidate.professionalRole() : "Nhân viên",
                     candidate.skillId(),
                     candidate.skillName(),
                     candidate.proficiencyLevel(),
@@ -189,18 +211,26 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
         return results;
     }
 
-    private boolean isOrgUnitInDataScope(User currentUser, Long orgUnitId) {
-        if (orgUnitId == null) {
-            return false;
+    private void validateOrgUnitScopeAccess(User currentUser, Long requestedOrgUnitId) {
+        boolean allowed = switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case ORGANIZATION_BRANCH -> currentUser.getScopeOrgUnitId() != null
+                    && loadOrgUnitPort.existsInOrgUnitBranch(requestedOrgUnitId, currentUser.getScopeOrgUnitId());
+            case SELF -> false;
+        };
+
+        if (!allowed) {
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_SEARCH);
         }
+    }
+
+    private boolean isCandidateInDataScope(User currentUser, ResourceCandidate candidate) {
         return switch (currentUser.getDataScope()) {
-            case COMPANY ->
-                true;
-            case SELF ->
-                false;
-            case ORGANIZATION_BRANCH ->
-                currentUser.getScopeOrgUnitId() != null
-                && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, currentUser.getScopeOrgUnitId());
+            case COMPANY -> true;
+            case SELF -> currentUser.getIdValue() != null && currentUser.getIdValue().equals(candidate.userId());
+            case ORGANIZATION_BRANCH -> candidate.orgUnitId() != null
+                    && currentUser.getScopeOrgUnitId() != null
+                    && loadOrgUnitPort.existsInOrgUnitBranch(candidate.orgUnitId(), currentUser.getScopeOrgUnitId());
         };
     }
 
@@ -221,12 +251,15 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
     private void recordSuccessAuditLog(User user, SearchResourceQuery query, int resultCount) {
         String detail = String.format("Found %d resources", resultCount);
         saveAuditLogPort.save(AuditLog.createChange(
-                user.getId().value(), // Dùng .value() thay vì .getValue()
+                user.getId().value(),
                 "SEARCH",
                 "RESOURCE_MANAGEMENT",
                 query.skillId(),
                 null,
                 detail
         ));
+    }
+
+    private record EmployeeWeekKey(Long employeeId, YearWeek yearWeek) {
     }
 }

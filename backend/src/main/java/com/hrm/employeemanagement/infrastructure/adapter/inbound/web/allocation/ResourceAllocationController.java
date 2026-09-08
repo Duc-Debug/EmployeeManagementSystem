@@ -71,15 +71,17 @@ public class ResourceAllocationController {
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<ResourceSearchResult>>> searchResources(
             @RequestParam Long skillId,
-            @RequestParam(required = false, defaultValue = "1") Integer minLevel,
+            @RequestParam(name = "minProficiencyLevel", required = false) Integer minProficiencyLevel,
+            @RequestParam(name = "minLevel", required = false) Integer minLevel,
             @RequestParam(required = false) Long orgUnitId,
             @RequestParam Integer fromYear,
             @RequestParam Integer fromWeek,
             @RequestParam Integer toYear,
             @RequestParam Integer toWeek) {
+        Integer effectiveMinLevel = minProficiencyLevel != null ? minProficiencyLevel : (minLevel != null ? minLevel : 1);
         SearchResourceQuery query = new SearchResourceQuery(
                 skillId,
-                minLevel,
+                effectiveMinLevel,
                 orgUnitId,
                 fromYear,
                 fromWeek,

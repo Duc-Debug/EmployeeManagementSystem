@@ -1,20 +1,31 @@
 package com.hrm.employeemanagement.application.dto.allocation;
 
+import java.time.LocalDate;
+import java.time.temporal.WeekFields;
 import java.util.Objects;
 
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+
 /**
- * NCL-02-CN-004: Query tìm kiếm nhân sự theo kỹ năng và độ rảnh trong khoảng
- * tuần.
+ * NCL-02-CN-004: Query tìm kiếm nhân sự theo kỹ năng và độ rảnh trong khoảng tuần.
+ *
+ * @param skillId ID kỹ năng cần tìm kiếm (bắt buộc)
+ * @param minProficiencyLevel Mức độ thành thạo tối thiểu từ 1 đến 5 (mặc định 1)
+ * @param orgUnitId Tùy chọn lọc theo đơn vị/bộ phận cụ thể
+ * @param fromYear Năm bắt đầu
+ * @param fromWeek Tuần bắt đầu theo chuẩn ISO-8601
+ * @param toYear Năm kết thúc
+ * @param toWeek Tuần kết thúc theo chuẩn ISO-8601
  */
 public record SearchResourceQuery(
         Long skillId,
-        Integer minProficiencyLevel, // 1 -> 5 (mặc định nếu null là 1)
-        Long orgUnitId, // Tùy chọn: lọc theo phòng ban/bộ phận cụ thể
+        Integer minProficiencyLevel,
+        Long orgUnitId,
         Integer fromYear,
         Integer fromWeek,
         Integer toYear,
         Integer toWeek
-        ) {
+) {
 
     public SearchResourceQuery {
         Objects.requireNonNull(skillId, "skillId không được để trống");
@@ -31,6 +42,25 @@ public record SearchResourceQuery(
         }
         if (fromWeek < 1 || fromWeek > 53 || toWeek < 1 || toWeek > 53) {
             throw new IllegalArgumentException("Số tuần phải nằm trong khoảng từ 1 đến 53");
+        }
+
+        // Kiểm tra số tuần tối đa hợp lệ theo chuẩn ISO-8601 của năm
+        int maxFromWeeks = LocalDate.of(fromYear, 12, 28).get(WeekFields.ISO.weekOfWeekBasedYear());
+        if (fromWeek > maxFromWeeks) {
+            throw new IllegalArgumentException("Năm " + fromYear + " chỉ có " + maxFromWeeks + " tuần");
+        }
+        int maxToWeeks = LocalDate.of(toYear, 12, 28).get(WeekFields.ISO.weekOfWeekBasedYear());
+        if (toWeek > maxToWeeks) {
+            throw new IllegalArgumentException("Năm " + toYear + " chỉ có " + maxToWeeks + " tuần");
+        }
+
+        YearWeek from = YearWeek.of(fromYear, fromWeek);
+        YearWeek to = YearWeek.of(toYear, toWeek);
+
+        if (from.getStartDate().isAfter(to.getStartDate())) {
+            throw new IllegalArgumentException(
+                    "Khoảng thời gian bắt đầu phải nhỏ hơn hoặc bằng khoảng thời gian kết thúc"
+            );
         }
     }
 }

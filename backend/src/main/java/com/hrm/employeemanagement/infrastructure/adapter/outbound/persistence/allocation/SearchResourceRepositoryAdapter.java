@@ -2,18 +2,19 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.a
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import com.hrm.employeemanagement.application.dto.allocation.EmployeeSkillCandidate;
+import com.hrm.employeemanagement.application.dto.allocation.ResourceCandidate;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SearchResourcePort;
-import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.EmployeeSkillJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.SkillJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataEmployeeSkillRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataSkillRepository;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.UserPersistenceMapper;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
 
@@ -23,22 +24,19 @@ public class SearchResourceRepositoryAdapter implements SearchResourcePort {
     private final SpringDataEmployeeSkillRepository employeeSkillRepository;
     private final SpringDataSkillRepository skillRepository;
     private final SpringDataEmployeeRepository employeeRepository;
-    private final UserPersistenceMapper userMapper;
 
     public SearchResourceRepositoryAdapter(
             SpringDataEmployeeSkillRepository employeeSkillRepository,
             SpringDataSkillRepository skillRepository,
-            SpringDataEmployeeRepository employeeRepository,
-            UserPersistenceMapper userMapper
+            SpringDataEmployeeRepository employeeRepository
     ) {
         this.employeeSkillRepository = employeeSkillRepository;
         this.skillRepository = skillRepository;
         this.employeeRepository = employeeRepository;
-        this.userMapper = userMapper;
     }
 
     @Override
-    public List<EmployeeSkillCandidate> findActiveEmployeesBySkill(Long skillId, int minProficiencyLevel) {
+    public List<ResourceCandidate> findActiveEmployeesBySkill(Long skillId, int minProficiencyLevel) {
         // 1. Tải thông tin kỹ năng để lấy tên
         Optional<SkillJpaEntity> skillOpt = skillRepository.findById(skillId);
         if (skillOpt.isEmpty()) {
@@ -52,22 +50,34 @@ public class SearchResourceRepositoryAdapter implements SearchResourcePort {
             return List.of();
         }
 
-        List<EmployeeSkillCandidate> candidates = new ArrayList<>();
+        // 3. Batch query danh sách Employee thay vì gọi N queries trong vòng lặp
+        List<Long> employeeIds = skillRecords.stream()
+                .map(EmployeeSkillJpaEntity::getEmployeeId)
+                .distinct()
+                .toList();
+
+        Map<Long, EmployeeJpaEntity> employeeMap = employeeRepository.findAllById(employeeIds).stream()
+                .filter(emp -> "ACTIVE".equalsIgnoreCase(emp.getStatus()))
+                .collect(Collectors.toMap(EmployeeJpaEntity::getId, Function.identity(), (a, b) -> a));
+
+        List<ResourceCandidate> candidates = new ArrayList<>();
         for (EmployeeSkillJpaEntity record : skillRecords) {
-            Optional<EmployeeJpaEntity> empEntityOpt = employeeRepository.findById(record.getEmployeeId());
-            if (empEntityOpt.isPresent()) {
-                EmployeeJpaEntity empEntity = empEntityOpt.get();
-                // Chỉ lấy nhân sự đang ACTIVE
-                if ("ACTIVE".equalsIgnoreCase(empEntity.getStatus())) {
-                    Employee domainEmp = userMapper.toDomain(empEntity);
-                    candidates.add(new EmployeeSkillCandidate(
-                            domainEmp,
-                            skillId,
-                            skillName,
-                            record.getProficiencyLevel(),
-                            record.getYearsOfExperience()
-                    ));
-                }
+            EmployeeJpaEntity empEntity = employeeMap.get(record.getEmployeeId());
+            if (empEntity != null) {
+                candidates.add(new ResourceCandidate(
+                        empEntity.getId(),
+                        empEntity.getUserId(),
+                        empEntity.getEmployeeCode(),
+                        empEntity.getFullName(),
+                        empEntity.getOrgUnitId(),
+                        empEntity.getProfessionalRole(),
+                        empEntity.getStandardHoursPerWeek(),
+                        empEntity.getContractEndDate(),
+                        skillId,
+                        skillName,
+                        record.getProficiencyLevel(),
+                        record.getYearsOfExperience()
+                ));
             }
         }
 

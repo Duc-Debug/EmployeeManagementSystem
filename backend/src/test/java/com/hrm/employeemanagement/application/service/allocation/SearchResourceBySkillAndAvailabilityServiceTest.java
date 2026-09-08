@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.service.allocation;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,7 +16,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.hrm.employeemanagement.application.dto.allocation.EmployeeSkillCandidate;
+import com.hrm.employeemanagement.application.dto.allocation.ResourceCandidate;
 import com.hrm.employeemanagement.application.dto.allocation.ResourceSearchResult;
 import com.hrm.employeemanagement.application.dto.allocation.SearchResourceQuery;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
@@ -30,9 +31,6 @@ import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
-import com.hrm.employeemanagement.domain.employee.Employee;
-import com.hrm.employeemanagement.domain.employee.EmployeeId;
-import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
@@ -75,34 +73,38 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
     }
 
     private User createRMUser() {
+        return createUserWithScope(1L, DataScope.COMPANY, null);
+    }
+
+    private User createUserWithScope(Long userId, DataScope dataScope, Long scopeOrgUnitId) {
         Role rmRole = new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực");
         return new User(
-                new UserId(1L),
-                "rm_user",
+                new UserId(userId),
+                "user_" + userId,
                 "encoded_pw",
                 rmRole,
                 UserStatus.ACTIVE,
                 null,
-                DataScope.COMPANY,
-                null,
+                dataScope,
+                scopeOrgUnitId,
                 0L
         );
     }
 
-    private Employee createEmployee(Long id, String code, String name) {
-        return new Employee(
-                new EmployeeId(id),
-                new UserId(id),
-                10L,
+    private ResourceCandidate createCandidate(Long id, Long userId, Long orgUnitId, String code, String name) {
+        return new ResourceCandidate(
+                id,
+                userId,
                 code,
                 name,
+                orgUnitId,
                 "Developer",
-                null,
-                null,
-                false,
                 40,
-                EmployeeStatus.ACTIVE,
-                0L
+                null,
+                1L,
+                "Java",
+                3,
+                BigDecimal.valueOf(3)
         );
     }
 
@@ -112,28 +114,20 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(1L);
         when(loadUserPort.findById(any())).thenReturn(Optional.of(createRMUser()));
 
-        Employee emp1 = createEmployee(101L, "NV01", "Nguyễn Văn A");
-        Employee emp2 = createEmployee(102L, "NV02", "Trần Thị B");
-        Employee emp3 = createEmployee(103L, "NV03", "Lê Văn C");
+        ResourceCandidate c1 = createCandidate(101L, 101L, 10L, "NV01", "Nguyễn Văn A");
+        ResourceCandidate c2 = createCandidate(102L, 102L, 10L, "NV02", "Trần Thị B");
+        ResourceCandidate c3 = createCandidate(103L, 103L, 10L, "NV03", "Lê Văn C");
 
-        List<EmployeeSkillCandidate> candidates = List.of(
-                new EmployeeSkillCandidate(emp1, 1L, "Java", 3, BigDecimal.valueOf(3)),
-                new EmployeeSkillCandidate(emp2, 1L, "Java", 4, BigDecimal.valueOf(4)),
-                new EmployeeSkillCandidate(emp3, 1L, "Java", 3, BigDecimal.valueOf(2))
-        );
-        when(searchResourcePort.findActiveEmployeesBySkill(1L, 3)).thenReturn(candidates);
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 3)).thenReturn(List.of(c1, c2, c3));
 
         YearWeek yw = YearWeek.of(2026, 10);
-        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(any(), any())).thenReturn(Optional.empty()); // Mặc định 40h
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of()); // Mặc định 40h
 
         // NV01: đã bị phân bổ 30h -> rảnh 10h
-        when(loadAllocationPort.loadAllocationsForEmployee(101L, yw)).thenReturn(List.of(
-                new WeeklyProjectAllocation(1L, 101L, 50L, yw, BigDecimal.valueOf(30))
-        ));
         // NV02: chưa bị phân bổ (0h) -> rảnh 40h
-        when(loadAllocationPort.loadAllocationsForEmployee(102L, yw)).thenReturn(List.of());
         // NV03: đã bị phân bổ 20h -> rảnh 20h
-        when(loadAllocationPort.loadAllocationsForEmployee(103L, yw)).thenReturn(List.of(
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(
+                new WeeklyProjectAllocation(1L, 101L, 50L, yw, BigDecimal.valueOf(30)),
                 new WeeklyProjectAllocation(2L, 103L, 50L, yw, BigDecimal.valueOf(20))
         ));
 
@@ -188,5 +182,160 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         service.search(query);
 
         verify(saveAuditLogPort).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Edge case 1: fromWeek > toWeek ném IllegalArgumentException")
+    void testSearch_InvalidWeekRange_ThrowsIllegalArgumentException() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                new SearchResourceQuery(1L, 1, null, 2026, 20, 2026, 10));
+        assertTrue(ex.getMessage().contains("Khoảng thời gian bắt đầu phải nhỏ hơn hoặc bằng"));
+    }
+
+    @Test
+    @DisplayName("Edge case 2: Cross-year range 2026-W52 đến 2027-W02 chạy thành công")
+    void testSearch_CrossYearRange_Success() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(1L);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(createRMUser()));
+
+        ResourceCandidate c1 = createCandidate(101L, 101L, 10L, "NV01", "Nguyễn Văn A");
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(c1));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        // 2026 có 53 tuần: 2026-W52, 2026-W53, 2027-W01, 2027-W02 -> 4 tuần
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, null, 2026, 52, 2027, 2);
+        List<ResourceSearchResult> results = service.search(query);
+
+        assertEquals(1, results.size());
+        assertEquals(4, results.get(0).weeklyAvailabilities().size());
+        assertEquals(new BigDecimal("160"), results.get(0).totalRemainingHours());
+    }
+
+    @Test
+    @DisplayName("Edge case 3: Năm không có tuần 53 ném IllegalArgumentException")
+    void testSearch_InvalidWeek53_ThrowsIllegalArgumentException() {
+        // Năm 2025 chỉ có 52 tuần ISO
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                new SearchResourceQuery(1L, 1, null, 2025, 53, 2025, 53));
+        assertTrue(ex.getMessage().contains("chỉ có 52 tuần"));
+    }
+
+    @Test
+    @DisplayName("Edge case 4: Hợp đồng kết thúc trước tuần mục tiêu -> số giờ rảnh còn lại = 0")
+    void testSearch_ContractExpired_RemainingIsZero() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(1L);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(createRMUser()));
+
+        YearWeek yw = YearWeek.of(2026, 15);
+        LocalDate expiredDate = yw.getStartDate().minusDays(2); // Hết hạn trước thứ Hai của tuần 15
+
+        ResourceCandidate expiredCandidate = new ResourceCandidate(
+                101L, 101L, "NV01", "Nguyễn Văn A", 10L, "Developer", 40,
+                expiredDate, 1L, "Java", 3, BigDecimal.valueOf(3)
+        );
+
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(expiredCandidate));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, null, 2026, 15, 2026, 15);
+        List<ResourceSearchResult> results = service.search(query);
+
+        assertEquals(1, results.size());
+        assertEquals(BigDecimal.ZERO, results.get(0).totalRemainingHours());
+        assertEquals(BigDecimal.ZERO, results.get(0).weeklyAvailabilities().get(0).netAvailableHours());
+        assertEquals(BigDecimal.ZERO, results.get(0).weeklyAvailabilities().get(0).remainingHours());
+    }
+
+    @Test
+    @DisplayName("Edge case 5: Over-allocation (gán 60h trên 40h chuẩn) -> số giờ rảnh còn lại bị chặn ở 0 thay vì âm")
+    void testSearch_OverAllocation_RemainingClampedToZero() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(1L);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(createRMUser()));
+
+        ResourceCandidate c1 = createCandidate(101L, 101L, 10L, "NV01", "Nguyễn Văn A");
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(c1));
+
+        YearWeek yw = YearWeek.of(2026, 10);
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of()); // 40h chuẩn
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(
+                new WeeklyProjectAllocation(1L, 101L, 50L, yw, BigDecimal.valueOf(60)) // Gán 60h > 40h
+        ));
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10);
+        List<ResourceSearchResult> results = service.search(query);
+
+        assertEquals(1, results.size());
+        assertEquals(BigDecimal.ZERO, results.get(0).totalRemainingHours());
+        assertEquals(BigDecimal.ZERO, results.get(0).weeklyAvailabilities().get(0).remainingHours());
+    }
+
+    @Test
+    @DisplayName("Edge case 6: Scope ORGANIZATION_BRANCH chỉ lọc nhân sự thuộc nhánh phòng ban")
+    void testSearch_OrganizationBranchScope_FiltersCorrectly() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(1L);
+        User branchUser = createUserWithScope(1L, DataScope.ORGANIZATION_BRANCH, 10L);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(branchUser));
+
+        ResourceCandidate c1 = createCandidate(101L, 101L, 11L, "NV01", "Nhân viên trong nhánh");
+        ResourceCandidate c2 = createCandidate(102L, 102L, 20L, "NV02", "Nhân viên ngoài nhánh");
+
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(c1, c2));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(11L, 10L)).thenReturn(true);
+        when(loadOrgUnitPort.existsInOrgUnitBranch(20L, 10L)).thenReturn(false);
+
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10);
+        List<ResourceSearchResult> results = service.search(query);
+
+        assertEquals(1, results.size());
+        assertEquals(101L, results.get(0).employeeId());
+    }
+
+    @Test
+    @DisplayName("Edge case 6b: Scope ORGANIZATION_BRANCH yêu cầu orgUnitId ngoài nhánh bị từ chối")
+    void testSearch_OrganizationBranchScope_RequestingOrgUnitOutsideBranch_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(1L);
+        User branchUser = createUserWithScope(1L, DataScope.ORGANIZATION_BRANCH, 10L);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(branchUser));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(99L, 10L)).thenReturn(false);
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, 99L, 2026, 10, 2026, 10);
+        assertThrows(PermissionDeniedException.class, () -> service.search(query));
+    }
+
+    @Test
+    @DisplayName("Edge case 7: Scope SELF chỉ cho phép xem chính mình (match userId)")
+    void testSearch_SelfScope_FiltersCorrectly() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(500L);
+        User selfUser = createUserWithScope(500L, DataScope.SELF, null);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(selfUser));
+
+        ResourceCandidate c1 = createCandidate(101L, 500L, 10L, "NV01", "Chính người dùng");
+        ResourceCandidate c2 = createCandidate(102L, 999L, 10L, "NV02", "Người dùng khác");
+
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(c1, c2));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10);
+        List<ResourceSearchResult> results = service.search(query);
+
+        assertEquals(1, results.size());
+        assertEquals(101L, results.get(0).employeeId());
+    }
+
+    @Test
+    @DisplayName("Edge case 7b: Scope SELF cố tình lọc theo orgUnitId bị từ chối PermissionDenied")
+    void testSearch_SelfScope_RequestingOrgUnit_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(500L);
+        User selfUser = createUserWithScope(500L, DataScope.SELF, null);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(selfUser));
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, 10L, 2026, 10, 2026, 10);
+        assertThrows(PermissionDeniedException.class, () -> service.search(query));
     }
 }
