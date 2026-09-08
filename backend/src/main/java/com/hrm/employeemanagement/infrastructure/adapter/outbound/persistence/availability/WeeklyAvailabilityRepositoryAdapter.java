@@ -49,6 +49,16 @@ public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabili
     }
 
     @Override
+    public List<WeeklyAvailability> findByEmployeeIdInAndYearWeek(List<Long> employeeIds, YearWeek yearWeek) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return List.of();
+        }
+        return weeklyAvailabilityRepository.findByEmployeeIdInAndYearAndWeekNumber(
+                employeeIds, yearWeek.year(), yearWeek.weekNumber())
+                .stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
     public WeeklyAvailability save(WeeklyAvailability availability) {
         WeeklyAvailabilityJpaEntity entity = mapper.toJpaEntity(availability);
         WeeklyAvailabilityJpaEntity saved = weeklyAvailabilityRepository.save(entity);

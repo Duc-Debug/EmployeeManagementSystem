@@ -16,6 +16,6 @@ public record AllocateResourceCommand(
         Objects.requireNonNull(projectId, "ID dự án không được null");
         Objects.requireNonNull(year, "Năm không được null");
         Objects.requireNonNull(weekNumber, "Số tuần không được null");
-        allocatedHours = allocatedHours != null ? allocatedHours : BigDecimal.ZERO;
+        Objects.requireNonNull(allocatedHours, "Số giờ phân bổ không được null");
     }
 }

@@ -3,10 +3,10 @@ package com.hrm.employeemanagement.application.service.allocation;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-
-import org.springframework.dao.DataIntegrityViolationException;
+import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.allocation.AllocateResourceCommand;
 import com.hrm.employeemanagement.application.dto.allocation.WeeklyCapacityResult;
@@ -28,6 +28,7 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
@@ -104,9 +105,38 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         // Kiểm tra Phạm vi dữ liệu (Data Scope) cho Dự án
         requireOrgUnitInDataScope(currentUser, project.getOrgUnitId(), PermissionCode.RESOURCE_ALLOCATION_MANAGE);
 
-        // Tìm bản ghi phân bổ hiện tại hoặc tạo mới
-        Optional<WeeklyProjectAllocation> existingOpt = loadAllocationPort.loadAllocation(
-                command.employeeId(), command.projectId(), yearWeek);
+        // Load khả dụng của nhân sự trong tuần
+        Optional<WeeklyAvailability> availabilityOpt = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(command.employeeId(), yearWeek);
+        int standardHours = employee.getStandardHoursPerWeek() != null ? employee.getStandardHoursPerWeek() : 40;
+        BigDecimal netAvailableHours = availabilityOpt.map(WeeklyAvailability::getNetAvailableHours)
+                .orElse(BigDecimal.valueOf(standardHours));
+
+        // Load tất cả allocations hiện tại của nhân sự trong tuần
+        List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(command.employeeId(), yearWeek);
+
+        // Tính tổng số giờ phân bổ cho các dự án KHÁC dự án hiện tại
+        BigDecimal otherProjectsAllocatedSum = existingAllocations.stream()
+                .filter(a -> !a.getProjectId().equals(command.projectId()))
+                .map(WeeklyProjectAllocation::getAllocatedHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(command.allocatedHours());
+
+        // Enforce capacity limit: Không cho phép vượt netAvailableHours
+        if (totalRequestedAllocated.compareTo(netAvailableHours) > 0) {
+            throw new AllocationCapacityExceededException(
+                    "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
+            );
+        }
+
+        // Capture oldValue từ bản ghi phân bổ hiện tại cho dự án này (nếu có)
+        Optional<WeeklyProjectAllocation> existingOpt = existingAllocations.stream()
+                .filter(a -> a.getProjectId().equals(command.projectId()))
+                .findFirst();
+
+        BigDecimal oldHours = existingOpt.map(WeeklyProjectAllocation::getAllocatedHours).orElse(BigDecimal.ZERO);
+        String oldValue = oldHours.toString();
+        String newValue = command.allocatedHours().toString();
 
         WeeklyProjectAllocation allocation;
         if (existingOpt.isPresent()) {
@@ -117,21 +147,10 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                     command.employeeId(), command.projectId(), yearWeek, command.allocatedHours());
         }
 
-        // Lưu bản ghi với Race Condition handling
-        WeeklyProjectAllocation saved;
-        try {
-            saved = saveAllocationPort.save(allocation);
-        } catch (DataIntegrityViolationException ex) {
-            WeeklyProjectAllocation retryAllocation = loadAllocationPort.loadAllocation(command.employeeId(), command.projectId(), yearWeek)
-                    .orElseThrow(() -> ex);
-            retryAllocation.updateAllocatedHours(command.allocatedHours());
-            saved = saveAllocationPort.save(retryAllocation);
-        }
+        // Lưu bản ghi (Concurrency retry được xử lý tại RetryableAllocateResourceUseCaseDecorator)
+        WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
         // [TC-05] Ghi nhật ký kiểm toán (Audit Log)
-        String oldValue = existingOpt.map(a -> a.getAllocatedHours().toString()).orElse("0");
-        String newValue = command.allocatedHours().toString();
-
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "RESOURCE_ALLOCATED",
@@ -152,11 +171,41 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
 
         YearWeek yearWeek = YearWeek.of(year, weekNumber);
 
+        // 1. Batch load nhân sự
+        List<EmployeeId> empIds = employeeIds.stream().map(EmployeeId::new).toList();
+        List<Employee> loadedEmployees = loadEmployeePort.findAllByIdIn(empIds);
+
+        Map<Long, Employee> employeeMap = loadedEmployees.stream()
+                .collect(Collectors.toMap(Employee::getIdValue, e -> e));
+
+        for (Long id : employeeIds) {
+            if (!employeeMap.containsKey(id)) {
+                throw new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + id);
+            }
+        }
+
+        // Validate Data Scope cho tất cả nhân sự được truy vấn
+        for (Employee emp : loadedEmployees) {
+            requireOrgUnitInDataScope(currentUser, emp.getOrgUnitId(), PermissionCode.RESOURCE_ALLOCATION_READ);
+        }
+
+        // 2. Batch load availability (1 SQL query)
+        List<WeeklyAvailability> availabilities = loadWeeklyAvailabilityPort.findByEmployeeIdInAndYearWeek(employeeIds, yearWeek);
+        Map<Long, WeeklyAvailability> availabilityMap = availabilities.stream()
+                .collect(Collectors.toMap(WeeklyAvailability::getEmployeeId, a -> a));
+
+        // 3. Batch load allocations (1 SQL query)
+        List<WeeklyProjectAllocation> allAllocations = loadAllocationPort.loadAllocationsForEmployeesInWeekRange(
+                employeeIds, yearWeek.year(), yearWeek.weekNumber(), yearWeek.weekNumber());
+        Map<Long, List<WeeklyProjectAllocation>> allocationMap = allAllocations.stream()
+                .collect(Collectors.groupingBy(WeeklyProjectAllocation::getEmployeeId));
+
+        // 4. Tính toán capacity trên bộ nhớ theo thứ tự employeeIds đầu vào
         return employeeIds.stream().map(empId -> {
-            Employee employee = loadEmployeePort.findById(new EmployeeId(empId))
-                    .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + empId));
-            requireOrgUnitInDataScope(currentUser, employee.getOrgUnitId(), PermissionCode.RESOURCE_ALLOCATION_READ);
-            return calculateCapacity(employee, yearWeek);
+            Employee employee = employeeMap.get(empId);
+            WeeklyAvailability availability = availabilityMap.get(empId);
+            List<WeeklyProjectAllocation> allocations = allocationMap.getOrDefault(empId, List.of());
+            return calculateCapacityFromPreloaded(employee, yearWeek, availability, allocations);
         }).toList();
     }
 
@@ -180,15 +229,23 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
 
     private WeeklyCapacityResult calculateCapacity(Employee employee, YearWeek yearWeek) {
         Optional<WeeklyAvailability> availabilityOpt = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employee.getIdValue(), yearWeek);
+        List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployee(employee.getIdValue(), yearWeek);
+        return calculateCapacityFromPreloaded(employee, yearWeek, availabilityOpt.orElse(null), allocations);
+    }
 
+    private WeeklyCapacityResult calculateCapacityFromPreloaded(
+            Employee employee,
+            YearWeek yearWeek,
+            WeeklyAvailability availability,
+            List<WeeklyProjectAllocation> allocations
+    ) {
         int standardHours = employee.getStandardHoursPerWeek() != null ? employee.getStandardHoursPerWeek() : 40;
 
-        BigDecimal netAvailable = availabilityOpt.map(WeeklyAvailability::getNetAvailableHours)
-                .orElse(BigDecimal.valueOf(standardHours));
+        BigDecimal netAvailable = availability != null
+                ? availability.getNetAvailableHours()
+                : BigDecimal.valueOf(standardHours);
 
-        List<WeeklyProjectAllocation> allAllocations = loadAllocationPort.loadAllocationsForEmployee(employee.getIdValue(), yearWeek);
-
-        BigDecimal totalAllocated = allAllocations.stream()
+        BigDecimal totalAllocated = allocations.stream()
                 .map(WeeklyProjectAllocation::getAllocatedHours)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 

@@ -32,12 +32,9 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                             allocation.getYear(),
                             allocation.getWeekNumber(),
                             allocation.getAllocatedHours(),
-                            allocation.getVersion()
+                            null
                     ));
             entity.setAllocatedHours(allocation.getAllocatedHours());
-            if (allocation.getVersion() != null) {
-                entity.setVersion(allocation.getVersion());
-            }
         } else {
             entity = new WeeklyProjectAllocationJpaEntity(
                     null,
@@ -46,7 +43,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                     allocation.getYear(),
                     allocation.getWeekNumber(),
                     allocation.getAllocatedHours(),
-                    allocation.getVersion()
+                    null
             );
         }
 

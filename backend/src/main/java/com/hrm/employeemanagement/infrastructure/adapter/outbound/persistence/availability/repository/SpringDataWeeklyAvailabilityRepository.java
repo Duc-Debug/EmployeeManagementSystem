@@ -4,9 +4,11 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.av
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface SpringDataWeeklyAvailabilityRepository extends JpaRepository<WeeklyAvailabilityJpaEntity, Long> {
     Optional<WeeklyAvailabilityJpaEntity> findByEmployeeIdAndYearAndWeekNumber(Long employeeId, Integer year, Integer weekNumber);
+    List<WeeklyAvailabilityJpaEntity> findByEmployeeIdInAndYearAndWeekNumber(List<Long> employeeIds, Integer year, Integer weekNumber);
 }

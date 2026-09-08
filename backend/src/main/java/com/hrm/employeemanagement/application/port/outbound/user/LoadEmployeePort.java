@@ -13,4 +13,5 @@ public interface LoadEmployeePort {
     boolean existsByEmployeeCode(String employeeCode);
     boolean existsByEmployeeCodeAndIdNot(String employeeCode, EmployeeId excludeId);
     List<Employee> findAllByUserIdIn(List<UserId> userIds);
+    List<Employee> findAllByIdIn(List<EmployeeId> ids);
 }

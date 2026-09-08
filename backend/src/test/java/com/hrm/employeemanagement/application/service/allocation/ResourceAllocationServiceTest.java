@@ -19,9 +19,11 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationHoursException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
@@ -125,12 +127,11 @@ class ResourceAllocationServiceTest {
         WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.valueOf(10), BigDecimal.valueOf(30));
         when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
 
-        when(loadAllocationPort.loadAllocation(employeeId, projectId, yearWeek)).thenReturn(Optional.empty());
-
         WeeklyProjectAllocation savedAllocation = WeeklyProjectAllocation.createNew(employeeId, projectId, yearWeek, BigDecimal.valueOf(20));
         when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenReturn(savedAllocation);
 
         when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek))
+                .thenReturn(List.of())
                 .thenReturn(List.of(savedAllocation));
 
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
@@ -146,6 +147,74 @@ class ResourceAllocationServiceTest {
 
         verify(saveAllocationPort, times(1)).save(any(WeeklyProjectAllocation.class));
         verify(saveAuditLogPort, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Capacity Enforcement: Phân bổ vượt quá netAvailableHours -> Ném lỗi AllocationCapacityExceededException")
+    void testAllocationExceedingCapacity_ThrowsAllocationCapacityExceededException() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+
+        YearWeek yearWeek = YearWeek.of(year, weekNumber);
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        // Employee already allocated 30h to another project (ID: 99L)
+        WeeklyProjectAllocation existingProjAllocation = new WeeklyProjectAllocation(1L, employeeId, 99L, yearWeek, BigDecimal.valueOf(30), 0L);
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek)).thenReturn(List.of(existingProjAllocation));
+
+        // Request 20h for new project -> Total would be 50h > 40h netAvailable
+        AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
+
+        AllocationCapacityExceededException exception = assertThrows(
+                AllocationCapacityExceededException.class,
+                () -> service.allocateResource(command)
+        );
+
+        assertTrue(exception.getMessage().contains("vượt quá số giờ khả dụng"));
+        verify(saveAllocationPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Update existing allocation: Cập nhật phân bổ từ 10h lên 20h trên cùng dự án thành công")
+    void testUpdateExistingAllocation_Success() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+
+        YearWeek yearWeek = YearWeek.of(year, weekNumber);
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        // Existing allocation on SAME project is 10h
+        WeeklyProjectAllocation existingAllocation = new WeeklyProjectAllocation(1L, employeeId, projectId, yearWeek, BigDecimal.valueOf(10), 0L);
+        WeeklyProjectAllocation updatedAllocation = new WeeklyProjectAllocation(1L, employeeId, projectId, yearWeek, BigDecimal.valueOf(20), 1L);
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek))
+                .thenReturn(List.of(existingAllocation))
+                .thenReturn(List.of(updatedAllocation));
+
+        when(saveAllocationPort.save(any())).thenReturn(updatedAllocation);
+
+        AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertEquals(BigDecimal.valueOf(20), result.remainingAvailableHours());
+        verify(saveAllocationPort, times(1)).save(any());
     }
 
     @Test
@@ -176,15 +245,13 @@ class ResourceAllocationServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(1L);
         when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(currentUserMock));
         when(currentUserMock.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
-        when(currentUserMock.getScopeOrgUnitId()).thenReturn(100L); // Current user manages org unit 100
+        when(currentUserMock.getScopeOrgUnitId()).thenReturn(100L);
 
         Employee employee = new Employee(
                 new EmployeeId(employeeId), null, 200L, "EMP001", "Nguyễn Văn X",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
         when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
-
-        // Employee's org unit 200 is NOT in branch of RM's scope org unit 100
         when(loadOrgUnitPort.existsInOrgUnitBranch(200L, 100L)).thenReturn(false);
 
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
@@ -245,6 +312,15 @@ class ResourceAllocationServiceTest {
     }
 
     @Test
+    @DisplayName("DTO Invariant Check: null allocatedHours ném lỗi NullPointerException")
+    void testNullAllocatedHours_ThrowsNullPointerException() {
+        assertThrows(
+                NullPointerException.class,
+                () -> new AllocateResourceCommand(employeeId, projectId, year, weekNumber, null)
+        );
+    }
+
+    @Test
     @DisplayName("TC-04: Từ chối khi User không có quyền RM")
     void testTC04_Unauthorized_NonResourceManager() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE))
@@ -266,10 +342,10 @@ class ResourceAllocationServiceTest {
     void testGetWeeklyCapacities_EmployeeNotFound_ThrowsException() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(1L);
         when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(currentUserMock));
-        when(loadEmployeePort.findById(new EmployeeId(999L))).thenReturn(Optional.empty());
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(999L)))).thenReturn(List.of());
 
         assertThrows(
-                com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException.class,
+                EmployeeNotFoundException.class,
                 () -> service.getWeeklyCapacities(List.of(999L), year, weekNumber)
         );
     }
@@ -286,7 +362,7 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 200L, "EMP001", "Nguyễn Văn X",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(employeeId)))).thenReturn(List.of(employee));
         when(loadOrgUnitPort.existsInOrgUnitBranch(200L, 100L)).thenReturn(false);
 
         assertThrows(
@@ -296,8 +372,8 @@ class ResourceAllocationServiceTest {
     }
 
     @Test
-    @DisplayName("getWeeklyCapacities: Thành công trả về danh sách capacity của nhân sự trong Data Scope")
-    void testGetWeeklyCapacities_Success() {
+    @DisplayName("getWeeklyCapacities: Batch loading tối ưu (O(3) queries) trả về danh sách capacity của nhân sự trong Data Scope")
+    void testGetWeeklyCapacities_Success_BatchLoading() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(1L);
         when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(currentUserMock));
         when(currentUserMock.getDataScope()).thenReturn(DataScope.COMPANY);
@@ -306,11 +382,11 @@ class ResourceAllocationServiceTest {
                 new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
                 "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(employeeId)))).thenReturn(List.of(employee));
 
         YearWeek yearWeek = YearWeek.of(year, weekNumber);
-        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.empty());
-        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek)).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdInAndYearWeek(List.of(employeeId), yearWeek)).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(List.of(employeeId), year, weekNumber, weekNumber)).thenReturn(List.of());
 
         List<WeeklyCapacityResult> results = service.getWeeklyCapacities(List.of(employeeId), year, weekNumber);
 
