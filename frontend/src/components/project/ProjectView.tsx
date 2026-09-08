@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-    Cubes,
+    Boxes,
     Plus,
     Download,
     ListCheck,
@@ -9,7 +9,7 @@ import {
     AlertTriangle,
     Columns,
     Layers,
-    CalendarWeek,
+    CalendarDays,
     Search,
     CheckCircle2,
     Info,
@@ -197,7 +197,7 @@ export default function ProjectView() {
                     {/* Logo & Identity */}
                     <div className="flex items-center gap-4">
                         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md shadow-indigo-100 font-bold text-lg shrink-0">
-                            <Cubes className="h-6 w-6" />
+                            <Boxes className="h-6 w-6" />
                         </div>
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
@@ -342,7 +342,7 @@ export default function ProjectView() {
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
                         }`}
                     >
-                        <CalendarWeek className="h-4 w-4" />
+                        <CalendarDays className="h-4 w-4" />
                         <span>Phân bổ theo tuần</span>
                     </button>
                 </div>

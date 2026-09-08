@@ -35,7 +35,7 @@ export interface SkilldeclarationViewProps {
 
 export default function SkilldeclarationView({
                                                  departments = [],
-                                                 employees = [],
+                                                 employees: _employees = [],
                                                  initialTab = 'declare',
                                              }: SkilldeclarationViewProps) {
     const [activeTab, setActiveTab] = useState<ModuleTab>(initialTab);
@@ -109,19 +109,6 @@ export default function SkilldeclarationView({
         setDeletingSkill(null);
     }
 
-    function handleApprove(skillId: number | string) {
-        setSkills((prev) =>
-            prev.map((s) => (s.skillId === skillId ? { ...s, status: 'approved' } : s))
-        );
-        pushToast('Đã phê duyệt', 'Kỹ năng đã chuyển sang trạng thái Đã xác nhận.');
-    }
-
-    function handleReject(skillId: number | string) {
-        setSkills((prev) =>
-            prev.map((s) => (s.skillId === skillId ? { ...s, status: 'rejected' } : s))
-        );
-        pushToast('Đã từ chối', 'Kỹ năng đã chuyển sang trạng thái Bị từ chối.');
-    }
 
     function openCreateModal() {
         setFormMode('create');

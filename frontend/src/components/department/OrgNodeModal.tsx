@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Check, UserCircle2, Layers } from "lucide-react";
+import { X, Check, UserCircle2 } from "lucide-react";
 import {
     ICON_OPTIONS,
     THEME_OPTIONS,
@@ -93,14 +93,14 @@ interface OrgNodeModalProps {
 }
 
 export default function OrgNodeModal({ open, initialData, levelText, employees, onClose, onSave, onDelete }: OrgNodeModalProps) {
-    const [form, setForm] = useState(() => formFromCard(initialData, levelText));
+    const [form, setForm] = useState(() => formFromCard(initialData));
     const [error, setError] = useState("");
     const [prevOpen, setPrevOpen] = useState(open);
 
     if (open !== prevOpen) {
         setPrevOpen(open);
         if (open) {
-            setForm(formFromCard(initialData, levelText));
+            setForm(formFromCard(initialData));
             setError("");
         }
     }
@@ -140,7 +140,7 @@ export default function OrgNodeModal({ open, initialData, levelText, employees, 
             desc: form.desc.trim(),
             subLeft: form.subLeft.trim(),
             manager: form.manager.trim(),
-            levelText: form.levelText || levelText,
+            levelText: levelText,
             badgeBg: theme.badgeBg,
             badgeColor: theme.badgeColor,
             borderColor: theme.borderColor,
