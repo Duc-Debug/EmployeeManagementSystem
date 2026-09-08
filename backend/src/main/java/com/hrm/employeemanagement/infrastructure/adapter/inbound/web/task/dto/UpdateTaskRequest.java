@@ -14,7 +14,9 @@ public record UpdateTaskRequest(
          * ID công việc cha: null = giữ nguyên; 0 hoặc <= 0 = đưa về root (không có cha); > 0 = chuyển sang cha mới
          */
         Long parentId,
-        @NotBlank(message = "Tên hạng mục / công việc không được để trống")
+        /**
+         * Tên hạng mục / công việc: null = giữ nguyên; nếu truyền vào thì không được rỗng
+         */
         @Size(max = 255, message = "Tên hạng mục / công việc không được vượt quá 255 ký tự")
         String name,
         /**

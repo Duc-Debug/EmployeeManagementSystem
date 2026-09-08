@@ -52,7 +52,7 @@ public class TaskController {
                 .body(ApiResponse.success("Tạo hạng mục/công việc thành công", result));
     }
 
-    @PutMapping("/{projectId}/tasks/{taskId}")
+    @RequestMapping(value = "/{projectId}/tasks/{taskId}", method = {org.springframework.web.bind.annotation.RequestMethod.PUT, org.springframework.web.bind.annotation.RequestMethod.PATCH})
     public ResponseEntity<ApiResponse<TaskResult>> updateTask(
             @PathVariable Long projectId,
             @PathVariable Long taskId,

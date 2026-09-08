@@ -340,4 +340,34 @@ class UpdateTaskServiceTest {
         assertThat(result.assigneeId()).isNull();
         assertThat(result.description()).isNull();
     }
+
+    @Test
+    @DisplayName("Cập nhật với name = null -> giữ nguyên tên task cũ")
+    void testUpdateTask_NullName_PreservesExistingName() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Task existingTask = createSampleTask(TASK_ID, null, "Tên cố định cũ");
+
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(existingTask));
+        when(saveTaskPort.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateTaskCommand command = new UpdateTaskCommand(
+                PROJECT_ID,
+                TASK_ID,
+                null,
+                null, // name = null
+                "Mô tả cập nhật",
+                null,
+                new BigDecimal("20.00"),
+                2);
+
+        TaskResult result = service.updateTask(command);
+
+        assertThat(result.name()).isEqualTo("Tên cố định cũ");
+        assertThat(result.description()).isEqualTo("Mô tả cập nhật");
+        assertThat(result.estimatedHours()).isEqualTo(new BigDecimal("20.00"));
+        assertThat(result.sortOrder()).isEqualTo(2);
+    }
 }

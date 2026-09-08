@@ -273,4 +273,28 @@ class TaskTest {
         task.updateDetails("Tên đổi", "   ", null, null);
         assertNull(task.getDescription());
     }
+
+    @Test
+    @DisplayName("Cập nhật với name null thì giữ nguyên tên cũ, name rỗng thì ném InvalidTaskDataException")
+    void testUpdateDetails_NameSemantics() {
+        Task task = Task.createNew(
+                new ProjectId(1L),
+                null,
+                "WBS-01",
+                "Tên ban đầu",
+                "Mô tả",
+                TaskType.TASK,
+                null,
+                BigDecimal.ONE,
+                1,
+                new UserId(1L));
+
+        // name = null -> giữ nguyên tên cũ
+        task.updateDetails(null, "Mô tả mới", null, null);
+        assertEquals("Tên ban đầu", task.getName());
+        assertEquals("Mô tả mới", task.getDescription());
+
+        // name = "" hoặc "   " -> ném lỗi
+        assertThrows(InvalidTaskDataException.class, () -> task.updateDetails("   ", null, null, null));
+    }
 }

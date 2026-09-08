@@ -99,17 +99,19 @@ public class Task {
     }
 
     public void updateDetails(String name, String description, BigDecimal estimatedHours, Integer sortOrder) {
-        validateName(name);
-        validateEstimatedHours(estimatedHours);
-        validateSortOrder(sortOrder);
-        this.name = name.trim();
+        if (name != null) {
+            validateName(name);
+            this.name = name.trim();
+        }
         if (description != null) {
             this.description = description.trim().isEmpty() ? null : description.trim();
         }
         if (estimatedHours != null) {
+            validateEstimatedHours(estimatedHours);
             this.estimatedHours = estimatedHours;
         }
         if (sortOrder != null) {
+            validateSortOrder(sortOrder);
             this.sortOrder = sortOrder;
         }
         this.updatedAt = LocalDateTime.now();

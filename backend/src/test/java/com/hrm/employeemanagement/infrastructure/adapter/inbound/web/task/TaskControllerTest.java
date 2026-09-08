@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -254,5 +255,44 @@ class TaskControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("Mã công việc đã tồn tại")));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{projectId}/tasks/{taskId} - Partial update không truyền name trả về 200 OK")
+    void testUpdateTask_WithoutName_Returns200() throws Exception {
+        when(updateTaskUseCase.updateTask(any(UpdateTaskCommand.class)))
+                .thenReturn(createSampleResult(1L, "Tên cũ không đổi", TaskType.TASK));
+
+        String requestJson = """
+                {
+                    "parentId": 10
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/projects/100/tasks/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/projects/{projectId}/tasks/{taskId} - Hỗ trợ method PATCH thành công trả về 200 OK")
+    void testPatchTask_Success() throws Exception {
+        when(updateTaskUseCase.updateTask(any(UpdateTaskCommand.class)))
+                .thenReturn(createSampleResult(1L, "Tên mới qua PATCH", TaskType.TASK));
+
+        String requestJson = """
+                {
+                    "name": "Tên mới qua PATCH"
+                }
+                """;
+
+        mockMvc.perform(patch("/api/v1/projects/100/tasks/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("Tên mới qua PATCH"));
     }
 }
