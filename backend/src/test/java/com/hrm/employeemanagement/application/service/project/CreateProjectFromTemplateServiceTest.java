@@ -25,7 +25,6 @@ import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.projecttemplate.CreateProjectFromTemplateCommand;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
-import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.projecttemplate.LoadProjectTemplatePort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
@@ -79,9 +78,6 @@ class CreateProjectFromTemplateServiceTest {
     private SaveProjectPort saveProjectPort;
 
     @Mock
-    private LoadProjectPort loadProjectPort;
-
-    @Mock
     private SaveTaskPort saveTaskPort;
 
     @Mock
@@ -109,7 +105,6 @@ class CreateProjectFromTemplateServiceTest {
         service = new CreateProjectFromTemplateService(
                 loadProjectTemplatePort,
                 saveProjectPort,
-                loadProjectPort,
                 saveTaskPort,
                 loadOrgUnitPort,
                 loadEmployeePort,
@@ -496,5 +491,96 @@ class CreateProjectFromTemplateServiceTest {
         assertThatThrownBy(() -> service.createProjectFromTemplate(command))
                 .isInstanceOf(InvalidProjectDataException.class)
                 .hasMessageContaining("hoạt động");
+    }
+
+    @Test
+    @DisplayName("Template WBS chứa task có cha không thuộc template sẽ ném InvalidProjectDataException")
+    void testTemplateWbs_TaskParentOutsideTemplate_ThrowsException() {
+        CreateProjectFromTemplateCommand command = new CreateProjectFromTemplateCommand(
+                TEMPLATE_ID, "Dự án WBS Lỗi Parent", ORG_UNIT_ID, null, null, null, null);
+
+        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID)))
+                .thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
+        when(loadProjectTemplatePort.findById(new ProjectTemplateId(TEMPLATE_ID)))
+                .thenReturn(Optional.of(createTemplate(true)));
+
+        // Task con có parentId = 999 không nằm trong danh sách task của template này
+        List<ProjectTemplateTask> corruptedTasks = List.of(
+                new ProjectTemplateTask(
+                        new ProjectTemplateTaskId(1L),
+                        new ProjectTemplateId(TEMPLATE_ID),
+                        new ProjectTemplateTaskId(999L),
+                        "Task mồ côi ngoài template",
+                        "Desc",
+                        TaskType.TASK,
+                        BigDecimal.TEN,
+                        1,
+                        LocalDateTime.now()));
+        when(loadProjectTemplatePort.findTasksByTemplateId(new ProjectTemplateId(TEMPLATE_ID)))
+                .thenReturn(corruptedTasks);
+
+        assertThatThrownBy(() -> service.createProjectFromTemplate(command))
+                .isInstanceOf(InvalidProjectDataException.class)
+                .hasMessageContaining("không thuộc cùng mẫu dự án");
+    }
+
+    @Test
+    @DisplayName("Template WBS chứa chu trình phụ thuộc vòng sẽ ném InvalidProjectDataException và rollback")
+    void testTemplateWbs_CyclicDependency_ThrowsException() {
+        CreateProjectFromTemplateCommand command = new CreateProjectFromTemplateCommand(
+                TEMPLATE_ID, "Dự án WBS Chu Trình Vòng", ORG_UNIT_ID, null, null, null, null);
+
+        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID)))
+                .thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
+        when(loadProjectTemplatePort.findById(new ProjectTemplateId(TEMPLATE_ID)))
+                .thenReturn(Optional.of(createTemplate(true)));
+
+        // Task 1 trỏ Task 2, Task 2 trỏ Task 1 -> Vòng lặp
+        List<ProjectTemplateTask> cyclicTasks = List.of(
+                new ProjectTemplateTask(
+                        new ProjectTemplateTaskId(1L),
+                        new ProjectTemplateId(TEMPLATE_ID),
+                        new ProjectTemplateTaskId(2L),
+                        "Task 1",
+                        "Desc",
+                        TaskType.TASK,
+                        BigDecimal.TEN,
+                        1,
+                        LocalDateTime.now()),
+                new ProjectTemplateTask(
+                        new ProjectTemplateTaskId(2L),
+                        new ProjectTemplateId(TEMPLATE_ID),
+                        new ProjectTemplateTaskId(1L),
+                        "Task 2",
+                        "Desc",
+                        TaskType.TASK,
+                        BigDecimal.TEN,
+                        2,
+                        LocalDateTime.now()));
+        when(loadProjectTemplatePort.findTasksByTemplateId(new ProjectTemplateId(TEMPLATE_ID)))
+                .thenReturn(cyclicTasks);
+
+        when(saveProjectPort.save(any(Project.class))).thenAnswer(invocation -> {
+            Project p = invocation.getArgument(0);
+            return new Project(new ProjectId(101L), p.getProjectCode(), p.getProjectName(), p.getOrgUnitId(), null,
+                    null, null, p.getEstimatedHours(), null, ProjectStatus.ACTIVE, p.getCreatedBy(), LocalDateTime.now(), null, 0L, 0);
+        });
+
+        assertThatThrownBy(() -> service.createProjectFromTemplate(command))
+                .isInstanceOf(InvalidProjectDataException.class)
+                .hasMessageContaining("tồn tại công việc mồ côi hoặc bị phụ thuộc vòng lặp");
+    }
+
+    @Test
+    @DisplayName("ProjectTemplateId và ProjectTemplateTaskId từ chối giá trị <= 0")
+    void testNegativeOrZeroIds_ThrowIllegalArgumentException() {
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new ProjectTemplateId(0L));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new ProjectTemplateId(-5L));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new ProjectTemplateTaskId(0L));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new ProjectTemplateTaskId(-1L));
     }
 }

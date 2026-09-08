@@ -3,17 +3,18 @@ package com.hrm.employeemanagement.application.service.project;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.projecttemplate.CreateProjectFromTemplateCommand;
 import com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
-import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.projecttemplate.LoadProjectTemplatePort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
@@ -47,7 +48,6 @@ import com.hrm.employeemanagement.domain.user.UserId;
 public class CreateProjectFromTemplateService implements CreateProjectFromTemplateUseCase {
     private final LoadProjectTemplatePort loadProjectTemplatePort;
     private final SaveProjectPort saveProjectPort;
-    private final LoadProjectPort loadProjectPort;
     private final SaveTaskPort saveTaskPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadEmployeePort loadEmployeePort;
@@ -59,7 +59,6 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
     public CreateProjectFromTemplateService(
             LoadProjectTemplatePort loadProjectTemplatePort,
             SaveProjectPort saveProjectPort,
-            LoadProjectPort loadProjectPort,
             SaveTaskPort saveTaskPort,
             LoadOrgUnitPort loadOrgUnitPort,
             LoadEmployeePort loadEmployeePort,
@@ -70,7 +69,6 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
         this.loadProjectTemplatePort = Objects.requireNonNull(loadProjectTemplatePort,
                 "LoadProjectTemplatePort không được để trống");
         this.saveProjectPort = Objects.requireNonNull(saveProjectPort, "SaveProjectPort không được để trống");
-        this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort không được để trống");
         this.saveTaskPort = Objects.requireNonNull(saveTaskPort, "SaveTaskPort không được để trống");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort không được để trống");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort không được để trống");
@@ -103,6 +101,7 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
         }
 
         List<ProjectTemplateTask> templateTasks = loadProjectTemplatePort.findTasksByTemplateId(templateId);
+        validateTemplateTasksHierarchy(templateTasks);
 
         // 4. Tự động tính tổng ngân sách giờ từ các task mẫu (taskType == TASK)
         BigDecimal totalEstimatedHours = templateTasks.stream()
@@ -140,6 +139,24 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
         return mapToProjectResult(savedProject);
     }
 
+    private void validateTemplateTasksHierarchy(List<ProjectTemplateTask> templateTasks) {
+        if (templateTasks == null || templateTasks.isEmpty()) {
+            return;
+        }
+        Set<Long> taskIdsInTemplate = new HashSet<>();
+        for (ProjectTemplateTask t : templateTasks) {
+            taskIdsInTemplate.add(t.getIdValue());
+        }
+
+        for (ProjectTemplateTask t : templateTasks) {
+            if (t.getParentId() != null && !taskIdsInTemplate.contains(t.getParentId().value())) {
+                throw new InvalidProjectDataException(
+                        "Cây công việc của mẫu dự án không hợp lệ: công việc '" + t.getName()
+                                + "' có cha không thuộc cùng mẫu dự án");
+            }
+        }
+    }
+
     private int cloneTemplateTasksToProject(List<ProjectTemplateTask> templateTasks,
             Project project,
             Long currentUserId) {
@@ -148,8 +165,7 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
         }
         Map<Long, TaskId> templateTaskIdToNewTaskId = new HashMap<>();
         List<ProjectTemplateTask> remaining = new ArrayList<>(templateTasks);
-        // Duyệt theo tầng: node cha (parentId == null hoặc đã được map ID mới) duyệt
-        // trước
+        // Duyệt theo tầng: node cha (parentId == null hoặc đã được map ID mới) duyệt trước
         while (!remaining.isEmpty()) {
             boolean progress = false;
             Iterator<ProjectTemplateTask> iterator = remaining.iterator();
@@ -185,8 +201,8 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
                 }
             }
             if (!progress) {
-                // Thoát phòng tránh trường hợp dữ liệu mẫu bị mồ côi hoặc lặp vòng bất thường
-                break;
+                throw new InvalidProjectDataException(
+                        "Cây công việc của mẫu dự án không hợp lệ: tồn tại công việc mồ côi hoặc bị phụ thuộc vòng lặp");
             }
         }
 

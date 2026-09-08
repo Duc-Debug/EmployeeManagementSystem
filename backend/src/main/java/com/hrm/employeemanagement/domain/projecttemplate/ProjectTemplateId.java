@@ -1,9 +1,9 @@
 package com.hrm.employeemanagement.domain.projecttemplate;
 
-import java.util.Objects;
-
 public record ProjectTemplateId(Long value) {
     public ProjectTemplateId {
-        Objects.requireNonNull(value, "ProjectTemplateId value must not be null");
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException("ProjectTemplateId value phải lớn hơn 0");
+        }
     }
 }

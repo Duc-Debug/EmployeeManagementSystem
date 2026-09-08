@@ -94,7 +94,6 @@ public class ProjectUseCaseConfig {
         public CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase(
                         LoadProjectTemplatePort loadProjectTemplatePort,
                         SaveProjectPort saveProjectPort,
-                        LoadProjectPort loadProjectPort,
                         SaveTaskPort saveTaskPort,
                         LoadOrgUnitPort loadOrgUnitPort,
                         LoadEmployeePort loadEmployeePort,
@@ -105,7 +104,6 @@ public class ProjectUseCaseConfig {
                 CreateProjectFromTemplateService pureService = new CreateProjectFromTemplateService(
                                 loadProjectTemplatePort,
                                 saveProjectPort,
-                                loadProjectPort,
                                 saveTaskPort,
                                 loadOrgUnitPort,
                                 loadEmployeePort,
