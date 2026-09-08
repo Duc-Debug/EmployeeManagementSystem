@@ -9,6 +9,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
@@ -86,7 +87,7 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
         if (orgUnitId == null) {
             return List.of();
         }
-        return springDataEmployeeRepository.findByOrgUnitIdAndStatus(orgUnitId, "ACTIVE").stream()
+        return springDataEmployeeRepository.findByOrgUnitIdAndStatus(orgUnitId, EmployeeStatus.ACTIVE.name()).stream()
                 .map(mapper::toDomain)
                 .toList();
     }

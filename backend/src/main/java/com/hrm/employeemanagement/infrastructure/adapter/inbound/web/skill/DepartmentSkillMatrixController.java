@@ -31,10 +31,10 @@ public class DepartmentSkillMatrixController {
     /**
      * API xem ma trận kỹ năng của bộ phận (NCL-02-CN-007).
      * Hỗ trợ gọi qua query param: GET /api/v1/skills/matrix?orgUnitId={id}
-     * Yêu cầu vai trò Quản lý nguồn lực (VT-03) hoặc Quản trị viên (VT-06) (TC-03).
+     * Yêu cầu vai trò Quản lý nguồn lực (VT-03 / EMPLOYEE_SKILL_READ) (TC-03).
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_READ') or hasAuthority('VT-06') or hasRole('VT-06')")
+    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_READ')")
     public ResponseEntity<ApiResponse<DepartmentSkillMatrixResponse>> getDepartmentSkillMatrix(
             @RequestParam @NotNull(message = "ID bộ phận (orgUnitId) không được để trống")
             @Positive(message = "ID bộ phận phải là số dương") Long orgUnitId
@@ -48,7 +48,7 @@ public class DepartmentSkillMatrixController {
      * Hỗ trợ gọi qua path variable: GET /api/v1/skills/matrix/{orgUnitId}
      */
     @GetMapping("/{orgUnitId}")
-    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_READ') or hasAuthority('VT-06') or hasRole('VT-06')")
+    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_READ')")
     public ResponseEntity<ApiResponse<DepartmentSkillMatrixResponse>> getDepartmentSkillMatrixByPath(
             @PathVariable @NotNull(message = "ID bộ phận không được để trống")
             @Positive(message = "ID bộ phận phải là số dương") Long orgUnitId

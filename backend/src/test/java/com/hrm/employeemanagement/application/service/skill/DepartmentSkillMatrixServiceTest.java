@@ -311,4 +311,39 @@ class DepartmentSkillMatrixServiceTest {
     void getMatrix_NullOrgUnitId_ThrowsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class, () -> service.execute(null));
     }
+
+    @Test
+    @DisplayName("Edge Case: Có duplicate bản ghi EmployeeSkill cho cùng 1 nhân sự -> Chỉ đếm 1 nhân sự duy nhất và phát hiện đúng rủi ro phụ thuộc 1 người")
+    void getMatrix_DuplicateEmployeeSkillRecords_CountsDistinctEmployeesOnly() {
+        Long orgUnitId = 10L;
+
+        List<Employee> employees = List.of(
+                new Employee(new EmployeeId(101L), new UserId(11L), orgUnitId, "EMP001", "Nguyễn Văn A", "Dev", null, null, false, 40, EmployeeStatus.ACTIVE)
+        );
+
+        List<Skill> skills = List.of(
+                new Skill(1L, "JAVA", "Java", "Backend", "Java", LocalDateTime.now())
+        );
+
+        // 2 bản ghi APPROVED cho cùng 1 nhân viên 101 với skill 1
+        List<EmployeeSkill> approvedSkills = List.of(
+                new EmployeeSkill(1L, 101L, 1L, ProficiencyLevel.INTERMEDIATE, new BigDecimal("2.0"), SkillStatus.APPROVED, 2L, LocalDateTime.now(), null, "Đã duyệt 1", LocalDateTime.now(), LocalDateTime.now()),
+                new EmployeeSkill(2L, 101L, 1L, ProficiencyLevel.ADVANCED, new BigDecimal("3.0"), SkillStatus.APPROVED, 2L, LocalDateTime.now(), null, "Đã duyệt 2", LocalDateTime.now(), LocalDateTime.now())
+        );
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))).thenReturn(Optional.of(department));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, 10L)).thenReturn(true);
+        when(loadEmployeePort.findActiveByOrgUnitId(orgUnitId)).thenReturn(employees);
+        when(skillCatalogRepository.findAll()).thenReturn(skills);
+        when(employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, List.of(101L)))
+                .thenReturn(approvedSkills);
+
+        DepartmentSkillMatrixResult result = service.execute(orgUnitId);
+
+        SkillMatrixSkillHeaderResult javaHeader = result.skills().stream().filter(s -> s.id().equals(1L)).findFirst().orElseThrow();
+        assertEquals(1, javaHeader.employeeCount(), "Số lượng nhân sự phải là 1 (distinct) dù có 2 bản ghi kỹ năng");
+        assertTrue(javaHeader.singlePersonRisk(), "Vẫn phải đánh dấu rủi ro phụ thuộc 1 người vì chỉ có 1 nhân sự nắm giữ");
+    }
 }

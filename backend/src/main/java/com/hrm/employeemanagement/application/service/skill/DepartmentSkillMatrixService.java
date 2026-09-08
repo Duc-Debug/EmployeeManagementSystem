@@ -2,9 +2,11 @@ package com.hrm.employeemanagement.application.service.skill;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import com.hrm.employeemanagement.application.dto.skill.DepartmentSkillMatrixResult;
 import com.hrm.employeemanagement.application.dto.skill.DepartmentSkillMatrixResult.SkillMatrixCellResult;
@@ -92,22 +94,24 @@ public class DepartmentSkillMatrixService implements GetDepartmentSkillMatrixUse
             approvedSkills = employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, employeeIds);
         }
 
-       //Gom nhóm kỹ năng theo nhân viên: Map<EmployeeId, Map<SkillId, EmployeeSkill>>
+        // Gom nhóm kỹ năng theo nhân viên: Map<EmployeeId, Map<SkillId, EmployeeSkill>>
         Map<Long, Map<Long, EmployeeSkill>> employeeSkillsMap = new HashMap<>();
-        Map<Long, Integer> skillCountMap = new HashMap<>();
+        Map<Long, Set<Long>> skillEmployeeIdsMap = new HashMap<>();
 
         for (EmployeeSkill es : approvedSkills) {
             employeeSkillsMap
                     .computeIfAbsent(es.getEmployeeId(), k -> new HashMap<>())
                     .put(es.getSkillId(), es);
 
-            skillCountMap.put(es.getSkillId(), skillCountMap.getOrDefault(es.getSkillId(), 0) + 1);
+            skillEmployeeIdsMap
+                    .computeIfAbsent(es.getSkillId(), k -> new HashSet<>())
+                    .add(es.getEmployeeId());
         }
 
-        // . Xây dựng danh sách Header kỹ năng (TC-01, TC-02: Đánh dấu rủi ro phụ thuộc 1 người)
+        // Xây dựng danh sách Header kỹ năng (TC-01, TC-02: Đánh dấu rủi ro phụ thuộc 1 người)
         List<SkillMatrixSkillHeaderResult> skillHeaders = skills.stream()
                 .map(skill -> {
-                    int count = skillCountMap.getOrDefault(skill.getId(), 0);
+                    int count = skillEmployeeIdsMap.getOrDefault(skill.getId(), Collections.emptySet()).size();
                     boolean singlePersonRisk = (count == 1);
                     return new SkillMatrixSkillHeaderResult(
                             skill.getId(),
