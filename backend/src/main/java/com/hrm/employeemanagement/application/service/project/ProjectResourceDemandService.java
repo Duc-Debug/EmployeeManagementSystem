@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.project.demand.EstimateResourceDemandCommand;
@@ -112,6 +113,7 @@ public class ProjectResourceDemandService implements
 
         List<YearWeek> projectWeeks = ProjectResourceDemandPolicy.calculateProjectWeeks(
                 project.getStartDate(), project.getEndDate());
+        Set<YearWeek> validProjectWeeksSet = Set.copyOf(projectWeeks);
 
         List<ProjectResourceDemand> existingRoleDemands = loadDemandPort.findByProjectIdAndRoleId(
                 project.getId(), role.getId());
@@ -129,6 +131,15 @@ public class ProjectResourceDemandService implements
                 demandsToSave.add(ProjectResourceDemand.createNew(
                         project.getId(), role.getId(), yw, command.hoursPerWeek()));
             }
+        }
+
+        // Dọn dẹp các demand cũ của vai trò này nằm ngoài khoảng thời gian dự án (stale weeks)
+        List<ProjectResourceDemand> staleDemands = existingRoleDemands.stream()
+                .filter(d -> !validProjectWeeksSet.contains(d.getYearWeek()))
+                .toList();
+
+        if (!staleDemands.isEmpty()) {
+            saveDemandPort.deleteAll(staleDemands);
         }
 
         saveDemandPort.saveAll(demandsToSave);
@@ -168,12 +179,24 @@ public class ProjectResourceDemandService implements
 
     private ProjectResourceDemandSummaryResult buildSummaryResult(Project project) {
         List<ProjectResourceDemand> allDemands = loadDemandPort.findByProjectId(project.getId());
+
+        // Lọc các bản ghi nhu cầu thuộc các tuần hợp lệ theo ngày của dự án
+        List<ProjectResourceDemand> activeDemands = allDemands;
+        if (project.getStartDate() != null && project.getEndDate() != null) {
+            List<YearWeek> validWeeks = ProjectResourceDemandPolicy.calculateProjectWeeks(
+                    project.getStartDate(), project.getEndDate());
+            Set<YearWeek> validWeeksSet = Set.copyOf(validWeeks);
+            activeDemands = allDemands.stream()
+                    .filter(d -> validWeeksSet.contains(d.getYearWeek()))
+                    .toList();
+        }
+
         List<Role> allRoles = loadRolePort.findAll();
         Map<Long, Role> roleMap = allRoles.stream()
                 .filter(r -> r.getId() != null)
                 .collect(Collectors.toMap(Role::getIdValue, r -> r, (a, b) -> a));
 
-        Map<Long, List<ProjectResourceDemand>> groupedByRole = allDemands.stream()
+        Map<Long, List<ProjectResourceDemand>> groupedByRole = activeDemands.stream()
                 .collect(Collectors.groupingBy(ProjectResourceDemand::getRoleIdValue));
 
         List<RoleResourceDemandResult> roleResults = new ArrayList<>();

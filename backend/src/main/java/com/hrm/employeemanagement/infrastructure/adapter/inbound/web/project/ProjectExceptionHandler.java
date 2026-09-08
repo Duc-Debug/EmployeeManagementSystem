@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException;
+import com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException;
@@ -41,6 +42,11 @@ public class ProjectExceptionHandler {
 
         @ExceptionHandler(DuplicateProjectCodeException.class)
         public ResponseEntity<ApiResponse<Void>> handleDuplicateProjectCode(DuplicateProjectCodeException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(DuplicateResourceDemandException.class)
+        public ResponseEntity<ApiResponse<Void>> handleDuplicateResourceDemand(DuplicateResourceDemandException ex) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
         }
 

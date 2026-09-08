@@ -326,6 +326,49 @@ class ProjectResourceDemandServiceTest {
                 .isInstanceOf(RoleNotFoundException.class);
     }
 
+    @Test
+    @DisplayName("Tự động dọn dẹp (delete) các demand cũ nằm ngoài thời gian dự án khi dự án bị rút ngắn")
+    void testEstimateDemand_ShortenedProjectDates_DeletesStaleWeeks() {
+        // Given: Dự án bị rút ngắn chỉ còn 4 tuần (từ tuần 41 đến tuần 44)
+        Project project = createActiveProject(
+                PROJECT_ID,
+                LocalDate.of(2026, 10, 5),
+                LocalDate.of(2026, 11, 1), // 4 tuần: 41, 42, 43, 44
+                new BigDecimal("100.00"));
+        Role role = new Role(new RoleId(ROLE_ID), RoleCode.VT_04, "Lập trình viên");
+
+        // Trước đó trong DB đã có 6 tuần (41, 42, 43, 44, 45, 46)
+        List<ProjectResourceDemand> existingDemands = List.of(
+                createDemand(1L, 2026, 41, new BigDecimal("20.00")),
+                createDemand(2L, 2026, 42, new BigDecimal("20.00")),
+                createDemand(3L, 2026, 43, new BigDecimal("20.00")),
+                createDemand(4L, 2026, 44, new BigDecimal("20.00")),
+                createDemand(5L, 2026, 45, new BigDecimal("20.00")), // stale week
+                createDemand(6L, 2026, 46, new BigDecimal("20.00"))  // stale week
+        );
+
+        when(authorizationService.require(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadRolePort.findById(new RoleId(ROLE_ID))).thenReturn(Optional.of(role));
+        when(loadRolePort.findAll()).thenReturn(List.of(role));
+        when(loadDemandPort.findByProjectIdAndRoleId(project.getId(), role.getId())).thenReturn(existingDemands);
+        when(loadDemandPort.findByProjectId(project.getId())).thenReturn(existingDemands);
+
+        // When: PM ước lượng lại với 15h/tuần
+        EstimateResourceDemandCommand command = new EstimateResourceDemandCommand(
+                PROJECT_ID, ROLE_ID, new BigDecimal("15.00"));
+        ProjectResourceDemandSummaryResult result = service.estimateDemand(command);
+
+        // Then:
+        // 1. Phải gọi deleteAll cho 2 tuần thừa (tuần 45 và 46)
+        verify(saveDemandPort).deleteAll(anyList());
+        // 2. Phải gọi saveAll cho 4 tuần hợp lệ
+        verify(saveDemandPort).saveAll(anyList());
+        // 3. Kết quả summary chỉ chứa đúng 4 tuần hợp lệ (tổng 60h, không bị cộng 2 tuần stale)
+        assertThat(result.demandsByRole().get(0).weeklyDemands()).hasSize(4);
+    }
+
     // ==================== HELPER FACTORIES ====================
 
     private Project createActiveProject(Long id, LocalDate start, LocalDate end, BigDecimal estHours) {

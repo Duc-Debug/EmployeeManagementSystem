@@ -13,13 +13,14 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.project.ProjectResourceDemandService;
+import com.hrm.employeemanagement.infrastructure.transaction.project.RetryableEstimateResourceDemandUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalProjectResourceDemandServiceDecorator;
 
 @Configuration
 public class ProjectResourceDemandUseCaseConfig {
 
     @Bean
-    public TransactionalProjectResourceDemandServiceDecorator projectResourceDemandService(
+    public RetryableEstimateResourceDemandUseCaseDecorator projectResourceDemandService(
             LoadProjectPort loadProjectPort,
             LoadRolePort loadRolePort,
             LoadProjectResourceDemandPort loadDemandPort,
@@ -41,6 +42,9 @@ public class ProjectResourceDemandUseCaseConfig {
                 saveDeniedAuditLogPort,
                 authorizationService);
 
-        return new TransactionalProjectResourceDemandServiceDecorator(pureJavaService);
+        TransactionalProjectResourceDemandServiceDecorator transactionalDecorator =
+                new TransactionalProjectResourceDemandServiceDecorator(pureJavaService);
+
+        return new RetryableEstimateResourceDemandUseCaseDecorator(transactionalDecorator);
     }
 }

@@ -5,11 +5,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectResourceDemandPort;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
 import com.hrm.employeemanagement.domain.role.RoleId;
@@ -67,9 +69,17 @@ public class ProjectResourceDemandRepositoryAdapter implements
         if (demand == null) {
             return null;
         }
-        ProjectResourceDemandJpaEntity entity = mapper.toJpaEntity(demand);
-        ProjectResourceDemandJpaEntity saved = repository.save(entity);
-        return mapper.toDomain(saved);
+        try {
+            ProjectResourceDemandJpaEntity entity = mapper.toJpaEntity(demand);
+            ProjectResourceDemandJpaEntity saved = repository.saveAndFlush(entity);
+            return mapper.toDomain(saved);
+        } catch (DataIntegrityViolationException ex) {
+            if (isDuplicateDemandConstraintViolation(ex)) {
+                throw new DuplicateResourceDemandException(
+                        "Xung đột dữ liệu: Nhu cầu nhân sự cho vai trò và tuần này đã tồn tại hoặc được tạo đồng thời.");
+            }
+            throw ex;
+        }
     }
 
     @Override
@@ -77,10 +87,47 @@ public class ProjectResourceDemandRepositoryAdapter implements
         if (demands == null || demands.isEmpty()) {
             return Collections.emptyList();
         }
+        try {
+            List<ProjectResourceDemandJpaEntity> entities = demands.stream()
+                    .map(mapper::toJpaEntity)
+                    .toList();
+            List<ProjectResourceDemandJpaEntity> saved = repository.saveAllAndFlush(entities);
+            return saved.stream().map(mapper::toDomain).toList();
+        } catch (DataIntegrityViolationException ex) {
+            if (isDuplicateDemandConstraintViolation(ex)) {
+                throw new DuplicateResourceDemandException(
+                        "Xung đột dữ liệu: Nhu cầu nhân sự cho vai trò và tuần này đã tồn tại hoặc được tạo đồng thời.");
+            }
+            throw ex;
+        }
+    }
+
+    @Override
+    public void deleteAll(List<ProjectResourceDemand> demands) {
+        if (demands == null || demands.isEmpty()) {
+            return;
+        }
         List<ProjectResourceDemandJpaEntity> entities = demands.stream()
                 .map(mapper::toJpaEntity)
                 .toList();
-        List<ProjectResourceDemandJpaEntity> saved = repository.saveAll(entities);
-        return saved.stream().map(mapper::toDomain).toList();
+        repository.deleteAll(entities);
+    }
+
+    private boolean isDuplicateDemandConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable cause = ex.getMostSpecificCause();
+        String message = cause != null && cause.getMessage() != null ? cause.getMessage().toLowerCase() : "";
+
+        if (message.contains("uk_proj_res_demand_proj_role_week")) {
+            return true;
+        }
+
+        if (cause instanceof java.sql.SQLException sqlEx) {
+            int errorCode = sqlEx.getErrorCode();
+            String sqlState = sqlEx.getSQLState();
+            if (errorCode == 1062 || "23000".equals(sqlState) || "23505".equals(sqlState)) {
+                return message.contains("project_resource_demands") || message.contains("uk_proj_res_demand");
+            }
+        }
+        return false;
     }
 }

@@ -182,6 +182,28 @@ class ProjectResourceDemandControllerTest {
                 .andExpect(jsonPath("$.data.totalDemandHours").value(160.0));
     }
 
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/resource-demands trả về 409 khi gặp DuplicateResourceDemandException")
+    void testEstimateDemand_DuplicateConflict_Returns409() throws Exception {
+        when(estimateResourceDemandUseCase.estimateDemand(any(EstimateResourceDemandCommand.class)))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException(
+                        "Xung đột dữ liệu nhu cầu nhân sự sau nhiều lần thử lại"));
+
+        String json = """
+                {
+                    "roleId": 4,
+                    "hoursPerWeek": 20.00
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/projects/1/resource-demands")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(containsString("Xung đột dữ liệu")));
+    }
+
     private ProjectResourceDemandSummaryResult createSampleSummary(boolean exceeds, String warningMsg) {
         WeeklyDemandItemResult weekItem = new WeeklyDemandItemResult(
                 2026, 41, LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 11), new BigDecimal("20.00"));

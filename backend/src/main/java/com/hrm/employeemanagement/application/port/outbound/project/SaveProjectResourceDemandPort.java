@@ -15,4 +15,9 @@ public interface SaveProjectResourceDemandPort {
      * Lưu danh sách các bản ghi nhu cầu nhân sự theo đợt (batch save).
      */
     List<ProjectResourceDemand> saveAll(List<ProjectResourceDemand> demands);
+
+    /**
+     * Xóa danh sách các bản ghi nhu cầu nhân sự (ví dụ các tuần cũ không còn nằm trong thời gian dự án).
+     */
+    void deleteAll(List<ProjectResourceDemand> demands);
 }
