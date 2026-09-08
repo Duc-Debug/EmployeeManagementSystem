@@ -32,22 +32,47 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
 
     switch (tabId) {
         case "overview":
+            // Tất cả 6 vai trò (VT-01 -> VT-06) đều có quyền truy cập trang Tổng quan
             return true;
+
         case "access":
         case "settings":
-            // Chỉ dành riêng cho Quản trị viên (VT-06)
+        case "users":
+            // Quản lý tài khoản, Phân quyền & Thiết lập hệ thống: Dành riêng cho Quản trị viên (VT-06)
             return normalized === "VT-06";
+
         case "departments":
-            // Admin (VT-06), BGĐ (VT-01), Quản lý nguồn lực (VT-03), HR (VT-05), QL dự án (VT-02)
-            return ["VT-06", "VT-01", "VT-03", "VT-05", "VT-02"].includes(normalized);
+        case "organization":
+            // Cây cơ cấu tổ chức: VT-01, VT-02, VT-03, VT-04, VT-05 được xem (Read-only); VT-06 Toàn quyền
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+
         case "employees":
-            // Admin (VT-06), BGĐ (VT-01), Quản lý nguồn lực (VT-03), HR (VT-05)
-            return ["VT-06", "VT-01", "VT-03", "VT-05"].includes(normalized);
-        case "reports":
-            return ["VT-06", "VT-01", "VT-03", "VT-05", "VT-02"].includes(normalized);
+            // Hồ sơ nhân sự: VT-05 Toàn quyền; VT-01, VT-02, VT-03, VT-04, VT-06 được Xem theo Data Scope
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+
+        case "project":
+        case "projects":
+            // Quản lý dự án & WBS: VT-01 (Xem), VT-02 (Dự án của mình), VT-03 (Xem), VT-04 (Dự án tham gia); HR (VT-05) & Admin (VT-06) bị ẩn (❌)
+            return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalized);
+
         case "attendance":
+        case "timesheets":
+            // Bảng chấm công: VT-01, VT-02, VT-03, VT-04, VT-05 có quyền; Admin (VT-06) bị ẩn (❌)
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
+
         case "leave":
-            return true;
+        case "leave-requests":
+            // Đơn nghỉ phép: VT-01, VT-02, VT-03, VT-04, VT-05 có quyền; Admin (VT-06) bị ẩn (❌)
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
+
+        case "skills":
+            // Khai báo & Duyệt kỹ năng: VT-01, VT-02, VT-03, VT-04, VT-05
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
+
+        case "reports":
+            // Báo cáo & Mô phỏng năng lực: VT-01 (Toàn công ty), VT-02 (Dự án phụ trách), VT-03 (Bộ phận phụ trách)
+            return ["VT-01", "VT-02", "VT-03"].includes(normalized);
+
         default:
             return true;
     }
