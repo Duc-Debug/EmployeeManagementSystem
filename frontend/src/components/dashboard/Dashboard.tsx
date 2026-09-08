@@ -8,8 +8,9 @@ import KpiStatsSection from "../kpi/KpiStatsSection";
 import CalendarView from "../calendar/CalendarView";
 import DepartmentsView from "../department/DepartmentsView";
 import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
-import AccessControlView from "../access/AccessControlView";
 import AttendanceView from "../attendance/AttendanceView";
+import SkilldeclarationView from "../skilldeclaration/SkilldeclarationView";
+import ProjectView from "../project/ProjectView";
 import type { AttendanceRecord } from "@/lib/hr-data";
 
 // Dữ liệu chấm công mẫu — thay bằng dữ liệu thật (API/store) khi có sẵn.
@@ -60,8 +61,9 @@ export default function Dashboard() {
         if (path.includes("employee") || path.includes("nhan-su")) return "employees";
         if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
         if (path.includes("attendance") || path.includes("cham-cong")) return "attendance";
-        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
+        if (path.includes("skills") || path.includes("ky-nang")) return "skills";
+        if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         if (path.includes("setting")) return "settings";
         return "overview";
@@ -145,7 +147,9 @@ export default function Dashboard() {
 
                         {activeTab === "departments" && <DepartmentsView />}
 
-                        {activeTab === "access" && <AccessControlView />}
+                        {activeTab === "skills" && <SkilldeclarationView />}
+
+                        {activeTab === "project" && <ProjectView />}
 
                         {activeTab === "overview" && (
                             <div>

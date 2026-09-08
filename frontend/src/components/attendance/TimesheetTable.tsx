@@ -31,13 +31,33 @@ const formatDisplayDate = (date: Date) =>
 const POPOVER_WIDTH = 280
 
 export function TimesheetTable({ records, onEditRecord }: TimesheetTableProps) {
-    const [selectedDate, setSelectedDate] = useState(() => new Date(2026, 7, 27))
+    const [selectedDate, setSelectedDate] = useState(() => new Date())
     const [miniCalMonth, setMiniCalMonth] = useState(selectedDate)
+    const [now, setNow] = useState(() => new Date())
     const [isCalendarOpen, setIsCalendarOpen] = useState(false)
     const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null)
 
     const triggerRef = useRef<HTMLButtonElement>(null)
     const popoverRef = useRef<HTMLDivElement>(null)
+
+    // Cập nhật thời gian thực (real-time clock)
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 60000)
+        return () => clearInterval(timer)
+    }, [])
+
+    // Lắng nghe sự kiện đồng bộ ngày từ MainCalendar
+    useEffect(() => {
+        const handleDateSync = (e: Event) => {
+            const customEvent = e as CustomEvent<Date>
+            if (customEvent.detail && customEvent.detail instanceof Date) {
+                setSelectedDate(customEvent.detail)
+                setMiniCalMonth(customEvent.detail)
+            }
+        }
+        window.addEventListener("calendar_date_changed", handleDateSync)
+        return () => window.removeEventListener("calendar_date_changed", handleDateSync)
+    }, [])
 
     const computePosition = () => {
         const rect = triggerRef.current?.getBoundingClientRect()
@@ -97,6 +117,7 @@ export function TimesheetTable({ records, onEditRecord }: TimesheetTableProps) {
         setSelectedDate(date)
         setMiniCalMonth(date)
         setIsCalendarOpen(false)
+        window.dispatchEvent(new CustomEvent("calendar_date_changed", { detail: date }))
     }
 
     const handleChangeMonth = (offset: number) => {
@@ -141,7 +162,7 @@ export function TimesheetTable({ records, onEditRecord }: TimesheetTableProps) {
                             <MiniCalendar
                                 miniCalMonth={miniCalMonth}
                                 selectedDate={selectedDate}
-                                now={new Date()}
+                                now={now}
                                 onSelectDate={handleSelectDate}
                                 onChangeMonth={handleChangeMonth}
                             />
@@ -149,6 +170,7 @@ export function TimesheetTable({ records, onEditRecord }: TimesheetTableProps) {
                         document.body,
                     )}
             </div>
+
 
             {/* Table Content */}
             <div className="overflow-x-auto">

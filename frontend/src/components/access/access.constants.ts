@@ -53,12 +53,19 @@ export const SCOPE_OPTIONS: { value: DataScope; label: string }[] = [
  *  belong to one department (or "all"), and the "Cây đơn vị tùy chỉnh" data
  *  scope lets a module be limited to a hand-picked subset of these. */
 export const DEPARTMENTS: Department[] = [
-    { id: "dept_hr", name: "Phòng Nhân sự" },
-    { id: "dept_tech", name: "Phòng Công nghệ" },
-    { id: "dept_marketing", name: "Phòng Marketing" },
-    { id: "dept_sales", name: "Phòng Kinh doanh" },
-    { id: "dept_finance", name: "Phòng Tài chính" },
+    { id: "dept_tech", name: "Khối Kỹ thuật & Công nghệ" },
+    { id: "dept_fe", name: "Phòng Lập trình Frontend" },
+    { id: "dept_be", name: "Phòng Lập trình Backend" },
+    { id: "dept_uiux", name: "Nhóm UI/UX & Design System" },
+    { id: "dept_devops", name: "Nhóm Cloud & DevOps" },
+    { id: "dept_ops", name: "Khối Vận hành & Nhân sự" },
+    { id: "dept_hr", name: "Phòng Nhân sự & Tuyển dụng" },
+    { id: "dept_admin", name: "Phòng Hành chính & Quản trị" },
+    { id: "dept_biz", name: "Khối Kinh doanh & Marketing" },
+    { id: "dept_sales", name: "Phòng Phát triển Kinh doanh" },
+    { id: "dept_mkt", name: "Phòng Truyền thông & Marketing" },
 ];
+
 
 export const MODULES: ModuleDef[] = [
     {

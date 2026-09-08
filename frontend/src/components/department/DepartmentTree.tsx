@@ -325,6 +325,15 @@ export default function DepartmentTree() {
         };
     }, []);
 
+    // Tự động đồng bộ danh sách đơn vị khi cây phòng ban thay đổi (thêm, sửa, xóa)
+    useEffect(() => {
+        const names = flattenTree(tree).map((n) => n.name);
+        try {
+            localStorage.setItem('sys_dept_units', JSON.stringify(names));
+        } catch {}
+        window.dispatchEvent(new CustomEvent('dept_units_changed', { detail: names }));
+    }, [tree]);
+
     const q = searchQuery.trim().toLowerCase();
 
     function showNotify(msg: string, type: "success" | "error" = "success") {

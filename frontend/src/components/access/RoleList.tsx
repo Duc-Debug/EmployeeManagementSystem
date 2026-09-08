@@ -82,7 +82,8 @@ export default function RoleList({ roles, departments, selectedId, onSelect, onA
                         </button>
 
                         {isDeptDropdownOpen && (
-                            <div className="absolute right-0 top-full z-20 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl">
+                            <div className="absolute right-0 top-full z-30 mt-2 max-h-60 w-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl [scrollbar-width:thin]">
+
                                 <button
                                     type="button"
                                     onClick={() => {

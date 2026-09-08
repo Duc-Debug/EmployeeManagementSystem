@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Check, UserCircle2 } from "lucide-react";
+import { X, Check, UserCircle2, Layers } from "lucide-react";
 import {
     ICON_OPTIONS,
     THEME_OPTIONS,
@@ -91,15 +91,16 @@ interface OrgNodeModalProps {
     onSave: (card: CardData) => void;
     onDelete?: () => void;
 }
+
 export default function OrgNodeModal({ open, initialData, levelText, employees, onClose, onSave, onDelete }: OrgNodeModalProps) {
-    const [form, setForm] = useState(() => formFromCard(initialData));
+    const [form, setForm] = useState(() => formFromCard(initialData, levelText));
     const [error, setError] = useState("");
     const [prevOpen, setPrevOpen] = useState(open);
 
     if (open !== prevOpen) {
         setPrevOpen(open);
         if (open) {
-            setForm(formFromCard(initialData));
+            setForm(formFromCard(initialData, levelText));
             setError("");
         }
     }
@@ -139,7 +140,7 @@ export default function OrgNodeModal({ open, initialData, levelText, employees, 
             desc: form.desc.trim(),
             subLeft: form.subLeft.trim(),
             manager: form.manager.trim(),
-            levelText,
+            levelText: form.levelText || levelText,
             badgeBg: theme.badgeBg,
             badgeColor: theme.badgeColor,
             borderColor: theme.borderColor,
@@ -306,7 +307,7 @@ export default function OrgNodeModal({ open, initialData, levelText, employees, 
                                     onClick={onDelete}
                                     className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
                                 >
-                                    Xóa nhánh
+                                    Xóa nút
                                 </button>
                             )}
                         </div>
@@ -322,7 +323,7 @@ export default function OrgNodeModal({ open, initialData, levelText, employees, 
                                 type="submit"
                                 className="rounded-xl bg-[#4338ca] hover:bg-[#3730a3] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition"
                             >
-                                {isEdit ? "Lưu thay đổi" : "Thêm nhánh"}
+                                {isEdit ? "Lưu thay đổi" : "Thêm nút"}
                             </button>
                         </div>
                     </div>

@@ -4,10 +4,10 @@ import {
     Clock,
     Calendar as CalendarIcon,
     Building2,
-    BarChart3,
-    ShieldCheck,
     Settings,
     ChevronRight,
+    ClipboardList,
+    FolderKanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +17,11 @@ const SIDEBAR_WORKSPACE = [
     { name: "Chấm công", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
     { name: "Phòng ban", icon: Building2, id: "departments" },
-    { name: "Báo cáo", icon: BarChart3, id: "reports" },
+    { name: "Khai báo kỹ năng", icon: ClipboardList, id: "skills" },
+    { name: "Dự án", icon: FolderKanban, id: "project" },
 ];
 
 const SIDEBAR_SETTINGS = [
-    { name: "Quyền truy cập", icon: ShieldCheck, id: "access" },
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
 

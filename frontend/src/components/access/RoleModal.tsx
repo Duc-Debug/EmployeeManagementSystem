@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { ShieldCheck, X } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { ShieldCheck, X, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { THEME_OPTIONS, THEME_SOLID_BG, type ThemeOption } from "./access.constants";
 import type { Department, RoleBasicInfo } from "./access.types";
@@ -17,6 +17,18 @@ const emptyForm: RoleBasicInfo = { name: "", description: "", theme: "blue", dep
 export default function RoleModal({ open, initialData, departments, onClose, onSave }: RoleModalProps) {
     const [form, setForm] = useState<RoleBasicInfo>(initialData ?? emptyForm);
     const [error, setError] = useState("");
+    const [deptOpen, setDeptOpen] = useState(false);
+    const deptRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (deptRef.current && !deptRef.current.contains(e.target as Node)) {
+                setDeptOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const [wasOpen, setWasOpen] = useState(open);
     if (open !== wasOpen) {
@@ -24,6 +36,7 @@ export default function RoleModal({ open, initialData, departments, onClose, onS
         if (open) {
             setForm(initialData ?? emptyForm);
             setError("");
+            setDeptOpen(false);
         }
     }
 
@@ -82,19 +95,66 @@ export default function RoleModal({ open, initialData, departments, onClose, onS
 
                     <div>
                         <label className="mb-1.5 block text-xs font-semibold text-slate-600">Thuộc phòng ban</label>
-                        <select
-                            value={form.departmentId}
-                            onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                        >
-                            <option value="all">Tất cả phòng ban (Toàn công ty)</option>
-                            {departments.map((dept) => (
-                                <option key={dept.id} value={dept.id}>
-                                    {dept.name}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="relative" ref={deptRef}>
+                            <button
+                                type="button"
+                                onClick={() => setDeptOpen((prev) => !prev)}
+                                className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-white focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                            >
+                                <span className="truncate">
+                                    {form.departmentId === "all"
+                                        ? "Tất cả phòng ban (Toàn công ty)"
+                                        : departments.find((d) => d.id === form.departmentId)?.name ?? "Tất cả phòng ban (Toàn công ty)"}
+                                </span>
+                                <ChevronDown className={cn("h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200", deptOpen && "rotate-180 text-indigo-600")} />
+                            </button>
+
+                            {deptOpen && (
+                                <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-black/5 animate-in fade-in-50 zoom-in-95 [scrollbar-width:thin]">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setForm({ ...form, departmentId: "all" });
+                                            setDeptOpen(false);
+                                        }}
+                                        className={cn(
+                                            "flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition text-left",
+                                            form.departmentId === "all"
+                                                ? "bg-indigo-50 text-indigo-700 font-semibold"
+                                                : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                                        )}
+                                    >
+                                        <span>Tất cả phòng ban (Toàn công ty)</span>
+                                        {form.departmentId === "all" && <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0 ml-2" />}
+                                    </button>
+
+                                    {departments.map((dept) => {
+                                        const isSelected = form.departmentId === dept.id;
+                                        return (
+                                            <button
+                                                key={dept.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setForm({ ...form, departmentId: dept.id });
+                                                    setDeptOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition text-left",
+                                                    isSelected
+                                                        ? "bg-indigo-50 text-indigo-700 font-semibold"
+                                                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                                                )}
+                                            >
+                                                <span className="truncate">{dept.name}</span>
+                                                {isSelected && <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0 ml-2" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
+
 
                     <div>
                         <label className="mb-1.5 block text-xs font-semibold text-slate-600">Màu nhận diện</label>
