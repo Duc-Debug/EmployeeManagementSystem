@@ -193,8 +193,10 @@ public class Task {
     }
 
     public void setBudgetHours(BigDecimal budgetHours) {
-        validateBudgetHours(budgetHours);
-        this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
+        if (budgetHours == null || budgetHours.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTaskDataException("Ngân sách giờ công phải lớn hơn 0");
+        }
+        this.budgetHours = budgetHours;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -207,10 +209,7 @@ public class Task {
     }
 
     public boolean isOverBudget() {
-        return this.budgetHours != null
-                && this.budgetHours.compareTo(BigDecimal.ZERO) > 0
-                && this.actualHours != null
-                && this.actualHours.compareTo(this.budgetHours) > 0;
+        return TaskBudgetPolicy.isOverBudget(this.budgetHours, this.actualHours);
     }
 
     public BigDecimal getRemainingBudgetHours() {

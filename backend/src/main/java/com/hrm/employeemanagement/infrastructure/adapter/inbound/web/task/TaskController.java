@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -74,7 +75,7 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success("Lấy cây công việc WBS thành công", wbs));
     }
 
-    @RequestMapping(value = "/{projectId}/tasks/{taskId}/budget", method = {org.springframework.web.bind.annotation.RequestMethod.PATCH, org.springframework.web.bind.annotation.RequestMethod.PUT})
+    @PatchMapping("/{projectId}/tasks/{taskId}/budget")
     public ResponseEntity<ApiResponse<TaskBudgetResult>> setTaskBudget(
             @PathVariable Long projectId,
             @PathVariable Long taskId,

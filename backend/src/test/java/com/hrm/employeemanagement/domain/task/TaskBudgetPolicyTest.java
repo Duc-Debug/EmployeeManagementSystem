@@ -36,19 +36,31 @@ class TaskBudgetPolicyTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"80.00", "85.50", "99.99"})
-    @DisplayName("Trả về WARNING khi tỷ lệ tiêu hao từ 80% đến dưới 100%")
+    @ValueSource(strings = {"80.00", "85.50", "99.99", "100.00"})
+    @DisplayName("Trả về WARNING khi tỷ lệ tiêu hao từ 80% đến 100% (đạt trần ngân sách nhưng chưa vượt)")
     void shouldReturnWarning_WhenBurnedPercentageBetween80And100(String percent) {
         TaskBudgetBurnStatus status = TaskBudgetPolicy.determineBurnStatus(DEFAULT_BUDGET, new BigDecimal(percent));
         assertEquals(TaskBudgetBurnStatus.WARNING, status);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"100.00", "100.01", "125.00", "250.00"})
-    @DisplayName("Trả về OVER_BUDGET khi tỷ lệ tiêu hao >= 100%")
-    void shouldReturnOverBudget_WhenBurnedPercentageAtOrAbove100(String percent) {
+    @ValueSource(strings = {"100.01", "105.00", "125.00", "250.00"})
+    @DisplayName("Trả về OVER_BUDGET khi tỷ lệ tiêu hao > 100% (thực sự vượt ngân sách)")
+    void shouldReturnOverBudget_WhenBurnedPercentageAbove100(String percent) {
         TaskBudgetBurnStatus status = TaskBudgetPolicy.determineBurnStatus(DEFAULT_BUDGET, new BigDecimal(percent));
         assertEquals(TaskBudgetBurnStatus.OVER_BUDGET, status);
+    }
+
+    @Test
+    @DisplayName("Kiểm tra tính đồng nhất của isOverBudget với actualHours > budgetHours")
+    void shouldBeConsistentWithIsOverBudget() {
+        // Chưa vượt: actual <= budget
+        assertEquals(false, TaskBudgetPolicy.isOverBudget(DEFAULT_BUDGET, new BigDecimal("39.99")));
+        assertEquals(false, TaskBudgetPolicy.isOverBudget(DEFAULT_BUDGET, new BigDecimal("40.00")));
+
+        // Vượt ngân sách: actual > budget
+        assertEquals(true, TaskBudgetPolicy.isOverBudget(DEFAULT_BUDGET, new BigDecimal("40.01")));
+        assertEquals(true, TaskBudgetPolicy.isOverBudget(DEFAULT_BUDGET, new BigDecimal("50.00")));
     }
 
     @Test

@@ -10,7 +10,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record SetTaskBudgetRequest(
         @NotNull(message = "Ngân sách giờ công không được để trống")
-        @DecimalMin(value = "0.0", inclusive = true, message = "Ngân sách giờ công không được nhỏ hơn 0")
+        @DecimalMin(value = "0.01", inclusive = true, message = "Ngân sách giờ công phải lớn hơn 0")
         @Digits(integer = 8, fraction = 2, message = "Ngân sách giờ công chỉ được có tối đa 8 chữ số phần nguyên và 2 chữ số phần thập phân")
         BigDecimal budgetHours
 ) {

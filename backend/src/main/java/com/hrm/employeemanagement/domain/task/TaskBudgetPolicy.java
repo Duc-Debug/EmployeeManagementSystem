@@ -25,7 +25,20 @@ public final class TaskBudgetPolicy {
     }
 
     /**
+     * Kiểm tra công việc có thực sự bị vượt ngân sách (actualHours > budgetHours) hay không.
+     */
+    public static boolean isOverBudget(BigDecimal budgetHours, BigDecimal actualHours) {
+        return budgetHours != null
+                && budgetHours.compareTo(BigDecimal.ZERO) > 0
+                && actualHours != null
+                && actualHours.compareTo(budgetHours) > 0;
+    }
+
+    /**
      * Xác định trạng thái tiêu hao ngân sách dựa trên tỷ lệ phần trăm đã dùng và ngân sách.
+     * - Dưới 80%: SAFE
+     * - Từ 80% đến 100%: WARNING (Đạt trần ngân sách nhưng chưa vượt)
+     * - Lớn hơn 100%: OVER_BUDGET (Vượt quá hạn mức ngân sách, ăn mòn lợi nhuận)
      *
      * @param budgetHours Số giờ ngân sách của công việc
      * @param burnedPercentage Tỷ lệ phần trăm ngân sách đã sử dụng (%)
@@ -40,7 +53,7 @@ public final class TaskBudgetPolicy {
             return TaskBudgetBurnStatus.SAFE;
         }
 
-        if (burnedPercentage.compareTo(OVER_BUDGET_THRESHOLD_PERCENT) < 0) {
+        if (burnedPercentage.compareTo(OVER_BUDGET_THRESHOLD_PERCENT) <= 0) {
             return TaskBudgetBurnStatus.WARNING;
         }
 
