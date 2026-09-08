@@ -44,6 +44,10 @@ public class ProjectTemplate {
         return id;
     }
 
+    public Long getIdValue() {
+        return id != null ? id.value() : null;
+    }
+
     public String getTemplateCode() {
         return templateCode;
     }

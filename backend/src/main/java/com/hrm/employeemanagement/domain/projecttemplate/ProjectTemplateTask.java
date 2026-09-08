@@ -42,12 +42,24 @@ public class ProjectTemplateTask {
         return id;
     }
 
+    public Long getIdValue() {
+        return id != null ? id.value() : null;
+    }
+
     public ProjectTemplateId getTemplateId() {
         return templateId;
     }
 
+    public Long getTemplateIdValue() {
+        return templateId != null ? templateId.value() : null;
+    }
+
     public ProjectTemplateTaskId getParentId() {
         return parentId;
+    }
+
+    public Long getParentIdValue() {
+        return parentId != null ? parentId.value() : null;
     }
 
     public String getName() {
