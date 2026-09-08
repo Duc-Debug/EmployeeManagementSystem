@@ -9,10 +9,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException;
+import com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException;
+import com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectDateNotConfiguredException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.projecttemplate.ProjectTemplateNotFoundException;
+import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 @RestControllerAdvice(basePackages = "com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project")
@@ -42,6 +46,11 @@ public class ProjectExceptionHandler {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
         }
 
+        @ExceptionHandler(DuplicateResourceDemandException.class)
+        public ResponseEntity<ApiResponse<Void>> handleDuplicateResourceDemand(DuplicateResourceDemandException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+        }
+
         @ExceptionHandler(InvalidProjectDataException.class)
         public ResponseEntity<ApiResponse<Void>> handleInvalidProjectData(InvalidProjectDataException ex) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
@@ -54,6 +63,21 @@ public class ProjectExceptionHandler {
 
         @ExceptionHandler(ProjectTemplateNotFoundException.class)
         public ResponseEntity<ApiResponse<Void>> handleProjectTemplateNotFound(ProjectTemplateNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+        }
+}
+        @ExceptionHandler(InvalidResourceDemandException.class)
+        public ResponseEntity<ApiResponse<Void>> handleInvalidResourceDemand(InvalidResourceDemandException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectDateNotConfiguredException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectDateNotConfigured(ProjectDateNotConfiguredException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(RoleNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleRoleNotFound(RoleNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
 }
