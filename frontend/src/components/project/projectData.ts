@@ -5,6 +5,8 @@ export interface TaskItem {
     assigneeId: string;
     priority: 'Cao' | 'Trung bình' | 'Thấp';
     hours: number;
+    budgetHours?: number; // Ngân sách giờ công do PM đặt
+    actualHours?: number; // Giờ công thực tế đã duyệt
     status: 'Hoàn thành' | 'Đang làm' | 'Chờ duyệt' | 'Chưa làm';
     startWeek: string;
     endWeek: string;
@@ -127,9 +129,9 @@ export const INITIAL_CATEGORIES: TaskCategoryGroup[] = [
         progress: 85,
         color: 'indigo',
         tasks: [
-            { id: 't1', code: 'T-101', name: 'Khảo sát người dùng & Lập User Journey', assigneeId: 'm1', priority: 'Cao', hours: 40, status: 'Hoàn thành', startWeek: 'Tuần 1', endWeek: 'Tuần 1' },
-            { id: 't2', code: 'T-102', name: 'Xây dựng Design System & Component Library', assigneeId: 'm2', priority: 'Cao', hours: 60, status: 'Đang làm', startWeek: 'Tuần 1', endWeek: 'Tuần 3' },
-            { id: 't3', code: 'T-103', name: 'Wireframe & Prototype phân hệ Phân bổ nhân lực', assigneeId: 'm2', priority: 'Trung bình', hours: 45, status: 'Đang làm', startWeek: 'Tuần 2', endWeek: 'Tuần 3' }
+            { id: 't1', code: 'T-101', name: 'Khảo sát người dùng & Lập User Journey', assigneeId: 'm1', priority: 'Cao', hours: 40, budgetHours: 40, actualHours: 38, status: 'Hoàn thành', startWeek: 'Tuần 1', endWeek: 'Tuần 1' },
+            { id: 't2', code: 'T-102', name: 'Xây dựng Design System & Component Library', assigneeId: 'm2', priority: 'Cao', hours: 60, budgetHours: 60, actualHours: 45, status: 'Đang làm', startWeek: 'Tuần 1', endWeek: 'Tuần 3' },
+            { id: 't3', code: 'T-103', name: 'Wireframe & Prototype phân hệ Phân bổ nhân lực', assigneeId: 'm2', priority: 'Trung bình', hours: 45, budgetHours: 40, actualHours: 44, status: 'Đang làm', startWeek: 'Tuần 2', endWeek: 'Tuần 3' }
         ]
     },
     {
@@ -140,10 +142,10 @@ export const INITIAL_CATEGORIES: TaskCategoryGroup[] = [
         progress: 55,
         color: 'emerald',
         tasks: [
-            { id: 't4', code: 'T-201', name: 'Thiết kế Database Schema & Quan hệ phân quyền RBAC', assigneeId: 'm3', priority: 'Cao', hours: 50, status: 'Hoàn thành', startWeek: 'Tuần 1', endWeek: 'Tuần 2' },
-            { id: 't5', code: 'T-202', name: 'Viết API Quản lý Hạng mục & Phân rã WBS', assigneeId: 'm4', priority: 'Cao', hours: 65, status: 'Đang làm', startWeek: 'Tuần 2', endWeek: 'Tuần 4' },
-            { id: 't6', code: 'T-203', name: 'Tích hợp API Phân bổ tuần & Thuật toán cảnh báo quá tải', assigneeId: 'm3', priority: 'Cao', hours: 70, status: 'Chờ duyệt', startWeek: 'Tuần 3', endWeek: 'Tuần 5' },
-            { id: 't7', code: 'T-204', name: 'Tối ưu hiệu năng truy vấn ma trận nhân sự thời gian thực', assigneeId: 'm4', priority: 'Trung bình', hours: 40, status: 'Chưa làm', startWeek: 'Tuần 4', endWeek: 'Tuần 5' }
+            { id: 't4', code: 'T-201', name: 'Thiết kế Database Schema & Quan hệ phân quyền RBAC', assigneeId: 'm3', priority: 'Cao', hours: 50, budgetHours: 50, actualHours: 48, status: 'Hoàn thành', startWeek: 'Tuần 1', endWeek: 'Tuần 2' },
+            { id: 't5', code: 'T-202', name: 'Viết API Quản lý Hạng mục & Phân rã WBS', assigneeId: 'm4', priority: 'Cao', hours: 65, budgetHours: 60, actualHours: 66, status: 'Đang làm', startWeek: 'Tuần 2', endWeek: 'Tuần 4' },
+            { id: 't6', code: 'T-203', name: 'Tích hợp API Phân bổ tuần & Thuật toán cảnh báo quá tải', assigneeId: 'm3', priority: 'Cao', hours: 70, budgetHours: 70, actualHours: 20, status: 'Chờ duyệt', startWeek: 'Tuần 3', endWeek: 'Tuần 5' },
+            { id: 't7', code: 'T-204', name: 'Tối ưu hiệu năng truy vấn ma trận nhân sự thời gian thực', assigneeId: 'm4', priority: 'Trung bình', hours: 40, budgetHours: 40, actualHours: 0, status: 'Chưa làm', startWeek: 'Tuần 4', endWeek: 'Tuần 5' }
         ]
     },
     {
@@ -154,9 +156,9 @@ export const INITIAL_CATEGORIES: TaskCategoryGroup[] = [
         progress: 40,
         color: 'sky',
         tasks: [
-            { id: 't8', code: 'T-301', name: 'Dựng khung Layout & State Management (Redux/Zustand)', assigneeId: 'm5', priority: 'Cao', hours: 45, status: 'Hoàn thành', startWeek: 'Tuần 1', endWeek: 'Tuần 2' },
-            { id: 't9', code: 'T-302', name: 'Code bảng ma trận kéo thả phân bổ nhân lực tuần', assigneeId: 'm5', priority: 'Cao', hours: 80, status: 'Đang làm', startWeek: 'Tuần 2', endWeek: 'Tuần 4' },
-            { id: 't10', code: 'T-303', name: 'Xây dựng cây phân cấp Hạng mục công việc đa tầng', assigneeId: 'm5', priority: 'Trung bình', hours: 50, status: 'Chưa làm', startWeek: 'Tuần 3', endWeek: 'Tuần 5' }
+            { id: 't8', code: 'T-301', name: 'Dựng khung Layout & State Management (Redux/Zustand)', assigneeId: 'm5', priority: 'Cao', hours: 45, budgetHours: 45, actualHours: 44, status: 'Hoàn thành', startWeek: 'Tuần 1', endWeek: 'Tuần 2' },
+            { id: 't9', code: 'T-302', name: 'Code bảng ma trận kéo thả phân bổ nhân lực tuần', assigneeId: 'm5', priority: 'Cao', hours: 80, budgetHours: 80, actualHours: 55, status: 'Đang làm', startWeek: 'Tuần 2', endWeek: 'Tuần 4' },
+            { id: 't10', code: 'T-303', name: 'Xây dựng cây phân cấp Hạng mục công việc đa tầng', assigneeId: 'm5', priority: 'Trung bình', hours: 50, budgetHours: 50, actualHours: 0, status: 'Chưa làm', startWeek: 'Tuần 3', endWeek: 'Tuần 5' }
         ]
     },
     {
@@ -167,8 +169,8 @@ export const INITIAL_CATEGORIES: TaskCategoryGroup[] = [
         progress: 20,
         color: 'purple',
         tasks: [
-            { id: 't11', code: 'T-401', name: 'Lập kế hoạch Kiểm thử & Test Case cho chức năng WBS', assigneeId: 'm6', priority: 'Trung bình', hours: 35, status: 'Hoàn thành', startWeek: 'Tuần 1', endWeek: 'Tuần 2' },
-            { id: 't12', code: 'T-402', name: 'Kiểm thử tải (Load test) khi phân bổ 500+ nhân sự', assigneeId: 'm6', priority: 'Cao', hours: 50, status: 'Chưa làm', startWeek: 'Tuần 4', endWeek: 'Tuần 5' }
+            { id: 't11', code: 'T-401', name: 'Lập kế hoạch Kiểm thử & Test Case cho chức năng WBS', assigneeId: 'm6', priority: 'Trung bình', hours: 35, budgetHours: 35, actualHours: 35, status: 'Hoàn thành', startWeek: 'Tuần 1', endWeek: 'Tuần 2' },
+            { id: 't12', code: 'T-402', name: 'Kiểm thử tải (Load test) khi phân bổ 500+ nhân sự', assigneeId: 'm6', priority: 'Cao', hours: 50, budgetHours: 50, actualHours: 0, status: 'Chưa làm', startWeek: 'Tuần 4', endWeek: 'Tuần 5' }
         ]
     }
 ];
