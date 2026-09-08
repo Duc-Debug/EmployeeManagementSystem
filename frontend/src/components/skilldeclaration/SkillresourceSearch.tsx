@@ -5,13 +5,11 @@ import {
     ChevronDown,
     Check,
     Eye,
-    LayoutGrid,
     RotateCcw,
     Search,
     SendHorizontal,
     SlidersHorizontal,
     Star,
-    Table2,
     Users,
     X,
 } from 'lucide-react';
@@ -283,7 +281,7 @@ export default function SkillresourceSearch({
                                                 onViewProfile,
                                                 onAssignProject,
                                             }: SkillResourceSearchProps) {
-    const [viewMode, setViewMode] = useState<ViewMode>('table');
+    const [viewMode] = useState<ViewMode>('table');
     const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
     const [selectedEmployee, setSelectedEmployee] = useState<ResourceEmployee | null>(null);
 

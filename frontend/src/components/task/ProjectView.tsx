@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getUsers } from '@/lib/api/users';
 import {
     Boxes,
     Plus,
@@ -33,6 +34,26 @@ export default function ProjectView() {
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'search'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>(INITIAL_CATEGORIES);
     const [members, setMembers] = useState<ProjectMember[]>(INITIAL_PROJECT_MEMBERS);
+
+    useEffect(() => {
+        getUsers(0, 100)
+            .then((res) => {
+                if (res?.content && res.content.length > 0) {
+                    const fetchedMembers: ProjectMember[] = res.content.map((u, idx) => ({
+                        id: `u-${u.id}`,
+                        name: u.fullName || u.username,
+                        role: u.roleCode || 'Nhân viên',
+                        avatar: `https://images.unsplash.com/photo-${1494790108377 + (idx % 10)}?w=100&auto=format&fit=crop&q=80`,
+                        capacity: 40,
+                        weeklyHours: { W1: 40, W2: 38, W3: 35, W4: 20, W5: 10 },
+                    }));
+                    setMembers(fetchedMembers);
+                }
+            })
+            .catch((err) => {
+                console.error('Failed to load real users for project members:', err);
+            });
+    }, []);
     const [months] = useState(INITIAL_MONTHS_LIST);
     const [selectedMonthIdx, setSelectedMonthIdx] = useState(0);
 

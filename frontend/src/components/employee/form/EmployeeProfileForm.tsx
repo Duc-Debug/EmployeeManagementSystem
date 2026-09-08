@@ -164,6 +164,8 @@ export default function EmployeeProfileForm({
             return;
         }
 
+        const selectedOrg = orgUnitOptions.find((o) => String(o.id) === String(formData.orgUnitId));
+
         onSave({
             ...formData,
             fullName: formData.fullName.trim(),

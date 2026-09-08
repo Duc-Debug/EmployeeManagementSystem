@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getUsers } from '@/lib/api/users';
 import { ClipboardList, Search as SearchIcon, ShieldCheck, LayoutGrid, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -14,15 +15,17 @@ import SkillApproveTable from './SkillApproveTable.tsx';
 import SkillMatrixView from './SkillMatrixView.tsx';
 import SkillCatalogView from './SkillCatalogView.tsx';
 
+import { useAuthUser } from '@/lib/auth-session';
+
 let toastSeq = 0;
 
 export type ModuleTab = 'declare' | 'matrix' | 'catalog' | 'approve';
 
-const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon }[] = [
-    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList },
-    { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid },
-    { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen },
-    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck },
+const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon; allowedRoles?: string[] }[] = [
+    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05'] },
+    { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05'] },
+    { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen, allowedRoles: ['VT-01', 'VT-05', 'VT-06'] },
+    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03', 'VT-05'] },
 ];
 
 
@@ -38,7 +41,17 @@ export default function SkilldeclarationView({
                                                  employees: _employees = [],
                                                  initialTab = 'declare',
                                              }: SkilldeclarationViewProps) {
-    const [activeTab, setActiveTab] = useState<ModuleTab>(initialTab);
+    const currentUser = useAuthUser();
+    const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
+
+    const visibleTabs = MODULE_TABS.filter(
+        (t) => !t.allowedRoles || t.allowedRoles.includes(roleCode)
+    );
+
+    const [activeTab, setActiveTab] = useState<ModuleTab>(() => {
+        if (visibleTabs.some((t) => t.id === initialTab)) return initialTab;
+        return visibleTabs[0]?.id || 'declare';
+    });
 
     const [catalog, setCatalog] = useState<CatalogSkill[]>(SKILL_CATALOG);
     const catalogById = Object.fromEntries(catalog.map((c) => [c.id, c]));
@@ -64,6 +77,29 @@ export default function SkilldeclarationView({
     const [approvalRequests, setApprovalRequests] = useState<PendingApprovalSkill[]>(
         INITIAL_APPROVAL_REQUESTS
     );
+
+    useEffect(() => {
+        getUsers(0, 100)
+            .then((res) => {
+                if (res?.content && res.content.length > 0) {
+                    const sampleSkills = ['React.js', 'Java', 'Node.js', 'PostgreSQL', 'Docker', 'AWS'];
+                    const sampleCats = ['Frontend', 'Backend', 'Backend', 'Database', 'DevOps', 'DevOps'];
+                    const fetchedRequests: PendingApprovalSkill[] = res.content.map((u, idx) => ({
+                        id: u.id,
+                        employeeName: u.fullName || u.username,
+                        skillName: sampleSkills[idx % sampleSkills.length],
+                        category: sampleCats[idx % sampleCats.length],
+                        level: (idx % 3) + 3,
+                        years: (idx % 4) + 1,
+                        status: idx % 2 === 0 ? 'pending' : 'approved',
+                    }));
+                    setApprovalRequests(fetchedRequests);
+                }
+            })
+            .catch((err) => {
+                console.error('Failed to load real users for skill approvals:', err);
+            });
+    }, []);
 
     function handleApproveRequest(id: number) {
         setApprovalRequests((prev) =>
@@ -207,7 +243,7 @@ export default function SkilldeclarationView({
 
                 {/* Tab switcher đồng bộ phong cách với DepartmentsView */}
                 <div className="flex flex-wrap rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-2xs gap-0.5">
-                    {MODULE_TABS.map((tab) => {
+                    {visibleTabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
                         return (

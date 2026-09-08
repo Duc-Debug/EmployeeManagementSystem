@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import SideBar from "./SideBar";
+import SideBar, { canAccessTab } from "./SideBar";
 import Header from "./Header";
 import DashboardHeader from "./DashboardHeader";
 import KpiStatsSection from "../kpi/KpiStatsSection";
@@ -12,41 +13,12 @@ import HrProfilePage from "../hrprofile/HrProfilePage";
 import AttendanceView from "../attendance/AttendanceView";
 import SkilldeclarationView from "../skilldeclaration/SkilldeclarationView";
 import ProjectView from "../task/ProjectView";
+import AccessControlView from "../access/AccessControlView";
 import type { AttendanceRecord } from "@/lib/hr-data";
+import { useAuthUser } from "@/lib/auth-session";
+import { getUsers } from "@/lib/api/users";
 
-// Dữ liệu chấm công mẫu — thay bằng dữ liệu thật (API/store) khi có sẵn.
-const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
-    {
-        id: "NV001",
-        name: "Nguyễn Văn A",
-        dept: "Kỹ thuật",
-        inTime: "--:--",
-        outTime: "--:--",
-        hours: "0",
-        ot: "0",
-        status: "Vắng mặt",
-    },
-    {
-        id: "NV002",
-        name: "Trần Thị B",
-        dept: "Nhân sự",
-        inTime: "08:20",
-        outTime: "17:30",
-        hours: "8.0",
-        ot: "0",
-        status: "Đi muộn",
-    },
-    {
-        id: "NV003",
-        name: "Lê Văn C",
-        dept: "Kinh doanh",
-        inTime: "08:00",
-        outTime: "18:15",
-        hours: "9.0",
-        ot: "1.0",
-        status: "Đã điều chỉnh",
-    },
-];
+const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [];
 
 // Mã nhân viên đang thao tác ở "Trạm chấm công nhanh" — tạm gán cứng cho tới
 // khi màn hình này đọc được người dùng đang đăng nhập từ auth thật.
@@ -55,6 +27,7 @@ const CURRENT_EMPLOYEE_ID = "NV001";
 export default function Dashboard() {
     const location = useLocation();
     const navigate = useNavigate();
+    const user = useAuthUser();
 
     // Đồng bộ URL trình duyệt với tab tương ứng
     const activeTab = useMemo(() => {
@@ -64,12 +37,15 @@ export default function Dashboard() {
         if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
         if (path.includes("attendance") || path.includes("cham-cong")) return "attendance";
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
+        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
         if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         if (path.includes("setting")) return "settings";
         return "overview";
     }, [location.pathname]);
+
+    const isTabAllowed = canAccessTab(user?.roleCode, activeTab);
 
     const handleTabChange = (tabId: string) => {
         const targetPath = tabId === "overview" ? "/" : `/${tabId}`;
@@ -80,6 +56,33 @@ export default function Dashboard() {
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(
         INITIAL_ATTENDANCE_RECORDS
     );
+
+    useEffect(() => {
+        let isMounted = true;
+        async function fetchRealUsers() {
+            try {
+                const res = await getUsers(0, 50);
+                if (!isMounted || !res?.content) return;
+                const mapped: AttendanceRecord[] = res.content.map((u) => ({
+                    id: String(u.id),
+                    name: u.fullName || u.username,
+                    dept: u.orgUnitName || "Chưa gán phòng",
+                    inTime: "--:--",
+                    outTime: "--:--",
+                    hours: "0",
+                    ot: "0",
+                    status: u.status === "ACTIVE" ? "Đúng giờ" : "Vắng mặt",
+                }));
+                setAttendanceRecords(mapped);
+            } catch (err) {
+                console.warn("Không thể tải danh sách nhân sự cho bảng chấm công:", err);
+            }
+        }
+        fetchRealUsers();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const handleClockIn = () => {
         const time = new Date().toLocaleTimeString("en-US", {
@@ -108,7 +111,6 @@ export default function Dashboard() {
     };
 
     const handleEditRecord = (id: string) => {
-        // TODO: mở modal/điều hướng chỉnh sửa bản ghi chấm công theo id.
         console.log("Sửa bản ghi chấm công:", id);
     };
 
@@ -120,52 +122,72 @@ export default function Dashboard() {
             <div className="relative z-10 flex h-full w-full flex-col">
                 <Header setIsSidebarOpen={setIsSidebarOpen} />
 
-                {/* min-h-0 là bắt buộc: mặc định flex item có min-height: auto,
-                    khiến hàng chứa Sidebar + main tự giãn theo chiều cao nội
-                    dung thay vì bị giới hạn theo chiều cao còn lại — làm cho
-                    overflow-y-auto của <main> bên dưới không bao giờ kích hoạt
-                    và cả trang bị đẩy tràn, không cuộn xem hết được. */}
                 <div className="flex flex-1 min-h-0 overflow-hidden">
                     <SideBar activeTab={activeTab} setActiveTab={handleTabChange} isOpen={isSidebarOpen} />
 
                     <main
                         className={cn(
                             "flex-1 min-h-0 p-6",
-                            activeTab === "departments"
+                            activeTab === "departments" && isTabAllowed
                                 ? "overflow-hidden flex flex-col"
                                 : "overflow-y-auto"
                         )}
                     >
-                        {activeTab === "employees" && <EmployeeProfilePage />}
-
-                        {activeTab === "hrprofile" && <HrProfilePage />}
-
-                        {activeTab === "attendance" && (
-                            <AttendanceView
-                                records={attendanceRecords}
-                                onClockIn={handleClockIn}
-                                onClockOut={handleClockOut}
-                                onEditRecord={handleEditRecord}
-                            />
-                        )}
-
-                        {activeTab === "departments" && <DepartmentsView />}
-
-                        {activeTab === "skills" && <SkilldeclarationView />}
-
-                        {activeTab === "project" && <ProjectView />}
-
-                        {activeTab === "overview" && (
-                            <div>
-                                {/* Header Overview */}
-                                <DashboardHeader />
-
-                                {/* Section KPI Cards */}
-                                <KpiStatsSection />
-
-                                {/* Lịch Workspace */}
-                                <CalendarView />
+                        {!isTabAllowed ? (
+                            <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xs animate-in fade-in duration-150">
+                                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 mb-4 border border-rose-100">
+                                    <ShieldAlert className="h-8 w-8" />
+                                </div>
+                                <h3 className="text-base font-bold text-slate-900 mb-1">
+                                    Không có quyền truy cập
+                                </h3>
+                                <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
+                                    Tài khoản của bạn ({user?.roleName || user?.roleCode || "Người dùng"}) không được phân quyền truy cập chức năng này. Vui lòng liên hệ Quản trị viên nếu cần hỗ trợ.
+                                </p>
+                                <button
+                                    onClick={() => handleTabChange("overview")}
+                                    type="button"
+                                    className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs"
+                                >
+                                    Quay lại Trang chủ
+                                </button>
                             </div>
+                        ) : (
+                            <>
+                                {activeTab === "employees" && <EmployeeProfilePage />}
+
+                                {activeTab === "hrprofile" && <HrProfilePage />}
+
+                                {activeTab === "attendance" && (
+                                    <AttendanceView
+                                        records={attendanceRecords}
+                                        onClockIn={handleClockIn}
+                                        onClockOut={handleClockOut}
+                                        onEditRecord={handleEditRecord}
+                                    />
+                                )}
+
+                                {activeTab === "departments" && <DepartmentsView />}
+
+                                {activeTab === "skills" && <SkilldeclarationView />}
+
+                                {activeTab === "project" && <ProjectView />}
+
+                                {activeTab === "access" && <AccessControlView />}
+
+                                {(activeTab === "overview" || activeTab === "leave" || activeTab === "reports" || activeTab === "settings") && (
+                                    <div>
+                                        {/* Header Overview */}
+                                        <DashboardHeader />
+
+                                        {/* Section KPI Cards */}
+                                        <KpiStatsSection />
+
+                                        {/* Lịch Workspace */}
+                                        <CalendarView />
+                                    </div>
+                                )}
+                            </>
                         )}
                     </main>
                 </div>

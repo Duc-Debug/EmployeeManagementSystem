@@ -33,6 +33,7 @@ import {
 import { getUsers } from "@/lib/api/users";
 import type { OrgUnitTreeNode, User } from "@/types/hrm";
 import ComboSelect, { type ComboOption } from "./ComboSelect";
+import { useAuthUser } from "@/lib/auth-session";
 
 export type UnitType = "COMPANY" | "CENTER" | "DEPARTMENT" | "TEAM";
 
@@ -289,6 +290,9 @@ function mapOrgUnitNodeToDepartmentNode(node: OrgUnitTreeNode, userMap?: Map<num
 }
 
 export default function DepartmentTree() {
+    const currentUser = useAuthUser();
+    const isAdmin = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") === "VT-06";
+
     const [tree, setTree] = useState<DepartmentNode>(INITIAL_DEPARTMENT_TREE);
     const [users, setUsers] = useState<User[]>([]);
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -734,7 +738,13 @@ export default function DepartmentTree() {
                     </button>
 
                     <button
-                        onClick={() => setModal({ mode: "create", parentId: tree.id })}
+                        onClick={() => {
+                            if (!isAdmin) {
+                                showNotify("Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.", "error");
+                                return;
+                            }
+                            setModal({ mode: "create", parentId: tree.id });
+                        }}
                         className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 hover:shadow-md active:scale-95"
                         type="button"
                     >
@@ -775,16 +785,46 @@ export default function DepartmentTree() {
                             }
                         }}
                         onDrop={(targetId) => {
+                            if (!isAdmin) {
+                                showNotify("Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.", "error");
+                                setDraggedId(null);
+                                setDropTargetId(null);
+                                return;
+                            }
                             if (draggedId && canDrop(draggedId, targetId)) {
                                 handleDropNode(draggedId, targetId);
                             }
                             setDraggedId(null);
                             setDropTargetId(null);
                         }}
-                        onAddChild={(parentId) => setModal({ mode: "create", parentId })}
-                        onEdit={(node) => setModal({ mode: "edit", node })}
-                        onToggleStatus={handleToggleStatus}
-                        onDelete={handleRequestDelete}
+                        onAddChild={(parentId) => {
+                            if (!isAdmin) {
+                                showNotify("Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.", "error");
+                                return;
+                            }
+                            setModal({ mode: "create", parentId });
+                        }}
+                        onEdit={(node) => {
+                            if (!isAdmin) {
+                                showNotify("Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.", "error");
+                                return;
+                            }
+                            setModal({ mode: "edit", node });
+                        }}
+                        onToggleStatus={(id) => {
+                            if (!isAdmin) {
+                                showNotify("Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.", "error");
+                                return;
+                            }
+                            handleToggleStatus(id);
+                        }}
+                        onDelete={(node) => {
+                            if (!isAdmin) {
+                                showNotify("Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.", "error");
+                                return;
+                            }
+                            handleRequestDelete(node);
+                        }}
                         searchQuery={q}
                     />
                 </div>

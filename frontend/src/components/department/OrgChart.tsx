@@ -33,6 +33,7 @@ import {
 import { getUsers } from '@/lib/api/users';
 import { cn } from '@/lib/utils';
 import type { OrgUnitTreeNode, User } from '@/types/hrm';
+import { useAuthUser } from '@/lib/auth-session';
 
 export interface OrgTreeNode extends CardData {
     id: string;
@@ -263,6 +264,9 @@ function convertBackendNodeToOrgChartNode(
 }
 
 export default function OrgChart() {
+    const currentUser = useAuthUser();
+    const isAdmin = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-06';
+
     const [tree, setTree] = useState<OrgTreeNode>(INITIAL_ORG_TREE);
     const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
     const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
@@ -755,15 +759,39 @@ export default function OrgChart() {
                             }
                         }}
                         onDrop={(targetId) => {
+                            if (!isAdmin) {
+                                showNotify('Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.', 'error');
+                                setDraggedNodeId(null);
+                                setDropTargetId(null);
+                                return;
+                            }
                             if (draggedNodeId && canDrop(draggedNodeId, targetId)) {
                                 handleDropNode(draggedNodeId, targetId);
                             }
                             setDraggedNodeId(null);
                             setDropTargetId(null);
                         }}
-                        onEdit={(id) => setEditTarget({ kind: 'edit', nodeId: id })}
-                        onAddChild={(parentId) => setEditTarget({ kind: 'addChild', parentId })}
-                        onDelete={handleDirectDelete}
+                        onEdit={(id) => {
+                            if (!isAdmin) {
+                                showNotify('Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.', 'error');
+                                return;
+                            }
+                            setEditTarget({ kind: 'edit', nodeId: id });
+                        }}
+                        onAddChild={(parentId) => {
+                            if (!isAdmin) {
+                                showNotify('Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.', 'error');
+                                return;
+                            }
+                            setEditTarget({ kind: 'addChild', parentId });
+                        }}
+                        onDelete={(id) => {
+                            if (!isAdmin) {
+                                showNotify('Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.', 'error');
+                                return;
+                            }
+                            handleDirectDelete(id);
+                        }}
                         onViewDetail={(n) => setDetailNode(n)}
                         searchQuery={normalizedQuery}
                     />
@@ -778,6 +806,10 @@ export default function OrgChart() {
                 onClose={() => setDetailNode(null)}
                 onEdit={(id) => {
                     setDetailNode(null);
+                    if (!isAdmin) {
+                        showNotify('Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.', 'error');
+                        return;
+                    }
                     setEditTarget({ kind: 'edit', nodeId: id });
                 }}
             />
