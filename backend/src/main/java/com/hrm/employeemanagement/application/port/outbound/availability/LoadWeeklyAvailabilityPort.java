@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface LoadWeeklyAvailabilityPort {
     Optional<WeeklyAvailability> findByEmployeeIdAndYearWeek(Long employeeId, YearWeek yearWeek);
     List<WeeklyAvailability> findByEmployeeIdInAndYearWeek(List<Long> employeeIds, YearWeek yearWeek);
+    List<WeeklyAvailability> loadAvailabilityForEmployeesAndWeeks(List<Long> employeeIds, List<YearWeek> targetWeeks);
 }
