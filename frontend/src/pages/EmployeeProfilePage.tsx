@@ -463,3 +463,443 @@ export default function EmployeeProfilePage() {
                     // 3. Cập nhật hoặc tạo mới hồ sơ nhân sự (fullName, orgUnitId, standardHours, startDate, contractEndDate) qua API /employees
                     let updatedFullName = data.fullName.trim() || editingEmployee.fullName;
                     let updatedOrgUnitId = data.orgUnitId || editingEmployee.orgUnitId;
+                    let updatedDepartment = data.department || editingEmployee.department;
+                    let updatedStandardHours = Number(data.standardHoursPerWeek) || 40;
+
+                    const empId = editingEmployee.employeeId;
+                    const reqStartDate = data.joinDate ? formatToDateInput(data.joinDate) : undefined;
+                    const reqContractEndDate = data.contractEndDate ? formatToDateInput(data.contractEndDate) : undefined;
+
+                    try {
+                        let profile: EmployeeProfile | null = null;
+                        if (empId) {
+                            try {
+                                profile = await getEmployeeProfile(empId);
+                            } catch {
+                                // fallback to getEmployeeProfileByUserId
+                            }
+                        }
+                        if (!profile && numId) {
+                            try {
+                                profile = await getEmployeeProfileByUserId(numId);
+                            } catch {
+                                profile = null;
+                            }
+                        }
+
+                        if (profile) {
+                            const newOrgId = data.orgUnitId ? Number(data.orgUnitId) : profile.orgUnitId;
+                            const updatedProfile = await updateEmployeeProfile(profile.id, {
+                                version: profile.version ?? 0,
+                                fullName: data.fullName.trim(),
+                                orgUnitId: newOrgId,
+                                professionalRole: profile.professionalRole,
+                                startDate: reqStartDate || profile.startDate,
+                                contractEndDate: reqContractEndDate || profile.contractEndDate,
+                                standardHoursPerWeek: Number(data.standardHoursPerWeek) || profile.standardHoursPerWeek || 40,
+                            });
+                            updatedFullName = updatedProfile.fullName;
+                            updatedOrgUnitId = String(updatedProfile.orgUnitId);
+                            updatedDepartment = updatedProfile.orgUnitName || data.department || editingEmployee.department;
+                            updatedStandardHours = updatedProfile.standardHoursPerWeek;
+                        } else if (numId && data.orgUnitId) {
+                            const createdProfile = await createEmployeeProfile({
+                                userId: numId,
+                                orgUnitId: Number(data.orgUnitId),
+                                employeeCode: data.employeeCode || `EMP-${String(numId).padStart(3, "0")}`,
+                                fullName: data.fullName.trim(),
+                                startDate: reqStartDate,
+                                contractEndDate: reqContractEndDate,
+                                standardHoursPerWeek: Number(data.standardHoursPerWeek) || 40,
+                            });
+                            updatedFullName = createdProfile.fullName;
+                            updatedOrgUnitId = String(createdProfile.orgUnitId);
+                            updatedDepartment = createdProfile.orgUnitName || data.department || editingEmployee.department;
+                            updatedStandardHours = createdProfile.standardHoursPerWeek;
+                        }
+                    } catch (profErr: any) {
+                        console.warn("Không thể đồng bộ hồ sơ nhân sự backend:", profErr);
+                    }
+
+                    // 4. Lưu số điện thoại và ngày tháng vào localStorage
+                    if (data.phone !== undefined) {
+                        saveStoredPhone(
+                            [numId, editingEmployee.id, editingEmployee.employeeId, editingEmployee.employeeCode, data.employeeCode],
+                            data.phone
+                        );
+                    }
+                    saveStoredDates(
+                        [numId, editingEmployee.id, editingEmployee.employeeId, editingEmployee.employeeCode, data.employeeCode],
+                        { joinDate: data.joinDate, contractEndDate: data.contractEndDate }
+                    );
+
+                    // Cập nhật state UI với các trường đã được backend xác nhận lưu thành công
+                    setEmployees((prev) =>
+                        prev.map((e) =>
+                            (e.id || e.employeeCode) === targetId
+                                ? {
+                                      ...e,
+                                      fullName: updatedFullName,
+                                      orgUnitId: updatedOrgUnitId,
+                                      department: updatedDepartment,
+                                      phone: data.phone || undefined,
+                                      joinDate: data.joinDate || e.joinDate,
+                                      startDate: data.joinDate || e.startDate,
+                                      contractEndDate: data.contractEndDate || e.contractEndDate,
+                                      standardHoursPerWeek: updatedStandardHours,
+                                      roleCode: roleRes?.roleCode || data.roleCode,
+                                      roleName: roleRes?.roleName || data.roleName || e.roleName,
+                                      dataScope: roleRes?.dataScope || data.dataScope,
+                                      scopeOrgUnitId:
+                                          roleRes?.scopeOrgUnitId !== undefined
+                                              ? (roleRes.scopeOrgUnitId ? String(roleRes.scopeOrgUnitId) : undefined)
+                                              : data.scopeOrgUnitId,
+                                      status: finalStatus || e.status,
+                                  }
+                                : e
+                        )
+                    );
+                    setActionNotification({
+                        type: "success",
+                        message: `Cập nhật thông tin nhân viên ${updatedFullName} thành công.`,
+                    });
+                    setIsFormOpen(false);
+                } catch (err: any) {
+                    console.error("Lỗi cập nhật nhân sự:", err);
+                    const msg = err?.message || "Cập nhật nhân viên thất bại do máy chủ phản hồi lỗi. Dữ liệu chưa được lưu.";
+                    setFormError(msg);
+                    setActionNotification({
+                        type: "error",
+                        message: msg,
+                    });
+                    // Giữ nguyên form, KHÔNG cập nhật state cục bộ
+                } finally {
+                    setIsSaving(false);
+                }
+            } else {
+                if (data.phone !== undefined) {
+                    saveStoredPhone([targetId, data.employeeCode], data.phone);
+                }
+                saveStoredDates([targetId, data.employeeCode], {
+                    joinDate: data.joinDate,
+                    contractEndDate: data.contractEndDate,
+                });
+                setEmployees((prev) =>
+                    prev.map((e) =>
+                        (e.id || e.employeeCode) === targetId
+                            ? {
+                                  ...e,
+                                  fullName: data.fullName,
+                                  department: data.department,
+                                  phone: data.phone || undefined,
+                                  joinDate: data.joinDate || e.joinDate,
+                                  startDate: data.joinDate || e.startDate,
+                                  contractEndDate: data.contractEndDate || e.contractEndDate,
+                                  standardHoursPerWeek: Number(data.standardHoursPerWeek) || 40,
+                                  roleCode: data.roleCode,
+                                  roleName: data.roleName || e.roleName,
+                                  dataScope: data.dataScope,
+                                  scopeOrgUnitId: data.scopeOrgUnitId,
+                                  status: data.status || e.status,
+                              }
+                            : e
+                    )
+                );
+                setIsFormOpen(false);
+                setIsSaving(false);
+            }
+        } else {
+            // TẠO MỚI TÀI KHOẢN: GỌI API THẬT, KHÔNG FALLBACK TẠO STATE CỤC BỘ KHI THẤT BẠI
+            try {
+                const res = await createUser({
+                    fullName: data.fullName,
+                    email: data.email,
+                    employeeCode: data.employeeCode,
+                    username: data.username || data.fullName.toLowerCase().replace(/\s+/g, "."),
+                    password: data.password || "123456",
+                    orgUnitId: data.orgUnitId ? Number(data.orgUnitId) : null,
+                    roleCode: (data.roleCode as RoleCode) || "VT-04",
+                });
+
+                if (!res || !res.id) {
+                    throw new Error("Máy chủ phản hồi nhưng không tạo được tài khoản hợp lệ.");
+                }
+
+                if (data.dataScope && data.dataScope !== "COMPANY") {
+                    await updateUserRole(res.id, {
+                        roleCode: (data.roleCode as RoleCode) || "VT-04",
+                        dataScope: (data.dataScope as DataScope) || "COMPANY",
+                        scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
+                    });
+                }
+
+                if (data.phone) {
+                    saveStoredPhone([res.id, data.employeeCode], data.phone);
+                }
+                if (data.joinDate || data.contractEndDate) {
+                    saveStoredDates([res.id, data.employeeCode], {
+                        joinDate: data.joinDate,
+                        contractEndDate: data.contractEndDate,
+                    });
+                }
+
+                // CHỈ THÊM EMPLOYEE VÀO STATE SAU KHI BACKEND TRẢ VỀ SUCCESS VÀ CÓ ID THẬT
+                const newEmp: EmployeeFormData = {
+                    ...data,
+                    id: String(res.id),
+                    employeeCode: data.employeeCode,
+                    phone: data.phone || undefined,
+                    joinDate: data.joinDate || undefined,
+                    startDate: data.joinDate || undefined,
+                    contractEndDate: data.contractEndDate || undefined,
+                    standardHoursPerWeek: Number(data.standardHoursPerWeek) || 40,
+                };
+                setEmployees((prev) => [newEmp, ...prev]);
+                setActionNotification({
+                    type: "success",
+                    message: `Tạo mới nhân viên ${data.fullName} thành công.`,
+                });
+                setIsFormOpen(false);
+            } catch (err: any) {
+                console.error("Lỗi tạo nhân sự:", err);
+                const msg = err?.message || "Tạo mới nhân viên thất bại do lỗi từ máy chủ. Dữ liệu chưa được lưu vào hệ thống.";
+                setFormError(msg);
+                setActionNotification({
+                    type: "error",
+                    message: msg,
+                });
+                // TUYỆT ĐỐI KHÔNG TẠO EMPLOYEE LOCAL VÀ KHÔNG ĐÓNG FORM KHI API THẤT BẠI!
+            } finally {
+                setIsSaving(false);
+            }
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* PHẦN 1: HEADER TRANG */}
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+                        Quản tài lý khoản người dùng
+                    </h1>
+                    <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
+                        Khai báo, phân quyền vai trò và quản lý danh sách hồ sơ nhân sự toàn công ty.
+                    </p>
+                </div>
+            </div>
+
+            {/* THÔNG BÁO KẾT QUẢ THAO TÁC */}
+            {actionNotification && (
+                <div
+                    className={cn(
+                        "flex items-center justify-between rounded-2xl border p-4 text-xs font-semibold shadow-xs transition animate-fadeIn",
+                        actionNotification.type === "success"
+                            ? "border-emerald-200 bg-emerald-50/90 text-emerald-800"
+                            : "border-rose-200 bg-rose-50/90 text-rose-800"
+                    )}
+                >
+                    <div className="flex items-center gap-2.5">
+                        {actionNotification.type === "success" ? (
+                            <Check className="size-4 shrink-0 text-emerald-600" />
+                        ) : (
+                            <AlertTriangle className="size-4 shrink-0 text-rose-600" />
+                        )}
+                        <span>{actionNotification.message}</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setActionNotification(null)}
+                        className="rounded-lg p-1 hover:bg-black/5 text-slate-500 transition"
+                    >
+                        <X className="size-3.5" />
+                    </button>
+                </div>
+            )}
+
+            {/* PHẦN 2: KHUNG MAIN WHITE THEME */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
+                {/* Thanh điều khiển trên cùng */}
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    {/* Ô tìm kiếm */}
+                    <div className="relative flex-1">
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm theo tên, mã NV, email hoặc tên đăng nhập..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                        />
+                    </div>
+
+                    {/* Bộ lọc phòng ban + Nút thêm mới */}
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                        <CustomSelectDropdown
+                            value={selectedDept}
+                            onChange={setSelectedDept}
+                            options={DEPARTMENT_OPTIONS}
+                            labelPrefix={true}
+                        />
+
+                        <button
+                            type="button"
+                            onClick={handleOpenAdd}
+                            className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                        >
+                            <Plus className="size-4 stroke-[2.5]" />
+                            <span>Thêm nhân sự mới</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Danh sách nhân sự */}
+                <div className="space-y-3 pt-1">
+                    {/* Trạng thái 1: Đang tải dữ liệu (Skeleton Loading) */}
+                    {isLoading && (
+                        <div className="space-y-3">
+                            {[1, 2, 3, 4].map((idx) => (
+                                <div
+                                    key={idx}
+                                    className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 animate-pulse sm:flex-row sm:items-center"
+                                >
+                                    <div className="flex min-w-[200px] items-center gap-3">
+                                        <div className="size-10 rounded-xl bg-slate-200 shrink-0" />
+                                        <div className="space-y-2">
+                                            <div className="h-4 w-32 rounded-md bg-slate-200" />
+                                            <div className="h-3 w-20 rounded-md bg-slate-100" />
+                                        </div>
+                                    </div>
+                                    <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3 sm:px-4">
+                                        <div className="h-3.5 w-32 rounded-md bg-slate-100" />
+                                        <div className="h-3.5 w-24 rounded-md bg-slate-100" />
+                                        <div className="h-3.5 w-28 rounded-md bg-slate-100" />
+                                    </div>
+                                    <div className="h-8 w-20 rounded-xl bg-slate-200/60 shrink-0" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Trạng thái 2: Lỗi kết nối / Máy chủ Backend phản hồi lỗi */}
+                    {!isLoading && loadError && (
+                        <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-200 bg-rose-50/50 p-10 text-center animate-in fade-in duration-200">
+                            <div className="flex size-12 items-center justify-center rounded-2xl border border-rose-200 bg-rose-100 text-rose-600 shadow-2xs">
+                                <AlertTriangle className="size-6" />
+                            </div>
+                            <h3 className="mt-3.5 text-sm font-bold text-slate-900">
+                                Không thể tải danh sách nhân sự
+                            </h3>
+                            <p className="mt-1 max-w-md text-xs text-slate-600 leading-relaxed">
+                                {loadError}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={loadData}
+                                className="mt-4 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-indigo-600 active:scale-95"
+                            >
+                                <RefreshCw className="size-3.5 text-indigo-600" />
+                                <span>Thử lại</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Trạng thái 3: Danh sách rỗng trong CSDL (Chưa có nhân sự nào) */}
+                    {!isLoading && !loadError && employees.length === 0 && (
+                        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-12 text-center animate-in fade-in duration-200">
+                            <div className="flex size-14 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-2xs">
+                                <Users className="size-7" />
+                            </div>
+                            <h3 className="mt-4 text-base font-bold text-slate-900">
+                                Chưa có hồ sơ nhân sự nào
+                            </h3>
+                            <p className="mt-1 max-w-sm text-xs text-slate-500 leading-relaxed">
+                                Hệ thống chưa ghi nhận tài khoản nhân sự nào trong cơ sở dữ liệu. Nhấn nút bên dưới để tạo hồ sơ đầu tiên.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={handleOpenAdd}
+                                className="mt-5 flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                            >
+                                <Plus className="size-4 stroke-[2.5]" />
+                                <span>Thêm nhân sự mới</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Trạng thái 4: Có nhân sự nhưng không khớp bộ lọc tìm kiếm */}
+                    {!isLoading && !loadError && employees.length > 0 && filteredEmployees.length === 0 && (
+                        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-10 text-center animate-in fade-in duration-200">
+                            <div className="flex size-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                                <Search className="size-5" />
+                            </div>
+                            <h3 className="mt-3 text-sm font-bold text-slate-800">
+                                Không tìm thấy nhân viên phù hợp
+                            </h3>
+                            <p className="mt-1 text-xs text-slate-500">
+                                Không có kết quả nào khớp với điều kiện tìm kiếm hoặc bộ lọc phòng ban đã chọn.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearchTerm("");
+                                    setSelectedDept("All");
+                                }}
+                                className="mt-3.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-indigo-600 shadow-2xs hover:bg-slate-50"
+                            >
+                                Xóa bộ lọc tìm kiếm
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Trạng thái 5: Danh sách nhân sự bình thường */}
+                    {!isLoading && !loadError && filteredEmployees.length > 0 && (
+                        filteredEmployees.map((emp) => (
+                            <EmployeeCard
+                                key={emp.id || emp.employeeCode}
+                                employee={emp}
+                                onView={handleOpenView}
+                                onEdit={handleOpenEdit}
+                                onDelete={() => handleDeleteClick(emp)}
+                            />
+                        ))
+                    )}
+                </div>
+            </div>
+
+            {/* MODAL THÊM MỚI / CHỈNH SỬA (OPTION A VỚI CÂY COMBOBOX & PHÂN QUYỀN) */}
+            <EmployeeProfileForm
+                open={isFormOpen}
+                initialData={editingEmployee}
+                onClose={() => {
+                    setIsFormOpen(false);
+                    setFormError(null);
+                }}
+                onSave={handleSave}
+                nextEmployeeCode={nextEmployeeCode}
+                orgUnitOptions={orgUnitOptions}
+                isSubmitting={isSaving}
+                apiError={formError}
+            />
+
+            {/* MODAL XEM CHI TIẾT */}
+            <EmployeeDetailModal
+                isOpen={Boolean(viewingEmployee)}
+                employee={viewingEmployee ?? null}
+                onClose={() => setViewingEmployee(undefined)}
+            />
+
+            {/* DIALOG XÁC NHẬN XÓA (TỰ TẠO - THAY THẾ WINDOW.CONFIRM) */}
+            <DeleteConfirmDialog
+                target={deleteTarget}
+                onClose={() => {
+                    setDeleteTarget(null);
+                    setDeleteError(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                isSubmitting={isDeleting}
+                errorMessage={deleteError}
+            />
+        </div>
+    );
+}

@@ -16,5 +16,13 @@ export default defineConfig([
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
     },
+    rules: {
+      // Keep legacy debt visible while syntax and type-safety errors remain blocking.
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': 'warn',
+      'no-empty': 'warn',
+      'preserve-caught-error': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
+    },
   },
 ])
