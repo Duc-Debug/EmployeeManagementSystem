@@ -249,4 +249,37 @@ class MilestoneControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/milestones trả về 400 khi linkedTaskIds chứa phần tử null hoặc <= 0")
+    void shouldReturnBadRequestWhenCreateLinkedTaskIdContainsNullOrNonPositive() throws Exception {
+        String invalidJson = """
+                {
+                    "name": "Mốc đợt 1",
+                    "plannedDate": "2026-09-30",
+                    "linkedTaskIds": [1, null, -5]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/projects/{projectId}/milestones", PROJECT_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{projectId}/milestones/{milestoneId} trả về 400 khi linkedTaskIds chứa phần tử null hoặc <= 0")
+    void shouldReturnBadRequestWhenUpdateLinkedTaskIdContainsNullOrNonPositive() throws Exception {
+        String invalidJson = """
+                {
+                    "name": "Mốc đợt 1 cập nhật",
+                    "linkedTaskIds": [null]
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/projects/{projectId}/milestones/{milestoneId}", PROJECT_ID, 10L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest());
+    }
 }

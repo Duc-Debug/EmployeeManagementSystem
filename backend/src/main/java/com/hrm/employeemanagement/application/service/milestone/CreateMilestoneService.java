@@ -122,6 +122,9 @@ public class CreateMilestoneService implements CreateMilestoneUseCase {
                     .collect(Collectors.toSet());
 
             for (Long tid : command.linkedTaskIds()) {
+                if (tid == null || tid <= 0) {
+                    throw new InvalidMilestoneDataException("Mã công việc liên kết không hợp lệ");
+                }
                 if (!projectTaskIds.contains(tid)) {
                     throw new TaskNotInProjectException(tid, project.getIdValue());
                 }

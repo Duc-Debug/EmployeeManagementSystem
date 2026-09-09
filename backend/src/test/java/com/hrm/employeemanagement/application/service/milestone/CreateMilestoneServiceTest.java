@@ -359,4 +359,48 @@ class CreateMilestoneServiceTest {
                 .isInstanceOf(InvalidMilestoneDataException.class)
                 .hasMessageContaining("Tên mốc tiến độ không được vượt quá 255 ký tự");
     }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi linkedTaskIds chứa phần tử null")
+    void shouldThrowInvalidMilestoneDataExceptionWhenLinkedTaskIdIsNull() {
+        when(authorizationService.require(PermissionCode.PROJECT_MILESTONE_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createPmUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Task task = createTask(101L, PROJECT_ID);
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(task));
+
+        CreateMilestoneCommand command = new CreateMilestoneCommand(
+                PROJECT_ID,
+                "Mốc hợp lệ",
+                null,
+                LocalDate.now().plusDays(15),
+                java.util.Arrays.asList(101L, null));
+
+        assertThatThrownBy(() -> service.createMilestone(command))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Mã công việc liên kết không hợp lệ");
+    }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi linkedTaskIds chứa phần tử <= 0")
+    void shouldThrowInvalidMilestoneDataExceptionWhenLinkedTaskIdIsNonPositive() {
+        when(authorizationService.require(PermissionCode.PROJECT_MILESTONE_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createPmUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Task task = createTask(101L, PROJECT_ID);
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(task));
+
+        CreateMilestoneCommand command = new CreateMilestoneCommand(
+                PROJECT_ID,
+                "Mốc hợp lệ",
+                null,
+                LocalDate.now().plusDays(15),
+                List.of(-1L));
+
+        assertThatThrownBy(() -> service.createMilestone(command))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Mã công việc liên kết không hợp lệ");
+    }
 }

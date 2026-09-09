@@ -358,4 +358,76 @@ class UpdateMilestoneServiceTest {
                 .isInstanceOf(InvalidMilestoneDataException.class)
                 .hasMessageContaining("Tên mốc tiến độ không được vượt quá 255 ký tự");
     }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi linkedTaskIds cập nhật chứa phần tử null")
+    void shouldThrowInvalidMilestoneDataExceptionWhenUpdateLinkedTaskIdIsNull() {
+        when(authorizationService.require(PermissionCode.PROJECT_MILESTONE_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createPmUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Milestone existing = new Milestone(
+                new MilestoneId(MILESTONE_ID),
+                new ProjectId(PROJECT_ID),
+                "Mốc bàn giao",
+                null,
+                LocalDate.of(2026, 9, 20),
+                null,
+                Set.of(),
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+
+        when(loadMilestonePort.findById(new MilestoneId(MILESTONE_ID))).thenReturn(Optional.of(existing));
+
+        UpdateMilestoneCommand command = new UpdateMilestoneCommand(
+                PROJECT_ID,
+                MILESTONE_ID,
+                null,
+                null,
+                null,
+                null,
+                java.util.Collections.singletonList(null));
+
+        assertThatThrownBy(() -> service.updateMilestone(command))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Mã công việc liên kết không hợp lệ");
+    }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi linkedTaskIds cập nhật chứa phần tử <= 0")
+    void shouldThrowInvalidMilestoneDataExceptionWhenUpdateLinkedTaskIdIsNonPositive() {
+        when(authorizationService.require(PermissionCode.PROJECT_MILESTONE_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createPmUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Milestone existing = new Milestone(
+                new MilestoneId(MILESTONE_ID),
+                new ProjectId(PROJECT_ID),
+                "Mốc bàn giao",
+                null,
+                LocalDate.of(2026, 9, 20),
+                null,
+                Set.of(),
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+
+        when(loadMilestonePort.findById(new MilestoneId(MILESTONE_ID))).thenReturn(Optional.of(existing));
+
+        UpdateMilestoneCommand command = new UpdateMilestoneCommand(
+                PROJECT_ID,
+                MILESTONE_ID,
+                null,
+                null,
+                null,
+                null,
+                List.of(-5L));
+
+        assertThatThrownBy(() -> service.updateMilestone(command))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Mã công việc liên kết không hợp lệ");
+    }
 }

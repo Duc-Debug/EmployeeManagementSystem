@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.dto.milestone.CreateMilestoneComma
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record CreateMilestoneRequest(
@@ -20,7 +21,7 @@ public record CreateMilestoneRequest(
         @NotNull(message = "Ngày kế hoạch không được để trống")
         LocalDate plannedDate,
 
-        List<Long> linkedTaskIds
+        List<@NotNull(message = "Mã công việc liên kết không được để trống") @Positive(message = "Mã công việc liên kết phải là số nguyên dương") Long> linkedTaskIds
 ) {
     public CreateMilestoneCommand toCommand(Long projectId) {
         return new CreateMilestoneCommand(
