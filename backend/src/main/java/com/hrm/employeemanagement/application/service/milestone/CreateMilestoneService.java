@@ -80,6 +80,12 @@ public class CreateMilestoneService implements CreateMilestoneUseCase {
         if (command == null || command.projectId() == null) {
             throw new InvalidMilestoneDataException("Mã dự án (projectId) không được để trống");
         }
+        if (command.name() == null || command.name().trim().isEmpty()) {
+            throw new InvalidMilestoneDataException("Tên mốc tiến độ không được để trống");
+        }
+        if (command.name().trim().length() > 255) {
+            throw new InvalidMilestoneDataException("Tên mốc tiến độ không được vượt quá 255 ký tự");
+        }
 
         Long currentUserId = authorizationService.require(PermissionCode.PROJECT_MILESTONE_MANAGE);
         User currentUser = loadCurrentUserOrThrow(currentUserId);

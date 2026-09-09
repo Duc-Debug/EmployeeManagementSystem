@@ -314,4 +314,49 @@ class CreateMilestoneServiceTest {
         assertThat(result.status()).isEqualTo(MilestoneStatus.DELAYED);
         assertThat(result.delayDays()).isEqualTo(5);
     }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi command.name() là null")
+    void shouldThrowInvalidMilestoneDataExceptionWhenCommandNameIsNull() {
+        CreateMilestoneCommand command = new CreateMilestoneCommand(
+                PROJECT_ID,
+                null,
+                "Mô tả",
+                LocalDate.now().plusDays(15),
+                List.of());
+
+        assertThatThrownBy(() -> service.createMilestone(command))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Tên mốc tiến độ không được để trống");
+    }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi command.name() là khoảng trắng")
+    void shouldThrowInvalidMilestoneDataExceptionWhenCommandNameIsBlank() {
+        CreateMilestoneCommand command = new CreateMilestoneCommand(
+                PROJECT_ID,
+                "    ",
+                "Mô tả",
+                LocalDate.now().plusDays(15),
+                List.of());
+
+        assertThatThrownBy(() -> service.createMilestone(command))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Tên mốc tiến độ không được để trống");
+    }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi command.name() vượt quá 255 ký tự")
+    void shouldThrowInvalidMilestoneDataExceptionWhenCommandNameIsTooLong() {
+        CreateMilestoneCommand command = new CreateMilestoneCommand(
+                PROJECT_ID,
+                "A".repeat(256),
+                "Mô tả",
+                LocalDate.now().plusDays(15),
+                List.of());
+
+        assertThatThrownBy(() -> service.createMilestone(command))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Tên mốc tiến độ không được vượt quá 255 ký tự");
+    }
 }

@@ -105,9 +105,17 @@ public class UpdateMilestoneService implements UpdateMilestoneUseCase {
         }
 
         // Check duplicate name if name changed
-        if (command.name() != null && !command.name().trim().equalsIgnoreCase(milestone.getName())) {
-            if (loadMilestonePort.existsByProjectIdAndName(project.getId(), command.name().trim())) {
-                throw new DuplicateMilestoneNameException(command.name().trim());
+        if (command.name() != null) {
+            if (command.name().trim().isEmpty()) {
+                throw new InvalidMilestoneDataException("Tên mốc tiến độ không được để trống");
+            }
+            if (command.name().trim().length() > 255) {
+                throw new InvalidMilestoneDataException("Tên mốc tiến độ không được vượt quá 255 ký tự");
+            }
+            if (!command.name().trim().equalsIgnoreCase(milestone.getName())) {
+                if (loadMilestonePort.existsByProjectIdAndName(project.getId(), command.name().trim())) {
+                    throw new DuplicateMilestoneNameException(command.name().trim());
+                }
             }
         }
 
