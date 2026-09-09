@@ -41,6 +41,11 @@ import com.hrm.employeemanagement.domain.task.TaskStatus;
 import com.hrm.employeemanagement.domain.task.TaskType;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
 
+import com.hrm.employeemanagement.application.dto.task.SetTaskBudgetCommand;
+import com.hrm.employeemanagement.application.dto.task.TaskBudgetResult;
+import com.hrm.employeemanagement.application.port.inbound.task.SetTaskBudgetUseCase;
+import com.hrm.employeemanagement.domain.task.TaskBudgetBurnStatus;
+
 @ExtendWith(MockitoExtension.class)
 class TaskControllerTest {
 
@@ -55,12 +60,16 @@ class TaskControllerTest {
     @Mock
     private GetProjectWbsUseCase getProjectWbsUseCase;
 
+    @Mock
+    private SetTaskBudgetUseCase setTaskBudgetUseCase;
+
     @BeforeEach
     void setUp() {
         TaskController controller = new TaskController(
                 createTaskUseCase,
                 updateTaskUseCase,
-                getProjectWbsUseCase);
+                getProjectWbsUseCase,
+                setTaskBudgetUseCase);
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
@@ -294,5 +303,57 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("Tên mới qua PATCH"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/projects/{projectId}/tasks/{taskId}/budget - Đặt ngân sách giờ công thành công trả về 200 OK")
+    void testSetTaskBudget_Success() throws Exception {
+        TaskBudgetResult budgetResult = new TaskBudgetResult(
+                1L,
+                "PRJ-T001",
+                "Thiết kế UI",
+                new BigDecimal("50.00"),
+                new BigDecimal("35.00"),
+                new BigDecimal("70.00"),
+                TaskBudgetBurnStatus.SAFE,
+                new BigDecimal("15.00"),
+                false);
+
+        when(setTaskBudgetUseCase.setTaskBudget(any(SetTaskBudgetCommand.class)))
+                .thenReturn(budgetResult);
+
+        String requestJson = """
+                {
+                    "budgetHours": 50.0
+                }
+                """;
+
+        mockMvc.perform(patch("/api/v1/projects/100/tasks/1/budget")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đặt ngân sách giờ công thành công"))
+                .andExpect(jsonPath("$.data.taskId").value(1))
+                .andExpect(jsonPath("$.data.budgetHours").value(50.00))
+                .andExpect(jsonPath("$.data.actualHours").value(35.00))
+                .andExpect(jsonPath("$.data.burnedPercentage").value(70.00))
+                .andExpect(jsonPath("$.data.burnStatus").value("SAFE"))
+                .andExpect(jsonPath("$.data.isOverBudget").value(false));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/projects/{projectId}/tasks/{taskId}/budget - Ngân sách âm trả về 400 Bad Request")
+    void testSetTaskBudget_NegativeHours_Returns400() throws Exception {
+        String requestJson = """
+                {
+                    "budgetHours": -10.0
+                }
+                """;
+
+        mockMvc.perform(patch("/api/v1/projects/100/tasks/1/budget")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isBadRequest());
     }
 }
