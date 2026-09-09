@@ -1,3 +1,4 @@
+-- Flyway V36: grant project read access to HR.
 -- All official roles can open the project workspace. ProjectService still
 -- constrains visible data using each user's configured data scope.
 INSERT INTO role_permissions (role_id, permission_id)
