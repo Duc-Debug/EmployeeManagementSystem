@@ -2,9 +2,7 @@ package com.hrm.employeemanagement.application.service.skill;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.skill.CreateSkillCommand;
 import com.hrm.employeemanagement.application.dto.skill.CreateSkillGroupCommand;

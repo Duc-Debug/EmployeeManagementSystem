@@ -35,7 +35,6 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.task.CyclicTaskHierarchyException;
 import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
-import com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;

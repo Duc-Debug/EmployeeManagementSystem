@@ -5,7 +5,6 @@ import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
-import com.hrm.employeemanagement.domain.user.UserStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.RoleJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.UserJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataRoleRepository;
