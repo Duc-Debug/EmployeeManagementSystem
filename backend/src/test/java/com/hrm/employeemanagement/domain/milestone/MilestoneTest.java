@@ -30,7 +30,7 @@ class MilestoneTest {
 
         assertThat(milestone.getName()).isEqualTo("Bàn giao giai đoạn 1");
         assertThat(milestone.getPlannedDate()).isEqualTo(plannedDate);
-        assertThat(milestone.getStatus()).isEqualTo(MilestoneStatus.ON_TRACK);
+        assertThat(milestone.evaluateStatus(LocalDate.now(), false)).isEqualTo(MilestoneStatus.ON_TRACK);
         assertThat(milestone.getLinkedTaskIds()).containsExactlyInAnyOrder(new TaskId(101L), new TaskId(102L));
     }
 
@@ -131,11 +131,50 @@ class MilestoneTest {
                 new UserId(1L));
 
         LocalDate newDate = LocalDate.now().plusDays(20);
-        milestone.updateDetails("Tên mới", "Mô tả mới", newDate, null, MilestoneStatus.ON_TRACK, Set.of(new TaskId(5L)));
+        milestone.updateDetails("Tên mới", "Mô tả mới", newDate, null, Set.of(new TaskId(5L)));
 
         assertThat(milestone.getName()).isEqualTo("Tên mới");
         assertThat(milestone.getDescription()).isEqualTo("Mô tả mới");
         assertThat(milestone.getPlannedDate()).isEqualTo(newDate);
         assertThat(milestone.getLinkedTaskIds()).containsExactly(new TaskId(5L));
+    }
+
+    @Test
+    @DisplayName("Không cho phép COMPLETED nếu các task liên kết chưa hoàn thành dù ngày kế hoạch ở thời điểm nào")
+    void shouldNotBeCompletedWhenTasksNotDone() {
+        LocalDate plannedDate = LocalDate.now().plusDays(5);
+        Milestone milestone = new Milestone(
+                new MilestoneId(1L),
+                new ProjectId(1L),
+                "Mốc tiến độ",
+                null,
+                plannedDate,
+                null,
+                Set.of(new TaskId(10L)),
+                new UserId(1L),
+                null,
+                null,
+                0L);
+
+        MilestoneStatus status = milestone.evaluateStatus(LocalDate.now(), false);
+        assertThat(status).isEqualTo(MilestoneStatus.ON_TRACK);
+    }
+
+    @Test
+    @DisplayName("Trạng thái mốc tự động chuyển sang COMPLETED khi toàn bộ task hoàn thành mà không cần update mốc")
+    void shouldAutomaticallyBecomeCompletedWhenTasksAreDone() {
+        Milestone milestone = Milestone.createNew(
+                new ProjectId(1L),
+                "Bàn giao giai đoạn 1",
+                null,
+                LocalDate.now().plusDays(10),
+                Set.of(new TaskId(101L)),
+                new UserId(1L));
+
+        // Ban đầu task chưa xong -> ON_TRACK
+        assertThat(milestone.evaluateStatus(LocalDate.now(), false)).isEqualTo(MilestoneStatus.ON_TRACK);
+
+        // Khi toàn bộ task hoàn thành -> tự động COMPLETED mà không cần cập nhật mốc
+        assertThat(milestone.evaluateStatus(LocalDate.now(), true)).isEqualTo(MilestoneStatus.COMPLETED);
     }
 }

@@ -41,6 +41,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.milestone.DuplicateMilestoneNameException;
+import com.hrm.employeemanagement.domain.exception.milestone.InvalidMilestoneDataException;
 import com.hrm.employeemanagement.domain.exception.milestone.ProjectHasNoWbsException;
 import com.hrm.employeemanagement.domain.exception.milestone.TaskNotInProjectException;
 import com.hrm.employeemanagement.domain.milestone.Milestone;
@@ -173,7 +174,6 @@ class CreateMilestoneServiceTest {
                     arg.getDescription(),
                     arg.getPlannedDate(),
                     arg.getActualDate(),
-                    arg.getStatus(),
                     arg.getLinkedTaskIds(),
                     arg.getCreatedBy(),
                     LocalDateTime.now(),
@@ -287,5 +287,31 @@ class CreateMilestoneServiceTest {
         assertThatThrownBy(() -> service.createMilestone(command))
                 .isInstanceOf(TaskNotInProjectException.class)
                 .hasMessageContaining("không thuộc dự án");
+    }
+
+    @Test
+    @DisplayName("Khởi tạo mốc quá hạn ngày kế hoạch thì trạng thái lưu xuống DB được tính là DELAYED")
+    void shouldPersistDelayedStatusWhenCreatingPastPlannedDate() {
+        when(authorizationService.require(PermissionCode.PROJECT_MILESTONE_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createPmUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Task task = createTask(101L, PROJECT_ID);
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(task));
+        when(loadMilestonePort.existsByProjectIdAndName(new ProjectId(PROJECT_ID), "Mốc trễ")).thenReturn(false);
+
+        when(saveMilestonePort.save(any(Milestone.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateMilestoneCommand command = new CreateMilestoneCommand(
+                PROJECT_ID,
+                "Mốc trễ",
+                null,
+                LocalDate.now().minusDays(5),
+                List.of(101L));
+
+        MilestoneResult result = service.createMilestone(command);
+
+        assertThat(result.status()).isEqualTo(MilestoneStatus.DELAYED);
+        assertThat(result.delayDays()).isEqualTo(5);
     }
 }

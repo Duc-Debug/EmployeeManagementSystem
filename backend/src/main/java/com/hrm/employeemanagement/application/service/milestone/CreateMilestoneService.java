@@ -168,6 +168,21 @@ public class CreateMilestoneService implements CreateMilestoneUseCase {
                         "permission=PROJECT_MILESTONE_MANAGE;dataScope=" + currentUser.getDataScope() + ";reason=" + reason));
     }
 
+    private boolean isAllLinkedTasksCompleted(Set<TaskId> linkedTaskIds, List<Task> tasks) {
+        if (linkedTaskIds == null || linkedTaskIds.isEmpty()) {
+            return false;
+        }
+        if (tasks == null || tasks.isEmpty()) {
+            return false;
+        }
+        Set<Long> completedTaskIds = tasks.stream()
+                .filter(t -> t.getStatus() == com.hrm.employeemanagement.domain.task.TaskStatus.DONE)
+                .map(Task::getIdValue)
+                .collect(Collectors.toSet());
+        return linkedTaskIds.stream()
+                .allMatch(tid -> completedTaskIds.contains(tid.value()));
+    }
+
     private MilestoneResult mapToResult(Milestone milestone, List<Task> tasks) {
         List<Long> linkedIds = milestone.getLinkedTaskIds().stream()
                 .map(TaskId::value)

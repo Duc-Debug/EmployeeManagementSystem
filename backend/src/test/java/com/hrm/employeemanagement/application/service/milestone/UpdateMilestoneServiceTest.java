@@ -35,6 +35,7 @@ import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.exception.milestone.InvalidMilestoneDataException;
 import com.hrm.employeemanagement.domain.exception.milestone.MilestoneNotFoundException;
 import com.hrm.employeemanagement.domain.milestone.Milestone;
 import com.hrm.employeemanagement.domain.milestone.MilestoneId;
@@ -140,7 +141,6 @@ class UpdateMilestoneServiceTest {
                 "Mô tả cũ",
                 LocalDate.now().plusDays(10),
                 null,
-                MilestoneStatus.ON_TRACK,
                 Set.of(),
                 new UserId(CURRENT_USER_ID),
                 LocalDateTime.now(),
@@ -159,7 +159,6 @@ class UpdateMilestoneServiceTest {
                 "Mô tả mới",
                 LocalDate.now().plusDays(20),
                 null,
-                MilestoneStatus.ON_TRACK,
                 List.of());
 
         MilestoneResult result = service.updateMilestone(command);
@@ -186,10 +185,69 @@ class UpdateMilestoneServiceTest {
                 null,
                 LocalDate.now(),
                 null,
-                null,
                 null);
 
         assertThatThrownBy(() -> service.updateMilestone(command))
                 .isInstanceOf(MilestoneNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("Trạng thái mốc được tự động tính toán từ các task WBS liên kết trước khi lưu vào DB")
+    void shouldAutomaticallyEvaluateAndPersistConsistentStatus() {
+        when(authorizationService.require(PermissionCode.PROJECT_MILESTONE_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createPmUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Milestone existing = new Milestone(
+                new MilestoneId(MILESTONE_ID),
+                new ProjectId(PROJECT_ID),
+                "Mốc bàn giao",
+                null,
+                LocalDate.now().minusDays(3),
+                null,
+                Set.of(new TaskId(101L)),
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+
+        when(loadMilestonePort.findById(new MilestoneId(MILESTONE_ID))).thenReturn(Optional.of(existing));
+
+        // Task 101 chưa hoàn thành (IN_PROGRESS)
+        Task task1 = new Task(
+                new TaskId(101L),
+                new ProjectId(PROJECT_ID),
+                null,
+                "T-101",
+                "Task 1",
+                null,
+                TaskType.TASK,
+                new EmployeeId(10L),
+                BigDecimal.valueOf(8),
+                BigDecimal.ZERO,
+                TaskStatus.IN_PROGRESS,
+                1,
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(task1));
+        when(saveMilestonePort.save(any(Milestone.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UpdateMilestoneCommand command = new UpdateMilestoneCommand(
+                PROJECT_ID,
+                MILESTONE_ID,
+                "Mốc bàn giao",
+                null,
+                LocalDate.now().minusDays(3), // Quá hạn 3 ngày mà task chưa xong
+                null,
+                List.of(101L));
+
+        MilestoneResult result = service.updateMilestone(command);
+
+        // Trạng thái trả về phải được tính toán tự động là DELAYED
+        assertThat(result.status()).isEqualTo(MilestoneStatus.DELAYED);
+        assertThat(result.delayDays()).isEqualTo(3);
     }
 }

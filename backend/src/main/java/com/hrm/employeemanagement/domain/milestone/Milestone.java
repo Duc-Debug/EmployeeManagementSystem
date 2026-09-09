@@ -20,7 +20,6 @@ public class Milestone {
     private String description;
     private LocalDate plannedDate;
     private LocalDate actualDate;
-    private MilestoneStatus status;
     private Set<TaskId> linkedTaskIds;
     private UserId createdBy;
     private LocalDateTime createdAt;
@@ -34,7 +33,6 @@ public class Milestone {
             String description,
             LocalDate plannedDate,
             LocalDate actualDate,
-            MilestoneStatus status,
             Set<TaskId> linkedTaskIds,
             UserId createdBy,
             LocalDateTime createdAt,
@@ -51,7 +49,6 @@ public class Milestone {
         this.description = description != null ? description.trim() : null;
         this.plannedDate = plannedDate;
         this.actualDate = actualDate;
-        this.status = status != null ? status : MilestoneStatus.ON_TRACK;
         this.linkedTaskIds = linkedTaskIds != null ? new HashSet<>(linkedTaskIds) : new HashSet<>();
         this.createdBy = createdBy;
         this.createdAt = createdAt;
@@ -73,7 +70,6 @@ public class Milestone {
                 description,
                 plannedDate,
                 null,
-                MilestoneStatus.ON_TRACK,
                 linkedTaskIds,
                 createdBy,
                 LocalDateTime.now(),
@@ -86,7 +82,6 @@ public class Milestone {
             String description,
             LocalDate plannedDate,
             LocalDate actualDate,
-            MilestoneStatus status,
             Set<TaskId> newLinkedTaskIds) {
         if (name != null) {
             validateName(name);
@@ -104,9 +99,6 @@ public class Milestone {
             validateActualDate(this.plannedDate, actualDate);
             this.actualDate = actualDate;
         }
-        if (status != null) {
-            this.status = status;
-        }
         if (newLinkedTaskIds != null) {
             this.linkedTaskIds = new HashSet<>(newLinkedTaskIds);
         }
@@ -117,12 +109,6 @@ public class Milestone {
         LocalDate actual = completionDate != null ? completionDate : LocalDate.now();
         validateActualDate(this.plannedDate, actual);
         this.actualDate = actual;
-        this.status = MilestoneStatus.COMPLETED;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public void cancel() {
-        this.status = MilestoneStatus.CANCELLED;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -130,10 +116,11 @@ public class Milestone {
      * Rà soát trạng thái tiến độ dựa trên ngày hiện tại và trạng thái của các hạng mục liên kết (AC-02 / TC-02).
      */
     public MilestoneStatus evaluateStatus(LocalDate currentDate, boolean allLinkedTasksCompleted) {
-        if (this.status == MilestoneStatus.CANCELLED) {
-            return MilestoneStatus.CANCELLED;
-        }
-        if (this.status == MilestoneStatus.COMPLETED || (allLinkedTasksCompleted && !this.linkedTaskIds.isEmpty())) {
+        if (!this.linkedTaskIds.isEmpty()) {
+            if (allLinkedTasksCompleted) {
+                return MilestoneStatus.COMPLETED;
+            }
+        } else if (this.actualDate != null) {
             return MilestoneStatus.COMPLETED;
         }
         LocalDate checkDate = currentDate != null ? currentDate : LocalDate.now();
@@ -147,14 +134,9 @@ public class Milestone {
      * Tính toán số ngày trễ nếu mốc tiến độ đã quá hạn mà các hạng mục chưa hoàn thành (AC-02 / TC-02).
      */
     public long calculateDelayDays(LocalDate currentDate, boolean allLinkedTasksCompleted) {
-        if (this.status == MilestoneStatus.CANCELLED) {
-            return 0;
-        }
-        if (this.status == MilestoneStatus.COMPLETED || (allLinkedTasksCompleted && !this.linkedTaskIds.isEmpty())) {
-            return 0;
-        }
-        LocalDate checkDate = currentDate != null ? currentDate : LocalDate.now();
-        if (checkDate.isAfter(this.plannedDate)) {
+        MilestoneStatus currentEval = evaluateStatus(currentDate, allLinkedTasksCompleted);
+        if (currentEval == MilestoneStatus.DELAYED) {
+            LocalDate checkDate = currentDate != null ? currentDate : LocalDate.now();
             return ChronoUnit.DAYS.between(this.plannedDate, checkDate);
         }
         return 0;
@@ -219,10 +201,6 @@ public class Milestone {
 
     public LocalDate getActualDate() {
         return actualDate;
-    }
-
-    public MilestoneStatus getStatus() {
-        return status;
     }
 
     public Set<TaskId> getLinkedTaskIds() {

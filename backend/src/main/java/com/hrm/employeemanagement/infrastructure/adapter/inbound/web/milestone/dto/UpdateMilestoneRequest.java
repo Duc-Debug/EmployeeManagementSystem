@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.hrm.employeemanagement.application.dto.milestone.UpdateMilestoneCommand;
-import com.hrm.employeemanagement.domain.milestone.MilestoneStatus;
 
 import jakarta.validation.constraints.Size;
 
@@ -17,7 +16,6 @@ public record UpdateMilestoneRequest(
 
         LocalDate plannedDate,
         LocalDate actualDate,
-        MilestoneStatus status,
         List<Long> linkedTaskIds
 ) {
     public UpdateMilestoneCommand toCommand(Long projectId, Long milestoneId) {
@@ -28,7 +26,6 @@ public record UpdateMilestoneRequest(
                 description,
                 plannedDate,
                 actualDate,
-                status,
                 linkedTaskIds);
     }
 }

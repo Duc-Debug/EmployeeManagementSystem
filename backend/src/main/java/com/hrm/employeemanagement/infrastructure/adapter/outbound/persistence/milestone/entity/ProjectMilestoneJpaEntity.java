@@ -40,9 +40,6 @@ public class ProjectMilestoneJpaEntity {
     @Column(name = "actual_date")
     private LocalDate actualDate;
 
-    @Column(name = "status", nullable = false, length = 30)
-    private String status;
-
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "milestone_tasks",
@@ -74,7 +71,6 @@ public class ProjectMilestoneJpaEntity {
             String description,
             LocalDate plannedDate,
             LocalDate actualDate,
-            String status,
             Set<Long> linkedTaskIds,
             Long createdBy,
             LocalDateTime createdAt,
@@ -86,7 +82,6 @@ public class ProjectMilestoneJpaEntity {
         this.description = description;
         this.plannedDate = plannedDate;
         this.actualDate = actualDate;
-        this.status = status;
         this.linkedTaskIds = linkedTaskIds != null ? linkedTaskIds : new HashSet<>();
         this.createdBy = createdBy;
         this.createdAt = createdAt;
@@ -140,14 +135,6 @@ public class ProjectMilestoneJpaEntity {
 
     public void setActualDate(LocalDate actualDate) {
         this.actualDate = actualDate;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
     }
 
     public Set<Long> getLinkedTaskIds() {

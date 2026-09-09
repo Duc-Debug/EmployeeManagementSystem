@@ -6,7 +6,6 @@ import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.domain.milestone.Milestone;
 import com.hrm.employeemanagement.domain.milestone.MilestoneId;
-import com.hrm.employeemanagement.domain.milestone.MilestoneStatus;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -29,15 +28,6 @@ public final class MilestonePersistenceMapper {
                     .collect(Collectors.toSet());
         }
 
-        MilestoneStatus status = MilestoneStatus.ON_TRACK;
-        if (entity.getStatus() != null) {
-            try {
-                status = MilestoneStatus.valueOf(entity.getStatus());
-            } catch (IllegalArgumentException ignored) {
-                status = MilestoneStatus.ON_TRACK;
-            }
-        }
-
         return new Milestone(
                 new MilestoneId(entity.getId()),
                 new ProjectId(entity.getProjectId()),
@@ -45,7 +35,6 @@ public final class MilestonePersistenceMapper {
                 entity.getDescription(),
                 entity.getPlannedDate(),
                 entity.getActualDate(),
-                status,
                 taskIds,
                 entity.getCreatedBy() != null ? new UserId(entity.getCreatedBy()) : null,
                 entity.getCreatedAt(),
@@ -72,7 +61,6 @@ public final class MilestonePersistenceMapper {
                 domain.getDescription(),
                 domain.getPlannedDate(),
                 domain.getActualDate(),
-                domain.getStatus() != null ? domain.getStatus().name() : MilestoneStatus.ON_TRACK.name(),
                 taskIds,
                 domain.getCreatedByValue(),
                 domain.getCreatedAt(),
