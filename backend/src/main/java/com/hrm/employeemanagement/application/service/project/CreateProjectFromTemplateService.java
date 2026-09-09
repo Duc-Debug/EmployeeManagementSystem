@@ -183,6 +183,10 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
                     int nextSeq = project.nextTaskSequence();
                     String taskCode = String.format("%s-T%03d", project.getProjectCode(), nextSeq);
 
+                    BigDecimal taskEstimatedHours = (t.getTaskType() == TaskType.CATEGORY)
+                            ? BigDecimal.ZERO
+                            : (t.getEstimatedHours() != null ? t.getEstimatedHours() : BigDecimal.ZERO);
+
                     Task newTask = Task.createNew(project.getId(),
                             parentTaskId,
                             taskCode,
@@ -190,7 +194,7 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
                             t.getDescription(),
                             t.getTaskType(),
                             null, // assigneeId luôn là null ban đầu
-                            t.getEstimatedHours(),
+                            taskEstimatedHours,
                             t.getSortOrder(),
                             new UserId(currentUserId));
                     Task savedTask = saveTaskPort.save(newTask);

@@ -318,6 +318,7 @@ class CreateProjectFromTemplateServiceTest {
         Task cat = savedTasks.stream().filter(t -> t.getTaskType() == TaskType.CATEGORY).findFirst().orElseThrow();
         assertThat(cat.getParentId()).isNull();
         assertThat(cat.getName()).isEqualTo("Giai đoạn Khảo sát");
+        assertThat(cat.getEstimatedHours()).isEqualByComparingTo(BigDecimal.ZERO);
 
         List<Task> tasks = savedTasks.stream().filter(t -> t.getTaskType() == TaskType.TASK).toList();
         assertThat(tasks).hasSize(2);

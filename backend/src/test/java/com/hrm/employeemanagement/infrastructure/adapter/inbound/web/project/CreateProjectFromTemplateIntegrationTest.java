@@ -175,6 +175,9 @@ class CreateProjectFromTemplateIntegrationTest {
                 .filter(t -> t.getTaskType() == TaskType.CATEGORY)
                 .toList();
         assertThat(categories).hasSize(3);
+        for (TaskJpaEntity cat : categories) {
+            assertThat(cat.getEstimatedHours()).isEqualByComparingTo(BigDecimal.ZERO);
+        }
 
         Map<Long, TaskJpaEntity> taskMap = projectTasks.stream()
                 .collect(Collectors.toMap(TaskJpaEntity::getId, t -> t));

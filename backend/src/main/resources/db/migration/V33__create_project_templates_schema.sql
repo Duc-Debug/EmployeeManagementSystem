@@ -70,7 +70,7 @@ VALUES (1, 'TPL-DEV-001', 'Mẫu dự án triển khai phần mềm', 'Mẫu chu
 
 -- 4.1. Hạng mục 1: Khởi động & Khảo sát yêu cầu (id: 1)
 INSERT INTO project_template_tasks (id, template_id, parent_id, name, description, task_type, estimated_hours, sort_order)
-VALUES (1, 1, NULL, 'Khởi động & Khảo sát yêu cầu', 'Giai đoạn thu thập yêu cầu và làm rõ nghiệp vụ', 'CATEGORY', 16.00, 1);
+VALUES (1, 1, NULL, 'Khởi động & Khảo sát yêu cầu', 'Giai đoạn thu thập yêu cầu và làm rõ nghiệp vụ', 'CATEGORY', 0.00, 1);
 
 INSERT INTO project_template_tasks (id, template_id, parent_id, name, description, task_type, estimated_hours, sort_order)
 VALUES (2, 1, 1, 'Khảo sát hiện trạng & Quy trình', 'Làm việc với khách hàng ghi nhận quy trình', 'TASK', 8.00, 1);
@@ -80,7 +80,7 @@ VALUES (3, 1, 1, 'Viết tài liệu đặc tả yêu cầu', 'Hoàn thiện tà
 
 -- 4.2. Hạng mục 2: Thiết kế & Phát triển (id: 4)
 INSERT INTO project_template_tasks (id, template_id, parent_id, name, description, task_type, estimated_hours, sort_order)
-VALUES (4, 1, NULL, 'Thiết kế & Phát triển hệ thống', 'Giai đoạn thiết kế kiến trúc và viết code', 'CATEGORY', 80.00, 2);
+VALUES (4, 1, NULL, 'Thiết kế & Phát triển hệ thống', 'Giai đoạn thiết kế kiến trúc và viết code', 'CATEGORY', 0.00, 2);
 
 INSERT INTO project_template_tasks (id, template_id, parent_id, name, description, task_type, estimated_hours, sort_order)
 VALUES (5, 1, 4, 'Thiết kế kiến trúc & CSDL', 'Thiết kế ERD và mô hình dịch vụ', 'TASK', 24.00, 1);
@@ -90,7 +90,7 @@ VALUES (6, 1, 4, 'Lập trình tính năng Backend & Frontend', 'Triển khai m�
 
 -- 4.3. Hạng mục 3: Kiểm thử & Nghiệm thu (id: 7)
 INSERT INTO project_template_tasks (id, template_id, parent_id, name, description, task_type, estimated_hours, sort_order)
-VALUES (7, 1, NULL, 'Kiểm thử & Nghiệm thu bàn giao', 'Giai đoạn test hệ thống và triển khai UAT', 'CATEGORY', 24.00, 3);
+VALUES (7, 1, NULL, 'Kiểm thử & Nghiệm thu bàn giao', 'Giai đoạn test hệ thống và triển khai UAT', 'CATEGORY', 0.00, 3);
 
 INSERT INTO project_template_tasks (id, template_id, parent_id, name, description, task_type, estimated_hours, sort_order)
 VALUES (8, 1, 7, 'Kiểm thử tích hợp hệ thống (SIT)', 'Thực hiện test case và sửa lỗi tồn đọng', 'TASK', 16.00, 1);
