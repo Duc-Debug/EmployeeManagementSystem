@@ -4,10 +4,6 @@
 -- Story: NCL-03-CN-006 (Quản lý mốc tiến độ của dự án)
 -- ============================================================
 
--- Dọn dẹp tàn dư nếu migration bị gián đoạn giữa chừng ở lần chạy trước
-DROP TABLE IF EXISTS milestone_tasks;
-DROP TABLE IF EXISTS project_milestones;
-
 -- 1. Tạo bảng project_milestones lưu trữ các mốc tiến độ của dự án
 CREATE TABLE IF NOT EXISTS project_milestones (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
