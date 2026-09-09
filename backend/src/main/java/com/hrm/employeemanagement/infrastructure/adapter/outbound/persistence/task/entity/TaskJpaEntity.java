@@ -54,6 +54,9 @@ public class TaskJpaEntity {
     @Column(name = "actual_hours", nullable = false, precision = 10, scale = 2)
     private BigDecimal actualHours;
 
+    @Column(name = "budget_hours", nullable = false, precision = 10, scale = 2)
+    private BigDecimal budgetHours;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private TaskStatus status;
@@ -88,6 +91,7 @@ public class TaskJpaEntity {
             Long assigneeId,
             BigDecimal estimatedHours,
             BigDecimal actualHours,
+            BigDecimal budgetHours,
             TaskStatus status,
             Integer sortOrder,
             Long createdBy,
@@ -104,12 +108,50 @@ public class TaskJpaEntity {
         this.assigneeId = assigneeId;
         this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
         this.actualHours = actualHours != null ? actualHours : BigDecimal.ZERO;
+        this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+    }
+
+    public TaskJpaEntity(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            TaskStatus status,
+            Integer sortOrder,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                BigDecimal.ZERO,
+                status,
+                sortOrder,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version);
     }
 
     @PrePersist
@@ -128,6 +170,9 @@ public class TaskJpaEntity {
         }
         if (actualHours == null) {
             actualHours = BigDecimal.ZERO;
+        }
+        if (budgetHours == null) {
+            budgetHours = BigDecimal.ZERO;
         }
         if (sortOrder == null) {
             sortOrder = 0;
@@ -218,6 +263,14 @@ public class TaskJpaEntity {
 
     public void setActualHours(BigDecimal actualHours) {
         this.actualHours = actualHours;
+    }
+
+    public BigDecimal getBudgetHours() {
+        return budgetHours;
+    }
+
+    public void setBudgetHours(BigDecimal budgetHours) {
+        this.budgetHours = budgetHours;
     }
 
     public TaskStatus getStatus() {

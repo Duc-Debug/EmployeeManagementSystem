@@ -140,6 +140,11 @@ public class UpdateTaskService implements UpdateTaskUseCase {
             }
         }
 
+        // Cập nhật trạng thái (null = giữ nguyên)
+        if (command.status() != null) {
+            task.updateStatus(command.status());
+        }
+
         Task savedTask = saveTaskPort.save(task);
 
         saveAuditLogPort.save(AuditLog.create(currentUserId, "UPDATE_TASK", "tasks", savedTask.getIdValue()));
@@ -218,6 +223,7 @@ public class UpdateTaskService implements UpdateTaskUseCase {
                 task.getAssigneeIdValue(),
                 task.getEstimatedHours(),
                 task.getActualHours(),
+                task.getBudgetHours(),
                 task.getStatus(),
                 task.getSortOrder(),
                 task.getCreatedByValue(),
