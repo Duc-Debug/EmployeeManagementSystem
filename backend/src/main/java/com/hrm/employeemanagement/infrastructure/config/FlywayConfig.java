@@ -26,6 +26,7 @@ public class FlywayConfig {
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
                 .outOfOrder(true)
+                .outOfOrder(true)
                 .locations("classpath:db/migration")
                 .outOfOrder(true)
                 .load();

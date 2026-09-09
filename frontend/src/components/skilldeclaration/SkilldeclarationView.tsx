@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getUsers } from '@/lib/api/users';
+import { approveEmployeeSkill, getPendingEmployeeSkills } from '@/lib/api/employee-skills';
 import { ClipboardList, Search as SearchIcon, ShieldCheck, LayoutGrid, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -9,7 +9,7 @@ import {
 } from './Components.tsx';
 import { ToastList } from './ToastNotification.tsx';
 import type { DepartmentItem, ResourceEmployee } from './SkillresourceSearch.tsx';
-import { INITIAL_SKILLS, SKILL_CATALOG, INITIAL_APPROVAL_REQUESTS } from './Types.ts';
+import { INITIAL_SKILLS, SKILL_CATALOG } from './Types.ts';
 import type { CatalogSkill, DeclaredSkill, FormMode, SkillPayload, ToastItem, PendingApprovalSkill } from './Types.ts';
 import SkillApproveTable from './SkillApproveTable.tsx';
 import SkillMatrixView from './SkillMatrixView.tsx';
@@ -25,7 +25,7 @@ const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon; allo
     { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05'] },
     { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05'] },
     { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen, allowedRoles: ['VT-01', 'VT-05', 'VT-06'] },
-    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-02', 'VT-03', 'VT-05'] },
+    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03'] },
 ];
 
 
@@ -74,45 +74,44 @@ export default function SkilldeclarationView({
     const [toasts, setToasts] = useState<ToastItem[]>([]);
 
     // ── Tab Duyệt kỹ năng ───────────────────────────────────────
-    const [approvalRequests, setApprovalRequests] = useState<PendingApprovalSkill[]>(
-        INITIAL_APPROVAL_REQUESTS
-    );
+    const [approvalRequests, setApprovalRequests] = useState<PendingApprovalSkill[]>([]);
+    const [approvalLoading, setApprovalLoading] = useState(false);
+    const [approvalError, setApprovalError] = useState<string | null>(null);
+    const [approvingId, setApprovingId] = useState<number | null>(null);
 
     useEffect(() => {
-        getUsers(0, 100)
+        if (roleCode !== 'VT-03') return;
+        setApprovalLoading(true);
+        getPendingEmployeeSkills()
             .then((res) => {
-                if (res?.content && res.content.length > 0) {
-                    const sampleSkills = ['React.js', 'Java', 'Node.js', 'PostgreSQL', 'Docker', 'AWS'];
-                    const sampleCats = ['Frontend', 'Backend', 'Backend', 'Database', 'DevOps', 'DevOps'];
-                    const fetchedRequests: PendingApprovalSkill[] = res.content.map((u, idx) => ({
-                        id: u.id,
-                        employeeName: u.fullName || u.username,
-                        skillName: sampleSkills[idx % sampleSkills.length],
-                        category: sampleCats[idx % sampleCats.length],
-                        level: (idx % 3) + 3,
-                        years: (idx % 4) + 1,
-                        status: idx % 2 === 0 ? 'pending' : 'approved',
-                    }));
-                    setApprovalRequests(fetchedRequests);
-                }
+                setApprovalRequests(res.content.map((item) => ({
+                    id: item.id,
+                    employeeName: item.employeeName,
+                    skillName: item.skillName,
+                    category: item.skillCategory || 'Khác',
+                    level: item.proficiencyLevel,
+                    years: Number(item.yearsOfExperience),
+                    status: 'pending',
+                })));
+                setApprovalError(null);
             })
             .catch((err) => {
-                console.error('Failed to load real users for skill approvals:', err);
-            });
-    }, []);
+                setApprovalError(err instanceof Error ? err.message : 'Không thể tải danh sách chờ duyệt.');
+            })
+            .finally(() => setApprovalLoading(false));
+    }, [roleCode]);
 
-    function handleApproveRequest(id: number) {
-        setApprovalRequests((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r))
-        );
-        pushToast('Đã phê duyệt', 'Kỹ năng đã được xác nhận thành công.');
-    }
-
-    function handleRejectRequest(id: number) {
-        setApprovalRequests((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r))
-        );
-        pushToast('Đã từ chối', 'Yêu cầu kỹ năng đã bị từ chối.');
+    async function handleApproveRequest(id: number) {
+        setApprovingId(id);
+        try {
+            await approveEmployeeSkill(id);
+            setApprovalRequests((prev) => prev.filter((request) => request.id !== id));
+            pushToast('Đã phê duyệt', 'Kỹ năng đã được xác nhận thành công.');
+        } catch (err) {
+            pushToast('Không thể phê duyệt', err instanceof Error ? err.message : 'Vui lòng thử lại.');
+        } finally {
+            setApprovingId(null);
+        }
     }
 
     function pushToast(title: string, message: string) {
@@ -300,7 +299,9 @@ export default function SkilldeclarationView({
                     <SkillApproveTable
                         requests={approvalRequests}
                         onApprove={handleApproveRequest}
-                        onReject={handleRejectRequest}
+                        loading={approvalLoading}
+                        error={approvalError}
+                        approvingId={approvingId}
                     />
                 )}
             </div>

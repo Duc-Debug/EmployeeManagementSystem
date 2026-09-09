@@ -1,4 +1,4 @@
-import { Check, X, ShieldCheck } from 'lucide-react';
+import { Check, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import type { PendingApprovalSkill } from './Types.ts';
 
 /* ── Level badge ─────────────────────────────────────────── */
@@ -74,10 +74,12 @@ function EmptyState() {
 interface SkillApproveTableProps {
     requests: PendingApprovalSkill[];
     onApprove: (id: number) => void;
-    onReject: (id: number) => void;
+    loading?: boolean;
+    error?: string | null;
+    approvingId?: number | null;
 }
 
-export default function SkillApproveTable({ requests, onApprove, onReject }: SkillApproveTableProps) {
+export default function SkillApproveTable({ requests, onApprove, loading = false, error, approvingId }: SkillApproveTableProps) {
     const pendingCount = requests.filter((r) => r.status === 'pending').length;
 
     return (
@@ -102,6 +104,7 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
             </div>
 
             {/* ── Table ── */}
+            {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">{error}</p>}
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -116,7 +119,9 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {requests.length === 0 ? (
+                            {loading ? (
+                                <tr><td colSpan={6} className="py-12 text-center text-slate-500"><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin" />Đang tải dữ liệu...</td></tr>
+                            ) : requests.length === 0 ? (
                                 <EmptyState />
                             ) : (
                                 requests.map((req) => (
@@ -153,18 +158,11 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
                                                     <button
                                                         type="button"
                                                         onClick={() => onApprove(req.id)}
+                                                        disabled={approvingId === req.id}
                                                         className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 cursor-pointer"
                                                     >
-                                                        <Check className="h-3.5 w-3.5" />
-                                                        Duyệt
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onReject(req.id)}
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 hover:border-rose-300 active:scale-95 cursor-pointer"
-                                                    >
-                                                        <X className="h-3.5 w-3.5" />
-                                                        Từ chối
+                                                        {approvingId === req.id ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                                        {approvingId === req.id ? 'Đang duyệt...' : 'Duyệt'}
                                                     </button>
                                                 </div>
                                             ) : (

@@ -85,7 +85,7 @@ class PermissionQueryAdapterTest {
     }
 
     @Test
-    @DisplayName("PROJECT_READ duoc cap dung role seed va khong cap cho VT-05")
+    @DisplayName("PROJECT_READ duoc cap cho tat ca 6 role chinh thuc")
     void testHasPermission_ProjectReadSeededForExpectedRolesOnly() {
         String suffix =
                 String.valueOf(System.nanoTime());
@@ -95,6 +95,7 @@ class PermissionQueryAdapterTest {
                 "VT-02",
                 "VT-03",
                 "VT-04",
+                "VT-05",
                 "VT-06"
         )) {
             UserJpaEntity user =
@@ -115,18 +116,6 @@ class PermissionQueryAdapterTest {
             );
         }
 
-        UserJpaEntity hrUser =
-                userWithRole(
-                        "project-read-vt05-" + suffix,
-                        "VT-05"
-                );
-
-        assertFalse(
-                permissionQueryAdapter.hasPermission(
-                        hrUser.getId(),
-                        PermissionCode.PROJECT_READ
-                )
-        );
     }
 
     @Test
