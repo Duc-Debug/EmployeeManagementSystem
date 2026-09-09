@@ -14,6 +14,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { OrgUnitCombobox, type OrgUnitOption } from "../../ui/OrgUnitCombobox";
 import { formatToDateInput } from "../../../lib/employee-storage";
+import { getDefaultDataScopeForRole } from "../../../lib/role-data-scope";
 import type { EmployeeFormData } from "./employeeForm.types";
 import {
     DEFAULT_ORG_UNIT_OPTIONS,
@@ -101,21 +102,15 @@ export default function EmployeeProfileForm({
     const handleRoleChange = (roleCode: string) => {
         const found = ROLE_OPTIONS.find((r) => r.code === roleCode);
         const roleName = found?.name || "";
-        if (roleCode === "VT-06") {
-            setFormData((prev) => ({
-                ...prev,
-                roleCode,
-                roleName,
-                dataScope: "COMPANY",
-                scopeOrgUnitId: "",
-            }));
-        } else {
-            setFormData((prev) => ({
-                ...prev,
-                roleCode,
-                roleName,
-            }));
-        }
+        const dataScope = getDefaultDataScopeForRole(roleCode);
+
+        setFormData((prev) => ({
+            ...prev,
+            roleCode,
+            roleName,
+            ...(dataScope ? { dataScope } : {}),
+            scopeOrgUnitId: dataScope === "ORGANIZATION_BRANCH" ? prev.scopeOrgUnitId : "",
+        }));
     };
 
     const handleOrgUnitChange = (orgUnitId: string) => {
