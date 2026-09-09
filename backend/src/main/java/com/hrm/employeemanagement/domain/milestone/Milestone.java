@@ -165,8 +165,8 @@ public class Milestone {
     }
 
     private void validateActualDate(LocalDate plannedDate, LocalDate actualDate) {
-        if (actualDate != null && plannedDate != null && actualDate.isBefore(plannedDate.minusYears(5))) {
-            throw new InvalidMilestoneDataException("Ngày hoàn thành thực tế không hợp lệ");
+        if (actualDate != null && plannedDate != null && actualDate.isBefore(plannedDate)) {
+            throw new InvalidMilestoneDataException("Ngày hoàn thành thực tế không được trước ngày kế hoạch");
         }
     }
 

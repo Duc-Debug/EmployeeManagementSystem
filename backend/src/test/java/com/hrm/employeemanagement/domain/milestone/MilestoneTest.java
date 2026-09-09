@@ -177,4 +177,63 @@ class MilestoneTest {
         // Khi toàn bộ task hoàn thành -> tự động COMPLETED mà không cần cập nhật mốc
         assertThat(milestone.evaluateStatus(LocalDate.now(), true)).isEqualTo(MilestoneStatus.COMPLETED);
     }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi ngày hoàn thành thực tế trước ngày kế hoạch (Constructor)")
+    void shouldThrowWhenActualDateIsBeforePlannedDateInConstructor() {
+        LocalDate plannedDate = LocalDate.now().plusDays(10);
+        LocalDate invalidActualDate = LocalDate.now().plusDays(5); // trước plannedDate
+
+        assertThatThrownBy(() -> new Milestone(
+                new MilestoneId(1L),
+                new ProjectId(1L),
+                "Mốc bàn giao",
+                null,
+                plannedDate,
+                invalidActualDate,
+                Set.of(),
+                new UserId(1L),
+                null,
+                null,
+                0L))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Ngày hoàn thành thực tế không được trước ngày kế hoạch");
+    }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi cập nhật ngày thực tế trước ngày kế hoạch")
+    void shouldThrowWhenActualDateIsBeforePlannedDateInUpdateDetails() {
+        LocalDate plannedDate = LocalDate.now().plusDays(10);
+        Milestone milestone = Milestone.createNew(
+                new ProjectId(1L),
+                "Mốc bàn giao",
+                null,
+                plannedDate,
+                Set.of(),
+                new UserId(1L));
+
+        LocalDate invalidActualDate = LocalDate.now().plusDays(3); // trước plannedDate
+
+        assertThatThrownBy(() -> milestone.updateDetails(null, null, null, invalidActualDate, null))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Ngày hoàn thành thực tế không được trước ngày kế hoạch");
+    }
+
+    @Test
+    @DisplayName("Cho phép ngày hoàn thành thực tế bằng hoặc sau ngày kế hoạch")
+    void shouldAllowActualDateOnOrAfterPlannedDate() {
+        LocalDate plannedDate = LocalDate.now().plusDays(10);
+        Milestone milestone = Milestone.createNew(
+                new ProjectId(1L),
+                "Mốc bàn giao",
+                null,
+                plannedDate,
+                Set.of(),
+                new UserId(1L));
+
+        LocalDate validActualDate = plannedDate.plusDays(2);
+        milestone.updateDetails(null, null, null, validActualDate, null);
+
+        assertThat(milestone.getActualDate()).isEqualTo(validActualDate);
+    }
 }

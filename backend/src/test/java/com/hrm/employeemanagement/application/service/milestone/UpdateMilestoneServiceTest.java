@@ -250,4 +250,40 @@ class UpdateMilestoneServiceTest {
         assertThat(result.status()).isEqualTo(MilestoneStatus.DELAYED);
         assertThat(result.delayDays()).isEqualTo(3);
     }
+
+    @Test
+    @DisplayName("Ném InvalidMilestoneDataException khi actualDate cập nhật trước plannedDate")
+    void shouldThrowInvalidMilestoneDataExceptionWhenActualDateIsBeforePlannedDate() {
+        when(authorizationService.require(PermissionCode.PROJECT_MILESTONE_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createPmUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Milestone existing = new Milestone(
+                new MilestoneId(MILESTONE_ID),
+                new ProjectId(PROJECT_ID),
+                "Mốc bàn giao",
+                null,
+                LocalDate.of(2026, 9, 20),
+                null,
+                Set.of(),
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+
+        when(loadMilestonePort.findById(new MilestoneId(MILESTONE_ID))).thenReturn(Optional.of(existing));
+
+        UpdateMilestoneCommand command = new UpdateMilestoneCommand(
+                PROJECT_ID,
+                MILESTONE_ID,
+                null,
+                null,
+                null,
+                LocalDate.of(2026, 9, 10), // trước plannedDate (2026-09-20)
+                null);
+
+        assertThatThrownBy(() -> service.updateMilestone(command))
+                .isInstanceOf(InvalidMilestoneDataException.class)
+                .hasMessageContaining("Ngày hoàn thành thực tế không được trước ngày kế hoạch");
+    }
 }
