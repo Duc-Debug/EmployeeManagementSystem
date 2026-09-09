@@ -16,6 +16,7 @@ interface ProjectTaskModalProps {
         hours: number;
         startWeekKey: string;
         endWeekKey: string;
+        newCategoryName?: string;
     }) => void;
 }
 
@@ -34,10 +35,15 @@ export function ProjectTaskModal({
     const [hours, setHours] = useState(30);
     const [startWeekKey, setStartWeekKey] = useState('W2');
     const [endWeekKey, setEndWeekKey] = useState('W3');
+    const [isCreatingNewCat, setIsCreatingNewCat] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
 
     useEffect(() => {
         if (categories.length > 0) {
             setCatId(defaultCategoryId || categories[0].id);
+            setIsCreatingNewCat(false);
+        } else {
+            setIsCreatingNewCat(true);
         }
         if (members.length > 0) {
             setAssigneeId(members[0].id);
@@ -49,18 +55,21 @@ export function ProjectTaskModal({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
+        if (isCreatingNewCat && !newCatName.trim()) return;
 
         onSubmit({
-            catId,
+            catId: isCreatingNewCat ? '__NEW__' : catId,
             name: name.trim(),
             assigneeId,
             priority,
             hours: Number(hours) || 20,
             startWeekKey,
             endWeekKey,
+            newCategoryName: isCreatingNewCat ? newCatName.trim() : undefined,
         });
 
         setName('');
+        setNewCatName('');
         onClose();
     };
 
@@ -85,19 +94,42 @@ export function ProjectTaskModal({
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
                     <div>
-                        <label className="mb-1 block font-semibold text-slate-700">Hạng mục chính (Phase/Category) *</label>
-                        <select
-                            value={catId}
-                            onChange={(e) => setCatId(e.target.value)}
-                            required
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                        >
-                            {categories.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.code} - {c.name}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="mb-1 flex items-center justify-between">
+                            <label className="font-semibold text-slate-700">Hạng mục chính (Phase/Category) *</label>
+                            {categories.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreatingNewCat(!isCreatingNewCat)}
+                                    className="text-[11px] font-semibold text-indigo-600 hover:underline cursor-pointer"
+                                >
+                                    {isCreatingNewCat ? '← Chọn mục có sẵn' : '+ Tạo mục mới'}
+                                </button>
+                            )}
+                        </div>
+
+                        {isCreatingNewCat || categories.length === 0 ? (
+                            <input
+                                type="text"
+                                required
+                                value={newCatName}
+                                onChange={(e) => setNewCatName(e.target.value)}
+                                placeholder="Nhập tên hạng mục mới (VD: Khởi động dự án, Thiết kế UI...)"
+                                className="w-full rounded-lg border border-indigo-300 bg-indigo-50/40 px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        ) : (
+                            <select
+                                value={catId}
+                                onChange={(e) => setCatId(e.target.value)}
+                                required
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                {categories.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.code} - {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     <div>

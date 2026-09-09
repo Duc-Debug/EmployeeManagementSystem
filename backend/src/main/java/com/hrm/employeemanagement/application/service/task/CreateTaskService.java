@@ -186,6 +186,7 @@ public class CreateTaskService implements CreateTaskUseCase {
                 task.getAssigneeIdValue(),
                 task.getEstimatedHours(),
                 task.getActualHours(),
+                task.getBudgetHours(),
                 task.getStatus(),
                 task.getSortOrder(),
                 task.getCreatedByValue(),

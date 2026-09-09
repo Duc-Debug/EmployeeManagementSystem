@@ -8,8 +8,10 @@ import {
     Clock,
     CheckCircle2,
     FolderOpen,
+    Target,
+    AlertTriangle,
 } from 'lucide-react';
-import type { TaskCategoryGroup, ProjectMember } from './projectData';
+import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
 
 interface ProjectWbsViewProps {
     categories: TaskCategoryGroup[];
@@ -18,6 +20,7 @@ interface ProjectWbsViewProps {
     selectedRole: string;
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
+    onOpenBudgetModal?: (task: TaskItem) => void;
 }
 
 export function ProjectWbsView({
@@ -27,6 +30,7 @@ export function ProjectWbsView({
     selectedRole,
     onQuickAddTask,
     onToggleTaskStatus,
+    onOpenBudgetModal,
 }: ProjectWbsViewProps) {
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
@@ -46,6 +50,9 @@ export function ProjectWbsView({
     let totalTasksCount = 0;
     let totalHoursEstimate = 0;
     let totalDoneTasks = 0;
+    let totalBudgetHours = 0;
+    let totalActualHours = 0;
+    let overBudgetCount = 0;
 
     const filteredCategories = categories.map((cat) => {
         const filteredTasks = cat.tasks.filter((t) => {
@@ -65,6 +72,16 @@ export function ProjectWbsView({
         const catHours = cat.tasks.reduce((sum, t) => sum + t.hours, 0);
         totalHoursEstimate += catHours;
         totalDoneTasks += cat.tasks.filter((t) => t.status === 'Hoàn thành').length;
+
+        cat.tasks.forEach((t) => {
+            const budget = t.budgetHours || 0;
+            const actual = t.actualHours || 0;
+            totalBudgetHours += budget;
+            totalActualHours += actual;
+            if (budget > 0 && actual > budget) {
+                overBudgetCount += 1;
+            }
+        });
 
         return {
             ...cat,
@@ -232,7 +249,7 @@ export function ProjectWbsView({
                                                                         {t.name}
                                                                     </span>
                                                                 </div>
-                                                                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-500">
+                                                                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                                                                     <span className="inline-flex items-center gap-1">
                                                                         <Clock className="h-3 w-3 text-slate-400" /> {t.hours}h
                                                                     </span>
@@ -240,6 +257,71 @@ export function ProjectWbsView({
                                                                     <span className="inline-flex items-center rounded bg-indigo-50 px-1 font-mono text-[10px] font-semibold text-indigo-600">
                                                                         {t.startWeek} &rarr; {t.endWeek}
                                                                     </span>
+
+                                                                    {/* Ngân sách giờ công & So sánh thực tế */}
+                                                                    <span className="text-slate-300">•</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onOpenBudgetModal?.(t);
+                                                                        }}
+                                                                        className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700 hover:bg-indigo-100 hover:text-indigo-700 transition cursor-pointer"
+                                                                        title="Bấm để đặt/điều chỉnh ngân sách giờ"
+                                                                    >
+                                                                        <Target className="h-3 w-3 text-indigo-600" />
+                                                                        NS: <strong>{t.budgetHours !== undefined ? `${t.budgetHours}h` : 'Chưa đặt'}</strong>
+                                                                        <span className="text-slate-300">|</span>
+                                                                        TT: <strong>{t.actualHours || 0}h</strong>
+                                                                    </button>
+
+                                                                    {/* Badge phân tích tỷ lệ đã dùng & Cảnh báo ăn mòn lợi nhuận */}
+                                                                    {t.budgetHours && t.budgetHours > 0 ? (
+                                                                        (() => {
+                                                                            const actual = t.actualHours || 0;
+                                                                            const pct = t.burnedPercentage !== undefined 
+                                                                                ? Number(t.burnedPercentage) 
+                                                                                : Math.round((actual / t.budgetHours) * 100);
+                                                                            
+                                                                            // Ưu tiên burnStatus do backend phân định (Single Source of Truth)
+                                                                            const status = t.burnStatus || (
+                                                                                actual > t.budgetHours 
+                                                                                    ? 'OVER_BUDGET' 
+                                                                                    : (pct >= 80 ? 'WARNING' : 'SAFE')
+                                                                            );
+                                                                            const overHours = Math.max(0, Math.round((actual - t.budgetHours) * 100) / 100);
+
+                                                                            if (status === 'OVER_BUDGET') {
+                                                                                return (
+                                                                                    <span
+                                                                                        className="inline-flex items-center gap-1 rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-rose-700 animate-pulse"
+                                                                                        title={`Cảnh báo: Làm quá lâu, vượt ngân sách ${overHours}h (${pct}%) đang ăn mòn lợi nhuận!`}
+                                                                                    >
+                                                                                        <AlertTriangle className="h-3 w-3 text-rose-600 shrink-0" />
+                                                                                        Vượt {overHours}h ({pct}%)
+                                                                                    </span>
+                                                                                );
+                                                                            }
+                                                                            if (status === 'WARNING') {
+                                                                                return (
+                                                                                    <span
+                                                                                        className="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-700"
+                                                                                        title={`Tiệm cận hạn mức ngân sách: ${pct}%`}
+                                                                                    >
+                                                                                        {pct}%
+                                                                                    </span>
+                                                                                );
+                                                                            }
+                                                                            return (
+                                                                                <span
+                                                                                    className="inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-emerald-700"
+                                                                                    title={`Ngân sách an toàn: ${pct}%`}
+                                                                                >
+                                                                                    {pct}%
+                                                                                </span>
+                                                                            );
+                                                                        })()
+                                                                    ) : null}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -248,6 +330,17 @@ export function ProjectWbsView({
                                                         <div className="flex shrink-0 items-center gap-2">
                                                             {getPriorityBadge(t.priority)}
                                                             {getStatusBadge(t.status)}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onOpenBudgetModal?.(t);
+                                                                }}
+                                                                className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer"
+                                                                title="Đặt ngân sách giờ công"
+                                                            >
+                                                                <Target className="h-3.5 w-3.5" />
+                                                            </button>
                                                             <div
                                                                 className="flex items-center gap-1.5 pl-1"
                                                                 title={assignee ? `${assignee.name} (${assignee.role})` : 'Chưa giao'}
@@ -275,13 +368,30 @@ export function ProjectWbsView({
             </div>
 
             {/* WBS Footer Summary */}
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                <span>
-                    Ước tính tổng: <strong className="text-slate-800">{totalHoursEstimate.toLocaleString()}h</strong>
-                </span>
-                <span className="inline-flex items-center gap-1 font-medium text-emerald-600">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Đã hoàn tất {totalDoneTasks}/{totalTasksCount} việc
-                </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center gap-3">
+                    <span>
+                        Ước tính: <strong className="text-slate-800">{totalHoursEstimate.toLocaleString()}h</strong>
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span>
+                        Ngân sách: <strong className="text-indigo-700">{totalBudgetHours.toLocaleString()}h</strong>
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span>
+                        Thực tế duyệt: <strong className="text-slate-800">{totalActualHours.toLocaleString()}h</strong>
+                    </span>
+                </div>
+                <div className="flex items-center gap-3">
+                    {overBudgetCount > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+                            <AlertTriangle className="h-3.5 w-3.5 text-rose-600" /> {overBudgetCount} việc vượt ngân sách
+                        </span>
+                    )}
+                    <span className="inline-flex items-center gap-1 font-medium text-emerald-600">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Đã hoàn tất {totalDoneTasks}/{totalTasksCount} việc
+                    </span>
+                </div>
             </div>
         </section>
     );

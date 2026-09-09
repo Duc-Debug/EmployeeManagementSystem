@@ -1,5 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getUsers } from '@/lib/api/users';
+import {
+    getProjects,
+    getProjectWbs,
+    createTask,
+    updateTask,
+    type ProjectResult,
+    type TaskNodeResult,
+    type BackendTaskStatus,
+} from '@/lib/api/projects';
+import { setTaskBudget } from '@/lib/api/tasks';
 import {
     Boxes,
     Plus,
@@ -14,6 +24,12 @@ import {
     Search,
     CheckCircle2,
     Info,
+    AlertCircle,
+    Database,
+    RefreshCw,
+    FolderPlus,
+    Calendar,
+    ChevronDown,
 } from 'lucide-react';
 import {
     INITIAL_CATEGORIES,
@@ -21,17 +37,148 @@ import {
     INITIAL_MONTHS_LIST,
     type TaskCategoryGroup,
     type ProjectMember,
+    type TaskItem,
 } from './projectData';
 import { ProjectWbsView } from './ProjectWbsView';
 import { ProjectWeeklyMatrix } from './ProjectWeeklyMatrix';
 import { ProjectTaskModal } from './ProjectTaskModal';
 import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
+import { ProjectBudgetModal } from './ProjectBudgetModal';
+import { ProjectCreateModal } from './ProjectCreateModal';
+
+const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
+
+/**
+ * Adapter chuyển đổi cây WBS từ Backend API (TaskNodeResult) sang cấu trúc hiển thị UI (TaskCategoryGroup)
+ */
+function mapBackendWbsToUiCategories(
+    nodes: TaskNodeResult[],
+    members: ProjectMember[]
+): TaskCategoryGroup[] {
+    if (!nodes || nodes.length === 0) return [];
+
+    const memberMap = new Map<string, ProjectMember>();
+    members.forEach((m) => {
+        const numId = m.id.replace(/\D/g, '');
+        if (numId) memberMap.set(numId, m);
+    });
+
+    const categories: TaskCategoryGroup[] = [];
+    const standaloneTasks: TaskItem[] = [];
+
+    const statusMap: Record<string, TaskItem['status']> = {
+        TODO: 'Chưa làm',
+        IN_PROGRESS: 'Đang làm',
+        DONE: 'Hoàn thành',
+        CANCELLED: 'Chưa làm',
+    };
+
+    nodes.forEach((node, idx) => {
+        if (node.taskType === 'CATEGORY') {
+            const childTasks: TaskItem[] = (node.children || []).map((child, cIdx) => {
+                const assigneeKey = child.assigneeId ? String(child.assigneeId) : '';
+                const member = memberMap.get(assigneeKey);
+
+                return {
+                    id: String(child.id),
+                    code: child.taskCode || `T-${101 + cIdx}`,
+                    name: child.name,
+                    assigneeId: member ? member.id : (child.assigneeId ? `u-${child.assigneeId}` : ''),
+                    priority: 'Trung bình',
+                    hours: Number(child.estimatedHours || 0),
+                    budgetHours: child.budgetHours !== undefined ? Number(child.budgetHours) : undefined,
+                    actualHours: Number(child.actualHours || 0),
+                    burnedPercentage: child.burnedPercentage !== undefined ? Number(child.burnedPercentage) : undefined,
+                    burnStatus: child.burnStatus,
+                    isOverBudget: child.isOverBudget,
+                    status: statusMap[child.status] || 'Chưa làm',
+                    startWeek: 'Tuần 1',
+                    endWeek: 'Tuần 3',
+                };
+            });
+
+            const doneCount = childTasks.filter((t) => t.status === 'Hoàn thành').length;
+            const progress = childTasks.length > 0 ? Math.round((doneCount / childTasks.length) * 100) : 0;
+
+            categories.push({
+                id: String(node.id),
+                code: node.taskCode || `HM-0${idx + 1}`,
+                name: node.name,
+                lead: 'PM',
+                progress,
+                color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+                tasks: childTasks,
+            });
+        } else {
+            // Root task không nằm trong category
+            const assigneeKey = node.assigneeId ? String(node.assigneeId) : '';
+            const member = memberMap.get(assigneeKey);
+
+            standaloneTasks.push({
+                id: String(node.id),
+                code: node.taskCode || `T-${101 + idx}`,
+                name: node.name,
+                assigneeId: member ? member.id : (node.assigneeId ? `u-${node.assigneeId}` : ''),
+                priority: 'Trung bình',
+                hours: Number(node.estimatedHours || 0),
+                budgetHours: node.budgetHours !== undefined ? Number(node.budgetHours) : undefined,
+                actualHours: Number(node.actualHours || 0),
+                burnedPercentage: node.burnedPercentage !== undefined ? Number(node.burnedPercentage) : undefined,
+                burnStatus: node.burnStatus,
+                isOverBudget: node.isOverBudget,
+                status: statusMap[node.status] || 'Chưa làm',
+                startWeek: 'Tuần 1',
+                endWeek: 'Tuần 3',
+            });
+        }
+    });
+
+    if (standaloneTasks.length > 0) {
+        const doneCount = standaloneTasks.filter((t) => t.status === 'Hoàn thành').length;
+        const progress = Math.round((doneCount / standaloneTasks.length) * 100);
+        categories.unshift({
+            id: 'root-general',
+            code: 'HM-00',
+            name: 'Hạng Mục Chung',
+            lead: 'PM',
+            progress,
+            color: 'indigo',
+            tasks: standaloneTasks,
+        });
+    }
+
+    return categories;
+}
 
 export default function ProjectView() {
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>(INITIAL_CATEGORIES);
     const [members, setMembers] = useState<ProjectMember[]>(INITIAL_PROJECT_MEMBERS);
+    const [budgetModalOpen, setBudgetModalOpen] = useState(false);
+    const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
 
+    // Real projects backend state
+    const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+    const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
+    const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(false);
+    const [isLoadingWbs, setIsLoadingWbs] = useState<boolean>(false);
+    const [projectCreateModalOpen, setProjectCreateModalOpen] = useState<boolean>(false);
+
+    // Selected project object
+    const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
+
+    // Toast state
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+
+    const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => {
+            setToast(null);
+        }, 3200);
+    }, []);
+
+    // 1. Tải danh sách nhân sự thật từ API
     useEffect(() => {
         getUsers(0, 100)
             .then((res) => {
@@ -48,9 +195,64 @@ export default function ProjectView() {
                 }
             })
             .catch((err) => {
-                console.error('Failed to load real users for project members:', err);
+                console.warn('Backend users API call skipped/failed, keeping default members:', err);
             });
     }, []);
+
+    // 2. Tải danh sách dự án thật từ Database
+    const loadProjects = useCallback(async () => {
+        setIsLoadingProjects(true);
+        try {
+            const res = await getProjects(0, 50);
+            if (res?.content && res.content.length > 0) {
+                setProjectsList(res.content);
+                setIsBackendConnected(true);
+                setSelectedProjectId((prevId) => {
+                    const exists = res.content.some((p) => p.id === prevId);
+                    return exists ? prevId : res.content[0].id;
+                });
+            } else {
+                setProjectsList([]);
+                setIsBackendConnected(false);
+                setSelectedProjectId(null);
+                setCategories(INITIAL_CATEGORIES);
+            }
+        } catch (err) {
+            console.warn('Failed to fetch projects from backend:', err);
+            setIsBackendConnected(false);
+            setProjectsList([]);
+            setSelectedProjectId(null);
+            setCategories(INITIAL_CATEGORIES);
+        } finally {
+            setIsLoadingProjects(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadProjects();
+    }, [loadProjects]);
+
+    // 3. Tải cây WBS khi chọn một dự án thật
+    const loadWbsForProject = useCallback(async (projId: number) => {
+        setIsLoadingWbs(true);
+        try {
+            const wbsNodes = await getProjectWbs(projId);
+            const mapped = mapBackendWbsToUiCategories(wbsNodes, members);
+            setCategories(mapped);
+        } catch (err) {
+            console.warn(`Failed to fetch WBS for project ${projId}:`, err);
+            setCategories([]);
+        } finally {
+            setIsLoadingWbs(false);
+        }
+    }, [members]);
+
+    useEffect(() => {
+        if (selectedProjectId) {
+            loadWbsForProject(selectedProjectId);
+        }
+    }, [selectedProjectId, loadWbsForProject]);
+
     const [months] = useState(INITIAL_MONTHS_LIST);
     const [selectedMonthIdx, setSelectedMonthIdx] = useState(0);
 
@@ -68,16 +270,6 @@ export default function ProjectView() {
         weekLabel: string;
     } | null>(null);
 
-    // Toast state
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
-
-    const showToast = (message: string, type: 'success' | 'info' = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => {
-            setToast(null);
-        }, 2800);
-    };
-
     const handleNavigateMonth = (direction: number) => {
         const newIdx = selectedMonthIdx + direction;
         if (newIdx >= 0 && newIdx < months.length) {
@@ -93,7 +285,8 @@ export default function ProjectView() {
         setTaskModalOpen(true);
     };
 
-    const handleCreateTask = (newTaskData: {
+    // Tạo Task mới: Đấu nối Database Backend khi có selectedProjectId
+    const handleCreateTask = async (newTaskData: {
         catId: string;
         name: string;
         assigneeId: string;
@@ -101,9 +294,52 @@ export default function ProjectView() {
         hours: number;
         startWeekKey: string;
         endWeekKey: string;
+        newCategoryName?: string;
     }) => {
-        const { catId, name, assigneeId, priority, hours, startWeekKey, endWeekKey } = newTaskData;
+        const { catId, name, assigneeId, priority, hours, startWeekKey, endWeekKey, newCategoryName } = newTaskData;
 
+        if (selectedProjectId) {
+            try {
+                let parentIdToUse: number | null = null;
+
+                // Nếu người dùng nhập tên hạng mục mới
+                if (newCategoryName) {
+                    const newCat = await createTask(selectedProjectId, {
+                        name: newCategoryName,
+                        taskType: 'CATEGORY',
+                        sortOrder: categories.length + 1,
+                    });
+                    parentIdToUse = newCat.id;
+                } else if (catId && catId !== '__NEW__' && catId !== 'root-general') {
+                    const numCat = parseInt(catId.replace(/\D/g, ''), 10);
+                    if (!isNaN(numCat) && numCat > 0) {
+                        parentIdToUse = numCat;
+                    }
+                }
+
+                // Trích xuất numeric assigneeId từ string u-123
+                const numAssignee = assigneeId ? parseInt(assigneeId.replace(/\D/g, ''), 10) : null;
+
+                await createTask(selectedProjectId, {
+                    parentId: parentIdToUse,
+                    name,
+                    taskType: 'TASK',
+                    assigneeId: numAssignee && !isNaN(numAssignee) && numAssignee > 0 ? numAssignee : null,
+                    estimatedHours: hours,
+                    sortOrder: 0,
+                });
+
+                await loadWbsForProject(selectedProjectId);
+                showToast(`Đã lưu công việc "${name}" vào cơ sở dữ liệu!`, 'success');
+                return;
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : 'Có lỗi khi lưu công việc vào cơ sở dữ liệu';
+                showToast(`Lỗi: ${msg}`, 'info');
+                console.error('Failed to create task in backend:', err);
+            }
+        }
+
+        // Fallback lưu local state (khi xem dự án demo mẫu)
         const newId = 't' + (Math.floor(Math.random() * 900) + 100);
         const startWeekLabel = startWeekKey.replace('W', 'Tuần ');
         const endWeekLabel = endWeekKey.replace('W', 'Tuần ');
@@ -132,7 +368,6 @@ export default function ProjectView() {
             })
         );
 
-        // Update member hours
         setMembers((prev) =>
             prev.map((m) => {
                 if (m.id !== assigneeId) return m;
@@ -150,15 +385,19 @@ export default function ProjectView() {
         showToast(`Đã thêm thành công công việc: ${name}`, 'success');
     };
 
-    const handleToggleTaskStatus = (catId: string, taskId: string) => {
+    // Chuyển đổi trạng thái công việc
+    const handleToggleTaskStatus = async (catId: string, taskId: string) => {
+        let newStatusStr: TaskItem['status'] = 'Hoàn thành';
+        let targetTaskName = '';
+
         setCategories((prev) =>
             prev.map((cat) => {
                 if (cat.id !== catId) return cat;
                 const updatedTasks = cat.tasks.map((t) => {
                     if (t.id !== taskId) return t;
-                    const newStatus: any = t.status === 'Hoàn thành' ? 'Đang làm' : 'Hoàn thành';
-                    showToast(`Đã chuyển trạng thái: ${t.name}`, 'success');
-                    return { ...t, status: newStatus };
+                    targetTaskName = t.name;
+                    newStatusStr = t.status === 'Hoàn thành' ? 'Đang làm' : 'Hoàn thành';
+                    return { ...t, status: newStatusStr };
                 });
 
                 const doneCount = updatedTasks.filter((t) => t.status === 'Hoàn thành').length;
@@ -171,6 +410,19 @@ export default function ProjectView() {
                 };
             })
         );
+
+        showToast(`Đã chuyển trạng thái: ${targetTaskName || taskId}`, 'success');
+
+        // Ghi nhận xuống Backend
+        const numTaskId = parseInt(taskId.replace(/\D/g, ''), 10);
+        if (selectedProjectId && !isNaN(numTaskId) && numTaskId > 0) {
+            try {
+                const backendStatus: BackendTaskStatus = newStatusStr === 'Hoàn thành' ? 'DONE' : 'IN_PROGRESS';
+                await updateTask(selectedProjectId, numTaskId, { status: backendStatus });
+            } catch (err) {
+                console.warn('Backend task status update failed, keeping optimistic UI state:', err);
+            }
+        }
     };
 
     const handleOpenAdjustModal = (memberId: string, weekKey: string, weekLabel: string) => {
@@ -196,6 +448,59 @@ export default function ProjectView() {
         showToast(`Đã lưu phân bổ ${newHours}h cho ${member?.name || 'nhân sự'} (${weekKey})`, 'success');
     };
 
+    const handleOpenBudgetModal = (task: TaskItem) => {
+        setSelectedBudgetTask(task);
+        setBudgetModalOpen(true);
+    };
+
+    // Đặt ngân sách: Gọi API PATCH /api/v1/projects/{projectId}/tasks/{taskId}/budget
+    const handleSaveTaskBudget = async (taskId: string, newBudgetHours: number) => {
+        const numTaskId = parseInt(taskId.replace(/\D/g, ''), 10);
+        const projIdToUse = selectedProjectId || 1;
+        const taskName = selectedBudgetTask?.name || taskId;
+
+        try {
+            let budgetResult = null;
+            if (!isNaN(numTaskId) && numTaskId > 0) {
+                budgetResult = await setTaskBudget(projIdToUse, numTaskId, newBudgetHours);
+            }
+
+            setCategories((prev) =>
+                prev.map((cat) => ({
+                    ...cat,
+                    tasks: cat.tasks.map((t) => {
+                        if (t.id === taskId) {
+                            return {
+                                ...t,
+                                budgetHours: newBudgetHours,
+                                burnedPercentage: budgetResult?.burnedPercentage !== undefined 
+                                    ? Number(budgetResult.burnedPercentage) 
+                                    : t.burnedPercentage,
+                                burnStatus: budgetResult?.burnStatus || t.burnStatus,
+                                isOverBudget: budgetResult?.isOverBudget !== undefined 
+                                    ? budgetResult.isOverBudget 
+                                    : t.isOverBudget,
+                            };
+                        }
+                        return t;
+                    }),
+                }))
+            );
+
+            showToast(`Đã lưu ngân sách ${newBudgetHours}h cho công việc: ${taskName}`, 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi lưu ngân sách công việc:', err);
+            const errMsg = err?.message || 'Không thể lưu ngân sách công việc. Vui lòng kiểm tra lại.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+        }
+    };
+
+    const handleProjectCreated = async (newProjectId: number) => {
+        await loadProjects();
+        setSelectedProjectId(newProjectId);
+        showToast('Dự án đã được tạo thành công trong Database!', 'success');
+    };
+
     const handleExportReport = () => {
         showToast('Đang tạo báo cáo ma trận nhân lực & WBS dạng Excel...', 'info');
         setTimeout(() => {
@@ -204,6 +509,18 @@ export default function ProjectView() {
     };
 
     const totalTasksCount = categories.reduce((sum, c) => sum + c.tasks.length, 0);
+    const overBudgetTasks = categories
+        .flatMap((c) => c.tasks)
+        .filter((t) => t.isOverBudget !== undefined
+            ? t.isOverBudget
+            : ((t.budgetHours || 0) > 0 && (t.actualHours || 0) > (t.budgetHours || 0))
+        );
+    const totalBudgetHours = categories
+        .flatMap((c) => c.tasks)
+        .reduce((sum, t) => sum + (t.budgetHours || 0), 0);
+    const totalActualHours = categories
+        .flatMap((c) => c.tasks)
+        .reduce((sum, t) => sum + (t.actualHours || 0), 0);
     const selectedMonth = months[selectedMonthIdx] || months[0];
 
     const adjustMember = selectedAdjustCell
@@ -223,26 +540,80 @@ export default function ProjectView() {
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-                                    Hệ Thống Quản Trị Dự Án & Nguồn Lực
+                                    Quản Trị Dự Án & Nguồn Lực
                                 </h1>
-                                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Đang hoạt động
-                                </span>
+
+                                {isBackendConnected && selectedProject ? (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                                        <Database className="h-3 w-3 text-emerald-700" /> Dữ liệu Database Thật
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Dữ liệu Mẫu (Demo)
+                                    </span>
+                                )}
                             </div>
-                            <p className="mt-0.5 text-xs text-slate-500 flex flex-wrap items-center gap-2">
-                                <span>
-                                    Dự án: <strong>Chuyển Đổi Số Doanh Nghiệp (ERP Phase 1)</strong>
-                                </span>
+
+                            {/* Project Selector / Info */}
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                {projectsList.length > 0 ? (
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-500 font-medium">Dự án:</span>
+                                        <div className="relative inline-block">
+                                            <select
+                                                value={selectedProjectId || ''}
+                                                onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                                                className="rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white"
+                                            >
+                                                {projectsList.map((p) => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.projectName} ({p.projectCode})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <span>
+                                        Dự án: <strong>Chuyển Đổi Số Doanh Nghiệp (ERP Phase 1)</strong>
+                                    </span>
+                                )}
+
                                 <span className="text-slate-300">•</span>
-                                <span>
-                                    Thời gian: <strong>Q3/2026 - Q4/2026</strong>
+                                <span className="flex items-center gap-1">
+                                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                    {selectedProject?.startDate ? (
+                                        <span>
+                                            {selectedProject.startDate} {selectedProject.endDate ? `đến ${selectedProject.endDate}` : ''}
+                                        </span>
+                                    ) : (
+                                        <span>Q3/2026 - Q4/2026</span>
+                                    )}
                                 </span>
-                            </p>
+
+                                {isLoadingWbs && (
+                                    <span className="inline-flex items-center gap-1 text-indigo-600">
+                                        <RefreshCw className="h-3 w-3 animate-spin" /> Đang đồng bộ...
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
 
                     {/* Top Actions */}
-                    <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={() => setProjectCreateModalOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
+                            title="Tạo dự án mới lưu vào database"
+                        >
+                            <FolderPlus className="h-4 w-4 stroke-[2.2]" />
+                            <span>+ Dự án mới</span>
+                        </button>
+
                         <button
                             type="button"
                             onClick={() => handleQuickAddTask()}
@@ -251,6 +622,7 @@ export default function ProjectView() {
                             <Plus className="h-4 w-4 stroke-[2.5]" />
                             <span>Thêm công việc</span>
                         </button>
+
                         <button
                             type="button"
                             onClick={handleExportReport}
@@ -259,9 +631,23 @@ export default function ProjectView() {
                             <Download className="h-3.5 w-3.5 text-slate-500" />
                             <span className="hidden sm:inline">Xuất báo cáo</span>
                         </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                loadProjects();
+                                if (selectedProjectId) loadWbsForProject(selectedProjectId);
+                                showToast('Đã làm mới dữ liệu từ Database', 'info');
+                            }}
+                            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 transition cursor-pointer"
+                            title="Làm mới dữ liệu từ máy chủ"
+                        >
+                            <RefreshCw className={`h-3.5 w-3.5 ${isLoadingProjects ? 'animate-spin' : ''}`} />
+                        </button>
                     </div>
                 </div>
             </div>
+
 
             {/* KPI Metric Cards */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -276,8 +662,13 @@ export default function ProjectView() {
                         <span className="text-2xl font-bold text-slate-800">{totalTasksCount}</span>
                         <span className="text-xs text-slate-500">công việc ({categories.length} nhóm)</span>
                     </div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span>Tổng NS: <strong className="text-indigo-600">{totalBudgetHours}h</strong></span>
+                        <span className="text-slate-300">•</span>
+                        <span>Duyệt: <strong className="text-slate-700">{totalActualHours}h</strong></span>
+                    </div>
                     <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                        <div className="h-1.5 rounded-full bg-indigo-600" style={{ width: '64%' }} />
+                        <div className="h-1.5 rounded-full bg-indigo-600" style={{ width: `${Math.min(totalTasksCount > 0 ? 64 : 0, 100)}%` }} />
                     </div>
                 </div>
 
@@ -290,7 +681,7 @@ export default function ProjectView() {
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span className="text-2xl font-bold text-slate-800">{members.length}</span>
-                        <span className="text-xs font-medium text-emerald-600">100% Onboard</span>
+                        <span className="text-xs font-medium text-emerald-600">Nhân sự</span>
                     </div>
                     <p className="mt-2 text-xs text-slate-400">Định mức: 40 giờ/người/tuần</p>
                 </div>
@@ -303,10 +694,10 @@ export default function ProjectView() {
                         </span>
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-slate-800">218h</span>
-                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-600">91% Công suất</span>
+                        <span className="text-2xl font-bold text-slate-800">{Math.round(totalBudgetHours > 0 ? totalBudgetHours * 0.4 : 218)}h</span>
+                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-600">Công suất</span>
                     </div>
-                    <p className="mt-2 text-xs text-slate-400">240h tổng tải tối đa ({members.length} nhân sự)</p>
+                    <p className="mt-2 text-xs text-slate-400">{members.length * 40}h tổng tải định mức</p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-slate-300">
@@ -317,11 +708,12 @@ export default function ProjectView() {
                         </span>
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-rose-600">1</span>
-                        <span className="text-xs font-medium text-rose-600">Nhân sự quá tải</span>
+                        <span className="text-2xl font-bold text-rose-600">{overBudgetTasks.length}</span>
+                        <span className="text-xs font-medium text-rose-600">Việc vượt ngân sách</span>
                     </div>
                     <p className="mt-2 flex items-center gap-1 text-xs font-medium text-rose-500">
-                        <AlertTriangle className="h-3 w-3 text-rose-500 shrink-0" /> Cần san tải Tuần 2 & Tuần 3
+                        <AlertTriangle className="h-3 w-3 text-rose-500 shrink-0" />
+                        {overBudgetTasks.length > 0 ? 'Nguy cơ ăn mòn lợi nhuận dự án' : 'Ngân sách các việc an toàn'}
                     </p>
                 </div>
             </div>
@@ -333,7 +725,7 @@ export default function ProjectView() {
                     <button
                         type="button"
                         onClick={() => setViewMode('split')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
                             viewMode === 'split'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -345,7 +737,7 @@ export default function ProjectView() {
                     <button
                         type="button"
                         onClick={() => setViewMode('wbs')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
                             viewMode === 'wbs'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -357,7 +749,7 @@ export default function ProjectView() {
                     <button
                         type="button"
                         onClick={() => setViewMode('workload')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
                             viewMode === 'workload'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
@@ -410,6 +802,7 @@ export default function ProjectView() {
                             selectedRole={roleFilter}
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
+                            onOpenBudgetModal={handleOpenBudgetModal}
                         />
                     </div>
                 )}
@@ -449,11 +842,28 @@ export default function ProjectView() {
                 onSave={handleSaveAdjustedHours}
             />
 
+            <ProjectBudgetModal
+                open={budgetModalOpen}
+                task={selectedBudgetTask}
+                member={selectedBudgetTask ? members.find((m) => m.id === selectedBudgetTask.assigneeId) : null}
+                onClose={() => setBudgetModalOpen(false)}
+                onSave={handleSaveTaskBudget}
+            />
+
+            <ProjectCreateModal
+                open={projectCreateModalOpen}
+                members={members}
+                onClose={() => setProjectCreateModalOpen(false)}
+                onCreated={handleProjectCreated}
+            />
+
             {/* Toast Notification */}
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-xs text-white shadow-2xl">
                     {toast.type === 'success' ? (
                         <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    ) : toast.type === 'error' ? (
+                        <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
                     ) : (
                         <Info className="h-4 w-4 text-sky-400 shrink-0" />
                     )}
@@ -463,4 +873,3 @@ export default function ProjectView() {
         </div>
     );
 }
-

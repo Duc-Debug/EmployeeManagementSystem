@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface SpringDataWeeklyAvailabilityRepository extends JpaRepository<WeeklyAvailabilityJpaEntity, Long> {
     Optional<WeeklyAvailabilityJpaEntity> findByEmployeeIdAndYearAndWeekNumber(Long employeeId, Integer year, Integer weekNumber);
     List<WeeklyAvailabilityJpaEntity> findByEmployeeIdInAndYearAndWeekNumber(List<Long> employeeIds, Integer year, Integer weekNumber);
+    List<WeeklyAvailabilityJpaEntity> findByEmployeeIdInAndYearAndWeekNumberIn(List<Long> employeeIds, Integer year, List<Integer> weekNumbers);
 }

@@ -3,10 +3,10 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task.dto;
 import java.math.BigDecimal;
 
 import com.hrm.employeemanagement.application.dto.task.UpdateTaskCommand;
+import com.hrm.employeemanagement.domain.task.TaskStatus;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record UpdateTaskRequest(
@@ -32,7 +32,11 @@ public record UpdateTaskRequest(
         @Digits(integer = 8, fraction = 2, message = "Thời gian dự kiến chỉ được có tối đa 8 chữ số phần nguyên và 2 chữ số phần thập phân")
         BigDecimal estimatedHours,
         @jakarta.validation.constraints.Min(value = 0, message = "Thứ tự sắp xếp không được nhỏ hơn 0")
-        Integer sortOrder) {
+        Integer sortOrder,
+        /**
+         * Trạng thái công việc: null = giữ nguyên; TODO, IN_PROGRESS, DONE, CANCELLED
+         */
+        TaskStatus status) {
 
     public UpdateTaskCommand toCommand(Long projectId, Long taskId) {
         return new UpdateTaskCommand(
@@ -43,6 +47,7 @@ public record UpdateTaskRequest(
                 description,
                 assigneeId,
                 estimatedHours,
-                sortOrder);
+                sortOrder,
+                status);
     }
 }
