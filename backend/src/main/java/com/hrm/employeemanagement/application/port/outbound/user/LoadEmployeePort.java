@@ -10,9 +10,11 @@ import com.hrm.employeemanagement.domain.user.UserId;
 public interface LoadEmployeePort {
     Optional<Employee> findByUserId(UserId userId);
     Optional<Employee> findById(EmployeeId id);
+    Optional<Employee> findByIdForUpdate(EmployeeId id);
     boolean existsByEmployeeCode(String employeeCode);
     boolean existsByEmployeeCodeAndIdNot(String employeeCode, EmployeeId excludeId);
     List<Employee> findAllByUserIdIn(List<UserId> userIds);
+    List<Employee> findAllByIdIn(List<EmployeeId> ids);
     List<Employee> findByOrgUnitId(Long orgUnitId);
     List<Employee> findActiveByOrgUnitId(Long orgUnitId);
 }
