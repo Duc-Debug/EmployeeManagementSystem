@@ -12,7 +12,6 @@ export interface EmployeeFormData {
     roleName?: string;
     dataScope?: "COMPANY" | "ORGANIZATION_BRANCH" | "SELF";
     scopeOrgUnitId?: string;
-    phone?: string;
     joinDate?: string;
     startDate?: string;
     contractEndDate?: string;
