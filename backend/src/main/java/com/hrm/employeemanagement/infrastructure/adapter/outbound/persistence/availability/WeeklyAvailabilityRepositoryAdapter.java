@@ -17,9 +17,12 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabilityPort,
@@ -56,6 +59,25 @@ public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabili
         return weeklyAvailabilityRepository.findByEmployeeIdInAndYearAndWeekNumber(
                 employeeIds, yearWeek.year(), yearWeek.weekNumber())
                 .stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<WeeklyAvailability> loadAvailabilityForEmployeesAndWeeks(List<Long> employeeIds, List<YearWeek> targetWeeks) {
+        if (employeeIds == null || employeeIds.isEmpty() || targetWeeks == null || targetWeeks.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, List<Integer>> weeksByYear = targetWeeks.stream()
+                .collect(Collectors.groupingBy(YearWeek::year, Collectors.mapping(YearWeek::weekNumber, Collectors.toList())));
+
+        List<WeeklyAvailability> results = new ArrayList<>();
+        for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
+            Integer year = entry.getKey();
+            List<Integer> weeks = entry.getValue();
+            List<WeeklyAvailabilityJpaEntity> entities = weeklyAvailabilityRepository
+                    .findByEmployeeIdInAndYearAndWeekNumberIn(employeeIds, year, weeks);
+            results.addAll(entities.stream().map(mapper::toDomain).toList());
+        }
+        return results;
     }
 
     @Override

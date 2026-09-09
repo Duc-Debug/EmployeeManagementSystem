@@ -13,4 +13,6 @@ public interface LoadWeeklyProjectAllocationPort {
     List<WeeklyProjectAllocation> loadAllocationsForEmployee(Long employeeId, YearWeek yearWeek);
 
     List<WeeklyProjectAllocation> loadAllocationsForEmployeesInWeekRange(List<Long> employeeIds, Integer year, Integer startWeek, Integer endWeek);
+
+    List<WeeklyProjectAllocation> loadAllocationsForEmployeesAndWeeks(List<Long> employeeIds, List<YearWeek> targetWeeks);
 }

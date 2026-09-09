@@ -4,8 +4,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.hrm.employeemanagement.application.port.inbound.allocation.AllocateResourceUseCase;
+import com.hrm.employeemanagement.application.port.inbound.allocation.SearchResourceBySkillAndAvailabilityUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SearchResourcePort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -13,6 +15,7 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.allocation.ResourceAllocationService;
+import com.hrm.employeemanagement.application.service.allocation.SearchResourceBySkillAndAvailabilityService;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.RetryableAllocateResourceUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalAllocateResourceUseCase;
@@ -46,5 +49,25 @@ public class ResourceAllocationUseCaseConfig {
 
         TransactionalAllocateResourceUseCase transactionalUseCase = new TransactionalAllocateResourceUseCase(pureService);
         return new RetryableAllocateResourceUseCaseDecorator(transactionalUseCase);
+    }
+
+    @Bean
+    public SearchResourceBySkillAndAvailabilityUseCase searchResourceBySkillAndAvailabilityUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SearchResourcePort searchResourcePort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort) {
+        return new SearchResourceBySkillAndAvailabilityService(
+                authorizationService,
+                loadUserPort,
+                loadOrgUnitPort,
+                searchResourcePort,
+                loadWeeklyAvailabilityPort,
+                loadAllocationPort,
+                saveAuditLogPort
+        );
     }
 }
