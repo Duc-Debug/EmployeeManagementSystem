@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.hrm.employeemanagement.application.dto.project.AddProjectMemberCommand;
 import com.hrm.employeemanagement.application.dto.project.ProjectMemberResult;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
@@ -38,6 +39,10 @@ import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMembe
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectMemberRole;
@@ -65,6 +70,8 @@ class AddProjectMemberServiceTest {
     @Mock
     private SaveProjectMemberPort saveProjectMemberPort;
     @Mock
+    private LoadOrgUnitPort loadOrgUnitPort;
+    @Mock
     private LoadEmployeePort loadEmployeePort;
     @Mock
     private LoadUserPort loadUserPort;
@@ -83,6 +90,7 @@ class AddProjectMemberServiceTest {
                 loadProjectPort,
                 loadProjectMemberPort,
                 saveProjectMemberPort,
+                loadOrgUnitPort,
                 loadEmployeePort,
                 loadUserPort,
                 saveAuditLogPort,
@@ -289,7 +297,7 @@ class AddProjectMemberServiceTest {
     }
 
     @Test
-    @DisplayName("Thêm thành viên dự án thành công")
+    @DisplayName("Thêm thành viên dự án thành công và trả về orgUnitName")
     void shouldAddMemberSuccessfully() {
         Employee member = createActiveEmployee(NEW_MEMBER_EMPLOYEE_ID);
         User memberUser = new User(
@@ -306,6 +314,20 @@ class AddProjectMemberServiceTest {
                 1,
                 1L
         );
+        OrgUnit orgUnit = new OrgUnit(
+                new OrgUnitId(ORG_UNIT_ID),
+                "OU-ENG",
+                "Engineering Department",
+                OrgUnitType.DEPARTMENT,
+                null,
+                "/1/",
+                1,
+                OrgUnitStatus.ACTIVE,
+                "Desc",
+                null,
+                LocalDateTime.now(),
+                null
+        );
 
         when(authorizationService.require(PermissionCode.PROJECT_UPDATE)).thenReturn(CURRENT_USER_ID);
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
@@ -313,6 +335,7 @@ class AddProjectMemberServiceTest {
         when(loadEmployeePort.findById(new EmployeeId(NEW_MEMBER_EMPLOYEE_ID))).thenReturn(Optional.of(member));
         when(loadProjectMemberPort.existsMember(PROJECT_ID, NEW_MEMBER_EMPLOYEE_ID)).thenReturn(false);
         when(loadUserPort.findById(new UserId(200L))).thenReturn(Optional.of(memberUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(orgUnit));
 
         ProjectMemberResult result = service.addProjectMember(new AddProjectMemberCommand(PROJECT_ID, NEW_MEMBER_EMPLOYEE_ID));
 
@@ -320,6 +343,7 @@ class AddProjectMemberServiceTest {
         assertThat(result.employeeId()).isEqualTo(NEW_MEMBER_EMPLOYEE_ID);
         assertThat(result.roleInProject()).isEqualTo(ProjectMemberRole.MEMBER);
         assertThat(result.email()).isEqualTo("member@hrm.com");
+        assertThat(result.orgUnitName()).isEqualTo("Engineering Department");
 
         verify(saveProjectMemberPort).addMember(PROJECT_ID, NEW_MEMBER_EMPLOYEE_ID);
         verify(saveAuditLogPort).save(any());

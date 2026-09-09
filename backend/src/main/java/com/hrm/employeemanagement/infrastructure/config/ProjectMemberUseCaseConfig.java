@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.port.inbound.project.AddProjectMem
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectMembersUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.RemoveProjectMemberUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
@@ -47,6 +48,7 @@ public class ProjectMemberUseCaseConfig {
             LoadProjectPort loadProjectPort,
             LoadProjectMemberPort loadProjectMemberPort,
             SaveProjectMemberPort saveProjectMemberPort,
+            LoadOrgUnitPort loadOrgUnitPort,
             LoadEmployeePort loadEmployeePort,
             LoadUserPort loadUserPort,
             SaveAuditLogPort saveAuditLogPort,
@@ -56,6 +58,7 @@ public class ProjectMemberUseCaseConfig {
                 loadProjectPort,
                 loadProjectMemberPort,
                 saveProjectMemberPort,
+                loadOrgUnitPort,
                 loadEmployeePort,
                 loadUserPort,
                 saveAuditLogPort,

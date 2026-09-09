@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.dto.project.AddProjectMemberComman
 import com.hrm.employeemanagement.application.dto.project.ProjectMemberResult;
 import com.hrm.employeemanagement.application.port.inbound.project.AddProjectMemberUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
@@ -26,6 +27,8 @@ import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataExc
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectMemberRole;
@@ -38,6 +41,7 @@ public class AddProjectMemberService implements AddProjectMemberUseCase {
     private final LoadProjectPort loadProjectPort;
     private final LoadProjectMemberPort loadProjectMemberPort;
     private final SaveProjectMemberPort saveProjectMemberPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadEmployeePort loadEmployeePort;
     private final LoadUserPort loadUserPort;
     private final SaveAuditLogPort saveAuditLogPort;
@@ -48,6 +52,7 @@ public class AddProjectMemberService implements AddProjectMemberUseCase {
             LoadProjectPort loadProjectPort,
             LoadProjectMemberPort loadProjectMemberPort,
             SaveProjectMemberPort saveProjectMemberPort,
+            LoadOrgUnitPort loadOrgUnitPort,
             LoadEmployeePort loadEmployeePort,
             LoadUserPort loadUserPort,
             SaveAuditLogPort saveAuditLogPort,
@@ -56,6 +61,7 @@ public class AddProjectMemberService implements AddProjectMemberUseCase {
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
         this.loadProjectMemberPort = Objects.requireNonNull(loadProjectMemberPort, "LoadProjectMemberPort must not be null");
         this.saveProjectMemberPort = Objects.requireNonNull(saveProjectMemberPort, "SaveProjectMemberPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
@@ -111,13 +117,17 @@ public class AddProjectMemberService implements AddProjectMemberUseCase {
                 ? loadUserPort.findById(employee.getUserId()).map(User::getEmail).orElse(null)
                 : null;
 
+        String orgUnitName = employee.getOrgUnitId() != null
+                ? loadOrgUnitPort.findById(new OrgUnitId(employee.getOrgUnitId())).map(OrgUnit::getUnitName).orElse(null)
+                : null;
+
         return new ProjectMemberResult(
                 employee.getIdValue(),
                 employee.getEmployeeCode(),
                 employee.getFullName(),
                 email,
                 employee.getOrgUnitId(),
-                null,
+                orgUnitName,
                 ProjectMemberRole.MEMBER,
                 employee.getStatus().name()
         );
