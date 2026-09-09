@@ -3,7 +3,6 @@ package com.hrm.employeemanagement.infrastructure.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.hrm.employeemanagement.application.port.inbound.user.AuthenticateUserUseCase;
 import com.hrm.employeemanagement.application.port.outbound.email.QueuePasswordResetEmailPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
