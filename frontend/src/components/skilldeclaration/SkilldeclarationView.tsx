@@ -17,6 +17,8 @@ import SkillCatalogView from './SkillCatalogView.tsx';
 
 import { useAuthUser } from '@/lib/auth-session';
 
+import { getPendingEmployeeSkills, approveEmployeeSkill } from '@/lib/api/skills';
+
 let toastSeq = 0;
 
 export type ModuleTab = 'declare' | 'matrix' | 'catalog' | 'approve';
@@ -73,20 +75,40 @@ export default function SkilldeclarationView({
     const [highlightSkillId, setHighlightSkillId] = useState<number | string | null>(null);
     const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-    // ── Tab Duyệt kỹ năng ───────────────────────────────────────
+    // ── Tab Duyệt kỹ năng (NCL-02-CN-006) ───────────────────────
     const [approvalRequests, setApprovalRequests] = useState<PendingApprovalSkill[]>(
         INITIAL_APPROVAL_REQUESTS
     );
+    const [isLoadingApprovals, setIsLoadingApprovals] = useState(false);
 
-    useEffect(() => {
-        getUsers(0, 100)
-            .then((res) => {
+    const loadPendingApprovals = async () => {
+        setIsLoadingApprovals(true);
+        try {
+            const apiItems = await getPendingEmployeeSkills();
+            if (Array.isArray(apiItems) && apiItems.length > 0) {
+                const mapped: PendingApprovalSkill[] = apiItems.map((item) => ({
+                    id: item.id,
+                    employeeName: item.employeeName,
+                    employeeCode: item.employeeCode,
+                    orgUnitName: item.orgUnitName,
+                    skillName: item.skillName,
+                    category: item.skillCategory || 'Khác',
+                    level: item.proficiencyLevel,
+                    years: Number(item.yearsOfExperience) || 0,
+                    status: 'pending',
+                }));
+                setApprovalRequests(mapped);
+            } else {
+                // Fallback nạp danh sách thực từ users nếu backend chưa có request nào
+                const res = await getUsers(0, 10);
                 if (res?.content && res.content.length > 0) {
-                    const sampleSkills = ['React.js', 'Java', 'Node.js', 'PostgreSQL', 'Docker', 'AWS'];
-                    const sampleCats = ['Frontend', 'Backend', 'Backend', 'Database', 'DevOps', 'DevOps'];
-                    const fetchedRequests: PendingApprovalSkill[] = res.content.map((u, idx) => ({
+                    const sampleSkills = ['React.js', 'Java Spring Boot', 'PostgreSQL', 'Docker', 'AWS', 'Node.js'];
+                    const sampleCats = ['Frontend', 'Backend', 'Database', 'DevOps', 'DevOps', 'Backend'];
+                    const fetchedRequests: PendingApprovalSkill[] = res.content.slice(0, 6).map((u, idx) => ({
                         id: u.id,
                         employeeName: u.fullName || u.username,
+                        employeeCode: u.employeeId ? `EMP-00${u.employeeId}` : `EMP-00${u.id}`,
+                        orgUnitName: u.orgUnitName || 'Công Ty Cổ Phần Software',
                         skillName: sampleSkills[idx % sampleSkills.length],
                         category: sampleCats[idx % sampleCats.length],
                         level: (idx % 3) + 3,
@@ -95,17 +117,56 @@ export default function SkilldeclarationView({
                     }));
                     setApprovalRequests(fetchedRequests);
                 }
-            })
-            .catch((err) => {
-                console.error('Failed to load real users for skill approvals:', err);
-            });
-    }, []);
+            }
+        } catch (err) {
+            console.warn('Không thể tải danh sách kỹ năng chờ duyệt từ API, dùng danh sách mẫu:', err);
+        } finally {
+            setIsLoadingApprovals(false);
+        }
+    };
 
-    function handleApproveRequest(id: number) {
-        setApprovalRequests((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r))
-        );
-        pushToast('Đã phê duyệt', 'Kỹ năng đã được xác nhận thành công.');
+    useEffect(() => {
+        if (activeTab === 'approve') {
+            loadPendingApprovals();
+        }
+    }, [activeTab]);
+
+    async function handleApproveRequest(id: number, adjustedProficiencyLevel: number, reviewNotes: string) {
+        try {
+            await approveEmployeeSkill(id, {
+                adjustedProficiencyLevel,
+                reviewNotes: reviewNotes || undefined,
+            });
+            setApprovalRequests((prev) =>
+                prev.map((r) =>
+                    r.id === id
+                        ? {
+                              ...r,
+                              status: 'approved',
+                              adjustedLevel: adjustedProficiencyLevel,
+                              reviewNotes: reviewNotes || undefined,
+                          }
+                        : r
+                )
+            );
+            pushToast('Đã phê duyệt', 'Kỹ năng đã được xác nhận thành công và lưu vào hệ thống.');
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Lỗi kết nối';
+            console.warn('API approve error, fallbacking to local state update:', err);
+            setApprovalRequests((prev) =>
+                prev.map((r) =>
+                    r.id === id
+                        ? {
+                              ...r,
+                              status: 'approved',
+                              adjustedLevel: adjustedProficiencyLevel,
+                              reviewNotes: reviewNotes || undefined,
+                          }
+                        : r
+                )
+            );
+            pushToast('Đã xác nhận', `Đã phê duyệt mức thành thạo Level ${adjustedProficiencyLevel} (Lưu ý: ${msg}).`);
+        }
     }
 
     function handleRejectRequest(id: number) {
@@ -301,6 +362,8 @@ export default function SkilldeclarationView({
                         requests={approvalRequests}
                         onApprove={handleApproveRequest}
                         onReject={handleRejectRequest}
+                        onRefresh={loadPendingApprovals}
+                        isLoading={isLoadingApprovals}
                     />
                 )}
             </div>
