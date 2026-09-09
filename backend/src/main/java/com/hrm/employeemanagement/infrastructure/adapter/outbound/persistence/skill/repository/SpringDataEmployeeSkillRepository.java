@@ -22,7 +22,6 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
 
     List<EmployeeSkillJpaEntity> findByStatusAndEmployeeIdIn(com.hrm.employeemanagement.domain.skill.SkillStatus status, List<Long> employeeIds);
 
-
     @Query("SELECT es.employeeId FROM EmployeeSkillJpaEntity es WHERE es.skillId = :skillId")
     List<Long> findEmployeeIdsBySkillId(@Param("skillId") Long skillId);
 
@@ -202,5 +201,44 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
     long countPendingSelfScope(
             @Param("currentUserId") Long currentUserId,
             @Param("keyword") String keyword
+    );
+
+    @Query("""
+        SELECT es FROM EmployeeSkillJpaEntity es
+        WHERE es.skillId = :skillId
+          AND es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
+          AND es.proficiencyLevel >= :minLevel
+    """)
+    List<EmployeeSkillJpaEntity> findApprovedBySkillAndMinLevel(
+            @Param("skillId") Long skillId,
+            @Param("minLevel") int minLevel
+    );
+
+    @Query(value = """
+        SELECT 
+            e.id AS employeeId,
+            e.user_id AS userId,
+            e.employee_code AS employeeCode,
+            e.full_name AS fullName,
+            e.org_unit_id AS orgUnitId,
+            e.professional_role AS professionalRole,
+            e.standard_hours_per_week AS standardHoursPerWeek,
+            e.contract_end_date AS contractEndDate,
+            s.id AS skillId,
+            s.name AS skillName,
+            es.proficiency_level AS proficiencyLevel,
+            es.years_of_experience AS yearsOfExperience
+        FROM employee_skills es
+        JOIN employees e ON e.id = es.employee_id
+        JOIN skills s ON s.id = es.skill_id
+        WHERE es.skill_id = :skillId
+          AND es.status = 'APPROVED'
+          AND es.proficiency_level >= :minLevel
+          AND UPPER(e.status) = 'ACTIVE'
+        ORDER BY es.years_of_experience DESC, es.proficiency_level DESC
+        """, nativeQuery = true)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.ActiveEmployeeSkillProjection> findActiveEmployeesBySkillAndMinLevel(
+            @Param("skillId") Long skillId,
+            @Param("minLevel") int minLevel
     );
 }
