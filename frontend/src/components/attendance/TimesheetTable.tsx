@@ -10,6 +10,8 @@ import MiniCalendar from "../calendar/MiniCalendar"
 interface TimesheetTableProps {
     records: AttendanceRecord[]
     onEditRecord: (id: string) => void
+    canEdit?: boolean
+    title?: string
 }
 
 const badgeToneFor = (status: AttendanceRecord["status"]) => {
@@ -30,7 +32,7 @@ const formatDisplayDate = (date: Date) =>
 
 const POPOVER_WIDTH = 280
 
-export function TimesheetTable({ records, onEditRecord }: TimesheetTableProps) {
+export function TimesheetTable({ records, onEditRecord, canEdit = true, title }: TimesheetTableProps) {
     const [selectedDate, setSelectedDate] = useState(() => new Date())
     const [miniCalMonth, setMiniCalMonth] = useState(selectedDate)
     const [now, setNow] = useState(() => new Date())
@@ -129,7 +131,7 @@ export function TimesheetTable({ records, onEditRecord }: TimesheetTableProps) {
             {/* Table Header Controls */}
             <div className="flex flex-col items-start justify-between gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center">
                 <h2 className="text-base font-bold text-slate-900">
-                    Bảng tổng hợp chấm công ngày hôm nay
+                    {title || "Bảng tổng hợp chấm công ngày hôm nay"}
                 </h2>
 
                 <button
@@ -217,14 +219,21 @@ export function TimesheetTable({ records, onEditRecord }: TimesheetTableProps) {
                                     </span>
                             </td>
                             <td className="px-4 py-3 text-right">
-                                <button
-                                    type="button"
-                                    onClick={() => onEditRecord(rec.id)}
-                                    aria-label={`Sửa bản ghi chấm công của ${rec.name}`}
-                                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                                >
-                                    <Pencil className="size-3.5" />
-                                </button>
+                                {canEdit ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => onEditRecord(rec.id)}
+                                        aria-label={`Sửa bản ghi chấm công của ${rec.name}`}
+                                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                        title="Chỉnh sửa / Điều chỉnh công"
+                                    >
+                                        <Pencil className="size-3.5" />
+                                    </button>
+                                ) : (
+                                    <span className="text-[11px] font-medium text-slate-400">
+                                        Chỉ xem
+                                    </span>
+                                )}
                             </td>
                         </tr>
                     ))}

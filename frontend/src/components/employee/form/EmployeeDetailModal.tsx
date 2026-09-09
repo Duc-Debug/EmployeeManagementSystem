@@ -92,14 +92,6 @@ export default function EmployeeDetailModal({
                         <span className="font-medium text-slate-800">{getScopeLabel(employee.dataScope)}</span>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-500">Số điện thoại:</span>
-                        {employee.phone ? (
-                            <span className="font-medium text-slate-800">{employee.phone}</span>
-                        ) : (
-                            <span className="text-slate-400 italic text-[11px]">Chưa có dữ liệu</span>
-                        )}
-                    </div>
 
                     <div className="flex items-center justify-between">
                         <span className="font-semibold text-slate-500">Giờ chuẩn / tuần:</span>

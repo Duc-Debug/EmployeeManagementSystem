@@ -1,18 +1,21 @@
 "use client"
 
-import { User, Mail, Phone, Building2, Briefcase, CalendarDays, Pencil, Trash2 } from "lucide-react"
+import { User, Mail, Building2, Briefcase, CalendarDays, Pencil, Lock, Unlock } from "lucide-react"
+import { cn } from "../../lib/utils"
 import type { EmployeeFormData } from "./form/employeeForm.types"
-import { formatDisplayDate } from "@/lib/employee-storage"
+import { formatDisplayDate } from "../../lib/employee-storage"
 
 interface EmployeeCardProps {
     employee: EmployeeFormData
     onEdit: (employee: EmployeeFormData) => void
-    onDelete: (id?: string) => void
+    onDelete?: (id?: string) => void
+    onToggleStatus?: (employee: EmployeeFormData) => void
     onView?: (employee: EmployeeFormData) => void
 }
 
-export default function EmployeeCard({ employee, onEdit, onDelete, onView }: EmployeeCardProps) {
+export default function EmployeeCard({ employee, onEdit, onDelete, onToggleStatus, onView }: EmployeeCardProps) {
     const displayJoinDate = formatDisplayDate(employee.joinDate || employee.startDate)
+    const isLocked = employee.status === "LOCKED" || employee.status === "locked"
 
     return (
         <div
@@ -29,7 +32,7 @@ export default function EmployeeCard({ employee, onEdit, onDelete, onView }: Emp
                         <h3 className="truncate text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition">
                             {employee.fullName}
                         </h3>
-                        {employee.status === "LOCKED" || employee.status === "locked" ? (
+                        {isLocked ? (
                             <span className="rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
                                 Đã khóa
                             </span>
@@ -57,12 +60,6 @@ export default function EmployeeCard({ employee, onEdit, onDelete, onView }: Emp
                             <span className="truncate text-slate-400 italic font-normal">Chưa có email</span>
                         )}
                     </span>
-                    {employee.phone && (
-                        <span className="flex items-center gap-1.5 truncate text-[11px] text-slate-500 font-mono">
-                            <Phone className="size-3 shrink-0 text-slate-400" />
-                            <span className="truncate">{employee.phone}</span>
-                        </span>
-                    )}
                 </div>
                 <span className="flex items-center gap-1.5 truncate">
                     <Building2 className="size-3.5 shrink-0 text-slate-400" />
@@ -103,12 +100,21 @@ export default function EmployeeCard({ employee, onEdit, onDelete, onView }: Emp
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation()
-                            onDelete(employee.id)
+                            if (onToggleStatus) {
+                                onToggleStatus(employee)
+                            } else if (onDelete) {
+                                onDelete(employee.id)
+                            }
                         }}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                        title="Xóa"
+                        className={cn(
+                            "rounded-lg p-1.5 transition",
+                            isLocked
+                                ? "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                : "text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                        )}
+                        title={isLocked ? "Mở khóa tài khoản" : "Khóa tài khoản"}
                     >
-                        <Trash2 className="size-4" />
+                        {isLocked ? <Unlock className="size-4" /> : <Lock className="size-4" />}
                     </button>
                 </div>
             </div>
