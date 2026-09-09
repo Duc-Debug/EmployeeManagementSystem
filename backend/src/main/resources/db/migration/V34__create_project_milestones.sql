@@ -32,10 +32,7 @@ CREATE TABLE IF NOT EXISTS project_milestones (
         ON DELETE SET NULL,
 
     CONSTRAINT uk_milestones_project_name
-        UNIQUE (project_id, name),
-
-    INDEX idx_milestones_project_id (project_id),
-    INDEX idx_milestones_planned_date (planned_date)
+        UNIQUE (project_id, name)
 );
 
 -- 2. Tạo bảng milestone_tasks liên kết giữa mốc tiến độ và các công việc/hạng mục WBS
@@ -53,10 +50,18 @@ CREATE TABLE IF NOT EXISTS milestone_tasks (
     CONSTRAINT fk_mt_task
         FOREIGN KEY (task_id)
         REFERENCES tasks(id)
-        ON DELETE CASCADE,
-
-    INDEX idx_milestone_tasks_task_id (task_id)
+        ON DELETE CASCADE
 );
+
+-- 3. Tạo các chỉ mục tối ưu hóa truy vấn
+CREATE INDEX idx_milestones_project_id 
+    ON project_milestones(project_id);
+
+CREATE INDEX idx_milestones_planned_date 
+    ON project_milestones(planned_date);
+
+CREATE INDEX idx_milestone_tasks_task_id 
+    ON milestone_tasks(task_id);
 
 -- 4. Bổ sung quyền quản lý mốc tiến độ cho vai trò Quản lý dự án (VT-02) (AC-03 / TC-03)
 INSERT INTO permissions (code, name, description)
