@@ -17,4 +17,6 @@ public interface SpringDataTaskRepository extends JpaRepository<TaskJpaEntity, L
     boolean existsByParentId(Long parentId);
 
     long countByProjectId(Long projectId);
+
+    boolean existsByProjectIdAndAssigneeIdAndStatusNot(Long projectId, Long assigneeId, String status);
 }
