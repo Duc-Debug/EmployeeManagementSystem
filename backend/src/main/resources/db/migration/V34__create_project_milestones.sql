@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V33: CREATE PROJECT MILESTONES SCHEMA
+-- FLYWAY MIGRATION V34: CREATE PROJECT MILESTONES SCHEMA
 -- Epic: NCL-03 (Dự án và cây công việc)
 -- Story: NCL-03-CN-006 (Quản lý mốc tiến độ của dự án)
 -- ============================================================
