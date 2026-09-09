@@ -1,9 +1,7 @@
 package com.hrm.employeemanagement.application.service.skill;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import com.hrm.employeemanagement.application.dto.skill.ApproveEmployeeSkillCommand;
 import com.hrm.employeemanagement.application.dto.skill.EmployeeSkillResult;
@@ -26,12 +24,9 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
-import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
-import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
 import com.hrm.employeemanagement.domain.skill.ProficiencyLevel;
 import com.hrm.employeemanagement.domain.skill.Skill;
-import com.hrm.employeemanagement.domain.skill.SkillStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -52,15 +47,18 @@ public class ApproveEmployeeSkillService implements ApproveEmployeeSkillUseCase,
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort,
             SaveAuditLogInNewTransactionPort saveAuditLogPort,
-            AuthorizationService authorizationService
-    ) {
-        this.employeeSkillRepository = Objects.requireNonNull(employeeSkillRepository, "EmployeeSkillRepository must not be null");
-        this.skillCatalogRepository = Objects.requireNonNull(skillCatalogRepository, "SkillCatalogRepository must not be null");
+            AuthorizationService authorizationService) {
+        this.employeeSkillRepository = Objects.requireNonNull(employeeSkillRepository,
+                "EmployeeSkillRepository must not be null");
+        this.skillCatalogRepository = Objects.requireNonNull(skillCatalogRepository,
+                "SkillCatalogRepository must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
-        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
-        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort,
+                "SaveAuditLogInNewTransactionPort must not be null");
+        this.authorizationService = Objects.requireNonNull(authorizationService,
+                "AuthorizationService must not be null");
     }
 
     @Override
@@ -76,11 +74,13 @@ public class ApproveEmployeeSkillService implements ApproveEmployeeSkillUseCase,
 
         // 2. Tìm bản ghi kỹ năng của nhân viên
         EmployeeSkill employeeSkill = employeeSkillRepository.findById(command.employeeSkillId())
-                .orElseThrow(() -> new EmployeeSkillNotFoundException("Không tìm thấy bản ghi kỹ năng nhân sự với ID: " + command.employeeSkillId()));
+                .orElseThrow(() -> new EmployeeSkillNotFoundException(
+                        "Không tìm thấy bản ghi kỹ năng nhân sự với ID: " + command.employeeSkillId()));
 
         // 3. Tìm thông tin nhân viên sở hữu kỹ năng
         Employee employee = loadEmployeePort.findById(new EmployeeId(employeeSkill.getEmployeeId()))
-                .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy thông tin nhân sự với ID: " + employeeSkill.getEmployeeId()));
+                .orElseThrow(() -> new EmployeeNotFoundException(
+                        "Không tìm thấy thông tin nhân sự với ID: " + employeeSkill.getEmployeeId()));
 
         // 4. Kiểm tra phạm vi dữ liệu Data Scope (TC-03)
         requireEmployeeInScope(currentUser, employee, PermissionCode.EMPLOYEE_SKILL_APPROVE);
@@ -94,8 +94,7 @@ public class ApproveEmployeeSkillService implements ApproveEmployeeSkillUseCase,
             employeeSkill.adjustAndApprove(
                     currentUserId,
                     ProficiencyLevel.fromValue(command.adjustedProficiencyLevel()),
-                    command.reviewNotes()
-            );
+                    command.reviewNotes());
             actionName = "ADJUST_SKILL_PROFICIENCY";
         } else {
             // TC-01: Xác nhận giữ nguyên mức tự khai kèm ghi chú
@@ -112,8 +111,7 @@ public class ApproveEmployeeSkillService implements ApproveEmployeeSkillUseCase,
                 "employee_skills",
                 saved.getId(),
                 String.valueOf(oldLevel),
-                String.valueOf(saved.getProficiencyLevelValue())
-        ));
+                String.valueOf(saved.getProficiencyLevelValue())));
 
         Skill skill = skillCatalogRepository.findById(saved.getSkillId()).orElse(null);
         return EmployeeSkillResult.fromDomain(saved, skill);
@@ -131,15 +129,15 @@ public class ApproveEmployeeSkillService implements ApproveEmployeeSkillUseCase,
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        // 2. Đưa toàn bộ việc lọc Data Scope, tìm kiếm từ khóa và phân trang xuống Persistence Layer
+        // 2. Đưa toàn bộ việc lọc Data Scope, tìm kiếm từ khóa và phân trang xuống
+        // Persistence Layer
         return employeeSkillRepository.findPendingSkills(
                 currentUser.getDataScope(),
                 currentUser.getScopeOrgUnitId(),
                 currentUser.getIdValue(),
                 keyword,
                 page,
-                size
-        );
+                size);
     }
 
     private void requireEmployeeInScope(User currentUser, Employee employee, PermissionCode permission) {
