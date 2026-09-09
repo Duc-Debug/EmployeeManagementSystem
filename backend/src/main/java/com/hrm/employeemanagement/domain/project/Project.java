@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectAlreadyClosedException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectNotClosedException;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 public class Project {
@@ -25,6 +27,12 @@ public class Project {
     private String description;
     private Long version;
     private Integer taskSeqCounter;
+    private String closureReason;
+    private LocalDateTime closedAt;
+    private UserId closedBy;
+    private String reopenReason;
+    private LocalDateTime reopenedAt;
+    private UserId reopenedBy;
 
     public Project(
             ProjectId id,
@@ -57,6 +65,52 @@ public class Project {
                 updatedAt,
                 version,
                 0);
+    }
+
+    public Project(
+            ProjectId id,
+            String projectCode,
+            String projectName,
+            Long orgUnitId,
+            EmployeeId managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description,
+            ProjectStatus status,
+            UserId createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Integer taskSeqCounter,
+            String closureReason,
+            LocalDateTime closedAt,
+            UserId closedBy,
+            String reopenReason,
+            LocalDateTime reopenedAt,
+            UserId reopenedBy) {
+        this(
+                id,
+                projectCode,
+                projectName,
+                orgUnitId,
+                managerId,
+                startDate,
+                endDate,
+                estimatedHours,
+                description,
+                status,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version,
+                taskSeqCounter);
+        this.closureReason = closureReason != null ? closureReason.trim() : null;
+        this.closedAt = closedAt;
+        this.closedBy = closedBy;
+        this.reopenReason = reopenReason != null ? reopenReason.trim() : null;
+        this.reopenedAt = reopenedAt;
+        this.reopenedBy = reopenedBy;
     }
 
     public Project(
@@ -208,7 +262,8 @@ public class Project {
     private static final BigDecimal MAX_ESTIMATED_HOURS = new BigDecimal("99999999.99");
 
     /**
-     * Kiểm tra tổng giờ dự kiến: không được là số âm, không vượt quá giới hạn DECIMAL(10,2), và tối đa 2 chữ số thập phân.
+     * Kiểm tra tổng giờ dự kiến: không được là số âm, không vượt quá giới hạn
+     * DECIMAL(10,2), và tối đa 2 chữ số thập phân.
      */
     private void validateEstimatedHours(BigDecimal hours) {
         if (hours != null) {
@@ -233,13 +288,46 @@ public class Project {
         }
     }
 
-
-    public void close() {
+        /**
+     * Đóng dự án khi hoàn thành (hoặc đóng hộ cấp quản trị)
+     */
+    public void close(UserId closedBy, String closureReason) {
         if (this.status == ProjectStatus.CLOSED) {
-            throw new InvalidProjectDataException("Dự án đã ở trạng thái đóng từ trước");
+            throw new ProjectAlreadyClosedException("Dự án đã ở trạng thái đóng từ trước");
+        }
+        if (closedBy == null) {
+            throw new InvalidProjectDataException("Người thực hiện đóng dự án không được để trống");
         }
         this.status = ProjectStatus.CLOSED;
+        this.closedBy = closedBy;
+        this.closureReason = closureReason != null && !closureReason.isBlank() ? closureReason.trim() : null;
+        this.closedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Mở lại dự án đã đóng (Chỉ dành cho Ban giám đốc hoặc Admin có lý do >= 10 ký tự)
+     */
+    public void reopen(UserId reopenedBy, String reopenReason) {
+        if (this.status != ProjectStatus.CLOSED) {
+            throw new ProjectNotClosedException("Chỉ có thể mở lại dự án đang ở trạng thái đóng");
+        }
+        if (reopenedBy == null) {
+            throw new InvalidProjectDataException("Người thực hiện mở lại dự án không được để trống");
+        }
+        if (reopenReason == null || reopenReason.trim().length() < 10) {
+            throw new InvalidProjectDataException("Lý do mở lại dự án bắt buộc phải có ít nhất 10 ký tự");
+        }
+        this.status = ProjectStatus.ACTIVE;
+        this.reopenedBy = reopenedBy;
+        this.reopenReason = reopenReason.trim();
+        this.reopenedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    // Giữ phương thức close() không tham số để tương thích ngược nếu cần
+    public void close() {
+        close(this.createdBy, null);
     }
 
     public void activate() {
@@ -334,5 +422,36 @@ public class Project {
         this.taskSeqCounter++;
         this.updatedAt = LocalDateTime.now();
         return this.taskSeqCounter;
+    }
+        public String getClosureReason() {
+        return closureReason;
+    }
+
+    public LocalDateTime getClosedAt() {
+        return closedAt;
+    }
+
+    public UserId getClosedBy() {
+        return closedBy;
+    }
+
+    public Long getClosedByValue() {
+        return closedBy != null ? closedBy.value() : null;
+    }
+
+    public String getReopenReason() {
+        return reopenReason;
+    }
+
+    public LocalDateTime getReopenedAt() {
+        return reopenedAt;
+    }
+
+    public UserId getReopenedBy() {
+        return reopenedBy;
+    }
+
+    public Long getReopenedByValue() {
+        return reopenedBy != null ? reopenedBy.value() : null;
     }
 }
