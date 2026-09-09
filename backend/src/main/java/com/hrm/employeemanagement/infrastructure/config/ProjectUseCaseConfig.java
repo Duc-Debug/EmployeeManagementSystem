@@ -24,6 +24,7 @@ import com.hrm.employeemanagement.infrastructure.transaction.project.RetryableCr
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalCreateProjectUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalProjectServiceDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalUpdateProjectUseCase;
+import com.hrm.employeemanagement.infrastructure.transaction.projecttemplate.RetryableCreateProjectFromTemplateUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.projecttemplate.TransactionalCreateProjectFromTemplateUseCase;
 
 @Configuration
@@ -111,6 +112,7 @@ public class ProjectUseCaseConfig {
                                 saveAuditLogPort,
                                 saveDeniedAuditLogPort,
                                 authorizationService);
-                return new TransactionalCreateProjectFromTemplateUseCase(pureService);
+                TransactionalCreateProjectFromTemplateUseCase transactionalUseCase = new TransactionalCreateProjectFromTemplateUseCase(pureService);
+                return new RetryableCreateProjectFromTemplateUseCaseDecorator(transactionalUseCase);
         }
 }
