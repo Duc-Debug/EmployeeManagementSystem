@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Plus, Search, ChevronDown, Check, AlertTriangle, X, User, Trash2, Users, RefreshCw } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Plus, Search, ChevronDown, Check, AlertTriangle, X, User, Users, RefreshCw, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import EmployeeCard from "../components/employee/EmployeeCard";
 import EmployeeProfileForm from "../components/employee/form/EmployeeProfileForm";
 import EmployeeDetailModal from "../components/employee/form/EmployeeDetailModal";
 import type { EmployeeFormData } from "../components/employee/form/employeeForm.types";
-import { DEFAULT_ORG_UNIT_OPTIONS, DEPARTMENT_OPTIONS } from "../components/employee/form/employeeForm.constants";
+import { DEFAULT_ORG_UNIT_OPTIONS } from "../components/employee/form/employeeForm.constants";
 import { getUsers, createUser, updateUserRole, toggleUserStatus } from "@/lib/api/users";
 import {
     getEmployeeProfile,
@@ -17,8 +17,6 @@ import {
     type EmployeeProfile,
 } from "@/lib/api/employees";
 import {
-    getStoredPhone,
-    saveStoredPhone,
     getStoredDates,
     saveStoredDates,
     formatToDateInput,
@@ -111,9 +109,9 @@ export function CustomSelectDropdown({
 }
 
 /* ========================================================================
-   DELETE CONFIRMATION DIALOG (Thay thế window.confirm)
+   TOGGLE STATUS CONFIRMATION DIALOG (Khóa / Mở khóa tài khoản)
    ======================================================================== */
-function DeleteConfirmDialog({
+function ToggleStatusConfirmDialog({
     target,
     onClose,
     onConfirm,
@@ -127,21 +125,29 @@ function DeleteConfirmDialog({
     errorMessage?: string | null;
 }) {
     if (!target) return null;
+    const isCurrentlyLocked = target.status === "LOCKED" || target.status === "locked";
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-150">
             <div className="relative w-full max-w-md rounded-3xl border border-slate-200/90 bg-white p-6 shadow-2xl text-slate-800">
-                {/* Header with Warning Icon */}
+                {/* Header */}
                 <div className="flex items-start gap-4">
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-600 shadow-2xs">
-                        <AlertTriangle className="size-6" />
+                    <div className={cn(
+                        "flex size-11 shrink-0 items-center justify-center rounded-2xl border shadow-2xs",
+                        isCurrentlyLocked
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                            : "border-rose-200 bg-rose-50 text-rose-600"
+                    )}>
+                        {isCurrentlyLocked ? <Unlock className="size-6" /> : <Lock className="size-6" />}
                     </div>
                     <div className="min-w-0 flex-1">
                         <h3 className="text-base font-bold text-slate-900">
-                            Xác nhận xóa hồ sơ nhân viên
+                            {isCurrentlyLocked ? "Xác nhận mở khóa tài khoản" : "Xác nhận khóa tài khoản"}
                         </h3>
                         <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                            Hành động này sẽ xóa thông tin nhân sự và thu hồi toàn bộ quyền đăng nhập của tài khoản này khỏi hệ thống.
+                            {isCurrentlyLocked
+                                ? "Tài khoản sẽ được kích hoạt lại và người dùng có thể đăng nhập bình thường."
+                                : "Tài khoản sẽ bị tạm khóa và người dùng sẽ không thể đăng nhập vào hệ thống."}
                         </p>
                     </div>
                     <button
@@ -174,12 +180,12 @@ function DeleteConfirmDialog({
                     </div>
                 </div>
 
-                {/* Hiển thị lỗi nếu API xóa thất bại */}
+                {/* Hiển thị lỗi nếu API thất bại */}
                 {errorMessage && (
                     <div className="mt-3 flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
                         <AlertTriangle className="size-4 shrink-0 mt-0.5 text-rose-600" />
                         <div className="flex-1">
-                            <p className="font-bold">Không thể xóa nhân viên</p>
+                            <p className="font-bold">Thao tác thất bại</p>
                             <p className="text-[11px] text-rose-600 mt-0.5 leading-relaxed">{errorMessage}</p>
                         </div>
                     </div>
@@ -199,10 +205,29 @@ function DeleteConfirmDialog({
                         type="button"
                         onClick={onConfirm}
                         disabled={isSubmitting}
-                        className="flex items-center gap-1.5 rounded-xl border border-rose-600 bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-rose-700 active:scale-95 disabled:opacity-50"
+                        className={cn(
+                            "flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-xs transition active:scale-95 disabled:opacity-50",
+                            isCurrentlyLocked
+                                ? "border border-emerald-600 bg-emerald-600 hover:bg-emerald-700"
+                                : "border border-rose-600 bg-rose-600 hover:bg-rose-700"
+                        )}
                     >
-                        <Trash2 className="size-3.5" />
-                        <span>{isSubmitting ? "Đang xử lý..." : "Xác nhận xóa"}</span>
+                        {isSubmitting ? (
+                            <>
+                                <RefreshCw className="size-3.5 animate-spin" />
+                                <span>Đang xử lý...</span>
+                            </>
+                        ) : isCurrentlyLocked ? (
+                            <>
+                                <Unlock className="size-3.5" />
+                                <span>Xác nhận mở khóa</span>
+                            </>
+                        ) : (
+                            <>
+                                <Lock className="size-3.5" />
+                                <span>Xác nhận khóa</span>
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
@@ -220,13 +245,24 @@ export default function EmployeeProfilePage() {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<EmployeeFormData | undefined>(undefined);
     const [viewingEmployee, setViewingEmployee] = useState<EmployeeFormData | undefined>(undefined);
-    const [deleteTarget, setDeleteTarget] = useState<EmployeeFormData | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [statusTarget, setStatusTarget] = useState<EmployeeFormData | null>(null);
+    const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+    const [statusError, setStatusError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [actionNotification, setActionNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
     const [orgUnitOptions, setOrgUnitOptions] = useState<readonly OrgUnitOption[]>(DEFAULT_ORG_UNIT_OPTIONS);
+
+    const departmentFilterOptions = useMemo(() => {
+        const set = new Set<string>();
+        orgUnitOptions.forEach((o) => {
+            if (o.unitName) set.add(o.unitName);
+        });
+        employees.forEach((e) => {
+            if (e.department && e.department !== "Chưa phân bổ") set.add(e.department);
+        });
+        return ["All", ...Array.from(set)];
+    }, [orgUnitOptions, employees]);
 
     // Fetch users và OrgUnits từ Backend API khi trang được tải hoặc khi bấm thử lại
     const loadData = async () => {
@@ -256,7 +292,6 @@ export default function EmployeeProfilePage() {
                 const users = userRes.value?.content || [];
                 const mapped: EmployeeFormData[] = users.map((u: BackendUser) => {
                     const empCode = u.employeeId ? `EMP-${String(u.employeeId).padStart(3, "0")}` : `EMP-${u.id}`;
-                    const phone = getStoredPhone(u.id) || (u.employeeId ? getStoredPhone(u.employeeId) : undefined) || getStoredPhone(empCode);
                     const dates = getStoredDates(u.id) || (u.employeeId ? getStoredDates(u.employeeId) : undefined) || getStoredDates(empCode);
                     return {
                         id: String(u.id),
@@ -265,7 +300,6 @@ export default function EmployeeProfilePage() {
                         fullName: u.fullName || u.username,
                         username: u.username,
                         email: u.email || "",
-                        phone: phone || undefined,
                         orgUnitId: u.orgUnitId ? String(u.orgUnitId) : undefined,
                         department: u.orgUnitName || "Chưa phân bổ",
                         position: u.roleName || "Nhân viên",
@@ -398,40 +432,58 @@ export default function EmployeeProfilePage() {
         }
     };
 
-    const handleDeleteClick = (emp: EmployeeFormData) => {
-        setDeleteTarget(emp);
-        setDeleteError(null);
+    const handleToggleStatusClick = (emp: EmployeeFormData) => {
+        setStatusTarget(emp);
+        setStatusError(null);
     };
 
-    const handleConfirmDelete = async () => {
-        if (!deleteTarget) return;
+    const handleConfirmToggleStatus = async () => {
+        if (!statusTarget) return;
 
-        const numId = typeof deleteTarget.id === "number" ? deleteTarget.id : parseInt(String(deleteTarget.id).replace(/\D/g, ""), 10);
+        const numId = typeof statusTarget.id === "number" ? statusTarget.id : parseInt(String(statusTarget.id).replace(/\D/g, ""), 10);
+        const isCurrentlyLocked = statusTarget.status === "LOCKED" || statusTarget.status === "locked";
+        const willLock = !isCurrentlyLocked;
+
         if (!isNaN(numId)) {
-            setIsDeleting(true);
-            setDeleteError(null);
+            setIsTogglingStatus(true);
+            setStatusError(null);
             try {
-                await toggleUserStatus(numId, true);
+                await toggleUserStatus(numId, willLock);
 
-                // CHỈ cập nhật state UI sau khi API thành công
-                setEmployees((prev) => prev.filter((e) => (e.id || e.employeeCode) !== (deleteTarget.id || deleteTarget.employeeCode)));
+                setEmployees((prev) =>
+                    prev.map((e) =>
+                        (e.id || e.employeeCode) === (statusTarget.id || statusTarget.employeeCode)
+                            ? {
+                                  ...e,
+                                  status: willLock ? "LOCKED" : "ACTIVE",
+                              }
+                            : e
+                    )
+                );
                 setActionNotification({
                     type: "success",
-                    message: `Đã xóa/khóa tài khoản nhân viên ${deleteTarget.fullName} thành công.`,
+                    message: `Đã ${willLock ? "khóa" : "mở khóa"} tài khoản nhân viên ${statusTarget.fullName} thành công.`,
                 });
-                setDeleteTarget(null);
+                setStatusTarget(null);
             } catch (err: any) {
-                console.error("Lỗi khi xóa tài khoản nhân viên:", err);
-                const errorMsg = err?.message || "Máy chủ phản hồi lỗi (403/500) hoặc lỗi mạng. Thao tác xóa không thành công và dữ liệu được giữ nguyên.";
-                setDeleteError(errorMsg);
-                // GIỮ NGUYÊN dữ liệu hiện tại, KHÔNG xóa khỏi employees!
+                console.error("Lỗi khi thay đổi trạng thái tài khoản:", err);
+                const errorMsg = err?.message || "Máy chủ phản hồi lỗi (403/500) hoặc lỗi mạng. Thao tác không thành công và dữ liệu được giữ nguyên.";
+                setStatusError(errorMsg);
             } finally {
-                setIsDeleting(false);
+                setIsTogglingStatus(false);
             }
         } else {
-            // Đối với mock data cục bộ chưa có ID backend
-            setEmployees((prev) => prev.filter((e) => (e.id || e.employeeCode) !== (deleteTarget.id || deleteTarget.employeeCode)));
-            setDeleteTarget(null);
+            setEmployees((prev) =>
+                prev.map((e) =>
+                    (e.id || e.employeeCode) === (statusTarget.id || statusTarget.employeeCode)
+                        ? {
+                              ...e,
+                              status: willLock ? "LOCKED" : "ACTIVE",
+                          }
+                        : e
+                )
+            );
+            setStatusTarget(null);
         }
     };
 
@@ -521,13 +573,7 @@ export default function EmployeeProfilePage() {
                         console.warn("Không thể đồng bộ hồ sơ nhân sự backend:", profErr);
                     }
 
-                    // 4. Lưu số điện thoại và ngày tháng vào localStorage
-                    if (data.phone !== undefined) {
-                        saveStoredPhone(
-                            [numId, editingEmployee.id, editingEmployee.employeeId, editingEmployee.employeeCode, data.employeeCode],
-                            data.phone
-                        );
-                    }
+                    // 4. Lưu ngày tháng vào localStorage
                     saveStoredDates(
                         [numId, editingEmployee.id, editingEmployee.employeeId, editingEmployee.employeeCode, data.employeeCode],
                         { joinDate: data.joinDate, contractEndDate: data.contractEndDate }
@@ -542,7 +588,6 @@ export default function EmployeeProfilePage() {
                                       fullName: updatedFullName,
                                       orgUnitId: updatedOrgUnitId,
                                       department: updatedDepartment,
-                                      phone: data.phone || undefined,
                                       joinDate: data.joinDate || e.joinDate,
                                       startDate: data.joinDate || e.startDate,
                                       contractEndDate: data.contractEndDate || e.contractEndDate,
@@ -576,10 +621,6 @@ export default function EmployeeProfilePage() {
                 } finally {
                     setIsSaving(false);
                 }
-            } else {
-                if (data.phone !== undefined) {
-                    saveStoredPhone([targetId, data.employeeCode], data.phone);
-                }
                 saveStoredDates([targetId, data.employeeCode], {
                     joinDate: data.joinDate,
                     contractEndDate: data.contractEndDate,
@@ -591,7 +632,6 @@ export default function EmployeeProfilePage() {
                                   ...e,
                                   fullName: data.fullName,
                                   department: data.department,
-                                  phone: data.phone || undefined,
                                   joinDate: data.joinDate || e.joinDate,
                                   startDate: data.joinDate || e.startDate,
                                   contractEndDate: data.contractEndDate || e.contractEndDate,
@@ -625,17 +665,18 @@ export default function EmployeeProfilePage() {
                     throw new Error("Máy chủ phản hồi nhưng không tạo được tài khoản hợp lệ.");
                 }
 
-                if (data.dataScope && data.dataScope !== "COMPANY") {
-                    await updateUserRole(res.id, {
-                        roleCode: (data.roleCode as RoleCode) || "VT-04",
-                        dataScope: (data.dataScope as DataScope) || "COMPANY",
-                        scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
-                    });
+                if (data.dataScope || data.roleCode) {
+                    try {
+                        await updateUserRole(res.id, {
+                            roleCode: (data.roleCode as RoleCode) || "VT-04",
+                            dataScope: (data.dataScope as DataScope) || "COMPANY",
+                            scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
+                        });
+                    } catch (roleErr) {
+                        console.warn("Không thể đồng bộ role/dataScope sau createUser:", roleErr);
+                    }
                 }
 
-                if (data.phone) {
-                    saveStoredPhone([res.id, data.employeeCode], data.phone);
-                }
                 if (data.joinDate || data.contractEndDate) {
                     saveStoredDates([res.id, data.employeeCode], {
                         joinDate: data.joinDate,
@@ -648,7 +689,6 @@ export default function EmployeeProfilePage() {
                     ...data,
                     id: String(res.id),
                     employeeCode: data.employeeCode,
-                    phone: data.phone || undefined,
                     joinDate: data.joinDate || undefined,
                     startDate: data.joinDate || undefined,
                     contractEndDate: data.contractEndDate || undefined,
@@ -738,7 +778,7 @@ export default function EmployeeProfilePage() {
                         <CustomSelectDropdown
                             value={selectedDept}
                             onChange={setSelectedDept}
-                            options={DEPARTMENT_OPTIONS}
+                            options={departmentFilterOptions}
                             labelPrefix={true}
                         />
 
@@ -860,7 +900,7 @@ export default function EmployeeProfilePage() {
                                 employee={emp}
                                 onView={handleOpenView}
                                 onEdit={handleOpenEdit}
-                                onDelete={() => handleDeleteClick(emp)}
+                                onToggleStatus={handleToggleStatusClick}
                             />
                         ))
                     )}
@@ -889,16 +929,16 @@ export default function EmployeeProfilePage() {
                 onClose={() => setViewingEmployee(undefined)}
             />
 
-            {/* DIALOG XÁC NHẬN XÓA (TỰ TẠO - THAY THẾ WINDOW.CONFIRM) */}
-            <DeleteConfirmDialog
-                target={deleteTarget}
+            {/* DIALOG XÁC NHẬN KHÓA / MỞ KHÓA TÀI KHOẢN */}
+            <ToggleStatusConfirmDialog
+                target={statusTarget}
                 onClose={() => {
-                    setDeleteTarget(null);
-                    setDeleteError(null);
+                    setStatusTarget(null);
+                    setStatusError(null);
                 }}
-                onConfirm={handleConfirmDelete}
-                isSubmitting={isDeleting}
-                errorMessage={deleteError}
+                onConfirm={handleConfirmToggleStatus}
+                isSubmitting={isTogglingStatus}
+                errorMessage={statusError}
             />
         </div>
     );

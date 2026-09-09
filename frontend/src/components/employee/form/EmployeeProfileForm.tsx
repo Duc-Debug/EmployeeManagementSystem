@@ -9,12 +9,11 @@ import {
     ShieldCheck,
     User,
     Mail,
-    Phone,
     BadgeAlert,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
-import { formatToDateInput } from "@/lib/employee-storage";
+import { cn } from "../../../lib/utils";
+import { OrgUnitCombobox, type OrgUnitOption } from "../../ui/OrgUnitCombobox";
+import { formatToDateInput } from "../../../lib/employee-storage";
 import type { EmployeeFormData } from "./employeeForm.types";
 import {
     DEFAULT_ORG_UNIT_OPTIONS,
@@ -51,7 +50,6 @@ export default function EmployeeProfileForm({
         if (initialData) {
             return {
                 ...initialData,
-                phone: initialData.phone || "",
                 joinDate: formatToDateInput(initialData.joinDate || initialData.startDate) || "",
                 startDate: formatToDateInput(initialData.startDate || initialData.joinDate) || "",
                 contractEndDate: formatToDateInput(initialData.contractEndDate) || "",
@@ -80,7 +78,6 @@ export default function EmployeeProfileForm({
         if (initialData) {
             setFormData({
                 ...initialData,
-                phone: initialData.phone || "",
                 joinDate: formatToDateInput(initialData.joinDate || initialData.startDate) || "",
                 startDate: formatToDateInput(initialData.startDate || initialData.joinDate) || "",
                 contractEndDate: formatToDateInput(initialData.contractEndDate) || "",
@@ -170,7 +167,6 @@ export default function EmployeeProfileForm({
             ...formData,
             fullName: formData.fullName.trim(),
             email: formData.email.trim(),
-            phone: formData.phone?.trim() || "",
             employeeCode: formData.employeeCode.trim().toUpperCase(),
             username: formData.username.trim(),
             department: formData.department || selectedOrg?.unitName || "Chưa phân bổ",
@@ -282,50 +278,31 @@ export default function EmployeeProfileForm({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            {/* Số điện thoại */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-slate-700">Số điện thoại</label>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type="tel"
-                                        placeholder="VD: 0912 345 678"
-                                        value={formData.phone || ""}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                                    />
-                                    <Phone className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                                </div>
+                        {/* Hàng 2: Mã nhân viên */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-slate-700">Mã nhân viên *</label>
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                    {isEdit ? "(Cố định)" : "(Tự sinh hoặc tự nhập)"}
+                                </span>
                             </div>
-
-                            {/* Mã nhân viên */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-slate-700">Mã nhân viên *</label>
-                                    <span className="text-[10px] text-slate-400 font-medium">
-                                        {isEdit ? "(Cố định)" : "(Tự sinh hoặc tự nhập)"}
-                                    </span>
-                                </div>
-                                <input
-                                    type="text"
-                                    required
-                                    disabled={isEdit}
-                                    placeholder="VD: EMP-001"
-                                    value={formData.employeeCode || ""}
-                                    onChange={(e) => {
-                                        if (isEdit) return;
-                                        setFormData({ ...formData, employeeCode: e.target.value });
-                                    }}
-                                    className={cn(
-                                        "w-full rounded-xl border px-3.5 py-2 text-xs font-bold uppercase outline-none transition",
-                                        isEdit
-                                            ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
-                                            : "border-slate-200 bg-slate-50/70 text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                                    )}
-                                />
-                            </div>
+                            <input
+                                type="text"
+                                required
+                                disabled={isEdit}
+                                placeholder="VD: EMP-001"
+                                value={formData.employeeCode || ""}
+                                onChange={(e) => {
+                                    if (isEdit) return;
+                                    setFormData({ ...formData, employeeCode: e.target.value });
+                                }}
+                                className={cn(
+                                    "w-full rounded-xl border px-3.5 py-2 text-xs font-bold uppercase outline-none transition",
+                                    isEdit
+                                        ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                                        : "border-slate-200 bg-slate-50/70 text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                )}
+                            />
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

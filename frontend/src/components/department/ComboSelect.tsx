@@ -66,7 +66,7 @@ export default function ComboSelect({
     }, []);
 
     return (
-        <div className="relative" ref={rootRef}>
+        <div className="relative w-full" ref={rootRef}>
             <button
                 type="button"
                 disabled={disabled}
@@ -131,11 +131,11 @@ export default function ComboSelect({
                                         setQuery("");
                                     }}
                                     className={[
-                                        "flex items-center justify-between gap-2 mx-1 px-3 py-2 text-left text-xs transition rounded-xl hover:bg-slate-100/80",
+                                        "flex w-[calc(100%-0.5rem)] items-center justify-between gap-2 mx-1 px-3 py-2 text-left text-xs transition rounded-xl hover:bg-slate-100/80",
                                         opt.id === value ? "bg-indigo-50 font-semibold text-indigo-700" : "text-slate-700",
                                     ].join(" ")}
                                 >
-                                    <span className="min-w-0">
+                                    <span className="min-w-0 flex-1">
                                         <span className="block truncate">{opt.label}</span>
                                         {opt.sublabel && (
                                             <span className="block truncate text-[10px] font-normal text-slate-400">

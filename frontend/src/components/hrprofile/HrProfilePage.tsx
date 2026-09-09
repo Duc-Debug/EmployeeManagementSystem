@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Plus, Search, X, Check, AlertTriangle, Users } from "lucide-react";
 import type { HrProfileData } from "./hrprofile.types";
 import HrProfileCard from "./HrProfileCard";
@@ -12,7 +12,6 @@ const SAMPLE_PROFILES: HrProfileData[] = [
         fullName: "Trần Lan Anh",
         email: "lananh.tran@company.com",
         username: "lananh.tran",
-        phone: "0901 234 567",
         department: "Phòng Công nghệ",
         professionalRole: "Product Owner / BA",
         startDate: "2023-03-01",
@@ -26,6 +25,7 @@ export default function HrProfilePage() {
     const currentUser = useAuthUser();
     const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
     const canManage = roleCode === "VT-05" || roleCode === "VT-06";
+    const isSelfOnly = roleCode === "VT-04" || currentUser?.dataScope === "SELF";
 
     const [profiles, setProfiles] = useState<HrProfileData[]>(SAMPLE_PROFILES);
     const [searchTerm, setSearchTerm] = useState("");
@@ -33,10 +33,37 @@ export default function HrProfilePage() {
     const [editingProfile, setEditingProfile] = useState<HrProfileData | undefined>(undefined);
     const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-    const filtered = profiles.filter((p) =>
+    const resolvedProfiles = useMemo(() => {
+        if (!isSelfOnly) return profiles;
+        const selfList = profiles.filter((p) => {
+            if (currentUser?.employeeCode && p.employeeCode === currentUser.employeeCode) return true;
+            if (currentUser?.id && p.employeeId === currentUser.id) return true;
+            if (currentUser?.username && p.username === currentUser.username) return true;
+            if (currentUser?.fullName && p.fullName === currentUser.fullName) return true;
+            return false;
+        });
+        if (selfList.length > 0) return selfList;
+        if (currentUser) {
+            return [{
+                id: `self-${currentUser.id}`,
+                employeeCode: currentUser.employeeCode || `EMP-${currentUser.id}`,
+                fullName: currentUser.fullName || currentUser.username,
+                email: currentUser.email || "",
+                username: currentUser.username,
+                department: currentUser.orgUnitName || "Chưa phân bổ",
+                professionalRole: currentUser.roleName || "Nhân viên chuyên môn",
+                startDate: "2024-01-01",
+                standardHoursPerWeek: 40,
+                employeeId: currentUser.id,
+            }];
+        }
+        return [];
+    }, [profiles, isSelfOnly, currentUser]);
+
+    const filtered = resolvedProfiles.filter((p) =>
         p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.phone && p.phone.includes(searchTerm)) ||
+        (p.email && p.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         p.department.toLowerCase().includes(searchTerm.toLowerCase())
     );
 

@@ -9,6 +9,7 @@ import {
     ClipboardList,
     FolderKanban,
     FileText,
+    ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -25,6 +26,7 @@ const SIDEBAR_WORKSPACE = [
 ];
 
 const SIDEBAR_SETTINGS = [
+    { name: "Phân quyền truy cập", icon: ShieldCheck, id: "access" },
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
 

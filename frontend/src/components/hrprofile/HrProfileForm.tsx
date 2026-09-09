@@ -3,14 +3,13 @@ import {
     X,
     User,
     Mail,
-    Phone,
     Clock,
     CalendarDays,
     BadgeAlert,
     Briefcase,
     Building2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 import type { HrProfileData } from "./hrprofile.types";
 
 interface HrProfileFormProps {
@@ -66,7 +65,6 @@ export default function HrProfileForm({
         email: "",
         username: "",
         password: "",
-        phone: "",
         department: "",
         professionalRole: "",
         startDate: "",
@@ -228,23 +226,8 @@ export default function HrProfileForm({
                             </div>
                         </div>
 
-                        {/* Hàng 2: Số điện thoại & Mã nhân viên */}
+                        {/* Hàng 2: Mã nhân viên & Vai trò chuyên môn */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            {/* Số điện thoại */}
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-semibold text-slate-700">Số điện thoại</label>
-                                <div className="relative">
-                                    <input
-                                        type="tel"
-                                        placeholder="VD: 0912 345 678"
-                                        value={formData.phone || ""}
-                                        onChange={(e) => set("phone", e.target.value)}
-                                        className={BASE_INPUT}
-                                    />
-                                    <Phone className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                                </div>
-                            </div>
-
                             {/* Mã nhân viên */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
@@ -263,20 +246,20 @@ export default function HrProfileForm({
                                     className={cn("font-bold uppercase", isEdit ? DISABLED_INPUT : BASE_INPUT)}
                                 />
                             </div>
-                        </div>
 
-                        {/* Hàng 3: Vai trò chuyên môn */}
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-slate-700">Vai trò chuyên môn</label>
-                            <TaskSelect
-                                value={formData.professionalRole || ""}
-                                options={ROLE_OPTIONS}
-                                onChange={(id) => set("professionalRole", id)}
-                                placeholder="-- Chọn vai trò --"
-                                hideSearch={true}
-                                icon={<Briefcase className="size-4 shrink-0 text-slate-400" />}
-                                buttonClassName="bg-slate-50/70 border-slate-200 py-2 rounded-xl"
-                            />
+                            {/* Vai trò chuyên môn */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">Vai trò chuyên môn</label>
+                                <TaskSelect
+                                    value={formData.professionalRole || ""}
+                                    options={ROLE_OPTIONS}
+                                    onChange={(id) => set("professionalRole", id)}
+                                    placeholder="-- Chọn vai trò --"
+                                    hideSearch={true}
+                                    icon={<Briefcase className="size-4 shrink-0 text-slate-400" />}
+                                    buttonClassName="bg-slate-50/70 border-slate-200 py-2 rounded-xl"
+                                />
+                            </div>
                         </div>
 
                         {/* Đơn vị tổ chức trực thuộc */}

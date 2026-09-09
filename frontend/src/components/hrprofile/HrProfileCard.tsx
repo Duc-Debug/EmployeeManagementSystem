@@ -1,4 +1,4 @@
-import { User, Phone, Building2, Briefcase, CalendarDays, Clock, Pencil, Trash2 } from "lucide-react";
+﻿import { User, Mail, Building2, Briefcase, CalendarDays, Clock, Pencil, Trash2 } from "lucide-react";
 import type { HrProfileData } from "./hrprofile.types";
 
 interface HrProfileCardProps {
@@ -38,14 +38,14 @@ export default function HrProfileCard({ profile, canManage = false, onEdit, onDe
                 </div>
             </div>
 
-            {/* Col 2: Phone, Department, Role */}
+            {/* Col 2: Email, Department, Role */}
             <div className="grid flex-1 grid-cols-1 gap-2 text-xs font-medium text-slate-600 sm:grid-cols-3 sm:px-4">
                 <span className="flex items-center gap-1.5 truncate">
-                    <Phone className="size-3.5 shrink-0 text-slate-400" />
-                    {profile.phone ? (
-                        <span className="truncate font-mono">{profile.phone}</span>
+                    <Mail className="size-3.5 shrink-0 text-slate-400" />
+                    {profile.email ? (
+                        <span className="truncate font-mono">{profile.email}</span>
                     ) : (
-                        <span className="italic font-normal text-slate-400">Chưa có SĐT</span>
+                        <span className="italic font-normal text-slate-400">Chưa có email</span>
                     )}
                 </span>
                 <span className="flex items-center gap-1.5 truncate">

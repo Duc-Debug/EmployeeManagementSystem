@@ -57,7 +57,6 @@ export const DEFAULT_FORM_VALUES: EmployeeFormData = {
     roleName: "Nhân viên chuyên môn",
     dataScope: "SELF",
     status: "ACTIVE",
-    phone: "",
     joinDate: "",
     contractEndDate: "",
     standardHoursPerWeek: 40,

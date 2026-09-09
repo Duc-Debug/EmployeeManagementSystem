@@ -5,7 +5,6 @@ export interface HrProfileData {
     email?: string;
     username?: string;
     password?: string;
-    phone?: string;
     orgUnitId?: string;
     department: string;
     professionalRole?: string;
