@@ -1,8 +1,12 @@
 -- ============================================================
--- FLYWAY MIGRATION V31: CREATE PROJECT MILESTONES SCHEMA
+-- FLYWAY MIGRATION V33: CREATE PROJECT MILESTONES SCHEMA
 -- Epic: NCL-03 (Dự án và cây công việc)
 -- Story: NCL-03-CN-006 (Quản lý mốc tiến độ của dự án)
 -- ============================================================
+
+-- Dọn dẹp tàn dư nếu migration bị gián đoạn giữa chừng ở lần chạy trước
+DROP TABLE IF EXISTS milestone_tasks;
+DROP TABLE IF EXISTS project_milestones;
 
 -- 1. Tạo bảng project_milestones lưu trữ các mốc tiến độ của dự án
 CREATE TABLE IF NOT EXISTS project_milestones (
@@ -12,7 +16,6 @@ CREATE TABLE IF NOT EXISTS project_milestones (
     description TEXT NULL,
     planned_date DATE NOT NULL,
     actual_date DATE NULL,
-    status VARCHAR(30) NOT NULL DEFAULT 'ON_TRACK',
     created_by BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL,
@@ -31,8 +34,8 @@ CREATE TABLE IF NOT EXISTS project_milestones (
     CONSTRAINT uk_milestones_project_name
         UNIQUE (project_id, name),
 
-    CONSTRAINT chk_milestones_status
-        CHECK (status IN ('ON_TRACK', 'DELAYED', 'COMPLETED', 'CANCELLED'))
+    INDEX idx_milestones_project_id (project_id),
+    INDEX idx_milestones_planned_date (planned_date)
 );
 
 -- 2. Tạo bảng milestone_tasks liên kết giữa mốc tiến độ và các công việc/hạng mục WBS
@@ -50,18 +53,10 @@ CREATE TABLE IF NOT EXISTS milestone_tasks (
     CONSTRAINT fk_mt_task
         FOREIGN KEY (task_id)
         REFERENCES tasks(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+
+    INDEX idx_milestone_tasks_task_id (task_id)
 );
-
--- 3. Tạo các chỉ mục tối ưu hóa truy vấn
-CREATE INDEX idx_milestones_project_id 
-    ON project_milestones(project_id);
-
-CREATE INDEX idx_milestones_planned_date 
-    ON project_milestones(planned_date);
-
-CREATE INDEX idx_milestone_tasks_task_id 
-    ON milestone_tasks(task_id);
 
 -- 4. Bổ sung quyền quản lý mốc tiến độ cho vai trò Quản lý dự án (VT-02) (AC-03 / TC-03)
 INSERT INTO permissions (code, name, description)
