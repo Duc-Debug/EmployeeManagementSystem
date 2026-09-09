@@ -138,7 +138,7 @@ class RemoveProjectMemberServiceTest {
     void shouldThrowWhenProjectNotFound() {
         when(authorizationService.require(PermissionCode.PROJECT_UPDATE)).thenReturn(CURRENT_USER_ID);
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.empty());
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID))).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.removeProjectMember(new RemoveProjectMemberCommand(PROJECT_ID, MEMBER_EMPLOYEE_ID)))
                 .isInstanceOf(ProjectNotFoundException.class);
@@ -166,7 +166,7 @@ class RemoveProjectMemberServiceTest {
 
         when(authorizationService.require(PermissionCode.PROJECT_UPDATE)).thenReturn(CURRENT_USER_ID);
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(closedProject));
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(closedProject));
 
         assertThatThrownBy(() -> service.removeProjectMember(new RemoveProjectMemberCommand(PROJECT_ID, MEMBER_EMPLOYEE_ID)))
                 .isInstanceOf(ProjectClosedException.class);
@@ -177,7 +177,7 @@ class RemoveProjectMemberServiceTest {
     void shouldThrowWhenRemovingPM() {
         when(authorizationService.require(PermissionCode.PROJECT_UPDATE)).thenReturn(CURRENT_USER_ID);
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
 
         assertThatThrownBy(() -> service.removeProjectMember(new RemoveProjectMemberCommand(PROJECT_ID, PM_EMPLOYEE_ID)))
                 .isInstanceOf(InvalidProjectDataException.class)
@@ -189,7 +189,7 @@ class RemoveProjectMemberServiceTest {
     void shouldThrowWhenMemberNotFoundInProject() {
         when(authorizationService.require(PermissionCode.PROJECT_UPDATE)).thenReturn(CURRENT_USER_ID);
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
         when(loadProjectMemberPort.existsMember(PROJECT_ID, MEMBER_EMPLOYEE_ID)).thenReturn(false);
 
         assertThatThrownBy(() -> service.removeProjectMember(new RemoveProjectMemberCommand(PROJECT_ID, MEMBER_EMPLOYEE_ID)))
@@ -201,7 +201,7 @@ class RemoveProjectMemberServiceTest {
     void shouldThrowWhenMemberHasActiveTasks() {
         when(authorizationService.require(PermissionCode.PROJECT_UPDATE)).thenReturn(CURRENT_USER_ID);
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
         when(loadProjectMemberPort.existsMember(PROJECT_ID, MEMBER_EMPLOYEE_ID)).thenReturn(true);
         when(loadProjectMemberPort.hasActiveTasks(PROJECT_ID, MEMBER_EMPLOYEE_ID)).thenReturn(true);
 
@@ -216,7 +216,7 @@ class RemoveProjectMemberServiceTest {
     void shouldRemoveMemberSuccessfully() {
         when(authorizationService.require(PermissionCode.PROJECT_UPDATE)).thenReturn(CURRENT_USER_ID);
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
         when(loadProjectMemberPort.existsMember(PROJECT_ID, MEMBER_EMPLOYEE_ID)).thenReturn(true);
         when(loadProjectMemberPort.hasActiveTasks(PROJECT_ID, MEMBER_EMPLOYEE_ID)).thenReturn(false);
 

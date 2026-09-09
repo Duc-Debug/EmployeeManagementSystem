@@ -68,7 +68,7 @@ public class RemoveProjectMemberService implements RemoveProjectMemberUseCase {
         Long currentUserId = authorizationService.require(PermissionCode.PROJECT_UPDATE);
         User currentUser = loadCurrentUserOrThrow(currentUserId);
 
-        Project project = loadProjectPort.findById(new ProjectId(command.projectId()))
+        Project project = loadProjectPort.findByIdForUpdate(new ProjectId(command.projectId()))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
 
         if (!canUpdateProject(currentUser, currentUserId, project)) {
