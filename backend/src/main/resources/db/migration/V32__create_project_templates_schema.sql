@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V29: CREATE PROJECT TEMPLATES SCHEMA
+-- FLYWAY MIGRATION V32: CREATE PROJECT TEMPLATES SCHEMA
 -- Epic: NCL-03 (Dự án và cây công việc)
 -- Story: NCL-03-CN-005 (Tạo dự án từ mẫu)
 -- ============================================================
