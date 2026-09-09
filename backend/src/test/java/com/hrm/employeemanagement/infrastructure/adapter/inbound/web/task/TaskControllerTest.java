@@ -29,6 +29,7 @@ import com.hrm.employeemanagement.application.dto.task.CreateTaskCommand;
 import com.hrm.employeemanagement.application.dto.task.TaskNodeResult;
 import com.hrm.employeemanagement.application.dto.task.TaskResult;
 import com.hrm.employeemanagement.application.dto.task.UpdateTaskCommand;
+import com.hrm.employeemanagement.application.port.inbound.task.CloneProjectWbsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.CreateTaskUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.GetProjectWbsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.UpdateTaskUseCase;
@@ -63,13 +64,17 @@ class TaskControllerTest {
     @Mock
     private SetTaskBudgetUseCase setTaskBudgetUseCase;
 
+    @Mock
+    private CloneProjectWbsUseCase cloneProjectWbsUseCase;
+
     @BeforeEach
     void setUp() {
         TaskController controller = new TaskController(
                 createTaskUseCase,
                 updateTaskUseCase,
                 getProjectWbsUseCase,
-                setTaskBudgetUseCase);
+                setTaskBudgetUseCase,
+                cloneProjectWbsUseCase);
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
