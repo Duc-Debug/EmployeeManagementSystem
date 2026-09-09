@@ -456,5 +456,33 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         assertEquals(0, expectedHours.compareTo(results.get(0).weeklyAvailabilities().get(0).netAvailableHours()));
         assertEquals(0, expectedHours.compareTo(results.get(0).weeklyAvailabilities().get(0).remainingHours()));
     }
+
+    @Test
+    @DisplayName("Edge case 14: Thiếu bản ghi WeeklyAvailability thì fallback đúng theo giờ chuẩn trong hợp đồng của nhân sự (ví dụ part-time 20h)")
+    void testSearch_MissingWeeklyAvailability_FallbacksToContractStandardHours() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(100L);
+        User globalUser = createUserWithScope(100L, DataScope.COMPANY, null);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(globalUser));
+
+        // Nhân sự part-time với 20 giờ/tuần
+        ResourceCandidate partTimeCandidate = new ResourceCandidate(
+                201L, 201L, "NV-PT", "Trần Thị PartTime", 10L, "Developer", 20,
+                null, 1L, "Java", 3, BigDecimal.valueOf(2)
+        );
+
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(partTimeCandidate));
+        // Không có bản ghi WeeklyAvailability nào trong DB
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10);
+        List<ResourceSearchResult> results = service.search(query);
+
+        assertEquals(1, results.size());
+        ResourceSearchResult result = results.get(0);
+        assertEquals(20, result.weeklyAvailabilities().get(0).standardHours());
+        assertEquals(0, new BigDecimal("20").compareTo(result.weeklyAvailabilities().get(0).netAvailableHours()));
+        assertEquals(0, new BigDecimal("20").compareTo(result.totalRemainingHours()));
+    }
 }
 

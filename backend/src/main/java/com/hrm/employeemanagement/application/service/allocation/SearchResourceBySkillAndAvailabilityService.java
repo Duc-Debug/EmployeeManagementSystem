@@ -165,6 +165,10 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
                     continue;
                 }
 
+                // Quy tắc nghiệp vụ (Business Rule): Khả dụng tuần là dữ liệu on-demand.
+                // Nếu tuần chưa có bản ghi khai báo riêng biệt (WeeklyAvailability), khả dụng cơ sở
+                // của nhân sự được lấy theo giờ làm việc chuẩn trong hợp đồng (candidate.standardHoursPerWeek()).
+                // Điều này đảm bảo tìm kiếm nhân sự trong tương lai không bị trả về 0h khi tuần chưa được khai báo trước.
                 int standardHours = candidate.standardHoursPerWeek() != null ? candidate.standardHoursPerWeek() : 40;
                 WeeklyAvailability avail = availabilityMap.get(new EmployeeWeekKey(candidate.employeeId(), yw));
                 BigDecimal netAvailable = avail != null ? avail.getNetAvailableHours() : BigDecimal.valueOf(standardHours);
