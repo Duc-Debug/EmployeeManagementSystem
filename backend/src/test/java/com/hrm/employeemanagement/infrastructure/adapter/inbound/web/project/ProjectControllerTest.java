@@ -5,12 +5,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -54,6 +53,9 @@ class ProjectControllerTest {
     @Mock
     private UpdateProjectUseCase updateProjectUseCase;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectController controller =
@@ -61,7 +63,8 @@ class ProjectControllerTest {
                         getProjectListUseCase,
                         getProjectDetailUseCase,
                         createProjectUseCase,
-                        updateProjectUseCase
+                        updateProjectUseCase,
+                        createProjectFromTemplateUseCase
                 );
 
         mockMvc = MockMvcBuilders
@@ -297,6 +300,71 @@ class ProjectControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").value(containsString("projectName")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/from-template tra ve 201 khi du lieu hop le")
+    void testCreateProjectFromTemplate_Success_Returns201() throws Exception {
+        when(createProjectFromTemplateUseCase.createProjectFromTemplate(any())).thenReturn(projectResult(10L));
+
+        String jsonPayload = """
+            {
+                "templateId": 1,
+                "projectName": "Dự án mới từ mẫu",
+                "orgUnitId": 5
+            }
+            """;
+
+        mockMvc.perform(
+                post("/api/v1/projects/from-template")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+        )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(10L));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/from-template tra ve 400 khi templateId bi null")
+    void testCreateProjectFromTemplate_NullTemplateId_Returns400() throws Exception {
+        String jsonPayload = """
+            {
+                "projectName": "Dự án thiếu template",
+                "orgUnitId": 5
+            }
+            """;
+
+        mockMvc.perform(
+                post("/api/v1/projects/from-template")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/from-template tra ve 404 khi template khong ton tai")
+    void testCreateProjectFromTemplate_TemplateNotFound_Returns404() throws Exception {
+        when(createProjectFromTemplateUseCase.createProjectFromTemplate(any()))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.projecttemplate.ProjectTemplateNotFoundException(999L));
+
+        String jsonPayload = """
+            {
+                "templateId": 999,
+                "projectName": "Dự án mẫu không tồn tại",
+                "orgUnitId": 5
+            }
+            """;
+
+        mockMvc.perform(
+                post("/api/v1/projects/from-template")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+        )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     private ProjectResult projectResult(Long id) {

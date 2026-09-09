@@ -1,6 +1,5 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity;
 
-import jakarta.persistence.*;
 import java.time.Instant;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

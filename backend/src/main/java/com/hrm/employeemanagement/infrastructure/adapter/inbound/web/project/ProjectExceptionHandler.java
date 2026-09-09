@@ -15,6 +15,7 @@ import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRan
 import com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectDateNotConfiguredException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
+import com.hrm.employeemanagement.domain.exception.projecttemplate.ProjectTemplateNotFoundException;
 import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
@@ -58,6 +59,11 @@ public class ProjectExceptionHandler {
         @ExceptionHandler(InvalidProjectDateRangeException.class)
         public ResponseEntity<ApiResponse<Void>> handleInvalidProjectDateRange(InvalidProjectDateRangeException ex) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectTemplateNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectTemplateNotFound(ProjectTemplateNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(InvalidResourceDemandException.class)
