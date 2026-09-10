@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getUsers } from '@/lib/api/users';
 import { getEmployees } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
@@ -35,6 +35,8 @@ import {
     Calendar,
     ChevronDown,
     Copy,
+    Lock,
+    Unlock,
 } from 'lucide-react';
 import {
     type ProjectMonth,
@@ -49,6 +51,8 @@ import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectBudgetModal } from './ProjectBudgetModal';
 import { ProjectCreateModal } from './ProjectCreateModal';
 import { CloneWbsModal } from './CloneWbsModal';
+import { ProjectCloseModal } from './ProjectCloseModal';
+import { ProjectReopenModal } from './ProjectReopenModal';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
@@ -190,10 +194,14 @@ function mapBackendWbsToUiCategories(
 
 export default function ProjectView() {
     const currentUser = useAuthUser();
+    const userRoleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-');
+    const isExecutive = userRoleCode === 'VT-01';
+    const isPm = userRoleCode === 'VT-02';
+
     // PROJECT_CREATE: Chỉ VT-02 (PM) mới có quyền tạo/quản lý dự án (✅ trong ma trận)
     // VT-01 👁️ Xem | VT-03 👁️ Xem | VT-06 ❌ — theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md
-    const canManageProject = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
-    const canManageAllocations = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-03';
+    const canManageProject = isPm;
+    const canManageAllocations = userRoleCode === 'VT-03';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
@@ -202,7 +210,7 @@ export default function ProjectView() {
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
 
     // Real projects backend state
-    const canManageWbs = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
+    const canManageWbs = isPm;
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
@@ -212,9 +220,16 @@ export default function ProjectView() {
     const [allocationError, setAllocationError] = useState<string | null>(null);
     const [projectCreateModalOpen, setProjectCreateModalOpen] = useState<boolean>(false);
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
+    const [closeModalOpen, setCloseModalOpen] = useState<boolean>(false);
+    const [reopenModalOpen, setReopenModalOpen] = useState<boolean>(false);
 
-    // Selected project object
+    // Selected project object & Closed status (QTN-08)
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
+    const isProjectClosed = selectedProject?.status === 'CLOSED';
+
+    // Quyền đóng và mở lại dự án (NCL-03-CN-004)
+    const canCloseProject = (isExecutive || isPm) && !isProjectClosed && selectedProject !== null;
+    const canReopenProject = (isExecutive || isPm) && isProjectClosed && selectedProject !== null;
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -232,6 +247,19 @@ export default function ProjectView() {
         }
         showToast(`Nhân bản thành công ${result.totalClonedTasks} công việc sang dự án!`, 'success');
     };
+
+    // Danh sách task chưa hoàn thành trong WBS (để hiển thị cảnh báo trước khi đóng dự án)
+    const unfinishedTasks = useMemo(() => {
+        const list: { code?: string; name: string }[] = [];
+        categories.forEach((cat) => {
+            cat.tasks.forEach((t) => {
+                if (t.status !== 'Hoàn thành') {
+                    list.push({ code: t.code, name: t.name });
+                }
+            });
+        });
+        return list;
+    }, [categories]);
 
     // 1. Tải danh sách nhân sự thật từ API (sử dụng getEmployees có quyền cho mọi vai trò)
     useEffect(() => {
@@ -602,6 +630,22 @@ export default function ProjectView() {
         showToast('Dự án đã được tạo thành công trong Database!', 'success');
     };
 
+    const handleProjectClosed = async (closedProj: ProjectResult) => {
+        showToast(`Đã đóng dự án ${closedProj.projectName} thành công. Toàn bộ công việc và phân bổ đã được khóa (QTN-08)!`, 'info');
+        await loadProjects();
+        if (selectedProjectId) {
+            await loadWbsForProject(selectedProjectId);
+        }
+    };
+
+    const handleProjectReopened = async (reopenedProj: ProjectResult) => {
+        showToast(`Đã mở lại dự án ${reopenedProj.projectName} thành công. Dự án đã chuyển về trạng thái hoạt động!`, 'success');
+        await loadProjects();
+        if (selectedProjectId) {
+            await loadWbsForProject(selectedProjectId);
+        }
+    };
+
     const handleExportReport = () => {
         showToast('Đang tạo báo cáo ma trận nhân lực & WBS dạng Excel...', 'info');
         setTimeout(() => {
@@ -646,10 +690,28 @@ export default function ProjectView() {
                                     Quản Trị Dự Án & Nguồn Lực
                                 </h1>
 
+                                {/* Status Badge của dự án đang chọn */}
+                                {selectedProject && (
+                                    selectedProject.status === 'CLOSED' ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700 shadow-2xs">
+                                            <Lock className="h-3 w-3 text-rose-600" />
+                                            <span>Đã đóng</span>
+                                        </span>
+                                    ) : selectedProject.status === 'ACTIVE' ? (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 shadow-2xs">
+                                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                                            <span>Đang thực hiện</span>
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 shadow-2xs">
+                                            <span>Tạm dừng</span>
+                                        </span>
+                                    )
+                                )}
+
                                 {isBackendConnected && selectedProject ? (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                                        <Database className="h-3 w-3 text-emerald-700" /> 
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                        <Database className="h-3 w-3 text-emerald-600" /> Đồng bộ DB
                                     </span>
                                 ) : (
                                     <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
@@ -672,7 +734,7 @@ export default function ProjectView() {
                                             >
                                                 {projectsList.map((p) => (
                                                     <option key={p.id} value={p.id}>
-                                                        {p.projectName} ({p.projectCode})
+                                                        {p.projectName} ({p.projectCode}) {p.status === 'CLOSED' ? '— [ĐÃ ĐÓNG]' : ''}
                                                     </option>
                                                 ))}
                                             </select>
@@ -716,12 +778,43 @@ export default function ProjectView() {
                             <span>+ Dự án mới</span>
                         </button>}
 
+                        {/* Nút Đóng dự án (NCL-03-CN-004) */}
+                        {canCloseProject && (
+                            <button
+                                type="button"
+                                onClick={() => setCloseModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 shadow-2xs transition hover:bg-rose-100 active:scale-95 cursor-pointer"
+                                title="Đóng dự án và chốt giờ công / chi phí (QTN-08)"
+                            >
+                                <Lock className="h-3.5 w-3.5 text-rose-600" />
+                                <span>Đóng dự án</span>
+                            </button>
+                        )}
+
+                        {/* Nút Mở lại dự án (NCL-03-CN-004) */}
+                        {canReopenProject && (
+                            <button
+                                type="button"
+                                onClick={() => setReopenModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 shadow-2xs transition hover:bg-emerald-100 active:scale-95 cursor-pointer"
+                                title="Kích hoạt mở lại dự án đã đóng"
+                            >
+                                <Unlock className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>Mở lại dự án</span>
+                            </button>
+                        )}
+
                         {canManageWbs && (
                             <button
                                 type="button"
-                                onClick={() => setCloneModalOpen(true)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-indigo-600/30 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 hover:border-indigo-600/60 active:scale-95 cursor-pointer"
-                                title="Nhân bản toàn bộ cây WBS sang dự án khác"
+                                disabled={isProjectClosed}
+                                onClick={() => !isProjectClosed && setCloneModalOpen(true)}
+                                className={`inline-flex items-center gap-2 rounded-xl border border-indigo-600/30 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 shadow-2xs transition ${
+                                    isProjectClosed
+                                        ? 'opacity-40 cursor-not-allowed'
+                                        : 'hover:bg-indigo-100 hover:border-indigo-600/60 active:scale-95 cursor-pointer'
+                                }`}
+                                title={isProjectClosed ? 'Dự án đã đóng, không thể nhân bản WBS' : 'Nhân bản toàn bộ cây WBS sang dự án khác'}
                             >
                                 <Copy className="h-3.5 w-3.5 text-indigo-600" />
                                 <span>Nhân bản WBS</span>
@@ -730,8 +823,14 @@ export default function ProjectView() {
 
                         {canManageProject && <button
                             type="button"
-                            onClick={() => handleQuickAddTask()}
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
+                            disabled={isProjectClosed}
+                            onClick={() => !isProjectClosed && handleQuickAddTask()}
+                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition ${
+                                isProjectClosed
+                                    ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
+                                    : 'bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700 active:scale-95 cursor-pointer'
+                            }`}
+                            title={isProjectClosed ? 'Dự án đã đóng, không thể tạo thêm công việc mới (QTN-08)' : 'Thêm công việc'}
                         >
                             <Plus className="h-4 w-4 stroke-[2.5]" />
                             <span>Thêm công việc</span>
@@ -768,6 +867,44 @@ export default function ProjectView() {
                 </div>
             )}
 
+            {/* Banner cảnh báo khi dự án đã đóng theo quy tắc QTN-08 */}
+            {isProjectClosed && selectedProject && (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-xs text-rose-900 shadow-2xs flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-xl bg-rose-100 text-rose-700 shrink-0">
+                            <Lock className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-rose-950 text-sm">
+                                    Dự án đã đóng ({selectedProject.projectCode})
+                                </h3>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                                    Khóa QTN-08
+                                </span>
+                            </div>
+                            <p className="text-rose-700 mt-1 leading-relaxed text-[11px]">
+                                Theo quy tắc <strong>QTN-08</strong>, toàn bộ công việc và phân bổ nguồn lực đã được chốt. Hệ thống không cho phép tạo thêm công việc mới hoặc thay đổi giờ phân bổ.
+                            </p>
+                            {selectedProject.closureReason && (
+                                <p className="mt-1.5 text-[11px] text-rose-800 bg-white/70 p-2 rounded-lg border border-rose-200/60">
+                                    <span className="font-semibold text-rose-900">Lý do đóng:</span> {selectedProject.closureReason}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    {canReopenProject && (
+                        <button
+                            type="button"
+                            onClick={() => setReopenModalOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition shrink-0 cursor-pointer"
+                        >
+                            <Unlock className="h-3.5 w-3.5" />
+                            <span>Mở lại dự án</span>
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* KPI Metric Cards */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -922,10 +1059,11 @@ export default function ProjectView() {
                             members={members}
                             searchTerm={search}
                             selectedRole={roleFilter}
+                            isClosed={isProjectClosed}
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
                             onOpenBudgetModal={handleOpenBudgetModal}
-                            onOpenCloneModal={canManageWbs ? () => setCloneModalOpen(true) : undefined}
+                            onOpenCloneModal={canManageWbs && !isProjectClosed ? () => setCloneModalOpen(true) : undefined}
                         />
                     </div>
                 )}
@@ -938,6 +1076,7 @@ export default function ProjectView() {
                             members={members}
                             selectedRole={roleFilter}
                             searchTerm={search}
+                            isClosed={isProjectClosed}
                             onNavigateMonth={handleNavigateMonth}
                             onOpenAdjustModal={handleOpenAdjustModal}
                         />
@@ -988,6 +1127,25 @@ export default function ProjectView() {
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
             />}
+
+            {/* Modal Đóng dự án (NCL-03-CN-004) */}
+            <ProjectCloseModal
+                open={closeModalOpen}
+                project={selectedProject}
+                unfinishedTasks={unfinishedTasks}
+                isExecutive={isExecutive}
+                onClose={() => setCloseModalOpen(false)}
+                onSuccess={handleProjectClosed}
+            />
+
+            {/* Modal Mở lại dự án (NCL-03-CN-004) */}
+            <ProjectReopenModal
+                open={reopenModalOpen}
+                project={selectedProject}
+                isExecutive={isExecutive}
+                onClose={() => setReopenModalOpen(false)}
+                onSuccess={handleProjectReopened}
+            />
 
             {/* Toast Notification */}
             {toast && (
