@@ -55,6 +55,26 @@ export interface PendingEmployeeSkillItem {
   createdAt?: string;
 }
 
+export interface ApproveEmployeeSkillPayload {
+  adjustedProficiencyLevel: number;
+  reviewNotes?: string;
+}
+
+export interface ApprovedSkillResponse {
+  id: number;
+  employeeId: number;
+  skillId: number;
+  skillName: string;
+  skillCode?: string;
+  skillCategory?: string;
+  proficiencyLevel: number;
+  yearsOfExperience: number;
+  status: string;
+  approvedBy?: number;
+  approvedAt?: string;
+  reviewNotes?: string;
+}
+
 export interface SkillMatrixSkillHeader {
   id: number;
   code: string;
@@ -241,6 +261,19 @@ export async function getPendingSkills(keyword?: string): Promise<PendingEmploye
   return unwrapList<PendingEmployeeSkillItem>(res);
 }
 
+/**
+ * Lấy danh sách các kỹ năng của nhân viên đang chờ quản lý xác nhận/phê duyệt
+ */
+export async function getPendingEmployeeSkills(
+  keyword?: string
+): Promise<PendingEmployeeSkillItem[]> {
+  const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
+  const res = await apiRequest<any>(`/employee-skills/pending${query}`, {
+    method: "GET",
+  });
+  return unwrapList<PendingEmployeeSkillItem>(res);
+}
+
 export async function approveSkill(
   id: number,
   payload: {
@@ -253,6 +286,20 @@ export async function approveSkill(
     body: JSON.stringify(payload),
   });
   return unwrapData<EmployeeSkillResponse>(res);
+}
+
+/**
+ * Xác nhận hoặc điều chỉnh mức thành thạo của kỹ năng kèm ghi chú đánh giá (NCL-02-CN-006)
+ */
+export async function approveEmployeeSkill(
+  id: number,
+  payload: ApproveEmployeeSkillPayload
+): Promise<ApprovedSkillResponse> {
+  const res = await apiRequest<any>(`/employee-skills/${id}/approve`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return unwrapData<ApprovedSkillResponse>(res);
 }
 
 export async function rejectSkill(id: number, rejectionReason?: string): Promise<EmployeeSkillResponse> {
@@ -321,4 +368,3 @@ export async function searchResourcesBySkill(params: {
   const res = await apiRequest<any>(`/allocations/search?${query.toString()}`);
   return unwrapList<ResourceSearchResultItem>(res);
 }
-

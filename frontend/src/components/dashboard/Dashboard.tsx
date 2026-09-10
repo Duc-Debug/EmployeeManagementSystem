@@ -12,7 +12,7 @@ import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
 import HrProfilePage from "../hrprofile/HrProfilePage";
 import AttendanceView from "../attendance/AttendanceView";
 import SkilldeclarationView from "../skilldeclaration/SkilldeclarationView";
-import ProjectView from "../task/ProjectView";
+import ProjectView from "../project/ProjectView";
 import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import type { AttendanceRecord } from "@/lib/hr-data";
@@ -34,8 +34,8 @@ export default function Dashboard() {
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
         if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
-        if (path.includes("hrprofile") || path.includes("ho-so")) return "hrprofile";
-        if (path.includes("user") || path.includes("tai-khoan") || path.includes("employee") || path.includes("nhan-su")) return "users";
+        if (path.includes("hrprofile") || path.includes("ho-so") || path.includes("employee")) return "hrprofile";
+        if (path.includes("user") || path.includes("tai-khoan")) return "users";
         if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
         if (path.includes("attendance") || path.includes("cham-cong")) return "attendance";
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";

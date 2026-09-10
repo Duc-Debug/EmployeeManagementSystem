@@ -66,11 +66,15 @@ export const PROFICIENCY_LEVELS = [
 export interface PendingApprovalSkill {
     id: number;
     employeeName: string;
+    employeeCode?: string;
+    orgUnitName?: string;
     skillName: string;
     category: string;
     level: number; // 1..5
     years: number;
     status: 'pending' | 'approved' | 'rejected';
+    adjustedLevel?: number;
+    reviewNotes?: string;
 }
 
 export const INITIAL_APPROVAL_REQUESTS: PendingApprovalSkill[] = [

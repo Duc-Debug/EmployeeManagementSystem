@@ -104,6 +104,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateUsername(com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_USERNAME",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.user.DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(com.hrm.employeemanagement.domain.exception.user.DuplicateEmailException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_EMAIL",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     // 3. Handle CyclicDependencyException (400 BAD REQUEST)
     @ExceptionHandler(CyclicDependencyException.class)
     public ResponseEntity<ErrorResponse> handleCyclicDependency(CyclicDependencyException ex) {

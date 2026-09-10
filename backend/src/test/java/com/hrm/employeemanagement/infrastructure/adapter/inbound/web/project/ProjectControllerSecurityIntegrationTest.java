@@ -108,7 +108,7 @@ class ProjectControllerSecurityIntegrationTest {
                 user(
                         "no-project-read-" + suffix,
                         "VT-05",
-                        DataScope.SELF,
+                        DataScope.COMPANY,
                         null
                 );
 
@@ -150,7 +150,7 @@ class ProjectControllerSecurityIntegrationTest {
         UserJpaEntity actor =
                 user(
                         "branch-actor-" + suffix,
-                        "VT-02",
+                        "VT-03",
                         DataScope.ORGANIZATION_BRANCH,
                         tech.getId()
                 );
@@ -175,7 +175,7 @@ class ProjectControllerSecurityIntegrationTest {
                                 .with(authentication(
                                         authenticationFor(
                                                 actor,
-                                                RoleCode.VT_02
+                                                RoleCode.VT_03
                                         )
                                 ))
                 )
@@ -330,6 +330,7 @@ class ProjectControllerSecurityIntegrationTest {
             UserJpaEntity user,
             RoleCode roleCode
     ) {
+        DataScope scope = user.getDataScope() != null ? DataScope.valueOf(user.getDataScope()) : DataScope.SELF;
         User principal =
                 new User(
                         new UserId(user.getId()),
@@ -341,7 +342,10 @@ class ProjectControllerSecurityIntegrationTest {
                                 roleCode.getName()
                         ),
                         UserStatus.ACTIVE,
-                        new EmployeeId(1L)
+                        new EmployeeId(1L),
+                        scope,
+                        user.getScopeOrgUnitId(),
+                        0L
                 );
 
         return new UsernamePasswordAuthenticationToken(

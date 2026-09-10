@@ -64,6 +64,24 @@ public class ProjectJpaEntity {
     @Column(name = "task_seq_counter", nullable = false)
     private Integer taskSeqCounter = 0;
 
+    @Column(name = "closure_reason", length = 500)
+    private String closureReason;
+
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
+
+    @Column(name = "closed_by")
+    private Long closedBy;
+
+    @Column(name = "reopen_reason", length = 500)
+    private String reopenReason;
+
+    @Column(name = "reopened_at")
+    private LocalDateTime reopenedAt;
+
+    @Column(name = "reopened_by")
+    private Long reopenedBy;
+
     public ProjectJpaEntity() {
     }
 
@@ -131,6 +149,37 @@ public class ProjectJpaEntity {
         this.updatedAt = updatedAt;
         this.version = version;
         this.taskSeqCounter = taskSeqCounter != null ? taskSeqCounter : 0;
+    }
+
+    public ProjectJpaEntity(
+            Long id,
+            String projectCode,
+            String projectName,
+            Long orgUnitId,
+            Long managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description,
+            ProjectStatus status,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Integer taskSeqCounter,
+            String closureReason,
+            LocalDateTime closedAt,
+            Long closedBy,
+            String reopenReason,
+            LocalDateTime reopenedAt,
+            Long reopenedBy) {
+        this(id, projectCode, projectName, orgUnitId, managerId, startDate, endDate, estimatedHours, description, status, createdBy, createdAt, updatedAt, version, taskSeqCounter);
+        this.closureReason = closureReason;
+        this.closedAt = closedAt;
+        this.closedBy = closedBy;
+        this.reopenReason = reopenReason;
+        this.reopenedAt = reopenedAt;
+        this.reopenedBy = reopenedBy;
     }
 
     @PrePersist
@@ -267,5 +316,53 @@ public class ProjectJpaEntity {
 
     public void setTaskSeqCounter(Integer taskSeqCounter) {
         this.taskSeqCounter = taskSeqCounter != null ? taskSeqCounter : 0;
+    }
+
+    public String getClosureReason() {
+        return closureReason;
+    }
+
+    public void setClosureReason(String closureReason) {
+        this.closureReason = closureReason;
+    }
+
+    public LocalDateTime getClosedAt() {
+        return closedAt;
+    }
+
+    public void setClosedAt(LocalDateTime closedAt) {
+        this.closedAt = closedAt;
+    }
+
+    public Long getClosedBy() {
+        return closedBy;
+    }
+
+    public void setClosedBy(Long closedBy) {
+        this.closedBy = closedBy;
+    }
+
+    public String getReopenReason() {
+        return reopenReason;
+    }
+
+    public void setReopenReason(String reopenReason) {
+        this.reopenReason = reopenReason;
+    }
+
+    public LocalDateTime getReopenedAt() {
+        return reopenedAt;
+    }
+
+    public void setReopenedAt(LocalDateTime reopenedAt) {
+        this.reopenedAt = reopenedAt;
+    }
+
+    public Long getReopenedBy() {
+        return reopenedBy;
+    }
+
+    public void setReopenedBy(Long reopenedBy) {
+        this.reopenedBy = reopenedBy;
     }
 }

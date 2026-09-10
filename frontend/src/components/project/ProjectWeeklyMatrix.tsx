@@ -275,15 +275,48 @@ export function ProjectWeeklyMatrix({
             </div>
 
             {/* Weekly Insights Banner */}
-            <div className="flex items-start gap-2.5 border-t border-amber-200/60 bg-amber-50/60 p-3 text-xs text-amber-900">
-                <Lightbulb className="mt-0.5 h-4 w-4 text-amber-500 shrink-0" />
-                <div>
-                    <strong className="font-semibold">Gợi ý cân đối nguồn lực tháng này:</strong> Nhân sự{' '}
-                    <span className="font-bold underline decoration-amber-400">Lê Quốc Bảo (BE)</span> đang gánh 48 giờ ở Tuần 3
-                    (vượt 120% định mức 40h). Hãy chuyển bớt task <em>API Tích hợp cổng thanh toán</em> sang cho{' '}
-                    <span className="font-bold">Vũ Tuấn Kiệt</span> hoặc dời lịch sang Tuần 4.
-                </div>
-            </div>
+            {(() => {
+                const overloadedEntries: { memberName: string; role: string; weekLabel: string; hours: number; pct: number }[] = [];
+                filteredMembers.forEach((m) => {
+                    monthWeeks.forEach((w) => {
+                        const h = m.weeklyHours[w.key] || 0;
+                        const cap = m.capacity || 40;
+                        if (h > cap) {
+                            overloadedEntries.push({
+                                memberName: m.name,
+                                role: m.role,
+                                weekLabel: w.label,
+                                hours: h,
+                                pct: Math.round((h / cap) * 100),
+                            });
+                        }
+                    });
+                });
+
+                if (overloadedEntries.length > 0) {
+                    const top = overloadedEntries[0];
+                    return (
+                        <div className="flex items-start gap-2.5 border-t border-rose-200/80 bg-rose-50/70 p-3 text-xs text-rose-900">
+                            <Lightbulb className="mt-0.5 h-4 w-4 text-rose-600 shrink-0" />
+                            <div>
+                                <strong className="font-semibold">Cảnh báo tải trọng nhân lực tháng này:</strong> Nhân sự{' '}
+                                <span className="font-bold underline decoration-rose-400">{top.memberName} ({top.role})</span>{' '}
+                                đang được phân bổ <strong>{top.hours}h</strong> ở {top.weekLabel} (vượt <strong>{top.pct}%</strong> định mức).
+                                Cần cân nhắc san sẻ bớt công việc cho nhân sự khác còn trống giờ hoặc giãn tiến độ sang các tuần tiếp theo.
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="flex items-start gap-2.5 border-t border-emerald-200/80 bg-emerald-50/70 p-3 text-xs text-emerald-900">
+                        <Lightbulb className="mt-0.5 h-4 w-4 text-emerald-600 shrink-0" />
+                        <div>
+                            <strong className="font-semibold">Đánh giá tải trọng nhân lực:</strong> Phân bổ công suất toàn bộ đội ngũ trong tháng này đang ở mức an toàn, không có nhân sự nào vượt quá định mức 40h/tuần. Nhấp vào từng ô giờ để điều chỉnh phân bổ chi tiết.
+                        </div>
+                    </div>
+                );
+            })()}
         </section>
     );
 }

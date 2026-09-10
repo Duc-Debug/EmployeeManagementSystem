@@ -13,7 +13,10 @@ import com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDema
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectAlreadyClosedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectDateNotConfiguredException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectHasUnfinishedTasksException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectNotClosedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.projecttemplate.ProjectTemplateNotFoundException;
 import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
@@ -27,18 +30,14 @@ public class ProjectExceptionHandler {
         public ResponseEntity<ApiResponse<Void>> handlePermissionDenied(
                         PermissionDeniedException ex) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                .body(
-                                                ApiResponse.error(
-                                                                ex.getMessage()));
+                                .body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(ProjectNotFoundException.class)
         public ResponseEntity<ApiResponse<Void>> handleProjectNotFound(
                         ProjectNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                .body(
-                                                ApiResponse.error(
-                                                                ex.getMessage()));
+                                .body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(DuplicateProjectCodeException.class)
@@ -81,28 +80,50 @@ public class ProjectExceptionHandler {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
 
+        @ExceptionHandler(ProjectAlreadyClosedException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectAlreadyClosed(ProjectAlreadyClosedException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectNotClosedException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectNotClosed(ProjectNotClosedException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectHasUnfinishedTasksException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectHasUnfinishedTasks(
+                        ProjectHasUnfinishedTasksException ex) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                                .body(ApiResponse.error(ex.getMessage()));
+        }
+
         @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException.class)
-        public ResponseEntity<ApiResponse<Void>> handleDuplicateProjectMember(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException ex) {
+        public ResponseEntity<ApiResponse<Void>> handleDuplicateProjectMember(
+                        com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException ex) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException.class)
-        public ResponseEntity<ApiResponse<Void>> handleProjectMemberNotFound(com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException ex) {
+        public ResponseEntity<ApiResponse<Void>> handleProjectMemberNotFound(
+                        com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException.class)
-        public ResponseEntity<ApiResponse<Void>> handleMemberHasActiveTasks(com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException ex) {
+        public ResponseEntity<ApiResponse<Void>> handleMemberHasActiveTasks(
+                        com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException ex) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.ProjectClosedException.class)
-        public ResponseEntity<ApiResponse<Void>> handleProjectClosed(com.hrm.employeemanagement.domain.exception.task.ProjectClosedException ex) {
+        public ResponseEntity<ApiResponse<Void>> handleProjectClosed(
+                        com.hrm.employeemanagement.domain.exception.task.ProjectClosedException ex) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException.class)
-        public ResponseEntity<ApiResponse<Void>> handleEmployeeNotFound(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException ex) {
+        public ResponseEntity<ApiResponse<Void>> handleEmployeeNotFound(
+                        com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
 }

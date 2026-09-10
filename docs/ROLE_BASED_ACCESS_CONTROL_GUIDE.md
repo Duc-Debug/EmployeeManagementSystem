@@ -91,9 +91,9 @@ export function isAdmin(user?: User | null): boolean {
   return user?.roleCode === "VT-06";
 }
 
-// Helper kiểm tra quyền quản lý nhân sự
+// Helper kiểm tra quyền quản lý hồ sơ nhân sự (Chỉnh sửa hồ sơ dành riêng cho VT-05; VT-06 chỉ xem)
 export function isHRManager(user?: User | null): boolean {
-  return user?.roleCode === "VT-05" || user?.roleCode === "VT-06";
+  return user?.roleCode === "VT-05";
 }
 
 // Helper kiểm tra quyền điều phối nguồn lực

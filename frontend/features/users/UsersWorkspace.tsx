@@ -7,7 +7,7 @@ import { RoleBadge, ScopeBadge, StatusBadge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
-import { flattenOrgTree } from "@/lib/organization";
+import { flattenOrgTree, flattenActiveOrgTree } from "@/lib/organization";
 import { DEMO_ROLES } from "@/src/mocks/hrm";
 import type { OrgUnitTreeNode, User } from "@/src/types/hrm";
 import { createUser, getUsers, toggleUserStatus, updateUser } from "@/lib/api/users";
@@ -28,6 +28,7 @@ const EMPTY_DRAFT: UserAccountDraft = {
   roleCode: "",
   scopeOrgUnitId: "",
   status: "ACTIVE",
+  syncOrgScope: true,
   username: "",
 };
 
@@ -42,6 +43,7 @@ function toEditDraft(user: User): UserAccountDraft {
     roleCode: user.roleCode,
     scopeOrgUnitId: user.scopeOrgUnitId ? String(user.scopeOrgUnitId) : "",
     status: user.status,
+    syncOrgScope: !user.scopeOrgUnitId || String(user.scopeOrgUnitId) === String(user.orgUnitId),
     username: user.username,
   };
 }
@@ -92,7 +94,7 @@ export function UsersWorkspace() {
     };
   }, [reloadTick]);
 
-  const orgUnits = useMemo(() => flattenOrgTree(rawTree), [rawTree]);
+  const orgUnits = useMemo(() => flattenActiveOrgTree(rawTree), [rawTree]);
   const orgUnitOptions = useMemo(() => orgUnits
     .filter((orgUnit) => orgUnit.unitType !== "COMPANY")
     .map((orgUnit) => ({
@@ -157,7 +159,13 @@ export function UsersWorkspace() {
   }
 
   function updateDraft<Key extends keyof UserAccountDraft>(key: Key, value: UserAccountDraft[Key]) {
-    setDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
+    setDraft((currentDraft) => {
+      const next = { ...currentDraft, [key]: value };
+      if (key === "orgUnitId" && next.roleCode === "VT-03" && next.syncOrgScope !== false) {
+        next.scopeOrgUnitId = String(value || "");
+      }
+      return next;
+    });
     setErrors((currentErrors) => ({ ...currentErrors, [key]: undefined }));
   }
 
@@ -186,8 +194,10 @@ export function UsersWorkspace() {
     }
 
     if (!draft.roleCode) nextErrors.roleCode = "Hãy chọn vai trò (Role).";
-    if (draft.dataScope === "ORGANIZATION_BRANCH" && !draft.scopeOrgUnitId) {
-      nextErrors.scopeOrgUnitId = "Hãy chọn đơn vị tổ chức áp dụng.";
+    if (draft.dataScope === "ORGANIZATION_BRANCH") {
+      if (draft.syncOrgScope === false && !draft.scopeOrgUnitId) {
+        nextErrors.scopeOrgUnitId = "Hãy chọn đơn vị tổ chức áp dụng.";
+      }
     }
 
     setErrors(nextErrors);
@@ -214,6 +224,10 @@ export function UsersWorkspace() {
         return;
       }
 
+      const scopeOrgUnitId = draft.roleCode === "VT-03"
+        ? (draft.syncOrgScope !== false ? selectedOrgUnit.id : (draft.scopeOrgUnitId ? Number(draft.scopeOrgUnitId) : selectedOrgUnit.id))
+        : undefined;
+
       try {
         const created = await createUser({
           email: draft.email.trim() || undefined,
@@ -222,6 +236,7 @@ export function UsersWorkspace() {
           orgUnitId: selectedOrgUnit.id,
           password: draft.password,
           roleCode: selectedRole.code,
+          scopeOrgUnitId,
           username: draft.username.trim(),
         });
         setUsers((currentUsers) => [created, ...currentUsers]);
@@ -229,7 +244,19 @@ export function UsersWorkspace() {
         closeEditor();
       } catch (err) {
         if (err instanceof ApiError) {
-          setErrors({ username: err.message });
+          const isEmailError =
+            (err.data && (err.data.code === "DUPLICATE_EMAIL" || err.data.error === "DUPLICATE_EMAIL")) ||
+            err.message.toLowerCase().includes("email");
+          const isEmployeeCodeError =
+            (err.data && (err.data.code === "DUPLICATE_EMPLOYEE_CODE" || err.data.error === "DUPLICATE_EMPLOYEE_CODE")) ||
+            err.message.toLowerCase().includes("mã nhân viên");
+          if (isEmailError) {
+            setErrors({ email: err.message });
+          } else if (isEmployeeCodeError) {
+            setErrors({ employeeCode: err.message });
+          } else {
+            setErrors({ username: err.message });
+          }
         }
       }
       return;
@@ -239,8 +266,11 @@ export function UsersWorkspace() {
       return;
     }
 
-    const scopeOrgUnitId = draft.dataScope === "ORGANIZATION_BRANCH" ? Number(draft.scopeOrgUnitId) : null;
     const orgUnitId = draft.orgUnitId ? Number(draft.orgUnitId) : null;
+    const scopeOrgUnitId = draft.roleCode === "VT-03"
+      ? (draft.syncOrgScope !== false ? orgUnitId : (draft.scopeOrgUnitId ? Number(draft.scopeOrgUnitId) : orgUnitId))
+      : null;
+
     try {
       const updated = await updateUser(editingUser.id, {
         dataScope: selectedRole.code === "VT-06" ? "COMPANY" : draft.dataScope,
@@ -256,7 +286,19 @@ export function UsersWorkspace() {
       closeEditor();
     } catch (err) {
       if (err instanceof ApiError) {
-        setErrors({ fullName: err.message });
+        const isEmailError =
+          (err.data && (err.data.code === "DUPLICATE_EMAIL" || err.data.error === "DUPLICATE_EMAIL")) ||
+          err.message.toLowerCase().includes("email");
+        const isEmployeeCodeError =
+          (err.data && (err.data.code === "DUPLICATE_EMPLOYEE_CODE" || err.data.error === "DUPLICATE_EMPLOYEE_CODE")) ||
+          err.message.toLowerCase().includes("mã nhân viên");
+        if (isEmailError) {
+          setErrors({ email: err.message });
+        } else if (isEmployeeCodeError) {
+          setErrors({ employeeCode: err.message });
+        } else {
+          setErrors({ fullName: err.message });
+        }
       }
     }
   }

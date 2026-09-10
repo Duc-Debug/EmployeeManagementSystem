@@ -744,6 +744,7 @@ export default function OrgChart() {
                     <RecursiveNode
                         node={tree}
                         isRoot={true}
+                        canEdit={isAdmin}
                         collapsedNodes={collapsedNodes}
                         onToggleCollapse={toggleCollapse}
                         draggedNodeId={draggedNodeId}
@@ -804,14 +805,10 @@ export default function OrgChart() {
                 node={detailNode}
                 users={rawUsers}
                 onClose={() => setDetailNode(null)}
-                onEdit={(id) => {
+                onEdit={isAdmin ? (id) => {
                     setDetailNode(null);
-                    if (!isAdmin) {
-                        showNotify('Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.', 'error');
-                        return;
-                    }
                     setEditTarget({ kind: 'edit', nodeId: id });
-                }}
+                } : undefined}
             />
 
             {/* Modal Edit / Add Node */}
@@ -838,6 +835,7 @@ export default function OrgChart() {
 interface RecursiveNodeProps {
     node: OrgTreeNode;
     isRoot?: boolean;
+    canEdit?: boolean;
     collapsedNodes: Set<string>;
     onToggleCollapse: (nodeId: string, e: React.MouseEvent) => void;
     draggedNodeId: string | null;
@@ -856,6 +854,7 @@ interface RecursiveNodeProps {
 function RecursiveNode({
     node,
     isRoot = false,
+    canEdit = true,
     collapsedNodes,
     onToggleCollapse,
     draggedNodeId,
@@ -872,7 +871,7 @@ function RecursiveNode({
 }: RecursiveNodeProps) {
     const hasChildren = node.children && node.children.length > 0;
     const isCollapsed = collapsedNodes.has(node.id) && !searchQuery;
-    const isDraggable = !isRoot;
+    const isDraggable = Boolean(canEdit) && !isRoot;
     const isDropTarget = dropTargetId === node.id;
     const isBeingDragged = draggedNodeId === node.id;
 
@@ -929,31 +928,35 @@ function RecursiveNode({
                         >
                             <GripVertical className="h-4 w-4" />
                         </button>
-                        <button
-                            onClick={() => onEdit(node.id)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-                            title="Chỉnh sửa thông tin"
-                            type="button"
-                        >
-                            <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                            onClick={() => onAddChild(node.id)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
-                            title="Thêm nhánh con trực thuộc"
-                            type="button"
-                        >
-                            <Plus className="h-3.5 w-3.5" />
-                        </button>
-                        {isDraggable && (
-                            <button
-                                onClick={() => onDelete(node.id)}
-                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                                title="Xóa nhánh phòng ban này"
-                                type="button"
-                            >
-                                <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                        {canEdit && (
+                            <>
+                                <button
+                                    onClick={() => onEdit(node.id)}
+                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                                    title="Chỉnh sửa thông tin"
+                                    type="button"
+                                >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                    onClick={() => onAddChild(node.id)}
+                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                                    title="Thêm nhánh con trực thuộc"
+                                    type="button"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                </button>
+                                {isDraggable && (
+                                    <button
+                                        onClick={() => onDelete(node.id)}
+                                        className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                                        title="Xóa nhánh phòng ban này"
+                                        type="button"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -1064,6 +1067,7 @@ function RecursiveNode({
                                     {/* Recursive Child Node */}
                                     <RecursiveNode
                                         node={child}
+                                        canEdit={canEdit}
                                         collapsedNodes={collapsedNodes}
                                         onToggleCollapse={onToggleCollapse}
                                         draggedNodeId={draggedNodeId}

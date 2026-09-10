@@ -1,10 +1,14 @@
 package com.hrm.employeemanagement.application.service.employee;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import com.hrm.employeemanagement.application.dto.employee.CreateEmployeeProfileCommand;
 import com.hrm.employeemanagement.application.dto.employee.EmployeeProfileResult;
 import com.hrm.employeemanagement.application.dto.employee.UpdateEmployeeProfileCommand;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.application.port.inbound.employee.CreateEmployeeProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.employee.GetEmployeeProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.employee.UpdateEmployeeProfileUseCase;
@@ -110,6 +114,67 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
                         "Tài khoản chưa được khởi tạo hồ sơ nhân sự"));
         requireEmployeeInScope(currentUser, employee, PermissionCode.EMPLOYEE_READ);
         return EmployeeProfileResult.fromDomain(employee);
+    }
+
+    @Override
+    public PageResult<EmployeeProfileResult> getEmployees(int page, int size) {
+        User currentUser = requireCurrentUser(PermissionCode.EMPLOYEE_READ);
+        int validPage = Math.max(1, page);
+        int validSize = Math.max(1, size);
+        int offset = (validPage - 1) * validSize;
+
+        List<Employee> employees;
+        long total;
+
+        if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
+            Optional<Employee> currentEmp = currentUser.getEmployeeId() != null
+                    ? loadEmployeePort.findById(currentUser.getEmployeeId())
+                    : loadEmployeePort.findByUserId(currentUser.getId());
+            if (currentEmp.isPresent()) {
+                Long pmEmployeeId = currentEmp.get().getIdValue();
+                employees = loadEmployeePort.findByProjectManager(pmEmployeeId, validSize, offset);
+                total = loadEmployeePort.countByProjectManager(pmEmployeeId);
+            } else {
+                employees = List.of();
+                total = 0;
+            }
+        } else {
+            switch (currentUser.getDataScope()) {
+                case COMPANY -> {
+                    employees = loadEmployeePort.findAllPaged(validSize, offset);
+                    total = loadEmployeePort.countAll();
+                }
+                case ORGANIZATION_BRANCH -> {
+                    if (currentUser.getScopeOrgUnitId() != null) {
+                        employees = loadEmployeePort.findByOrgUnitBranch(
+                                currentUser.getScopeOrgUnitId(), validSize, offset);
+                        total = loadEmployeePort.countByOrgUnitBranch(currentUser.getScopeOrgUnitId());
+                    } else {
+                        employees = List.of();
+                        total = 0;
+                    }
+                }
+                case SELF -> {
+                    Optional<Employee> selfEmp = loadEmployeePort.findByUserId(currentUser.getId());
+                    if (selfEmp.isPresent()) {
+                        employees = List.of(selfEmp.get());
+                        total = 1;
+                    } else {
+                        employees = List.of();
+                        total = 0;
+                    }
+                }
+                default -> {
+                    employees = List.of();
+                    total = 0;
+                }
+            }
+        }
+
+        List<EmployeeProfileResult> results = employees.stream()
+                .map(EmployeeProfileResult::fromDomain)
+                .toList();
+        return new PageResult<>(results, validPage, validSize, total);
     }
 
     private User requireCurrentUser(PermissionCode permission) {

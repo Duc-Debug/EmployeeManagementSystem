@@ -3,7 +3,9 @@ package com.hrm.employeemanagement.infrastructure.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.hrm.employeemanagement.application.port.inbound.project.CloseProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.ReopenProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
@@ -11,18 +13,23 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.projecttemplate.LoadProjectTemplatePort;
+import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.service.project.CloseProjectService;
 import com.hrm.employeemanagement.application.service.project.CreateProjectFromTemplateService;
 import com.hrm.employeemanagement.application.service.project.CreateProjectService;
 import com.hrm.employeemanagement.application.service.project.ProjectService;
+import com.hrm.employeemanagement.application.service.project.ReopenProjectService;
 import com.hrm.employeemanagement.application.service.project.UpdateProjectService;
 import com.hrm.employeemanagement.infrastructure.transaction.project.RetryableCreateProjectUseCaseDecorator;
+import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalCloseProjectUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalCreateProjectUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalProjectServiceDecorator;
+import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalReopenProjectUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalUpdateProjectUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.projecttemplate.RetryableCreateProjectFromTemplateUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.projecttemplate.TransactionalCreateProjectFromTemplateUseCase;
@@ -114,5 +121,45 @@ public class ProjectUseCaseConfig {
                                 authorizationService);
                 TransactionalCreateProjectFromTemplateUseCase transactionalUseCase = new TransactionalCreateProjectFromTemplateUseCase(pureService);
                 return new RetryableCreateProjectFromTemplateUseCaseDecorator(transactionalUseCase);
+        }
+
+        @Bean
+        public CloseProjectUseCase closeProjectUseCase(
+                        LoadProjectPort loadProjectPort,
+                        SaveProjectPort saveProjectPort,
+                        LoadTaskPort loadTaskPort,
+                        LoadUserPort loadUserPort,
+                        LoadEmployeePort loadEmployeePort,
+                        SaveAuditLogPort saveAuditLogPort,
+                        SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+                        AuthorizationService authorizationService) {
+                CloseProjectService pureService = new CloseProjectService(
+                                loadProjectPort,
+                                saveProjectPort,
+                                loadTaskPort,
+                                loadUserPort,
+                                loadEmployeePort,
+                                saveAuditLogPort,
+                                saveDeniedAuditLogPort,
+                                authorizationService);
+                return new TransactionalCloseProjectUseCase(pureService);
+        }
+
+        @Bean
+        public ReopenProjectUseCase reopenProjectUseCase(
+                        LoadProjectPort loadProjectPort,
+                        SaveProjectPort saveProjectPort,
+                        LoadUserPort loadUserPort,
+                        SaveAuditLogPort saveAuditLogPort,
+                        SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+                        AuthorizationService authorizationService) {
+                ReopenProjectService pureService = new ReopenProjectService(
+                                loadProjectPort,
+                                saveProjectPort,
+                                loadUserPort,
+                                saveAuditLogPort,
+                                saveDeniedAuditLogPort,
+                                authorizationService);
+                return new TransactionalReopenProjectUseCase(pureService);
         }
 }

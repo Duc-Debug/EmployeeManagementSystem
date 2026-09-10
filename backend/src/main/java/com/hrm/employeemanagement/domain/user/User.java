@@ -70,12 +70,17 @@ public class User {
     }
 
     public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId) {
-        return createNew(username, passwordHash, role, employeeId, null);
+        return createNew(username, passwordHash, role, employeeId, null, null);
     }
 
     public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId, String email) {
+        return createNew(username, passwordHash, role, employeeId, email, null);
+    }
+
+    public static User createNew(String username, String passwordHash, Role role, EmployeeId employeeId, String email, Long scopeOrgUnitId) {
+        DataScope scope = defaultDataScopeFor(role);
         return new User(null, username, passwordHash, role, UserStatus.ACTIVE, employeeId,
-                defaultDataScopeFor(role), null, email, null, 1, null);
+                scope, scopeOrgUnitId, email, null, 1, null);
     }
 
     public void updatePassword(String newPasswordHash, Instant now) {
@@ -296,16 +301,27 @@ public class User {
     }
 }
 
-private static DataScope defaultDataScopeFor(Role role) {
+public static DataScope defaultDataScopeFor(Role role) {
     Role requiredRole =
             Objects.requireNonNull(
                     role,
                     "Role không được null"
             );
 
-    return requiredRole.isSystemAdmin()
-            ? DataScope.COMPANY
-            : DataScope.SELF;
+    return defaultDataScopeFor(requiredRole.getCode());
+}
+
+public static DataScope defaultDataScopeFor(RoleCode roleCode) {
+    Objects.requireNonNull(
+            roleCode,
+            "RoleCode không được null"
+    );
+
+    return switch (roleCode) {
+        case VT_01, VT_05, VT_06 -> DataScope.COMPANY;
+        case VT_03 -> DataScope.ORGANIZATION_BRANCH;
+        case VT_02, VT_04 -> DataScope.SELF;
+    };
 }
 
 private void validateRoleDataScope(
@@ -313,12 +329,14 @@ private void validateRoleDataScope(
         DataScope dataScope,
         Long scopeOrgUnitId
 ) {
-    if (role != null
-            && role.isSystemAdmin()
-            && (dataScope != DataScope.COMPANY
-            || scopeOrgUnitId != null)) {
+    if (role == null || role.getCode() == null) {
+        return;
+    }
+    RoleCode rc = role.getCode();
+    DataScope expectedScope = defaultDataScopeFor(rc);
+    if (dataScope != expectedScope) {
         throw new IllegalArgumentException(
-                "SYSTEM_ADMIN requires COMPANY data scope"
+                "Vai trò " + rc.getCode() + " yêu cầu phạm vi dữ liệu " + expectedScope + ", không thể là " + dataScope
         );
     }
 }

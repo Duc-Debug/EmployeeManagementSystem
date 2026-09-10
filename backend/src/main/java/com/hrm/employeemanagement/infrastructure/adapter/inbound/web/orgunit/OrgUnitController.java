@@ -14,6 +14,20 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import com.hrm.employeemanagement.application.dto.orgunit.*;
+import com.hrm.employeemanagement.application.port.inbound.orgunit.*;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.orgunit.dto.*;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+
 @RestController
 @RequestMapping("/api/v1/org-units")
 @Validated
@@ -42,6 +56,7 @@ public class OrgUnitController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
     public ResponseEntity<OrgUnitResponse> createUnit(@Valid @RequestBody CreateOrgUnitRequest request) {
         OrgUnitResult result = createOrgUnitUseCase.execute(request.toCommand());
 
@@ -54,6 +69,7 @@ public class OrgUnitController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
     public ResponseEntity<OrgUnitResponse> updateUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id,
             @Valid @RequestBody UpdateOrgUnitRequest request) {
@@ -62,6 +78,7 @@ public class OrgUnitController {
     }
 
     @PatchMapping("/{id}/move")
+    @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
     public ResponseEntity<OrgUnitResponse> moveUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id,
             @Valid @RequestBody MoveOrgUnitRequest request) {
@@ -70,6 +87,7 @@ public class OrgUnitController {
     }
 
     @PatchMapping("/{id}/deactivate")
+    @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
     public ResponseEntity<OrgUnitResponse> deactivateUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id) {
         OrgUnitResult result = deactivateOrgUnitUseCase.execute(new DeactivateOrgUnitCommand(id));
@@ -77,6 +95,7 @@ public class OrgUnitController {
     }
 
     @PatchMapping("/{id}/activate")
+    @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
     public ResponseEntity<OrgUnitResponse> activateUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id) {
         OrgUnitResult result = activateOrgUnitUseCase.execute(new ActivateOrgUnitCommand(id));
@@ -84,6 +103,7 @@ public class OrgUnitController {
     }
 
     @GetMapping("/tree")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<OrgUnitNodeResponse>> getOrgTree() {
         List<OrgUnitNodeResult> treeResult = getOrgTreeUseCase.execute();
         List<OrgUnitNodeResponse> response = treeResult.stream()

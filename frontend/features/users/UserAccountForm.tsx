@@ -60,7 +60,9 @@ export function UserAccountForm({
     if (dataScope) {
       onChange("dataScope", dataScope);
     }
-    if (dataScope !== "ORGANIZATION_BRANCH") {
+    if (roleCode === "VT-03") {
+      onChange("syncOrgScope", true);
+    } else if (dataScope !== "ORGANIZATION_BRANCH") {
       onChange("scopeOrgUnitId", "");
     }
   }
@@ -206,22 +208,15 @@ export function UserAccountForm({
 
         <FormField
           error={errors.dataScope}
-          hint={isSystemAdmin ? "Quản trị viên (VT-06) tự động áp dụng toàn công ty." : undefined}
+          hint="Tự động xác định theo vai trò."
           id="user-data-scope"
           label="Phạm vi dữ liệu"
         >
           <select
             aria-invalid={Boolean(errors.dataScope)}
             className="select"
-            disabled={isSystemAdmin}
+            disabled={true}
             id="user-data-scope"
-            onChange={(event) => {
-              const dataScope = event.target.value as DataScope;
-              onChange("dataScope", dataScope);
-              if (dataScope !== "ORGANIZATION_BRANCH") {
-                onChange("scopeOrgUnitId", "");
-              }
-            }}
             value={value.dataScope}
           >
             {dataScopeOptions.map((opt) => (
@@ -232,6 +227,25 @@ export function UserAccountForm({
           </select>
         </FormField>
       </div>
+
+      {value.roleCode === "VT-03" && (
+        <div style={{ marginBottom: "0.75rem" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.875rem", fontWeight: 500 }}>
+            <input
+              type="checkbox"
+              checked={value.syncOrgScope !== false}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                onChange("syncOrgScope", checked);
+                if (checked) {
+                  onChange("scopeOrgUnitId", "");
+                }
+              }}
+            />
+            <span>Áp dụng phạm vi quản lý theo đơn vị trực thuộc</span>
+          </label>
+        </div>
+      )}
 
       <div className="form-grid form-grid--two">
         <FormField error={errors.status} id="user-status" label="Trạng thái hoạt động">
@@ -246,7 +260,7 @@ export function UserAccountForm({
           </select>
         </FormField>
 
-        {value.dataScope === "ORGANIZATION_BRANCH" ? (
+        {value.dataScope === "ORGANIZATION_BRANCH" && value.syncOrgScope === false ? (
           <FormField
             error={errors.scopeOrgUnitId}
             hint="Dữ liệu sẽ được giới hạn trong cây đơn vị đã chọn."

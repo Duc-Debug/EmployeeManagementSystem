@@ -39,8 +39,8 @@ import com.hrm.employeemanagement.domain.user.UserStatus;
 class UserServiceUpdateRoleTest extends BaseUserServiceTest {
 
     private void stubUpdateRoleValidationBase(
-            DataScope dataScope,
-            Long scopeOrgUnitId
+            RoleCode roleCode,
+            Role role
     ) {
         when(authorizationService.require(
                 PermissionCode.USER_UPDATE_ROLE
@@ -58,8 +58,8 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
         when(loadUserPort.findById(new UserId(2L)))
                 .thenReturn(Optional.of(user));
 
-        when(loadRolePort.findByCode(RoleCode.VT_04))
-                .thenReturn(Optional.of(staffRole));
+        when(loadRolePort.findByCode(roleCode))
+                .thenReturn(Optional.of(role));
 
         when(loadEmployeePort.findByUserId(new UserId(2L)))
                 .thenReturn(Optional.empty());
@@ -195,23 +195,23 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
         UpdateUserRoleCommand command =
                 new UpdateUserRoleCommand(
                         2L,
-                        "VT-02",
+                        "VT-03",
                         15L,
                         DataScope.ORGANIZATION_BRANCH,
                         5L
                 );
 
-        Role pmRole = new Role(
+        Role branchLeaderRole = new Role(
                 new RoleId(2L),
-                RoleCode.VT_02,
-                "Quản lý dự án"
+                RoleCode.VT_03,
+                "Trưởng đơn vị"
         );
 
         when(loadUserPort.findById(new UserId(2L)))
                 .thenReturn(Optional.of(user));
 
-        when(loadRolePort.findByCode(RoleCode.VT_02))
-                .thenReturn(Optional.of(pmRole));
+        when(loadRolePort.findByCode(RoleCode.VT_03))
+                .thenReturn(Optional.of(branchLeaderRole));
 
         when(loadEmployeePort.findByUserId(new UserId(2L)))
                 .thenReturn(Optional.empty());
@@ -259,7 +259,7 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
         assertEquals("users", auditLog.getTableName());
         assertEquals(2L, auditLog.getRecordId());
         assertEquals("role=VT-04;dataScope=SELF;scopeOrgUnitId=null", auditLog.getOldValue());
-        assertEquals("role=VT-02;dataScope=ORGANIZATION_BRANCH;scopeOrgUnitId=5", auditLog.getNewValue());
+        assertEquals("role=VT-03;dataScope=ORGANIZATION_BRANCH;scopeOrgUnitId=5", auditLog.getNewValue());
         assertNotNull(auditLog.getCreatedAt());
     }
 
@@ -355,10 +355,12 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
         when(authorizationService.require(PermissionCode.USER_UPDATE_ROLE)).thenReturn(ADMIN_ID);
 
         User user = testUser(2L, staffRole, 20L);
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L, DataScope.COMPANY, null);
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-05", 15L, DataScope.COMPANY, null);
+
+        Role hrRole = new Role(new RoleId(5L), RoleCode.VT_05, "Quản lý nhân sự");
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
-        when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
+        when(loadRolePort.findByCode(RoleCode.VT_05)).thenReturn(Optional.of(hrRole));
         when(loadEmployeePort.findByUserId(new UserId(2L))).thenReturn(Optional.empty());
         lenient().when(loadOrgUnitPort.findById(new OrgUnitId(15L))).thenReturn(Optional.of(activeOrgUnit(15L, "OU-15", "Ban Quản lý dự án")));
         when(loadUserPort.countActiveAdmins()).thenReturn(2L);
@@ -378,10 +380,12 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
         when(authorizationService.require(PermissionCode.USER_UPDATE_ROLE)).thenReturn(ADMIN_ID);
 
         User user = testUser(2L, staffRole, 20L);
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L, DataScope.ORGANIZATION_BRANCH, 5L);
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-03", 15L, DataScope.ORGANIZATION_BRANCH, 5L);
+
+        Role branchLeaderRole = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
-        when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
+        when(loadRolePort.findByCode(RoleCode.VT_03)).thenReturn(Optional.of(branchLeaderRole));
         when(loadEmployeePort.findByUserId(new UserId(2L))).thenReturn(Optional.empty());
         lenient().when(loadOrgUnitPort.findById(new OrgUnitId(15L))).thenReturn(Optional.of(activeOrgUnit(15L, "OU-15", "Ban Quản lý dự án")));
         when(loadOrgUnitPort.findById(new OrgUnitId(5L))).thenReturn(Optional.of(activeOrgUnit(5L, "OU-05", "Khối Công nghệ")));
@@ -397,7 +401,7 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
     @Test
     @DisplayName("Cập nhật vai trò reject SELF khi truyền scopeOrgUnitId")
     void testUpdateUserRole_SelfScopeWithOrgUnitId_Rejects() {
-        stubUpdateRoleValidationBase(DataScope.SELF, 5L);
+        stubUpdateRoleValidationBase(RoleCode.VT_04, staffRole);
         UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L, DataScope.SELF, 5L);
 
         assertThrows(IllegalArgumentException.class, () -> userService.updateUserRole(command));
@@ -408,8 +412,9 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
     @Test
     @DisplayName("Cập nhật vai trò reject COMPANY khi truyền scopeOrgUnitId")
     void testUpdateUserRole_CompanyScopeWithOrgUnitId_Rejects() {
-        stubUpdateRoleValidationBase(DataScope.COMPANY, 5L);
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L, DataScope.COMPANY, 5L);
+        Role hrRole = new Role(new RoleId(5L), RoleCode.VT_05, "Quản lý nhân sự");
+        stubUpdateRoleValidationBase(RoleCode.VT_05, hrRole);
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-05", 15L, DataScope.COMPANY, 5L);
 
         assertThrows(IllegalArgumentException.class, () -> userService.updateUserRole(command));
         verify(saveUserPort, never()).save(any(User.class));
@@ -419,8 +424,9 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
     @Test
     @DisplayName("Cập nhật vai trò reject ORGANIZATION_BRANCH khi scopeOrgUnitId null")
     void testUpdateUserRole_OrganizationBranchScopeWithNullOrgUnitId_Rejects() {
-        stubUpdateRoleValidationBase(DataScope.ORGANIZATION_BRANCH, null);
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L, DataScope.ORGANIZATION_BRANCH, null);
+        Role branchLeaderRole = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
+        stubUpdateRoleValidationBase(RoleCode.VT_03, branchLeaderRole);
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-03", 15L, DataScope.ORGANIZATION_BRANCH, null);
 
         assertThrows(IllegalArgumentException.class, () -> userService.updateUserRole(command));
         verify(saveUserPort, never()).save(any(User.class));
@@ -430,10 +436,11 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
     @Test
     @DisplayName("Cập nhật vai trò reject ORGANIZATION_BRANCH khi scope orgUnit không tồn tại")
     void testUpdateUserRole_OrganizationBranchScopeWithNonexistentOrgUnit_Rejects() {
-        stubUpdateRoleValidationBase(DataScope.ORGANIZATION_BRANCH, 5L);
+        Role branchLeaderRole = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
+        stubUpdateRoleValidationBase(RoleCode.VT_03, branchLeaderRole);
         when(loadOrgUnitPort.findById(new OrgUnitId(5L))).thenReturn(Optional.empty());
 
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L, DataScope.ORGANIZATION_BRANCH, 5L);
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-03", 15L, DataScope.ORGANIZATION_BRANCH, 5L);
 
         assertThrows(OrgUnitNotFoundException.class, () -> userService.updateUserRole(command));
         verify(saveUserPort, never()).save(any(User.class));
@@ -443,10 +450,11 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
     @Test
     @DisplayName("Cập nhật vai trò reject ORGANIZATION_BRANCH khi scope orgUnit không hoạt động")
     void testUpdateUserRole_OrganizationBranchScopeWithInactiveOrgUnit_Rejects() {
-        stubUpdateRoleValidationBase(DataScope.ORGANIZATION_BRANCH, 5L);
+        Role branchLeaderRole = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
+        stubUpdateRoleValidationBase(RoleCode.VT_03, branchLeaderRole);
         when(loadOrgUnitPort.findById(new OrgUnitId(5L))).thenReturn(Optional.of(orgUnit(5L, "OU-05", "Khối Công nghệ", OrgUnitStatus.INACTIVE)));
 
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L, DataScope.ORGANIZATION_BRANCH, 5L);
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-03", 15L, DataScope.ORGANIZATION_BRANCH, 5L);
 
         assertThrows(IllegalArgumentException.class, () -> userService.updateUserRole(command));
         verify(saveUserPort, never()).save(any(User.class));
@@ -505,7 +513,7 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
         when(loadUserPort.existsInOrgUnitBranch(2L, 5L)).thenReturn(true);
         lenient().when(loadOrgUnitPort.existsInOrgUnitBranch(15L, 5L)).thenReturn(true);
 
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 15L, DataScope.COMPANY, null);
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-05", 15L, DataScope.COMPANY, null);
 
         assertThrows(PermissionDeniedException.class, () -> userService.updateUserRole(command));
         verify(loadUserPort, never()).findById(new UserId(2L));
@@ -519,7 +527,7 @@ class UserServiceUpdateRoleTest extends BaseUserServiceTest {
         when(authorizationService.require(PermissionCode.USER_UPDATE_ROLE)).thenReturn(ADMIN_ID);
         User user = testUser(2L, staffRole, 20L);
         Employee employee = testEmployee(20L, 2L, 15L, "EMP-002");
-        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 25L, DataScope.COMPANY, null);
+        UpdateUserRoleCommand command = new UpdateUserRoleCommand(2L, "VT-04", 25L, DataScope.SELF, null);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
         when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));

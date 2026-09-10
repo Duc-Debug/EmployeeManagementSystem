@@ -107,7 +107,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
         OrgUnitJpaEntity branchTech = createChildOrgUnit("TC01-TECH-" + suffix, "Tech Center", root);
         OrgUnitJpaEntity branchHr = createChildOrgUnit("TC01-HR-" + suffix, "HR Department", root);
 
-        UserJpaEntity pmUserEntity = createUserEntity("tc01_pm_" + suffix, "VT-02", DataScope.ORGANIZATION_BRANCH, branchTech.getId());
+        UserJpaEntity pmUserEntity = createUserEntity("tc01_pm_" + suffix, "VT-03", DataScope.ORGANIZATION_BRANCH, branchTech.getId());
         EmployeeJpaEntity pmEmployee = createEmployeeEntity(pmUserEntity, "EMP-PM-" + suffix, branchTech);
 
         EmployeeJpaEntity otherManager = createEmployeeEntity(
@@ -121,7 +121,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
         ProjectJpaEntity techProject2 = createProjectEntity("PRJ-TECH-2-" + suffix, branchTech, pmEmployee, pmUserEntity);
         createProjectEntity("PRJ-HR-1-" + suffix, branchHr, otherManager, pmUserEntity);
 
-        String jwtToken = generateJwtToken(pmUserEntity, RoleCode.VT_02);
+        String jwtToken = generateJwtToken(pmUserEntity, RoleCode.VT_03);
 
         // PM gửi request xem danh sách dự án
         mockMvc.perform(get("/api/v1/projects")
@@ -141,7 +141,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
         OrgUnitJpaEntity branchTech = createChildOrgUnit("TC02-TECH-" + suffix, "Tech Center", root);
         OrgUnitJpaEntity branchFinance = createChildOrgUnit("TC02-FIN-" + suffix, "Finance Dept", root);
 
-        UserJpaEntity userEntity = createUserEntity("tc02_user_" + suffix, "VT-02", DataScope.ORGANIZATION_BRANCH, branchTech.getId());
+        UserJpaEntity userEntity = createUserEntity("tc02_user_" + suffix, "VT-03", DataScope.ORGANIZATION_BRANCH, branchTech.getId());
         EmployeeJpaEntity manager = createEmployeeEntity(
                 createUserEntity("tc02_mgr_" + suffix, "VT-04", DataScope.SELF, null),
                 "EMP-FIN-MGR-" + suffix,
@@ -151,7 +151,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
         // Dự án nằm ở phòng ban Finance (ngoài branchTech)
         ProjectJpaEntity financeProject = createProjectEntity("PRJ-FIN-" + suffix, branchFinance, manager, userEntity);
 
-        String jwtToken = generateJwtToken(userEntity, RoleCode.VT_02);
+        String jwtToken = generateJwtToken(userEntity, RoleCode.VT_03);
 
         // User cố truy cập link trực tiếp dự án của Finance
         mockMvc.perform(get("/api/v1/projects/" + financeProject.getId())
@@ -199,13 +199,13 @@ class Ncl01Cn004AuthorizationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(0)));
 
-        // Admin thực hiện nâng quyền user lên Quản lý dự án (VT-02) với phạm vi COMPANY (Toàn công ty)
+        // Admin thực hiện nâng quyền user lên Ban Giám đốc (VT-01) với phạm vi COMPANY (Toàn công ty)
         UserJpaEntity adminUser = createUserEntity("tc03_admin_" + suffix, "VT-06", DataScope.COMPANY, null);
         String adminJwtToken = generateJwtToken(adminUser, RoleCode.VT_06);
 
         String updateRolePayload = """
                 {
-                    "roleCode": "VT-02",
+                    "roleCode": "VT-01",
                     "dataScope": "COMPANY",
                     "scopeOrgUnitId": null
                 }
@@ -242,7 +242,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
 
         String updateRolePayload = """
                 {
-                    "roleCode": "VT-02",
+                    "roleCode": "VT-03",
                     "dataScope": "ORGANIZATION_BRANCH",
                     "scopeOrgUnitId": %d
                 }
@@ -255,7 +255,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
                         .content(updateRolePayload))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.roleCode").value("VT-02"))
+                .andExpect(jsonPath("$.data.roleCode").value("VT-03"))
                 .andExpect(jsonPath("$.data.dataScope").value("ORGANIZATION_BRANCH"))
                 .andExpect(jsonPath("$.data.scopeOrgUnitId").value(branchTech.getId()));
 
@@ -274,7 +274,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
                 .contains("role=VT-04")
                 .contains("dataScope=SELF");
         assertThat(audit.getNewValue())
-                .contains("role=VT-02")
+                .contains("role=VT-03")
                 .contains("dataScope=ORGANIZATION_BRANCH")
                 .contains("scopeOrgUnitId=" + branchTech.getId());
     }
