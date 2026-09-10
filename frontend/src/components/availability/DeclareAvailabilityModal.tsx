@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useMemo, type FormEvent } from "react";
 import { X, CalendarClock, Clock, User, AlertCircle, Loader2 } from "lucide-react";
 import type { EmployeeProfile } from "@/lib/api/employees";
 import { declareWeeklyAvailability, type WeeklyAvailabilityResult } from "@/lib/api/availability";
@@ -36,18 +36,19 @@ export default function DeclareAvailabilityModal({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  if (!open) return null;
-
   // Compute date range for the selected week
-  let dateRangeText = "";
-  try {
-    const { startDate, endDate } = getIsoWeekDateRange(year, weekNumber);
-    const startStr = startDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
-    const endStr = endDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-    dateRangeText = `(Thứ 2, ${startStr} — Chủ Nhật, ${endStr})`;
-  } catch {
-    dateRangeText = "";
-  }
+  const dateRangeText = useMemo(() => {
+    try {
+      const { startDate, endDate } = getIsoWeekDateRange(year, weekNumber);
+      const startStr = startDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+      const endStr = endDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+      return `(Thứ 2, ${startStr} — Chủ Nhật, ${endStr})`;
+    } catch {
+      return "";
+    }
+  }, [year, weekNumber]);
+
+  if (!open) return null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
