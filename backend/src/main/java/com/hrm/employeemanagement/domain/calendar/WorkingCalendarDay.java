@@ -11,6 +11,8 @@ public record WorkingCalendarDay(
         boolean isWorkingDay
 ) {
     public WorkingCalendarDay {
-        Objects.requireNonNull(dayOfWeek, "Thứ trong tuần không được null");
+        if (dayOfWeek == null) {
+            throw new com.hrm.employeemanagement.domain.exception.calendar.InvalidWorkingCalendarException("Thứ trong tuần không được null");
+        }
     }
 }

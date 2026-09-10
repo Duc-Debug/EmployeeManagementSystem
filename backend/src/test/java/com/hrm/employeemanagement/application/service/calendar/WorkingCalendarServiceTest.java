@@ -142,6 +142,60 @@ class WorkingCalendarServiceTest {
     }
 
     @Test
+    @DisplayName("Cập nhật lịch làm việc tuần thiếu ngày (< 7 ngày) -> Ném InvalidWorkingCalendarException")
+    void updateWorkingCalendar_MissingDays_ThrowsException() {
+        when(authorizationService.require(PermissionCode.WORKING_CALENDAR_MANAGE)).thenReturn(ACTOR_USER_ID);
+        when(loadWorkingCalendarPort.loadCompanyCalendar()).thenReturn(CompanyWorkingCalendar.createDefault());
+
+        List<WorkingCalendarDayDto> missingDays = List.of(
+                new WorkingCalendarDayDto(DayOfWeek.MONDAY, true)
+        );
+
+        assertThrows(InvalidWorkingCalendarException.class, () -> service.updateWorkingCalendar(missingDays));
+        verify(saveWorkingCalendarPort, never()).saveCompanyCalendar(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật lịch làm việc tuần có ngày trùng lặp -> Ném InvalidWorkingCalendarException")
+    void updateWorkingCalendar_DuplicateDays_ThrowsException() {
+        when(authorizationService.require(PermissionCode.WORKING_CALENDAR_MANAGE)).thenReturn(ACTOR_USER_ID);
+        when(loadWorkingCalendarPort.loadCompanyCalendar()).thenReturn(CompanyWorkingCalendar.createDefault());
+
+        List<WorkingCalendarDayDto> duplicateDays = List.of(
+                new WorkingCalendarDayDto(DayOfWeek.MONDAY, true),
+                new WorkingCalendarDayDto(DayOfWeek.MONDAY, false),
+                new WorkingCalendarDayDto(DayOfWeek.TUESDAY, true),
+                new WorkingCalendarDayDto(DayOfWeek.WEDNESDAY, true),
+                new WorkingCalendarDayDto(DayOfWeek.THURSDAY, true),
+                new WorkingCalendarDayDto(DayOfWeek.FRIDAY, true),
+                new WorkingCalendarDayDto(DayOfWeek.SATURDAY, false)
+        );
+
+        assertThrows(InvalidWorkingCalendarException.class, () -> service.updateWorkingCalendar(duplicateDays));
+        verify(saveWorkingCalendarPort, never()).saveCompanyCalendar(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật lịch làm việc tuần có dayOfWeek null -> Ném InvalidWorkingCalendarException")
+    void updateWorkingCalendar_NullDayOfWeek_ThrowsException() {
+        when(authorizationService.require(PermissionCode.WORKING_CALENDAR_MANAGE)).thenReturn(ACTOR_USER_ID);
+        when(loadWorkingCalendarPort.loadCompanyCalendar()).thenReturn(CompanyWorkingCalendar.createDefault());
+
+        List<WorkingCalendarDayDto> nullDays = java.util.Arrays.asList(
+                new WorkingCalendarDayDto(DayOfWeek.MONDAY, true),
+                new WorkingCalendarDayDto(null, true),
+                new WorkingCalendarDayDto(DayOfWeek.WEDNESDAY, true),
+                new WorkingCalendarDayDto(DayOfWeek.THURSDAY, true),
+                new WorkingCalendarDayDto(DayOfWeek.FRIDAY, true),
+                new WorkingCalendarDayDto(DayOfWeek.SATURDAY, false),
+                new WorkingCalendarDayDto(DayOfWeek.SUNDAY, false)
+        );
+
+        assertThrows(InvalidWorkingCalendarException.class, () -> service.updateWorkingCalendar(nullDays));
+        verify(saveWorkingCalendarPort, never()).saveCompanyCalendar(any());
+    }
+
+    @Test
     @DisplayName("TC-01 & TC-04: Thêm ngày lễ thành công và lưu Audit Log")
     void createHoliday_Success_PersistsAuditLog() {
         when(authorizationService.require(PermissionCode.WORKING_CALENDAR_MANAGE)).thenReturn(ACTOR_USER_ID);

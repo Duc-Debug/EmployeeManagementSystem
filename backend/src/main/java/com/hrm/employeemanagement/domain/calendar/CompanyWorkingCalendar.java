@@ -20,15 +20,22 @@ public class CompanyWorkingCalendar {
 
     public CompanyWorkingCalendar(List<WorkingCalendarDay> days) {
         Objects.requireNonNull(days, "Danh sách ngày làm việc không được null");
-        if (days.isEmpty()) {
-            throw new InvalidWorkingCalendarException("Danh sách ngày làm việc trong tuần không được để trống");
+        if (days.size() != 7) {
+            throw new InvalidWorkingCalendarException("Lịch làm việc phải có đầy đủ 7 ngày trong tuần");
         }
 
         this.schedule = new EnumMap<>(DayOfWeek.class);
         for (WorkingCalendarDay day : days) {
-            if (day != null && day.dayOfWeek() != null) {
-                this.schedule.put(day.dayOfWeek(), day.isWorkingDay());
+            if (day == null || day.dayOfWeek() == null) {
+                throw new InvalidWorkingCalendarException("Thứ trong tuần không được null");
             }
+            if (this.schedule.put(day.dayOfWeek(), day.isWorkingDay()) != null) {
+                throw new InvalidWorkingCalendarException("Trùng lặp cấu hình cho ngày: " + day.dayOfWeek());
+            }
+        }
+
+        if (this.schedule.size() != 7) {
+            throw new InvalidWorkingCalendarException("Lịch làm việc phải có đầy đủ 7 ngày trong tuần");
         }
 
         validateInvariant();
