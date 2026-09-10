@@ -3,11 +3,13 @@ import { X, FolderPlus, Building2, Calendar, Clock, FileText } from 'lucide-reac
 import { createProject, type CreateProjectPayload } from '@/lib/api/projects';
 import { getOrgTree } from '@/lib/api/org-units';
 import type { OrgUnitTreeNode } from '@/types/hrm';
+import type { AuthUser } from '@/lib/auth-session';
 import type { ProjectMember } from './projectData';
 
 interface ProjectCreateModalProps {
     open: boolean;
     members: ProjectMember[];
+    currentUser: AuthUser | null;
     onClose: () => void;
     onCreated: (newProjectId: number) => void;
 }
@@ -15,6 +17,7 @@ interface ProjectCreateModalProps {
 export function ProjectCreateModal({
     open,
     members,
+    currentUser,
     onClose,
     onCreated,
 }: ProjectCreateModalProps) {
@@ -28,6 +31,19 @@ export function ProjectCreateModal({
     const [description, setDescription] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
+
+    // Khi modal mở và người dùng là VT-02 (PM), pre-select chính họ làm PM mặc định
+    // Khớp với logic backend: VT-02 tạo dự án không chỉ định PM → tự gán chính họ
+    useEffect(() => {
+        if (open && currentUser?.roleCode === 'VT-02') {
+            // Tìm member tương ứng với currentUser (khớp qua employeeId)
+            const selfMember = members.find((m) => m.employeeId === currentUser.id
+                || String(m.employeeId) === String(currentUser.id));
+            if (selfMember?.employeeId) {
+                setManagerId(selfMember.employeeId);
+            }
+        }
+    }, [open, currentUser, members]);
 
     useEffect(() => {
         if (open) {
@@ -66,6 +82,26 @@ export function ProjectCreateModal({
             return;
         }
 
+        // Validate ngày: năm không được vượt quá 2100
+        if (startDate) {
+            const startYear = new Date(startDate).getFullYear();
+            if (startYear > 2100) {
+                setErrorMsg('Ngày bắt đầu không được vượt quá năm 2100');
+                return;
+            }
+        }
+        if (endDate) {
+            const endYear = new Date(endDate).getFullYear();
+            if (endYear > 2100) {
+                setErrorMsg('Ngày kết thúc không được vượt quá năm 2100');
+                return;
+            }
+        }
+        if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+            setErrorMsg('Ngày kết thúc không được sớm hơn ngày bắt đầu');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const payload: CreateProjectPayload = {
@@ -96,7 +132,7 @@ export function ProjectCreateModal({
                 <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4">
                     <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
                         <FolderPlus className="h-4 w-4 text-indigo-600" />
-                        Tạo Dự Án Mới (Lưu vào Database)
+                        Tạo Dự Án Mới
                     </h3>
                     <button
                         type="button"
@@ -158,7 +194,7 @@ export function ProjectCreateModal({
                             >
                                 <option value="">-- Chưa gán PM --</option>
                                 {members.map((m) => {
-                                    const numId = parseInt(m.id.replace(/\D/g, ''), 10);
+                                    const numId = m.employeeId || parseInt(m.id.replace(/\D/g, ''), 10);
                                     return (
                                         <option key={m.id} value={numId || ''}>
                                             {m.name} ({m.role})
@@ -234,7 +270,7 @@ export function ProjectCreateModal({
                             disabled={isSubmitting}
                             className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-100 transition hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
                         >
-                            {isSubmitting ? 'Đang tạo...' : 'Tạo Dự Án Thật'}
+                            {isSubmitting ? 'Đang tạo...' : 'Tạo Dự Án'}
                         </button>
                     </div>
                 </form>

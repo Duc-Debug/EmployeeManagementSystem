@@ -108,8 +108,10 @@ class ProjectMemberRepositoryAdapterTest {
         member.setStatus("ACTIVE");
 
         UserJpaEntity pmUser = new UserJpaEntity();
+        pmUser.setId(201L);
         pmUser.setEmail("pm@hrm.com");
         UserJpaEntity memberUser = new UserJpaEntity();
+        memberUser.setId(202L);
         memberUser.setEmail("member@hrm.com");
 
         OrgUnitJpaEntity orgUnit = new OrgUnitJpaEntity();
@@ -122,15 +124,24 @@ class ProjectMemberRepositoryAdapterTest {
                 .thenReturn(List.of(new ProjectMemberJpaEntity(PROJECT_ID, MEMBER_ID)));
         when(employeeRepository.findAllById(List.of(MEMBER_ID))).thenReturn(List.of(member));
         when(orgUnitRepository.findAllById(any())).thenReturn(List.of(orgUnit));
-        when(userRepository.findById(201L)).thenReturn(Optional.of(pmUser));
-        when(userRepository.findById(202L)).thenReturn(Optional.of(memberUser));
+        when(userRepository.findAllById(any())).thenReturn(List.of(pmUser, memberUser));
 
         List<ProjectMemberResult> results = adapter.findMembersByProjectId(PROJECT_ID);
 
         assertThat(results).hasSize(2);
         assertThat(results.get(0).roleInProject()).isEqualTo(ProjectMemberRole.PROJECT_MANAGER);
+        assertThat(results.get(0).email()).isEqualTo("pm@hrm.com");
         assertThat(results.get(0).orgUnitName()).isEqualTo("Phòng Công nghệ");
         assertThat(results.get(1).roleInProject()).isEqualTo(ProjectMemberRole.MEMBER);
+        assertThat(results.get(1).email()).isEqualTo("member@hrm.com");
         assertThat(results.get(1).orgUnitName()).isEqualTo("Phòng Công nghệ");
+    }
+
+    @Test
+    @DisplayName("hasActiveTasks returns true when member has TODO or IN_PROGRESS tasks")
+    void testHasActiveTasks() {
+        when(taskRepository.existsByProjectIdAndAssigneeIdAndStatusIn(any(), any(), any())).thenReturn(true);
+        boolean active = adapter.hasActiveTasks(PROJECT_ID, MEMBER_ID);
+        assertThat(active).isTrue();
     }
 }

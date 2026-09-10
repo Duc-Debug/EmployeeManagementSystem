@@ -89,7 +89,8 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
 
         // 2. Kiểm tra Phòng ban & PM
         OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
-        validateManager(command.managerId(), command.orgUnitId());
+        Long resolvedManagerId = resolveManagerId(command.managerId(), currentUser);
+        validateManager(resolvedManagerId, command.orgUnitId());
 
         // 3. Tải Mẫu dự án & Cây công việc mẫu
         ProjectTemplateId templateId = new ProjectTemplateId(command.templateId());
@@ -116,7 +117,7 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
                 generatedCode,
                 command.projectName(),
                 command.orgUnitId(),
-                command.managerId() != null ? new EmployeeId(command.managerId()) : null,
+                resolvedManagerId != null ? new EmployeeId(resolvedManagerId) : null,
                 command.startDate(),
                 command.endDate(),
                 totalEstimatedHours,
@@ -215,6 +216,19 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
         return templateTaskIdToNewTaskId.size();
     }
 
+    private Long resolveManagerId(Long requestedManagerId, User currentUser) {
+        if (requestedManagerId != null) {
+            return requestedManagerId;
+        }
+        if (currentUser.getRole() != null
+                && currentUser.getRole().getCode() == com.hrm.employeemanagement.domain.role.RoleCode.VT_02) {
+            return loadEmployeePort.findByUserId(currentUser.getId())
+                    .map(Employee::getIdValue)
+                    .orElse(null);
+        }
+        return null;
+    }
+
     private void validateManager(Long managerId, Long orgUnitId) {
         if (managerId == null) {
             return;
@@ -246,8 +260,12 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
         switch (currentUser.getDataScope()) {
             case COMPANY:
                 return true;
-            case SELF:
-                return false;
+            case SELF: {
+                Long employeeOrgUnitId = loadEmployeePort.findByUserId(currentUser.getId())
+                        .map(Employee::getOrgUnitId)
+                        .orElse(null);
+                return employeeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, employeeOrgUnitId);
+            }
             case ORGANIZATION_BRANCH:
                 return loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, currentUser.getScopeOrgUnitId());
             default:
