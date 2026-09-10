@@ -242,6 +242,7 @@ export default function ProjectView() {
                       .filter((u) => u.employeeId !== null)
                       .map((u) => ({
                         id: `u-${u.employeeId}`,
+                        employeeId: u.employeeId!,
                         name: u.fullName || u.username,
                         role: u.roleCode || 'Nhân viên',
                         avatar: '',
@@ -965,7 +966,7 @@ export default function ProjectView() {
 
             {canManageProject && <ProjectCreateModal
                 open={projectCreateModalOpen}
-                members={members}
+                members={allEmployees}
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
             />}

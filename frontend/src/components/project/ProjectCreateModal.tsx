@@ -13,8 +13,10 @@ import {
     ChevronDown,
     ChevronUp,
     ListTree,
-    Loader2
+    Loader2,
+    UserCheck
 } from 'lucide-react';
+import { useAuthUser } from '@/lib/auth-session';
 import {
     createProject,
     createProjectFromTemplate,
@@ -57,6 +59,33 @@ export function ProjectCreateModal({
     const [description, setDescription] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
+
+    const currentUser = useAuthUser();
+
+    // Tìm employeeId của người dùng hiện tại
+    const currentEmpMember = members.find(
+        (m) => (m.employeeId && m.employeeId === currentUser?.id) ||
+               (currentUser?.employeeCode && m.id === `u-${currentUser.employeeCode}`) ||
+               (currentUser?.fullName && m.name === currentUser.fullName)
+    );
+    const currentEmpId = currentEmpMember?.employeeId || (currentUser?.id ? currentUser.id : undefined);
+
+    // Chuẩn bị danh sách PM options (đảm bảo currentUser luôn có trong danh sách nếu có thông tin)
+    const pmOptions = React.useMemo(() => {
+        const list = [...members];
+        if (currentUser && currentEmpId && !list.some((m) => m.employeeId === currentEmpId || m.id === `u-${currentEmpId}`)) {
+            list.unshift({
+                id: `u-${currentEmpId}`,
+                employeeId: currentEmpId,
+                name: `${currentUser.fullName || currentUser.username} (Tôi)`,
+                role: currentUser.roleCode || 'Nhân viên',
+                avatar: '',
+                capacity: 40,
+                weeklyHours: {},
+            });
+        }
+        return list;
+    }, [members, currentUser, currentEmpId]);
 
     // Templates state
     const [templates, setTemplates] = useState<ProjectTemplateSummary[]>([]);
@@ -419,18 +448,36 @@ export function ProjectCreateModal({
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1 block font-semibold text-slate-700">Quản lý dự án (PM)</label>
+                            <div className="mb-1 flex items-center justify-between">
+                                <label className="font-semibold text-slate-700">Quản lý dự án (PM)</label>
+                                {currentEmpId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setManagerId(currentEmpId);
+                                            if (currentUser?.orgUnitId) {
+                                                setOrgUnitId(currentUser.orgUnitId);
+                                            }
+                                        }}
+                                        className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                                    >
+                                        <UserCheck className="h-3 w-3" />
+                                        <span>Chọn tôi làm PM</span>
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={managerId || ''}
                                 onChange={(e) => setManagerId(e.target.value ? Number(e.target.value) : undefined)}
                                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">-- Chưa gán PM --</option>
-                                {members.map((m) => {
-                                    const numId = parseInt(m.id.replace(/\D/g, ''), 10);
+                                {pmOptions.map((m) => {
+                                    const numId = m.employeeId ?? parseInt(m.id.replace(/\D/g, ''), 10);
+                                    const isMe = currentEmpId && numId === currentEmpId;
                                     return (
                                         <option key={m.id} value={numId || ''}>
-                                            {m.name} ({m.role})
+                                            {m.name} {isMe ? '⭐ (Tôi)' : ''} ({m.role})
                                         </option>
                                     );
                                 })}
