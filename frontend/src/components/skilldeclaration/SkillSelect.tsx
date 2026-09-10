@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search, Plus, Check } from 'lucide-react';
+import { ChevronDown, Search, Plus, Check, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CatalogSkill } from './Types.ts';
 
@@ -66,15 +66,26 @@ export function SkillSelect({
                 className={cn(
                     "flex w-full items-center justify-between rounded-xl border bg-white px-3.5 py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-violet-500/20",
                     disabled
-                        ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                        ? "cursor-not-allowed border-slate-200 bg-slate-100/90 text-slate-700 font-medium"
                         : "border-slate-300 text-slate-900 hover:border-slate-400 shadow-sm",
                     open && "border-violet-500 ring-2 ring-violet-500/20"
                 )}
             >
-                <span className={cn("truncate font-medium", !selectedSkill && "text-slate-400 font-normal")}>
-                    {selectedSkill ? `${selectedSkill.name} (${selectedSkill.category})` : "— Chọn kỹ năng —"}
-                </span>
-                <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform duration-200", open && "rotate-180")} />
+                <div className="flex items-center gap-2 truncate">
+                    {disabled && <Lock className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
+                    <span className={cn("truncate font-medium", !selectedSkill && "text-slate-400 font-normal")}>
+                        {selectedSkill ? `${selectedSkill.name} (${selectedSkill.category})` : "— Chọn kỹ năng —"}
+                    </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {disabled ? (
+                        <span className="rounded-md bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">
+                            Cố định
+                        </span>
+                    ) : (
+                        <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform duration-200", open && "rotate-180")} />
+                    )}
+                </div>
             </button>
 
             {/* Menu Dropdown Popup (Light Mode) */}

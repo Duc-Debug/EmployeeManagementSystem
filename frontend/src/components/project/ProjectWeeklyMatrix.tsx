@@ -1,4 +1,4 @@
-import { Calendar, ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Lightbulb, Lock } from 'lucide-react';
 import type { ProjectMember, ProjectMonth } from './projectData';
 
 interface ProjectWeeklyMatrixProps {
@@ -6,6 +6,7 @@ interface ProjectWeeklyMatrixProps {
     members: ProjectMember[];
     selectedRole: string;
     searchTerm: string;
+    isClosed?: boolean;
     onNavigateMonth: (direction: number) => void;
     onOpenAdjustModal: (memberId: string, weekKey: string, weekLabel: string) => void;
 }
@@ -15,6 +16,7 @@ export function ProjectWeeklyMatrix({
     members,
     selectedRole,
     searchTerm,
+    isClosed = false,
     onNavigateMonth,
     onOpenAdjustModal,
 }: ProjectWeeklyMatrixProps) {
@@ -79,8 +81,13 @@ export function ProjectWeeklyMatrix({
                         <Calendar className="h-4 w-4" />
                     </span>
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-sm font-bold text-slate-900">Phân Bổ Nhân Lực Các Tuần Trong Tháng</h2>
+                            {isClosed && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                                    <Lock className="h-3 w-3" /> Khóa phân bổ (QTN-08)
+                                </span>
+                            )}
                             {/* Month Navigator Controls */}
                             <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 shadow-2xs">
                                 <button
@@ -209,8 +216,17 @@ export function ProjectWeeklyMatrix({
                                                     className={`px-2 py-2 text-center ${w.isCurrent ? 'bg-indigo-50/30' : ''}`}
                                                 >
                                                     <div
-                                                        onClick={() => onOpenAdjustModal(member.id, w.key, w.label)}
-                                                        className={`cursor-pointer select-none rounded-lg p-1.5 transition transform hover:scale-105 active:scale-95 border ${cellStyle.bg} ${cellStyle.border} ${cellStyle.text}`}
+                                                        onClick={() => !isClosed && onOpenAdjustModal(member.id, w.key, w.label)}
+                                                        className={`select-none rounded-lg p-1.5 transition border ${cellStyle.bg} ${cellStyle.border} ${cellStyle.text} ${
+                                                            isClosed
+                                                                ? 'cursor-not-allowed opacity-70'
+                                                                : 'cursor-pointer transform hover:scale-105 active:scale-95'
+                                                        }`}
+                                                        title={
+                                                            isClosed
+                                                                ? 'Dự án đã đóng, không thể điều chỉnh phân bổ nguồn lực (QTN-08)'
+                                                                : 'Bấm để điều chỉnh giờ phân bổ'
+                                                        }
                                                     >
                                                         <div className="text-xs font-bold">{hours}h</div>
                                                         <div className="mt-0.5 text-[9px] font-medium leading-none opacity-90">

@@ -97,7 +97,6 @@ public class EmployeeSkillResponse {
     public String getReviewNotes() {
         return reviewNotes;
     }
-
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }

@@ -26,6 +26,12 @@ export interface ProjectResult {
   createdBy?: number;
   createdAt?: string;
   updatedAt?: string;
+  closureReason?: string;
+  closedAt?: string;
+  closedBy?: number;
+  reopenReason?: string;
+  reopenedAt?: string;
+  reopenedBy?: number;
 }
 
 export interface CreateProjectPayload {
@@ -181,6 +187,73 @@ export async function updateTask(
 ): Promise<TaskResult> {
   return await apiRequest<TaskResult>(`/projects/${projectId}/tasks/${taskId}`, {
     method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface ProjectTemplateSummary {
+  id: number;
+  templateCode: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  totalEstimatedHours: number;
+  categoriesCount: number;
+  tasksCount: number;
+}
+
+export interface ProjectTemplateTask {
+  id: number;
+  parentId?: number;
+  name: string;
+  description?: string;
+  taskType: BackendTaskType;
+  estimatedHours: number;
+  sortOrder: number;
+}
+
+export interface ProjectTemplateDetail {
+  id: number;
+  templateCode: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  totalEstimatedHours: number;
+  categoriesCount: number;
+  tasksCount: number;
+  tasks: ProjectTemplateTask[];
+}
+
+export interface CreateProjectFromTemplatePayload {
+  templateId: number;
+  projectName: string;
+  orgUnitId: number;
+  managerId?: number;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+/**
+ * Lấy danh sách mẫu dự án đang hoạt động
+ */
+export async function getProjectTemplates(): Promise<ProjectTemplateSummary[]> {
+  return await apiRequest<ProjectTemplateSummary[]>('/projects/templates');
+}
+
+/**
+ * Lấy chi tiết mẫu dự án kèm cây công việc mẫu
+ */
+export async function getProjectTemplateDetail(templateId: number | string): Promise<ProjectTemplateDetail> {
+  return await apiRequest<ProjectTemplateDetail>(`/projects/templates/${templateId}`);
+}
+
+/**
+ * Tạo mới dự án từ mẫu có sẵn
+ */
+export async function createProjectFromTemplate(payload: CreateProjectFromTemplatePayload): Promise<ProjectResult> {
+  return await apiRequest<ProjectResult>('/projects/from-template', {
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 }

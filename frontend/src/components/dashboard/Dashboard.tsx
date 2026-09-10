@@ -15,6 +15,7 @@ import SkilldeclarationView from "../skilldeclaration/SkilldeclarationView";
 import ProjectView from "../project/ProjectView";
 import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
+import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import type { AttendanceRecord } from "@/lib/hr-data";
 import { useAuthUser } from "@/lib/auth-session";
 import { getUsers } from "@/lib/api/users";
@@ -34,6 +35,7 @@ export default function Dashboard() {
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
         if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
+        if (path.includes("availability") || path.includes("kha-dung") || path.includes("gio-tuan")) return "availability";
         if (path.includes("hrprofile") || path.includes("ho-so") || path.includes("employee")) return "hrprofile";
         if (path.includes("user") || path.includes("tai-khoan")) return "users";
         if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
@@ -192,6 +194,8 @@ export default function Dashboard() {
                                 {activeTab === "users" && <EmployeeProfilePage />}
 
                                 {activeTab === "hrprofile" && <HrProfilePage />}
+
+                                {activeTab === "availability" && <WeeklyAvailabilityView />}
 
                                 {activeTab === "attendance" && (
                                     <AttendanceView
