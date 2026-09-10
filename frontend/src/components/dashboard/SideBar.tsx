@@ -10,6 +10,7 @@ import {
     FolderKanban,
     FileText,
     ShieldCheck,
+    CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -18,6 +19,7 @@ const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
+    { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
     { name: "Chấm công", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
     { name: "Phòng ban", icon: Building2, id: "departments" },
@@ -53,6 +55,11 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
         case "hrprofile":
         case "employees":
             // Hồ sơ nhân sự: VT-05 Toàn quyền; VT-01, VT-02, VT-03, VT-04, VT-06 được Xem theo Data Scope
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+
+        case "availability":
+        case "weekly-availability":
+            // Giờ khả dụng: VT-01, VT-02, VT-03, VT-04, VT-05, VT-06 (phân quyền theo DataScope)
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
 
         case "project":
