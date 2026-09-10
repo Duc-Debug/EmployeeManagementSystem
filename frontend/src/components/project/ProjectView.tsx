@@ -13,6 +13,7 @@ import {
     type BackendTaskStatus,
 } from '@/lib/api/projects';
 import { setTaskBudget, type CloneProjectWbsResult } from '@/lib/api/tasks';
+import { getTaskDependencies, type TaskDependencyResult } from '@/lib/api/taskDependencies';
 
 import {
     Boxes,
@@ -203,6 +204,7 @@ export default function ProjectView() {
     const [budgetModalOpen, setBudgetModalOpen] = useState(false);
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
     const [dependencyModalOpen, setDependencyModalOpen] = useState<boolean>(false);
+    const [taskDependenciesList, setTaskDependenciesList] = useState<TaskDependencyResult[]>([]);
 
     // Real projects backend state
     const canManageWbs = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
@@ -332,10 +334,14 @@ export default function ProjectView() {
             setMembers(projectMembers);
             const mapped = mapBackendWbsToUiCategories(wbsNodes, projectMembers);
             setCategories(mapped);
+            getTaskDependencies(projId)
+                .then((res) => setTaskDependenciesList(res.dependencies || []))
+                .catch(() => setTaskDependenciesList([]));
         } catch (err) {
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
             setCategories([]);
             setMembers([]);
+            setTaskDependenciesList([]);
         } finally {
             setIsLoadingWbs(false);
         }
@@ -937,6 +943,7 @@ export default function ProjectView() {
                         <ProjectWbsView
                             categories={categories}
                             members={members}
+                            dependencies={taskDependenciesList}
                             searchTerm={search}
                             selectedRole={roleFilter}
                             onQuickAddTask={handleQuickAddTask}
@@ -1018,7 +1025,10 @@ export default function ProjectView() {
                     }))
                 )}
                 canManage={canManageProject}
-                onClose={() => setDependencyModalOpen(false)}
+                onClose={() => {
+                    setDependencyModalOpen(false);
+                    if (selectedProjectId) loadWbsForProject(selectedProjectId);
+                }}
             />}
 
             {/* Toast Notification */}

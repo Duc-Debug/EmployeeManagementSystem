@@ -11,12 +11,15 @@ import {
     Target,
     AlertTriangle,
     Copy,
+    GitCommit,
 } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
+import type { TaskDependencyResult } from '@/lib/api/taskDependencies';
 
 interface ProjectWbsViewProps {
     categories: TaskCategoryGroup[];
     members: ProjectMember[];
+    dependencies?: TaskDependencyResult[];
     searchTerm: string;
     selectedRole: string;
     onQuickAddTask: (catId: string) => void;
@@ -28,6 +31,7 @@ interface ProjectWbsViewProps {
 export function ProjectWbsView({
     categories,
     members,
+    dependencies = [],
     searchTerm,
     selectedRole,
     onQuickAddTask,
@@ -247,6 +251,13 @@ export function ProjectWbsView({
                                             cat.filteredTasks.map((t) => {
                                                 const assignee = members.find((m) => m.id === t.assigneeId);
                                                 const isDone = t.status === 'Hoàn thành';
+                                                const numId = Number(t.id.replace(/\D/g, ''));
+                                                const predecessors = (dependencies || []).filter(
+                                                    (d) => d.successorId === numId || (t.code && d.successorTaskCode === t.code)
+                                                );
+                                                const successors = (dependencies || []).filter(
+                                                    (d) => d.predecessorId === numId || (t.code && d.predecessorTaskCode === t.code)
+                                                );
 
                                                 return (
                                                     <div
@@ -287,6 +298,29 @@ export function ProjectWbsView({
                                                                     <span className="inline-flex items-center rounded bg-indigo-50 px-1 font-mono text-[10px] font-semibold text-indigo-600">
                                                                         {t.startWeek} &rarr; {t.endWeek}
                                                                     </span>
+
+                                                                    {/* Quan hệ Phụ thuộc công việc (NCL-04-CN-004) */}
+                                                                    {predecessors.map((p) => (
+                                                                        <span
+                                                                            key={p.id}
+                                                                            className="inline-flex items-center gap-1 rounded bg-purple-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-purple-700 border border-purple-200"
+                                                                            title={`Công việc phải hoàn thành trước: [${p.predecessorTaskCode || p.predecessorId}] ${p.predecessorTaskName}`}
+                                                                        >
+                                                                            <GitCommit className="h-3 w-3 text-purple-600 shrink-0" />
+                                                                            <span>Sau: {p.predecessorTaskCode || `#${p.predecessorId}`}</span>
+                                                                        </span>
+                                                                    ))}
+
+                                                                    {successors.map((s) => (
+                                                                        <span
+                                                                            key={s.id}
+                                                                            className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-indigo-700 border border-indigo-200"
+                                                                            title={`Công việc đang chờ task này xong: [${s.successorTaskCode || s.successorId}] ${s.successorTaskName}`}
+                                                                        >
+                                                                            <GitCommit className="h-3 w-3 text-indigo-600 shrink-0" />
+                                                                            <span>Tiền đề cho: {s.successorTaskCode || `#${s.successorId}`}</span>
+                                                                        </span>
+                                                                    ))}
 
                                                                     {/* Ngân sách giờ công & So sánh thực tế */}
                                                                     <span className="text-slate-300">•</span>
