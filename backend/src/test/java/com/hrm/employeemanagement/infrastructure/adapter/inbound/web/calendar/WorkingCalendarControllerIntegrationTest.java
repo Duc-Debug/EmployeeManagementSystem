@@ -330,4 +330,63 @@ class WorkingCalendarControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray());
     }
+
+    @Test
+    @DisplayName("Phân quyền chặt chẽ: VT-05 và VT-06 có toàn quyền quản lý; VT-01, VT-02, VT-03, VT-04 chỉ được đọc (403 khi sửa)")
+    void testRolePermissions_VT05_VT06_CanManage_And_VT01_VT02_VT03_VT04_ReadOnly() throws Exception {
+        // 1. VT-01, VT-02, VT-03, VT-04 được xem lịch (200 OK) nhưng không được thêm ngày lễ (403 Forbidden)
+        OrgUnitJpaEntity rootOrg = orgUnitRepository.findAll().stream().findFirst().orElse(null);
+        Long defaultOrgUnitId = rootOrg != null ? rootOrg.getId() : 1L;
+
+        List<RoleCode> readOnlyRoles = List.of(RoleCode.VT_01, RoleCode.VT_02, RoleCode.VT_03, RoleCode.VT_04);
+        for (RoleCode role : readOnlyRoles) {
+            DataScope expectedScope = switch (role) {
+                case VT_01 -> DataScope.COMPANY;
+                case VT_03 -> DataScope.ORGANIZATION_BRANCH;
+                default -> DataScope.SELF;
+            };
+            Long scopeOrgId = expectedScope == DataScope.ORGANIZATION_BRANCH ? defaultOrgUnitId : null;
+            UserJpaEntity readUser = createUser("user-" + role.name().toLowerCase(), role.getCode(), expectedScope, scopeOrgId);
+
+            // Được phép xem
+            mockMvc.perform(get("/api/v1/working-calendar")
+                            .with(authentication(authenticationFor(readUser, role))))
+                    .andExpect(status().isOk());
+
+            // Bị từ chối khi thêm ngày lễ (403)
+            String payload = String.format("""
+                    {
+                        "holidayDate": "2026-10-%02d",
+                        "name": "Holiday Test %s",
+                        "workingHoursDeducted": 8
+                    }
+                    """, 10 + role.ordinal(), role.name());
+
+            mockMvc.perform(post("/api/v1/holidays")
+                            .with(authentication(authenticationFor(readUser, role)))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(payload))
+                    .andExpect(status().isForbidden());
+        }
+
+        // 2. VT-05 (HR) và VT-06 (Admin) có toàn quyền quản lý (201 Created)
+        List<RoleCode> manageRoles = List.of(RoleCode.VT_05, RoleCode.VT_06);
+        for (RoleCode role : manageRoles) {
+            UserJpaEntity manager = createUser("mgr-" + role.name().toLowerCase(), role.getCode(), DataScope.COMPANY, null);
+            String payload = String.format("""
+                    {
+                        "holidayDate": "2026-08-%02d",
+                        "name": "Holiday Managed by %s",
+                        "workingHoursDeducted": 8
+                    }
+                    """, 15 + role.ordinal(), role.name());
+
+            mockMvc.perform(post("/api/v1/holidays")
+                            .with(authentication(authenticationFor(manager, role)))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(payload))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+    }
 }
