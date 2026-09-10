@@ -13,12 +13,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.RequestParam;
+
 import com.hrm.employeemanagement.application.dto.employee.CreateEmployeeProfileCommand;
 import com.hrm.employeemanagement.application.dto.employee.EmployeeProfileResult;
 import com.hrm.employeemanagement.application.dto.employee.UpdateEmployeeProfileCommand;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.employee.CreateEmployeeProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.employee.GetEmployeeProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.employee.UpdateEmployeeProfileUseCase;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -43,7 +47,7 @@ public class EmployeeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('VT-05') or hasAuthority('VT-06') or hasAuthority('EMPLOYEE_UPDATE') or hasRole('VT-05') or hasRole('VT-06')")
+    @PreAuthorize("hasAuthority('VT-05') or (hasAuthority('EMPLOYEE_UPDATE') and !hasAuthority('VT-06'))")
     public ResponseEntity<EmployeeProfileResult> createProfile(@Valid @RequestBody CreateEmployeeRequest request) {
         CreateEmployeeProfileCommand command = new CreateEmployeeProfileCommand(
             request.userId(),
@@ -60,7 +64,7 @@ public class EmployeeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('VT-05') or hasAuthority('VT-06') or hasAuthority('EMPLOYEE_UPDATE') or hasRole('VT-05') or hasRole('VT-06')")
+    @PreAuthorize("hasAuthority('VT-05') or (hasAuthority('EMPLOYEE_UPDATE') and !hasAuthority('VT-06'))")
     public ResponseEntity<EmployeeProfileResult> updateProfile(
             @PathVariable Long id,
             @Valid @RequestBody UpdateEmployeeRequest request) {
@@ -78,14 +82,23 @@ public class EmployeeController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<PageResult<EmployeeProfileResult>>> getEmployees(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        PageResult<EmployeeProfileResult> result = getEmployeeProfileUseCase.getEmployees(page, size);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách hồ sơ nhân sự thành công", result));
+    }
+
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('VT-05') or hasAuthority('VT-06') or hasAuthority('EMPLOYEE_READ') or hasAuthority('EMPLOYEE_UPDATE') or hasRole('VT-05') or hasRole('VT-06')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<EmployeeProfileResult> getById(@PathVariable Long id) {
         return ResponseEntity.ok(getEmployeeProfileUseCase.getById(id));
     }
 
     @GetMapping("/by-user/{userId}")
-    @PreAuthorize("hasAuthority('VT-05') or hasAuthority('VT-06') or hasAuthority('EMPLOYEE_READ') or hasAuthority('EMPLOYEE_UPDATE')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<EmployeeProfileResult> getByUserId(@PathVariable Long userId) {
         return ResponseEntity.ok(getEmployeeProfileUseCase.getByUserId(userId));
     }

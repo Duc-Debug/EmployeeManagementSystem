@@ -16,6 +16,20 @@ export interface EmployeeProfile {
   version: number;
 }
 
+export interface PageResult<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export async function getEmployees(page: number = 1, size: number = 50): Promise<PageResult<EmployeeProfile>> {
+  return await apiRequest<PageResult<EmployeeProfile>>(`/employees?page=${page}&size=${size}`, {
+    method: "GET",
+  });
+}
+
 export interface UpdateEmployeeProfilePayload {
   version: number;
   orgUnitId: number;
