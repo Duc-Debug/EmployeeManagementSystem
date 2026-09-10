@@ -16,7 +16,9 @@ import {
     Info,
     UserCheck,
     Flag,
+    GitCommit,
 } from 'lucide-react';
+import { TaskDependencyModal } from './TaskDependencyModal';
 import {
     INITIAL_CATEGORIES,
     INITIAL_PROJECT_MEMBERS,
@@ -55,6 +57,7 @@ export default function ProjectView() {
     // Mốc tiến độ (NCL-03-CN-006)
     const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
     const [isLoadingMilestones, setIsLoadingMilestones] = useState<boolean>(false);
+    const [dependencyModalOpen, setDependencyModalOpen] = useState<boolean>(false);
     const currentProjectId = 1; // ID dự án mặc định
 
     useEffect(() => {
@@ -373,14 +376,25 @@ export default function ProjectView() {
                     {/* Top Actions */}
                     <div className="flex items-center gap-2.5 self-start sm:self-auto">
                         {isPM && (
-                            <button
-                                type="button"
-                                onClick={() => handleQuickAddTask()}
-                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
-                            >
-                                <Plus className="h-4 w-4 stroke-[2.5]" />
-                                <span>Thêm công việc</span>
-                            </button>
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => handleQuickAddTask()}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
+                                >
+                                    <Plus className="h-4 w-4 stroke-[2.5]" />
+                                    <span>Thêm công việc</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDependencyModalOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
+                                >
+                                    <GitCommit className="h-4 w-4" />
+                                    <span>Phụ thuộc công việc</span>
+                                </button>
+                            </>
                         )}
                         <button
                             type="button"
@@ -635,6 +649,20 @@ export default function ProjectView() {
                 monthName={selectedMonth.name}
                 onClose={() => setAdjustModalOpen(false)}
                 onSave={handleSaveAdjustedHours}
+            />
+
+            <TaskDependencyModal
+                open={dependencyModalOpen}
+                projectId={currentProjectId}
+                tasks={categories.flatMap((cat) =>
+                    cat.tasks.map((t) => ({
+                        id: Number(t.id.replace('t-', '')),
+                        taskCode: t.taskCode,
+                        name: t.title,
+                    }))
+                )}
+                canManage={isPM}
+                onClose={() => setDependencyModalOpen(false)}
             />
 
             {/* Toast Notification */}
