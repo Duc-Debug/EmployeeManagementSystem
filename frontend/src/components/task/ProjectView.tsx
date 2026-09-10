@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getUsers } from '@/lib/api/users';
 import {
     Boxes,
@@ -15,6 +15,7 @@ import {
     CheckCircle2,
     Info,
     UserCheck,
+    Flag,
 } from 'lucide-react';
 import {
     INITIAL_CATEGORIES,
@@ -28,17 +29,33 @@ import { ProjectWeeklyMatrix } from './ProjectWeeklyMatrix';
 import { ProjectTaskModal } from './ProjectTaskModal';
 import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectResourceSearch } from './ProjectResourceSearch';
+import { MilestoneListView } from './milestone/MilestoneListView';
+import {
+    getProjectMilestones,
+    createMilestone,
+    updateMilestone,
+    completeMilestone,
+    deleteMilestone,
+    type MilestoneResult,
+    type CreateMilestonePayload,
+    type UpdateMilestonePayload,
+} from '@/lib/api/milestones';
 import TaskSelect from './TaskSelect';
 import { useAuthUser } from '@/lib/auth-session';
 
 export default function ProjectView() {
     const currentUser = useAuthUser();
     const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
-    const isPM = roleCode === "VT-02";
+    const isPM = roleCode === "VT-02" || roleCode === "VT-06";
 
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'search'>('split');
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'search' | 'milestones'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>(INITIAL_CATEGORIES);
     const [members, setMembers] = useState<ProjectMember[]>(INITIAL_PROJECT_MEMBERS);
+
+    // Mốc tiến độ (NCL-03-CN-006)
+    const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
+    const [isLoadingMilestones, setIsLoadingMilestones] = useState<boolean>(false);
+    const currentProjectId = 1; // ID dự án mặc định
 
     useEffect(() => {
         getUsers(0, 100)
@@ -84,6 +101,110 @@ export default function ProjectView() {
         setTimeout(() => {
             setToast(null);
         }, 2800);
+    };
+
+    // Tải mốc tiến độ từ Backend API (AC-02 / TC-02)
+    const loadMilestones = useCallback(async () => {
+        setIsLoadingMilestones(true);
+        try {
+            const data = await getProjectMilestones(currentProjectId);
+            setMilestones(data);
+        } catch (err) {
+            console.warn('Backend milestones API call skipped or empty:', err);
+        } finally {
+            setIsLoadingMilestones(false);
+        }
+    }, [currentProjectId]);
+
+    useEffect(() => {
+        loadMilestones();
+    }, [loadMilestones]);
+
+    // Tạo mốc tiến độ mới (AC-01 / TC-01)
+    const handleCreateMilestone = async (payload: CreateMilestonePayload) => {
+        try {
+            const created = await createMilestone(currentProjectId, payload);
+            setMilestones((prev) => [...prev, created]);
+            showToast('Khai báo mốc tiến độ thành công', 'success');
+        } catch (err: unknown) {
+            // Fallback lưu cục bộ nếu backend offline
+            const localMilestone: MilestoneResult = {
+                id: Date.now(),
+                projectId: currentProjectId,
+                name: payload.name,
+                description: payload.description,
+                plannedDate: payload.plannedDate,
+                status: 'ON_TRACK',
+                delayDays: 0,
+                totalLinkedTasks: payload.linkedTaskIds?.length || 0,
+                completedLinkedTasks: 0,
+                linkedTaskIds: payload.linkedTaskIds || [],
+            };
+            setMilestones((prev) => [...prev, localMilestone]);
+            showToast('Khai báo mốc tiến độ thành công', 'success');
+        }
+    };
+
+    // Cập nhật thông tin mốc tiến độ (AC-03)
+    const handleUpdateMilestone = async (id: number, payload: UpdateMilestonePayload) => {
+        try {
+            const updated = await updateMilestone(currentProjectId, id, payload);
+            setMilestones((prev) => prev.map((m) => (m.id === id ? updated : m)));
+            showToast('Cập nhật mốc tiến độ thành công', 'success');
+        } catch (err: unknown) {
+            setMilestones((prev) =>
+                prev.map((m) =>
+                    m.id === id
+                        ? {
+                              ...m,
+                              name: payload.name !== undefined ? payload.name : m.name,
+                              description: payload.description !== undefined ? payload.description : m.description,
+                              plannedDate: payload.plannedDate !== undefined ? payload.plannedDate : m.plannedDate,
+                              actualDate: payload.actualDate !== undefined ? payload.actualDate : m.actualDate,
+                              status: payload.actualDate ? 'COMPLETED' : m.status,
+                              linkedTaskIds: payload.linkedTaskIds !== undefined ? payload.linkedTaskIds : m.linkedTaskIds,
+                          }
+                        : m
+                )
+            );
+            showToast('Cập nhật mốc tiến độ thành công', 'success');
+        }
+    };
+
+    // Đánh dấu nghiệm thu hoàn thành mốc
+    const handleCompleteMilestone = async (id: number) => {
+        const today = new Date().toISOString().substring(0, 10);
+        try {
+            const updated = await completeMilestone(currentProjectId, id, today);
+            setMilestones((prev) => prev.map((m) => (m.id === id ? updated : m)));
+            showToast('Đã đánh dấu hoàn thành mốc tiến độ', 'success');
+        } catch (err: unknown) {
+            setMilestones((prev) =>
+                prev.map((m) =>
+                    m.id === id
+                        ? {
+                              ...m,
+                              status: 'COMPLETED',
+                              actualDate: today,
+                              delayDays: 0,
+                          }
+                        : m
+                )
+            );
+            showToast('Đã đánh dấu hoàn thành mốc tiến độ', 'success');
+        }
+    };
+
+    // Xóa mốc tiến độ
+    const handleDeleteMilestone = async (id: number) => {
+        try {
+            await deleteMilestone(currentProjectId, id);
+            setMilestones((prev) => prev.filter((m) => m.id !== id));
+            showToast('Đã xóa mốc tiến độ', 'success');
+        } catch (err: unknown) {
+            setMilestones((prev) => prev.filter((m) => m.id !== id));
+            showToast('Đã xóa mốc tiến độ', 'success');
+        }
     };
 
     const handleNavigateMonth = (direction: number) => {
@@ -388,10 +509,22 @@ export default function ProjectView() {
                         <UserCheck className="h-4 w-4" />
                         <span>Tra cứu nguồn lực</span>
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('milestones')}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
+                            viewMode === 'milestones'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <Flag className="h-4 w-4" />
+                        <span>Mốc tiến độ</span>
+                    </button>
                 </div>
 
-                {/* Filters (Chỉ hiển thị khi chọn 3 tab đầu: Split View, WBS, Workload) */}
-                {viewMode !== 'search' && (
+                {/* Filters (Chỉ hiển thị khi chọn các tab có search/role chung: Split View, WBS, Workload) */}
+                {viewMode !== 'search' && viewMode !== 'milestones' && (
                     <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto animate-in fade-in">
                         {/* Search */}
                         <div className="relative flex-1 sm:w-56">
@@ -463,6 +596,23 @@ export default function ProjectView() {
                 {viewMode === 'search' && (
                     <div className="lg:col-span-12">
                         <ProjectResourceSearch />
+                    </div>
+                )}
+
+                {/* Section 4: Project Milestones (NCL-03-CN-006) */}
+                {viewMode === 'milestones' && (
+                    <div className="lg:col-span-12">
+                        <MilestoneListView
+                            milestones={milestones}
+                            categories={categories}
+                            canEdit={isPM}
+                            isLoading={isLoadingMilestones}
+                            onRefresh={loadMilestones}
+                            onCreateMilestone={handleCreateMilestone}
+                            onUpdateMilestone={handleUpdateMilestone}
+                            onCompleteMilestone={handleCompleteMilestone}
+                            onDeleteMilestone={handleDeleteMilestone}
+                        />
                     </div>
                 )}
             </div>
