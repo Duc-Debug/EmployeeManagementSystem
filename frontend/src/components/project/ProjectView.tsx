@@ -11,7 +11,8 @@ import {
     type TaskNodeResult,
     type BackendTaskStatus,
 } from '@/lib/api/projects';
-import { setTaskBudget } from '@/lib/api/tasks';
+import { setTaskBudget, type CloneProjectWbsResult } from '@/lib/api/tasks';
+
 import {
     Boxes,
     Plus,
@@ -32,6 +33,7 @@ import {
     FolderPlus,
     Calendar,
     ChevronDown,
+    Copy,
 } from 'lucide-react';
 import {
     type ProjectMonth,
@@ -45,6 +47,7 @@ import { ProjectTaskModal } from './ProjectTaskModal';
 import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectBudgetModal } from './ProjectBudgetModal';
 import { ProjectCreateModal } from './ProjectCreateModal';
+import { CloneWbsModal } from './CloneWbsModal';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
@@ -93,7 +96,9 @@ function mapBackendWbsToUiCategories(
     members.forEach((m) => {
         const numId = m.id.replace(/\D/g, '');
         if (numId) memberMap.set(numId, m);
+        if (m.employeeId) memberMap.set(String(m.employeeId), m);
     });
+
 
     const categories: TaskCategoryGroup[] = [];
     const standaloneTasks: TaskItem[] = [];
@@ -194,6 +199,10 @@ export default function ProjectView() {
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
 
     // Real projects backend state
+    const canManageWbs = Boolean(
+        currentUser?.roleCode &&
+        (currentUser.roleCode === 'VT-02' || currentUser.roleCode === 'VT-06')
+    );
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
@@ -202,6 +211,7 @@ export default function ProjectView() {
     const [projectError, setProjectError] = useState<string | null>(null);
     const [allocationError, setAllocationError] = useState<string | null>(null);
     const [projectCreateModalOpen, setProjectCreateModalOpen] = useState<boolean>(false);
+    const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
 
     // Selected project object
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
@@ -215,6 +225,13 @@ export default function ProjectView() {
             setToast(null);
         }, 3200);
     }, []);
+
+    const handleCloneSuccess = async (result: CloneProjectWbsResult) => {
+        if (selectedProjectId) {
+            await loadWbsForProject(selectedProjectId);
+        }
+        showToast(`Nhân bản thành công ${result.totalClonedTasks} công việc sang dự án!`, 'success');
+    };
 
     // 1. Tải danh sách nhân sự thật từ API
     useEffect(() => {
@@ -238,6 +255,7 @@ export default function ProjectView() {
                 console.warn('Failed to load employees for the selected project:', err);
             });
     }, []);
+
 
     // 2. Tải danh sách dự án thật từ Database
     const loadProjects = useCallback(async () => {
@@ -346,6 +364,7 @@ export default function ProjectView() {
     useEffect(() => {
         if (selectedProjectId && categories.length > 0) void loadProjectAllocations();
     }, [selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
+    const selectedMonth = months[selectedMonthIdx] || months[0];
 
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('ALL');
@@ -357,6 +376,7 @@ export default function ProjectView() {
     const [adjustModalOpen, setAdjustModalOpen] = useState(false);
     const [selectedAdjustCell, setSelectedAdjustCell] = useState<{
         memberId: string;
+
         weekKey: string;
         weekLabel: string;
     } | null>(null);
@@ -417,14 +437,15 @@ export default function ProjectView() {
                     }
                 }
 
-                // Trích xuất numeric assigneeId từ string u-123
-                const numAssignee = assigneeId ? parseInt(assigneeId.replace(/\D/g, ''), 10) : null;
+                // Tìm member tương ứng để lấy employeeId thật trong database
+                const targetMember = members.find((m) => m.id === assigneeId);
+                const employeeIdToAssign = targetMember?.employeeId || null;
 
                 await createTask(selectedProjectId, {
                     parentId: parentIdToUse,
                     name,
                     taskType: 'TASK',
-                    assigneeId: numAssignee && !isNaN(numAssignee) && numAssignee > 0 ? numAssignee : null,
+                    assigneeId: employeeIdToAssign,
                     estimatedHours: hours,
                     sortOrder: 0,
                 });
@@ -505,6 +526,7 @@ export default function ProjectView() {
         }
     };
 
+
     const handleOpenBudgetModal = (task: TaskItem) => {
         if (!canManageProject) {
             showToast('Bạn chỉ có quyền xem dự án.', 'info');
@@ -582,7 +604,9 @@ export default function ProjectView() {
     const totalActualHours = categories
         .flatMap((c) => c.tasks)
         .reduce((sum, t) => sum + (t.actualHours || 0), 0);
-    const selectedMonth = months[selectedMonthIdx] || months[0];
+    const currentWeek = selectedMonth.weeks.find((w) => w.isCurrent) || selectedMonth.weeks[0];
+    const currentWeekLoad = members.reduce((sum, m) => sum + (m.weeklyHours[currentWeek?.key] || 0), 0);
+    const uniqueRoles = Array.from(new Set(members.map((m) => m.role))).filter((r): r is string => Boolean(r));
 
     const adjustMember = selectedAdjustCell
         ? members.find((m) => m.id === selectedAdjustCell.memberId) || null
@@ -674,6 +698,18 @@ export default function ProjectView() {
                             <span>+ Dự án mới</span>
                         </button>}
 
+                        {canManageWbs && (
+                            <button
+                                type="button"
+                                onClick={() => setCloneModalOpen(true)}
+                                className="inline-flex items-center gap-2 rounded-xl border border-indigo-600/30 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 hover:border-indigo-600/60 active:scale-95 cursor-pointer"
+                                title="Nhân bản toàn bộ cây WBS sang dự án khác"
+                            >
+                                <Copy className="h-3.5 w-3.5 text-indigo-600" />
+                                <span>Nhân bản WBS</span>
+                            </button>
+                        )}
+
                         {canManageProject && <button
                             type="button"
                             onClick={() => handleQuickAddTask()}
@@ -754,16 +790,18 @@ export default function ProjectView() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-slate-300">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Tải tuần này (Tuần 2)</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            Tải tuần này ({currentWeek?.label || 'Hiện tại'})
+                        </span>
                         <span className="rounded-lg bg-amber-50 p-2 text-amber-600">
                             <BarChart3 className="h-4 w-4" />
                         </span>
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-slate-800">{Math.round(totalBudgetHours > 0 ? totalBudgetHours * 0.4 : 218)}h</span>
-                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-600">Công suất</span>
+                        <span className="text-2xl font-bold text-slate-800">{Math.round(currentWeekLoad)}h</span>
+                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-600">Phân bổ</span>
                     </div>
-                    <p className="mt-2 text-xs text-slate-400">{members.length * 40}h tổng tải định mức</p>
+                    <p className="mt-2 text-xs text-slate-400">{members.length * 40}h tổng định mức đội ngũ</p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-slate-300">
@@ -846,12 +884,12 @@ export default function ProjectView() {
                         onChange={(e) => setRoleFilter(e.target.value)}
                         className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                     >
-                        <option value="ALL">Tất cả vai trò</option>
-                        <option value="Product Owner / BA">Product / BA</option>
-                        <option value="UI/UX Designer">UI/UX Design</option>
-                        <option value="Frontend Dev">Frontend</option>
-                        <option value="Backend Dev">Backend</option>
-                        <option value="QA / QC Tester">QA / QC</option>
+                        <option value="ALL">Tất cả vai trò ({members.length})</option>
+                        {uniqueRoles.map((role) => (
+                            <option key={role} value={role}>
+                                {role}
+                            </option>
+                        ))}
                     </select>
                 </div>
             </div>
@@ -869,6 +907,7 @@ export default function ProjectView() {
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
                             onOpenBudgetModal={handleOpenBudgetModal}
+                            onOpenCloneModal={canManageWbs ? () => setCloneModalOpen(true) : undefined}
                         />
                     </div>
                 )}
@@ -889,6 +928,14 @@ export default function ProjectView() {
             </div>
 
             {/* Modals */}
+            <CloneWbsModal
+                isOpen={cloneModalOpen}
+                onClose={() => setCloneModalOpen(false)}
+                targetProject={selectedProject}
+                projectsList={projectsList}
+                onSuccess={handleCloneSuccess}
+            />
+
             {canManageProject && <ProjectTaskModal
                 open={taskModalOpen}
                 categories={categories}
@@ -939,3 +986,5 @@ export default function ProjectView() {
         </div>
     );
 }
+
+

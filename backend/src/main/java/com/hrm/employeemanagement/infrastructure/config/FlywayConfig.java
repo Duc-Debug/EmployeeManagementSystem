@@ -3,11 +3,11 @@ package com.hrm.employeemanagement.infrastructure.config;
 import javax.sql.DataSource;
 
 import org.flywaydb.core.Flyway;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Cấu hình Flyway - Nguồn chân lý duy nhất cho Database Schema.
@@ -32,12 +32,14 @@ public class FlywayConfig {
                 .locations("classpath:db/migration")
                 .outOfOrder(outOfOrder)
                 .load();
+
         flyway.repair();
         flyway.migrate();
 
         System.out.println("==================================================");
         System.out.println("✅ FLYWAY MIGRATION SUCCESSFUL!");
         System.out.println("==================================================");
+
         return flyway;
     }
 
@@ -50,13 +52,25 @@ public class FlywayConfig {
     public static BeanFactoryPostProcessor entityManagerFactoryDependsOnFlyway() {
         return beanFactory -> {
             if (beanFactory.containsBeanDefinition("entityManagerFactory")) {
-                BeanDefinition def = beanFactory.getBeanDefinition("entityManagerFactory");
+                BeanDefinition def =
+                        beanFactory.getBeanDefinition("entityManagerFactory");
+
                 String[] existingDependsOn = def.getDependsOn();
+
                 if (existingDependsOn == null || existingDependsOn.length == 0) {
                     def.setDependsOn("flyway");
                 } else {
-                    String[] newDependsOn = new String[existingDependsOn.length + 1];
-                    System.arraycopy(existingDependsOn, 0, newDependsOn, 0, existingDependsOn.length);
+                    String[] newDependsOn =
+                            new String[existingDependsOn.length + 1];
+
+                    System.arraycopy(
+                            existingDependsOn,
+                            0,
+                            newDependsOn,
+                            0,
+                            existingDependsOn.length
+                    );
+
                     newDependsOn[existingDependsOn.length] = "flyway";
                     def.setDependsOn(newDependsOn);
                 }

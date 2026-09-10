@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.infrastructure.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.hrm.employeemanagement.application.port.inbound.task.CloneProjectWbsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.CreateTaskUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.GetProjectWbsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.SetTaskBudgetUseCase;
@@ -16,10 +17,12 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.service.task.CloneProjectWbsService;
 import com.hrm.employeemanagement.application.service.task.CreateTaskService;
 import com.hrm.employeemanagement.application.service.task.GetProjectWbsService;
 import com.hrm.employeemanagement.application.service.task.SetTaskBudgetService;
 import com.hrm.employeemanagement.application.service.task.UpdateTaskService;
+import com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalCloneProjectWbsUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalCreateTaskUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalGetProjectWbsUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalSetTaskBudgetUseCase;
@@ -112,5 +115,29 @@ public class TaskUseCaseConfig {
                 saveDeniedAuditLogPort,
                 authorizationService);
         return new TransactionalSetTaskBudgetUseCase(pureService);
+    }
+
+    @Bean
+    public CloneProjectWbsUseCase cloneProjectWbsUseCase(
+            LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
+            LoadProjectPort loadProjectPort,
+            SaveProjectPort saveProjectPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+            AuthorizationService authorizationService) {
+        CloneProjectWbsService service = new CloneProjectWbsService(
+                loadTaskPort,
+                saveTaskPort,
+                loadProjectPort,
+                saveProjectPort,
+                loadEmployeePort,
+                loadUserPort,
+                saveAuditLogPort,
+                saveDeniedAuditLogPort,
+                authorizationService);
+        return new TransactionalCloneProjectWbsUseCase(service);
     }
 }
