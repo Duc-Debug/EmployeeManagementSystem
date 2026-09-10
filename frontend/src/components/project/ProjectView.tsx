@@ -164,7 +164,10 @@ export default function ProjectView() {
 
     // Real projects backend state
     const currentUser = useAuthUser();
-    const canManageWbs = currentUser?.roleCode === 'VT-02' || currentUser?.roleCode === 'VT-06' || !currentUser?.roleCode;
+    const canManageWbs = Boolean(
+        currentUser?.roleCode &&
+        (currentUser.roleCode === 'VT-02' || currentUser.roleCode === 'VT-06')
+    );
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);

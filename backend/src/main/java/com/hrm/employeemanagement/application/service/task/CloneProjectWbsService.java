@@ -103,51 +103,74 @@ public class CloneProjectWbsService implements CloneProjectWbsUseCase {
             throw new ProjectClosedException(targetProject.getIdValue());
         }
 
-        // 3. Tải dự án nguồn và danh sách task nguồn
+        // 3. Tải dự án nguồn và kiểm tra quyền hạn / phạm vi dữ liệu (Data Scope)
         Project sourceProject = loadProjectPort.findById(new ProjectId(command.sourceProjectId()))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án nguồn với ID: " + command.sourceProjectId()));
+
+        if (!canManageWbs(currentUser, currentUserId, sourceProject)) {
+            saveDeniedAudit(currentUserId, currentUser, sourceProject.getIdValue(), "OUTSIDE_DATA_SCOPE_WBS_CLONE_SOURCE");
+            throw new PermissionDeniedException(PermissionCode.PROJECT_WBS_MANAGE);
+        }
 
         List<Task> sourceTasks = loadTaskPort.findAllByProjectId(sourceProject.getId());
         if (sourceTasks == null || sourceTasks.isEmpty()) {
             throw new EmptySourceWbsException(command.sourceProjectId());
         }
 
-        // 4. Tiến hành sao chép theo cấu trúc cây (Topological / Level Order)
-        Map<Long, TaskId> oldToNewIdMap = new HashMap<>();
-        List<Task> clonedTasks = new ArrayList<>();
-        int categoryCount = 0;
+        // 4. Tiến hành sao chép theo cấu trúc cây (Recursive DFS - N tầng)
+        Map<Long, List<Task>> childrenByParentId = new HashMap<>();
+        List<Task> rootTasks = new ArrayList<>();
 
-        // Phân tách Root tasks (parentId == null) và Child tasks
-        List<Task> rootTasks = sourceTasks.stream()
-                .filter(t -> t.getParentId() == null)
-                .sorted(Comparator.comparingInt(Task::getSortOrder).thenComparing(t -> t.getIdValue() != null ? t.getIdValue() : 0L))
-                .toList();
-
-        List<Task> childTasks = sourceTasks.stream()
-                .filter(t -> t.getParentId() != null)
-                .sorted(Comparator.comparingInt(Task::getSortOrder).thenComparing(t -> t.getIdValue() != null ? t.getIdValue() : 0L))
-                .toList();
-
-        // 4.1. Sao chép các Root tasks trước để lấy ID mới
-        for (Task srcRoot : rootTasks) {
-            Task newRoot = cloneSingleTask(srcRoot, targetProject, null, currentUserId);
-            Task savedRoot = saveTaskPort.save(newRoot);
-            oldToNewIdMap.put(srcRoot.getIdValue(), savedRoot.getId());
-            clonedTasks.add(savedRoot);
-            if (savedRoot.isCategory()) {
-                categoryCount++;
+        for (Task task : sourceTasks) {
+            if (task.getParentIdValue() == null) {
+                rootTasks.add(task);
+            } else {
+                childrenByParentId
+                        .computeIfAbsent(task.getParentIdValue(), k -> new ArrayList<>())
+                        .add(task);
             }
         }
 
-        // 4.2. Sao chép các Child tasks
-        for (Task srcChild : childTasks) {
-            TaskId newParentId = oldToNewIdMap.get(srcChild.getParentIdValue());
-            Task newChild = cloneSingleTask(srcChild, targetProject, newParentId, currentUserId);
-            Task savedChild = saveTaskPort.save(newChild);
-            oldToNewIdMap.put(srcChild.getIdValue(), savedChild.getId());
-            clonedTasks.add(savedChild);
-            if (savedChild.isCategory()) {
-                categoryCount++;
+        Comparator<Task> siblingComparator = Comparator
+                .comparingInt(Task::getSortOrder)
+                .thenComparing(t -> t.getIdValue() != null ? t.getIdValue() : 0L);
+
+        rootTasks.sort(siblingComparator);
+        childrenByParentId.values().forEach(list -> list.sort(siblingComparator));
+
+        Map<Long, TaskId> oldToNewIdMap = new HashMap<>();
+        List<Task> clonedTasks = new ArrayList<>();
+        int[] categoryCounter = new int[1];
+
+        for (Task rootTask : rootTasks) {
+            cloneNodeAndDescendants(
+                    rootTask,
+                    targetProject,
+                    null,
+                    currentUserId,
+                    childrenByParentId,
+                    oldToNewIdMap,
+                    clonedTasks,
+                    categoryCounter
+            );
+        }
+
+        // Phòng hộ: Nếu còn task con mồ côi (parentId trỏ ngoài danh sách root)
+        if (clonedTasks.size() < sourceTasks.size()) {
+            for (Task task : sourceTasks) {
+                if (!oldToNewIdMap.containsKey(task.getIdValue())) {
+                    TaskId parentId = oldToNewIdMap.get(task.getParentIdValue());
+                    cloneNodeAndDescendants(
+                            task,
+                            targetProject,
+                            parentId,
+                            currentUserId,
+                            childrenByParentId,
+                            oldToNewIdMap,
+                            clonedTasks,
+                            categoryCounter
+                    );
+                }
             }
         }
 
@@ -161,7 +184,7 @@ public class CloneProjectWbsService implements CloneProjectWbsUseCase {
                 "projects",
                 targetProject.getIdValue(),
                 "sourceProjectId=" + command.sourceProjectId(),
-                "clonedTasksCount=" + clonedTasks.size() + ";categories=" + categoryCount
+                "clonedTasksCount=" + clonedTasks.size() + ";categories=" + categoryCounter[0]
         ));
 
         // 6. Trả về cấu trúc cây WBS mới
@@ -170,9 +193,44 @@ public class CloneProjectWbsService implements CloneProjectWbsUseCase {
                 targetProject.getIdValue(),
                 command.sourceProjectId(),
                 clonedTasks.size(),
-                categoryCount,
+                categoryCounter[0],
                 treeResult
         );
+    }
+
+    private void cloneNodeAndDescendants(
+            Task sourceNode,
+            Project targetProject,
+            TaskId newParentId,
+            Long currentUserId,
+            Map<Long, List<Task>> childrenByParentId,
+            Map<Long, TaskId> oldToNewIdMap,
+            List<Task> clonedTasks,
+            int[] categoryCounter
+    ) {
+        Task newTask = cloneSingleTask(sourceNode, targetProject, newParentId, currentUserId);
+        Task savedTask = saveTaskPort.save(newTask);
+        oldToNewIdMap.put(sourceNode.getIdValue(), savedTask.getId());
+        clonedTasks.add(savedTask);
+        if (savedTask.isCategory()) {
+            categoryCounter[0]++;
+        }
+
+        List<Task> children = childrenByParentId.get(sourceNode.getIdValue());
+        if (children != null) {
+            for (Task child : children) {
+                cloneNodeAndDescendants(
+                        child,
+                        targetProject,
+                        savedTask.getId(),
+                        currentUserId,
+                        childrenByParentId,
+                        oldToNewIdMap,
+                        clonedTasks,
+                        categoryCounter
+                );
+            }
+        }
     }
 
     private Task cloneSingleTask(Task source, Project targetProject, TaskId newParentId, Long currentUserId) {

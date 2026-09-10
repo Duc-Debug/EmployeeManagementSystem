@@ -13,6 +13,57 @@ import {
 import { getProjectWbs, type ProjectResult, type TaskNodeResult } from '@/lib/api/projects';
 import { cloneProjectWbs, type CloneProjectWbsResult } from '@/lib/api/tasks';
 
+function countWbsNodes(nodes: TaskNodeResult[]): { categories: number; tasks: number } {
+    let categories = 0;
+    let tasks = 0;
+
+    const traverse = (items: TaskNodeResult[]) => {
+        for (const item of items) {
+            if (item.taskType === 'CATEGORY') {
+                categories++;
+            } else {
+                tasks++;
+            }
+            if (item.children && item.children.length > 0) {
+                traverse(item.children);
+            }
+        }
+    };
+
+    traverse(nodes);
+    return { categories, tasks };
+}
+
+function renderPreviewNode(node: TaskNodeResult, depth: number = 0) {
+    return (
+        <div key={node.id} className="space-y-0.5">
+            <div
+                className={`flex items-center gap-1 ${
+                    depth === 0 && node.taskType === 'CATEGORY'
+                        ? 'font-bold text-slate-900'
+                        : 'text-slate-700'
+                }`}
+                style={{ paddingLeft: `${depth * 14}px` }}
+            >
+                {depth === 0 && node.taskType === 'CATEGORY' ? (
+                    <Layers className="h-3 w-3 text-indigo-600 shrink-0" />
+                ) : (
+                    <span className="text-slate-400 font-mono text-[10px] shrink-0">├─</span>
+                )}
+                <span className="truncate">{node.name}</span>
+                {node.budgetHours !== undefined && node.budgetHours !== null && Number(node.budgetHours) > 0 ? (
+                    <span className="text-indigo-600 font-semibold text-[10px] shrink-0">
+                        ({node.budgetHours}h)
+                    </span>
+                ) : null}
+            </div>
+            {node.children && node.children.length > 0 && (
+                node.children.map((child) => renderPreviewNode(child, depth + 1))
+            )}
+        </div>
+    );
+}
+
 interface CloneWbsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -109,9 +160,8 @@ export function CloneWbsModal({
         }
     };
 
-    // Đếm số category và tasks con trong preview
-    const countCategories = previewWbs.filter((n) => n.taskType === 'CATEGORY').length;
-    const countTasks = previewWbs.reduce((acc, cat) => acc + (cat.children?.length || (cat.taskType === 'TASK' ? 1 : 0)), 0);
+    // Đếm đệ quy số category và tasks toàn bộ cây WBS (hỗ trợ N tầng)
+    const { categories: countCategories, tasks: countTasks } = countWbsNodes(previewWbs);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
@@ -261,30 +311,7 @@ export function CloneWbsModal({
                                     Dự án nguồn này chưa có cây công việc WBS nào trong Database.
                                 </div>
                             ) : (
-                                previewWbs.map((node) => (
-                                    <div key={node.id} className="space-y-0.5">
-                                        <div className="font-bold text-slate-900 flex items-center gap-1">
-                                            <Layers className="h-3 w-3 text-indigo-600" />
-                                            <span>{node.name}</span>
-                                            {node.budgetHours ? (
-                                                <span className="font-normal text-slate-500">({node.budgetHours}h)</span>
-                                            ) : null}
-                                        </div>
-                                        {node.children && node.children.length > 0 && (
-                                            <div className="pl-4 space-y-0.5 text-slate-600">
-                                                {node.children.map((child) => (
-                                                    <div key={child.id} className="flex items-center gap-1">
-                                                        <span className="text-slate-400">├─</span>
-                                                        <span>{child.name}</span>
-                                                        {child.budgetHours ? (
-                                                            <span className="text-indigo-600 font-semibold">({child.budgetHours}h)</span>
-                                                        ) : null}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))
+                                previewWbs.map((node) => renderPreviewNode(node, 0))
                             )}
                         </div>
                     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "../api-client";
+import { type TaskNodeResult } from "./projects";
 
 export interface TaskBudgetResult {
   taskId: number;
@@ -24,7 +25,7 @@ export interface CloneProjectWbsResult {
   sourceProjectId: number;
   totalClonedTasks: number;
   totalCategories: number;
-  wbsTree: unknown[];
+  wbsTree: TaskNodeResult[];
 }
 
 /**

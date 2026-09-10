@@ -464,4 +464,262 @@ class CloneProjectWbsServiceTest {
         assertThatThrownBy(() -> service.cloneWbs(command))
                 .isInstanceOf(ProjectClosedException.class);
     }
+
+    @Test
+    @DisplayName("TC-02: Báo lỗi khi dự án nguồn không tồn tại (ProjectNotFoundException)")
+    void testCloneWbs_SourceProjectNotFound_ThrowsException() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser(CURRENT_USER_ID)));
+
+        Project targetProject = createActiveProject(TARGET_PROJECT_ID, "PRJ-NEW", MANAGER_ID);
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(TARGET_PROJECT_ID))).thenReturn(Optional.of(targetProject));
+        when(loadProjectPort.findById(new ProjectId(SOURCE_PROJECT_ID))).thenReturn(Optional.empty());
+
+        CloneProjectWbsCommand command = new CloneProjectWbsCommand(TARGET_PROJECT_ID, SOURCE_PROJECT_ID);
+
+        assertThatThrownBy(() -> service.cloneWbs(command))
+                .isInstanceOf(ProjectNotFoundException.class)
+                .hasMessageContaining("Không tìm thấy dự án nguồn");
+
+        verify(saveTaskPort, never()).save(any(Task.class));
+    }
+
+    @Test
+    @DisplayName("TC-03: Báo lỗi khi dự án đích không tồn tại (ProjectNotFoundException)")
+    void testCloneWbs_TargetProjectNotFound_ThrowsException() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser(CURRENT_USER_ID)));
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(TARGET_PROJECT_ID))).thenReturn(Optional.empty());
+
+        CloneProjectWbsCommand command = new CloneProjectWbsCommand(TARGET_PROJECT_ID, SOURCE_PROJECT_ID);
+
+        assertThatThrownBy(() -> service.cloneWbs(command))
+                .isInstanceOf(ProjectNotFoundException.class)
+                .hasMessageContaining("Không tìm thấy dự án đích");
+
+        verify(saveTaskPort, never()).save(any(Task.class));
+    }
+
+    @Test
+    @DisplayName("TC-04: Báo lỗi khi không có quyền PROJECT_WBS_MANAGE")
+    void testCloneWbs_NoPermission_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE))
+                .thenThrow(new PermissionDeniedException(PermissionCode.PROJECT_WBS_MANAGE));
+
+        CloneProjectWbsCommand command = new CloneProjectWbsCommand(TARGET_PROJECT_ID, SOURCE_PROJECT_ID);
+
+        assertThatThrownBy(() -> service.cloneWbs(command))
+                .isInstanceOf(PermissionDeniedException.class);
+
+        verify(loadProjectPort, never()).findByIdForUpdate(any());
+        verify(saveTaskPort, never()).save(any(Task.class));
+    }
+
+    @Test
+    @DisplayName("TC-06: Người dùng có quyền quản lý Target nhưng Source project nằm ngoài Data Scope -> Bị từ chối và ghi log audit")
+    void testCloneWbs_TC06_SourceProjectOutsideDataScope_ThrowsPermissionDeniedAndAudits() {
+        // Given: User có DataScope.SELF, là PM của TARGET_PROJECT nhưng KHÔNG phải PM của SOURCE_PROJECT
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createSelfScopeUser(CURRENT_USER_ID)));
+
+        Long myEmployeeId = 999L;
+        Employee currentEmployee = new Employee(
+                new EmployeeId(myEmployeeId),
+                new UserId(CURRENT_USER_ID),
+                10L,
+                "EMP-999",
+                "Nguyễn Văn PM",
+                false,
+                40,
+                EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findByUserId(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(currentEmployee));
+
+        // Target project do chính user (myEmployeeId = 999L) quản lý -> ĐƯỢC PHÉP
+        Project targetProject = createActiveProject(TARGET_PROJECT_ID, "PRJ-TARGET", myEmployeeId);
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(TARGET_PROJECT_ID))).thenReturn(Optional.of(targetProject));
+
+        // Source project do người khác quản lý (MANAGER_ID = 10L != 999L) -> NGOÀI DATA SCOPE
+        Project sourceProject = createActiveProject(SOURCE_PROJECT_ID, "PRJ-SOURCE", MANAGER_ID);
+        when(loadProjectPort.findById(new ProjectId(SOURCE_PROJECT_ID))).thenReturn(Optional.of(sourceProject));
+
+        // When & Then
+        CloneProjectWbsCommand command = new CloneProjectWbsCommand(TARGET_PROJECT_ID, SOURCE_PROJECT_ID);
+        assertThatThrownBy(() -> service.cloneWbs(command))
+                .isInstanceOf(PermissionDeniedException.class);
+
+        // Verify: Nhật ký từ chối truy cập được ghi nhận với đúng source project ID
+        verify(saveDeniedAuditLogPort).save(auditLogCaptor.capture());
+        AuditLog deniedAudit = auditLogCaptor.getValue();
+
+        assertThat(deniedAudit.getAction()).isEqualTo("PROJECT_ACCESS_DENIED");
+        assertThat(deniedAudit.getTableName()).isEqualTo("projects");
+        assertThat(deniedAudit.getRecordId()).isEqualTo(SOURCE_PROJECT_ID);
+        assertThat(deniedAudit.getNewValue()).contains("OUTSIDE_DATA_SCOPE_WBS_CLONE_SOURCE");
+
+        // Verify: Không có task nào được load hay save
+        verify(loadTaskPort, never()).findAllByProjectId(any());
+        verify(saveTaskPort, never()).save(any(Task.class));
+    }
+
+    @Test
+    @DisplayName("TC-07: Sao chép cây công việc phân cấp sâu 4 tầng (Category -> Task -> Subtask -> Subtask) giữ nguyên cấu trúc")
+    void testCloneWbs_TC07_FourLevelDeepHierarchy_ClonedCorrectly() {
+        // Given
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser(CURRENT_USER_ID)));
+
+        Project targetProject = createActiveProject(TARGET_PROJECT_ID, "PRJ-NEW", MANAGER_ID);
+        Project sourceProject = createActiveProject(SOURCE_PROJECT_ID, "PRJ-OLD", MANAGER_ID);
+
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(TARGET_PROJECT_ID))).thenReturn(Optional.of(targetProject));
+        when(loadProjectPort.findById(new ProjectId(SOURCE_PROJECT_ID))).thenReturn(Optional.of(sourceProject));
+
+        ProjectId srcPrjId = new ProjectId(SOURCE_PROJECT_ID);
+        // Level 1: Category A (id=1, parent=null)
+        Task catA = new Task(new TaskId(1L), srcPrjId, null, "SRC-T001", "Giai đoạn 1", "Mô tả",
+                TaskType.CATEGORY, null, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                TaskStatus.TODO, 1, new UserId(99L), LocalDateTime.now(), null, 0L);
+        // Level 2: Task B (id=2, parent=1)
+        Task taskB = new Task(new TaskId(2L), srcPrjId, new TaskId(1L), "SRC-T002", "Công việc B", "Mô tả",
+                TaskType.TASK, new EmployeeId(50L), new BigDecimal("10.0"), BigDecimal.ZERO,
+                new BigDecimal("15.0"), TaskStatus.TODO, 1, new UserId(99L), LocalDateTime.now(), null, 0L);
+        // Level 3: Subtask C (id=3, parent=2)
+        Task subtaskC = new Task(new TaskId(3L), srcPrjId, new TaskId(2L), "SRC-T003", "Công việc con C", "Mô tả",
+                TaskType.TASK, new EmployeeId(51L), new BigDecimal("5.0"), BigDecimal.ZERO,
+                new BigDecimal("8.0"), TaskStatus.TODO, 1, new UserId(99L), LocalDateTime.now(), null, 0L);
+        // Level 4: Subtask D (id=4, parent=3)
+        Task subtaskD = new Task(new TaskId(4L), srcPrjId, new TaskId(3L), "SRC-T004", "Công việc cháu D", "Mô tả",
+                TaskType.TASK, new EmployeeId(52L), new BigDecimal("2.0"), BigDecimal.ZERO,
+                new BigDecimal("4.0"), TaskStatus.TODO, 1, new UserId(99L), LocalDateTime.now(), null, 0L);
+
+        when(loadTaskPort.findAllByProjectId(srcPrjId)).thenReturn(List.of(catA, taskB, subtaskC, subtaskD));
+
+        AtomicLong generatedId = new AtomicLong(5000L);
+        when(saveTaskPort.save(any(Task.class))).thenAnswer(inv -> {
+            Task t = inv.getArgument(0);
+            return new Task(
+                    new TaskId(generatedId.incrementAndGet()),
+                    t.getProjectId(),
+                    t.getParentId(),
+                    t.getTaskCode(),
+                    t.getName(),
+                    t.getDescription(),
+                    t.getTaskType(),
+                    t.getAssigneeId(),
+                    t.getEstimatedHours(),
+                    t.getActualHours(),
+                    t.getBudgetHours(),
+                    t.getStatus(),
+                    t.getSortOrder(),
+                    t.getCreatedBy(),
+                    LocalDateTime.now(),
+                    null,
+                    0L);
+        });
+
+        // When
+        CloneProjectWbsResult result = service.cloneWbs(new CloneProjectWbsCommand(TARGET_PROJECT_ID, SOURCE_PROJECT_ID));
+
+        // Then
+        assertThat(result.totalClonedTasks()).isEqualTo(4);
+        assertThat(result.totalCategories()).isEqualTo(1);
+
+        verify(saveTaskPort, times(4)).save(taskCaptor.capture());
+        List<Task> saved = taskCaptor.getAllValues();
+
+        Task clonedA = saved.get(0);
+        Task clonedB = saved.get(1);
+        Task clonedC = saved.get(2);
+        Task clonedD = saved.get(3);
+
+        assertThat(clonedA.getName()).isEqualTo("Giai đoạn 1");
+        assertThat(clonedA.getParentId()).isNull();
+
+        assertThat(clonedB.getName()).isEqualTo("Công việc B");
+        assertThat(clonedB.getParentIdValue()).isEqualTo(5001L); // A's generated ID
+
+        assertThat(clonedC.getName()).isEqualTo("Công việc con C");
+        assertThat(clonedC.getParentIdValue()).isEqualTo(5002L); // B's generated ID
+
+        assertThat(clonedD.getName()).isEqualTo("Công việc cháu D");
+        assertThat(clonedD.getParentIdValue()).isEqualTo(5003L); // C's generated ID
+    }
+
+    @Test
+    @DisplayName("TC-08: sortOrder không theo hierarchy (Grandchild có sortOrder nhỏ hơn Parent) -> Cấu trúc cây sau clone vẫn hoàn toàn chính xác")
+    void testCloneWbs_TC08_SortOrderDoesNotFollowHierarchy_ClonedCorrectly() {
+        // Given
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser(CURRENT_USER_ID)));
+
+        Project targetProject = createActiveProject(TARGET_PROJECT_ID, "PRJ-NEW", MANAGER_ID);
+        Project sourceProject = createActiveProject(SOURCE_PROJECT_ID, "PRJ-OLD", MANAGER_ID);
+
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(TARGET_PROJECT_ID))).thenReturn(Optional.of(targetProject));
+        when(loadProjectPort.findById(new ProjectId(SOURCE_PROJECT_ID))).thenReturn(Optional.of(sourceProject));
+
+        ProjectId srcPrjId = new ProjectId(SOURCE_PROJECT_ID);
+        // Parent A có sortOrder = 10
+        Task catA = new Task(new TaskId(1L), srcPrjId, null, "SRC-T001", "Category A", null,
+                TaskType.CATEGORY, null, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                TaskStatus.TODO, 10, new UserId(99L), LocalDateTime.now(), null, 0L);
+
+        // Child B có sortOrder = 2
+        Task taskB = new Task(new TaskId(2L), srcPrjId, new TaskId(1L), "SRC-T002", "Task B", null,
+                TaskType.TASK, null, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                TaskStatus.TODO, 2, new UserId(99L), LocalDateTime.now(), null, 0L);
+
+        // Grandchild C có sortOrder = 1 (nhỏ hơn cả Parent A và Child B)
+        Task subtaskC = new Task(new TaskId(3L), srcPrjId, new TaskId(2L), "SRC-T003", "Subtask C", null,
+                TaskType.TASK, null, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                TaskStatus.TODO, 1, new UserId(99L), LocalDateTime.now(), null, 0L);
+
+        // Đưa vào danh sách không theo thứ tự cây: C đứng trước, B đứng sau
+        when(loadTaskPort.findAllByProjectId(srcPrjId)).thenReturn(List.of(subtaskC, catA, taskB));
+
+        AtomicLong generatedId = new AtomicLong(8000L);
+        when(saveTaskPort.save(any(Task.class))).thenAnswer(inv -> {
+            Task t = inv.getArgument(0);
+            return new Task(
+                    new TaskId(generatedId.incrementAndGet()),
+                    t.getProjectId(),
+                    t.getParentId(),
+                    t.getTaskCode(),
+                    t.getName(),
+                    t.getDescription(),
+                    t.getTaskType(),
+                    t.getAssigneeId(),
+                    t.getEstimatedHours(),
+                    t.getActualHours(),
+                    t.getBudgetHours(),
+                    t.getStatus(),
+                    t.getSortOrder(),
+                    t.getCreatedBy(),
+                    LocalDateTime.now(),
+                    null,
+                    0L);
+        });
+
+        // When
+        CloneProjectWbsResult result = service.cloneWbs(new CloneProjectWbsCommand(TARGET_PROJECT_ID, SOURCE_PROJECT_ID));
+
+        // Then
+        assertThat(result.totalClonedTasks()).isEqualTo(3);
+        verify(saveTaskPort, times(3)).save(taskCaptor.capture());
+        List<Task> saved = taskCaptor.getAllValues();
+
+        // Đảm bảo Parent A được save đầu tiên (trước B và C) bất chấp sortOrder của C < B < A
+        Task clonedA = saved.get(0);
+        Task clonedB = saved.get(1);
+        Task clonedC = saved.get(2);
+
+        assertThat(clonedA.getName()).isEqualTo("Category A");
+        assertThat(clonedA.getParentId()).isNull();
+
+        assertThat(clonedB.getName()).isEqualTo("Task B");
+        assertThat(clonedB.getParentIdValue()).isEqualTo(8001L); // A's ID
+
+        assertThat(clonedC.getName()).isEqualTo("Subtask C");
+        assertThat(clonedC.getParentIdValue()).isEqualTo(8002L); // B's ID
+    }
 }
