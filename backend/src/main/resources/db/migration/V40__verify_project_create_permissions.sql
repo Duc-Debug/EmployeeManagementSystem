@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V39: CORRECT PROJECT_CREATE PERMISSIONS PER RBAC SPEC
+-- FLYWAY MIGRATION V40: CORRECT PROJECT_CREATE PERMISSIONS PER RBAC SPEC
 -- Tham chiếu: docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md — Ma trận Phân Quyền (dòng 45)
 --
 -- Ma trận /projects:
