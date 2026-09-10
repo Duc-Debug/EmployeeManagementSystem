@@ -8,6 +8,7 @@ public enum PermissionCode {
     USER_UPDATE_ROLE,
     USER_TOGGLE_STATUS,
     ORG_UNIT_READ,
+    ORG_UNIT_MANAGE,
     PROJECT_READ,
     PROJECT_CREATE,
     PROJECT_UPDATE,

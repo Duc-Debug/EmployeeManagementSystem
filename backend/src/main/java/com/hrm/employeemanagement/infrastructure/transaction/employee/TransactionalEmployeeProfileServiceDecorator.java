@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.hrm.employeemanagement.application.dto.employee.CreateEmployeeProfileCommand;
 import com.hrm.employeemanagement.application.dto.employee.EmployeeProfileResult;
 import com.hrm.employeemanagement.application.dto.employee.UpdateEmployeeProfileCommand;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.employee.CreateEmployeeProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.employee.GetEmployeeProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.employee.UpdateEmployeeProfileUseCase;
@@ -41,5 +42,11 @@ public class TransactionalEmployeeProfileServiceDecorator implements CreateEmplo
     @Transactional(readOnly = true)
     public EmployeeProfileResult getByUserId(Long userId) {
         return delegate.getByUserId(userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<EmployeeProfileResult> getEmployees(int page, int size) {
+        return delegate.getEmployees(page, size);
     }
 }

@@ -26,4 +26,80 @@ public interface SpringDataEmployeeRepository extends JpaRepository<EmployeeJpaE
     List<EmployeeJpaEntity> findByUserIdIn(List<Long> userIds);
     List<EmployeeJpaEntity> findByOrgUnitId(Long orgUnitId);
     List<EmployeeJpaEntity> findByOrgUnitIdAndStatus(Long orgUnitId, String status);
+
+    @Query(value = """
+        SELECT e.*
+        FROM employees e
+        ORDER BY e.id DESC
+        LIMIT :size OFFSET :offset
+        """,
+        nativeQuery = true)
+    List<EmployeeJpaEntity> findAllPaged(
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT DISTINCT e.*
+        FROM employees e
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+        ORDER BY e.id DESC
+        LIMIT :size OFFSET :offset
+        """,
+        nativeQuery = true)
+    List<EmployeeJpaEntity> findByOrgUnitBranch(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(DISTINCT e.id)
+        FROM employees e
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+        """,
+        nativeQuery = true)
+    long countByOrgUnitBranch(@Param("scopeOrgUnitId") Long scopeOrgUnitId);
+
+    @Query(value = """
+        SELECT DISTINCT e.*
+        FROM employees e
+        WHERE e.id = :pmEmployeeId
+           OR e.id IN (
+               SELECT pm.employee_id
+               FROM project_members pm
+               JOIN projects p ON p.id = pm.project_id
+               WHERE p.manager_id = :pmEmployeeId
+           )
+        ORDER BY e.id DESC
+        LIMIT :size OFFSET :offset
+        """,
+        nativeQuery = true)
+    List<EmployeeJpaEntity> findByProjectManager(
+            @Param("pmEmployeeId") Long pmEmployeeId,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(DISTINCT e.id)
+        FROM employees e
+        WHERE e.id = :pmEmployeeId
+           OR e.id IN (
+               SELECT pm.employee_id
+               FROM project_members pm
+               JOIN projects p ON p.id = pm.project_id
+               WHERE p.manager_id = :pmEmployeeId
+           )
+        """,
+        nativeQuery = true)
+    long countByProjectManager(@Param("pmEmployeeId") Long pmEmployeeId);
 }

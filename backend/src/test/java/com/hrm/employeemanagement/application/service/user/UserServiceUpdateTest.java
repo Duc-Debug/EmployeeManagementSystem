@@ -21,10 +21,13 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
+import com.hrm.employeemanagement.domain.exception.user.DuplicateEmailException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -36,7 +39,7 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
         User user = testUser(2L, staffRole, 20L);
         Employee employee = testEmployee(20L, 2L, 15L, "EMP-002");
-        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-002-UPDATED", null, "VT-04", DataScope.COMPANY, null);
+        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-002-UPDATED", null, "VT-04", DataScope.SELF, null);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
         when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
@@ -61,7 +64,7 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
         User user = testUser(2L, staffRole, 20L);
         Employee employee = testEmployee(20L, 2L, 15L, "EMP-002");
-        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-002-UPDATED", 25L, "VT-04", DataScope.COMPANY, null);
+        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-002-UPDATED", 25L, "VT-04", DataScope.SELF, null);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
         when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
@@ -85,7 +88,7 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
         User user = testUser(2L, staffRole, 20L);
         Employee employee = testEmployee(20L, 2L, 15L, "EMP-002");
-        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-EXISTS", null, "VT-04", DataScope.COMPANY, null);
+        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-EXISTS", null, "VT-04", DataScope.SELF, null);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
         when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
@@ -103,7 +106,7 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
         User user = testUser(2L, staffRole, 20L);
         Employee employee = testEmployee(20L, 2L, 15L, "EMP-002");
-        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-002", null, "VT-04", DataScope.COMPANY, null);
+        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-002", null, "VT-04", DataScope.SELF, null);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
         when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
@@ -124,7 +127,7 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
     void testUpdateUser_RoleNotFound_ThrowsRoleNotFoundException() {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
         User user = testUser(2L, staffRole, 20L);
-        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-002", null, "VT-04", DataScope.COMPANY, null);
+        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe Updated", "john.updated@company.com", "EMP-002", null, "VT-04", DataScope.SELF, null);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
         when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.empty());
@@ -136,16 +139,16 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
     }
 
     @Test
-    @DisplayName("updateUser ném DuplicateUsernameException khi email bị trùng với tài khoản khác")
-    void testUpdateUser_DuplicateEmail_ThrowsDuplicateUsernameException() {
+    @DisplayName("updateUser ném DuplicateEmailException khi email bị trùng với tài khoản khác")
+    void testUpdateUser_DuplicateEmail_ThrowsDuplicateEmailException() {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
         User user = testUser(2L, staffRole, 20L);
-        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe", "duplicate@company.com", null, null, "VT-04", DataScope.COMPANY, null);
+        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe", "duplicate@company.com", null, null, "VT-04", DataScope.SELF, null);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
         when(loadUserPort.existsByEmail("duplicate@company.com")).thenReturn(true);
 
-        assertThrows(DuplicateUsernameException.class, () -> userService.updateUser(command));
+        assertThrows(DuplicateEmailException.class, () -> userService.updateUser(command));
         verify(saveUserPort, never()).save(any());
     }
 
@@ -153,7 +156,8 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
     @DisplayName("updateUser ném PermissionDeniedException khi target user nằm ngoài data scope của admin")
     void testUpdateUser_TargetUserOutsideDataScope_ThrowsPermissionDeniedException() {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
-        User branchAdmin = testUser(ADMIN_ID, staffRole, 10L);
+        Role branchLeaderRole = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
+        User branchAdmin = testUser(ADMIN_ID, branchLeaderRole, 10L);
         branchAdmin.changeDataScope(DataScope.ORGANIZATION_BRANCH, 10L);
 
         when(loadUserPort.findById(new UserId(ADMIN_ID))).thenReturn(Optional.of(branchAdmin));
@@ -169,7 +173,8 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
     @DisplayName("updateUser ném PermissionDeniedException khi OrgUnit được chọn nằm ngoài data scope của admin")
     void testUpdateUser_OrgUnitOutsideDataScope_ThrowsPermissionDeniedException() {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
-        User branchAdmin = testUser(ADMIN_ID, staffRole, 10L);
+        Role branchLeaderRole = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
+        User branchAdmin = testUser(ADMIN_ID, branchLeaderRole, 10L);
         branchAdmin.changeDataScope(DataScope.ORGANIZATION_BRANCH, 10L);
 
         when(loadUserPort.findById(new UserId(ADMIN_ID))).thenReturn(Optional.of(branchAdmin));
@@ -186,11 +191,13 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
     @DisplayName("updateUser ném OrgUnitNotFoundException khi gán dataScope ORGANIZATION_BRANCH nhưng scopeOrgUnitId không tồn tại")
     void testUpdateUser_OrganizationBranch_ScopeOrgUnitNotFound_ThrowsOrgUnitNotFoundException() {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
-        User user = testUser(2L, staffRole, 20L);
-        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe", "john@company.com", null, null, "VT-04", DataScope.ORGANIZATION_BRANCH, 999L);
+        Role branchLeaderRole = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
+        User user = testUser(2L, branchLeaderRole, 20L);
+        user.changeDataScope(DataScope.ORGANIZATION_BRANCH, 10L);
+        UpdateUserCommand command = new UpdateUserCommand(2L, "John Doe", "john@company.com", null, null, "VT-03", DataScope.ORGANIZATION_BRANCH, 999L);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
-        when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));
+        when(loadRolePort.findByCode(RoleCode.VT_03)).thenReturn(Optional.of(branchLeaderRole));
         when(loadOrgUnitPort.findById(new OrgUnitId(999L))).thenReturn(Optional.empty());
 
         assertThrows(OrgUnitNotFoundException.class, () -> userService.updateUser(command));
@@ -202,7 +209,8 @@ class UserServiceUpdateTest extends BaseUserServiceTest {
     void testUpdateUser_DowngradeLastAdmin_ThrowsLastAdminProtectionException() {
         when(authorizationService.require(PermissionCode.USER_UPDATE)).thenReturn(ADMIN_ID);
         User systemAdminUser = testUser(2L, adminRole, 20L);
-        UpdateUserCommand command = new UpdateUserCommand(2L, "Admin Target", "admin_target@company.com", null, null, "VT-04", DataScope.COMPANY, null);
+        systemAdminUser.changeDataScope(DataScope.COMPANY, null);
+        UpdateUserCommand command = new UpdateUserCommand(2L, "Admin Target", "admin_target@company.com", null, null, "VT-04", DataScope.SELF, null);
 
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(systemAdminUser));
         when(loadRolePort.findByCode(RoleCode.VT_04)).thenReturn(Optional.of(staffRole));

@@ -9,6 +9,8 @@ const ROLE_DATA_SCOPE: Readonly<Record<string, RoleDataScope>> = {
   "VT-06": "COMPANY",
 };
 
-export function getDefaultDataScopeForRole(roleCode: string): RoleDataScope | undefined {
-  return ROLE_DATA_SCOPE[roleCode];
+export function getDefaultDataScopeForRole(roleCode: string): RoleDataScope {
+  if (!roleCode) return "SELF";
+  const normalized = roleCode.toUpperCase().replace(/_/g, "-");
+  return ROLE_DATA_SCOPE[normalized] || "SELF";
 }

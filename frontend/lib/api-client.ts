@@ -12,13 +12,15 @@ export const API_BASE_URL =
 
 export class ApiError extends Error {
   status: number;
+  errorCode?: string;
   data?: unknown;
 
-  constructor(message: string, status: number, data?: unknown) {
+  constructor(message: string, status: number, data?: unknown, errorCode?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.data = data;
+    this.errorCode = errorCode;
   }
 }
 
@@ -71,10 +73,28 @@ export async function apiRequest<T = unknown>(
 
     if (!response.ok) {
       let errorMessage = `Yêu cầu thất bại với mã lỗi ${response.status}`;
-      if (payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string") {
-        errorMessage = payload.message;
+      let errorCode: string | undefined;
+
+      if (payload && typeof payload === "object") {
+        if ("errorCode" in payload && typeof (payload as any).errorCode === "string") {
+          errorCode = (payload as any).errorCode;
+        } else if ("code" in payload && typeof (payload as any).code === "string") {
+          errorCode = (payload as any).code;
+        }
+
+        if ("message" in payload && typeof (payload as any).message === "string") {
+          errorMessage = (payload as any).message;
+        }
       }
-      throw new ApiError(errorMessage, response.status, payload);
+
+      // Map standard business error codes to human-readable Vietnamese messages
+      if (errorCode === "DUPLICATE_EMAIL") {
+        errorMessage = "Email đã tồn tại";
+      } else if (errorCode === "DUPLICATE_USERNAME") {
+        errorMessage = "Tên đăng nhập đã tồn tại";
+      }
+
+      throw new ApiError(errorMessage, response.status, payload, errorCode);
     }
 
     // If payload is wrapped in Spring Boot ApiResponse format { data: ..., success: true }

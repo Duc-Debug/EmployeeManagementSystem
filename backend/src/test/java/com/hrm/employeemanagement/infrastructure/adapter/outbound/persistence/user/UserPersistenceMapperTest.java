@@ -162,6 +162,22 @@ class UserPersistenceMapperTest {
     }
 
     @Test
+    @DisplayName("Mismatched dataScope in database is auto-corrected to role default")
+    void testToDomain_MismatchedDataScopeAutoCorrectedToRoleDefault() {
+        RoleJpaEntity pmRoleJpa = new RoleJpaEntity(2L, "VT-02", "Quản lý dự án");
+        UserJpaEntity jpaEntity = new UserJpaEntity(
+                2L, "pm_user", "hash123", pmRoleJpa, true, 2L);
+        jpaEntity.setDataScope("ORGANIZATION_BRANCH");
+        jpaEntity.setScopeOrgUnitId(5L);
+
+        User user = mapper.toDomain(jpaEntity, null);
+
+        assertNotNull(user);
+        assertEquals(DataScope.SELF, user.getDataScope());
+        assertNull(user.getScopeOrgUnitId());
+    }
+
+    @Test
     @DisplayName("Ánh xạ từ User domain sang UserJpaEntity bảo toàn trường @Version")
     void testToJpaEntity_PreservesVersion() {
         Role role = new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên");
