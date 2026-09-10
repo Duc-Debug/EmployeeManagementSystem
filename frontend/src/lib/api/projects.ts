@@ -26,6 +26,12 @@ export interface ProjectResult {
   createdBy?: number;
   createdAt?: string;
   updatedAt?: string;
+  closureReason?: string;
+  closedAt?: string;
+  closedBy?: number;
+  reopenReason?: string;
+  reopenedAt?: string;
+  reopenedBy?: number;
 }
 
 export interface CreateProjectPayload {
