@@ -247,7 +247,7 @@ export function EstimateDemandModal({
                         <div className="relative">
                             <input
                                 type="number"
-                                step="0.5"
+                                step="any"
                                 min="0.01"
                                 max="168"
                                 value={hoursPerWeek}
