@@ -85,7 +85,7 @@ class PermissionQueryAdapterTest {
     }
 
     @Test
-    @DisplayName("PROJECT_READ duoc cap dung role seed va khong cap cho VT-05")
+    @DisplayName("PROJECT_READ chỉ được cấp cho các role có quyền truy cập Project Workspace")
     void testHasPermission_ProjectReadSeededForExpectedRolesOnly() {
         String suffix =
                 String.valueOf(System.nanoTime());
@@ -115,17 +115,17 @@ class PermissionQueryAdapterTest {
             );
         }
 
-        UserJpaEntity hrUser =
-                userWithRole(
-                        "project-read-vt05-" + suffix,
-                        "VT-05"
-                );
+        UserJpaEntity hrUser = userWithRole(
+                "project-read-VT-05-" + suffix,
+                "VT-05"
+        );
 
         assertFalse(
                 permissionQueryAdapter.hasPermission(
                         hrUser.getId(),
                         PermissionCode.PROJECT_READ
-                )
+                ),
+                "VT-05 must not have PROJECT_READ"
         );
     }
 

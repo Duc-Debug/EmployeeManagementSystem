@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, X, ShieldCheck, RefreshCw, Sparkles, MessageSquare } from 'lucide-react';
+import { Check, LoaderCircle, MessageSquare, RefreshCw, ShieldCheck, Sparkles, X } from 'lucide-react';
 import type { PendingApprovalSkill } from './Types.ts';
 import SkillApproveModal from './SkillApproveModal.tsx';
 
@@ -101,10 +101,17 @@ function EmptyState() {
 /* ── Main component ──────────────────────────────────────── */
 interface SkillApproveTableProps {
     requests: PendingApprovalSkill[];
-    onApprove: (id: number, adjustedProficiencyLevel: number, reviewNotes: string) => Promise<void>;
-    onReject: (id: number) => void;
+    onApprove: (
+        id: number,
+        adjustedProficiencyLevel: number,
+        reviewNotes: string
+    ) => Promise<void>;
+    onReject?: (id: number) => void;
     onRefresh?: () => void;
+    loading?: boolean;
     isLoading?: boolean;
+    error?: string | null;
+    approvingId?: number | null;
 }
 
 export default function SkillApproveTable({
@@ -112,10 +119,13 @@ export default function SkillApproveTable({
     onApprove,
     onReject,
     onRefresh,
+    loading = false,
     isLoading = false,
+    error,
 }: SkillApproveTableProps) {
     const [modalItem, setModalItem] = useState<PendingApprovalSkill | null>(null);
     const pendingCount = requests.filter((r) => r.status === 'pending').length;
+    const busy = loading || isLoading;
 
     return (
         <div className="space-y-5">
@@ -135,11 +145,11 @@ export default function SkillApproveTable({
                         <button
                             type="button"
                             onClick={onRefresh}
-                            disabled={isLoading}
+                            disabled={busy}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-2xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
                             title="Làm mới danh sách từ máy chủ"
                         >
-                            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Làm mới</span>
                         </button>
                     )}
@@ -154,6 +164,11 @@ export default function SkillApproveTable({
             </div>
 
             {/* ── Table ── */}
+            {error && (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
+                    {error}
+                </p>
+            )}
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -169,7 +184,9 @@ export default function SkillApproveTable({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {requests.length === 0 ? (
+                            {busy ? (
+                                <tr><td colSpan={6} className="py-12 text-center text-slate-500"><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin" />Đang tải dữ liệu...</td></tr>
+                            ) : requests.length === 0 ? (
                                 <EmptyState />
                             ) : (
                                 requests.map((req) => (
@@ -223,15 +240,17 @@ export default function SkillApproveTable({
                                                         <Check className="h-3.5 w-3.5 stroke-[2.5]" />
                                                         Xác nhận / Duyệt
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onReject(req.id)}
-                                                        className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 active:scale-95 cursor-pointer"
-                                                        title="Từ chối yêu cầu"
-                                                    >
-                                                        <X className="h-3.5 w-3.5" />
-                                                        Từ chối
-                                                    </button>
+                                                    {onReject && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onReject(req.id)}
+                                                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 active:scale-95 cursor-pointer"
+                                                            title="Từ chối yêu cầu"
+                                                        >
+                                                            <X className="h-3.5 w-3.5" />
+                                                            Từ chối
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <StatusBadge
@@ -260,3 +279,5 @@ export default function SkillApproveTable({
         </div>
     );
 }
+
+

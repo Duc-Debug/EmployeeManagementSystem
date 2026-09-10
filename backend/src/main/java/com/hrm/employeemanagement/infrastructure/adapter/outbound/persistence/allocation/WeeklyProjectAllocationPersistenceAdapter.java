@@ -114,4 +114,15 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
         }
         return results;
     }
+
+    @Override
+    public List<WeeklyProjectAllocation> loadAllocationsForProjectInWeekRange(Long projectId, Integer year, Integer startWeek, Integer endWeek) {
+        return repository.findByProjectIdAndYearAndWeekNumberBetween(projectId, year, startWeek, endWeek)
+                .stream()
+                .map(e -> new WeeklyProjectAllocation(
+                        e.getId(), e.getEmployeeId(), e.getProjectId(),
+                        YearWeek.of(e.getYear(), e.getWeekNumber()),
+                        e.getAllocatedHours(), e.getVersion()))
+                .toList();
+    }
 }

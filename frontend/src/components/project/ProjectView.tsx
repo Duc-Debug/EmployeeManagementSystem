@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getUsers } from '@/lib/api/users';
+import { useAuthUser } from '@/lib/auth-session';
+import { allocateProjectHours, getProjectWeeklyAllocations } from '@/lib/api/allocations';
 import {
     getProjects,
     getProjectWbs,
@@ -10,8 +12,6 @@ import {
     type BackendTaskStatus,
 } from '@/lib/api/projects';
 import { setTaskBudget, type CloneProjectWbsResult } from '@/lib/api/tasks';
-import { allocateResource, getWeeklyCapacities } from '@/lib/api/allocation';
-import { useAuthUser } from '@/lib/auth-session';
 
 import {
     Boxes,
@@ -36,7 +36,7 @@ import {
     Copy,
 } from 'lucide-react';
 import {
-    INITIAL_MONTHS_LIST,
+    type ProjectMonth,
     type TaskCategoryGroup,
     type ProjectMember,
     type TaskItem,
@@ -50,6 +50,38 @@ import { ProjectCreateModal } from './ProjectCreateModal';
 import { CloneWbsModal } from './CloneWbsModal';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
+
+function buildMonths(): ProjectMonth[] {
+    const now = new Date();
+    return [-1, 0, 1].map((offset) => {
+        const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+        const year = first.getFullYear();
+        const month = first.getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const weeks = Array.from({ length: Math.ceil(lastDay / 7) }, (_, index) => {
+            const start = index * 7 + 1;
+            const end = Math.min(start + 6, lastDay);
+            return {
+                key: `W${index + 1}`,
+                label: `Tuần ${index + 1}`,
+                dates: `${String(start).padStart(2, '0')}/${String(month + 1).padStart(2, '0')} - ${String(end).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}`,
+                isCurrent: now.getFullYear() === year && now.getMonth() === month && now.getDate() >= start && now.getDate() <= end,
+            };
+        });
+        return { id: `${year}-${String(month + 1).padStart(2, '0')}`, name: `Tháng ${String(month + 1).padStart(2, '0')}/${year}`, weeks };
+    });
+}
+
+function getIsoWeek(date: Date): { year: number; week: number } {
+    const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const day = utcDate.getUTCDay() || 7;
+    utcDate.setUTCDate(utcDate.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
+    return {
+        year: utcDate.getUTCFullYear(),
+        week: Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7),
+    };
+}
 
 /**
  * Adapter chuyển đổi cây WBS từ Backend API (TaskNodeResult) sang cấu trúc hiển thị UI (TaskCategoryGroup)
@@ -80,13 +112,13 @@ function mapBackendWbsToUiCategories(
 
     nodes.forEach((node, idx) => {
         if (node.taskType === 'CATEGORY') {
-            const childTasks: TaskItem[] = (node.children || []).map((child, cIdx) => {
+            const childTasks: TaskItem[] = (node.children || []).map((child) => {
                 const assigneeKey = child.assigneeId ? String(child.assigneeId) : '';
                 const member = memberMap.get(assigneeKey);
 
                 return {
                     id: String(child.id),
-                    code: child.taskCode || `T-${101 + cIdx}`,
+                    code: child.taskCode,
                     name: child.name,
                     assigneeId: member ? member.id : (child.assigneeId ? `u-${child.assigneeId}` : ''),
                     priority: 'Trung bình',
@@ -97,8 +129,8 @@ function mapBackendWbsToUiCategories(
                     burnStatus: child.burnStatus,
                     isOverBudget: child.isOverBudget,
                     status: statusMap[child.status] || 'Chưa làm',
-                    startWeek: 'Tuần 1',
-                    endWeek: 'Tuần 3',
+                    startWeek: 'Chưa cập nhật',
+                    endWeek: 'Chưa cập nhật',
                 };
             });
 
@@ -107,9 +139,9 @@ function mapBackendWbsToUiCategories(
 
             categories.push({
                 id: String(node.id),
-                code: node.taskCode || `HM-0${idx + 1}`,
+                code: node.taskCode,
                 name: node.name,
-                lead: 'PM',
+                lead: '',
                 progress,
                 color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
                 tasks: childTasks,
@@ -121,7 +153,7 @@ function mapBackendWbsToUiCategories(
 
             standaloneTasks.push({
                 id: String(node.id),
-                code: node.taskCode || `T-${101 + idx}`,
+                code: node.taskCode,
                 name: node.name,
                 assigneeId: member ? member.id : (node.assigneeId ? `u-${node.assigneeId}` : ''),
                 priority: 'Trung bình',
@@ -132,8 +164,8 @@ function mapBackendWbsToUiCategories(
                 burnStatus: node.burnStatus,
                 isOverBudget: node.isOverBudget,
                 status: statusMap[node.status] || 'Chưa làm',
-                startWeek: 'Tuần 1',
-                endWeek: 'Tuần 3',
+                startWeek: 'Chưa cập nhật',
+                endWeek: 'Chưa cập nhật',
             });
         }
     });
@@ -143,9 +175,9 @@ function mapBackendWbsToUiCategories(
         const progress = Math.round((doneCount / standaloneTasks.length) * 100);
         categories.unshift({
             id: 'root-general',
-            code: 'HM-00',
+            code: '',
             name: 'Hạng Mục Chung',
-            lead: 'PM',
+            lead: '',
             progress,
             color: 'indigo',
             tasks: standaloneTasks,
@@ -156,14 +188,17 @@ function mapBackendWbsToUiCategories(
 }
 
 export default function ProjectView() {
+    const currentUser = useAuthUser();
+    const canManageProject = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
+    const canManageAllocations = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-03';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
+    const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
     const [budgetModalOpen, setBudgetModalOpen] = useState(false);
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
 
     // Real projects backend state
-    const currentUser = useAuthUser();
     const canManageWbs = Boolean(
         currentUser?.roleCode &&
         (currentUser.roleCode === 'VT-02' || currentUser.roleCode === 'VT-06')
@@ -173,6 +208,8 @@ export default function ProjectView() {
     const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
     const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(false);
     const [isLoadingWbs, setIsLoadingWbs] = useState<boolean>(false);
+    const [projectError, setProjectError] = useState<string | null>(null);
+    const [allocationError, setAllocationError] = useState<string | null>(null);
     const [projectCreateModalOpen, setProjectCreateModalOpen] = useState<boolean>(false);
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
 
@@ -197,31 +234,28 @@ export default function ProjectView() {
     };
 
     // 1. Tải danh sách nhân sự thật từ API
-    const loadMembers = useCallback(async () => {
-        try {
-            const res = await getUsers(0, 100);
-            if (res?.content && res.content.length > 0) {
-                const fetchedMembers: ProjectMember[] = res.content.map((u, idx) => ({
-                    id: `u-${u.id}`,
-                    employeeId: u.employeeId || undefined,
-                    name: u.fullName || u.username,
-                    role: u.roleName || u.roleCode || 'Nhân viên',
-                    avatar: `https://images.unsplash.com/photo-${1494790108377 + (idx % 10)}?w=100&auto=format&fit=crop&q=80`,
-                    capacity: 40,
-                    weeklyHours: { W1: 0, W2: 0, W3: 0, W4: 0, W5: 0 },
-                }));
-                setMembers(fetchedMembers);
-                return fetchedMembers;
-            }
-        } catch (err) {
-            console.warn('Backend users API call failed:', err);
-        }
-        return [];
+    useEffect(() => {
+        getUsers(0, 100)
+            .then((res) => {
+                if (res?.content && res.content.length > 0) {
+                    const fetchedMembers: ProjectMember[] = res.content
+                      .filter((u) => u.employeeId !== null)
+                      .map((u) => ({
+                        id: `u-${u.employeeId}`,
+                        name: u.fullName || u.username,
+                        role: u.roleCode || 'Nhân viên',
+                        avatar: '',
+                        capacity: 40,
+                        weeklyHours: {},
+                    }));
+                    setAllEmployees(fetchedMembers);
+                }
+            })
+            .catch((err) => {
+                console.warn('Failed to load employees for the selected project:', err);
+            });
     }, []);
 
-    useEffect(() => {
-        loadMembers();
-    }, [loadMembers]);
 
     // 2. Tải danh sách dự án thật từ Database
     const loadProjects = useCallback(async () => {
@@ -231,6 +265,7 @@ export default function ProjectView() {
             if (res?.content && res.content.length > 0) {
                 setProjectsList(res.content);
                 setIsBackendConnected(true);
+                setProjectError(null);
                 setSelectedProjectId((prevId) => {
                     const exists = res.content.some((p) => p.id === prevId);
                     return exists ? prevId : res.content[0].id;
@@ -240,6 +275,7 @@ export default function ProjectView() {
                 setIsBackendConnected(false);
                 setSelectedProjectId(null);
                 setCategories([]);
+                setMembers([]);
             }
         } catch (err) {
             console.warn('Failed to fetch projects from backend:', err);
@@ -247,6 +283,8 @@ export default function ProjectView() {
             setProjectsList([]);
             setSelectedProjectId(null);
             setCategories([]);
+            setMembers([]);
+            setProjectError(err instanceof Error ? err.message : 'Không thể tải dữ liệu dự án.');
         } finally {
             setIsLoadingProjects(false);
         }
@@ -261,15 +299,26 @@ export default function ProjectView() {
         setIsLoadingWbs(true);
         try {
             const wbsNodes = await getProjectWbs(projId);
-            const mapped = mapBackendWbsToUiCategories(wbsNodes, members);
+            const assignedEmployeeIds = new Set<number>();
+            const collectAssignees = (nodes: TaskNodeResult[]) => nodes.forEach((node) => {
+                if (node.assigneeId) assignedEmployeeIds.add(node.assigneeId);
+                collectAssignees(node.children || []);
+            });
+            collectAssignees(wbsNodes);
+            const projectMembers = allEmployees.filter((member) =>
+                assignedEmployeeIds.has(Number(member.id.replace('u-', '')))
+            );
+            setMembers(projectMembers);
+            const mapped = mapBackendWbsToUiCategories(wbsNodes, projectMembers);
             setCategories(mapped);
         } catch (err) {
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
             setCategories([]);
+            setMembers([]);
         } finally {
             setIsLoadingWbs(false);
         }
-    }, [members]);
+    }, [allEmployees]);
 
     useEffect(() => {
         if (selectedProjectId) {
@@ -277,50 +326,45 @@ export default function ProjectView() {
         }
     }, [selectedProjectId, loadWbsForProject]);
 
-    const [months] = useState(INITIAL_MONTHS_LIST);
-    const [selectedMonthIdx, setSelectedMonthIdx] = useState(0);
-    const selectedMonth = months[selectedMonthIdx] || months[0];
+    const [months] = useState(buildMonths);
+    const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
 
-    // 4. Tải dữ liệu công suất và giờ phân bổ thật từ backend /allocations/capacity
+    const getDisplayedIsoWeek = useCallback((weekKey: string) => {
+        const month = months[selectedMonthIdx];
+        const [year, monthNumber] = month.id.split('-').map(Number);
+        const index = Math.max(0, month.weeks.findIndex((week) => week.key === weekKey));
+        return getIsoWeek(new Date(year, monthNumber - 1, index * 7 + 1));
+    }, [months, selectedMonthIdx]);
+
+    const loadProjectAllocations = useCallback(async () => {
+        if (!selectedProjectId) return;
+        const month = months[selectedMonthIdx];
+        try {
+            const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
+                const isoWeek = getDisplayedIsoWeek(week.key);
+                const rows = await getProjectWeeklyAllocations(selectedProjectId, isoWeek.year, isoWeek.week, isoWeek.week);
+                return { key: week.key, rows };
+            }));
+            setMembers((previous) => previous.map((member) => {
+                const employeeId = Number(member.id.replace('u-', ''));
+                const weeklyHours: Record<string, number> = {};
+                rowsByWeek.forEach(({ key, rows }) => {
+                    weeklyHours[key] = rows.filter((row) => row.employeeId === employeeId)
+                        .reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                });
+                return { ...member, weeklyHours };
+            }));
+            setAllocationError(null);
+        } catch (error) {
+            setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
+            setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
+        }
+    }, [getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
+
     useEffect(() => {
-        const employeeIds = members
-            .map((m) => m.employeeId)
-            .filter((id): id is number => typeof id === 'number' && id > 0);
-
-        if (employeeIds.length === 0) return;
-
-        const weeks = selectedMonth.weeks;
-        const promises = weeks.map(async (w) => {
-            const year = w.year || 2026;
-            const weekNumber = w.weekNumber || 37;
-            try {
-                const capacities = await getWeeklyCapacities(employeeIds, year, weekNumber);
-                return { weekKey: w.key, capacities };
-            } catch (err) {
-                console.warn(`Could not load capacities for week ${w.key}:`, err);
-                return { weekKey: w.key, capacities: [] };
-            }
-        });
-
-        Promise.all(promises).then((results) => {
-            setMembers((prevMembers) =>
-                prevMembers.map((m) => {
-                    if (!m.employeeId) return m;
-                    const updatedWeeklyHours = { ...m.weeklyHours };
-                    results.forEach(({ weekKey, capacities }) => {
-                        const cap = capacities.find((c) => c.employeeId === m.employeeId);
-                        if (cap) {
-                            updatedWeeklyHours[weekKey] = Number(cap.totalAllocatedHours || 0);
-                        }
-                    });
-                    return {
-                        ...m,
-                        weeklyHours: updatedWeeklyHours,
-                    };
-                })
-            );
-        });
-    }, [members.length, selectedMonth]);
+        if (selectedProjectId && categories.length > 0) void loadProjectAllocations();
+    }, [selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
+    const selectedMonth = months[selectedMonthIdx] || months[0];
 
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('ALL');
@@ -348,6 +392,10 @@ export default function ProjectView() {
     };
 
     const handleQuickAddTask = (catId?: string) => {
+        if (!canManageProject) {
+            showToast('Bạn chỉ có quyền xem dự án.', 'info');
+            return;
+        }
         setDefaultCatId(catId);
         setTaskModalOpen(true);
     };
@@ -363,10 +411,15 @@ export default function ProjectView() {
         endWeekKey: string;
         newCategoryName?: string;
     }) => {
-        const { catId, name, assigneeId, priority, hours, startWeekKey, endWeekKey, newCategoryName } = newTaskData;
+        if (!canManageProject) return;
+        const { catId, name, assigneeId, hours, newCategoryName } = newTaskData;
 
-        if (selectedProjectId) {
-            try {
+        if (!selectedProjectId) {
+            showToast('Chưa chọn dự án để lưu công việc.', 'error');
+            return;
+        }
+
+        try {
                 let parentIdToUse: number | null = null;
 
                 // Nếu người dùng nhập tên hạng mục mới
@@ -399,62 +452,19 @@ export default function ProjectView() {
 
                 await loadWbsForProject(selectedProjectId);
                 showToast(`Đã lưu công việc "${name}" vào cơ sở dữ liệu!`, 'success');
-                return;
-            } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : 'Có lỗi khi lưu công việc vào cơ sở dữ liệu';
-                showToast(`Lỗi: ${msg}`, 'info');
-                console.error('Failed to create task in backend:', err);
-            }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Có lỗi khi lưu công việc vào cơ sở dữ liệu';
+            showToast(`Lỗi: ${msg}`, 'error');
+            console.error('Failed to create task in backend:', err);
         }
-
-        // Fallback lưu local state (khi xem dự án demo mẫu)
-        const newId = 't' + (Math.floor(Math.random() * 900) + 100);
-        const startWeekLabel = startWeekKey.replace('W', 'Tuần ');
-        const endWeekLabel = endWeekKey.replace('W', 'Tuần ');
-
-        setCategories((prev) =>
-            prev.map((cat) => {
-                if (cat.id !== catId) return cat;
-                const newCode = `T-${cat.tasks.length + 101}`;
-                return {
-                    ...cat,
-                    tasks: [
-                        ...cat.tasks,
-                        {
-                            id: newId,
-                            code: newCode,
-                            name,
-                            assigneeId,
-                            priority,
-                            hours,
-                            status: 'Chưa làm',
-                            startWeek: startWeekLabel,
-                            endWeek: endWeekLabel,
-                        },
-                    ],
-                };
-            })
-        );
-
-        setMembers((prev) =>
-            prev.map((m) => {
-                if (m.id !== assigneeId) return m;
-                const currentVal = m.weeklyHours[startWeekKey] || 0;
-                return {
-                    ...m,
-                    weeklyHours: {
-                        ...m.weeklyHours,
-                        [startWeekKey]: currentVal + Math.min(hours, 20),
-                    },
-                };
-            })
-        );
-
-        showToast(`Đã thêm thành công công việc: ${name}`, 'success');
     };
 
     // Chuyển đổi trạng thái công việc
     const handleToggleTaskStatus = async (catId: string, taskId: string) => {
+        if (!canManageProject) {
+            showToast('Bạn chỉ có quyền xem dự án.', 'info');
+            return;
+        }
         let newStatusStr: TaskItem['status'] = 'Hoàn thành';
         let targetTaskName = '';
 
@@ -494,55 +504,34 @@ export default function ProjectView() {
     };
 
     const handleOpenAdjustModal = (memberId: string, weekKey: string, weekLabel: string) => {
+        if (!canManageAllocations) {
+            showToast('Bạn chỉ có quyền xem dự án.', 'info');
+            return;
+        }
         setSelectedAdjustCell({ memberId, weekKey, weekLabel });
         setAdjustModalOpen(true);
     };
 
     const handleSaveAdjustedHours = async (memberId: string, weekKey: string, newHours: number) => {
         const member = members.find((m) => m.id === memberId);
-        setMembers((prev) =>
-            prev.map((m) =>
-                m.id === memberId
-                    ? {
-                          ...m,
-                          weeklyHours: {
-                              ...m.weeklyHours,
-                              [weekKey]: newHours,
-                          },
-                      }
-                    : m
-            )
-        );
-
-        // Gọi Backend API nếu có selectedProjectId và member có employeeId
-        if (selectedProjectId && member?.employeeId) {
-            const weekObj = selectedMonth.weeks.find((w) => w.key === weekKey);
-            const year = weekObj?.year || 2026;
-            const weekNumber = weekObj?.weekNumber || 37;
-
-            try {
-                await allocateResource({
-                    employeeId: member.employeeId,
-                    projectId: selectedProjectId,
-                    year,
-                    weekNumber,
-                    allocatedHours: newHours,
-                });
-                showToast(`Đã lưu ${newHours}h vào database cho ${member.name} (${weekKey})`, 'success');
-                return;
-            } catch (err: unknown) {
-                console.warn('Backend allocate resource API failed:', err);
-                const msg = err instanceof Error ? err.message : 'Lỗi khi lưu phân bổ';
-                showToast(`Lỗi phân bổ: ${msg}`, 'error');
-                return;
-            }
+        if (!canManageAllocations || !selectedProjectId || !member) return;
+        const employeeId = Number(member.id.replace('u-', ''));
+        const isoWeek = getDisplayedIsoWeek(weekKey);
+        try {
+            await allocateProjectHours({ employeeId, projectId: selectedProjectId, year: isoWeek.year, weekNumber: isoWeek.week, allocatedHours: newHours });
+            await loadProjectAllocations();
+            showToast(`Đã lưu phân bổ ${newHours}h cho ${member.name} (${weekKey})`, 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Không thể lưu phân bổ nguồn lực.', 'error');
         }
-
-        showToast(`Đã lưu phân bổ ${newHours}h cho ${member?.name || 'nhân sự'} (${weekKey})`, 'success');
     };
 
 
     const handleOpenBudgetModal = (task: TaskItem) => {
+        if (!canManageProject) {
+            showToast('Bạn chỉ có quyền xem dự án.', 'info');
+            return;
+        }
         setSelectedBudgetTask(task);
         setBudgetModalOpen(true);
     };
@@ -645,8 +634,9 @@ export default function ProjectView() {
                                         <Database className="h-3 w-3 text-emerald-700" /> Dữ liệu Database Thật
                                     </span>
                                 ) : (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Dữ liệu Mẫu (Demo)
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                                        {isLoadingProjects ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
+                                        {isLoadingProjects ? 'Đang tải dữ liệu' : 'Chưa có dữ liệu hệ thống'}
                                     </span>
                                 )}
                             </div>
@@ -672,9 +662,7 @@ export default function ProjectView() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <span>
-                                        Dự án: <strong>Chuyển Đổi Số Doanh Nghiệp (ERP Phase 1)</strong>
-                                    </span>
+                                    <span>Dự án: <strong>Chưa có dự án</strong></span>
                                 )}
 
                                 <span className="text-slate-300">•</span>
@@ -685,7 +673,7 @@ export default function ProjectView() {
                                             {selectedProject.startDate} {selectedProject.endDate ? `đến ${selectedProject.endDate}` : ''}
                                         </span>
                                     ) : (
-                                        <span>Q3/2026 - Q4/2026</span>
+                                        <span>Chưa cập nhật thời gian</span>
                                     )}
                                 </span>
 
@@ -700,7 +688,7 @@ export default function ProjectView() {
 
                     {/* Top Actions */}
                     <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                        <button
+                        {canManageProject && <button
                             type="button"
                             onClick={() => setProjectCreateModalOpen(true)}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
@@ -708,7 +696,7 @@ export default function ProjectView() {
                         >
                             <FolderPlus className="h-4 w-4 stroke-[2.2]" />
                             <span>+ Dự án mới</span>
-                        </button>
+                        </button>}
 
                         {canManageWbs && (
                             <button
@@ -722,14 +710,14 @@ export default function ProjectView() {
                             </button>
                         )}
 
-                        <button
+                        {canManageProject && <button
                             type="button"
                             onClick={() => handleQuickAddTask()}
                             className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
                         >
                             <Plus className="h-4 w-4 stroke-[2.5]" />
                             <span>Thêm công việc</span>
-                        </button>
+                        </button>}
 
                         <button
                             type="button"
@@ -755,6 +743,12 @@ export default function ProjectView() {
                     </div>
                 </div>
             </div>
+
+            {(projectError || allocationError) && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+                    {projectError || allocationError}
+                </div>
+            )}
 
 
             {/* KPI Metric Cards */}
@@ -942,16 +936,16 @@ export default function ProjectView() {
                 onSuccess={handleCloneSuccess}
             />
 
-            <ProjectTaskModal
+            {canManageProject && <ProjectTaskModal
                 open={taskModalOpen}
                 categories={categories}
                 members={members}
                 defaultCategoryId={defaultCatId}
                 onClose={() => setTaskModalOpen(false)}
                 onSubmit={handleCreateTask}
-            />
+            />}
 
-            <ProjectAdjustHoursModal
+            {canManageAllocations && <ProjectAdjustHoursModal
                 open={adjustModalOpen}
                 member={adjustMember}
                 weekKey={selectedAdjustCell?.weekKey || ''}
@@ -959,22 +953,22 @@ export default function ProjectView() {
                 monthName={selectedMonth.name}
                 onClose={() => setAdjustModalOpen(false)}
                 onSave={handleSaveAdjustedHours}
-            />
+            />}
 
-            <ProjectBudgetModal
+            {canManageProject && <ProjectBudgetModal
                 open={budgetModalOpen}
                 task={selectedBudgetTask}
                 member={selectedBudgetTask ? members.find((m) => m.id === selectedBudgetTask.assigneeId) : null}
                 onClose={() => setBudgetModalOpen(false)}
                 onSave={handleSaveTaskBudget}
-            />
+            />}
 
-            <ProjectCreateModal
+            {canManageProject && <ProjectCreateModal
                 open={projectCreateModalOpen}
                 members={members}
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
-            />
+            />}
 
             {/* Toast Notification */}
             {toast && (
@@ -992,3 +986,5 @@ export default function ProjectView() {
         </div>
     );
 }
+
+

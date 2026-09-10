@@ -12,7 +12,7 @@ import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
 import HrProfilePage from "../hrprofile/HrProfilePage";
 import AttendanceView from "../attendance/AttendanceView";
 import SkilldeclarationView from "../skilldeclaration/SkilldeclarationView";
-import ProjectView from "../task/ProjectView";
+import ProjectView from "../project/ProjectView";
 import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import type { AttendanceRecord } from "@/lib/hr-data";
