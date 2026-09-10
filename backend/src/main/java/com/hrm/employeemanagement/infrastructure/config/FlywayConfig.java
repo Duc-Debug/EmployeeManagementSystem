@@ -10,9 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Cấu hình Flyway - Nguồn chân lý duy nhất cho Database Schema.
- * Đảm bảo Flyway luôn chạy migration xong trước khi Hibernate tiến hành
- * validate bảng.
+ * Cấu hình Flyway - Nguồn chân lý duy nhất cho Database Schema. Đảm bảo Flyway
+ * luôn chạy migration xong trước khi Hibernate tiến hành validate bảng.
  */
 @Configuration
 public class FlywayConfig {
@@ -32,7 +31,6 @@ public class FlywayConfig {
                 .locations("classpath:db/migration")
                 .outOfOrder(outOfOrder)
                 .load();
-        
         flyway.repair();
         flyway.migrate();
 
@@ -52,16 +50,16 @@ public class FlywayConfig {
     public static BeanFactoryPostProcessor entityManagerFactoryDependsOnFlyway() {
         return beanFactory -> {
             if (beanFactory.containsBeanDefinition("entityManagerFactory")) {
-                BeanDefinition def =
-                        beanFactory.getBeanDefinition("entityManagerFactory");
+                BeanDefinition def
+                        = beanFactory.getBeanDefinition("entityManagerFactory");
 
                 String[] existingDependsOn = def.getDependsOn();
 
                 if (existingDependsOn == null || existingDependsOn.length == 0) {
                     def.setDependsOn("flyway");
                 } else {
-                    String[] newDependsOn =
-                            new String[existingDependsOn.length + 1];
+                    String[] newDependsOn
+                            = new String[existingDependsOn.length + 1];
 
                     System.arraycopy(
                             existingDependsOn,
