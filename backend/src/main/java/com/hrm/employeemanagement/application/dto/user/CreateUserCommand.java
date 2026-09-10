@@ -52,5 +52,11 @@ public record CreateUserCommand(
         if (orgUnitId == null) {
             throw new IllegalArgumentException("ID đơn vị tổ chức không được để trống");
         }
+        if (email != null && !email.isBlank()) {
+            String trimmed = email.trim();
+            if (!trimmed.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+                throw new IllegalArgumentException("Email không đúng định dạng (phải có ký tự '@' và tên miền có dấu '.' hợp lệ, ví dụ: user@company.com)");
+            }
+        }
     }
 }
