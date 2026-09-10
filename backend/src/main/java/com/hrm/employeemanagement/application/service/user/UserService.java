@@ -164,6 +164,27 @@ public class UserService implements
             }
         }
 
+        DataScope targetDataScope = (roleCode == RoleCode.VT_03)
+                ? DataScope.ORGANIZATION_BRANCH
+                : (roleCode == RoleCode.VT_01 || roleCode == RoleCode.VT_05 || roleCode == RoleCode.VT_06)
+                        ? DataScope.COMPANY
+                        : DataScope.SELF;
+
+        requireAssignableDataScope(
+                currentUser,
+                targetDataScope,
+                targetScopeOrgUnitId,
+                PermissionCode.USER_CREATE
+        );
+
+        if (targetScopeOrgUnitId != null) {
+            requireOrgUnitInDataScope(
+                    currentUser,
+                    targetScopeOrgUnitId,
+                    PermissionCode.USER_CREATE
+            );
+        }
+
         String passwordHash = passwordEncoder.encode(command.password());
 
         User newUser = User.createNew(
