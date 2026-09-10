@@ -39,11 +39,13 @@ public class UserPersistenceMapper {
         UserStatus status = Boolean.TRUE.equals(entity.getIsActive()) ? UserStatus.ACTIVE : UserStatus.LOCKED;
         UserId userId = entity.getId() != null ? new UserId(entity.getId()) : null;
         EmployeeId empId = employeeId != null ? new EmployeeId(employeeId) : null;
+        DataScope resolvedScope = resolveDataScope(entity.getDataScope(), role);
+        Long resolvedScopeOrgUnitId = resolveScopeOrgUnitId(resolvedScope, entity.getScopeOrgUnitId());
         return new User(userId,
                 entity.getUsername(),
                 entity.getPasswordHash(), role, status, empId,
-                resolveDataScope(entity.getDataScope(), role),
-                entity.getScopeOrgUnitId(),
+                resolvedScope,
+                resolvedScopeOrgUnitId,
                 entity.getEmail(),
                 entity.getPasswordChangedAt(),
                 entity.getTokenVersion(),
@@ -51,24 +53,45 @@ public class UserPersistenceMapper {
     }
 
     private DataScope resolveDataScope(String dataScope, Role role) {
+        if (role == null || role.getCode() == null) {
+            return DataScope.SELF;
+        }
+        DataScope expectedScope = defaultDataScope(role);
         if (dataScope != null) {
             try {
-                return DataScope.valueOf(dataScope.trim().toUpperCase(Locale.ROOT));
+                DataScope parsed = DataScope.valueOf(dataScope.trim().toUpperCase(Locale.ROOT));
+                if (parsed != expectedScope) {
+                    log.warn("Mismatched data_scope '{}' for role {} in database; auto-correcting to {}",
+                            dataScope, role.getCode().getCode(), expectedScope);
+                    return expectedScope;
+                }
+                return parsed;
             } catch (IllegalArgumentException ex) {
-                DataScope fallback = defaultDataScope(role);
-                log.error("Invalid data_scope value '{}' found in the database; falling back to {}",
-                        dataScope, fallback);
-                return fallback;
+                log.warn("Invalid data_scope value '{}' found in database; falling back to {}",
+                        dataScope, expectedScope);
+                return expectedScope;
             }
         }
 
-        return defaultDataScope(role);
+        return expectedScope;
     }
 
     private DataScope defaultDataScope(Role role) {
-        return role != null && role.isSystemAdmin()
-                ? DataScope.COMPANY
-                : DataScope.SELF;
+        if (role == null || role.getCode() == null) {
+            return DataScope.SELF;
+        }
+        return switch (role.getCode()) {
+            case VT_01, VT_05, VT_06 -> DataScope.COMPANY;
+            case VT_03 -> DataScope.ORGANIZATION_BRANCH;
+            case VT_02, VT_04 -> DataScope.SELF;
+        };
+    }
+
+    private Long resolveScopeOrgUnitId(DataScope dataScope, Long scopeOrgUnitId) {
+        if (dataScope != DataScope.ORGANIZATION_BRANCH) {
+            return null;
+        }
+        return scopeOrgUnitId;
     }
 
     public UserJpaEntity toJpaEntity(User domain, RoleJpaEntity roleJpa) {
