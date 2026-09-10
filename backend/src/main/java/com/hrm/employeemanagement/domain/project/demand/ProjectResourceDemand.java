@@ -6,13 +6,12 @@ import java.util.Objects;
 
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.project.ProjectId;
-import com.hrm.employeemanagement.domain.role.RoleId;
 
 public class ProjectResourceDemand {
 
     private Long id;
     private final ProjectId projectId;
-    private final RoleId roleId;
+    private final ProjectRoleId roleId;
     private final YearWeek yearWeek;
     private BigDecimal requiredHours;
     private LocalDateTime createdAt;
@@ -22,7 +21,7 @@ public class ProjectResourceDemand {
     public ProjectResourceDemand(
             Long id,
             ProjectId projectId,
-            RoleId roleId,
+            ProjectRoleId roleId,
             YearWeek yearWeek,
             BigDecimal requiredHours,
             LocalDateTime createdAt,
@@ -41,7 +40,7 @@ public class ProjectResourceDemand {
 
     public static ProjectResourceDemand createNew(
             ProjectId projectId,
-            RoleId roleId,
+            ProjectRoleId roleId,
             YearWeek yearWeek,
             BigDecimal requiredHours) {
         return new ProjectResourceDemand(
@@ -77,7 +76,7 @@ public class ProjectResourceDemand {
         return projectId != null ? projectId.value() : null;
     }
 
-    public RoleId getRoleId() {
+    public ProjectRoleId getRoleId() {
         return roleId;
     }
 

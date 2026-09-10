@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException;
 import com.hrm.employeemanagement.domain.project.ProjectId;
-import com.hrm.employeemanagement.domain.role.RoleId;
 
 @DisplayName("ProjectResourceDemand Entity Tests")
 class ProjectResourceDemandTest {
@@ -20,7 +19,7 @@ class ProjectResourceDemandTest {
     @DisplayName("Tạo mới ProjectResourceDemand thành công")
     void createNew_Success() {
         ProjectId projectId = new ProjectId(1L);
-        RoleId roleId = new RoleId(4L);
+        ProjectRoleId roleId = new ProjectRoleId(4L);
         YearWeek yearWeek = YearWeek.of(2026, 41);
         BigDecimal hours = new BigDecimal("20.00");
 
@@ -38,7 +37,7 @@ class ProjectResourceDemandTest {
     @DisplayName("Cập nhật số giờ nhu cầu thành công")
     void updateRequiredHours_Success() {
         ProjectResourceDemand demand = ProjectResourceDemand.createNew(
-                new ProjectId(1L), new RoleId(4L), YearWeek.of(2026, 41), new BigDecimal("20.00"));
+                new ProjectId(1L), new ProjectRoleId(4L), YearWeek.of(2026, 41), new BigDecimal("20.00"));
 
         demand.updateRequiredHours(new BigDecimal("35.50"));
 
@@ -50,7 +49,7 @@ class ProjectResourceDemandTest {
     @DisplayName("Ném InvalidResourceDemandException khi tạo hoặc sửa với số giờ âm")
     void invalidHours_ThrowsException() {
         ProjectId projectId = new ProjectId(1L);
-        RoleId roleId = new RoleId(4L);
+        ProjectRoleId roleId = new ProjectRoleId(4L);
         YearWeek yearWeek = YearWeek.of(2026, 41);
 
         assertThrows(InvalidResourceDemandException.class,

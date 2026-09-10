@@ -25,6 +25,7 @@ import com.hrm.employeemanagement.application.dto.project.demand.EstimateResourc
 import com.hrm.employeemanagement.application.dto.project.demand.ProjectResourceDemandSummaryResult;
 import com.hrm.employeemanagement.application.dto.project.demand.RoleResourceDemandResult;
 import com.hrm.employeemanagement.application.dto.project.demand.WeeklyDemandItemResult;
+import com.hrm.employeemanagement.application.port.inbound.project.DeleteProjectResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.EstimateResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectResourceDemandUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -44,11 +45,15 @@ class ProjectResourceDemandControllerTest {
     @Mock
     private GetProjectResourceDemandUseCase getProjectResourceDemandUseCase;
 
+    @Mock
+    private DeleteProjectResourceDemandUseCase deleteProjectResourceDemandUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectResourceDemandController controller = new ProjectResourceDemandController(
                 estimateResourceDemandUseCase,
-                getProjectResourceDemandUseCase);
+                getProjectResourceDemandUseCase,
+                deleteProjectResourceDemandUseCase);
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
@@ -202,6 +207,20 @@ class ProjectResourceDemandControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("Xung đột dữ liệu")));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/projects/{projectId}/resource-demands/{roleId} thành công")
+    void testDeleteDemand_Success() throws Exception {
+        ProjectResourceDemandSummaryResult summary = createSampleSummary(false, null);
+
+        when(deleteProjectResourceDemandUseCase.deleteDemand(1L, 4L)).thenReturn(summary);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/projects/1/resource-demands/4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Xóa ước lượng nhu cầu nhân sự của vai trò thành công"))
+                .andExpect(jsonPath("$.data.projectId").value(1));
     }
 
     private ProjectResourceDemandSummaryResult createSampleSummary(boolean exceeds, String warningMsg) {
