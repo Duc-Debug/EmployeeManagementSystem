@@ -19,6 +19,7 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectM
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
 import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException;
 import com.hrm.employeemanagement.domain.project.ProjectMemberRole;
+import com.hrm.employeemanagement.domain.task.TaskStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.repository.SpringDataOrgUnitRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectJpaEntity;
@@ -91,13 +92,27 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
                 : orgUnitRepository.findAllById(orgUnitIds).stream()
                         .collect(Collectors.toMap(OrgUnitJpaEntity::getId, OrgUnitJpaEntity::getUnitName, (a, b) -> a));
 
+        // 4. Gom userIds để truy vấn email hàng loạt (tránh N+1)
+        Set<Long> userIds = new HashSet<>();
+        if (pmEntity != null && pmEntity.getUserId() != null) {
+            userIds.add(pmEntity.getUserId());
+        }
+        for (EmployeeJpaEntity emp : memberEmployees) {
+            if (emp.getUserId() != null) {
+                userIds.add(emp.getUserId());
+            }
+        }
+
+        Map<Long, String> userEmails = userIds.isEmpty()
+                ? Collections.emptyMap()
+                : userRepository.findAllById(userIds).stream()
+                        .collect(Collectors.toMap(UserJpaEntity::getId, UserJpaEntity::getEmail, (a, b) -> a));
+
         Map<Long, ProjectMemberResult> resultMap = new LinkedHashMap<>();
 
         // Thêm PM vào kết quả
         if (pmEntity != null) {
-            String email = pmEntity.getUserId() != null
-                    ? userRepository.findById(pmEntity.getUserId()).map(UserJpaEntity::getEmail).orElse(null)
-                    : null;
+            String email = pmEntity.getUserId() != null ? userEmails.get(pmEntity.getUserId()) : null;
             String orgName = pmEntity.getOrgUnitId() != null ? orgUnitNames.get(pmEntity.getOrgUnitId()) : null;
             resultMap.put(pmEntity.getId(), new ProjectMemberResult(
                     pmEntity.getId(),
@@ -114,9 +129,7 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
         // Thêm các Member vào kết quả
         for (EmployeeJpaEntity emp : memberEmployees) {
             if (!resultMap.containsKey(emp.getId())) {
-                String email = emp.getUserId() != null
-                        ? userRepository.findById(emp.getUserId()).map(UserJpaEntity::getEmail).orElse(null)
-                        : null;
+                String email = emp.getUserId() != null ? userEmails.get(emp.getUserId()) : null;
                 String orgName = emp.getOrgUnitId() != null ? orgUnitNames.get(emp.getOrgUnitId()) : null;
                 resultMap.put(emp.getId(), new ProjectMemberResult(
                         emp.getId(),
@@ -146,7 +159,8 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
 
     @Override
     public boolean hasActiveTasks(Long projectId, Long employeeId) {
-        return taskRepository.existsByProjectIdAndAssigneeIdAndStatusNot(projectId, employeeId, "DONE");
+        return taskRepository.existsByProjectIdAndAssigneeIdAndStatusIn(
+                projectId, employeeId, List.of(TaskStatus.TODO, TaskStatus.IN_PROGRESS));
     }
 
     @Override

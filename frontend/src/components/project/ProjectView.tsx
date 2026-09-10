@@ -190,6 +190,8 @@ function mapBackendWbsToUiCategories(
 
 export default function ProjectView() {
     const currentUser = useAuthUser();
+    // PROJECT_CREATE: Chỉ VT-02 (PM) mới có quyền tạo/quản lý dự án (✅ trong ma trận)
+    // VT-01 👁️ Xem | VT-03 👁️ Xem | VT-06 ❌ — theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md
     const canManageProject = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
     const canManageAllocations = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-03';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
@@ -200,10 +202,7 @@ export default function ProjectView() {
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
 
     // Real projects backend state
-    const canManageWbs = Boolean(
-        currentUser?.roleCode &&
-        (currentUser.roleCode === 'VT-02' || currentUser.roleCode === 'VT-06')
-    );
+    const canManageWbs = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
@@ -984,7 +983,8 @@ export default function ProjectView() {
 
             {canManageProject && <ProjectCreateModal
                 open={projectCreateModalOpen}
-                members={members}
+                members={allEmployees}
+                currentUser={currentUser}
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
             />}

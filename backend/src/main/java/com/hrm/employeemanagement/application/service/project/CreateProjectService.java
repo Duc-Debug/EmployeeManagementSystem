@@ -66,10 +66,13 @@ public class CreateProjectService implements CreateProjectUseCase {
 
         OrgUnit orgUnit = loadActiveOrgUnitOrThrow(command.orgUnitId());
 
-        if (command.managerId() != null) {
-            Employee manager = loadEmployeePort.findById(new EmployeeId(command.managerId()))
+        // Xác định managerId cuối cùng sẽ gán cho dự án
+        final Long resolvedManagerId = resolveManagerId(command.managerId(), currentUser);
+
+        if (resolvedManagerId != null) {
+            Employee manager = loadEmployeePort.findById(new EmployeeId(resolvedManagerId))
                     .orElseThrow(() -> new InvalidProjectDataException(
-                            "Không tìm thấy nhân viên quản lý dự án với ID: " + command.managerId()));
+                            "Không tìm thấy nhân viên quản lý dự án với ID: " + resolvedManagerId));
             if (manager.getStatus() != EmployeeStatus.ACTIVE) {
                 throw new InvalidProjectDataException("Nhân viên quản lý dự án không ở trạng thái hoạt động");
             }
@@ -89,7 +92,7 @@ public class CreateProjectService implements CreateProjectUseCase {
                 generatedCode,
                 command.projectName(),
                 command.orgUnitId(),
-                command.managerId() != null ? new EmployeeId(command.managerId()) : null,
+                resolvedManagerId != null ? new EmployeeId(resolvedManagerId) : null,
                 command.startDate(),
                 command.endDate(),
                 command.estimatedHours(),
@@ -100,6 +103,21 @@ public class CreateProjectService implements CreateProjectUseCase {
 
         saveAuditLogPort.save(AuditLog.create(currentUserId, "CREATE_PROJECT", "projects", savedProject.getIdValue()));
         return mapToProjectResult(savedProject);
+    }
+
+    private Long resolveManagerId(Long requestedManagerId, User currentUser) {
+        if (requestedManagerId != null) {
+            return requestedManagerId;
+        }
+        // Nếu VT-02 (PM) tạo dự án mà không chỉ định PM, tự động gán chính họ làm PM.
+        // Đảm bảo DataScope=SELF query (findManagedBy) sau này sẽ tìm thấy dự án.
+        if (currentUser.getRole() != null
+                && currentUser.getRole().getCode() == com.hrm.employeemanagement.domain.role.RoleCode.VT_02) {
+            return loadEmployeePort.findByUserId(currentUser.getId())
+                    .map(Employee::getIdValue)
+                    .orElse(null);
+        }
+        return null;
     }
 
     // ==================== HELPER METHODS ====================

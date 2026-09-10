@@ -659,4 +659,41 @@ class CreateProjectFromTemplateServiceTest {
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new ProjectTemplateTaskId(0L));
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new ProjectTemplateTaskId(-1L));
     }
+
+    @Test
+    @DisplayName("VT-02 tạo dự án từ template khi managerId = null thì tự động gán chính mình làm PM")
+    void testCreateProjectFromTemplate_NullManagerId_AutoAssignsVT02() {
+        CreateProjectFromTemplateCommand command = new CreateProjectFromTemplateCommand(
+                TEMPLATE_ID, "Dự án Tự Động PM", ORG_UNIT_ID, null,
+                LocalDate.now(), LocalDate.now().plusMonths(1), "Mô tả");
+
+        User pmUser = createProjectManagerUser();
+        Employee pmEmployee = createEmployee(MANAGER_ID, EmployeeStatus.ACTIVE);
+
+        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(pmUser));
+        when(loadEmployeePort.findByUserId(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(pmEmployee));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(ORG_UNIT_ID, ORG_UNIT_ID)).thenReturn(true);
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID)))
+                .thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
+        when(loadEmployeePort.findById(new EmployeeId(MANAGER_ID))).thenReturn(Optional.of(pmEmployee));
+        when(loadProjectTemplatePort.findById(new ProjectTemplateId(TEMPLATE_ID)))
+                .thenReturn(Optional.of(createTemplate(true)));
+        when(loadProjectTemplatePort.findTasksByTemplateId(new ProjectTemplateId(TEMPLATE_ID)))
+                .thenReturn(List.of());
+
+        ArgumentCaptor<Project> projectCaptor = ArgumentCaptor.forClass(Project.class);
+        when(saveProjectPort.save(projectCaptor.capture())).thenAnswer(invocation -> {
+            Project p = invocation.getArgument(0);
+            return new Project(new ProjectId(101L), p.getProjectCode(), p.getProjectName(), p.getOrgUnitId(),
+                    p.getManagerId(), p.getStartDate(), p.getEndDate(), p.getEstimatedHours(),
+                    p.getDescription(), p.getStatus(), p.getCreatedBy(), LocalDateTime.now(), null, 0L, 0);
+        });
+
+        ProjectResult result = service.createProjectFromTemplate(command);
+
+        assertThat(result).isNotNull();
+        Project saved = projectCaptor.getValue();
+        assertThat(saved.getManagerIdValue()).isEqualTo(MANAGER_ID);
+    }
 }
