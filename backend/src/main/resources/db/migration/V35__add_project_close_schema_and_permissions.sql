@@ -39,24 +39,24 @@ WHERE NOT EXISTS (
 );
 
 -- 5. Phân quyền PROJECT_CLOSE:
--- Cho phép VT-02 (PM phụ trách), VT-01 (Ban giám đốc đóng hộ), VT-06 (Admin đóng hộ)
+-- Cho phép VT-02 (PM phụ trách) và VT-01 (Ban giám đốc đóng hộ). Admin (VT-06) KHÔNG có quyền này
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code = 'PROJECT_CLOSE'
-WHERE r.code IN ('VT-02', 'VT-01', 'VT-06')
+WHERE r.code IN ('VT-02', 'VT-01')
 AND NOT EXISTS (
     SELECT 1 FROM role_permissions rp
     WHERE rp.role_id = r.id AND rp.permission_id = p.id
 );
 
 -- 6. Phân quyền PROJECT_REOPEN:
--- CHỈ cho phép VT-01 (Ban giám đốc) và VT-06 (Admin), TUYỆT ĐỐI KHÔNG GÁN CHO VT-02 (PM)
+-- CHỈ cho phép DUY NHẤT VT-01 (Ban giám đốc). Admin (VT-06) và PM (VT-02) KHÔNG có quyền này
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code = 'PROJECT_REOPEN'
-WHERE r.code IN ('VT-01', 'VT-06')
+WHERE r.code = 'VT-01'
 AND NOT EXISTS (
     SELECT 1 FROM role_permissions rp
     WHERE rp.role_id = r.id AND rp.permission_id = p.id
