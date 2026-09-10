@@ -10,6 +10,7 @@ export interface CreateUserPayload {
   orgUnitId?: number | null;
   password?: string;
   roleCode: RoleCode;
+  scopeOrgUnitId?: number | null;
   username: string;
 }
 

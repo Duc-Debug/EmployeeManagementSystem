@@ -737,20 +737,16 @@ export default function DepartmentTree() {
                         <span className="hidden sm:inline">Thu gọn</span>
                     </button>
 
-                    <button
-                        onClick={() => {
-                            if (!isAdmin) {
-                                showNotify("Tài khoản của bạn chỉ có quyền xem cơ cấu tổ chức, không được phép thực hiện chỉnh sửa.", "error");
-                                return;
-                            }
-                            setModal({ mode: "create", parentId: tree.id });
-                        }}
-                        className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 hover:shadow-md active:scale-95"
-                        type="button"
-                    >
-                        <Plus className="h-4 w-4" />
-                        <span>Thêm đơn vị mới</span>
-                    </button>
+                    {isAdmin && (
+                        <button
+                            onClick={() => setModal({ mode: "create", parentId: tree.id })}
+                            className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 hover:shadow-md active:scale-95"
+                            type="button"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span>Thêm đơn vị mới</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

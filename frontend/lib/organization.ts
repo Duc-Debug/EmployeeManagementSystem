@@ -5,6 +5,13 @@ export function flattenOrgTree(nodes: readonly OrgUnitTreeNode[]): OrgUnitTreeNo
   return nodes.flatMap((node) => [node, ...flattenOrgTree(node.children || [])]);
 }
 
+export function flattenActiveOrgTree(nodes: readonly OrgUnitTreeNode[]): OrgUnitTreeNode[] {
+  if (!nodes || !Array.isArray(nodes)) return [];
+  return nodes
+    .filter((node) => !node.status || node.status === "ACTIVE")
+    .flatMap((node) => [node, ...flattenActiveOrgTree(node.children || [])]);
+}
+
 export function findOrgUnit(
   nodes: readonly OrgUnitTreeNode[],
   unitId: number,

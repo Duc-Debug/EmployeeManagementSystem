@@ -138,7 +138,7 @@ class ProjectServiceTest {
     void testGetProjects_OrganizationBranchScope_ReturnsBranchProjects() {
         User currentUser =
                 currentUser(
-                        RoleCode.VT_02,
+                        RoleCode.VT_03,
                         DataScope.ORGANIZATION_BRANCH,
                         5L
                 );
@@ -328,7 +328,7 @@ class ProjectServiceTest {
     void testGetProjects_SelfUnknownRole_ThrowsPermissionDeniedException() {
         User currentUser =
                 currentUser(
-                        RoleCode.VT_05,
+                        RoleCode.VT_04,
                         DataScope.SELF,
                         null
                 );
@@ -402,7 +402,7 @@ class ProjectServiceTest {
     void testGetProjectById_BranchInside_ReturnsProject() {
         User currentUser =
                 currentUser(
-                        RoleCode.VT_02,
+                        RoleCode.VT_03,
                         DataScope.ORGANIZATION_BRANCH,
                         5L
                 );
@@ -437,7 +437,7 @@ class ProjectServiceTest {
     void testGetProjectById_BranchOutside_ThrowsPermissionDeniedAndAudits() {
         User currentUser =
                 currentUser(
-                        RoleCode.VT_02,
+                        RoleCode.VT_03,
                         DataScope.ORGANIZATION_BRANCH,
                         5L
                 );
@@ -641,26 +641,21 @@ class ProjectServiceTest {
             DataScope dataScope,
             Long scopeOrgUnitId
     ) {
-        User user =
-                new User(
-                        new UserId(CURRENT_USER_ID),
-                        "current",
-                        "hash",
-                        new Role(
-                                new RoleId(1L),
-                                roleCode,
-                                roleCode.getName()
-                        ),
-                        UserStatus.ACTIVE,
-                        null
-                );
-
-        user.changeDataScope(
+        return new User(
+                new UserId(CURRENT_USER_ID),
+                "current",
+                "hash",
+                new Role(
+                        new RoleId(1L),
+                        roleCode,
+                        roleCode.getName()
+                ),
+                UserStatus.ACTIVE,
+                null,
                 dataScope,
-                scopeOrgUnitId
+                scopeOrgUnitId,
+                0L
         );
-
-        return user;
     }
 
     private void stubCurrentUser(User currentUser) {

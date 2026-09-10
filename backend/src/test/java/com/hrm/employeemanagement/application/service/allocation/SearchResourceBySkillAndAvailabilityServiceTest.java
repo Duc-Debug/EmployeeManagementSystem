@@ -78,12 +78,19 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
     }
 
     private User createUserWithScope(Long userId, DataScope dataScope, Long scopeOrgUnitId) {
-        Role rmRole = new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực");
+        Role role;
+        if (dataScope == DataScope.COMPANY) {
+            role = new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám đốc");
+        } else if (dataScope == DataScope.ORGANIZATION_BRANCH) {
+            role = new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực");
+        } else {
+            role = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án");
+        }
         return new User(
                 new UserId(userId),
                 "user_" + userId,
                 "encoded_pw",
-                rmRole,
+                role,
                 UserStatus.ACTIVE,
                 null,
                 dataScope,

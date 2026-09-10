@@ -24,6 +24,7 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -198,5 +199,86 @@ class UserServiceCreateTest extends BaseUserServiceTest {
 
         verify(saveEmployeePort, never())
                 .save(any());
+    }
+
+    @Test
+    @DisplayName("VT-03 tạo người dùng VT-03 bị từ chối khi scopeOrgUnitId nằm ngoài phạm vi quản lý")
+    void testCreateUser_VT03ActorAssignsScopeOutsideOrgUnit_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(PermissionCode.USER_CREATE))
+                .thenReturn(ADMIN_ID);
+
+        User currentUser = currentUserWithScope(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        // command.orgUnitId is within scope (5L), but target scopeOrgUnitId is outside (20L)
+        CreateUserCommand command = new CreateUserCommand(
+                "dept_lead",
+                "password123",
+                "VT-03",
+                "EMP-002",
+                "Department Lead",
+                5L,
+                null,
+                20L
+        );
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(5L, 5L)).thenReturn(true);
+        when(loadOrgUnitPort.findById(new OrgUnitId(5L)))
+                .thenReturn(Optional.of(activeOrgUnit(5L, "OU-5", "Phòng Kế hoạch")));
+        when(loadOrgUnitPort.findById(new OrgUnitId(20L)))
+                .thenReturn(Optional.of(activeOrgUnit(20L, "OU-20", "Phòng Tài chính")));
+        when(loadRolePort.findByCode(RoleCode.VT_03))
+                .thenReturn(Optional.of(new Role(new com.hrm.employeemanagement.domain.role.RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị")));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(20L, 5L)).thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.createUser(command)
+        );
+
+        verify(saveUserPort, never()).save(any());
+        verify(saveEmployeePort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("VT-03 tạo người dùng VT-01 (COMPANY scope) bị từ chối")
+    void testCreateUser_VT03ActorAssignsCompanyRole_ThrowsPermissionDeniedException() {
+        when(authorizationService.require(PermissionCode.USER_CREATE))
+                .thenReturn(ADMIN_ID);
+
+        User currentUser = currentUserWithScope(
+                DataScope.ORGANIZATION_BRANCH,
+                5L
+        );
+
+        when(loadUserPort.findById(new UserId(ADMIN_ID)))
+                .thenReturn(Optional.of(currentUser));
+
+        CreateUserCommand command = new CreateUserCommand(
+                "director",
+                "password123",
+                "VT-01",
+                "EMP-003",
+                "Director",
+                5L
+        );
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(5L, 5L)).thenReturn(true);
+        when(loadOrgUnitPort.findById(new OrgUnitId(5L)))
+                .thenReturn(Optional.of(activeOrgUnit(5L, "OU-5", "Phòng Kế hoạch")));
+        when(loadRolePort.findByCode(RoleCode.VT_01))
+                .thenReturn(Optional.of(new Role(new com.hrm.employeemanagement.domain.role.RoleId(1L), RoleCode.VT_01, "Ban Giám đốc")));
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> userService.createUser(command)
+        );
+
+        verify(saveUserPort, never()).save(any());
     }
 }

@@ -62,7 +62,8 @@ public class UserController {
                 request.getEmployeeCode(),
                 request.getFullName(),
                 request.getOrgUnitId(),
-                request.getEmail()
+                request.getEmail(),
+                request.getScopeOrgUnitId()
         );
 
         UserResult result = createUserUseCase.createUser(command);

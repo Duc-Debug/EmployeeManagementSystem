@@ -8,6 +8,7 @@ export interface AuthorizationDraft {
   dataScope: DataScope;
   roleCode: string;
   scopeOrgUnitId: string;
+  syncOrgScope?: boolean;
 }
 
 export type AuthorizationErrors = Partial<Record<keyof AuthorizationDraft, string>>;
@@ -28,7 +29,6 @@ const dataScopeOptions: ReadonlyArray<{ label: string; value: DataScope }> = [
 ];
 
 export function AuthorizationFields({ errors, idPrefix, initialRoleFocusRef, onChange, orgUnitOptions, value }: AuthorizationFieldsProps) {
-  const isSystemAdmin = value.roleCode === "VT-06";
   const roleId = `${idPrefix}-role`;
   const dataScopeId = `${idPrefix}-data-scope`;
   const scopeOrgUnitId = `${idPrefix}-scope-org-unit`;
@@ -39,7 +39,9 @@ export function AuthorizationFields({ errors, idPrefix, initialRoleFocusRef, onC
     if (dataScope) {
       onChange("dataScope", dataScope);
     }
-    if (dataScope !== "ORGANIZATION_BRANCH") {
+    if (roleCode === "VT-03") {
+      onChange("syncOrgScope", true);
+    } else if (dataScope !== "ORGANIZATION_BRANCH") {
       onChange("scopeOrgUnitId", "");
     }
   }
@@ -61,20 +63,13 @@ export function AuthorizationFields({ errors, idPrefix, initialRoleFocusRef, onC
             {DEMO_ROLES.map((role) => <option key={role.code} value={role.code}>{role.code} · {role.name}</option>)}
           </select>
         </FormField>
-        <FormField error={errors.dataScope} hint={isSystemAdmin ? "Quản trị viên áp dụng cho toàn công ty." : undefined} id={dataScopeId} label="Phạm vi dữ liệu">
+        <FormField error={errors.dataScope} hint="Tự động xác định theo vai trò." id={dataScopeId} label="Phạm vi dữ liệu">
           <select
             aria-describedby={`${dataScopeId}-message`}
             aria-invalid={Boolean(errors.dataScope)}
             className="select"
-            disabled={isSystemAdmin}
+            disabled={true}
             id={dataScopeId}
-            onChange={(event) => {
-              const dataScope = event.target.value as DataScope;
-              onChange("dataScope", dataScope);
-              if (dataScope !== "ORGANIZATION_BRANCH") {
-                onChange("scopeOrgUnitId", "");
-              }
-            }}
             value={value.dataScope}
           >
             {dataScopeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -82,8 +77,27 @@ export function AuthorizationFields({ errors, idPrefix, initialRoleFocusRef, onC
         </FormField>
       </div>
 
-      {value.dataScope === "ORGANIZATION_BRANCH" ? (
-        <FormField error={errors.scopeOrgUnitId} hint="Chọn đơn vị tổ chức áp dụng." id={scopeOrgUnitId} label="Đơn vị tổ chức">
+      {value.roleCode === "VT-03" && (
+        <div style={{ marginBottom: "0.75rem" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.875rem", fontWeight: 500 }}>
+            <input
+              type="checkbox"
+              checked={value.syncOrgScope !== false}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                onChange("syncOrgScope", checked);
+                if (checked) {
+                  onChange("scopeOrgUnitId", "");
+                }
+              }}
+            />
+            <span>Áp dụng phạm vi quản lý theo đơn vị trực thuộc</span>
+          </label>
+        </div>
+      )}
+
+      {value.dataScope === "ORGANIZATION_BRANCH" && value.syncOrgScope === false ? (
+        <FormField error={errors.scopeOrgUnitId} hint="Chọn đơn vị tổ chức áp dụng." id={scopeOrgUnitId} label="Đơn vị tổ chức áp dụng">
           <OrgUnitCombobox
             ariaDescribedBy={`${scopeOrgUnitId}-message`}
             ariaInvalid={Boolean(errors.scopeOrgUnitId)}

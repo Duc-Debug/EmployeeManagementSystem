@@ -1,37 +1,55 @@
-import { useState, useMemo } from "react";
-import { Plus, Search, X, Check, AlertTriangle, Users } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Plus, Search, X, Check, AlertTriangle, Users, Loader2 } from "lucide-react";
 import type { HrProfileData } from "./hrprofile.types";
 import HrProfileCard from "./HrProfileCard";
 import HrProfileForm from "./HrProfileForm";
 import { useAuthUser } from "@/lib/auth-session";
-
-const SAMPLE_PROFILES: HrProfileData[] = [
-    {
-        id: "hr-001",
-        employeeCode: "EMP-001",
-        fullName: "Trần Lan Anh",
-        email: "lananh.tran@company.com",
-        username: "lananh.tran",
-        department: "Phòng Công nghệ",
-        professionalRole: "Product Owner / BA",
-        startDate: "2023-03-01",
-        contractEndDate: "2025-03-01",
-        standardHoursPerWeek: 40,
-        employeeId: 1,
-    },
-];
+import { getEmployees, updateEmployeeProfile } from "@/lib/api/employees";
 
 export default function HrProfilePage() {
     const currentUser = useAuthUser();
     const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
-    const canManage = roleCode === "VT-05" || roleCode === "VT-06";
+    const canManage = roleCode === "VT-05";
     const isSelfOnly = roleCode === "VT-04" || currentUser?.dataScope === "SELF";
 
-    const [profiles, setProfiles] = useState<HrProfileData[]>(SAMPLE_PROFILES);
+    const [profiles, setProfiles] = useState<HrProfileData[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingProfile, setEditingProfile] = useState<HrProfileData | undefined>(undefined);
     const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+    const loadProfiles = async () => {
+        setIsLoading(true);
+        try {
+            const res = await getEmployees(1, 100);
+            if (res && res.content && res.content.length > 0) {
+                const mapped: HrProfileData[] = res.content.map((p) => ({
+                    id: String(p.id),
+                    employeeId: p.id,
+                    employeeCode: p.employeeCode,
+                    fullName: p.fullName,
+                    department: p.orgUnitName || "Chưa phân bổ",
+                    professionalRole: p.professionalRole || "",
+                    startDate: p.startDate || "",
+                    contractEndDate: p.contractEndDate || "",
+                    standardHoursPerWeek: p.standardHoursPerWeek || 40,
+                }));
+                setProfiles(mapped);
+            } else {
+                setProfiles([]);
+            }
+        } catch (err: any) {
+            console.warn("Không thể tải danh sách hồ sơ từ API:", err);
+            setProfiles([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadProfiles();
+    }, []);
 
     const resolvedProfiles = useMemo(() => {
         if (!isSelfOnly) return profiles;
@@ -87,18 +105,26 @@ export default function HrProfilePage() {
         showNotification("success", "Đã xóa hồ sơ nhân sự thành công.");
     };
 
-    const handleSave = (data: HrProfileData) => {
-        if (editingProfile) {
-            setProfiles((prev) => prev.map((p) => (p.id === editingProfile.id ? { ...data, id: editingProfile.id } : p)));
-            showNotification("success", `Đã cập nhật hồ sơ ${data.fullName} thành công.`);
-        } else {
-            const newProfile: HrProfileData = {
-                ...data,
-                id: `hr-${Date.now()}`,
-                employeeCode: data.employeeCode || `EMP-${String(profiles.length + 1).padStart(3, "0")}`,
-            };
-            setProfiles((prev) => [newProfile, ...prev]);
-            showNotification("success", `Đã tạo hồ sơ ${data.fullName} thành công.`);
+    const handleSave = async (data: HrProfileData) => {
+        try {
+            if (editingProfile && editingProfile.employeeId) {
+                await updateEmployeeProfile(editingProfile.employeeId, {
+                    version: 0,
+                    fullName: data.fullName,
+                    orgUnitId: data.orgUnitId ? Number(data.orgUnitId) : 1,
+                    professionalRole: data.professionalRole,
+                    startDate: data.startDate,
+                    contractEndDate: data.contractEndDate,
+                    standardHoursPerWeek: data.standardHoursPerWeek,
+                });
+                showNotification("success", `Đã cập nhật hồ sơ ${data.fullName} thành công.`);
+            } else {
+                showNotification("error", "Việc tạo tài khoản và hồ sơ nhân sự mới được thực hiện tại mục Quản lý tài khoản (dành cho Quản trị viên VT-06).");
+                return;
+            }
+            await loadProfiles();
+        } catch (err: any) {
+            showNotification("error", err?.message || "Thao tác thất bại.");
         }
         setIsFormOpen(false);
     };
@@ -150,21 +176,17 @@ export default function HrProfilePage() {
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                     </div>
-                    {canManage && (
-                        <button
-                            type="button"
-                            onClick={handleOpenAdd}
-                            className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
-                        >
-                            <Plus className="size-4 stroke-[2.5]" />
-                            <span>Tạo hồ sơ mới</span>
-                        </button>
-                    )}
                 </div>
 
                 {/* List */}
                 <div className="space-y-3 pt-1">
-                    {filtered.length === 0 && searchTerm && (
+                    {isLoading && (
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                            <Loader2 className="size-8 animate-spin text-indigo-600 mb-2" />
+                            <p className="text-xs font-semibold">Đang tải danh sách hồ sơ...</p>
+                        </div>
+                    )}
+                    {!isLoading && filtered.length === 0 && searchTerm && (
                         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-10 text-center">
                             <Search className="size-8 text-slate-300" />
                             <h3 className="mt-3 text-sm font-bold text-slate-800">Không tìm thấy kết quả</h3>
@@ -174,7 +196,7 @@ export default function HrProfilePage() {
                             </button>
                         </div>
                     )}
-                    {filtered.length === 0 && !searchTerm && (
+                    {!isLoading && filtered.length === 0 && !searchTerm && (
                         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-12 text-center">
                             <div className="flex size-14 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-2xs">
                                 <Users className="size-7" />

@@ -28,6 +28,8 @@ public class CreateUserRequest {
 
     private String email;
 
+    private Long scopeOrgUnitId;
+
     public String getUsername() {
         return username;
     }
@@ -82,5 +84,13 @@ public class CreateUserRequest {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public Long getScopeOrgUnitId() {
+        return scopeOrgUnitId;
+    }
+
+    public void setScopeOrgUnitId(Long scopeOrgUnitId) {
+        this.scopeOrgUnitId = scopeOrgUnitId;
     }
 }

@@ -16,7 +16,7 @@ import { useAuthUser } from "@/lib/auth-session";
 
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
-    { name: "Quản lý tài khoản", icon: Users, id: "employees" },
+    { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Chấm công", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
@@ -50,6 +50,7 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
             // Cây cơ cấu tổ chức: VT-01, VT-02, VT-03, VT-04, VT-05 được xem (Read-only); VT-06 Toàn quyền
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
 
+        case "hrprofile":
         case "employees":
             // Hồ sơ nhân sự: VT-05 Toàn quyền; VT-01, VT-02, VT-03, VT-04, VT-06 được Xem theo Data Scope
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
