@@ -6,9 +6,9 @@ import org.springframework.context.annotation.Configuration;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
-import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
@@ -22,7 +22,7 @@ public class ProjectResourceDemandUseCaseConfig {
     @Bean
     public RetryableEstimateResourceDemandUseCaseDecorator projectResourceDemandService(
             LoadProjectPort loadProjectPort,
-            LoadRolePort loadRolePort,
+            LoadProjectRolePort loadProjectRolePort,
             LoadProjectResourceDemandPort loadDemandPort,
             SaveProjectResourceDemandPort saveDemandPort,
             LoadUserPort loadUserPort,
@@ -33,7 +33,7 @@ public class ProjectResourceDemandUseCaseConfig {
 
         ProjectResourceDemandService pureJavaService = new ProjectResourceDemandService(
                 loadProjectPort,
-                loadRolePort,
+                loadProjectRolePort,
                 loadDemandPort,
                 saveDemandPort,
                 loadUserPort,

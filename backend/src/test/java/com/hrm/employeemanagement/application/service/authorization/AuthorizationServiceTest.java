@@ -120,4 +120,55 @@ class AuthorizationServiceTest {
                 auditCaptor.getValue().getNewValue()
         );
     }
+
+    @Test
+    @DisplayName("requireAny thành công khi người dùng sở hữu ít nhất 1 quyền")
+    void testRequireAny_HasAtLeastOnePermission_ReturnsUserId() {
+        User user = new User(
+                new UserId(10L),
+                "pm_user",
+                "hash",
+                new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án"),
+                UserStatus.ACTIVE,
+                new EmployeeId(100L)
+        );
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(user);
+        when(permissionQueryPort.hasPermission(10L, PermissionCode.USER_READ)).thenReturn(false);
+        when(permissionQueryPort.hasPermission(10L, PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE)).thenReturn(true);
+
+        Long userId = authorizationService.requireAny(
+                PermissionCode.USER_READ,
+                PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE
+        );
+
+        assertEquals(10L, userId);
+    }
+
+    @Test
+    @DisplayName("requireAny ném PermissionDeniedException khi người dùng không có quyền nào trong danh sách")
+    void testRequireAny_HasNoPermissions_ThrowsPermissionDeniedException() {
+        User user = new User(
+                new UserId(10L),
+                "pm_user",
+                "hash",
+                new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án"),
+                UserStatus.ACTIVE,
+                new EmployeeId(100L)
+        );
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(user);
+        when(permissionQueryPort.hasPermission(10L, PermissionCode.USER_READ)).thenReturn(false);
+        when(permissionQueryPort.hasPermission(10L, PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE)).thenReturn(false);
+
+        assertThrows(
+                PermissionDeniedException.class,
+                () -> authorizationService.requireAny(
+                        PermissionCode.USER_READ,
+                        PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE
+                )
+        );
+
+        verify(deniedAuditLogPort).save(org.mockito.ArgumentMatchers.any(AuditLog.class));
+    }
 }
