@@ -477,7 +477,7 @@ export function ProjectCreateModal({
                                     const isMe = currentEmpId && numId === currentEmpId;
                                     return (
                                         <option key={m.id} value={numId || ''}>
-                                            {m.name} {isMe ? '⭐ (Tôi)' : ''} ({m.role})
+                                            {m.name}
                                         </option>
                                     );
                                 })}
