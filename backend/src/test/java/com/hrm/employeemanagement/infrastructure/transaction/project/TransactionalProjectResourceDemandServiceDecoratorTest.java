@@ -62,4 +62,19 @@ class TransactionalProjectResourceDemandServiceDecoratorTest {
         assertThat(actual).isEqualTo(expectedResult);
         verify(delegate).getProjectResourceDemands(1L);
     }
+
+    @Test
+    @DisplayName("Ủy quyền deleteDemand chính xác tới delegate service")
+    void testDeleteDemand_DelegatesCorrectly() {
+        ProjectResourceDemandSummaryResult expectedResult = new ProjectResourceDemandSummaryResult(
+                1L, "PRJ-01", "Dự án", new BigDecimal("100.00"), new BigDecimal("0.00"),
+                false, null, Collections.emptyList());
+
+        when(delegate.deleteDemand(1L, 4L)).thenReturn(expectedResult);
+
+        ProjectResourceDemandSummaryResult actual = decorator.deleteDemand(1L, 4L);
+
+        assertThat(actual).isEqualTo(expectedResult);
+        verify(delegate).deleteDemand(1L, 4L);
+    }
 }

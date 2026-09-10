@@ -6,13 +6,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.hrm.employeemanagement.application.dto.project.demand.EstimateResourceDemandCommand;
 import com.hrm.employeemanagement.application.dto.project.demand.ProjectResourceDemandSummaryResult;
+import com.hrm.employeemanagement.application.port.inbound.project.DeleteProjectResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.EstimateResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectResourceDemandUseCase;
 import com.hrm.employeemanagement.application.service.project.ProjectResourceDemandService;
 
 public class TransactionalProjectResourceDemandServiceDecorator implements
         EstimateResourceDemandUseCase,
-        GetProjectResourceDemandUseCase {
+        GetProjectResourceDemandUseCase,
+        DeleteProjectResourceDemandUseCase {
 
     private final ProjectResourceDemandService delegate;
 
@@ -30,5 +32,11 @@ public class TransactionalProjectResourceDemandServiceDecorator implements
     @Transactional(readOnly = true)
     public ProjectResourceDemandSummaryResult getProjectResourceDemands(Long projectId) {
         return delegate.getProjectResourceDemands(projectId);
+    }
+
+    @Override
+    @Transactional
+    public ProjectResourceDemandSummaryResult deleteDemand(Long projectId, Long roleId) {
+        return delegate.deleteDemand(projectId, roleId);
     }
 }

@@ -368,6 +368,66 @@ class ProjectResourceDemandServiceTest {
         assertThat(result.demandsByRole().get(0).weeklyDemands()).hasSize(4);
     }
 
+    @Test
+    @DisplayName("Xóa ước lượng nhu cầu nhân sự của vai trò thành công (Happy Path)")
+    void testDeleteDemand_Success() {
+        Project project = createActiveProject(
+                PROJECT_ID,
+                LocalDate.of(2026, 10, 5),
+                LocalDate.of(2026, 11, 29),
+                new BigDecimal("200.00"));
+        Role role = new Role(new RoleId(ROLE_ID), RoleCode.VT_04, "Lập trình viên");
+
+        List<ProjectResourceDemand> existingDemands = List.of(
+                createDemand(1L, 2026, 41, new BigDecimal("20.00")),
+                createDemand(2L, 2026, 42, new BigDecimal("20.00"))
+        );
+
+        when(authorizationService.require(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadRolePort.findById(new RoleId(ROLE_ID))).thenReturn(Optional.of(role));
+        when(loadRolePort.findAll()).thenReturn(List.of(role));
+        when(loadDemandPort.findByProjectIdAndRoleId(project.getId(), role.getId())).thenReturn(existingDemands);
+        when(loadDemandPort.findByProjectId(project.getId())).thenReturn(Collections.emptyList());
+
+        ProjectResourceDemandSummaryResult result = service.deleteDemand(PROJECT_ID, ROLE_ID);
+
+        assertThat(result).isNotNull();
+        assertThat(result.demandsByRole()).isEmpty();
+        assertThat(result.totalDemandHours()).isEqualByComparingTo(BigDecimal.ZERO);
+        verify(saveDemandPort).deleteAll(existingDemands);
+        verify(saveAuditLogPort).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Báo lỗi khi xóa ước lượng của dự án đã bị đóng hoặc vô hiệu hóa")
+    void testDeleteDemand_InactiveProject_ThrowsException() {
+        Project inactiveProject = new Project(
+                new ProjectId(PROJECT_ID),
+                "PRJ-INACTIVE",
+                "Dự án đã đóng",
+                10L,
+                new EmployeeId(PM_EMPLOYEE_ID),
+                LocalDate.of(2026, 10, 5),
+                LocalDate.of(2026, 11, 29),
+                BigDecimal.valueOf(100),
+                null,
+                ProjectStatus.INACTIVE,
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+
+        when(authorizationService.require(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createAdminUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(inactiveProject));
+
+        assertThatThrownBy(() -> service.deleteDemand(PROJECT_ID, ROLE_ID))
+                .isInstanceOf(InvalidProjectDataException.class)
+                .hasMessageContaining("hoạt động");
+    }
+
     // ==================== HELPER FACTORIES ====================
 
     private Project createActiveProject(Long id, LocalDate start, LocalDate end, BigDecimal estHours) {

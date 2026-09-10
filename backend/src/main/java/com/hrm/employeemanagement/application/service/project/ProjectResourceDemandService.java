@@ -13,6 +13,7 @@ import com.hrm.employeemanagement.application.dto.project.demand.EstimateResourc
 import com.hrm.employeemanagement.application.dto.project.demand.ProjectResourceDemandSummaryResult;
 import com.hrm.employeemanagement.application.dto.project.demand.RoleResourceDemandResult;
 import com.hrm.employeemanagement.application.dto.project.demand.WeeklyDemandItemResult;
+import com.hrm.employeemanagement.application.port.inbound.project.DeleteProjectResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.EstimateResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
@@ -47,7 +48,8 @@ import com.hrm.employeemanagement.domain.user.UserId;
 
 public class ProjectResourceDemandService implements
         EstimateResourceDemandUseCase,
-        GetProjectResourceDemandUseCase {
+        GetProjectResourceDemandUseCase,
+        DeleteProjectResourceDemandUseCase {
 
     private final LoadProjectPort loadProjectPort;
     private final LoadRolePort loadRolePort;
@@ -88,6 +90,7 @@ public class ProjectResourceDemandService implements
         if (command.roleId() == null) {
             throw new InvalidProjectDataException("Vai trò chuyên môn (roleId) không được để trống");
         }
+        ProjectResourceDemandPolicy.validateRequiredHours(command.hoursPerWeek());
 
         Long currentUserId = authorizationService.require(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE);
         User currentUser = loadCurrentUserOrThrow(currentUserId);
@@ -171,6 +174,50 @@ public class ProjectResourceDemandService implements
             saveDeniedAudit(currentUserId, currentUser, project.getIdValue(), "OUTSIDE_DATA_SCOPE_DEMAND_READ");
             throw new PermissionDeniedException(PermissionCode.PROJECT_RESOURCE_DEMAND_READ);
         }
+
+        return buildSummaryResult(project);
+    }
+
+    @Override
+    public ProjectResourceDemandSummaryResult deleteDemand(Long projectId, Long roleId) {
+        if (projectId == null) {
+            throw new InvalidProjectDataException("Mã dự án (projectId) không được để trống");
+        }
+        if (roleId == null) {
+            throw new InvalidProjectDataException("Vai trò chuyên môn (roleId) không được để trống");
+        }
+
+        Long currentUserId = authorizationService.require(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE);
+        User currentUser = loadCurrentUserOrThrow(currentUserId);
+
+        Project project = loadProjectPort.findById(new ProjectId(projectId))
+                .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        if (project.getStatus() != ProjectStatus.ACTIVE) {
+            throw new InvalidProjectDataException("Chỉ có thể xóa ước lượng nhu cầu nhân sự cho dự án đang ở trạng thái hoạt động");
+        }
+
+        if (!canAccessProject(currentUser, currentUserId, project)) {
+            saveDeniedAudit(currentUserId, currentUser, project.getIdValue(), "OUTSIDE_DATA_SCOPE_DEMAND_DELETE");
+            throw new PermissionDeniedException(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE);
+        }
+
+        Role role = loadRolePort.findById(new RoleId(roleId))
+                .orElseThrow(() -> new RoleNotFoundException("Không tìm thấy vai trò chuyên môn với ID: " + roleId));
+
+        List<ProjectResourceDemand> existingRoleDemands = loadDemandPort.findByProjectIdAndRoleId(
+                project.getId(), role.getId());
+
+        if (!existingRoleDemands.isEmpty()) {
+            saveDemandPort.deleteAll(existingRoleDemands);
+        }
+
+        saveAuditLogPort.save(AuditLog.create(
+                currentUserId,
+                "DELETE_RESOURCE_DEMAND",
+                "project_resource_demands",
+                project.getIdValue()
+        ));
 
         return buildSummaryResult(project);
     }
@@ -262,7 +309,8 @@ public class ProjectResourceDemandService implements
         return switch (currentUser.getDataScope()) {
             case COMPANY -> true;
             case ORGANIZATION_BRANCH ->
-                loadProjectPort.existsInOrgUnitBranch(project.getIdValue(), currentUser.getScopeOrgUnitId());
+                currentUser.getScopeOrgUnitId() != null
+                        && loadProjectPort.existsInOrgUnitBranch(project.getIdValue(), currentUser.getScopeOrgUnitId());
             case SELF -> {
                 Long employeeId = loadEmployeePort.findByUserId(new UserId(currentUserId))
                         .map(Employee::getIdValue)

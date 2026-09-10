@@ -35,6 +35,7 @@ import {
     Calendar,
     ChevronDown,
     Copy,
+    TrendingUp,
 } from 'lucide-react';
 import {
     type ProjectMonth,
@@ -49,6 +50,16 @@ import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectBudgetModal } from './ProjectBudgetModal';
 import { ProjectCreateModal } from './ProjectCreateModal';
 import { CloneWbsModal } from './CloneWbsModal';
+import { ProjectDemandView } from './ProjectDemandView';
+import { EstimateDemandModal } from './EstimateDemandModal';
+import { DeleteDemandConfirmModal } from './DeleteDemandConfirmModal';
+import {
+    getProjectResourceDemands,
+    estimateResourceDemand,
+    deleteResourceDemand,
+    type ProjectResourceDemandSummaryResult,
+    type RoleResourceDemand,
+} from '@/lib/api/resource-demands';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
@@ -194,7 +205,7 @@ export default function ProjectView() {
     // VT-01 👁️ Xem | VT-03 👁️ Xem | VT-06 ❌ — theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md
     const canManageProject = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
     const canManageAllocations = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-03';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -212,6 +223,15 @@ export default function ProjectView() {
     const [allocationError, setAllocationError] = useState<string | null>(null);
     const [projectCreateModalOpen, setProjectCreateModalOpen] = useState<boolean>(false);
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
+
+    // Demand Estimation State (NCL-03-CN-007)
+    const [demandSummary, setDemandSummary] = useState<ProjectResourceDemandSummaryResult | null>(null);
+    const [isLoadingDemand, setIsLoadingDemand] = useState<boolean>(false);
+    const [demandError, setDemandError] = useState<string | null>(null);
+    const [estimateModalOpen, setEstimateModalOpen] = useState<boolean>(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
+    const [editingDemandRole, setEditingDemandRole] = useState<RoleResourceDemand | null>(null);
+    const [roleToDelete, setRoleToDelete] = useState<RoleResourceDemand | null>(null);
 
     // Selected project object
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
@@ -382,6 +402,49 @@ export default function ProjectView() {
     useEffect(() => {
         if (selectedProjectId && categories.length > 0) void loadProjectAllocations();
     }, [selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
+
+    // 4. Tải ước lượng nhu cầu nhân sự thật từ API Backend (NCL-03-CN-007)
+    const loadProjectDemands = useCallback(async (projId: number) => {
+        setIsLoadingDemand(true);
+        setDemandError(null);
+        try {
+            const summary = await getProjectResourceDemands(projId);
+            setDemandSummary(summary);
+        } catch (err: any) {
+            console.warn(`Failed to fetch resource demands for project ${projId}:`, err);
+            setDemandSummary(null);
+            setDemandError(err instanceof Error ? err.message : 'Không thể tải bảng ước lượng nhu cầu nhân sự.');
+        } finally {
+            setIsLoadingDemand(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (selectedProjectId) {
+            loadProjectDemands(selectedProjectId);
+        } else {
+            setDemandSummary(null);
+        }
+    }, [selectedProjectId, loadProjectDemands]);
+
+    const handleSaveDemand = async (roleId: number, hoursPerWeek: number) => {
+        if (!selectedProjectId) return;
+        const result = await estimateResourceDemand(selectedProjectId, { roleId, hoursPerWeek });
+        setDemandSummary(result);
+        if (result.exceedsEstimatedHours) {
+            showToast('Ước lượng thành công! Cảnh báo: Nhu cầu nhân sự vượt quy mô dự án.', 'info');
+        } else {
+            showToast('Ước lượng nhu cầu nhân sự theo vai trò thành công!', 'success');
+        }
+    };
+
+    const handleDeleteDemand = async (roleId: number) => {
+        if (!selectedProjectId) return;
+        const result = await deleteResourceDemand(selectedProjectId, roleId);
+        setDemandSummary(result);
+        showToast('Đã xóa ước lượng nhu cầu nhân sự của vai trò thành công!', 'success');
+    };
+
     const selectedMonth = months[selectedMonthIdx] || months[0];
 
     const [search, setSearch] = useState('');
@@ -750,7 +813,10 @@ export default function ProjectView() {
                             type="button"
                             onClick={() => {
                                 loadProjects();
-                                if (selectedProjectId) loadWbsForProject(selectedProjectId);
+                                if (selectedProjectId) {
+                                    loadWbsForProject(selectedProjectId);
+                                    loadProjectDemands(selectedProjectId);
+                                }
                                 showToast('Đã làm mới dữ liệu từ Database', 'info');
                             }}
                             className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 transition cursor-pointer"
@@ -880,6 +946,23 @@ export default function ProjectView() {
                         <CalendarDays className="h-4 w-4" />
                         <span>Phân bổ theo tuần</span>
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('demand')}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                            viewMode === 'demand'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <TrendingUp className="h-4 w-4" />
+                        <span>Ước lượng nhu cầu</span>
+                        {demandSummary && demandSummary.demandsByRole.length > 0 && (
+                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
+                                {demandSummary.demandsByRole.length}
+                            </span>
+                        )}
+                    </button>
                 </div>
 
                 {/* Filters */}
@@ -943,6 +1026,36 @@ export default function ProjectView() {
                         />
                     </div>
                 )}
+
+                {/* Section 3: Resource Demand Estimation (NCL-03-CN-007) */}
+                {viewMode === 'demand' && (
+                    <div className="lg:col-span-12">
+                        <ProjectDemandView
+                            project={selectedProject}
+                            canManage={canManageProject}
+                            demandSummary={demandSummary}
+                            isLoading={isLoadingDemand}
+                            error={demandError}
+                            onReload={() => {
+                                if (selectedProjectId) {
+                                    loadProjectDemands(selectedProjectId);
+                                }
+                            }}
+                            onOpenCreateModal={() => {
+                                setEditingDemandRole(null);
+                                setEstimateModalOpen(true);
+                            }}
+                            onOpenEditModal={(role) => {
+                                setEditingDemandRole(role);
+                                setEstimateModalOpen(true);
+                            }}
+                            onOpenDeleteModal={(role) => {
+                                setRoleToDelete(role);
+                                setDeleteModalOpen(true);
+                            }}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Modals */}
@@ -988,6 +1101,36 @@ export default function ProjectView() {
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
             />}
+
+            {/* Modals for Resource Demand Estimation (NCL-03-CN-007) */}
+            <EstimateDemandModal
+                open={estimateModalOpen}
+                projectId={selectedProjectId || 0}
+                projectCode={selectedProject?.projectCode}
+                projectName={selectedProject?.projectName}
+                projectStartDate={selectedProject?.startDate}
+                projectEndDate={selectedProject?.endDate}
+                projectEstimatedHours={selectedProject?.estimatedHours ? Number(selectedProject.estimatedHours) : 0}
+                currentTotalDemandHours={demandSummary?.totalDemandHours ? Number(demandSummary.totalDemandHours) : 0}
+                editingRole={editingDemandRole}
+                existingRoleDemands={demandSummary?.demandsByRole || []}
+                onClose={() => {
+                    setEstimateModalOpen(false);
+                    setEditingDemandRole(null);
+                }}
+                onSave={handleSaveDemand}
+            />
+
+            <DeleteDemandConfirmModal
+                open={deleteModalOpen}
+                roleDemand={roleToDelete}
+                projectName={selectedProject?.projectName}
+                onClose={() => {
+                    setDeleteModalOpen(false);
+                    setRoleToDelete(null);
+                }}
+                onConfirm={handleDeleteDemand}
+            />
 
             {/* Toast Notification */}
             {toast && (
