@@ -10,6 +10,7 @@ import {
     FolderOpen,
     Target,
     AlertTriangle,
+    Copy,
 } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
 
@@ -21,6 +22,7 @@ interface ProjectWbsViewProps {
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
     onOpenBudgetModal?: (task: TaskItem) => void;
+    onOpenCloneModal?: () => void;
 }
 
 export function ProjectWbsView({
@@ -31,6 +33,7 @@ export function ProjectWbsView({
     onQuickAddTask,
     onToggleTaskStatus,
     onOpenBudgetModal,
+    onOpenCloneModal,
 }: ProjectWbsViewProps) {
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
@@ -131,19 +134,46 @@ export function ProjectWbsView({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {onOpenCloneModal && (
+                        <button
+                            type="button"
+                            onClick={onOpenCloneModal}
+                            className="flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                            title="Nhân bản cây WBS từ dự án mẫu"
+                        >
+                            <Copy className="h-3.5 w-3.5 text-indigo-600" />
+                            <span>Nhân bản WBS</span>
+                        </button>
+                    )}
                     <button
                         type="button"
-                        onClick={() => onQuickAddTask(categories[0]?.id || 'cat-1')}
+                        onClick={() => onQuickAddTask(categories[0]?.id || '')}
                         className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
                     >
                         <Plus className="h-3.5 w-3.5" /> Thêm việc
                     </button>
                 </div>
+
             </div>
 
             {/* Tree Content Container */}
             <div className="max-h-[640px] overflow-y-auto p-3 space-y-3">
-                {totalTasksCount === 0 && searchTerm ? (
+                {totalTasksCount === 0 && !searchTerm ? (
+                    <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                        <FolderOpen className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                        <p className="font-semibold text-slate-700">Dự án chưa có cây công việc WBS</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5 mb-3">Bạn có thể tạo việc mới hoặc sao chép nhanh cấu trúc từ một dự án cũ tương tự</p>
+                        {onOpenCloneModal && (
+                            <button
+                                type="button"
+                                onClick={onOpenCloneModal}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+                            >
+                                <Copy className="h-3.5 w-3.5" /> Nhân bản WBS từ dự án mẫu
+                            </button>
+                        )}
+                    </div>
+                ) : totalTasksCount === 0 && searchTerm ? (
                     <div className="p-8 text-center text-xs text-slate-400">
                         <FolderOpen className="mx-auto mb-2 h-8 w-8 text-slate-300" />
                         Không tìm thấy công việc nào phù hợp với bộ lọc.
