@@ -244,7 +244,19 @@ export function UsersWorkspace() {
         closeEditor();
       } catch (err) {
         if (err instanceof ApiError) {
-          setErrors({ username: err.message });
+          const isEmailError =
+            (err.data && (err.data.code === "DUPLICATE_EMAIL" || err.data.error === "DUPLICATE_EMAIL")) ||
+            err.message.toLowerCase().includes("email");
+          const isEmployeeCodeError =
+            (err.data && (err.data.code === "DUPLICATE_EMPLOYEE_CODE" || err.data.error === "DUPLICATE_EMPLOYEE_CODE")) ||
+            err.message.toLowerCase().includes("mã nhân viên");
+          if (isEmailError) {
+            setErrors({ email: err.message });
+          } else if (isEmployeeCodeError) {
+            setErrors({ employeeCode: err.message });
+          } else {
+            setErrors({ username: err.message });
+          }
         }
       }
       return;
@@ -274,7 +286,19 @@ export function UsersWorkspace() {
       closeEditor();
     } catch (err) {
       if (err instanceof ApiError) {
-        setErrors({ fullName: err.message });
+        const isEmailError =
+          (err.data && (err.data.code === "DUPLICATE_EMAIL" || err.data.error === "DUPLICATE_EMAIL")) ||
+          err.message.toLowerCase().includes("email");
+        const isEmployeeCodeError =
+          (err.data && (err.data.code === "DUPLICATE_EMPLOYEE_CODE" || err.data.error === "DUPLICATE_EMPLOYEE_CODE")) ||
+          err.message.toLowerCase().includes("mã nhân viên");
+        if (isEmailError) {
+          setErrors({ email: err.message });
+        } else if (isEmployeeCodeError) {
+          setErrors({ employeeCode: err.message });
+        } else {
+          setErrors({ fullName: err.message });
+        }
       }
     }
   }
