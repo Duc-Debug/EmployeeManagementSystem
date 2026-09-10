@@ -39,6 +39,15 @@ public class ProjectTemplateRepositoryAdapter implements LoadProjectTemplatePort
     }
 
     @Override
+    public Optional<ProjectTemplate> findActiveById(ProjectTemplateId templateId) {
+        if (templateId == null || templateId.value() == null) {
+            return Optional.empty();
+        }
+        return templateRepository.findByIdAndActiveTrue(templateId.value())
+                .map(mapper::toDomain);
+    }
+
+    @Override
     public List<ProjectTemplate> findAllActive() {
         return templateRepository.findByActiveTrueOrderByIdAsc().stream()
                 .map(mapper::toDomain)
@@ -51,6 +60,24 @@ public class ProjectTemplateRepositoryAdapter implements LoadProjectTemplatePort
             return List.of();
         }
         return taskRepository.findByTemplateIdOrderBySortOrderAscIdAsc(templateId.value()).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<ProjectTemplateTask> findTasksByTemplateIds(List<ProjectTemplateId> templateIds) {
+        if (templateIds == null || templateIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> rawIds = templateIds.stream()
+                .filter(Objects::nonNull)
+                .map(ProjectTemplateId::value)
+                .filter(Objects::nonNull)
+                .toList();
+        if (rawIds.isEmpty()) {
+            return List.of();
+        }
+        return taskRepository.findByTemplateIdInOrderBySortOrderAscIdAsc(rawIds).stream()
                 .map(mapper::toDomain)
                 .toList();
     }

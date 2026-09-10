@@ -8,5 +8,6 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.pr
 
 public interface SpringDataProjectTemplateRepository extends JpaRepository<ProjectTemplateJpaEntity, Long> {
     List<ProjectTemplateJpaEntity> findByActiveTrueOrderByIdAsc();
+    java.util.Optional<ProjectTemplateJpaEntity> findByIdAndActiveTrue(Long id);
     java.util.Optional<ProjectTemplateJpaEntity> findByTemplateCode(String templateCode);
 }
