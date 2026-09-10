@@ -31,4 +31,23 @@ public class LeaveUseCaseConfig {
         );
         return new TransactionalSubmitLeaveRequestService(service);
     }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.leave.CancelLeaveRequestUseCase cancelLeaveRequestUseCase(
+            LoadEmployeePort loadEmployeePort,
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            SaveAuditLogInNewTransactionPort auditLogRepository,
+            AuthorizationService authorizationService
+    ) {
+        com.hrm.employeemanagement.application.service.leave.CancelLeaveRequestService service =
+                new com.hrm.employeemanagement.application.service.leave.CancelLeaveRequestService(
+                        loadLeaveRequestPort,
+                        saveLeaveRequestPort,
+                        loadEmployeePort,
+                        auditLogRepository,
+                        authorizationService
+                );
+        return new com.hrm.employeemanagement.infrastructure.transaction.leave.TransactionalCancelLeaveRequestService(service);
+    }
 }

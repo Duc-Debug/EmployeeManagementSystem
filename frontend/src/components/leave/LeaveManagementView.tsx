@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
-import { submitLeaveRequest, getMyLeaveRequests } from "@/lib/api/leave";
+import { submitLeaveRequest, getMyLeaveRequests, cancelLeaveRequest } from "@/lib/api/leave";
 import CalendarView from "../calendar/CalendarView";
 
 export interface LeaveRequest {
@@ -28,7 +28,7 @@ export interface LeaveRequest {
     endDate: string;
     daysCount: number;
     reason: string;
-    status: "PENDING" | "APPROVED" | "REJECTED";
+    status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
     createdAt: string;
     approverComment?: string;
 }
@@ -223,10 +223,18 @@ export default function LeaveManagementView() {
     };
 
     // Hủy đơn (dành cho người nộp)
-    const handleCancelRequest = (id: string) => {
-        const next = requests.filter((r) => r.id !== id);
-        saveRequests(next);
-        showToast("Đã hủy đơn xin nghỉ phép.");
+    const handleCancelRequest = async (id: string) => {
+        if (!window.confirm("Bạn có chắc chắn muốn hủy đơn xin nghỉ phép này không?")) {
+            return;
+        }
+        try {
+            await cancelLeaveRequest(id);
+            showToast("Đã hủy đơn xin nghỉ phép thành công.");
+            await loadLeaveData();
+        } catch (err: any) {
+            console.error("Lỗi khi hủy đơn:", err);
+            showToast(err?.message || "Không thể hủy đơn nghỉ phép lúc này.");
+        }
     };
 
     // Gửi đơn mới qua Backend API (TC-01, TC-02, TC-03)
@@ -481,6 +489,11 @@ export default function LeaveManagementView() {
                                                 {req.status === "REJECTED" && (
                                                     <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
                                                         <X className="size-3" /> Từ chối
+                                                    </span>
+                                                )}
+                                                {req.status === "CANCELLED" && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">
+                                                        Đã hủy
                                                     </span>
                                                 )}
                                                 {req.status === "PENDING" && (

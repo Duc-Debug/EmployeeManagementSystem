@@ -39,3 +39,13 @@ export async function submitLeaveRequest(payload: SubmitLeaveRequestPayload): Pr
 export async function getMyLeaveRequests(): Promise<LeaveRequestDto[]> {
   return apiRequest<LeaveRequestDto[]>("/leave-requests/my");
 }
+
+/**
+ * Hủy đơn xin nghỉ phép cá nhân khi còn ở trạng thái PENDING
+ */
+export async function cancelLeaveRequest(id: number | string): Promise<void> {
+  const numericId = typeof id === "string" ? id.replace(/\D/g, "") : id;
+  await apiRequest<void>(`/leave-requests/${numericId}/cancel`, {
+    method: "PUT",
+  });
+}

@@ -61,6 +61,17 @@ public class LeaveRequest {
         );
     }
 
+    /**
+     * Hủy đơn xin nghỉ phép khi còn ở trạng thái PENDING.
+     */
+    public void cancel() {
+        if (this.status != LeaveStatus.PENDING) {
+            throw new IllegalStateException("Chỉ có thể hủy đơn nghỉ phép khi đang ở trạng thái Chờ duyệt (PENDING)");
+        }
+        this.status = LeaveStatus.CANCELLED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getters
     public Long getId() { return id; }
     public Long getEmployeeId() { return employeeId; }

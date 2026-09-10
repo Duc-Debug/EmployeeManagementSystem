@@ -30,17 +30,20 @@ import java.util.Objects;
 public class LeaveRequestController {
 
     private final SubmitLeaveRequestUseCase submitLeaveRequestUseCase;
+    private final com.hrm.employeemanagement.application.port.inbound.leave.CancelLeaveRequestUseCase cancelLeaveRequestUseCase;
     private final LoadLeaveRequestPort loadLeaveRequestPort;
     private final LoadEmployeePort loadEmployeePort;
     private final AuthorizationService authorizationService;
 
     public LeaveRequestController(
             SubmitLeaveRequestUseCase submitLeaveRequestUseCase,
+            com.hrm.employeemanagement.application.port.inbound.leave.CancelLeaveRequestUseCase cancelLeaveRequestUseCase,
             LoadLeaveRequestPort loadLeaveRequestPort,
             LoadEmployeePort loadEmployeePort,
             AuthorizationService authorizationService
     ) {
         this.submitLeaveRequestUseCase = Objects.requireNonNull(submitLeaveRequestUseCase, "submitLeaveRequestUseCase must not be null");
+        this.cancelLeaveRequestUseCase = Objects.requireNonNull(cancelLeaveRequestUseCase, "cancelLeaveRequestUseCase must not be null");
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
@@ -85,5 +88,15 @@ public class LeaveRequestController {
                 .toList();
 
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn nghỉ phép thành công", results));
+    }
+
+    /**
+     * Hủy đơn xin nghỉ phép cá nhân (chỉ khi đang ở trạng thái PENDING).
+     */
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyAuthority('VT-04', 'ROLE_VT-04', 'LEAVE_REQUEST_CREATE')")
+    public ResponseEntity<ApiResponse<Void>> cancelLeaveRequest(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        cancelLeaveRequestUseCase.cancelLeaveRequest(id);
+        return ResponseEntity.ok(ApiResponse.success("Hủy đơn xin nghỉ phép thành công", null));
     }
 }
