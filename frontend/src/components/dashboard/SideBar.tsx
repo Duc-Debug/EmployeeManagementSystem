@@ -57,7 +57,7 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
         case "project":
         case "projects":
             // Quản lý dự án & WBS: VT-01 (Xem), VT-02 (Dự án của mình), VT-03 (Xem), VT-04 (Dự án tham gia); HR (VT-05) & Admin (VT-06) bị ẩn (❌)
-            return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalized);
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
 
         case "attendance":
         case "timesheets":
