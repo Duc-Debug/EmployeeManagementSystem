@@ -1,5 +1,7 @@
-import { Check, X, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Check, X, ShieldCheck, RefreshCw, Sparkles, MessageSquare } from 'lucide-react';
 import type { PendingApprovalSkill } from './Types.ts';
+import SkillApproveModal from './SkillApproveModal.tsx';
 
 /* ── Level badge ─────────────────────────────────────────── */
 const LEVEL_STYLES: Record<number, { bg: string; text: string; border: string }> = {
@@ -40,12 +42,38 @@ function CategoryBadge({ cat }: { cat: string }) {
 }
 
 /* ── Status badge (cho hàng đã xử lý) ───────────────────── */
-function StatusBadge({ status }: { status: 'approved' | 'rejected' }) {
+function StatusBadge({
+    status,
+    adjustedLevel,
+    originalLevel,
+    reviewNotes,
+}: {
+    status: 'pending' | 'approved' | 'rejected';
+    adjustedLevel?: number;
+    originalLevel?: number;
+    reviewNotes?: string;
+}) {
     if (status === 'approved') {
+        const isAdjusted = adjustedLevel !== undefined && originalLevel !== undefined && adjustedLevel !== originalLevel;
         return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                <Check className="h-3 w-3" /> Đã duyệt
-            </span>
+            <div className="space-y-1">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                    <Check className="h-3 w-3" />
+                    Đã duyệt {adjustedLevel ? `(Level ${adjustedLevel})` : ''}
+                </span>
+                {isAdjusted && (
+                    <div className="flex items-center gap-1 text-[10px] text-amber-600 font-medium">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        Đã điều chỉnh từ Lvl {originalLevel}
+                    </div>
+                )}
+                {reviewNotes && (
+                    <div className="flex items-center gap-1 text-[10px] text-slate-500 italic max-w-[180px] truncate" title={reviewNotes}>
+                        <MessageSquare className="h-2.5 w-2.5 shrink-0" />
+                        "{reviewNotes}"
+                    </div>
+                )}
+            </div>
         );
     }
     return (
@@ -59,11 +87,11 @@ function StatusBadge({ status }: { status: 'approved' | 'rejected' }) {
 function EmptyState() {
     return (
         <tr>
-            <td colSpan={6}>
+            <td colSpan={7}>
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
                     <ShieldCheck className="h-10 w-10 opacity-30" />
                     <p className="text-sm font-medium">Không có yêu cầu chờ duyệt</p>
-                    <p className="text-xs">Tất cả kỹ năng đã được xử lý.</p>
+                    <p className="text-xs">Tất cả kỹ năng đã được xử lý hoặc chưa có nhân sự khai báo.</p>
                 </div>
             </td>
         </tr>
@@ -73,11 +101,20 @@ function EmptyState() {
 /* ── Main component ──────────────────────────────────────── */
 interface SkillApproveTableProps {
     requests: PendingApprovalSkill[];
-    onApprove: (id: number) => void;
+    onApprove: (id: number, adjustedProficiencyLevel: number, reviewNotes: string) => Promise<void>;
     onReject: (id: number) => void;
+    onRefresh?: () => void;
+    isLoading?: boolean;
 }
 
-export default function SkillApproveTable({ requests, onApprove, onReject }: SkillApproveTableProps) {
+export default function SkillApproveTable({
+    requests,
+    onApprove,
+    onReject,
+    onRefresh,
+    isLoading = false,
+}: SkillApproveTableProps) {
+    const [modalItem, setModalItem] = useState<PendingApprovalSkill | null>(null);
     const pendingCount = requests.filter((r) => r.status === 'pending').length;
 
     return (
@@ -86,29 +123,45 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h2 className="text-lg font-bold text-slate-800">
-                        Phê duyệt Kỹ năng Khai báo từ Nhân sự
+                        Xác nhận mức thành thạo kỹ năng nhân sự
                     </h2>
                     <p className="mt-0.5 text-xs text-slate-500">
-                        Danh sách yêu cầu xác thực mức độ thành thạo và kinh nghiệm từ các thành viên trong bộ phận.
+                        Quản lý nguồn lực (VT-03) phê duyệt, điều chỉnh mức độ chuyên môn và ghi nhận nhận xét đánh giá (NCL-02-CN-006).
                     </p>
                 </div>
 
-                {pendingCount > 0 && (
-                    <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 shadow-xs">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-                        {pendingCount} Yêu cầu chờ duyệt
-                    </span>
-                )}
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {onRefresh && (
+                        <button
+                            type="button"
+                            onClick={onRefresh}
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-2xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                            title="Làm mới danh sách từ máy chủ"
+                        >
+                            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">Làm mới</span>
+                        </button>
+                    )}
+
+                    {pendingCount > 0 && (
+                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 shadow-xs">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+                            {pendingCount} Yêu cầu chờ duyệt
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* ── Table ── */}
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-slate-100 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                                 <th className="px-4 py-3 text-left">Nhân viên</th>
-                                <th className="px-4 py-3 text-left">Kỹ năng khai báo</th>
+                                <th className="px-4 py-3 text-left">Đơn vị</th>
+                                <th className="px-4 py-3 text-left">Kỹ năng</th>
                                 <th className="px-4 py-3 text-left">Phân loại</th>
                                 <th className="px-4 py-3 text-left">Mức đề xuất</th>
                                 <th className="px-4 py-3 text-left">Kinh nghiệm</th>
@@ -123,12 +176,24 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
                                     <tr key={req.id} className="transition-colors hover:bg-slate-50/60">
                                         {/* Nhân viên */}
                                         <td className="px-4 py-3">
-                                            <span className="font-semibold text-slate-800">{req.employeeName}</span>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-slate-800">{req.employeeName}</span>
+                                                {req.employeeCode && (
+                                                    <span className="text-[11px] text-slate-400 font-mono">{req.employeeCode}</span>
+                                                )}
+                                            </div>
+                                        </td>
+
+                                        {/* Đơn vị */}
+                                        <td className="px-4 py-3">
+                                            <span className="text-xs text-slate-600 font-medium">
+                                                {req.orgUnitName || 'Toàn công ty'}
+                                            </span>
                                         </td>
 
                                         {/* Kỹ năng */}
                                         <td className="px-4 py-3">
-                                            <span className="font-medium text-indigo-600">{req.skillName}</span>
+                                            <span className="font-semibold text-indigo-600">{req.skillName}</span>
                                         </td>
 
                                         {/* Phân loại */}
@@ -149,26 +214,32 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
                                         {/* Xử lý */}
                                         <td className="px-4 py-3">
                                             {req.status === 'pending' ? (
-                                                <div className="flex items-center gap-1.5">
+                                                <div className="flex items-center gap-2">
                                                     <button
                                                         type="button"
-                                                        onClick={() => onApprove(req.id)}
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 cursor-pointer"
+                                                        onClick={() => setModalItem(req)}
+                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 cursor-pointer shadow-2xs"
                                                     >
-                                                        <Check className="h-3.5 w-3.5" />
-                                                        Duyệt
+                                                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                                                        Xác nhận / Duyệt
                                                     </button>
                                                     <button
                                                         type="button"
                                                         onClick={() => onReject(req.id)}
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 hover:border-rose-300 active:scale-95 cursor-pointer"
+                                                        className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 active:scale-95 cursor-pointer"
+                                                        title="Từ chối yêu cầu"
                                                     >
                                                         <X className="h-3.5 w-3.5" />
                                                         Từ chối
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <StatusBadge status={req.status} />
+                                                <StatusBadge
+                                                    status={req.status}
+                                                    adjustedLevel={req.adjustedLevel}
+                                                    originalLevel={req.level}
+                                                    reviewNotes={req.reviewNotes}
+                                                />
                                             )}
                                         </td>
                                     </tr>
@@ -179,7 +250,13 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
                 </div>
             </div>
 
+            {/* Modal Xác nhận & Điều chỉnh mức thành thạo */}
+            <SkillApproveModal
+                open={modalItem !== null}
+                skillItem={modalItem}
+                onClose={() => setModalItem(null)}
+                onConfirm={onApprove}
+            />
         </div>
     );
 }
-
