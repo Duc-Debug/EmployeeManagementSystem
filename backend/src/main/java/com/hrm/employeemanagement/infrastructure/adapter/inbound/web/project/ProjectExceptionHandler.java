@@ -15,8 +15,6 @@ import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRan
 import com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectAlreadyClosedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectDateNotConfiguredException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectHasPendingExpensesException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectHasPendingTimesheetsException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectHasUnfinishedTasksException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotClosedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
@@ -97,18 +95,6 @@ public class ProjectExceptionHandler {
                         ProjectHasUnfinishedTasksException ex) {
                 return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                                 .body(ApiResponse.error(ex.getMessage()));
-        }
-
-        @ExceptionHandler(ProjectHasPendingTimesheetsException.class)
-        public ResponseEntity<ApiResponse<Void>> handleProjectHasPendingTimesheets(
-                        ProjectHasPendingTimesheetsException ex) {
-                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiResponse.error(ex.getMessage()));
-        }
-
-        @ExceptionHandler(ProjectHasPendingExpensesException.class)
-        public ResponseEntity<ApiResponse<Void>> handleProjectHasPendingExpenses(
-                        ProjectHasPendingExpensesException ex) {
-                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException.class)

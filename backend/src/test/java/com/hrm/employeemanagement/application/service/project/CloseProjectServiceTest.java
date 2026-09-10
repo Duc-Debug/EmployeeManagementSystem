@@ -22,12 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hrm.employeemanagement.application.dto.project.CloseProjectCommand;
-import com.hrm.employeemanagement.application.dto.project.PendingExpenseSummary;
-import com.hrm.employeemanagement.application.dto.project.PendingTimesheetSummary;
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
-import com.hrm.employeemanagement.application.port.outbound.project.CheckUnapprovedExpensesPort;
-import com.hrm.employeemanagement.application.port.outbound.project.CheckUnapprovedTimesheetsPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
@@ -42,8 +38,6 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectHasPendingExpensesException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectHasPendingTimesheetsException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectHasUnfinishedTasksException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
@@ -75,10 +69,6 @@ class CloseProjectServiceTest {
     @Mock
     private LoadTaskPort loadTaskPort;
     @Mock
-    private CheckUnapprovedTimesheetsPort checkUnapprovedTimesheetsPort;
-    @Mock
-    private CheckUnapprovedExpensesPort checkUnapprovedExpensesPort;
-    @Mock
     private LoadUserPort loadUserPort;
     @Mock
     private LoadEmployeePort loadEmployeePort;
@@ -97,8 +87,6 @@ class CloseProjectServiceTest {
                 loadProjectPort,
                 saveProjectPort,
                 loadTaskPort,
-                checkUnapprovedTimesheetsPort,
-                checkUnapprovedExpensesPort,
                 loadUserPort,
                 loadEmployeePort,
                 saveAuditLogPort,
@@ -203,8 +191,6 @@ class CloseProjectServiceTest {
                 null,
                 0L);
         when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(completedTask));
-        when(checkUnapprovedTimesheetsPort.findPendingTimesheetsByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
-        when(checkUnapprovedExpensesPort.findPendingExpensesByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
         when(saveProjectPort.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CloseProjectCommand command = new CloseProjectCommand(PROJECT_ID, "Nghiệm thu hoàn tất");
@@ -224,8 +210,6 @@ class CloseProjectServiceTest {
         when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createExecutiveUser()));
         when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
         when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
-        when(checkUnapprovedTimesheetsPort.findPendingTimesheetsByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
-        when(checkUnapprovedExpensesPort.findPendingExpensesByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
         when(saveProjectPort.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CloseProjectCommand command = new CloseProjectCommand(PROJECT_ID, "PM nghỉ việc, ban giám đốc phê duyệt đóng dự án");
@@ -327,47 +311,6 @@ class CloseProjectServiceTest {
         assertThatThrownBy(() -> closeProjectService.closeProject(command))
                 .isInstanceOf(ProjectHasUnfinishedTasksException.class)
                 .hasMessageContaining("TSK-002");
-
-        verify(saveProjectPort, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("Chặn đóng dự án khi còn bảng chấm công chờ duyệt")
-    void shouldThrowWhenProjectHasPendingTimesheets() {
-        when(authorizationService.require(PermissionCode.PROJECT_CLOSE)).thenReturn(CURRENT_USER_ID);
-        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createExecutiveUser()));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
-        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
-
-        PendingTimesheetSummary pendingTs = new PendingTimesheetSummary(101L, 50L, "Nguyễn Văn A", "W35-2026", new BigDecimal("40.00"));
-        when(checkUnapprovedTimesheetsPort.findPendingTimesheetsByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(pendingTs));
-
-        CloseProjectCommand command = new CloseProjectCommand(PROJECT_ID, "Đóng dự án với lý do hợp lệ dài hơn 10 ký tự");
-
-        assertThatThrownBy(() -> closeProjectService.closeProject(command))
-                .isInstanceOf(ProjectHasPendingTimesheetsException.class)
-                .hasMessageContaining("chờ duyệt");
-
-        verify(saveProjectPort, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("Chặn đóng dự án khi còn khoản chi phí chưa được duyệt")
-    void shouldThrowWhenProjectHasPendingExpenses() {
-        when(authorizationService.require(PermissionCode.PROJECT_CLOSE)).thenReturn(CURRENT_USER_ID);
-        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createExecutiveUser()));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
-        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
-        when(checkUnapprovedTimesheetsPort.findPendingTimesheetsByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
-
-        PendingExpenseSummary pendingExp = new PendingExpenseSummary(201L, "Mua thiết bị thử nghiệm", new BigDecimal("5000000"), "PENDING");
-        when(checkUnapprovedExpensesPort.findPendingExpensesByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(pendingExp));
-
-        CloseProjectCommand command = new CloseProjectCommand(PROJECT_ID, "Đóng dự án với lý do hợp lệ dài hơn 10 ký tự");
-
-        assertThatThrownBy(() -> closeProjectService.closeProject(command))
-                .isInstanceOf(ProjectHasPendingExpensesException.class)
-                .hasMessageContaining("chi phí");
 
         verify(saveProjectPort, never()).save(any());
     }

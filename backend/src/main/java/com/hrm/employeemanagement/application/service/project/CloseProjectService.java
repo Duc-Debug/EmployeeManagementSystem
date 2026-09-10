@@ -4,13 +4,9 @@ import java.util.List;
 import java.util.Objects;
 
 import com.hrm.employeemanagement.application.dto.project.CloseProjectCommand;
-import com.hrm.employeemanagement.application.dto.project.PendingExpenseSummary;
-import com.hrm.employeemanagement.application.dto.project.PendingTimesheetSummary;
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.port.inbound.project.CloseProjectUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
-import com.hrm.employeemanagement.application.port.outbound.project.CheckUnapprovedExpensesPort;
-import com.hrm.employeemanagement.application.port.outbound.project.CheckUnapprovedTimesheetsPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
@@ -25,8 +21,6 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectHasPendingExpensesException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectHasPendingTimesheetsException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectHasUnfinishedTasksException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
@@ -44,8 +38,6 @@ public class CloseProjectService implements CloseProjectUseCase {
     private final LoadProjectPort loadProjectPort;
     private final SaveProjectPort saveProjectPort;
     private final LoadTaskPort loadTaskPort;
-    private final CheckUnapprovedTimesheetsPort checkUnapprovedTimesheetsPort;
-    private final CheckUnapprovedExpensesPort checkUnapprovedExpensesPort;
     private final LoadUserPort loadUserPort;
     private final LoadEmployeePort loadEmployeePort;
     private final SaveAuditLogPort saveAuditLogPort;
@@ -56,8 +48,6 @@ public class CloseProjectService implements CloseProjectUseCase {
             LoadProjectPort loadProjectPort,
             SaveProjectPort saveProjectPort,
             LoadTaskPort loadTaskPort,
-            CheckUnapprovedTimesheetsPort checkUnapprovedTimesheetsPort,
-            CheckUnapprovedExpensesPort checkUnapprovedExpensesPort,
             LoadUserPort loadUserPort,
             LoadEmployeePort loadEmployeePort,
             SaveAuditLogPort saveAuditLogPort,
@@ -66,8 +56,6 @@ public class CloseProjectService implements CloseProjectUseCase {
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
         this.saveProjectPort = Objects.requireNonNull(saveProjectPort, "SaveProjectPort must not be null");
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
-        this.checkUnapprovedTimesheetsPort = Objects.requireNonNull(checkUnapprovedTimesheetsPort, "CheckUnapprovedTimesheetsPort must not be null");
-        this.checkUnapprovedExpensesPort = Objects.requireNonNull(checkUnapprovedExpensesPort, "CheckUnapprovedExpensesPort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
@@ -121,17 +109,8 @@ public class CloseProjectService implements CloseProjectUseCase {
                     unfinishedTaskCodes);
         }
 
-        // Kiểm tra bảng chấm công chưa duyệt
-        List<PendingTimesheetSummary> pendingTimesheets = checkUnapprovedTimesheetsPort.findPendingTimesheetsByProjectId(project.getId());
-        if (pendingTimesheets != null && !pendingTimesheets.isEmpty()) {
-            throw new ProjectHasPendingTimesheetsException("Không thể đóng dự án vì còn bảng chấm công đang chờ duyệt");
-        }
-
-        // Kiểm tra chi phí chưa duyệt
-        List<PendingExpenseSummary> pendingExpenses = checkUnapprovedExpensesPort.findPendingExpensesByProjectId(project.getId());
-        if (pendingExpenses != null && !pendingExpenses.isEmpty()) {
-            throw new ProjectHasPendingExpensesException("Không thể đóng dự án vì còn khoản chi phí chưa được duyệt");
-        }
+        // TODO (NCL-04/NCL-05): Tích hợp kiểm tra Bảng chấm công (Timesheet) và Chi phí phát sinh (Expense)
+        // khi 2 module này được merge vào hệ thống chính thức.
 
         // Thực hiện đóng dự án
         project.close(new UserId(currentUserId), command.closureReason());

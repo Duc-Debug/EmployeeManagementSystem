@@ -10,8 +10,6 @@ import com.hrm.employeemanagement.application.port.inbound.project.UpdateProject
 import com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
-import com.hrm.employeemanagement.application.port.outbound.project.CheckUnapprovedExpensesPort;
-import com.hrm.employeemanagement.application.port.outbound.project.CheckUnapprovedTimesheetsPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.projecttemplate.LoadProjectTemplatePort;
@@ -130,8 +128,6 @@ public class ProjectUseCaseConfig {
                         LoadProjectPort loadProjectPort,
                         SaveProjectPort saveProjectPort,
                         LoadTaskPort loadTaskPort,
-                        CheckUnapprovedTimesheetsPort checkUnapprovedTimesheetsPort,
-                        CheckUnapprovedExpensesPort checkUnapprovedExpensesPort,
                         LoadUserPort loadUserPort,
                         LoadEmployeePort loadEmployeePort,
                         SaveAuditLogPort saveAuditLogPort,
@@ -141,8 +137,6 @@ public class ProjectUseCaseConfig {
                                 loadProjectPort,
                                 saveProjectPort,
                                 loadTaskPort,
-                                checkUnapprovedTimesheetsPort,
-                                checkUnapprovedExpensesPort,
                                 loadUserPort,
                                 loadEmployeePort,
                                 saveAuditLogPort,

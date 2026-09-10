@@ -325,10 +325,6 @@ public class Project {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Giữ phương thức close() không tham số để tương thích ngược nếu cần
-    public void close() {
-        close(this.createdBy, null);
-    }
 
     public void activate() {
         this.status = ProjectStatus.ACTIVE;
