@@ -11,6 +11,7 @@ import {
     Target,
     AlertTriangle,
     Copy,
+    Lock,
 } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
 
@@ -19,6 +20,7 @@ interface ProjectWbsViewProps {
     members: ProjectMember[];
     searchTerm: string;
     selectedRole: string;
+    isClosed?: boolean;
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
     onOpenBudgetModal?: (task: TaskItem) => void;
@@ -30,6 +32,7 @@ export function ProjectWbsView({
     members,
     searchTerm,
     selectedRole,
+    isClosed = false,
     onQuickAddTask,
     onToggleTaskStatus,
     onOpenBudgetModal,
@@ -134,24 +137,32 @@ export function ProjectWbsView({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {onOpenCloneModal && (
-                        <button
-                            type="button"
-                            onClick={onOpenCloneModal}
-                            className="flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                            title="Nhân bản cây WBS từ dự án mẫu"
-                        >
-                            <Copy className="h-3.5 w-3.5 text-indigo-600" />
-                            <span>Nhân bản WBS</span>
-                        </button>
+                    {isClosed ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                            <Lock className="h-3 w-3" /> Chỉ đọc (Đã đóng)
+                        </span>
+                    ) : (
+                        <>
+                            {onOpenCloneModal && (
+                                <button
+                                    type="button"
+                                    onClick={onOpenCloneModal}
+                                    className="flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                    title="Nhân bản cây WBS từ dự án mẫu"
+                                >
+                                    <Copy className="h-3.5 w-3.5 text-indigo-600" />
+                                    <span>Nhân bản WBS</span>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => onQuickAddTask(categories[0]?.id || '')}
+                                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                            >
+                                <Plus className="h-3.5 w-3.5" /> Thêm việc
+                            </button>
+                        </>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => onQuickAddTask(categories[0]?.id || '')}
-                        className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                    >
-                        <Plus className="h-3.5 w-3.5" /> Thêm việc
-                    </button>
                 </div>
 
             </div>
@@ -163,7 +174,7 @@ export function ProjectWbsView({
                         <FolderOpen className="mx-auto mb-2 h-8 w-8 text-slate-300" />
                         <p className="font-semibold text-slate-700">Dự án chưa có cây công việc WBS</p>
                         <p className="text-[11px] text-slate-400 mt-0.5 mb-3">Bạn có thể tạo việc mới hoặc sao chép nhanh cấu trúc từ một dự án cũ tương tự</p>
-                        {onOpenCloneModal && (
+                        {!isClosed && onOpenCloneModal && (
                             <button
                                 type="button"
                                 onClick={onOpenCloneModal}
@@ -222,17 +233,19 @@ export function ProjectWbsView({
                                                 />
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onQuickAddTask(cat.id);
-                                            }}
-                                            className="p-1 text-slate-400 hover:text-indigo-600 transition"
-                                            title="Thêm việc vào mục này"
-                                        >
-                                            <Plus className="h-3.5 w-3.5" />
-                                        </button>
+                                        {!isClosed && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onQuickAddTask(cat.id);
+                                                }}
+                                                className="p-1 text-slate-400 hover:text-indigo-600 transition cursor-pointer"
+                                                title="Thêm việc vào mục này"
+                                            >
+                                                <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -256,9 +269,10 @@ export function ProjectWbsView({
                                                         <div className="flex min-w-0 flex-1 items-center gap-3">
                                                             <button
                                                                 type="button"
-                                                                onClick={() => onToggleTaskStatus(cat.id, t.id)}
-                                                                className="text-slate-300 transition group-hover:text-slate-400 cursor-pointer"
-                                                                title="Đánh dấu hoàn tất"
+                                                                disabled={isClosed}
+                                                                onClick={() => !isClosed && onToggleTaskStatus(cat.id, t.id)}
+                                                                className={`text-slate-300 transition ${isClosed ? 'cursor-not-allowed opacity-50' : 'group-hover:text-slate-400 cursor-pointer'}`}
+                                                                title={isClosed ? 'Dự án đã đóng, không thể thay đổi trạng thái công việc' : 'Đánh dấu hoàn tất'}
                                                             >
                                                                 {isDone ? (
                                                                     <CircleCheck className="h-4 w-4 text-emerald-500" />
@@ -292,14 +306,19 @@ export function ProjectWbsView({
                                                                     <span className="text-slate-300">•</span>
                                                                     <button
                                                                         type="button"
+                                                                        disabled={isClosed}
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            onOpenBudgetModal?.(t);
+                                                                            if (!isClosed) onOpenBudgetModal?.(t);
                                                                         }}
-                                                                        className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700 hover:bg-indigo-100 hover:text-indigo-700 transition cursor-pointer"
-                                                                        title="Bấm để đặt/điều chỉnh ngân sách giờ"
+                                                                        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold transition ${
+                                                                            isClosed
+                                                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                                                : 'bg-slate-100 text-slate-700 hover:bg-indigo-100 hover:text-indigo-700 cursor-pointer'
+                                                                        }`}
+                                                                        title={isClosed ? 'Dự án đã đóng, không thể điều chỉnh ngân sách' : 'Bấm để đặt/điều chỉnh ngân sách giờ'}
                                                                     >
-                                                                        <Target className="h-3 w-3 text-indigo-600" />
+                                                                        <Target className={`h-3 w-3 ${isClosed ? 'text-slate-400' : 'text-indigo-600'}`} />
                                                                         NS: <strong>{t.budgetHours !== undefined ? `${t.budgetHours}h` : 'Chưa đặt'}</strong>
                                                                         <span className="text-slate-300">|</span>
                                                                         TT: <strong>{t.actualHours || 0}h</strong>
