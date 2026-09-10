@@ -94,7 +94,7 @@ export function ProjectCreateModal({
             list.unshift({
                 id: `u-${currentEmpId}`,
                 employeeId: currentEmpId,
-                name: `${effectiveUser.fullName || effectiveUser.username} (Tôi)`,
+                name: effectiveUser.fullName || effectiveUser.username,
                 role: effectiveUser.roleCode || 'Nhân viên',
                 avatar: '',
                 capacity: 40,
@@ -514,7 +514,7 @@ export function ProjectCreateModal({
                                     const isMe = currentEmpId && numId === currentEmpId;
                                     return (
                                         <option key={m.id} value={numId || ''}>
-                                            {m.name} {isMe ? '⭐ (Tôi)' : ''} ({m.role})
+                                            {m.name} {isMe ? '(Tôi)' : (m.role ? `(${m.role})` : '')}
                                         </option>
                                     );
                                 })}
