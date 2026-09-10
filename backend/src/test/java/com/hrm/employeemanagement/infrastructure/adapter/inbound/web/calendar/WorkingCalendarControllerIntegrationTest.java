@@ -77,6 +77,9 @@ class WorkingCalendarControllerIntegrationTest {
     @Autowired
     private SpringDataAuditLogRepository auditLogRepository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
@@ -387,6 +390,113 @@ class WorkingCalendarControllerIntegrationTest {
                             .content(payload))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.success").value(true));
+        }
+    }
+
+    @Test
+    @DisplayName("Validation lỗi: Cập nhật lịch làm việc thiếu ngày, thừa/trùng ngày hoặc dayOfWeek=null trả về 400")
+    void testUpdateWorkingCalendar_ValidationErrors() throws Exception {
+        UserJpaEntity adminUser = createUser("val-admin", "VT-06", DataScope.COMPANY, null);
+
+        // 1. Thiếu ngày (< 7 ngày) -> 400 Bad Request
+        String missingDaysPayload = """
+                {
+                    "days": [
+                        {"dayOfWeek": "MONDAY", "isWorkingDay": true}
+                    ]
+                }
+                """;
+        mockMvc.perform(put("/api/v1/working-calendar")
+                        .with(authentication(authenticationFor(adminUser, RoleCode.VT_06)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(missingDaysPayload))
+                .andExpect(status().isBadRequest());
+
+        // 2. Trùng lặp ngày (2 MONDAY) -> 400 Bad Request
+        String duplicateDaysPayload = """
+                {
+                    "days": [
+                        {"dayOfWeek": "MONDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "MONDAY", "isWorkingDay": false},
+                        {"dayOfWeek": "TUESDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "WEDNESDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "THURSDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "FRIDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "SATURDAY", "isWorkingDay": false}
+                    ]
+                }
+                """;
+        mockMvc.perform(put("/api/v1/working-calendar")
+                        .with(authentication(authenticationFor(adminUser, RoleCode.VT_06)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(duplicateDaysPayload))
+                .andExpect(status().isBadRequest());
+
+        // 3. dayOfWeek = null -> 400 Bad Request
+        String nullDayOfWeekPayload = """
+                {
+                    "days": [
+                        {"dayOfWeek": null, "isWorkingDay": true},
+                        {"dayOfWeek": "TUESDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "WEDNESDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "THURSDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "FRIDAY", "isWorkingDay": true},
+                        {"dayOfWeek": "SATURDAY", "isWorkingDay": false},
+                        {"dayOfWeek": "SUNDAY", "isWorkingDay": false}
+                    ]
+                }
+                """;
+        mockMvc.perform(put("/api/v1/working-calendar")
+                        .with(authentication(authenticationFor(adminUser, RoleCode.VT_06)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(nullDayOfWeekPayload))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Dynamic RBAC: Người dùng có vai trò VT-05 nhưng bị thu hồi quyền WORKING_CALENDAR_MANAGE trong DB -> Phải nhận 403")
+    void testRevokePermission_VT05_LacksManagePermission_Returns403() throws Exception {
+        UserJpaEntity hrUser = createUser("revoked-hr", "VT-05", DataScope.COMPANY, null);
+
+        // Thu hồi quyền WORKING_CALENDAR_MANAGE khỏi vai trò VT-05 trong DB
+        jdbcTemplate.update("""
+                DELETE FROM role_permissions
+                WHERE role_id = (SELECT id FROM roles WHERE code = 'VT-05')
+                  AND permission_id = (SELECT id FROM permissions WHERE code = 'WORKING_CALENDAR_MANAGE')
+                """);
+
+        try {
+            String calendarJson = """
+                    {
+                        "days": [
+                            {"dayOfWeek": "MONDAY", "isWorkingDay": true},
+                            {"dayOfWeek": "TUESDAY", "isWorkingDay": true},
+                            {"dayOfWeek": "WEDNESDAY", "isWorkingDay": true},
+                            {"dayOfWeek": "THURSDAY", "isWorkingDay": true},
+                            {"dayOfWeek": "FRIDAY", "isWorkingDay": true},
+                            {"dayOfWeek": "SATURDAY", "isWorkingDay": false},
+                            {"dayOfWeek": "SUNDAY", "isWorkingDay": false}
+                        ]
+                    }
+                    """;
+
+            mockMvc.perform(put("/api/v1/working-calendar")
+                            .with(authentication(authenticationFor(hrUser, RoleCode.VT_05)))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(calendarJson))
+                    .andExpect(status().isForbidden());
+        } finally {
+            // Khôi phục lại quyền cho VT-05 sau test
+            jdbcTemplate.update("""
+                    INSERT INTO role_permissions (role_id, permission_id)
+                    SELECT r.id, p.id
+                    FROM roles r, permissions p
+                    WHERE r.code = 'VT-05'
+                      AND p.code = 'WORKING_CALENDAR_MANAGE'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_id = p.id
+                      )
+                    """);
         }
     }
 }
