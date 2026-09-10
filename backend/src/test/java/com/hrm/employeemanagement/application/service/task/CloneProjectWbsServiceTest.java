@@ -126,7 +126,7 @@ class CloneProjectWbsServiceTest {
                 new UserId(userId),
                 "pm_director",
                 "hash",
-                new Role(new RoleId(2L), RoleCode.VT_02, "PM"),
+                new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám đốc"),
                 UserStatus.ACTIVE,
                 null,
                 DataScope.COMPANY,
