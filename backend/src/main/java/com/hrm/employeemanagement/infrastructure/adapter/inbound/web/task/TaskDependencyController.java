@@ -54,7 +54,7 @@ public class TaskDependencyController {
 
         TaskDependencyResult result = createUseCase.createDependency(command);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(result, "Khai báo phụ thuộc công việc thành công"));
+                .body(ApiResponse.success("Khai báo phụ thuộc công việc thành công", result));
     }
 
     @GetMapping
@@ -62,7 +62,7 @@ public class TaskDependencyController {
             @PathVariable Long projectId) {
 
         TaskDependencyGraphResult result = getUseCase.getTaskDependencies(projectId);
-        return ResponseEntity.ok(ApiResponse.success(result));
+        return ResponseEntity.ok(ApiResponse.success("Lấy sơ đồ phụ thuộc công việc thành công", result));
     }
 
     @DeleteMapping("/{dependencyId}")
@@ -72,6 +72,6 @@ public class TaskDependencyController {
 
         DeleteTaskDependencyCommand command = new DeleteTaskDependencyCommand(projectId, dependencyId);
         deleteUseCase.deleteDependency(command);
-        return ResponseEntity.ok(ApiResponse.success(null, "Xóa phụ thuộc công việc thành công"));
+        return ResponseEntity.ok(ApiResponse.success("Xóa phụ thuộc công việc thành công", null));
     }
 }

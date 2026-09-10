@@ -110,9 +110,9 @@ public class TaskDependencyService implements
         }
 
         Task predecessorTask = loadTaskPort.findById(predecessorId)
-                .orElseThrow(() -> new TaskNotFoundException("Không tìm thấy công việc tiền đề với ID: " + command.predecessorId()));
+                .orElseThrow(() -> new TaskNotFoundException(command.predecessorId()));
         Task successorTask = loadTaskPort.findById(successorId)
-                .orElseThrow(() -> new TaskNotFoundException("Không tìm thấy công việc phụ thuộc với ID: " + command.successorId()));
+                .orElseThrow(() -> new TaskNotFoundException(command.successorId()));
 
         if (!predecessorTask.getProjectIdValue().equals(project.getIdValue()) ||
             !successorTask.getProjectIdValue().equals(project.getIdValue())) {
@@ -125,7 +125,7 @@ public class TaskDependencyService implements
 
         // TC-02: Kiểm tra khống chế vòng lặp bằng DFS
         List<TaskDependency> existingDependencies = loadDependencyPort.findByProjectId(project.getId());
-        List<Task> allProjectTasks = loadTaskPort.findByProjectId(project.getId());
+        List<Task> allProjectTasks = loadTaskPort.findAllByProjectId(project.getId());
         Map<Long, String> taskNamesMap = allProjectTasks.stream()
                 .collect(Collectors.toMap(
                         Task::getIdValue,
@@ -219,7 +219,7 @@ public class TaskDependencyService implements
         }
 
         List<TaskDependency> dependencies = loadDependencyPort.findByProjectId(project.getId());
-        List<Task> tasks = loadTaskPort.findByProjectId(project.getId());
+        List<Task> tasks = loadTaskPort.findAllByProjectId(project.getId());
         Map<Long, Task> taskMap = tasks.stream().collect(Collectors.toMap(Task::getIdValue, t -> t));
 
         List<TaskDependencyResult> dependencyResults = dependencies.stream()
