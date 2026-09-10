@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectAlreadyClosedException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectNotClosedException;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 class ProjectTest {
@@ -266,6 +268,100 @@ class ProjectTest {
             assertThat(project.isManagedBy(MANAGER_ID)).isTrue();
             assertThat(project.isManagedBy(new EmployeeId(999L))).isFalse();
             assertThat(project.isManagedBy(null)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("Kiểm tra nghiệp vụ Đóng và Mở lại dự án (Close & Reopen)")
+    class CloseAndReopenTests {
+
+        private Project createActiveProject() {
+            return Project.createNew(
+                    VALID_CODE,
+                    VALID_NAME,
+                    ORG_UNIT_ID,
+                    MANAGER_ID,
+                    LocalDate.of(2026, 1, 1),
+                    LocalDate.of(2026, 12, 31),
+                    new BigDecimal("100.00"),
+                    "Mô tả dự án",
+                    CREATED_BY);
+        }
+
+        @Test
+        @DisplayName("Đóng dự án thành công và cập nhật đúng thông tin")
+        void shouldCloseProjectSuccessfully() {
+            Project project = createActiveProject();
+            UserId closer = new UserId(99L);
+            String reason = "Dự án đã bàn giao và nghiệm thu xong";
+
+            project.close(closer, reason);
+
+            assertThat(project.getStatus()).isEqualTo(ProjectStatus.CLOSED);
+            assertThat(project.isClosed()).isTrue();
+            assertThat(project.getClosedBy()).isEqualTo(closer);
+            assertThat(project.getClosedByValue()).isEqualTo(99L);
+            assertThat(project.getClosureReason()).isEqualTo(reason);
+            assertThat(project.getClosedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("Ném lỗi khi đóng dự án đã ở trạng thái CLOSED")
+        void shouldThrowWhenClosingAlreadyClosedProject() {
+            Project project = createActiveProject();
+            project.close(CREATED_BY, "Đóng lần 1");
+
+            assertThatThrownBy(() -> project.close(CREATED_BY, "Đóng lần 2"))
+                    .isInstanceOf(ProjectAlreadyClosedException.class)
+                    .hasMessageContaining("Dự án đã ở trạng thái đóng từ trước");
+        }
+
+        @Test
+        @DisplayName("Mở lại dự án đã đóng thành công khi có lý do hợp lệ >= 10 ký tự")
+        void shouldReopenClosedProjectSuccessfully() {
+            Project project = createActiveProject();
+            project.close(CREATED_BY, "Đóng dự án");
+
+            UserId opener = new UserId(88L);
+            String reopenReason = "Mở lại theo phụ lục hợp đồng số 02";
+
+            project.reopen(opener, reopenReason);
+
+            assertThat(project.getStatus()).isEqualTo(ProjectStatus.ACTIVE);
+            assertThat(project.isActive()).isTrue();
+            assertThat(project.getReopenedBy()).isEqualTo(opener);
+            assertThat(project.getReopenedByValue()).isEqualTo(88L);
+            assertThat(project.getReopenReason()).isEqualTo(reopenReason);
+            assertThat(project.getReopenedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("Ném lỗi khi mở lại dự án đang ở trạng thái ACTIVE")
+        void shouldThrowWhenReopeningActiveProject() {
+            Project project = createActiveProject();
+
+            assertThatThrownBy(() -> project.reopen(CREATED_BY, "Lý do mở lại dự án hợp lệ"))
+                    .isInstanceOf(ProjectNotClosedException.class)
+                    .hasMessageContaining("Chỉ có thể mở lại dự án đang ở trạng thái đóng");
+        }
+
+        @Test
+        @DisplayName("Ném lỗi khi mở lại với lý do dưới 10 ký tự hoặc để trống")
+        void shouldThrowWhenReopenReasonIsInvalid() {
+            Project project = createActiveProject();
+            project.close(CREATED_BY, "Đóng dự án");
+
+            assertThatThrownBy(() -> project.reopen(CREATED_BY, "Quá ngắn"))
+                    .isInstanceOf(InvalidProjectDataException.class)
+                    .hasMessageContaining("ít nhất 10 ký tự");
+
+            assertThatThrownBy(() -> project.reopen(CREATED_BY, null))
+                    .isInstanceOf(InvalidProjectDataException.class)
+                    .hasMessageContaining("ít nhất 10 ký tự");
+
+            assertThatThrownBy(() -> project.reopen(null, "Lý do hợp lệ trên 10 ký tự"))
+                    .isInstanceOf(InvalidProjectDataException.class)
+                    .hasMessageContaining("Người thực hiện mở lại dự án không được để trống");
         }
     }
 }

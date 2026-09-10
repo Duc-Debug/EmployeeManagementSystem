@@ -28,6 +28,14 @@ public class ProjectPersistenceMapper {
                 ? new UserId(entity.getCreatedBy())
                 : null;
 
+        UserId closedBy = entity.getClosedBy() != null
+                ? new UserId(entity.getClosedBy())
+                : null;
+
+        UserId reopenedBy = entity.getReopenedBy() != null
+                ? new UserId(entity.getReopenedBy())
+                : null;
+
         return new Project(
                 projectId,
                 entity.getProjectCode(),
@@ -43,7 +51,13 @@ public class ProjectPersistenceMapper {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getVersion(),
-                entity.getTaskSeqCounter());
+                entity.getTaskSeqCounter(),
+                entity.getClosureReason(),
+                entity.getClosedAt(),
+                closedBy,
+                entity.getReopenReason(),
+                entity.getReopenedAt(),
+                reopenedBy);
     }
 
     public ProjectJpaEntity toJpaEntity(Project domain) {
@@ -66,6 +80,12 @@ public class ProjectPersistenceMapper {
                 domain.getCreatedAt(),
                 domain.getUpdatedAt(),
                 domain.getVersion(),
-                domain.getTaskSeqCounter());
+                domain.getTaskSeqCounter(),
+                domain.getClosureReason(),
+                domain.getClosedAt(),
+                domain.getClosedByValue(),
+                domain.getReopenReason(),
+                domain.getReopenedAt(),
+                domain.getReopenedByValue());
     }
 }
