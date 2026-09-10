@@ -3,9 +3,6 @@ package com.hrm.employeemanagement.infrastructure.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.hrm.employeemanagement.application.port.inbound.task.CreateTaskDependencyUseCase;
-import com.hrm.employeemanagement.application.port.inbound.task.DeleteTaskDependencyUseCase;
-import com.hrm.employeemanagement.application.port.inbound.task.GetTaskDependenciesUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.DeleteTaskDependencyPort;
@@ -23,7 +20,7 @@ import com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalT
 public class TaskDependencyUseCaseConfig {
 
     @Bean
-    public TaskDependencyService taskDependencyService(
+    public TransactionalTaskDependencyServiceDecorator taskDependencyService(
             LoadProjectPort loadProjectPort,
             LoadTaskPort loadTaskPort,
             LoadTaskDependencyPort loadDependencyPort,
@@ -34,7 +31,8 @@ public class TaskDependencyUseCaseConfig {
             SaveAuditLogPort saveAuditLogPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
-        return new TaskDependencyService(
+
+        TaskDependencyService pureJavaService = new TaskDependencyService(
                 loadProjectPort,
                 loadTaskPort,
                 loadDependencyPort,
@@ -46,29 +44,7 @@ public class TaskDependencyUseCaseConfig {
                 saveDeniedAuditLogPort,
                 authorizationService
         );
-    }
 
-    @Bean
-    public TransactionalTaskDependencyServiceDecorator transactionalTaskDependencyServiceDecorator(
-            TaskDependencyService service) {
-        return new TransactionalTaskDependencyServiceDecorator(service);
-    }
-
-    @Bean
-    public CreateTaskDependencyUseCase createTaskDependencyUseCase(
-            TransactionalTaskDependencyServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public DeleteTaskDependencyUseCase deleteTaskDependencyUseCase(
-            TransactionalTaskDependencyServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public GetTaskDependenciesUseCase getTaskDependenciesUseCase(
-            TransactionalTaskDependencyServiceDecorator decorator) {
-        return decorator;
+        return new TransactionalTaskDependencyServiceDecorator(pureJavaService);
     }
 }
