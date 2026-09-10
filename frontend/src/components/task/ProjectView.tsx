@@ -29,7 +29,7 @@ import { ProjectWeeklyMatrix } from './ProjectWeeklyMatrix';
 import { ProjectTaskModal } from './ProjectTaskModal';
 import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectResourceSearch } from './ProjectResourceSearch';
-import { MilestoneListView } from './milestone/MilestoneListView';
+import { MilestoneListView } from '../project/milestone/MilestoneListView';
 import {
     getProjectMilestones,
     createMilestone,

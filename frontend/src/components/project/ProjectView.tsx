@@ -35,7 +35,18 @@ import {
     Calendar,
     ChevronDown,
     Copy,
+    Flag,
 } from 'lucide-react';
+import {
+    getProjectMilestones,
+    createMilestone,
+    updateMilestone,
+    completeMilestone,
+    deleteMilestone,
+    type MilestoneResult,
+    type CreateMilestonePayload,
+    type UpdateMilestonePayload,
+} from '@/lib/api/milestones';
 import {
     type ProjectMonth,
     type TaskCategoryGroup,
@@ -49,6 +60,7 @@ import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectBudgetModal } from './ProjectBudgetModal';
 import { ProjectCreateModal } from './ProjectCreateModal';
 import { CloneWbsModal } from './CloneWbsModal';
+import { MilestoneListView } from './milestone/MilestoneListView';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
@@ -190,19 +202,25 @@ function mapBackendWbsToUiCategories(
 
 export default function ProjectView() {
     const currentUser = useAuthUser();
+    const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
     // PROJECT_CREATE: Chỉ VT-02 (PM) mới có quyền tạo/quản lý dự án (✅ trong ma trận)
     // VT-01 👁️ Xem | VT-03 👁️ Xem | VT-06 ❌ — theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md
-    const canManageProject = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
-    const canManageAllocations = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-03';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
+    const canManageProject = roleCode === 'VT-02';
+    const canManageAllocations = roleCode === 'VT-03';
+    const canManageMilestones = roleCode === 'VT-02' || roleCode === 'VT-06';
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'milestones'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
     const [budgetModalOpen, setBudgetModalOpen] = useState(false);
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
 
+    // Mốc tiến độ (NCL-03-CN-006)
+    const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
+    const [isLoadingMilestones, setIsLoadingMilestones] = useState<boolean>(false);
+
     // Real projects backend state
-    const canManageWbs = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
+    const canManageWbs = roleCode === 'VT-02';
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
@@ -343,6 +361,28 @@ export default function ProjectView() {
             loadWbsForProject(selectedProjectId);
         }
     }, [selectedProjectId, loadWbsForProject]);
+
+    // 4. Tải mốc tiến độ (Milestones) khi chọn một dự án thật
+    const loadMilestonesForProject = useCallback(async (projId: number) => {
+        setIsLoadingMilestones(true);
+        try {
+            const data = await getProjectMilestones(projId);
+            setMilestones(data || []);
+        } catch (err) {
+            console.warn(`Failed to fetch milestones for project ${projId}:`, err);
+            setMilestones([]);
+        } finally {
+            setIsLoadingMilestones(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (selectedProjectId) {
+            loadMilestonesForProject(selectedProjectId);
+        } else {
+            setMilestones([]);
+        }
+    }, [selectedProjectId, loadMilestonesForProject]);
 
     const [months] = useState(buildMonths);
     const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
@@ -602,6 +642,67 @@ export default function ProjectView() {
         showToast('Dự án đã được tạo thành công trong Database!', 'success');
     };
 
+    // Quản lý mốc tiến độ (NCL-03-CN-006)
+    const handleCreateMilestone = async (payload: CreateMilestonePayload) => {
+        if (!selectedProjectId) {
+            showToast('Vui lòng chọn một dự án trước khi khai báo mốc tiến độ', 'error');
+            return;
+        }
+        try {
+            const created = await createMilestone(selectedProjectId, payload);
+            setMilestones((prev) => [...prev, created]);
+            showToast('Khai báo mốc tiến độ thành công', 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi tạo mốc tiến độ:', err);
+            const errMsg = err?.message || 'Không thể tạo mốc tiến độ. Vui lòng kiểm tra lại.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+            throw err;
+        }
+    };
+
+    const handleUpdateMilestone = async (id: number, payload: UpdateMilestonePayload) => {
+        if (!selectedProjectId) return;
+        try {
+            const updated = await updateMilestone(selectedProjectId, id, payload);
+            setMilestones((prev) => prev.map((m) => (m.id === id ? updated : m)));
+            showToast('Cập nhật mốc tiến độ thành công', 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi cập nhật mốc tiến độ:', err);
+            const errMsg = err?.message || 'Không thể cập nhật mốc tiến độ.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+            throw err;
+        }
+    };
+
+    const handleCompleteMilestone = async (id: number) => {
+        if (!selectedProjectId) return;
+        const today = new Date().toISOString().substring(0, 10);
+        try {
+            const updated = await completeMilestone(selectedProjectId, id, today);
+            setMilestones((prev) => prev.map((m) => (m.id === id ? updated : m)));
+            showToast('Đã đánh dấu hoàn thành mốc tiến độ', 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi hoàn thành mốc tiến độ:', err);
+            const errMsg = err?.message || 'Không thể đánh dấu hoàn thành mốc tiến độ.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+            throw err;
+        }
+    };
+
+    const handleDeleteMilestone = async (id: number) => {
+        if (!selectedProjectId) return;
+        try {
+            await deleteMilestone(selectedProjectId, id);
+            setMilestones((prev) => prev.filter((m) => m.id !== id));
+            showToast('Đã xóa mốc tiến độ thành công', 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi xóa mốc tiến độ:', err);
+            const errMsg = err?.message || 'Không thể xóa mốc tiến độ.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+            throw err;
+        }
+    };
+
     const handleExportReport = () => {
         showToast('Đang tạo báo cáo ma trận nhân lực & WBS dạng Excel...', 'info');
         setTimeout(() => {
@@ -750,7 +851,10 @@ export default function ProjectView() {
                             type="button"
                             onClick={() => {
                                 loadProjects();
-                                if (selectedProjectId) loadWbsForProject(selectedProjectId);
+                                if (selectedProjectId) {
+                                    loadWbsForProject(selectedProjectId);
+                                    loadMilestonesForProject(selectedProjectId);
+                                }
                                 showToast('Đã làm mới dữ liệu từ Database', 'info');
                             }}
                             className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 transition cursor-pointer"
@@ -880,36 +984,50 @@ export default function ProjectView() {
                         <CalendarDays className="h-4 w-4" />
                         <span>Phân bổ theo tuần</span>
                     </button>
-                </div>
-
-                {/* Filters */}
-                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-                    {/* Search */}
-                    <div className="relative flex-1 sm:w-56">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Tìm việc, nhân sự..."
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
-                        />
-                    </div>
-
-                    {/* Filter Role */}
-                    <select
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('milestones')}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                            viewMode === 'milestones'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
                     >
-                        <option value="ALL">Tất cả vai trò ({members.length})</option>
-                        {uniqueRoles.map((role) => (
-                            <option key={role} value={role}>
-                                {role}
-                            </option>
-                        ))}
-                    </select>
+                        <Flag className="h-4 w-4" />
+                        <span>Mốc tiến độ</span>
+                    </button>
                 </div>
+
+                {/* Filters (Ẩn khi ở tab Mốc tiến độ vì đã có bộ lọc chuyên biệt) */}
+                {viewMode !== 'milestones' && (
+                    <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+                        {/* Search */}
+                        <div className="relative flex-1 sm:w-56">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Tìm việc, nhân sự..."
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </div>
+
+                        {/* Filter Role */}
+                        <select
+                            value={roleFilter}
+                            onChange={(e) => setRoleFilter(e.target.value)}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        >
+                            <option value="ALL">Tất cả vai trò ({members.length})</option>
+                            {uniqueRoles.map((role) => (
+                                <option key={role} value={role}>
+                                    {role}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* Main Views Container Grid */}
@@ -941,6 +1059,31 @@ export default function ProjectView() {
                             onNavigateMonth={handleNavigateMonth}
                             onOpenAdjustModal={handleOpenAdjustModal}
                         />
+                    </div>
+                )}
+
+                {/* Section 3: Project Milestones (NCL-03-CN-006) */}
+                {viewMode === 'milestones' && (
+                    <div className="lg:col-span-12">
+                        {selectedProjectId ? (
+                            <MilestoneListView
+                                milestones={milestones}
+                                categories={categories}
+                                canEdit={canManageMilestones}
+                                isLoading={isLoadingMilestones}
+                                onRefresh={() => loadMilestonesForProject(selectedProjectId)}
+                                onCreateMilestone={handleCreateMilestone}
+                                onUpdateMilestone={handleUpdateMilestone}
+                                onCompleteMilestone={handleCompleteMilestone}
+                                onDeleteMilestone={handleDeleteMilestone}
+                            />
+                        ) : (
+                            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">
+                                <Flag className="mx-auto h-10 w-10 text-slate-300 mb-3" />
+                                <h3 className="text-sm font-bold text-slate-700">Chưa chọn dự án</h3>
+                                <p className="text-xs text-slate-400 mt-1">Vui lòng chọn một dự án ở thanh phía trên để xem và quản lý các mốc tiến độ.</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
