@@ -42,6 +42,7 @@ export default function WeeklyAvailabilityView() {
   // Employees & Capacities state
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [capacities, setCapacities] = useState<Record<number, WeeklyAvailabilityResult>>({});
+  const [capacityErrors, setCapacityErrors] = useState<Record<number, string>>({});
   const [isLoadingEmployees, setIsLoadingEmployees] = useState<boolean>(true);
   const [isLoadingCapacities, setIsLoadingCapacities] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -141,6 +142,7 @@ export default function WeeklyAvailabilityView() {
     if (visibleEmployees.length === 0) return;
     setIsLoadingCapacities(true);
     const resultsMap: Record<number, WeeklyAvailabilityResult> = {};
+    const errorsMap: Record<number, string> = {};
 
     await Promise.all(
       visibleEmployees.map(async (emp) => {
@@ -149,22 +151,27 @@ export default function WeeklyAvailabilityView() {
           if (res) {
             resultsMap[emp.id] = res;
           }
-        } catch (err) {
-          // If capacity calculation fails, fallback to standard profile hours
-          resultsMap[emp.id] = {
-            employeeId: emp.id,
-            year: selectedYear,
-            weekNumber: selectedWeek,
-            standardHours: emp.standardHoursPerWeek || 40,
-            holidayHours: 0,
-            approvedLeaveHours: 0,
-            netAvailableHours: emp.standardHoursPerWeek || 40,
-          };
+        } catch (err: any) {
+          // Do not fabricate fake 40h capacity! Record error explicitly.
+          errorsMap[emp.id] = err?.message || "Không thể tải dữ liệu";
         }
       })
     );
 
-    setCapacities((prev) => ({ ...prev, ...resultsMap }));
+    setCapacities((prev) => {
+      const next = { ...prev };
+      Object.keys(errorsMap).forEach((idStr) => {
+        delete next[Number(idStr)];
+      });
+      return { ...next, ...resultsMap };
+    });
+    setCapacityErrors((prev) => {
+      const next = { ...prev };
+      Object.keys(resultsMap).forEach((idStr) => {
+        delete next[Number(idStr)];
+      });
+      return { ...next, ...errorsMap };
+    });
     setIsLoadingCapacities(false);
   }, [visibleEmployees, selectedYear, selectedWeek]);
 
@@ -183,6 +190,11 @@ export default function WeeklyAvailabilityView() {
       ...prev,
       [result.employeeId]: result,
     }));
+    setCapacityErrors((prev) => {
+      const next = { ...prev };
+      delete next[result.employeeId];
+      return next;
+    });
   };
 
   const activeEmployee = employees.find((e) => e.id === selectedEmployeeId);
@@ -299,6 +311,7 @@ export default function WeeklyAvailabilityView() {
       {activeEmployee && (
         <CapacitySummaryCard
           capacity={activeCapacity}
+          errorMessage={selectedEmployeeId ? capacityErrors[selectedEmployeeId] : null}
           employeeName={`${activeEmployee.fullName} (${activeEmployee.employeeCode})`}
           weekLabel={`Tuần ${selectedWeek}/${selectedYear}`}
         />
@@ -349,10 +362,12 @@ export default function WeeklyAvailabilityView() {
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {visibleEmployees.map((emp) => {
                   const cap = capacities[emp.id];
-                  const standard = cap?.standardHours ?? (emp.standardHoursPerWeek || 40);
+                  const err = capacityErrors[emp.id];
+                  const hasData = Boolean(cap && !err);
+                  const standard = cap?.standardHours ?? 0;
                   const holiday = cap?.holidayHours ?? 0;
                   const leave = Number(cap?.approvedLeaveHours ?? 0);
-                  const net = Number(cap?.netAvailableHours ?? standard);
+                  const net = Number(cap?.netAvailableHours ?? 0);
                   const netPct = standard > 0 ? Math.max(0, Math.min(100, Math.round((net / standard) * 100))) : 0;
                   const isSelected = emp.id === selectedEmployeeId;
 
@@ -389,47 +404,63 @@ export default function WeeklyAvailabilityView() {
 
                       {/* Standard Hours */}
                       <td className="px-4 py-3.5 text-center font-bold text-slate-800">
-                        {standard}h
+                        {hasData ? `${standard}h` : "--"}
                       </td>
 
                       {/* Holiday Deducted */}
                       <td className="px-4 py-3.5 text-center font-semibold text-amber-700">
-                        {holiday > 0 ? `-${holiday}h` : "0h"}
+                        {hasData ? (holiday > 0 ? `-${holiday}h` : "0h") : "--"}
                       </td>
 
                       {/* Approved Leave Deducted */}
                       <td className="px-4 py-3.5 text-center font-semibold text-rose-700">
-                        {leave > 0 ? `-${leave}h` : "0h"}
+                        {hasData ? (leave > 0 ? `-${leave}h` : "0h") : "--"}
                       </td>
 
                       {/* Net Available */}
                       <td className="px-4 py-3.5 text-center">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-extrabold text-emerald-700 border border-emerald-100">
-                          {net}h
-                        </span>
+                        {err ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-700 border border-rose-200"
+                            title={err}
+                          >
+                            <AlertCircle className="size-3 text-rose-500" />
+                            <span>Không tải được dữ liệu</span>
+                          </span>
+                        ) : hasData ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-extrabold text-emerald-700 border border-emerald-100">
+                            {net}h
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-normal">--</span>
+                        )}
                       </td>
 
                       {/* Percentage Bar */}
                       <td className="px-4 py-3.5">
-                        <div className="w-24 mx-auto">
-                          <div className="flex items-center justify-between text-[10px] font-bold mb-1">
-                            <span className={netPct > 60 ? "text-emerald-700" : netPct > 30 ? "text-amber-700" : "text-rose-700"}>
-                              {netPct}%
-                            </span>
+                        {hasData ? (
+                          <div className="w-24 mx-auto">
+                            <div className="flex items-center justify-between text-[10px] font-bold mb-1">
+                              <span className={netPct > 60 ? "text-emerald-700" : netPct > 30 ? "text-amber-700" : "text-rose-700"}>
+                                {netPct}%
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className={`h-full rounded-full ${
+                                  netPct > 60
+                                    ? "bg-emerald-500"
+                                    : netPct > 30
+                                    ? "bg-amber-500"
+                                    : "bg-rose-500"
+                                }`}
+                                style={{ width: `${netPct}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                            <div
-                              className={`h-full rounded-full ${
-                                netPct > 60
-                                  ? "bg-emerald-500"
-                                  : netPct > 30
-                                  ? "bg-amber-500"
-                                  : "bg-rose-500"
-                              }`}
-                              style={{ width: `${netPct}%` }}
-                            />
-                          </div>
-                        </div>
+                        ) : (
+                          <div className="text-center text-slate-400">--</div>
+                        )}
                       </td>
 
                       {/* Action */}

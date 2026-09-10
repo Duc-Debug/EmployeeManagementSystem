@@ -3,15 +3,31 @@ import type { WeeklyAvailabilityResult } from "@/lib/api/availability";
 
 interface CapacitySummaryCardProps {
   capacity?: WeeklyAvailabilityResult | null;
+  errorMessage?: string | null;
   employeeName?: string;
   weekLabel?: string;
 }
 
 export default function CapacitySummaryCard({
   capacity,
+  errorMessage,
   employeeName,
   weekLabel,
 }: CapacitySummaryCardProps) {
+  if (errorMessage) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/70 p-5 text-xs text-rose-800 shadow-2xs">
+        <AlertCircle className="size-5 text-rose-600 shrink-0" />
+        <div>
+          <p className="font-bold">Không tải được dữ liệu năng lực tuần {employeeName ? `• ${employeeName}` : ""}</p>
+          <p className="text-[11px] text-rose-600/90 mt-0.5">
+            {errorMessage} (Vui lòng kiểm tra phân quyền dữ liệu hoặc thử lại).
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!capacity) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-xs text-slate-500 shadow-2xs">
