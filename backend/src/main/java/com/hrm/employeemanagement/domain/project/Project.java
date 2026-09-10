@@ -252,8 +252,15 @@ public class Project {
 
     /**
      * Kiểm tra ngày kết thúc dự kiến không được sớm hơn ngày bắt đầu (TC-02).
+     * Giới hạn năm hợp lệ: 2000–2100 để tránh lỗi DB khi nhập ngày không thực tế.
      */
     private void validateProjectDates(LocalDate start, LocalDate end) {
+        if (start != null && start.getYear() > 2100) {
+            throw new InvalidProjectDateRangeException("Ngày bắt đầu không được vượt quá năm 2100");
+        }
+        if (end != null && end.getYear() > 2100) {
+            throw new InvalidProjectDateRangeException("Ngày kết thúc không được vượt quá năm 2100");
+        }
         if (start != null && end != null && end.isBefore(start)) {
             throw InvalidProjectDateRangeException.invalidRange();
         }

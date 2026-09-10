@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getUsers } from '@/lib/api/users';
+import { getEmployees } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
 import { allocateProjectHours, getProjectWeeklyAllocations } from '@/lib/api/allocations';
 import {
@@ -189,6 +190,8 @@ function mapBackendWbsToUiCategories(
 
 export default function ProjectView() {
     const currentUser = useAuthUser();
+    // PROJECT_CREATE: Chỉ VT-02 (PM) mới có quyền tạo/quản lý dự án (✅ trong ma trận)
+    // VT-01 👁️ Xem | VT-03 👁️ Xem | VT-06 ❌ — theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md
     const canManageProject = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
     const canManageAllocations = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-03';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
@@ -199,10 +202,7 @@ export default function ProjectView() {
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
 
     // Real projects backend state
-    const canManageWbs = Boolean(
-        currentUser?.roleCode &&
-        (currentUser.roleCode === 'VT-02' || currentUser.roleCode === 'VT-06')
-    );
+    const canManageWbs = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
@@ -233,26 +233,44 @@ export default function ProjectView() {
         showToast(`Nhân bản thành công ${result.totalClonedTasks} công việc sang dự án!`, 'success');
     };
 
-    // 1. Tải danh sách nhân sự thật từ API
+    // 1. Tải danh sách nhân sự thật từ API (sử dụng getEmployees có quyền cho mọi vai trò)
     useEffect(() => {
-        getUsers(0, 100)
+        getEmployees(1, 100)
             .then((res) => {
                 if (res?.content && res.content.length > 0) {
-                    const fetchedMembers: ProjectMember[] = res.content
-                      .filter((u) => u.employeeId !== null)
-                      .map((u) => ({
-                        id: `u-${u.employeeId}`,
-                        name: u.fullName || u.username,
-                        role: u.roleCode || 'Nhân viên',
+                    const fetchedMembers: ProjectMember[] = res.content.map((emp) => ({
+                        id: `u-${emp.id}`,
+                        employeeId: emp.id,
+                        name: emp.fullName || emp.employeeCode,
+                        role: emp.professionalRole || 'Nhân viên',
                         avatar: '',
-                        capacity: 40,
+                        capacity: emp.standardHoursPerWeek || 40,
                         weeklyHours: {},
                     }));
                     setAllEmployees(fetchedMembers);
                 }
             })
-            .catch((err) => {
-                console.warn('Failed to load employees for the selected project:', err);
+            .catch(() => {
+                getUsers(0, 100)
+                    .then((res) => {
+                        if (res?.content && res.content.length > 0) {
+                            const fetchedMembers: ProjectMember[] = res.content
+                              .filter((u) => u.employeeId !== null)
+                              .map((u) => ({
+                                id: `u-${u.employeeId}`,
+                                employeeId: u.employeeId ?? undefined,
+                                name: u.fullName || u.username,
+                                role: u.roleCode || 'Nhân viên',
+                                avatar: '',
+                                capacity: 40,
+                                weeklyHours: {},
+                            }));
+                            setAllEmployees(fetchedMembers);
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn('Failed to load employees for the project view:', err);
+                    });
             });
     }, []);
 
@@ -965,7 +983,8 @@ export default function ProjectView() {
 
             {canManageProject && <ProjectCreateModal
                 open={projectCreateModalOpen}
-                members={members}
+                members={allEmployees}
+                currentUser={currentUser}
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
             />}
