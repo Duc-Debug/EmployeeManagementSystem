@@ -133,6 +133,7 @@ public class ProjectUseCaseConfig {
                 return new GetProjectTemplatesService(loadProjectTemplatePort);
         }
 
+        @Bean
         public CloseProjectUseCase closeProjectUseCase(
                         LoadProjectPort loadProjectPort,
                         SaveProjectPort saveProjectPort,
