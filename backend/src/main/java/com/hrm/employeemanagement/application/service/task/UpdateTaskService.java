@@ -80,7 +80,10 @@ public class UpdateTaskService implements UpdateTaskUseCase {
         Long currentUserId = authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE);
         User currentUser = loadCurrentUserOrThrow(currentUserId);
 
-        Project project = loadProjectPort.findById(new ProjectId(command.projectId()))
+        ProjectId projectId = new ProjectId(command.projectId());
+        Project project = (command.assigneeId() != null && command.assigneeId() > 0
+                ? loadProjectPort.findByIdForUpdate(projectId)
+                : loadProjectPort.findById(projectId))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
 
         if (!canManageWbs(currentUser, currentUserId, project)) {
