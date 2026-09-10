@@ -4,13 +4,18 @@ import java.util.Objects;
 
 import com.hrm.employeemanagement.application.dto.project.demand.EstimateResourceDemandCommand;
 import com.hrm.employeemanagement.application.dto.project.demand.ProjectResourceDemandSummaryResult;
+import com.hrm.employeemanagement.application.dto.project.demand.ProjectRoleResult;
+import com.hrm.employeemanagement.application.port.inbound.project.DeleteProjectResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.EstimateResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectResourceDemandUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.GetProjectRolesUseCase;
 import com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException;
 
 public class RetryableEstimateResourceDemandUseCaseDecorator implements
         EstimateResourceDemandUseCase,
-        GetProjectResourceDemandUseCase {
+        GetProjectResourceDemandUseCase,
+        DeleteProjectResourceDemandUseCase,
+        GetProjectRolesUseCase {
 
     private final TransactionalProjectResourceDemandServiceDecorator transactionalDelegate;
     private final int maxRetries;
@@ -48,5 +53,15 @@ public class RetryableEstimateResourceDemandUseCaseDecorator implements
     @Override
     public ProjectResourceDemandSummaryResult getProjectResourceDemands(Long projectId) {
         return transactionalDelegate.getProjectResourceDemands(projectId);
+    }
+
+    @Override
+    public ProjectResourceDemandSummaryResult deleteDemand(Long projectId, Long roleId) {
+        return transactionalDelegate.deleteDemand(projectId, roleId);
+    }
+
+    @Override
+    public java.util.List<ProjectRoleResult> getProjectRoles() {
+        return transactionalDelegate.getProjectRoles();
     }
 }

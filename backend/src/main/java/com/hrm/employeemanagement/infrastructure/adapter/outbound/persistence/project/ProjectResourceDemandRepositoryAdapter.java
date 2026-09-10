@@ -14,7 +14,7 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
-import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectResourceDemandJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository.SpringDataProjectResourceDemandRepository;
 
@@ -44,7 +44,7 @@ public class ProjectResourceDemandRepositoryAdapter implements
     }
 
     @Override
-    public List<ProjectResourceDemand> findByProjectIdAndRoleId(ProjectId projectId, RoleId roleId) {
+    public List<ProjectResourceDemand> findByProjectIdAndRoleId(ProjectId projectId, ProjectRoleId roleId) {
         if (projectId == null || roleId == null || projectId.value() == null || roleId.value() == null) {
             return Collections.emptyList();
         }
@@ -55,7 +55,7 @@ public class ProjectResourceDemandRepositoryAdapter implements
 
     @Override
     public Optional<ProjectResourceDemand> findByProjectIdAndRoleIdAndYearWeek(
-            ProjectId projectId, RoleId roleId, YearWeek yearWeek) {
+            ProjectId projectId, ProjectRoleId roleId, YearWeek yearWeek) {
         if (projectId == null || roleId == null || yearWeek == null) {
             return Optional.empty();
         }
