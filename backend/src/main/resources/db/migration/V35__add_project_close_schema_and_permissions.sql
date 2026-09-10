@@ -6,20 +6,16 @@
 -- ============================================================
 
 -- 1. Bổ sung các cột lưu vết vòng đời đóng/mở lại dự án vào bảng projects
-ALTER TABLE projects
-    ADD COLUMN closure_reason VARCHAR(500) NULL,
-    ADD COLUMN closed_at TIMESTAMP NULL,
-    ADD COLUMN closed_by BIGINT NULL,
-    ADD COLUMN reopen_reason VARCHAR(500) NULL,
-    ADD COLUMN reopened_at TIMESTAMP NULL,
-    ADD COLUMN reopened_by BIGINT NULL;
+ALTER TABLE projects ADD COLUMN closure_reason VARCHAR(500) NULL;
+ALTER TABLE projects ADD COLUMN closed_at TIMESTAMP NULL;
+ALTER TABLE projects ADD COLUMN closed_by BIGINT NULL;
+ALTER TABLE projects ADD COLUMN reopen_reason VARCHAR(500) NULL;
+ALTER TABLE projects ADD COLUMN reopened_at TIMESTAMP NULL;
+ALTER TABLE projects ADD COLUMN reopened_by BIGINT NULL;
 
 -- 2. Thêm khóa ngoại liên kết người đóng/mở với bảng users
-ALTER TABLE projects
-    ADD CONSTRAINT fk_projects_closed_by 
-        FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE RESTRICT,
-    ADD CONSTRAINT fk_projects_reopened_by 
-        FOREIGN KEY (reopened_by) REFERENCES users(id) ON DELETE RESTRICT;
+ALTER TABLE projects ADD CONSTRAINT fk_projects_closed_by FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE RESTRICT;
+ALTER TABLE projects ADD CONSTRAINT fk_projects_reopened_by FOREIGN KEY (reopened_by) REFERENCES users(id) ON DELETE RESTRICT;
 
 -- 3. Tạo chỉ mục để tối ưu tra cứu
 CREATE INDEX idx_projects_closed_by ON projects(closed_by);
