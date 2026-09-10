@@ -35,7 +35,9 @@ import {
     Calendar,
     ChevronDown,
     Copy,
+    GitCommit,
 } from 'lucide-react';
+import { TaskDependencyModal } from '../task/TaskDependencyModal';
 import {
     type ProjectMonth,
     type TaskCategoryGroup,
@@ -190,9 +192,9 @@ function mapBackendWbsToUiCategories(
 
 export default function ProjectView() {
     const currentUser = useAuthUser();
-    // PROJECT_CREATE: Chỉ VT-02 (PM) mới có quyền tạo/quản lý dự án (✅ trong ma trận)
-    // VT-01 👁️ Xem | VT-03 👁️ Xem | VT-06 ❌ — theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md
-    const canManageProject = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
+    // PROJECT_CREATE: Chỉ VT-02 (PM) và VT-06 (Admin) mới có quyền tạo/quản lý dự án
+    const roleCodeFormatted = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
+    const canManageProject = roleCodeFormatted === 'VT-02' || roleCodeFormatted === 'VT-06' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
     const canManageAllocations = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-03';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
@@ -200,6 +202,7 @@ export default function ProjectView() {
     const [members, setMembers] = useState<ProjectMember[]>([]);
     const [budgetModalOpen, setBudgetModalOpen] = useState(false);
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
+    const [dependencyModalOpen, setDependencyModalOpen] = useState<boolean>(false);
 
     // Real projects backend state
     const canManageWbs = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
@@ -728,14 +731,28 @@ export default function ProjectView() {
                             </button>
                         )}
 
-                        {canManageProject && <button
-                            type="button"
-                            onClick={() => handleQuickAddTask()}
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
-                        >
-                            <Plus className="h-4 w-4 stroke-[2.5]" />
-                            <span>Thêm công việc</span>
-                        </button>}
+                        {canManageProject && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => handleQuickAddTask()}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
+                                >
+                                    <Plus className="h-4 w-4 stroke-[2.5]" />
+                                    <span>Thêm công việc</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDependencyModalOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
+                                    title="Khai báo phụ thuộc giữa các công việc (NCL-04-CN-004)"
+                                >
+                                    <GitCommit className="h-4 w-4 text-indigo-600" />
+                                    <span>Phụ thuộc công việc</span>
+                                </button>
+                            </>
+                        )}
 
                         <button
                             type="button"
@@ -987,6 +1004,21 @@ export default function ProjectView() {
                 currentUser={currentUser}
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
+            />}
+
+            {canManageProject && <TaskDependencyModal
+                open={dependencyModalOpen}
+                projectId={selectedProjectId || 1}
+                tasks={categories.flatMap((cat) =>
+                    cat.tasks.map((t) => ({
+                        id: Number(t.id.replace(/\D/g, '')),
+                        taskCode: t.code,
+                        name: t.name,
+                        categoryName: cat.name,
+                    }))
+                )}
+                canManage={canManageProject}
+                onClose={() => setDependencyModalOpen(false)}
             />}
 
             {/* Toast Notification */}
