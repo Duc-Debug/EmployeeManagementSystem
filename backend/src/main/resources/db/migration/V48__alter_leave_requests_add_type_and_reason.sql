@@ -1,48 +1,18 @@
 -- ============================================================
--- FLYWAY MIGRATION V47: BO SUNG THONG TIN DON NGHI PHEP (NCL-05-CN-002)
+-- FLYWAY MIGRATION V48: BO SUNG THONG TIN DON NGHI PHEP (NCL-05-CN-002)
 -- ============================================================
 
--- 1. Bo sung cot neu chua ton tai
-DROP PROCEDURE IF EXISTS upgrade_leave_requests_v47;
-DELIMITER //
-CREATE PROCEDURE upgrade_leave_requests_v47()
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS 
-        WHERE table_schema = DATABASE() AND table_name = 'leave_requests' AND column_name = 'leave_type'
-    ) THEN
-        ALTER TABLE leave_requests
-            ADD COLUMN leave_type VARCHAR(50) NOT NULL DEFAULT 'ANNUAL' AFTER employee_id;
-    END IF;
+-- 1. Bo sung cac cot cho bang leave_requests
+ALTER TABLE leave_requests ADD COLUMN leave_type VARCHAR(50) NOT NULL DEFAULT 'ANNUAL';
+ALTER TABLE leave_requests ADD COLUMN reason VARCHAR(500) NULL;
+ALTER TABLE leave_requests ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS 
-        WHERE table_schema = DATABASE() AND table_name = 'leave_requests' AND column_name = 'reason'
-    ) THEN
-        ALTER TABLE leave_requests
-            ADD COLUMN reason VARCHAR(500) NULL AFTER hours_deducted;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS 
-        WHERE table_schema = DATABASE() AND table_name = 'leave_requests' AND column_name = 'updated_at'
-    ) THEN
-        ALTER TABLE leave_requests
-            ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
-    END IF;
-END //
-DELIMITER ;
-
-CALL upgrade_leave_requests_v47();
-DROP PROCEDURE IF EXISTS upgrade_leave_requests_v47;
-
--- 2. Dat rang buoc kiem tra hop le cho leave_type (bo qua neu da co)
--- 3. Them ma quyen LEAVE_REQUEST_CREATE
+-- 2. Them ma quyen LEAVE_REQUEST_CREATE vao bang permissions neu chua ton tai
 INSERT INTO permissions (code, name, description)
 SELECT 'LEAVE_REQUEST_CREATE', 'Gửi đơn nghỉ phép', 'Cho phép nhân viên chuyên môn nộp đơn xin nghỉ phép cá nhân'
 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'LEAVE_REQUEST_CREATE');
 
--- 4. Gan quyen cho VT-04
+-- 3. Gan quyen LEAVE_REQUEST_CREATE cho vai tro VT-04 (Nhan vien chuyen mon) theo TC-04
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
