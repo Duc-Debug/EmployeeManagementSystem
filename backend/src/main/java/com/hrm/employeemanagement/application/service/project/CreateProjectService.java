@@ -120,10 +120,15 @@ public class CreateProjectService implements CreateProjectUseCase {
         }
         return switch (currentUser.getDataScope()) {
             case COMPANY -> true;
-            case SELF -> false;
             case ORGANIZATION_BRANCH -> loadOrgUnitPort.existsInOrgUnitBranch(
                     orgUnitId,
                     currentUser.getScopeOrgUnitId());
+            case SELF -> {
+                Long employeeOrgUnitId = loadEmployeePort.findByUserId(currentUser.getId())
+                        .map(Employee::getOrgUnitId)
+                        .orElse(null);
+                yield employeeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, employeeOrgUnitId);
+            }
         };
     }
 

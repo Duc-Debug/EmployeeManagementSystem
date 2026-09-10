@@ -246,8 +246,12 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
         switch (currentUser.getDataScope()) {
             case COMPANY:
                 return true;
-            case SELF:
-                return false;
+            case SELF: {
+                Long employeeOrgUnitId = loadEmployeePort.findByUserId(currentUser.getId())
+                        .map(Employee::getOrgUnitId)
+                        .orElse(null);
+                return employeeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, employeeOrgUnitId);
+            }
             case ORGANIZATION_BRANCH:
                 return loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, currentUser.getScopeOrgUnitId());
             default:
