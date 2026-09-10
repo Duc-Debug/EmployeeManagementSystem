@@ -29,4 +29,24 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
     BigDecimal sumApprovedLeaveHoursBetween(@Param("employeeId") Long employeeId,
                                             @Param("startDate") LocalDate startDate,
                                             @Param("endDate") LocalDate endDate);
+
+    /**
+     * TC-02: Kiểm tra trùng lặp tối ưu tải cao với index và LIMIT 1.
+     * Trả về ngay khi gặp bản ghi đầu tiên khớp điều kiện mà không cần duyệt toàn bộ bảng.
+     */
+    @Query(value = "SELECT EXISTS(" +
+                   "SELECT 1 FROM leave_requests " +
+                   "WHERE employee_id = :employeeId " +
+                   "AND status NOT IN ('REJECTED', 'CANCELLED') " +
+                   "AND start_date <= :endDate AND end_date >= :startDate " +
+                   "LIMIT 1)", nativeQuery = true)
+    long existsOverlappingLeaveNative(@Param("employeeId") Long employeeId,
+                                      @Param("startDate") LocalDate startDate,
+                                      @Param("endDate") LocalDate endDate);
+
+    default boolean existsOverlappingLeave(Long employeeId, LocalDate startDate, LocalDate endDate) {
+        return existsOverlappingLeaveNative(employeeId, startDate, endDate) == 1L;
+    }
+
+    List<LeaveRequestJpaEntity> findByEmployeeIdOrderByStartDateDesc(Long employeeId);
 }

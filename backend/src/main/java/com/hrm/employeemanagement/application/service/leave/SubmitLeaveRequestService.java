@@ -11,6 +11,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException;
@@ -58,6 +59,9 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
         }
 
         Long targetEmployeeId = currentEmployee.getIdValue();
+
+        // Khóa pessimistic lock trên Employee để serialize các request gửi đơn cùng lúc của cùng nhân sự
+        loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId));
 
         // 3. TC-03: Kiểm tra tính hợp lệ của khoảng ngày
         LeaveRequestPolicy.validateDateRange(command.startDate(), command.endDate());
