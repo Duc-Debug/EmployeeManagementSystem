@@ -89,4 +89,87 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
                 .map(SkillPersistenceMapper::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<EmployeeSkill> findByStatus(com.hrm.employeemanagement.domain.skill.SkillStatus status) {
+        if (status == null) {
+            return List.of();
+        }
+        return repository.findByStatus(status).stream()
+                .map(SkillPersistenceMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<EmployeeSkill> findByStatusAndEmployeeIdIn(com.hrm.employeemanagement.domain.skill.SkillStatus status, List<Long> employeeIds) {
+        if (status == null || employeeIds == null || employeeIds.isEmpty()) {
+            return List.of();
+        }
+        return repository.findByStatusAndEmployeeIdIn(status, employeeIds).stream()
+                .map(SkillPersistenceMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public PageResult<PendingEmployeeSkillItemResult> findPendingSkills(
+            DataScope dataScope,
+            Long scopeOrgUnitId,
+            Long currentUserId,
+            String keyword,
+            int page,
+            int size
+    ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        int offset = safePage * safeSize;
+        String normalizedKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+
+        DataScope scope = dataScope != null ? dataScope : DataScope.COMPANY;
+
+        List<PendingEmployeeSkillProjection> contentProjections;
+        long totalElements;
+
+        if (scope == DataScope.SELF) {
+            contentProjections = repository.findPendingSkillsForSelf(currentUserId, normalizedKeyword, offset, safeSize);
+            totalElements = repository.countPendingSkillsForSelf(currentUserId, normalizedKeyword);
+        } else if (scope == DataScope.DEPARTMENT) {
+            contentProjections = repository.findPendingSkillsForDepartment(scopeOrgUnitId, normalizedKeyword, offset, safeSize);
+            totalElements = repository.countPendingSkillsForDepartment(scopeOrgUnitId, normalizedKeyword);
+        } else {
+            contentProjections = repository.findPendingSkillsForCompany(normalizedKeyword, offset, safeSize);
+            totalElements = repository.countPendingSkillsForCompany(normalizedKeyword);
+        }
+
+        List<PendingEmployeeSkillItemResult> content = contentProjections.stream()
+                .map(this::toItemResult)
+                .collect(Collectors.toList());
+
+        return PageResult.of(content, safePage, safeSize, totalElements);
+    }
+
+    private PendingEmployeeSkillItemResult toItemResult(PendingEmployeeSkillProjection p) {
+        return new PendingEmployeeSkillItemResult(
+                p.getId(),
+                p.getEmployeeId(),
+                p.getEmployeeCode(),
+                p.getEmployeeName(),
+                p.getOrgUnitId(),
+                p.getOrgUnitName(),
+                p.getSkillId(),
+                p.getSkillCode(),
+                p.getSkillName(),
+                p.getSkillCategory(),
+                p.getProficiencyLevel(),
+                p.getYearsOfExperience(),
+                p.getStatus(),
+                p.getCreatedAt()
+        );
+    }
+
+    @Override
+    public void deleteByEmployeeIdAndSkillId(Long employeeId, Long skillId) {
+        if (employeeId != null && skillId != null) {
+            repository.deleteByEmployeeIdAndSkillId(employeeId, skillId);
+        }
+    }
 }
