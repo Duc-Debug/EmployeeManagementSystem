@@ -152,20 +152,9 @@ export default function SkilldeclarationView({
             pushToast('Đã phê duyệt', 'Kỹ năng đã được xác nhận thành công và lưu vào hệ thống.');
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Lỗi kết nối';
-            console.warn('API approve error, fallbacking to local state update:', err);
-            setApprovalRequests((prev) =>
-                prev.map((r) =>
-                    r.id === id
-                        ? {
-                              ...r,
-                              status: 'approved',
-                              adjustedLevel: adjustedProficiencyLevel,
-                              reviewNotes: reviewNotes || undefined,
-                          }
-                        : r
-                )
-            );
-            pushToast('Đã xác nhận', `Đã phê duyệt mức thành thạo Level ${adjustedProficiencyLevel} (Lưu ý: ${msg}).`);
+            console.error('API approve error:', err);
+            pushToast('Lỗi phê duyệt', `Không thể phê duyệt kỹ năng: ${msg}`);
+            throw err;
         }
     }
 
