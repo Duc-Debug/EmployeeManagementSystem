@@ -1,5 +1,8 @@
 package com.hrm.employeemanagement.application.service.allocation;
 
+import java.time.LocalDate;
+import java.time.Year;
+import java.time.temporal.IsoFields;
 import java.util.List;
 
 import com.hrm.employeemanagement.application.dto.allocation.ProjectWeeklyAllocationResult;
@@ -25,7 +28,8 @@ public class GetProjectWeeklyAllocationsService implements GetProjectWeeklyAlloc
     @Override
     public List<ProjectWeeklyAllocationResult> getByProject(Long projectId, Integer year, Integer startWeek, Integer endWeek) {
         if (projectId == null || year == null || startWeek == null || endWeek == null
-                || startWeek < 1 || endWeek > 53 || startWeek > endWeek) {
+                || year < Year.MIN_VALUE || year > Year.MAX_VALUE
+                || startWeek < 1 || startWeek > endWeek || endWeek > getIsoWeeksInYear(year)) {
             throw new IllegalArgumentException("Project, year and week range are invalid");
         }
         authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
@@ -36,5 +40,9 @@ public class GetProjectWeeklyAllocationsService implements GetProjectWeeklyAlloc
                 .map(a -> new ProjectWeeklyAllocationResult(a.getEmployeeId(), a.getProjectId(),
                         a.getYear(), a.getWeekNumber(), a.getAllocatedHours()))
                 .toList();
+    }
+
+    private int getIsoWeeksInYear(int year) {
+        return LocalDate.of(year, 12, 28).get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
     }
 }

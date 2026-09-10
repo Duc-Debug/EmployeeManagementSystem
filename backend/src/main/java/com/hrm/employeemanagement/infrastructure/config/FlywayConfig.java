@@ -7,6 +7,7 @@ import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Cấu hình Flyway - Nguồn chân lý duy nhất cho Database Schema.
@@ -17,7 +18,10 @@ import org.springframework.context.annotation.Configuration;
 public class FlywayConfig {
 
     @Bean
-    public Flyway flyway(DataSource dataSource) {
+    public Flyway flyway(
+            DataSource dataSource,
+            @Value("${spring.flyway.out-of-order:false}") boolean outOfOrder
+    ) {
         System.out.println("==================================================");
         System.out.println("🚀 FLYWAY STARTING DATABASE MIGRATION...");
         System.out.println("==================================================");
@@ -25,10 +29,8 @@ public class FlywayConfig {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
-                .outOfOrder(true)
-                .outOfOrder(true)
                 .locations("classpath:db/migration")
-                .outOfOrder(true)
+                .outOfOrder(outOfOrder)
                 .load();
         flyway.repair();
         flyway.migrate();
