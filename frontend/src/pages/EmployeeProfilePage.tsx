@@ -22,7 +22,7 @@ import {
     formatToDateInput,
 } from "@/lib/employee-storage";
 import { getOrgTree } from "@/lib/api/org-units";
-import { flattenOrgTree } from "@/lib/organization";
+import { flattenActiveOrgTree } from "@/lib/organization";
 import type { OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import type { User as BackendUser, RoleCode, DataScope } from "@/types/hrm";
 
@@ -275,7 +275,7 @@ export default function EmployeeProfilePage() {
             ]);
 
             if (treeRes.status === "fulfilled" && treeRes.value && treeRes.value.length > 0) {
-                const flat = flattenOrgTree(treeRes.value);
+                const flat = flattenActiveOrgTree(treeRes.value);
                 if (flat.length > 0) {
                     const dynamicOptions: OrgUnitOption[] = flat.map((u) => ({
                         id: u.id,

@@ -36,6 +36,7 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
+import com.hrm.employeemanagement.domain.exception.user.DuplicateEmailException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
@@ -130,6 +131,20 @@ public class UserService implements
             );
         }
 
+        if (command.email() != null && !command.email().isBlank()) {
+            String normalizedEmail = command.email().trim().toLowerCase(java.util.Locale.ROOT);
+            if (loadUserPort.existsByEmail(normalizedEmail)) {
+                throw new DuplicateEmailException(
+                        "Email '" + command.email() + "' đã tồn tại trong hệ thống"
+                );
+            }
+            if (loadUserPort.existsByUsername(normalizedEmail)) {
+                throw new DuplicateEmailException(
+                        "Email xung đột với tên đăng nhập của một tài khoản khác"
+                );
+            }
+        }
+
         RoleCode roleCode = RoleCode.fromCode(command.roleCode());
 
         Role role = loadRolePort.findByCode(roleCode)
@@ -139,6 +154,16 @@ public class UserService implements
                         )
                 );
 
+        Long targetScopeOrgUnitId = null;
+        if (roleCode == RoleCode.VT_03) {
+            if (command.scopeOrgUnitId() != null) {
+                loadActiveOrgUnitOrThrow(command.scopeOrgUnitId());
+                targetScopeOrgUnitId = command.scopeOrgUnitId();
+            } else {
+                targetScopeOrgUnitId = command.orgUnitId();
+            }
+        }
+
         String passwordHash = passwordEncoder.encode(command.password());
 
         User newUser = User.createNew(
@@ -146,7 +171,8 @@ public class UserService implements
                 passwordHash,
                 role,
                 null,
-                command.email()
+                command.email(),
+                targetScopeOrgUnitId
         );
 
         User savedUser = saveUserPort.save(newUser);
@@ -439,7 +465,7 @@ public UserResult updateUserRole(
             String normalizedEmail = command.email().trim().toLowerCase(java.util.Locale.ROOT);
             if (user.getEmail() == null || !normalizedEmail.equalsIgnoreCase(user.getEmail())) {
                 if (loadUserPort.existsByEmail(normalizedEmail)) {
-                    throw new DuplicateUsernameException("Email '" + command.email() + "' đã được sử dụng bởi tài khoản khác");
+                    throw new DuplicateEmailException("Email '" + command.email() + "' đã được sử dụng bởi tài khoản khác");
                 }
                 user.setEmail(normalizedEmail);
             }

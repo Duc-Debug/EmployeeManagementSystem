@@ -65,6 +65,12 @@ export default function EmployeeProfileForm({
         };
     });
 
+    const [syncOrgScope, setSyncOrgScope] = useState<boolean>(() => {
+        if (initialData?.roleCode === "VT-03") {
+            return !initialData.scopeOrgUnitId || String(initialData.scopeOrgUnitId) === String(initialData.orgUnitId);
+        }
+        return true;
+    });
     const [prevInitialData, setPrevInitialData] = useState<EmployeeFormData | null | undefined>(initialData);
     const [prevOpen, setPrevOpen] = useState<boolean>(open);
     const [showPassword, setShowPassword] = useState(false);
@@ -86,30 +92,34 @@ export default function EmployeeProfileForm({
                 employeeCode: initialData.employeeCode || initialData.id || nextEmployeeCode,
                 status: initialData.status === "locked" ? "LOCKED" : "ACTIVE",
             });
+            setSyncOrgScope(!initialData.scopeOrgUnitId || String(initialData.scopeOrgUnitId) === String(initialData.orgUnitId));
         } else {
             setFormData({
                 ...DEFAULT_FORM_VALUES,
                 employeeCode: nextEmployeeCode,
                 status: "ACTIVE",
             });
+            setSyncOrgScope(true);
         }
     }
 
     if (!open) return null;
-
-    const isSystemAdmin = formData.roleCode === "VT-06";
 
     const handleRoleChange = (roleCode: string) => {
         const found = ROLE_OPTIONS.find((r) => r.code === roleCode);
         const roleName = found?.name || "";
         const dataScope = getDefaultDataScopeForRole(roleCode);
 
+        if (roleCode === "VT-03") {
+            setSyncOrgScope(true);
+        }
+
         setFormData((prev) => ({
             ...prev,
             roleCode,
             roleName,
             ...(dataScope ? { dataScope } : {}),
-            scopeOrgUnitId: dataScope === "ORGANIZATION_BRANCH" ? prev.scopeOrgUnitId : "",
+            scopeOrgUnitId: roleCode === "VT-03" ? prev.orgUnitId : (dataScope === "ORGANIZATION_BRANCH" ? prev.scopeOrgUnitId : ""),
         }));
     };
 
@@ -119,6 +129,7 @@ export default function EmployeeProfileForm({
             ...prev,
             orgUnitId,
             department: selected ? selected.unitName : prev.department,
+            scopeOrgUnitId: prev.roleCode === "VT-03" && syncOrgScope ? orgUnitId : prev.scopeOrgUnitId,
         }));
     };
 
@@ -151,9 +162,17 @@ export default function EmployeeProfileForm({
             setErrorMessage("Vui lòng chọn đơn vị tổ chức trực thuộc.");
             return;
         }
-        if (formData.dataScope === "ORGANIZATION_BRANCH" && !formData.scopeOrgUnitId) {
-            setErrorMessage("Vui lòng chọn đơn vị tổ chức áp dụng cho phạm vi dữ liệu.");
-            return;
+
+        let finalScopeOrgUnitId = formData.scopeOrgUnitId;
+        if (formData.roleCode === "VT-03") {
+            if (syncOrgScope) {
+                finalScopeOrgUnitId = formData.orgUnitId;
+            } else if (!formData.scopeOrgUnitId) {
+                setErrorMessage("Vui lòng chọn đơn vị tổ chức áp dụng cho phạm vi dữ liệu.");
+                return;
+            }
+        } else if (formData.dataScope !== "ORGANIZATION_BRANCH") {
+            finalScopeOrgUnitId = "";
         }
 
         const selectedOrg = orgUnitOptions.find((o) => String(o.id) === String(formData.orgUnitId));
@@ -165,6 +184,7 @@ export default function EmployeeProfileForm({
             employeeCode: formData.employeeCode.trim().toUpperCase(),
             username: formData.username.trim(),
             department: formData.department || selectedOrg?.unitName || "Chưa phân bổ",
+            scopeOrgUnitId: finalScopeOrgUnitId,
         });
     };
 
@@ -394,26 +414,43 @@ export default function EmployeeProfileForm({
 
                             {/* Phạm vi dữ liệu */}
                             <div className="space-y-1.5">
-                                <label className="text-xs font-semibold text-slate-700">
-                                    Phạm vi dữ liệu *
-                                </label>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">
+                                        Phạm vi dữ liệu *
+                                    </label>
+                                    <span className="text-[10px] text-slate-400 font-medium">(Tự động theo vai trò)</span>
+                                </div>
                                 <TaskSelect
-                                    disabled={isSystemAdmin}
+                                    disabled={true}
                                     value={formData.dataScope || "SELF"}
                                     options={DATA_SCOPE_OPTIONS.map((s) => ({ id: s.value, label: s.label }))}
-                                    onChange={(val) =>
-                                        setFormData({
-                                            ...formData,
-                                            dataScope: val as "COMPANY" | "ORGANIZATION_BRANCH" | "SELF",
-                                            scopeOrgUnitId: val !== "ORGANIZATION_BRANCH" ? "" : formData.scopeOrgUnitId,
-                                        })
-                                    }
+                                    onChange={() => {}}
                                     placeholder="Chọn phạm vi..."
                                     hideSearch={true}
-                                    buttonClassName={isSystemAdmin ? "bg-slate-100 border-slate-200 py-2 rounded-xl text-slate-500 cursor-not-allowed" : "bg-slate-50/70 border-slate-200 py-2 rounded-xl"}
+                                    buttonClassName="bg-slate-100 border-slate-200 py-2 rounded-xl text-slate-500 cursor-not-allowed"
                                 />
                             </div>
                         </div>
+
+                        {formData.roleCode === "VT-03" && (
+                            <div className="pt-1">
+                                <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={syncOrgScope}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setSyncOrgScope(checked);
+                                            if (checked) {
+                                                setFormData((prev) => ({ ...prev, scopeOrgUnitId: prev.orgUnitId }));
+                                            }
+                                        }}
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span>Áp dụng phạm vi quản lý theo đơn vị trực thuộc</span>
+                                </label>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {/* Trạng thái hoạt động */}
@@ -436,8 +473,8 @@ export default function EmployeeProfileForm({
                                 />
                             </div>
 
-                            {/* Nếu chọn Theo đơn vị: ComboBox chọn đơn vị áp dụng */}
-                            {formData.dataScope === "ORGANIZATION_BRANCH" && (
+                            {/* Nếu chọn Theo đơn vị & bỏ tích đồng bộ: ComboBox chọn đơn vị áp dụng */}
+                            {formData.dataScope === "ORGANIZATION_BRANCH" && !syncOrgScope && (
                                 <div className="space-y-1.5 animate-in fade-in duration-150">
                                     <label className="text-xs font-semibold text-indigo-700">
                                         Đơn vị tổ chức áp dụng (Phân cấp) *
