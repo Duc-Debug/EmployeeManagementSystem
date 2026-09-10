@@ -178,8 +178,8 @@ export function UsersWorkspace() {
     if (!draft.fullName.trim()) nextErrors.fullName = "Họ tên là bắt buộc.";
     if (!draft.email.trim()) {
       nextErrors.email = "Email là bắt buộc.";
-    } else if (!draft.email.includes("@")) {
-      nextErrors.email = "Email không đúng định dạng.";
+    } else if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(draft.email.trim())) {
+      nextErrors.email = "Email không đúng định dạng (phải có ký tự '@' và tên miền có dấu '.' hợp lệ, ví dụ: user@company.com).";
     }
 
     if (editor.mode === "create") {

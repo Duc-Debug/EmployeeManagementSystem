@@ -10,9 +10,10 @@ public class Skill {
     private String name;
     private String category;
     private String description;
+    private final Long groupId;
     private final LocalDateTime createdAt;
 
-    public Skill(Long id, String code, String name, String category, String description, LocalDateTime createdAt) {
+    public Skill(Long id, String code, String name, String category, String description, Long groupId, LocalDateTime createdAt) {
         if (code == null || code.trim().isEmpty()) {
             throw new IllegalArgumentException("Mã kỹ năng không được để trống");
         }
@@ -24,11 +25,20 @@ public class Skill {
         this.name = name.trim();
         this.category = category != null ? category.trim() : "GENERAL";
         this.description = description;
+        this.groupId = groupId != null ? groupId : 1L;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
     }
 
+    public Skill(Long id, String code, String name, String category, String description, LocalDateTime createdAt) {
+        this(id, code, name, category, description, 1L, createdAt);
+    }
+
+    public static Skill create(String code, String name, String category, String description, Long groupId) {
+        return new Skill(null, code, name, category, description, groupId, LocalDateTime.now());
+    }
+
     public static Skill create(String code, String name, String category, String description) {
-        return new Skill(null, code, name, category, description, LocalDateTime.now());
+        return create(code, name, category, description, 1L);
     }
 
     public Long getId() {
@@ -49,6 +59,10 @@ public class Skill {
 
     public String getDescription() {
         return description;
+    }
+
+    public Long getGroupId() {
+        return groupId;
     }
 
     public LocalDateTime getCreatedAt() {

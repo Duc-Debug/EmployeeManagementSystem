@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginRoute from "./app/login/Page";
+import ResetPasswordPage from "./components/auth/ResetPasswordPage";
 import Dashboard from "./components/dashboard/Dashboard";
 import RequireAuth from "./components/auth/Requireauth";
 
@@ -8,6 +9,7 @@ function App() {
         <BrowserRouter>
             <Routes>
                 <Route path="/login" element={<LoginRoute />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route
                     path="/*"
                     element={

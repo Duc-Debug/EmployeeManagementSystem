@@ -23,7 +23,8 @@ public interface SpringDataSkillRepository extends JpaRepository<SkillJpaEntity,
 
     long countByGroupIdAndStatus(Long groupId, String status);
 
+    List<SkillJpaEntity> findAllByIdIn(List<Long> ids);
+
     @Query("SELECT s FROM SkillJpaEntity s WHERE (:groupId IS NULL OR s.groupId = :groupId) AND (:status IS NULL OR s.status = :status) AND (:keyword IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<SkillJpaEntity> searchSkills(@Param("groupId") Long groupId, @Param("status") String status, @Param("keyword") String keyword);
-
 }

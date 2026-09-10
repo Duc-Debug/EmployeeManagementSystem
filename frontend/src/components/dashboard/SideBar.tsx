@@ -78,8 +78,8 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
 
         case "skills":
-            // Khai báo & Duyệt kỹ năng: VT-01, VT-02, VT-03, VT-04, VT-05
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
+            // Khai báo, Quản lý & Duyệt kỹ năng: VT-01, VT-02, VT-03, VT-04, VT-05, VT-06
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
 
         case "reports":
             // Báo cáo & Mô phỏng năng lực: VT-01 (Toàn công ty), VT-02 (Dự án phụ trách), VT-03 (Bộ phận phụ trách)

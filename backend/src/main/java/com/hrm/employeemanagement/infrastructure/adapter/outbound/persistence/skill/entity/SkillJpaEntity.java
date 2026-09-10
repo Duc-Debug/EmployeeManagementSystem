@@ -75,8 +75,17 @@ public class SkillJpaEntity {
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
         }
+        if (this.updatedAt == null) {
+            this.updatedAt = LocalDateTime.now();
+        }
         if (this.code == null && this.name != null) {
             this.code = this.name.toUpperCase().replaceAll("\\s+", "_");
+        }
+        if (this.groupId == null) {
+            this.groupId = 1L;
+        }
+        if (this.status == null) {
+            this.status = "ACTIVE";
         }
     }
 
