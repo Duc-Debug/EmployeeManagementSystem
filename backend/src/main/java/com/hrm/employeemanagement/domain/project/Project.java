@@ -325,12 +325,6 @@ public class Project {
         this.updatedAt = LocalDateTime.now();
     }
 
-
-    public void activate() {
-        this.status = ProjectStatus.ACTIVE;
-        this.updatedAt = LocalDateTime.now();
-    }
-
     public boolean isActive() {
         return this.status == ProjectStatus.ACTIVE;
     }
