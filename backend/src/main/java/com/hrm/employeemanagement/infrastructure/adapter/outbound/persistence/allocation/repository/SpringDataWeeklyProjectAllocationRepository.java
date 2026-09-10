@@ -26,4 +26,7 @@ public interface SpringDataWeeklyProjectAllocationRepository extends JpaReposito
     // Lấy danh sách phân bổ theo danh sách nhân sự và danh sách tuần cụ thể (phục vụ batch search)
     List<WeeklyProjectAllocationJpaEntity> findByEmployeeIdInAndYearAndWeekNumberIn(
             List<Long> employeeIds, Integer year, List<Integer> weekNumbers);
+
+    List<WeeklyProjectAllocationJpaEntity> findByProjectIdAndYearAndWeekNumberBetween(
+            Long projectId, Integer year, Integer startWeek, Integer endWeek);
 }

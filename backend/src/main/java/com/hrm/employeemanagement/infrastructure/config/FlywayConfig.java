@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.infrastructure.config;
 import javax.sql.DataSource;
 
 import org.flywaydb.core.Flyway;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.context.annotation.Bean;
@@ -17,7 +18,10 @@ import org.springframework.context.annotation.Configuration;
 public class FlywayConfig {
 
     @Bean
-    public Flyway flyway(DataSource dataSource) {
+    public Flyway flyway(
+            DataSource dataSource,
+            @Value("${spring.flyway.out-of-order:false}") boolean outOfOrder
+    ) {
         System.out.println("==================================================");
         System.out.println("🚀 FLYWAY STARTING DATABASE MIGRATION...");
         System.out.println("==================================================");
@@ -25,15 +29,16 @@ public class FlywayConfig {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
-                .outOfOrder(true)
                 .locations("classpath:db/migration")
+                .outOfOrder(outOfOrder)
                 .load();
-        flyway.repair();
+
         flyway.migrate();
 
         System.out.println("==================================================");
         System.out.println("✅ FLYWAY MIGRATION SUCCESSFUL!");
         System.out.println("==================================================");
+
         return flyway;
     }
 
@@ -46,13 +51,25 @@ public class FlywayConfig {
     public static BeanFactoryPostProcessor entityManagerFactoryDependsOnFlyway() {
         return beanFactory -> {
             if (beanFactory.containsBeanDefinition("entityManagerFactory")) {
-                BeanDefinition def = beanFactory.getBeanDefinition("entityManagerFactory");
+                BeanDefinition def =
+                        beanFactory.getBeanDefinition("entityManagerFactory");
+
                 String[] existingDependsOn = def.getDependsOn();
+
                 if (existingDependsOn == null || existingDependsOn.length == 0) {
                     def.setDependsOn("flyway");
                 } else {
-                    String[] newDependsOn = new String[existingDependsOn.length + 1];
-                    System.arraycopy(existingDependsOn, 0, newDependsOn, 0, existingDependsOn.length);
+                    String[] newDependsOn =
+                            new String[existingDependsOn.length + 1];
+
+                    System.arraycopy(
+                            existingDependsOn,
+                            0,
+                            newDependsOn,
+                            0,
+                            existingDependsOn.length
+                    );
+
                     newDependsOn[existingDependsOn.length] = "flyway";
                     def.setDependsOn(newDependsOn);
                 }
