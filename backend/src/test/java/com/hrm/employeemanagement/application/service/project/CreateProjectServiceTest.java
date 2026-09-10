@@ -352,17 +352,17 @@ class CreateProjectServiceTest {
     }
 
     private User createBranchManagerUser(Long scopeOrgUnitId) {
-        Role pmRole = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án");
+        Role branchRole = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
         return new User(
                 new UserId(CURRENT_USER_ID),
-                "pm_user",
+                "branch_user",
                 "hash",
-                pmRole,
+                branchRole,
                 UserStatus.ACTIVE,
                 new EmployeeId(MANAGER_ID),
                 DataScope.ORGANIZATION_BRANCH,
                 scopeOrgUnitId,
-                "pm@hrm.com",
+                "branch@hrm.com",
                 null,
                 1,
                 0L

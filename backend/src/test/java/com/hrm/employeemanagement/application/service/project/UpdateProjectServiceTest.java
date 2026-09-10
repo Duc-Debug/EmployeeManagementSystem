@@ -431,8 +431,16 @@ class UpdateProjectServiceTest {
     }
 
     private User createTestUser(Long id, DataScope dataScope) {
-        Role role = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án");
-        Long scopeOrgUnitId = (dataScope == DataScope.ORGANIZATION_BRANCH) ? 999L : null;
+        Role role;
+        Long scopeOrgUnitId = null;
+        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
+            role = new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
+            scopeOrgUnitId = 999L;
+        } else if (dataScope == DataScope.COMPANY) {
+            role = new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám đốc");
+        } else {
+            role = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án");
+        }
         return new User(
                 new UserId(id),
                 "pm_user",

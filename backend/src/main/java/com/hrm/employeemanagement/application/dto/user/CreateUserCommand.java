@@ -7,7 +7,8 @@ public record CreateUserCommand(
         String employeeCode,
         String fullName,
         Long orgUnitId,
-        String email
+        String email,
+        Long scopeOrgUnitId
 ) {
     public CreateUserCommand(
             String username,
@@ -17,7 +18,19 @@ public record CreateUserCommand(
             String fullName,
             Long orgUnitId
     ) {
-        this(username, password, roleCode, employeeCode, fullName, orgUnitId, null);
+        this(username, password, roleCode, employeeCode, fullName, orgUnitId, null, null);
+    }
+
+    public CreateUserCommand(
+            String username,
+            String password,
+            String roleCode,
+            String employeeCode,
+            String fullName,
+            Long orgUnitId,
+            String email
+    ) {
+        this(username, password, roleCode, employeeCode, fullName, orgUnitId, email, null);
     }
 
     public CreateUserCommand {

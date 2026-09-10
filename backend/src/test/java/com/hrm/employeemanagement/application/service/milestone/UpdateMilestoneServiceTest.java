@@ -101,7 +101,7 @@ class UpdateMilestoneServiceTest {
                 new UserId(CURRENT_USER_ID),
                 "pm_user",
                 "hashed",
-                new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án"),
+                new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám đốc"),
                 UserStatus.ACTIVE,
                 null,
                 DataScope.COMPANY,

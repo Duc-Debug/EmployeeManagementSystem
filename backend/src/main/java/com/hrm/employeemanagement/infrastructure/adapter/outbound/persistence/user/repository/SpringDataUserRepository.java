@@ -91,7 +91,7 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
         WHERE role_id IN (
             SELECT id
             FROM roles
-            WHERE code = 'VT-06'
+            WHERE code IN ('VT-01', 'VT-05', 'VT-06')
         )
           AND (
               data_scope <> 'COMPANY'
@@ -99,5 +99,48 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
           )
         """,
         nativeQuery = true)
-    int normalizeSystemAdminDataScope();
+    int normalizeCompanyScopeUsers();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE users
+        SET data_scope = 'SELF',
+            scope_org_unit_id = NULL
+        WHERE role_id IN (
+            SELECT id
+            FROM roles
+            WHERE code IN ('VT-02', 'VT-04')
+        )
+          AND (
+              data_scope <> 'SELF'
+              OR scope_org_unit_id IS NOT NULL
+          )
+        """,
+        nativeQuery = true)
+    int normalizeSelfScopeUsers();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE users
+        SET data_scope = 'ORGANIZATION_BRANCH'
+        WHERE role_id IN (
+            SELECT id
+            FROM roles
+            WHERE code = 'VT-03'
+        )
+          AND data_scope <> 'ORGANIZATION_BRANCH'
+        """,
+        nativeQuery = true)
+    int normalizeOrgBranchScopeUsers();
+
+    default void normalizeAllUsersDataScope() {
+        normalizeCompanyScopeUsers();
+        normalizeSelfScopeUsers();
+        normalizeOrgBranchScopeUsers();
+    }
+
+    default int normalizeSystemAdminDataScope() {
+        normalizeAllUsersDataScope();
+        return 0;
+    }
 }

@@ -26,9 +26,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.project.UpdateProjectCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.port.inbound.project.CloseProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.ReopenProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -59,6 +61,12 @@ class ProjectControllerTest {
     @Mock
     private com.hrm.employeemanagement.application.port.inbound.projecttemplate.GetProjectTemplatesUseCase getProjectTemplatesUseCase;
 
+    @Mock
+    private CloseProjectUseCase closeProjectUseCase;
+
+    @Mock
+    private ReopenProjectUseCase reopenProjectUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectController controller =
@@ -68,7 +76,9 @@ class ProjectControllerTest {
                         createProjectUseCase,
                         updateProjectUseCase,
                         createProjectFromTemplateUseCase,
-                        getProjectTemplatesUseCase
+                        getProjectTemplatesUseCase,
+                        closeProjectUseCase,
+                        reopenProjectUseCase
                 );
 
         mockMvc = MockMvcBuilders
@@ -417,6 +427,80 @@ class ProjectControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1))
                 .andExpect(jsonPath("$.data.name").value("Mẫu dự án triển khai phần mềm"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{id}/close thanh cong tra ve 200 OK")
+    void testCloseProject_Success() throws Exception {
+        ProjectResult closedResult = new ProjectResult(
+                1L, "PRJ-001", "Dự án A", 10L, 50L,
+                null, null, java.math.BigDecimal.ZERO, null,
+                ProjectStatus.CLOSED, 1L, LocalDateTime.now(), LocalDateTime.now(),
+                "Nghiệm thu xong", LocalDateTime.now(), 1L, null, null, null);
+
+        when(closeProjectUseCase.closeProject(any())).thenReturn(closedResult);
+
+        mockMvc.perform(
+                post("/api/v1/projects/1/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"closureReason\": \"Nghiệm thu xong\"}")
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("CLOSED"))
+                .andExpect(jsonPath("$.data.closureReason").value("Nghiệm thu xong"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{id}/close con task chua xong tra ve 422 Unprocessable Entity")
+    void testCloseProject_UnfinishedTasks() throws Exception {
+        when(closeProjectUseCase.closeProject(any()))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.project.ProjectHasUnfinishedTasksException(
+                        "Còn task chưa xong", List.of("TSK-001", "TSK-002")));
+
+        mockMvc.perform(
+                post("/api/v1/projects/1/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"closureReason\": \"Nghiệm thu xong\"}")
+        )
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(containsString("Còn task chưa xong")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{id}/reopen thanh cong tra ve 200 OK")
+    void testReopenProject_Success() throws Exception {
+        ProjectResult reopenedResult = new ProjectResult(
+                1L, "PRJ-001", "Dự án A", 10L, 50L,
+                null, null, java.math.BigDecimal.ZERO, null,
+                ProjectStatus.ACTIVE, 1L, LocalDateTime.now(), LocalDateTime.now(),
+                "Đã đóng", LocalDateTime.now().minusDays(1), 1L,
+                "Mở lại theo phụ lục hợp đồng", LocalDateTime.now(), 1L);
+
+        when(reopenProjectUseCase.reopenProject(any())).thenReturn(reopenedResult);
+
+        mockMvc.perform(
+                post("/api/v1/projects/1/reopen")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reopenReason\": \"Mở lại theo phụ lục hợp đồng\"}")
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.reopenReason").value("Mở lại theo phụ lục hợp đồng"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{id}/reopen thieu ly do tra ve 400 Bad Request")
+    void testReopenProject_InvalidReason() throws Exception {
+        mockMvc.perform(
+                post("/api/v1/projects/1/reopen")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reopenReason\": \"Ngan\"}")
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     private ProjectResult projectResult(Long id) {

@@ -104,7 +104,7 @@ abstract class BaseUserServiceTest {
                 new UserId(ADMIN_ID),
                 "admin",
                 "hash",
-                staffRole,
+                adminRole,
                 UserStatus.ACTIVE,
                 new EmployeeId(10L)
         );
@@ -119,13 +119,20 @@ abstract class BaseUserServiceTest {
     }
 
     protected User testUser(Long id, Role role, Long empId) {
+        Long scopeOrgUnitId = (role != null && role.getCode() == RoleCode.VT_03) ? 10L : null;
+        DataScope scope = (role != null && role.getCode() == RoleCode.VT_03) ? DataScope.ORGANIZATION_BRANCH
+                : (role != null && (role.getCode() == RoleCode.VT_01 || role.getCode() == RoleCode.VT_05 || role.getCode() == RoleCode.VT_06)
+                        ? DataScope.COMPANY : DataScope.SELF);
         return new User(
                 new UserId(id),
                 "user_" + id,
                 "hash",
                 role,
                 UserStatus.ACTIVE,
-                empId != null ? new EmployeeId(empId) : null
+                empId != null ? new EmployeeId(empId) : null,
+                scope,
+                scopeOrgUnitId,
+                0L
         );
     }
 
@@ -181,20 +188,22 @@ abstract class BaseUserServiceTest {
             DataScope dataScope,
             Long scopeOrgUnitId
     ) {
-        User currentUser = new User(
+        Role role = switch (dataScope) {
+            case COMPANY -> adminRole;
+            case ORGANIZATION_BRANCH -> new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị");
+            case SELF -> staffRole;
+        };
+
+        return new User(
                 new UserId(ADMIN_ID),
                 "admin",
                 "hash",
-                staffRole,
+                role,
                 UserStatus.ACTIVE,
-                new EmployeeId(10L)
-        );
-
-        currentUser.changeDataScope(
+                new EmployeeId(10L),
                 dataScope,
-                scopeOrgUnitId
+                scopeOrgUnitId,
+                1L
         );
-
-        return currentUser;
     }
 }

@@ -108,4 +108,52 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
                 .map(mapper::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Employee> findAllPaged(int size, int offset) {
+        return springDataEmployeeRepository.findAllPaged(size, offset).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public long countAll() {
+        return springDataEmployeeRepository.count();
+    }
+
+    @Override
+    public List<Employee> findByOrgUnitBranch(Long scopeOrgUnitId, int size, int offset) {
+        if (scopeOrgUnitId == null) {
+            return List.of();
+        }
+        return springDataEmployeeRepository.findByOrgUnitBranch(scopeOrgUnitId, size, offset).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public long countByOrgUnitBranch(Long scopeOrgUnitId) {
+        if (scopeOrgUnitId == null) {
+            return 0L;
+        }
+        return springDataEmployeeRepository.countByOrgUnitBranch(scopeOrgUnitId);
+    }
+
+    @Override
+    public List<Employee> findByProjectManager(Long pmEmployeeId, int size, int offset) {
+        if (pmEmployeeId == null) {
+            return List.of();
+        }
+        return springDataEmployeeRepository.findByProjectManager(pmEmployeeId, size, offset).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public long countByProjectManager(Long pmEmployeeId) {
+        if (pmEmployeeId == null) {
+            return 0L;
+        }
+        return springDataEmployeeRepository.countByProjectManager(pmEmployeeId);
+    }
 }

@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V37: SEED ADDITIONAL PROJECT TEMPLATES
+-- FLYWAY MIGRATION V39: SEED ADDITIONAL PROJECT TEMPLATES
 -- Epic: NCL-03 (Dự án và cây công việc)
 -- Story: NCL-03-CN-005 (Tạo dự án từ mẫu)
 -- ============================================================

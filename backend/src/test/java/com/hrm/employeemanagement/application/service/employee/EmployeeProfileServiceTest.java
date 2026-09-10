@@ -15,8 +15,12 @@ import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundExce
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.employee.InvalidEmployeeDataException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +70,7 @@ class EmployeeProfileServiceTest {
         lenient().when(authorizationService.require(any())).thenReturn(1L);
         lenient().when(loadUserPort.findById(any(UserId.class))).thenReturn(Optional.of(currentUser));
         lenient().when(currentUser.getIdValue()).thenReturn(1L);
+        lenient().when(currentUser.getId()).thenReturn(new UserId(1L));
         lenient().when(currentUser.getDataScope()).thenReturn(DataScope.COMPANY);
         lenient().when(loadOrgUnitPort.findById(any())).thenReturn(Optional.of(activeOrgUnit));
         lenient().when(activeOrgUnit.getStatus()).thenReturn(OrgUnitStatus.ACTIVE);
@@ -207,5 +212,76 @@ class EmployeeProfileServiceTest {
         assertThrows(PermissionDeniedException.class,
                 () -> employeeProfileService.getById(100L));
         verify(loadOrgUnitPort, never()).existsInOrgUnitBranch(any(), any());
+    }
+
+    @Test
+    @DisplayName("getEmployees: COMPANY scope trả về tất cả nhân viên phân trang")
+    void getEmployees_CompanyScope_ReturnsAllEmployeesPaged() {
+        when(currentUser.getDataScope()).thenReturn(DataScope.COMPANY);
+        Employee emp1 = new Employee(new EmployeeId(1L), new UserId(10L), 1L, "EMP001", "A", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(2L), new UserId(11L), 1L, "EMP002", "B", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllPaged(10, 0)).thenReturn(java.util.List.of(emp1, emp2));
+        when(loadEmployeePort.countAll()).thenReturn(2L);
+
+        PageResult<EmployeeProfileResult> result = employeeProfileService.getEmployees(0, 10);
+
+        assertNotNull(result);
+        assertEquals(2, result.getContent().size());
+        assertEquals(2L, result.getTotalElements());
+        verify(loadEmployeePort).findAllPaged(10, 0);
+    }
+
+    @Test
+    @DisplayName("getEmployees: ORGANIZATION_BRANCH scope trả về nhân viên trong nhánh")
+    void getEmployees_OrganizationBranchScope_ReturnsBranchEmployees() {
+        when(currentUser.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(currentUser.getScopeOrgUnitId()).thenReturn(5L);
+        Employee emp1 = new Employee(new EmployeeId(1L), new UserId(10L), 5L, "EMP001", "A", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findByOrgUnitBranch(5L, 10, 0)).thenReturn(java.util.List.of(emp1));
+        when(loadEmployeePort.countByOrgUnitBranch(5L)).thenReturn(1L);
+
+        PageResult<EmployeeProfileResult> result = employeeProfileService.getEmployees(0, 10);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals(1L, result.getTotalElements());
+        verify(loadEmployeePort).findByOrgUnitBranch(5L, 10, 0);
+    }
+
+    @Test
+    @DisplayName("getEmployees: VT-02 PM scope trả về thành viên trong dự án do PM quản lý")
+    void getEmployees_PmSelfScope_ReturnsProjectMembers() {
+        Role pmRole = new Role(new RoleId(2L), RoleCode.VT_02, "PM");
+        when(currentUser.getRole()).thenReturn(pmRole);
+        when(currentUser.getId()).thenReturn(new UserId(10L));
+        Employee pmEmp = new Employee(new EmployeeId(50L), new UserId(10L), 1L, "PM001", "PM User", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findByUserId(new UserId(10L))).thenReturn(Optional.of(pmEmp));
+
+        Employee member = new Employee(new EmployeeId(1L), new UserId(20L), 1L, "EMP001", "Member", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findByProjectManager(50L, 10, 0)).thenReturn(java.util.List.of(member));
+        when(loadEmployeePort.countByProjectManager(50L)).thenReturn(1L);
+
+        PageResult<EmployeeProfileResult> result = employeeProfileService.getEmployees(0, 10);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(loadEmployeePort).findByProjectManager(50L, 10, 0);
+    }
+
+    @Test
+    @DisplayName("getEmployees: VT-04 Staff scope trả về hồ sơ của chính mình")
+    void getEmployees_StaffSelfScope_ReturnsOwnEmployee() {
+        when(currentUser.getDataScope()).thenReturn(DataScope.SELF);
+        Role staffRole = new Role(new RoleId(4L), RoleCode.VT_04, "Staff");
+        when(currentUser.getRole()).thenReturn(staffRole);
+        when(currentUser.getId()).thenReturn(new UserId(10L));
+        Employee selfEmp = new Employee(new EmployeeId(50L), new UserId(10L), 1L, "EMP001", "Staff User", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findByUserId(new UserId(10L))).thenReturn(Optional.of(selfEmp));
+
+        PageResult<EmployeeProfileResult> result = employeeProfileService.getEmployees(0, 10);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals("Staff User", result.getContent().get(0).fullName());
     }
 }

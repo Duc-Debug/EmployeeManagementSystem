@@ -4,6 +4,7 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
+import com.hrm.employeemanagement.domain.exception.user.DuplicateEmailException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidPasswordException;
@@ -59,7 +60,13 @@ public class UserExceptionHandler {
     @ExceptionHandler(DuplicateUsernameException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicateUsername(DuplicateUsernameException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.error(ex.getMessage()));
+                .body(ApiResponse.error("DUPLICATE_USERNAME", ex.getMessage()));
+    }
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDuplicateEmail(DuplicateEmailException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error("DUPLICATE_EMAIL", ex.getMessage()));
     }
 
     @ExceptionHandler(DuplicateEmployeeCodeException.class)
@@ -81,9 +88,13 @@ public class UserExceptionHandler {
 
         // Check for Unique Constraint violations -> 409 CONFLICT
         if (lowerMsg.contains("unique") || lowerMsg.contains("duplicate") || lowerMsg.contains("uk_")) {
-            if (lowerMsg.contains("username") || lowerMsg.contains("users")) {
+            if (lowerMsg.contains("email") || lowerMsg.contains("uk_users_email")) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(ApiResponse.error("Tên đăng nhập đã tồn tại trong hệ thống"));
+                        .body(ApiResponse.error("DUPLICATE_EMAIL", "Email đã tồn tại trong hệ thống"));
+            }
+            if (lowerMsg.contains("username") || lowerMsg.contains("uk_users_username") || lowerMsg.contains("users")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ApiResponse.error("DUPLICATE_USERNAME", "Tên đăng nhập đã tồn tại trong hệ thống"));
             }
             if (lowerMsg.contains("employee_code") || lowerMsg.contains("employees")) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)

@@ -142,7 +142,7 @@ class MilestoneControllerSecurityIntegrationTest {
         UserJpaEntity pmUser = user(
                 "pm-milestone-" + suffix,
                 "VT-02",
-                DataScope.COMPANY,
+                DataScope.SELF,
                 null);
 
         EmployeeJpaEntity pmEmployee = employeeRepository.saveAndFlush(

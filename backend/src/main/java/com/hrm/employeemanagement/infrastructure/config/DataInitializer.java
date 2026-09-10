@@ -76,7 +76,7 @@ public class DataInitializer implements CommandLineRunner {
         // 3. Resolve default root organization unit by unitCode for Employee ownership
         OrgUnitJpaEntity defaultOrgUnit = seedDefaultOrgUnit();
 
-        userRepository.normalizeSystemAdminDataScope();
+        userRepository.normalizeAllUsersDataScope();
 
         // 4. Provision initial admin user and employee profile atomically & idempotently
         if (!initialAdminProperties.enabled()) {
