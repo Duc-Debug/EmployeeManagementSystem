@@ -57,29 +57,38 @@ class GetMyEmployeeSkillsServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy danh sách kỹ năng cá nhân của nhân viên đang đăng nhập thành công")
-    void shouldGetMySkillsSuccessfully() {
+    @DisplayName("Lấy danh sách kỹ năng cá nhân của nhân viên đang đăng nhập thành công với batch query (tránh N+1)")
+    void shouldGetMySkillsSuccessfullyWithBatchQuery() {
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(99L);
 
         Employee employee = mock(Employee.class);
         when(employee.getIdValue()).thenReturn(10L);
         when(loadEmployeePort.findByUserId(new UserId(99L))).thenReturn(Optional.of(employee));
 
-        EmployeeSkill es = new EmployeeSkill(
+        EmployeeSkill es1 = new EmployeeSkill(
                 1L, 10L, 100L, ProficiencyLevel.fromValue(3), new BigDecimal("2.5"),
                 SkillStatus.APPROVED, 99L, LocalDateTime.now(), null, "Notes", LocalDateTime.now(), LocalDateTime.now()
         );
-        when(employeeSkillRepository.findByEmployeeId(10L)).thenReturn(List.of(es));
+        EmployeeSkill es2 = new EmployeeSkill(
+                2L, 10L, 101L, ProficiencyLevel.fromValue(4), new BigDecimal("4.0"),
+                SkillStatus.APPROVED, 99L, LocalDateTime.now(), null, "Notes", LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(employeeSkillRepository.findByEmployeeId(10L)).thenReturn(List.of(es1, es2));
 
-        Skill skill = new Skill(100L, "JAVA", "Java", "Backend", "Desc", 3L, LocalDateTime.now());
-        when(skillCatalogRepository.findById(100L)).thenReturn(Optional.of(skill));
+        Skill skill1 = new Skill(100L, "JAVA", "Java", "Backend", "Desc", 3L, LocalDateTime.now());
+        Skill skill2 = new Skill(101L, "REACT", "React", "Frontend", "Desc", 4L, LocalDateTime.now());
+        when(skillCatalogRepository.findAllByIdIn(List.of(100L, 101L))).thenReturn(List.of(skill1, skill2));
 
         List<EmployeeSkillResult> results = service.execute();
 
         assertNotNull(results);
-        assertEquals(1, results.size());
+        assertEquals(2, results.size());
         assertEquals("Java", results.get(0).skillName());
-        assertEquals(3, results.get(0).proficiencyLevel());
+        assertEquals("React", results.get(1).skillName());
+
+        // Đảm bảo không gọi findById đơn lẻ (Tránh N+1)
+        verify(skillCatalogRepository, never()).findById(any());
+        verify(skillCatalogRepository, times(1)).findAllByIdIn(List.of(100L, 101L));
     }
 
     @Test
@@ -93,5 +102,6 @@ class GetMyEmployeeSkillsServiceTest {
         assertNotNull(results);
         assertTrue(results.isEmpty());
         verify(employeeSkillRepository, never()).findByEmployeeId(any());
+        verify(skillCatalogRepository, never()).findAllByIdIn(any());
     }
 }

@@ -1,8 +1,11 @@
 package com.hrm.employeemanagement.application.service.skill;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.skill.EmployeeSkillResult;
 import com.hrm.employeemanagement.application.port.inbound.skill.GetMyEmployeeSkillsUseCase;
@@ -46,12 +49,22 @@ public class GetMyEmployeeSkillsService implements GetMyEmployeeSkillsUseCase {
 
         Employee employee = empOpt.get();
         List<EmployeeSkill> skills = employeeSkillRepository.findByEmployeeId(employee.getIdValue());
+        if (skills.isEmpty()) {
+            return List.of();
+        }
+
+        // Tải batch toàn bộ danh mục kỹ năng tương ứng trong 1 query duy nhất (Tránh N+1 query)
+        List<Long> skillIds = skills.stream()
+                .map(EmployeeSkill::getSkillId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, Skill> skillMap = skillCatalogRepository.findAllByIdIn(skillIds).stream()
+                .collect(Collectors.toMap(Skill::getId, Function.identity(), (existing, replacing) -> existing));
 
         return skills.stream()
-                .map(es -> {
-                    Skill skill = skillCatalogRepository.findById(es.getSkillId()).orElse(null);
-                    return EmployeeSkillResult.fromDomain(es, skill);
-                })
+                .map(es -> EmployeeSkillResult.fromDomain(es, skillMap.get(es.getSkillId())))
                 .toList();
     }
 }
