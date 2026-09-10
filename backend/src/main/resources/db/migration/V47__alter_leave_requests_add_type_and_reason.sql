@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V45: BO SUNG THONG TIN DON NGHI PHEP (NCL-05-CN-002)
+-- FLYWAY MIGRATION V47: BO SUNG THONG TIN DON NGHI PHEP (NCL-05-CN-002)
 -- ============================================================
 
 -- 1. Bo sung cac cot cho bang leave_requests
