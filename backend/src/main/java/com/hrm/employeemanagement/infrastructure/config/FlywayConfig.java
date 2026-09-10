@@ -33,6 +33,7 @@ public class FlywayConfig {
                 .outOfOrder(outOfOrder)
                 .load();
 
+        flyway.repair();
         flyway.migrate();
 
         System.out.println("==================================================");

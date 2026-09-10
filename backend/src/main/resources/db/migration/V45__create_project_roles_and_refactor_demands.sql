@@ -45,9 +45,9 @@ WHERE NOT EXISTS (SELECT 1 FROM project_roles WHERE code = 'DEVOPS');
 DELETE FROM project_resource_demands;
 
 -- 4. Xóa khóa ngoại cũ trỏ vào roles(id)
-ALTER TABLE project_resource_demands DROP FOREIGN KEY fk_project_resource_demands_role;
+ALTER TABLE project_resource_demands DROP FOREIGN KEY fk_proj_res_demands_role;
 
 -- 5. Tạo khóa ngoại mới trỏ vào project_roles(id)
 ALTER TABLE project_resource_demands
-    ADD CONSTRAINT fk_project_resource_demands_project_role
+    ADD CONSTRAINT fk_proj_res_demands_project_role
     FOREIGN KEY (role_id) REFERENCES project_roles(id) ON DELETE RESTRICT;
