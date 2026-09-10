@@ -745,10 +745,10 @@ export default function ProjectView() {
                                 <button
                                     type="button"
                                     onClick={() => setDependencyModalOpen(true)}
-                                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
+                                    className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2 text-xs font-bold text-violet-700 shadow-2xs transition hover:bg-violet-100 hover:border-violet-300 active:scale-95 cursor-pointer"
                                     title="Khai báo phụ thuộc giữa các công việc (NCL-04-CN-004)"
                                 >
-                                    <GitCommit className="h-4 w-4 text-indigo-600" />
+                                    <GitCommit className="h-4 w-4 text-violet-600" />
                                     <span>Phụ thuộc công việc</span>
                                 </button>
                             </>

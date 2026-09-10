@@ -160,9 +160,9 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
       <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4 dark:border-gray-800">
-          <div className="flex items-center gap-2.5 text-indigo-600 dark:text-indigo-400">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800">
-              <GitCommit className="h-5 w-5" />
+          <div className="flex items-center gap-2.5 text-violet-600 dark:text-violet-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200 dark:border-violet-800">
+              <GitCommit className="h-5 w-5 text-violet-600 dark:text-violet-400" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -175,7 +175,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 transition"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 transition cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -200,7 +200,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
         {canManage && (
           <form onSubmit={handleCreate} className="mt-4 rounded-xl bg-slate-50 p-4 dark:bg-gray-800/60 border border-slate-200 dark:border-gray-700/60">
             <div className="flex items-center gap-2 mb-3">
-              <Folder className="h-4 w-4 text-indigo-500" />
+              <Folder className="h-4 w-4 text-violet-500" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-gray-300">
                 Khai báo phụ thuộc mới (WBS Tree View)
               </h3>
@@ -214,7 +214,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
                 <select
                   value={predecessorId}
                   onChange={(e) => setPredecessorId(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full rounded-xl border border-gray-300 p-2.5 text-xs font-medium dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  className="w-full rounded-xl border border-gray-300 p-2.5 text-xs font-medium dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition"
                 >
                   <option value="">-- Chọn công việc tiền đề --</option>
                   {Object.entries(groupedTasks).map(([catName, catTasks]) => (
@@ -229,9 +229,9 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
                 </select>
               </div>
 
-              <div className="flex justify-center text-indigo-500 hidden md:flex pt-4">
-                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50">
-                  <ArrowRight className="h-4 w-4" />
+              <div className="flex justify-center text-violet-500 hidden md:flex pt-4">
+                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-violet-100 dark:bg-violet-900/50">
+                  <ArrowRight className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                 </div>
               </div>
 
@@ -243,7 +243,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
                 <select
                   value={successorId}
                   onChange={(e) => setSuccessorId(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full rounded-xl border border-gray-300 p-2.5 text-xs font-medium dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  className="w-full rounded-xl border border-gray-300 p-2.5 text-xs font-medium dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition"
                 >
                   <option value="">-- Chọn công việc phụ thuộc --</option>
                   {Object.entries(groupedTasks).map(([catName, catTasks]) => (
@@ -263,7 +263,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 dark:shadow-none hover:bg-indigo-700 disabled:opacity-50 transition active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-200 dark:shadow-none hover:bg-violet-700 disabled:opacity-50 transition active:scale-95 cursor-pointer"
               >
                 <Plus className="h-4 w-4 stroke-[2.5]" />
                 {isSubmitting ? 'Đang lưu...' : 'Thêm phụ thuộc (Finish-to-Start)'}
@@ -287,7 +287,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
                   placeholder="Tìm theo task hoặc hạng mục..."
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 pl-8 pr-3 py-1.5 text-xs dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-gray-200 pl-8 pr-3 py-1.5 text-xs dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
             )}
@@ -308,7 +308,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
                 return (
                   <div
                     key={dep.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-800/80 hover:shadow-sm hover:border-indigo-200 dark:hover:border-indigo-900 transition"
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-800/80 hover:shadow-sm hover:border-violet-200 dark:hover:border-violet-900 transition"
                   >
                     <div className="flex flex-1 flex-col sm:flex-row items-start sm:items-center gap-3 text-xs w-full">
                       {/* Node Tiền đề */}
@@ -331,9 +331,9 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
                       </div>
 
                       {/* Icon liên kết */}
-                      <div className="flex items-center gap-1.5 self-center text-indigo-500 font-medium text-[10px] bg-indigo-50 dark:bg-indigo-950/80 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-800/80 shrink-0">
+                      <div className="flex items-center gap-1.5 self-center text-violet-700 dark:text-violet-300 font-semibold text-[10px] bg-violet-50 dark:bg-violet-950/80 px-2.5 py-1 rounded-full border border-violet-200 dark:border-violet-800/80 shrink-0">
                         <span>FS (Phải xong mới được bắt đầu)</span>
-                        <ArrowRight className="h-3.5 w-3.5" />
+                        <ArrowRight className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
                       </div>
 
                       {/* Node Phụ thuộc */}
