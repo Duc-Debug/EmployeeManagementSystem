@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -11,13 +13,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import com.hrm.employeemanagement.application.dto.project.CloseProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.CreateProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
 import com.hrm.employeemanagement.application.dto.project.ReopenProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.UpdateProjectCommand;
 import com.hrm.employeemanagement.application.dto.projecttemplate.CreateProjectFromTemplateCommand;
+import com.hrm.employeemanagement.application.dto.projecttemplate.ProjectTemplateDetailResult;
+import com.hrm.employeemanagement.application.dto.projecttemplate.ProjectTemplateSummaryResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.project.CloseProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
@@ -26,6 +29,7 @@ import com.hrm.employeemanagement.application.port.inbound.project.GetProjectLis
 import com.hrm.employeemanagement.application.port.inbound.project.ReopenProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase;
+import com.hrm.employeemanagement.application.port.inbound.projecttemplate.GetProjectTemplatesUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.CloseProjectRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.CreateProjectFromTemplateRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.CreateProjectRequest;
@@ -47,6 +51,7 @@ public class ProjectController {
         private final CreateProjectUseCase createProjectUseCase;
         private final UpdateProjectUseCase updateProjectUseCase;
         private final CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase;
+        private final GetProjectTemplatesUseCase getProjectTemplatesUseCase;
         private final CloseProjectUseCase closeProjectUseCase;
         private final ReopenProjectUseCase reopenProjectUseCase;
 
@@ -56,6 +61,7 @@ public class ProjectController {
                         CreateProjectUseCase createProjectUseCase,
                         UpdateProjectUseCase updateProjectUseCase,
                         CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase,
+                        GetProjectTemplatesUseCase getProjectTemplatesUseCase,
                         CloseProjectUseCase closeProjectUseCase,
                         ReopenProjectUseCase reopenProjectUseCase) {
                 this.getProjectListUseCase = getProjectListUseCase;
@@ -63,6 +69,7 @@ public class ProjectController {
                 this.createProjectUseCase = createProjectUseCase;
                 this.updateProjectUseCase = updateProjectUseCase;
                 this.createProjectFromTemplateUseCase = createProjectFromTemplateUseCase;
+                this.getProjectTemplatesUseCase = getProjectTemplatesUseCase;
                 this.closeProjectUseCase = closeProjectUseCase;
                 this.reopenProjectUseCase = reopenProjectUseCase;
         }
@@ -138,6 +145,25 @@ public class ProjectController {
                                 request.description());
                 ProjectResult result = updateProjectUseCase.updateProject(command);
                 return ResponseEntity.ok(ApiResponse.success("Cập nhật dự án thành công", result));
+        }
+
+        @GetMapping("/templates")
+        public ResponseEntity<ApiResponse<List<ProjectTemplateSummaryResult>>> getActiveProjectTemplates() {
+                List<ProjectTemplateSummaryResult> templates = getProjectTemplatesUseCase.getActiveTemplates();
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                "Lấy danh sách mẫu dự án thành công",
+                                                templates));
+        }
+
+        @GetMapping("/templates/{id}")
+        public ResponseEntity<ApiResponse<ProjectTemplateDetailResult>> getProjectTemplateDetail(
+                        @PathVariable Long id) {
+                ProjectTemplateDetailResult detail = getProjectTemplatesUseCase.getTemplateDetail(id);
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                "Lấy chi tiết mẫu dự án thành công",
+                                                detail));
         }
 
         @PostMapping("/{id}/close")
