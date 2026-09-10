@@ -10,11 +10,9 @@ import {
     LayoutTemplate,
     Sparkles,
     CheckCircle2,
-    Eye,
     ChevronDown,
     ChevronUp,
     ListTree,
-    Info,
     Loader2
 } from 'lucide-react';
 import {
