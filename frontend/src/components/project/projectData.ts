@@ -27,6 +27,7 @@ export interface TaskCategoryGroup {
 
 export interface ProjectMember {
     id: string;
+    employeeId?: number;
     name: string;
     role: string;
     avatar: string;
@@ -34,12 +35,16 @@ export interface ProjectMember {
     weeklyHours: Record<string, number>; // e.g. { W1: 40, W2: 35, W3: 20... }
 }
 
+
 export interface MonthWeek {
     key: string;
     label: string;
     dates: string;
     isCurrent: boolean;
+    year?: number;
+    weekNumber?: number;
 }
+
 
 export interface ProjectMonth {
     id: string;
@@ -47,30 +52,80 @@ export interface ProjectMonth {
     weeks: MonthWeek[];
 }
 
-export const INITIAL_MONTHS_LIST: ProjectMonth[] = [
-    {
-        id: '2026-09',
-        name: 'Tháng 09/2026',
-        weeks: [
-            { key: 'W1', label: 'Tuần 1', dates: '01/09 - 07/09', isCurrent: false },
-            { key: 'W2', label: 'Tuần 2', dates: '08/09 - 14/09', isCurrent: true },
-            { key: 'W3', label: 'Tuần 3', dates: '15/09 - 21/09', isCurrent: false },
-            { key: 'W4', label: 'Tuần 4', dates: '22/09 - 28/09', isCurrent: false },
-            { key: 'W5', label: 'Tuần 5', dates: '29/09 - 30/09', isCurrent: false }
-        ]
-    },
-    {
-        id: '2026-10',
-        name: 'Tháng 10/2026',
-        weeks: [
-            { key: 'W1', label: 'Tuần 1', dates: '01/10 - 07/10', isCurrent: false },
-            { key: 'W2', label: 'Tuần 2', dates: '08/10 - 14/10', isCurrent: false },
-            { key: 'W3', label: 'Tuần 3', dates: '15/10 - 21/10', isCurrent: false },
-            { key: 'W4', label: 'Tuần 4', dates: '22/10 - 28/10', isCurrent: false },
-            { key: 'W5', label: 'Tuần 5', dates: '29/10 - 31/10', isCurrent: false }
-        ]
+export function getIsoWeekNumber(date: Date): { year: number; weekNumber: number } {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNumber = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+    return { year: d.getUTCFullYear(), weekNumber };
+}
+
+export function generateProjectMonth(year: number, monthZeroIndexed: number): ProjectMonth {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const monthId = `${year}-${pad(monthZeroIndexed + 1)}`;
+    const monthName = `Tháng ${pad(monthZeroIndexed + 1)}/${year}`;
+
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const currentDate = today.getDate();
+
+    const lastDayOfMonth = new Date(year, monthZeroIndexed + 1, 0).getDate();
+    const weeks: MonthWeek[] = [];
+
+    let day = 1;
+    let weekIndex = 1;
+
+    while (day <= lastDayOfMonth) {
+        const startDay = day;
+        const endDay = Math.min(day + 6, lastDayOfMonth);
+        const middleDate = new Date(year, monthZeroIndexed, Math.min(startDay + 3, endDay));
+        const { year: isoYear, weekNumber } = getIsoWeekNumber(middleDate);
+
+        const isCurrent =
+            year === currentYear &&
+            monthZeroIndexed === currentMonth &&
+            currentDate >= startDay &&
+            currentDate <= endDay;
+
+        weeks.push({
+            key: `W${weekIndex}`,
+            label: `Tuần ${weekIndex}`,
+            dates: `${pad(startDay)}/${pad(monthZeroIndexed + 1)} - ${pad(endDay)}/${pad(monthZeroIndexed + 1)}`,
+            isCurrent,
+            year: isoYear,
+            weekNumber,
+        });
+
+        day = endDay + 1;
+        weekIndex++;
     }
-];
+
+    return {
+        id: monthId,
+        name: monthName,
+        weeks,
+    };
+}
+
+export function generateProjectMonthsAroundCurrent(spanMonths = 6): ProjectMonth[] {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const list: ProjectMonth[] = [];
+
+    for (let offset = 0; offset < spanMonths; offset++) {
+        const d = new Date(currentYear, currentMonth + offset, 1);
+        list.push(generateProjectMonth(d.getFullYear(), d.getMonth()));
+    }
+    return list;
+}
+
+export const INITIAL_MONTHS_LIST: ProjectMonth[] = generateProjectMonthsAroundCurrent();
+
+
+
 
 export const INITIAL_PROJECT_MEMBERS: ProjectMember[] = [
     {
