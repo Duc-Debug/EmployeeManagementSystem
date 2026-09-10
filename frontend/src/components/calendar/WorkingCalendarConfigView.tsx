@@ -8,8 +8,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  ShieldCheck,
-  Eye,
   Loader2,
   X,
   RotateCcw,
@@ -323,36 +321,11 @@ export default function WorkingCalendarConfigView() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header View */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full">
-              NCL-05-CN-001
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Lịch làm việc & Ngày lễ</span>
-          </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Khai báo lịch làm việc & Ngày lễ
           </h1>
-          <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Thiết lập các ngày làm việc trong tuần của công ty và danh mục ngày nghỉ lễ thường niên.
-            Dữ liệu được dùng làm căn cứ tự động khấu trừ giờ làm việc khi tính năng lực khả dụng theo quy tắc <strong>QTN-10</strong>.
-          </p>
-        </div>
-
-        {/* Role Access Indicator */}
-        <div className="flex items-center gap-2">
-          {canManage ? (
-            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold shadow-xs">
-              <ShieldCheck className="h-4 w-4 text-emerald-600" />
-              <span>Toàn quyền quản lý (HR / Quản trị viên)</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold shadow-xs">
-              <Eye className="h-4 w-4 text-amber-600" />
-              <span>Chế độ xem toàn công ty (Read-only)</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -751,9 +724,6 @@ export default function WorkingCalendarConfigView() {
                     />
                     <span className="text-xs text-slate-500 font-medium">giờ (mặc định: 8 giờ)</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Số giờ sẽ tự động trừ vào công suất tuần của nhân sự theo quy tắc QTN-10.
-                  </p>
                 </div>
               </div>
 
@@ -804,7 +774,7 @@ export default function WorkingCalendarConfigView() {
                 <strong className="text-slate-900">{formatDateDisplay(deletingHoliday.holidayDate)}</strong>?
               </p>
               <p className="text-[11px] text-slate-400 mt-2">
-                Hệ thống sẽ cập nhật lại tính toán giờ làm việc khả dụng và lưu vết kiểm toán (TC-04).
+                Hệ thống sẽ cập nhật lại tính toán giờ làm việc khả dụng.
               </p>
             </div>
 
