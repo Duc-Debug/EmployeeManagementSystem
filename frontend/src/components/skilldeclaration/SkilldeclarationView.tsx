@@ -27,7 +27,7 @@ const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon; allo
     { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05'] },
     { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05'] },
     { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen, allowedRoles: ['VT-01', 'VT-05', 'VT-06'] },
-    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03', 'VT-05'] },
+    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-02', 'VT-03', 'VT-05'] },
 ];
 
 
@@ -333,7 +333,7 @@ export default function SkilldeclarationView({
                 {activeTab === 'declare' && (
                     <SkillsTable
                         skills={skills}
-                        currentRole="VT-04"
+                        currentRole={roleCode as any}
                         highlightSkillId={highlightSkillId}
                         demoEmpty={demoEmpty}
                         onToggleDemoEmpty={toggleDemoEmpty}

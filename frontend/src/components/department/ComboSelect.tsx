@@ -20,6 +20,7 @@ interface ComboSelectProps {
     /** Ẩn ô tìm kiếm - dùng khi danh sách lựa chọn ngắn (VD: loại phân cấp) */
     hideSearch?: boolean;
     icon?: ReactNode;
+    buttonClassName?: string;
 }
 
 /**
@@ -37,6 +38,7 @@ export default function ComboSelect({
                                         allowClear = false,
                                         hideSearch = false,
                                         icon,
+                                        buttonClassName,
                                     }: ComboSelectProps) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
@@ -64,17 +66,18 @@ export default function ComboSelect({
     }, []);
 
     return (
-        <div className="relative" ref={rootRef}>
+        <div className="relative w-full" ref={rootRef}>
             <button
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen((o) => !o)}
                 className={[
-                    "flex w-full items-center justify-between gap-2 rounded-2xl border px-4 py-2.5 text-xs font-semibold outline-none transition",
-                    disabled
-                        ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                        : "border-slate-200 bg-slate-50/60 text-slate-800 hover:bg-white",
-                    open ? "border-indigo-500 bg-white ring-2 ring-indigo-100" : "",
+                    "flex w-full items-center justify-between gap-2 text-xs font-semibold outline-none transition",
+                    buttonClassName
+                        ? buttonClassName
+                        : "rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-slate-800 hover:bg-white",
+                    disabled ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400" : "",
+                    open ? "border-indigo-500 ring-2 ring-indigo-100" : "",
                 ].join(" ")}
             >
                 <span className="flex min-w-0 items-center gap-2">
@@ -128,11 +131,11 @@ export default function ComboSelect({
                                         setQuery("");
                                     }}
                                     className={[
-                                        "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition hover:bg-slate-50",
-                                        opt.id === value ? "bg-indigo-50/70 font-semibold text-indigo-700" : "text-slate-700",
+                                        "flex w-[calc(100%-0.5rem)] items-center justify-between gap-2 mx-1 px-3 py-2 text-left text-xs transition rounded-xl hover:bg-slate-100/80",
+                                        opt.id === value ? "bg-indigo-50 font-semibold text-indigo-700" : "text-slate-700",
                                     ].join(" ")}
                                 >
-                                    <span className="min-w-0">
+                                    <span className="min-w-0 flex-1">
                                         <span className="block truncate">{opt.label}</span>
                                         {opt.sublabel && (
                                             <span className="block truncate text-[10px] font-normal text-slate-400">

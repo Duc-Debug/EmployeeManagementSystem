@@ -1,36 +1,58 @@
 import { useState } from "react";
-import { Lock, Eye, EyeOff, UserCheck, X } from "lucide-react";
+import { Lock, Eye, EyeOff, UserCheck, X, Loader2 } from "lucide-react";
+import { changePassword } from "@/lib/api/auth";
+
 interface ChangePasswordModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
 }
+
 export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: ChangePasswordModalProps) {
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     if (!isOpen) return null;
-    const handleSubmit = (e: React.FormEvent) => {
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+
         if (!currentPassword || !newPassword || !confirmPassword) {
             setError("Vui lòng điền đầy đủ các trường mật khẩu.");
             return;
         }
+
         if (newPassword !== confirmPassword) {
             setError("Mật khẩu mới và xác nhận không khớp.");
             return;
         }
+
         if (newPassword.length < 6) {
             setError("Mật khẩu phải chứa ít nhất 6 ký tự.");
             return;
         }
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-        onSuccess();
+
+        try {
+            setIsSubmitting(true);
+            await changePassword({
+                currentPassword,
+                newPassword,
+                confirmPassword,
+            });
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+            onSuccess();
+        } catch (err: any) {
+            setError(err?.message || "Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fadeIn">
@@ -103,9 +125,18 @@ export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: Chan
                         </button>
                         <button
                             type="submit"
-                            className="flex items-center gap-1.5 rounded-xl bg-[#4338ca] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#3730a3] transition"
+                            disabled={isSubmitting}
+                            className="flex items-center gap-1.5 rounded-xl bg-[#4338ca] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#3730a3] transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <UserCheck className="h-3.5 w-3.5" /> Cập nhật
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang cập nhật...
+                                </>
+                            ) : (
+                                <>
+                                    <UserCheck className="h-3.5 w-3.5" /> Cập nhật
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>

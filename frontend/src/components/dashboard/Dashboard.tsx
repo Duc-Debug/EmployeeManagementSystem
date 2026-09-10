@@ -9,10 +9,12 @@ import KpiStatsSection from "../kpi/KpiStatsSection";
 import CalendarView from "../calendar/CalendarView";
 import DepartmentsView from "../department/DepartmentsView";
 import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
+import HrProfilePage from "../hrprofile/HrProfilePage";
 import AttendanceView from "../attendance/AttendanceView";
 import SkilldeclarationView from "../skilldeclaration/SkilldeclarationView";
-import ProjectView from "../project/ProjectView";
+import ProjectView from "../task/ProjectView";
 import AccessControlView from "../access/AccessControlView";
+import LeaveManagementView from "../leave/LeaveManagementView";
 import type { AttendanceRecord } from "@/lib/hr-data";
 import { useAuthUser } from "@/lib/auth-session";
 import { getUsers } from "@/lib/api/users";
@@ -31,11 +33,12 @@ export default function Dashboard() {
     // Đồng bộ URL trình duyệt với tab tương ứng
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
-        if (path.includes("employee") || path.includes("nhan-su")) return "employees";
+        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
+        if (path.includes("hrprofile") || path.includes("ho-so")) return "hrprofile";
+        if (path.includes("user") || path.includes("tai-khoan") || path.includes("employee") || path.includes("nhan-su")) return "users";
         if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
         if (path.includes("attendance") || path.includes("cham-cong")) return "attendance";
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
-        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
         if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
@@ -88,11 +91,36 @@ export default function Dashboard() {
             hour: "2-digit",
             minute: "2-digit",
         });
-        setAttendanceRecords((prev) =>
-            prev.map((rec) =>
-                rec.id === CURRENT_EMPLOYEE_ID ? { ...rec, inTime: time, status: "Đúng giờ" } : rec
-            )
-        );
+        const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
+        const currentName = user?.fullName || user?.username || "Tôi (Nhân viên)";
+        const currentDept = user?.orgUnitName || "Phòng chuyên môn";
+
+        setAttendanceRecords((prev) => {
+            const index = prev.findIndex(
+                (rec) =>
+                    rec.id === currentIdStr ||
+                    rec.id === user?.employeeCode ||
+                    rec.name.toLowerCase() === currentName.toLowerCase()
+            );
+            if (index >= 0) {
+                const next = [...prev];
+                next[index] = { ...next[index], inTime: time, status: "Đúng giờ" };
+                return next;
+            }
+            return [
+                {
+                    id: user?.employeeCode || currentIdStr,
+                    name: currentName,
+                    dept: currentDept,
+                    inTime: time,
+                    outTime: "--:--",
+                    hours: "8.0",
+                    ot: "0",
+                    status: "Đúng giờ",
+                },
+                ...prev,
+            ];
+        });
         return time;
     };
 
@@ -102,8 +130,17 @@ export default function Dashboard() {
             hour: "2-digit",
             minute: "2-digit",
         });
+        const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
+        const currentName = user?.fullName || user?.username || "Tôi (Nhân viên)";
+
         setAttendanceRecords((prev) =>
-            prev.map((rec) => (rec.id === CURRENT_EMPLOYEE_ID ? { ...rec, outTime: time } : rec))
+            prev.map((rec) =>
+                rec.id === currentIdStr ||
+                rec.id === user?.employeeCode ||
+                rec.name.toLowerCase() === currentName.toLowerCase()
+                    ? { ...rec, outTime: time }
+                    : rec
+            )
         );
         return true;
     };
@@ -152,7 +189,9 @@ export default function Dashboard() {
                             </div>
                         ) : (
                             <>
-                                {activeTab === "employees" && <EmployeeProfilePage />}
+                                {activeTab === "users" && <EmployeeProfilePage />}
+
+                                {activeTab === "hrprofile" && <HrProfilePage />}
 
                                 {activeTab === "attendance" && (
                                     <AttendanceView
@@ -171,7 +210,9 @@ export default function Dashboard() {
 
                                 {activeTab === "access" && <AccessControlView />}
 
-                                {(activeTab === "overview" || activeTab === "leave" || activeTab === "reports" || activeTab === "settings") && (
+                                {activeTab === "leave" && <LeaveManagementView />}
+
+                                {(activeTab === "overview" || activeTab === "reports" || activeTab === "settings") && (
                                     <div>
                                         {/* Header Overview */}
                                         <DashboardHeader />
