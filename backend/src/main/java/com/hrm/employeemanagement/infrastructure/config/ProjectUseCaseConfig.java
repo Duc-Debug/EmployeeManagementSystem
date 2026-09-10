@@ -8,6 +8,8 @@ import com.hrm.employeemanagement.application.port.inbound.project.CreateProject
 import com.hrm.employeemanagement.application.port.inbound.project.ReopenProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase;
+import com.hrm.employeemanagement.application.port.inbound.projecttemplate.GetProjectTemplatesUseCase;
+import com.hrm.employeemanagement.application.service.project.GetProjectTemplatesService;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
@@ -72,7 +74,8 @@ public class ProjectUseCaseConfig {
                                 saveAuditLogPort,
                                 saveDeniedAuditLogPort,
                                 authorizationService);
-                TransactionalCreateProjectUseCase transactionalUseCase = new TransactionalCreateProjectUseCase(pureService);
+                TransactionalCreateProjectUseCase transactionalUseCase = new TransactionalCreateProjectUseCase(
+                                pureService);
                 return new RetryableCreateProjectUseCaseDecorator(transactionalUseCase);
         }
 
@@ -119,8 +122,15 @@ public class ProjectUseCaseConfig {
                                 saveAuditLogPort,
                                 saveDeniedAuditLogPort,
                                 authorizationService);
-                TransactionalCreateProjectFromTemplateUseCase transactionalUseCase = new TransactionalCreateProjectFromTemplateUseCase(pureService);
+                TransactionalCreateProjectFromTemplateUseCase transactionalUseCase = new TransactionalCreateProjectFromTemplateUseCase(
+                                pureService);
                 return new RetryableCreateProjectFromTemplateUseCaseDecorator(transactionalUseCase);
+        }
+
+        @Bean
+        public GetProjectTemplatesUseCase getProjectTemplatesUseCase(
+                        LoadProjectTemplatePort loadProjectTemplatePort) {
+                return new GetProjectTemplatesService(loadProjectTemplatePort);
         }
 
         @Bean
