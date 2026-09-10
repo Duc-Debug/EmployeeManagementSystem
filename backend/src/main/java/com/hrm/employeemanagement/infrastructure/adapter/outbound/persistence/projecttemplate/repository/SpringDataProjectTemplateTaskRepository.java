@@ -8,4 +8,5 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.pr
 
 public interface SpringDataProjectTemplateTaskRepository extends JpaRepository<ProjectTemplateTaskJpaEntity, Long> {
     List<ProjectTemplateTaskJpaEntity> findByTemplateIdOrderBySortOrderAscIdAsc(Long templateId);
+    List<ProjectTemplateTaskJpaEntity> findByTemplateIdInOrderBySortOrderAscIdAsc(java.util.Collection<Long> templateIds);
 }
