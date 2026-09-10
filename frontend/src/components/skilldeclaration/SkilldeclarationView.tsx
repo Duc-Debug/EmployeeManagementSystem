@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { getUsers } from '@/lib/api/users';
 import { ClipboardList, Search as SearchIcon, ShieldCheck, LayoutGrid, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -9,7 +8,7 @@ import {
 } from './Components.tsx';
 import { ToastList } from './ToastNotification.tsx';
 import type { DepartmentItem, ResourceEmployee } from './SkillresourceSearch.tsx';
-import { INITIAL_SKILLS, SKILL_CATALOG, INITIAL_APPROVAL_REQUESTS } from './Types.ts';
+import { INITIAL_SKILLS, SKILL_CATALOG } from './Types.ts';
 import type { CatalogSkill, DeclaredSkill, FormMode, SkillPayload, ToastItem, PendingApprovalSkill } from './Types.ts';
 import SkillApproveTable from './SkillApproveTable.tsx';
 import SkillMatrixView from './SkillMatrixView.tsx';
@@ -76,16 +75,14 @@ export default function SkilldeclarationView({
     const [toasts, setToasts] = useState<ToastItem[]>([]);
 
     // ── Tab Duyệt kỹ năng (NCL-02-CN-006) ───────────────────────
-    const [approvalRequests, setApprovalRequests] = useState<PendingApprovalSkill[]>(
-        INITIAL_APPROVAL_REQUESTS
-    );
+    const [approvalRequests, setApprovalRequests] = useState<PendingApprovalSkill[]>([]);
     const [isLoadingApprovals, setIsLoadingApprovals] = useState(false);
 
     const loadPendingApprovals = async () => {
         setIsLoadingApprovals(true);
         try {
             const apiItems = await getPendingEmployeeSkills();
-            if (Array.isArray(apiItems) && apiItems.length > 0) {
+            if (Array.isArray(apiItems)) {
                 const mapped: PendingApprovalSkill[] = apiItems.map((item) => ({
                     id: item.id,
                     employeeName: item.employeeName,
@@ -99,27 +96,11 @@ export default function SkilldeclarationView({
                 }));
                 setApprovalRequests(mapped);
             } else {
-                // Fallback nạp danh sách thực từ users nếu backend chưa có request nào
-                const res = await getUsers(0, 10);
-                if (res?.content && res.content.length > 0) {
-                    const sampleSkills = ['React.js', 'Java Spring Boot', 'PostgreSQL', 'Docker', 'AWS', 'Node.js'];
-                    const sampleCats = ['Frontend', 'Backend', 'Database', 'DevOps', 'DevOps', 'Backend'];
-                    const fetchedRequests: PendingApprovalSkill[] = res.content.slice(0, 6).map((u, idx) => ({
-                        id: u.id,
-                        employeeName: u.fullName || u.username,
-                        employeeCode: u.employeeId ? `EMP-00${u.employeeId}` : `EMP-00${u.id}`,
-                        orgUnitName: u.orgUnitName || 'Công Ty Cổ Phần Software',
-                        skillName: sampleSkills[idx % sampleSkills.length],
-                        category: sampleCats[idx % sampleCats.length],
-                        level: (idx % 3) + 3,
-                        years: (idx % 4) + 1,
-                        status: idx % 2 === 0 ? 'pending' : 'approved',
-                    }));
-                    setApprovalRequests(fetchedRequests);
-                }
+                setApprovalRequests([]);
             }
         } catch (err) {
-            console.warn('Không thể tải danh sách kỹ năng chờ duyệt từ API, dùng danh sách mẫu:', err);
+            console.error('Không thể tải danh sách kỹ năng chờ duyệt từ API:', err);
+            setApprovalRequests([]);
         } finally {
             setIsLoadingApprovals(false);
         }
