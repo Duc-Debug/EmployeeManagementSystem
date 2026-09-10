@@ -96,7 +96,7 @@ export function ProjectCreateModal({
                 <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4">
                     <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
                         <FolderPlus className="h-4 w-4 text-indigo-600" />
-                        Tạo Dự Án Mới (Lưu vào Database)
+                        Tạo Dự Án Mới
                     </h3>
                     <button
                         type="button"
@@ -158,7 +158,7 @@ export function ProjectCreateModal({
                             >
                                 <option value="">-- Chưa gán PM --</option>
                                 {members.map((m) => {
-                                    const numId = parseInt(m.id.replace(/\D/g, ''), 10);
+                                    const numId = m.employeeId || parseInt(m.id.replace(/\D/g, ''), 10);
                                     return (
                                         <option key={m.id} value={numId || ''}>
                                             {m.name} ({m.role})
@@ -234,7 +234,7 @@ export function ProjectCreateModal({
                             disabled={isSubmitting}
                             className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-100 transition hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
                         >
-                            {isSubmitting ? 'Đang tạo...' : 'Tạo Dự Án Thật'}
+                            {isSubmitting ? 'Đang tạo...' : 'Tạo Dự Án'}
                         </button>
                     </div>
                 </form>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getUsers } from '@/lib/api/users';
+import { getEmployees } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
 import { allocateProjectHours, getProjectWeeklyAllocations } from '@/lib/api/allocations';
 import {
@@ -233,26 +234,44 @@ export default function ProjectView() {
         showToast(`Nhân bản thành công ${result.totalClonedTasks} công việc sang dự án!`, 'success');
     };
 
-    // 1. Tải danh sách nhân sự thật từ API
+    // 1. Tải danh sách nhân sự thật từ API (sử dụng getEmployees có quyền cho mọi vai trò)
     useEffect(() => {
-        getUsers(0, 100)
+        getEmployees(1, 100)
             .then((res) => {
                 if (res?.content && res.content.length > 0) {
-                    const fetchedMembers: ProjectMember[] = res.content
-                      .filter((u) => u.employeeId !== null)
-                      .map((u) => ({
-                        id: `u-${u.employeeId}`,
-                        name: u.fullName || u.username,
-                        role: u.roleCode || 'Nhân viên',
+                    const fetchedMembers: ProjectMember[] = res.content.map((emp) => ({
+                        id: `u-${emp.id}`,
+                        employeeId: emp.id,
+                        name: emp.fullName || emp.employeeCode,
+                        role: emp.professionalRole || 'Nhân viên',
                         avatar: '',
-                        capacity: 40,
+                        capacity: emp.standardHoursPerWeek || 40,
                         weeklyHours: {},
                     }));
                     setAllEmployees(fetchedMembers);
                 }
             })
-            .catch((err) => {
-                console.warn('Failed to load employees for the selected project:', err);
+            .catch(() => {
+                getUsers(0, 100)
+                    .then((res) => {
+                        if (res?.content && res.content.length > 0) {
+                            const fetchedMembers: ProjectMember[] = res.content
+                              .filter((u) => u.employeeId !== null)
+                              .map((u) => ({
+                                id: `u-${u.employeeId}`,
+                                employeeId: u.employeeId ?? undefined,
+                                name: u.fullName || u.username,
+                                role: u.roleCode || 'Nhân viên',
+                                avatar: '',
+                                capacity: 40,
+                                weeklyHours: {},
+                            }));
+                            setAllEmployees(fetchedMembers);
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn('Failed to load employees for the project view:', err);
+                    });
             });
     }, []);
 
