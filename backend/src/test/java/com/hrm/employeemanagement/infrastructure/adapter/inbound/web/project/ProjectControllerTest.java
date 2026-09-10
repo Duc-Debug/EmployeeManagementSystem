@@ -56,6 +56,9 @@ class ProjectControllerTest {
     @Mock
     private com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.projecttemplate.GetProjectTemplatesUseCase getProjectTemplatesUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectController controller =
@@ -64,7 +67,8 @@ class ProjectControllerTest {
                         getProjectDetailUseCase,
                         createProjectUseCase,
                         updateProjectUseCase,
-                        createProjectFromTemplateUseCase
+                        createProjectFromTemplateUseCase,
+                        getProjectTemplatesUseCase
                 );
 
         mockMvc = MockMvcBuilders
@@ -365,6 +369,54 @@ class ProjectControllerTest {
         )
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/projects/templates tra ve danh sach template active")
+    void testGetActiveTemplates() throws Exception {
+        com.hrm.employeemanagement.application.dto.projecttemplate.ProjectTemplateSummaryResult item =
+                new com.hrm.employeemanagement.application.dto.projecttemplate.ProjectTemplateSummaryResult(
+                        1L,
+                        "TPL-DEV-001",
+                        "Mẫu dự án triển khai phần mềm",
+                        "Mô tả mẫu",
+                        true,
+                        new java.math.BigDecimal("120.00"),
+                        3,
+                        6
+                );
+        org.mockito.Mockito.when(getProjectTemplatesUseCase.getActiveTemplates()).thenReturn(List.of(item));
+
+        mockMvc.perform(get("/api/v1/projects/templates"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].id").value(1))
+                .andExpect(jsonPath("$.data[0].templateCode").value("TPL-DEV-001"))
+                .andExpect(jsonPath("$.data[0].totalEstimatedHours").value(120.00));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/projects/templates/{id} tra ve chi tiet template")
+    void testGetTemplateDetail() throws Exception {
+        com.hrm.employeemanagement.application.dto.projecttemplate.ProjectTemplateDetailResult detail =
+                new com.hrm.employeemanagement.application.dto.projecttemplate.ProjectTemplateDetailResult(
+                        1L,
+                        "TPL-DEV-001",
+                        "Mẫu dự án triển khai phần mềm",
+                        "Mô tả mẫu",
+                        true,
+                        new java.math.BigDecimal("120.00"),
+                        3,
+                        6,
+                        List.of()
+                );
+        org.mockito.Mockito.when(getProjectTemplatesUseCase.getTemplateDetail(1L)).thenReturn(detail);
+
+        mockMvc.perform(get("/api/v1/projects/templates/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.name").value("Mẫu dự án triển khai phần mềm"));
     }
 
     private ProjectResult projectResult(Long id) {
