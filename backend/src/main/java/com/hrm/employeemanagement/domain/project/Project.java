@@ -3,7 +3,6 @@ package com.hrm.employeemanagement.domain.project;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Objects;
 
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
@@ -25,6 +24,7 @@ public class Project {
     private BigDecimal estimatedHours;
     private String description;
     private Long version;
+    private Integer taskSeqCounter;
 
     public Project(
             ProjectId id,
@@ -41,11 +41,46 @@ public class Project {
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             Long version) {
+        this(
+                id,
+                projectCode,
+                projectName,
+                orgUnitId,
+                managerId,
+                startDate,
+                endDate,
+                estimatedHours,
+                description,
+                status,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version,
+                0);
+    }
+
+    public Project(
+            ProjectId id,
+            String projectCode,
+            String projectName,
+            Long orgUnitId,
+            EmployeeId managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description,
+            ProjectStatus status,
+            UserId createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Integer taskSeqCounter) {
         validateProjectCode(projectCode);
         validateProjectName(projectName);
         validateOrgUnitId(orgUnitId);
         validateProjectDates(startDate, endDate);
         validateEstimatedHours(estimatedHours);
+        validateDescription(description);
         this.id = id;
         this.projectCode = projectCode.trim();
         this.projectName = projectName.trim();
@@ -60,6 +95,7 @@ public class Project {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+        this.taskSeqCounter = taskSeqCounter != null ? taskSeqCounter : 0;
     }
 
     public static Project createNew(
@@ -72,7 +108,7 @@ public class Project {
             BigDecimal estimatedHours,
             String description,
             UserId createdBy) {
-                if (createdBy == null) {
+        if (createdBy == null) {
             throw new InvalidProjectDataException("Người tạo dự án không được để trống");
         }
         return new Project(
@@ -91,6 +127,39 @@ public class Project {
                 null,
                 null // version ban đầu
         );
+    }
+
+    /**
+     * Cập nhật thông tin dự án (Chỉ cho phép khi dự án đang ở trạng thái ACTIVE).
+     */
+    public void updateInfo(
+            String projectName,
+            EmployeeId managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description) {
+        if (this.status != ProjectStatus.ACTIVE) {
+            throw new InvalidProjectDataException("Chỉ có thể chỉnh sửa thông tin dự án đang ở trạng thái hoạt động");
+        }
+        validateProjectName(projectName);
+        validateProjectDates(startDate, endDate);
+        validateEstimatedHours(estimatedHours);
+        validateDescription(description);
+        this.projectName = projectName.trim();
+        this.managerId = managerId;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
+        this.description = description != null ? description.trim() : null;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Kiểm tra PM phụ trách dự án
+     */
+    public boolean isManagedBy(EmployeeId employeeId) {
+        return this.managerId != null && this.managerId.equals(employeeId);
     }
 
     // ======validation====
@@ -136,13 +205,54 @@ public class Project {
         }
     }
 
+    private static final BigDecimal MAX_ESTIMATED_HOURS = new BigDecimal("99999999.99");
+
     /**
-     * Kiểm tra tổng giờ dự kiến: không được là số âm.
+     * Kiểm tra tổng giờ dự kiến: không được là số âm, không vượt quá giới hạn DECIMAL(10,2), và tối đa 2 chữ số thập phân.
      */
     private void validateEstimatedHours(BigDecimal hours) {
-        if (hours != null && hours.compareTo(BigDecimal.ZERO) < 0) {
-            throw new InvalidProjectDataException("Tổng giờ dự kiến không được nhỏ hơn 0");
+        if (hours != null) {
+            if (hours.compareTo(BigDecimal.ZERO) < 0) {
+                throw new InvalidProjectDataException("Tổng giờ dự kiến không được nhỏ hơn 0");
+            }
+            if (hours.compareTo(MAX_ESTIMATED_HOURS) > 0) {
+                throw new InvalidProjectDataException("Tổng giờ dự kiến không được vượt quá 99,999,999.99");
+            }
+            if (hours.compareTo(BigDecimal.ZERO) > 0 && hours.stripTrailingZeros().scale() > 2) {
+                throw new InvalidProjectDataException("Tổng giờ dự kiến chỉ được có tối đa 2 chữ số thập phân");
+            }
         }
+    }
+
+    /**
+     * Kiểm tra mô tả dự án: không được vượt quá 2000 ký tự.
+     */
+    private void validateDescription(String description) {
+        if (description != null && description.trim().length() > 2000) {
+            throw new InvalidProjectDataException("Mô tả dự án không được vượt quá 2000 ký tự");
+        }
+    }
+
+
+    public void close() {
+        if (this.status == ProjectStatus.CLOSED) {
+            throw new InvalidProjectDataException("Dự án đã ở trạng thái đóng từ trước");
+        }
+        this.status = ProjectStatus.CLOSED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void activate() {
+        this.status = ProjectStatus.ACTIVE;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isActive() {
+        return this.status == ProjectStatus.ACTIVE;
+    }
+
+    public boolean isClosed() {
+        return this.status == ProjectStatus.CLOSED;
     }
 
     public ProjectId getId() {
@@ -213,4 +323,16 @@ public class Project {
         return description;
     }
 
+    public Integer getTaskSeqCounter() {
+        return taskSeqCounter != null ? taskSeqCounter : 0;
+    }
+
+    public int nextTaskSequence() {
+        if (this.taskSeqCounter == null) {
+            this.taskSeqCounter = 0;
+        }
+        this.taskSeqCounter++;
+        this.updatedAt = LocalDateTime.now();
+        return this.taskSeqCounter;
+    }
 }

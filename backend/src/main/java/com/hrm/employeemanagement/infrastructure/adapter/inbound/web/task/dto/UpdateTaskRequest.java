@@ -1,0 +1,53 @@
+package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task.dto;
+
+import java.math.BigDecimal;
+
+import com.hrm.employeemanagement.application.dto.task.UpdateTaskCommand;
+import com.hrm.employeemanagement.domain.task.TaskStatus;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Size;
+
+public record UpdateTaskRequest(
+        /**
+         * ID công việc cha: null = giữ nguyên; 0 hoặc <= 0 = đưa về root (không có cha); > 0 = chuyển sang cha mới
+         */
+        Long parentId,
+        /**
+         * Tên hạng mục / công việc: null = giữ nguyên; nếu truyền vào thì không được rỗng
+         */
+        @Size(max = 255, message = "Tên hạng mục / công việc không được vượt quá 255 ký tự")
+        String name,
+        /**
+         * Mô tả công việc: null = giữ nguyên; chuỗi rỗng "" = xóa mô tả về null
+         */
+        @Size(max = 2000, message = "Mô tả công việc không được vượt quá 2000 ký tự")
+        String description,
+        /**
+         * ID nhân viên thực hiện: null = giữ nguyên; 0 hoặc <= 0 = hủy phân công (unassign); > 0 = gán người mới
+         */
+        Long assigneeId,
+        @DecimalMin(value = "0.0", inclusive = true, message = "Thời gian dự kiến không được nhỏ hơn 0")
+        @Digits(integer = 8, fraction = 2, message = "Thời gian dự kiến chỉ được có tối đa 8 chữ số phần nguyên và 2 chữ số phần thập phân")
+        BigDecimal estimatedHours,
+        @jakarta.validation.constraints.Min(value = 0, message = "Thứ tự sắp xếp không được nhỏ hơn 0")
+        Integer sortOrder,
+        /**
+         * Trạng thái công việc: null = giữ nguyên; TODO, IN_PROGRESS, DONE, CANCELLED
+         */
+        TaskStatus status) {
+
+    public UpdateTaskCommand toCommand(Long projectId, Long taskId) {
+        return new UpdateTaskCommand(
+                projectId,
+                taskId,
+                parentId,
+                name,
+                description,
+                assigneeId,
+                estimatedHours,
+                sortOrder,
+                status);
+    }
+}

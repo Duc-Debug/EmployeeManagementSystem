@@ -38,6 +38,16 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
         }
 
         @Override
+        public Optional<Project> findByIdForUpdate(ProjectId id) {
+                if (id == null || id.value() == null) {
+                        return Optional.empty();
+                }
+
+                return projectRepository.findByIdForUpdate(id.value())
+                                .map(mapper::toDomain);
+        }
+
+        @Override
         public List<Project> findAll(
                         int page,
                         int size) {

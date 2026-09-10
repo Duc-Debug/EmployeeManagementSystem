@@ -14,8 +14,58 @@ public class EmployeeSkill {
     private Long approvedBy;
     private LocalDateTime approvedAt;
     private String rejectionReason;
+    private String reviewNotes;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private final Long version;
+
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            ProficiencyLevel proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            String reviewNotes,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, null);
+    }
+
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            ProficiencyLevel proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            String reviewNotes,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
+        validateInputs(employeeId, skillId, proficiencyLevel, yearsOfExperience);
+        this.id = id;
+        this.employeeId = employeeId;
+        this.skillId = skillId;
+        this.proficiencyLevel = proficiencyLevel;
+        this.yearsOfExperience = yearsOfExperience;
+        this.status = status != null ? status : SkillStatus.PENDING;
+        this.approvedBy = approvedBy;
+        this.approvedAt = approvedAt;
+        this.rejectionReason = rejectionReason;
+        this.reviewNotes = reviewNotes;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.updatedAt = updatedAt != null ? updatedAt : LocalDateTime.now();
+        this.version = version;
+    }
 
     public EmployeeSkill(
             Long id,
@@ -30,18 +80,7 @@ public class EmployeeSkill {
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
-        validateInputs(employeeId, skillId, proficiencyLevel, yearsOfExperience);
-        this.id = id;
-        this.employeeId = employeeId;
-        this.skillId = skillId;
-        this.proficiencyLevel = proficiencyLevel;
-        this.yearsOfExperience = yearsOfExperience;
-        this.status = status != null ? status : SkillStatus.PENDING;
-        this.approvedBy = approvedBy;
-        this.approvedAt = approvedAt;
-        this.rejectionReason = rejectionReason;
-        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
-        this.updatedAt = updatedAt != null ? updatedAt : LocalDateTime.now();
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, null, createdAt, updatedAt);
     }
 
     public EmployeeSkill(
@@ -57,7 +96,42 @@ public class EmployeeSkill {
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
-        this(id, employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, createdAt, updatedAt);
+        this(id, employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, null, createdAt, updatedAt);
+    }
+
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            int proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            String reviewNotes,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {
+        this(id, employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, null);
+    }
+
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            int proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            String reviewNotes,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
+        this(id, employeeId, skillId, ProficiencyLevel.fromValue(proficiencyLevel), yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, version);
     }
 
     /**
@@ -100,16 +174,49 @@ public class EmployeeSkill {
     }
 
     /**
-     * Phê duyệt kỹ năng (Dành cho RM / VT-03)
+     * Phê duyệt kỹ năng (Dành cho RM / VT-03) - giữ nguyên mức tự khai
      */
-    public void approve(Long reviewerId) {
+    public void approve(Long reviewerId, String reviewNotes) {
         if (reviewerId == null) {
             throw new IllegalArgumentException("Người duyệt không được để trống");
+        }
+        if (this.status != SkillStatus.PENDING) {
+            throw new IllegalStateException("Chỉ có thể xác nhận kỹ năng đang ở trạng thái chờ duyệt (PENDING)");
         }
         this.status = SkillStatus.APPROVED;
         this.approvedBy = reviewerId;
         this.approvedAt = LocalDateTime.now();
         this.rejectionReason = null;
+        this.reviewNotes = reviewNotes;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void approve(Long reviewerId) {
+        approve(reviewerId, null);
+    }
+
+    /**
+     * Điều chỉnh mức thành thạo và phê duyệt (Dành cho RM / VT-03)
+     */
+    public void adjustAndApprove(Long reviewerId, ProficiencyLevel newProficiencyLevel, String reviewNotes) {
+        if (reviewerId == null) {
+            throw new IllegalArgumentException("Người duyệt không được để trống");
+        }
+        if (newProficiencyLevel == null) {
+            throw new IllegalArgumentException("Mức thành thạo mới không được để trống");
+        }
+        if (this.status != SkillStatus.PENDING) {
+            throw new IllegalStateException("Chỉ có thể xác nhận kỹ năng đang ở trạng thái chờ duyệt (PENDING)");
+        }
+        if (reviewNotes == null || reviewNotes.trim().isEmpty()) {
+            throw new IllegalArgumentException("Bắt buộc nhập ghi chú khi điều chỉnh mức thành thạo");
+        }
+        this.proficiencyLevel = newProficiencyLevel;
+        this.status = SkillStatus.APPROVED;
+        this.approvedBy = reviewerId;
+        this.approvedAt = LocalDateTime.now();
+        this.rejectionReason = null;
+        this.reviewNotes = reviewNotes.trim();
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -194,11 +301,19 @@ public class EmployeeSkill {
         return rejectionReason;
     }
 
+    public String getReviewNotes() {
+        return reviewNotes;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 }

@@ -80,7 +80,6 @@ public class EmployeeSkillApprovalController {
 
         return ResponseEntity.ok(ApiResponse.success("Xác nhận mức thành thạo thành công", response));
     }
-
     /**
      * API từ chối yêu cầu khai báo kỹ năng kèm lý do (NCL-02-CN-006)
      */

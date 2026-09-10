@@ -7,6 +7,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.RoleResult;
+import com.hrm.employeemanagement.application.dto.user.UpdateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
@@ -15,6 +16,7 @@ import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCa
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserUseCase;
 import com.hrm.employeemanagement.application.service.user.UserService;
 import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
 
@@ -25,7 +27,7 @@ import java.util.List;
  * Manages database transaction boundaries and post-commit cache invalidation for Use Cases
  * while keeping the underlying Application Service (UserService) 100% Pure Java.
  */
-public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, GetUserListUseCase, GetRoleListUseCase, GetCurrentUserProfileUseCase {
+public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, UpdateUserUseCase, GetUserListUseCase, GetRoleListUseCase, GetCurrentUserProfileUseCase {
 
     private final UserService delegate;
     private final UserStatusCache userStatusCache;
@@ -54,6 +56,15 @@ public class TransactionalUserServiceDecorator implements CreateUserUseCase, Tog
     @Transactional
     public UserResult updateUserRole(UpdateUserRoleCommand command) {
         UserResult result = delegate.updateUserRole(command);
+        // Defer cache invalidation until after the database transaction successfully commits
+        evictCacheAfterCommit(result.getUsername());
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public UserResult updateUser(UpdateUserCommand command) {
+        UserResult result = delegate.updateUser(command);
         // Defer cache invalidation until after the database transaction successfully commits
         evictCacheAfterCommit(result.getUsername());
         return result;

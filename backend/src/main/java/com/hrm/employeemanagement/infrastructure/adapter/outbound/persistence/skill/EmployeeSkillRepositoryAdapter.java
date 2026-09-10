@@ -7,10 +7,14 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
+import com.hrm.employeemanagement.application.dto.skill.PendingEmployeeSkillItemResult;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.exception.skill.DuplicateEmployeeSkillException;
 import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.EmployeeSkillJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.PendingEmployeeSkillProjection;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataEmployeeSkillRepository;
 
 @Component
@@ -126,25 +130,44 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
 
         DataScope scope = dataScope != null ? dataScope : DataScope.COMPANY;
 
-        List<PendingEmployeeSkillProjection> contentProjections;
-        long totalElements;
+        return switch (scope) {
+            case ORGANIZATION_BRANCH -> {
+                if (scopeOrgUnitId == null) {
+                    yield new PageResult<>(List.of(), safePage, safeSize, 0);
+                }
+                List<PendingEmployeeSkillProjection> projections =
+                        repository.findPendingBranchScope(scopeOrgUnitId, normalizedKeyword, safeSize, offset);
+                long totalElements = repository.countPendingBranchScope(scopeOrgUnitId, normalizedKeyword);
+                yield toPageResult(projections, safePage, safeSize, totalElements);
+            }
+            case SELF -> {
+                if (currentUserId == null) {
+                    yield new PageResult<>(List.of(), safePage, safeSize, 0);
+                }
+                List<PendingEmployeeSkillProjection> projections =
+                        repository.findPendingSelfScope(currentUserId, normalizedKeyword, safeSize, offset);
+                long totalElements = repository.countPendingSelfScope(currentUserId, normalizedKeyword);
+                yield toPageResult(projections, safePage, safeSize, totalElements);
+            }
+            case COMPANY -> {
+                List<PendingEmployeeSkillProjection> projections =
+                        repository.findPendingCompanyScope(normalizedKeyword, safeSize, offset);
+                long totalElements = repository.countPendingCompanyScope(normalizedKeyword);
+                yield toPageResult(projections, safePage, safeSize, totalElements);
+            }
+        };
+    }
 
-        if (scope == DataScope.SELF) {
-            contentProjections = repository.findPendingSkillsForSelf(currentUserId, normalizedKeyword, offset, safeSize);
-            totalElements = repository.countPendingSkillsForSelf(currentUserId, normalizedKeyword);
-        } else if (scope == DataScope.DEPARTMENT) {
-            contentProjections = repository.findPendingSkillsForDepartment(scopeOrgUnitId, normalizedKeyword, offset, safeSize);
-            totalElements = repository.countPendingSkillsForDepartment(scopeOrgUnitId, normalizedKeyword);
-        } else {
-            contentProjections = repository.findPendingSkillsForCompany(normalizedKeyword, offset, safeSize);
-            totalElements = repository.countPendingSkillsForCompany(normalizedKeyword);
-        }
-
-        List<PendingEmployeeSkillItemResult> content = contentProjections.stream()
+    private PageResult<PendingEmployeeSkillItemResult> toPageResult(
+            List<PendingEmployeeSkillProjection> projections,
+            int page,
+            int size,
+            long totalElements
+    ) {
+        List<PendingEmployeeSkillItemResult> content = projections.stream()
                 .map(this::toItemResult)
                 .collect(Collectors.toList());
-
-        return PageResult.of(content, safePage, safeSize, totalElements);
+        return new PageResult<>(content, page, size, totalElements);
     }
 
     private PendingEmployeeSkillItemResult toItemResult(PendingEmployeeSkillProjection p) {

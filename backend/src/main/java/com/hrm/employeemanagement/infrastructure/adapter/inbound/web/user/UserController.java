@@ -16,14 +16,17 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.hrm.employeemanagement.application.dto.user.CreateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.dto.user.UpdateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.CreateUserRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.UpdateUserRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.UpdateUserRoleRequest;
 
 import jakarta.validation.Valid;
@@ -35,15 +38,18 @@ public class UserController {
     private final CreateUserUseCase createUserUseCase;
     private final ToggleUserStatusUseCase toggleUserStatusUseCase;
     private final UpdateUserRoleUseCase updateUserRoleUseCase;
+    private final UpdateUserUseCase updateUserUseCase;
     private final GetUserListUseCase getUserListUseCase;
 
     public UserController(CreateUserUseCase createUserUseCase,
                           ToggleUserStatusUseCase toggleUserStatusUseCase,
                           UpdateUserRoleUseCase updateUserRoleUseCase,
+                          UpdateUserUseCase updateUserUseCase,
                           GetUserListUseCase getUserListUseCase) {
         this.createUserUseCase = createUserUseCase;
         this.toggleUserStatusUseCase = toggleUserStatusUseCase;
         this.updateUserRoleUseCase = updateUserRoleUseCase;
+        this.updateUserUseCase = updateUserUseCase;
         this.getUserListUseCase = getUserListUseCase;
     }
 
@@ -83,6 +89,23 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResult>> getUserById(@PathVariable Long id) {
         UserResult user = getUserListUseCase.getUserById(id);
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin tài khoản thành công", user));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<UserResult>> updateUser(@PathVariable Long id,
+                                                               @Valid @RequestBody UpdateUserRequest request) {
+        UpdateUserCommand command = new UpdateUserCommand(
+                id,
+                request.getFullName(),
+                request.getEmail(),
+                request.getEmployeeCode(),
+                request.getOrgUnitId(),
+                request.getRoleCode(),
+                request.getDataScope(),
+                request.getScopeOrgUnitId()
+        );
+        UserResult result = updateUserUseCase.updateUser(command);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin tài khoản thành công", result));
     }
 
     @PutMapping("/{id}/role")
