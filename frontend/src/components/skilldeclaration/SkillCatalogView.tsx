@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Pencil, Trash2, BookOpen, Check, X, ShieldAlert, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, BookOpen, Check, X, ShieldAlert, ChevronDown, FolderPlus, AlertCircle } from 'lucide-react';
 import type { CatalogSkill } from './Types.ts';
 import { SKILL_CATALOG, MATRIX_EMPLOYEES } from './Types.ts';
 import { useAuthUser } from '@/lib/auth-session';
@@ -9,6 +9,7 @@ import {
     createSkill,
     updateSkill,
     deactivateSkill,
+    createSkillGroup,
     type SkillGroupResponse,
 } from '@/lib/api/skills';
 
@@ -16,7 +17,13 @@ const CATEGORY_BADGES: Record<string, string> = {
     Backend: 'bg-sky-50 text-sky-700 border-sky-200',
     Frontend: 'bg-violet-50 text-violet-700 border-violet-200',
     DevOps: 'bg-orange-50 text-orange-700 border-orange-200',
+    'DevOps & Cloud': 'bg-orange-50 text-orange-700 border-orange-200',
     Database: 'bg-teal-50 text-teal-700 border-teal-200',
+    Mobile: 'bg-pink-50 text-pink-700 border-pink-200',
+    'Testing & QA': 'bg-amber-50 text-amber-700 border-amber-200',
+    'UI/UX Design': 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
+    'Chung / Khác': 'bg-slate-100 text-slate-700 border-slate-200',
+    General: 'bg-slate-100 text-slate-700 border-slate-200',
     Khác: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
@@ -132,6 +139,55 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
     const [skillName, setSkillName] = useState('');
     const [skillCategory, setSkillCategory] = useState('Backend');
     const [deleteTarget, setDeleteTarget] = useState<CatalogSkill | null>(null);
+
+    // Skill Group creation state
+    const [groupModalOpen, setGroupModalOpen] = useState(false);
+    const [newGroupName, setNewGroupName] = useState('');
+    const [newGroupDesc, setNewGroupDesc] = useState('');
+    const [groupError, setGroupError] = useState('');
+    const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
+    const [groupSuccessMessage, setGroupSuccessMessage] = useState('');
+
+    const handleCreateGroup = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmedName = newGroupName.trim();
+        if (!trimmedName) {
+            setGroupError('Vui lòng nhập tên nhóm kỹ năng');
+            return;
+        }
+
+        setIsSubmittingGroup(true);
+        setGroupError('');
+
+        try {
+            const created = await createSkillGroup({
+                name: trimmedName,
+                description: newGroupDesc.trim() || undefined,
+            });
+
+            // Reload groups from backend
+            const fetchedGroups = await getSkillGroups();
+            if (fetchedGroups && fetchedGroups.length > 0) {
+                setGroups(fetchedGroups);
+            }
+
+            // Automatically select this newly created group in the skill modal
+            setSkillCategory(created.name);
+
+            setGroupSuccessMessage(`Đã tạo thành công nhóm kỹ năng "${created.name}"`);
+            setTimeout(() => setGroupSuccessMessage(''), 4000);
+
+            setGroupModalOpen(false);
+            setNewGroupName('');
+            setNewGroupDesc('');
+        } catch (err: any) {
+            console.error('Failed to create skill group:', err);
+            const msg = err?.message || err?.error || 'Có lỗi xảy ra khi tạo nhóm kỹ năng';
+            setGroupError(msg);
+        } finally {
+            setIsSubmittingGroup(false);
+        }
+    };
 
     const updateCatalog = (newList: CatalogSkill[]) => {
         setLocalCatalog(newList);
@@ -278,16 +334,44 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                 </div>
 
                 {canManageCatalog && (
-                    <button
-                        type="button"
-                        onClick={handleOpenCreate}
-                        className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200 transition active:scale-95 cursor-pointer"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Thêm kỹ năng mới
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setNewGroupName('');
+                                setNewGroupDesc('');
+                                setGroupError('');
+                                setGroupModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 text-xs font-bold text-indigo-700 shadow-2xs transition active:scale-95 cursor-pointer"
+                        >
+                            <FolderPlus className="h-4 w-4 text-indigo-600" />
+                            Tạo nhóm kỹ năng
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleOpenCreate}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200 transition active:scale-95 cursor-pointer"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Thêm kỹ năng mới
+                        </button>
+                    </div>
                 )}
             </div>
+
+            {/* ── Success notification banner ── */}
+            {groupSuccessMessage && (
+                <div className="flex items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs font-medium text-emerald-800 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>{groupSuccessMessage}</span>
+                    </div>
+                    <button type="button" onClick={() => setGroupSuccessMessage('')} className="text-emerald-600 hover:text-emerald-800 cursor-pointer">
+                        <X className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            )}
 
             {/* ── Filter / Search bar ── */}
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -454,7 +538,22 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                             </div>
 
                             <div>
-                                <label className="mb-1 block text-xs font-semibold text-slate-600">Nhóm kỹ năng</label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-xs font-semibold text-slate-600">Nhóm kỹ năng</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setNewGroupName('');
+                                            setNewGroupDesc('');
+                                            setGroupError('');
+                                            setGroupModalOpen(true);
+                                        }}
+                                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer flex items-center gap-0.5"
+                                    >
+                                        <Plus className="h-3 w-3" />
+                                        Tạo nhóm mới
+                                    </button>
+                                </div>
                                 <RoundedModalSelect
                                     value={skillCategory}
                                     options={modalCategoryOptions}
@@ -475,6 +574,89 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                                     className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 shadow-xs cursor-pointer"
                                 >
                                     Lưu kỹ năng
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Modal Tạo nhóm kỹ năng mới (Chỉ hiển thị cho VT-06) ── */}
+            {groupModalOpen && canManageCatalog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs animate-in fade-in">
+                    <div className="relative w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                                    <FolderPlus className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-slate-900">
+                                        Tạo nhóm kỹ năng mới
+                                    </h3>
+                                    <p className="text-[11px] text-slate-400">Phân loại kỹ năng vào các lĩnh vực chuyên môn cụ thể</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setGroupModalOpen(false)}
+                                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateGroup} className="mt-4 space-y-4">
+                            {groupError && (
+                                <div className="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs font-medium text-rose-700 border border-rose-200">
+                                    <AlertCircle className="h-4 w-4 shrink-0" />
+                                    <span>{groupError}</span>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                                    Tên nhóm kỹ năng <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    maxLength={100}
+                                    value={newGroupName}
+                                    onChange={(e) => setNewGroupName(e.target.value)}
+                                    placeholder="VD: Trí tuệ nhân tạo (AI/ML), An ninh mạng, Cloud Native..."
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                                    Mô tả nhóm kỹ năng
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    maxLength={1000}
+                                    value={newGroupDesc}
+                                    onChange={(e) => setNewGroupDesc(e.target.value)}
+                                    placeholder="Mô tả phạm vi hoặc các công nghệ điển hình thuộc nhóm..."
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 resize-none"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setGroupModalOpen(false)}
+                                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmittingGroup || !newGroupName.trim()}
+                                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSubmittingGroup ? 'Đang tạo...' : 'Tạo nhóm kỹ năng'}
                                 </button>
                             </div>
                         </form>

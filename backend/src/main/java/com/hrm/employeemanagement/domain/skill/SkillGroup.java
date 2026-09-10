@@ -21,7 +21,7 @@ public class SkillGroup {
         this.description = description;
         this.status = status != null ? status : SkillStatus.ACTIVE;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
-        this.updatedAt = updatedAt;
+        this.updatedAt = updatedAt != null ? updatedAt : this.createdAt;
     }
 
     public void updateInfo(String newName, String newDescription) {

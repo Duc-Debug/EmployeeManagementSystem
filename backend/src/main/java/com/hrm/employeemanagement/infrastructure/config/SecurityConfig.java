@@ -64,6 +64,7 @@ public class SecurityConfig {
                     if (h2ConsoleEnabled) {
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/org-units/tree").authenticated();
                     auth.requestMatchers("/api/v1/org-units/**").hasAuthority("VT-06");
                     auth.requestMatchers("/api/v1/users/**").authenticated();
                     auth.anyRequest().authenticated();

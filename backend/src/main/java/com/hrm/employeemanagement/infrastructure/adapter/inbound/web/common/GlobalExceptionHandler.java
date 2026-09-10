@@ -265,7 +265,7 @@ public class GlobalExceptionHandler {
         log.error("Data integrity violation: ", ex);
         ErrorResponse response = ErrorResponse.of(
                 "DATA_INTEGRITY_VIOLATION",
-                "Dữ liệu không hợp lệ hoặc tham chiếu tới đối tượng không tồn tại (User ID / Org Unit ID không hợp lệ)",
+                rootMsg != null ? rootMsg : "Dữ liệu không hợp lệ hoặc tham chiếu tới đối tượng không tồn tại (User ID / Org Unit ID không hợp lệ)",
                 HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }

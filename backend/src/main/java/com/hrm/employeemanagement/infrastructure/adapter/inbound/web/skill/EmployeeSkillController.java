@@ -25,9 +25,11 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository;
 import com.hrm.employeemanagement.application.port.outbound.skill.SkillCatalogRepository;
@@ -59,7 +61,7 @@ public class EmployeeSkillController {
      * API Lấy danh sách kỹ năng cá nhân đã khai báo của nhân viên đang đăng nhập.
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('VT-04') or hasRole('VT-04') or hasAuthority('EMPLOYEE_SKILL_READ') or hasAuthority('EMPLOYEE_SKILL_DECLARE')")
+    @PreAuthorize("hasAnyAuthority('VT-04', 'VT-06', 'ROLE_VT-04', 'ROLE_VT-06', 'EMPLOYEE_SKILL_READ', 'EMPLOYEE_SKILL_DECLARE')")
     public ResponseEntity<ApiResponse<List<EmployeeSkillResponse>>> getMySkills(
             @AuthenticationPrincipal User currentUser
     ) {
@@ -87,13 +89,11 @@ public class EmployeeSkillController {
     }
 
     /**
-     * API Khai báo kỹ năng cá nhân (Dành riêng cho Nhân viên chuyên môn VT-04)
-     * Kịch bản TC-03: Kiểm tra phân quyền. Nếu user không có role VT-04 sẽ ném
-     * AccessDeniedException -> Kích hoạt CustomAccessDeniedHandler trả về HTTP
-     * 403 Forbidden và ghi Security Log.
+     * API Khai báo kỹ năng cá nhân (Dành riêng cho Nhân viên chuyên môn VT-04 và Quản trị viên VT-06)
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('VT-04') or hasRole('VT-04') or hasAuthority('EMPLOYEE_SKILL_DECLARE')")
+    @PreAuthorize("hasAnyAuthority('VT-04', 'VT-06', 'ROLE_VT-04', 'ROLE_VT-06', 'EMPLOYEE_SKILL_DECLARE')")
+    @Transactional
     public ResponseEntity<ApiResponse<EmployeeSkillResponse>> declareSkill(
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody DeclareSkillRequest request
@@ -122,10 +122,43 @@ public class EmployeeSkillController {
     }
 
     /**
+     * API Cập nhật mức thành thạo và số năm kinh nghiệm kỹ năng cá nhân
+     */
+    @PutMapping("/{skillId}")
+    @PreAuthorize("hasAnyAuthority('VT-04', 'VT-06', 'ROLE_VT-04', 'ROLE_VT-06', 'EMPLOYEE_SKILL_DECLARE')")
+    @Transactional
+    public ResponseEntity<ApiResponse<EmployeeSkillResponse>> updateSkill(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long skillId,
+            @Valid @RequestBody DeclareSkillRequest request
+    ) {
+        if (currentUser == null || currentUser.getIdValue() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Bạn cần đăng nhập để thực hiện chức năng này"));
+        }
+
+        Employee employee = loadEmployeePort.findByUserId(currentUser.getId())
+                .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự của tài khoản đang đăng nhập"));
+
+        Long targetSkillId = (skillId != null) ? skillId : request.getSkillId();
+        EmployeeSkill employeeSkill = employeeSkillRepository.findByEmployeeIdAndSkillId(employee.getIdValue(), targetSkillId)
+                .orElseThrow(() -> new IllegalArgumentException("Kỹ năng này chưa có trong hồ sơ của bạn"));
+
+        employeeSkill.updateProficiency(request.getProficiencyLevel(), request.getYearsOfExperience());
+        EmployeeSkill savedSkill = employeeSkillRepository.save(employeeSkill);
+
+        Skill skill = skillCatalogRepository.findById(savedSkill.getSkillId()).orElse(null);
+        EmployeeSkillResponse response = EmployeeSkillResponse.fromResult(EmployeeSkillResult.fromDomain(savedSkill, skill));
+
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật kỹ năng thành công. Hồ sơ đang ở trạng thái chờ duyệt.", response));
+    }
+
+    /**
      * API Xóa kỹ năng khỏi hồ sơ cá nhân của nhân viên đang đăng nhập.
      */
     @DeleteMapping("/{skillId}")
-    @PreAuthorize("hasAuthority('VT-04') or hasRole('VT-04') or hasAuthority('EMPLOYEE_SKILL_DECLARE')")
+    @PreAuthorize("hasAnyAuthority('VT-04', 'VT-06', 'ROLE_VT-04', 'ROLE_VT-06', 'EMPLOYEE_SKILL_DECLARE')")
+    @Transactional
     public ResponseEntity<ApiResponse<Void>> deleteSkill(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long skillId

@@ -101,6 +101,19 @@ interface ApiResponse<T> {
   data: T;
 }
 
+function unwrapData<T>(res: any): T {
+  if (res && typeof res === "object" && "data" in res && "success" in res) {
+    return res.data as T;
+  }
+  return res as T;
+}
+
+function unwrapList<T>(res: any): T[] {
+  if (Array.isArray(res)) return res as T[];
+  if (res && Array.isArray(res.data)) return res.data as T[];
+  return [];
+}
+
 /* ── Standard Skill Catalog APIs ─────────────────────────── */
 
 export async function getSkills(params?: {
@@ -114,11 +127,13 @@ export async function getSkills(params?: {
   if (params?.keyword) query.append("keyword", params.keyword);
 
   const qs = query.toString() ? `?${query.toString()}` : "";
-  return apiRequest<SkillResponse[]>(`/skills${qs}`);
+  const res = await apiRequest<any>(`/skills${qs}`);
+  return unwrapList<SkillResponse>(res);
 }
 
 export async function getSkillGroups(): Promise<SkillGroupResponse[]> {
-  return apiRequest<SkillGroupResponse[]>("/skills/groups");
+  const res = await apiRequest<any>("/skills/groups");
+  return unwrapList<SkillGroupResponse>(res);
 }
 
 export async function createSkill(payload: {
@@ -126,10 +141,11 @@ export async function createSkill(payload: {
   description?: string;
   groupId: number;
 }): Promise<SkillResponse> {
-  return apiRequest<SkillResponse>("/skills", {
+  const res = await apiRequest<any>("/skills", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return unwrapData<SkillResponse>(res);
 }
 
 export async function updateSkill(
@@ -141,43 +157,47 @@ export async function updateSkill(
     version: number;
   }
 ): Promise<SkillResponse> {
-  return apiRequest<SkillResponse>(`/skills/${id}`, {
+  const res = await apiRequest<any>(`/skills/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
+  return unwrapData<SkillResponse>(res);
 }
 
 export async function deactivateSkill(id: number): Promise<SkillResponse> {
-  return apiRequest<SkillResponse>(`/skills/${id}/deactivate`, {
+  const res = await apiRequest<any>(`/skills/${id}/deactivate`, {
     method: "PATCH",
   });
+  return unwrapData<SkillResponse>(res);
 }
 
 export async function mergeSkills(payload: {
   sourceSkillId: number;
   targetSkillId: number;
 }): Promise<SkillResponse> {
-  return apiRequest<SkillResponse>("/skills/merge", {
+  const res = await apiRequest<any>("/skills/merge", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return unwrapData<SkillResponse>(res);
 }
 
 export async function createSkillGroup(payload: {
   name: string;
   description?: string;
 }): Promise<SkillGroupResponse> {
-  return apiRequest<SkillGroupResponse>("/skills/groups", {
+  const res = await apiRequest<any>("/skills/groups", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return unwrapData<SkillGroupResponse>(res);
 }
 
 /* ── Personal Employee Skill APIs ────────────────────────── */
 
 export async function getMySkills(): Promise<EmployeeSkillResponse[]> {
-  const res = await apiRequest<ApiResponse<EmployeeSkillResponse[]>>("/employees/me/skills");
-  return res.data || [];
+  const res = await apiRequest<any>("/employees/me/skills");
+  return unwrapList<EmployeeSkillResponse>(res);
 }
 
 export async function declareMySkill(payload: {
@@ -185,11 +205,26 @@ export async function declareMySkill(payload: {
   proficiencyLevel: number;
   yearsOfExperience: number;
 }): Promise<EmployeeSkillResponse> {
-  const res = await apiRequest<ApiResponse<EmployeeSkillResponse>>("/employees/me/skills", {
+  const res = await apiRequest<any>("/employees/me/skills", {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  return res.data;
+  return unwrapData<EmployeeSkillResponse>(res);
+}
+
+export async function updateMySkill(
+  skillId: number,
+  payload: {
+    skillId: number;
+    proficiencyLevel: number;
+    yearsOfExperience: number;
+  }
+): Promise<EmployeeSkillResponse> {
+  const res = await apiRequest<any>(`/employees/me/skills/${skillId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return unwrapData<EmployeeSkillResponse>(res);
 }
 
 export async function deleteMySkill(skillId: number): Promise<void> {
@@ -202,8 +237,8 @@ export async function deleteMySkill(skillId: number): Promise<void> {
 
 export async function getPendingSkills(keyword?: string): Promise<PendingEmployeeSkillItem[]> {
   const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
-  const res = await apiRequest<ApiResponse<PendingEmployeeSkillItem[]>>(`/employee-skills/pending${query}`);
-  return res.data || [];
+  const res = await apiRequest<any>(`/employee-skills/pending${query}`);
+  return unwrapList<PendingEmployeeSkillItem>(res);
 }
 
 export async function approveSkill(
@@ -213,19 +248,19 @@ export async function approveSkill(
     reviewNotes?: string;
   }
 ): Promise<EmployeeSkillResponse> {
-  const res = await apiRequest<ApiResponse<EmployeeSkillResponse>>(`/employee-skills/${id}/approve`, {
+  const res = await apiRequest<any>(`/employee-skills/${id}/approve`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
-  return res.data;
+  return unwrapData<EmployeeSkillResponse>(res);
 }
 
 export async function rejectSkill(id: number, rejectionReason?: string): Promise<EmployeeSkillResponse> {
-  const res = await apiRequest<ApiResponse<EmployeeSkillResponse>>(`/employee-skills/${id}/reject`, {
+  const res = await apiRequest<any>(`/employee-skills/${id}/reject`, {
     method: "PUT",
     body: JSON.stringify({ rejectionReason }),
   });
-  return res.data;
+  return unwrapData<EmployeeSkillResponse>(res);
 }
 
 /* ── Department Skill Matrix API ─────────────────────────── */
@@ -233,8 +268,57 @@ export async function rejectSkill(id: number, rejectionReason?: string): Promise
 export async function getDepartmentSkillMatrix(
   orgUnitId: number
 ): Promise<DepartmentSkillMatrixResponse> {
-  const res = await apiRequest<ApiResponse<DepartmentSkillMatrixResponse>>(
+  const res = await apiRequest<any>(
     `/skills/matrix?orgUnitId=${orgUnitId}`
   );
-  return res.data;
+  return unwrapData<DepartmentSkillMatrixResponse>(res);
 }
+
+/* ── Resource Search by Skill & Availability API (VT-02, VT-03, VT-06) ── */
+
+export interface WeeklyAvailabilityBar {
+  year: number;
+  weekNumber: number;
+  standardHours: number;
+  netAvailableHours: number;
+  totalAllocatedHours: number;
+  remainingHours: number;
+}
+
+export interface ResourceSearchResultItem {
+  employeeId: number;
+  employeeCode: string;
+  fullName: string;
+  orgUnitId: number;
+  orgUnitName: string;
+  jobTitle?: string;
+  skillId: number;
+  skillName: string;
+  proficiencyLevel: number;
+  yearsOfExperience: number;
+  weeklyAvailabilities: WeeklyAvailabilityBar[];
+  totalRemainingHours: number;
+}
+
+export async function searchResourcesBySkill(params: {
+  skillId: number;
+  minProficiencyLevel?: number;
+  orgUnitId?: number;
+  fromYear: number;
+  fromWeek: number;
+  toYear: number;
+  toWeek: number;
+}): Promise<ResourceSearchResultItem[]> {
+  const query = new URLSearchParams();
+  query.append("skillId", String(params.skillId));
+  if (params.minProficiencyLevel) query.append("minProficiencyLevel", String(params.minProficiencyLevel));
+  if (params.orgUnitId) query.append("orgUnitId", String(params.orgUnitId));
+  query.append("fromYear", String(params.fromYear));
+  query.append("fromWeek", String(params.fromWeek));
+  query.append("toYear", String(params.toYear));
+  query.append("toWeek", String(params.toWeek));
+
+  const res = await apiRequest<any>(`/allocations/search?${query.toString()}`);
+  return unwrapList<ResourceSearchResultItem>(res);
+}
+

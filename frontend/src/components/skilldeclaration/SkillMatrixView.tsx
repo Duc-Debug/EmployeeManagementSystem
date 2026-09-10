@@ -39,10 +39,14 @@ function RoundedSelect({
     value,
     options,
     onChange,
+    minWidth = 'min-w-[240px]',
+    placeholder = 'Chọn...',
 }: {
     value: string;
     options: string[];
     onChange: (val: string) => void;
+    minWidth?: string;
+    placeholder?: string;
 }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -62,34 +66,38 @@ function RoundedSelect({
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                className="flex items-center justify-between gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
             >
-                <span className="truncate">{value || 'Chọn...'}</span>
+                <span className="truncate max-w-[220px]">{value || placeholder}</span>
                 <ChevronDown className={`h-3.5 w-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180 text-indigo-600' : ''}`} />
             </button>
             {open && (
-                <div className="absolute left-0 top-full z-50 mt-1 max-h-60 min-w-full overflow-y-auto whitespace-nowrap rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-900/5 animate-in fade-in-50 zoom-in-95 [scrollbar-width:thin]">
-                    {options.map((opt) => {
-                        const isSelected = opt === value;
-                        return (
-                            <button
-                                key={opt}
-                                type="button"
-                                onClick={() => {
-                                    onChange(opt);
-                                    setOpen(false);
-                                }}
-                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
-                                    isSelected
-                                        ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                                }`}
-                            >
-                                <span>{opt}</span>
-                                {isSelected && <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0" />}
-                            </button>
-                        );
-                    })}
+                <div className={`absolute left-0 top-full z-[100] mt-1 max-h-64 ${minWidth} overflow-y-auto whitespace-nowrap rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-900/5 animate-in fade-in-50 zoom-in-95 [scrollbar-width:thin]`}>
+                    {options.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-slate-400 italic">Không có dữ liệu lựa chọn</div>
+                    ) : (
+                        options.map((opt) => {
+                            const isSelected = opt === value;
+                            return (
+                                <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(opt);
+                                        setOpen(false);
+                                    }}
+                                    className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                                        isSelected
+                                            ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                            : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <span className="truncate">{opt}</span>
+                                    {isSelected && <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0" />}
+                                </button>
+                            );
+                        })
+                    )}
                 </div>
             )}
         </div>
@@ -118,21 +126,29 @@ function MatrixCell({ level, notes }: { level?: number | null; notes?: string })
     );
 }
 
-function flattenOrgTree(nodes: readonly OrgUnitTreeNode[]): { id: number; name: string }[] {
+function flattenOrgTree(data: OrgUnitTreeNode | OrgUnitTreeNode[] | null | undefined): { id: number; name: string }[] {
+    if (!data) return [];
     const list: { id: number; name: string }[] = [];
-    const traverse = (items: readonly OrgUnitTreeNode[]) => {
-        for (const item of items) {
-            list.push({ id: item.id, name: item.unitName });
-            if (item.children && item.children.length > 0) {
-                traverse(item.children);
-            }
+    const traverse = (item: OrgUnitTreeNode) => {
+        if (!item) return;
+        if (item.id != null && item.unitName) {
+            list.push({ id: Number(item.id), name: item.unitName });
+        }
+        if (Array.isArray(item.children)) {
+            item.children.forEach(traverse);
         }
     };
-    traverse(nodes);
+    if (Array.isArray(data)) {
+        data.forEach(traverse);
+    } else {
+        traverse(data);
+    }
     return list;
 }
 
-export default function SkillMatrixView({ departments = [], onOpenCatalog }: SkillMatrixViewProps) {
+const EMPTY_DEPT_LIST: DepartmentItem[] = [];
+
+export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenCatalog }: SkillMatrixViewProps) {
     const [deptList, setDeptList] = useState<{ id: number; name: string }[]>([]);
     const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null);
     const [selectedGroupName, setSelectedGroupName] = useState('Tất cả nhóm kỹ năng');
@@ -148,8 +164,8 @@ export default function SkillMatrixView({ departments = [], onOpenCatalog }: Ski
                 name: d.name,
             }));
             setDeptList(parsed);
-            if (parsed.length > 0 && selectedDeptId == null) {
-                setSelectedDeptId(parsed[0].id);
+            if (parsed.length > 0) {
+                setSelectedDeptId((prev) => prev ?? (parsed.find((d) => d.id !== 1)?.id || parsed[0].id));
             }
             return;
         }
@@ -158,8 +174,10 @@ export default function SkillMatrixView({ departments = [], onOpenCatalog }: Ski
             .then((tree) => {
                 const flat = flattenOrgTree(tree);
                 setDeptList(flat);
-                if (flat.length > 0 && selectedDeptId == null) {
-                    setSelectedDeptId(flat[0].id);
+                if (flat.length > 0) {
+                    // Ưu tiên chọn phòng ban chuyên trách (khác nút gốc công ty) để hiển thị ma trận thực tế
+                    const preferred = flat.find((d) => d.id !== 1) || flat[0];
+                    setSelectedDeptId((prev) => prev ?? preferred.id);
                 }
             })
             .catch((err) => {
