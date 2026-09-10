@@ -28,6 +28,7 @@ import {
     type ProjectTemplateDetail
 } from '@/lib/api/projects';
 import { getOrgTree } from '@/lib/api/org-units';
+import { getEmployeeProfileByUserId } from '@/lib/api/employees';
 import type { OrgUnitTreeNode } from '@/types/hrm';
 import type { AuthUser } from '@/lib/auth-session';
 import type { ProjectMember } from './projectData';
@@ -66,31 +67,57 @@ export function ProjectCreateModal({
     const authUser = useAuthUser();
     const effectiveUser = currentUser || authUser;
 
-    // Tìm employeeId của người dùng hiện tại
-    const currentEmpMember = members.find(
-        (m) => (m.employeeId && m.employeeId === effectiveUser?.id) ||
-               (effectiveUser?.employeeCode && m.id === `u-${effectiveUser.employeeCode}`) ||
-               (effectiveUser?.fullName && m.name === effectiveUser.fullName)
-    );
-    const currentEmpId = currentEmpMember?.employeeId || (effectiveUser?.id ? effectiveUser.id : undefined);
+    const [currentEmpId, setCurrentEmpId] = useState<number | undefined>(undefined);
+    const [resolvedOrgUnitId, setResolvedOrgUnitId] = useState<number | undefined>(undefined);
 
-    // Khi modal mở và người dùng là VT-02 (PM), pre-select chính họ làm PM mặc định
+    // Resolve employeeId và orgUnitId một cách an toàn (tránh nhầm lẫn giữa userId và employeeId)
     useEffect(() => {
-        if (open && effectiveUser?.roleCode === 'VT-02') {
-            const selfMember = members.find((m) => m.employeeId === effectiveUser.id
-                || String(m.employeeId) === String(effectiveUser.id));
-            if (selfMember?.employeeId) {
-                setManagerId(selfMember.employeeId);
-            } else if (currentEmpId) {
-                setManagerId(currentEmpId);
+        if (!open || !effectiveUser) return;
+
+        // 1. Kiểm tra nhanh từ danh sách members (nếu có member khớp tên)
+        if (effectiveUser.fullName) {
+            const memberByName = members.find(
+                (m) => m.name && m.name.trim().toLowerCase() === effectiveUser.fullName.trim().toLowerCase()
+            );
+            if (memberByName?.employeeId) {
+                setCurrentEmpId(memberByName.employeeId);
+                if (effectiveUser.roleCode === 'VT-02') {
+                    setManagerId((prev) => prev ?? memberByName.employeeId);
+                }
             }
         }
-    }, [open, effectiveUser, members, currentEmpId]);
 
-    // Chuẩn bị danh sách PM options (đảm bảo effectiveUser luôn có trong danh sách nếu có thông tin)
+        // 2. Gọi API getEmployeeProfileByUserId để lấy Employee ID và OrgUnit ID chuẩn từ backend
+        if (effectiveUser.id) {
+            getEmployeeProfileByUserId(effectiveUser.id)
+                .then((profile) => {
+                    if (profile?.id) {
+                        setCurrentEmpId(profile.id);
+                        if (effectiveUser.roleCode === 'VT-02') {
+                            setManagerId(profile.id);
+                        }
+                    }
+                    if (profile?.orgUnitId) {
+                        setResolvedOrgUnitId(profile.orgUnitId);
+                        setOrgUnitId((prev) => {
+                            // Cập nhật orgUnit nếu đang ở giá trị khởi tạo hoặc chưa có đơn vị
+                            if (!effectiveUser.orgUnitId || prev === 1) {
+                                return profile.orgUnitId;
+                            }
+                            return prev;
+                        });
+                    }
+                })
+                .catch((err) => {
+                    console.warn('Không thể tải EmployeeProfile của user:', err);
+                });
+        }
+    }, [open, effectiveUser, members]);
+
+    // Chuẩn bị danh sách PM options (chỉ thêm effectiveUser khi đã resolve được employeeId hợp lệ)
     const pmOptions = React.useMemo(() => {
         const list = [...members];
-        if (effectiveUser && currentEmpId && !list.some((m) => m.employeeId === currentEmpId || m.id === `u-${currentEmpId}`)) {
+        if (effectiveUser && currentEmpId && !list.some((m) => m.employeeId === currentEmpId)) {
             list.unshift({
                 id: `u-${currentEmpId}`,
                 employeeId: currentEmpId,
@@ -115,6 +142,19 @@ export function ProjectCreateModal({
     useEffect(() => {
         if (open) {
             setErrorMsg('');
+            setProjectName('');
+            setManagerId(undefined);
+            setCurrentEmpId(undefined);
+            setStartDate(new Date().toISOString().split('T')[0]);
+            setEndDate('');
+            setDescription('');
+
+            const initialOrg = effectiveUser?.orgUnitId ?? undefined;
+            if (initialOrg) {
+                setOrgUnitId(initialOrg);
+                setResolvedOrgUnitId(initialOrg);
+            }
+
             getOrgTree()
                 .then((tree) => {
                     const flat: { id: number; name: string }[] = [];
@@ -128,9 +168,18 @@ export function ProjectCreateModal({
                     };
                     flatten(tree);
                     setOrgUnits(flat);
-                    if (flat.length > 0) {
-                        setOrgUnitId(flat[0].id);
-                    }
+
+                    // Ưu tiên đơn vị của người dùng hiện tại (effectiveUser.orgUnitId), không ghi đè nếu đã có
+                    setOrgUnitId((prev) => {
+                        const preferred = effectiveUser?.orgUnitId;
+                        if (preferred && flat.some((u) => u.id === preferred)) {
+                            return preferred;
+                        }
+                        if (prev && flat.some((u) => u.id === prev)) {
+                            return prev;
+                        }
+                        return flat.length > 0 ? flat[0].id : 1;
+                    });
                 })
                 .catch((err) => {
                     console.warn('Failed to load org tree:', err);
@@ -153,7 +202,7 @@ export function ProjectCreateModal({
                     setIsLoadingTemplates(false);
                 });
         }
-    }, [open]);
+    }, [open, effectiveUser]);
 
     // Khi chọn template, tự động lấy preview và cập nhật số giờ ước tính
     useEffect(() => {
@@ -492,8 +541,9 @@ export function ProjectCreateModal({
                                         type="button"
                                         onClick={() => {
                                             setManagerId(currentEmpId);
-                                            if (currentUser?.orgUnitId) {
-                                                setOrgUnitId(currentUser.orgUnitId);
+                                            const targetOrg = resolvedOrgUnitId || effectiveUser?.orgUnitId;
+                                            if (targetOrg) {
+                                                setOrgUnitId(targetOrg);
                                             }
                                         }}
                                         className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
@@ -510,10 +560,11 @@ export function ProjectCreateModal({
                             >
                                 <option value="">-- Chưa gán PM --</option>
                                 {pmOptions.map((m) => {
-                                    const numId = m.employeeId ?? parseInt(m.id.replace(/\D/g, ''), 10);
+                                    const numId = m.employeeId ?? (m.id && /^\d+$/.test(m.id) ? Number(m.id) : undefined);
+                                    if (!numId) return null;
                                     const isMe = currentEmpId && numId === currentEmpId;
                                     return (
-                                        <option key={m.id} value={numId || ''}>
+                                        <option key={m.id || numId} value={numId}>
                                             {m.name} {isMe ? '(Tôi)' : (m.role ? `(${m.role})` : '')}
                                         </option>
                                     );
