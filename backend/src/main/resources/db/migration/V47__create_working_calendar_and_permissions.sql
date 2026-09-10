@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V46: CREATE WORKING CALENDAR AND PERMISSIONS (NCL-05-CN-001)
+-- FLYWAY MIGRATION V47: CREATE WORKING CALENDAR AND PERMISSIONS (NCL-05-CN-001)
 -- ============================================================
 
 -- 1. Create working_calendar_configs table
