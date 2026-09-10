@@ -36,6 +36,7 @@ import com.hrm.employeemanagement.domain.exception.skill.InvalidSkillMergeExcept
 import com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException;
 import com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException;
 import com.hrm.employeemanagement.domain.skill.Skill;
+import com.hrm.employeemanagement.domain.skill.SkillCodeGenerator;
 import com.hrm.employeemanagement.domain.skill.SkillGroup;
 import com.hrm.employeemanagement.domain.skill.SkillGroupId;
 import com.hrm.employeemanagement.domain.skill.SkillId;
@@ -88,7 +89,7 @@ public class SkillService implements
         }
 
         Skill newSkill = Skill.create(
-                "SKILL-" + (System.currentTimeMillis() % 100000),
+                SkillCodeGenerator.generate(),
                 command.name(),
                 group.getName(),
                 command.description(),
