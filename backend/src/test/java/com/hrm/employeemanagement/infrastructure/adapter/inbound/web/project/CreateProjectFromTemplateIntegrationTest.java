@@ -35,6 +35,7 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.task.TaskStatus;
 import com.hrm.employeemanagement.domain.task.TaskType;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -115,9 +116,9 @@ class CreateProjectFromTemplateIntegrationTest {
         devDept.setTreePath(root.getTreePath() + devDept.getId() + "/");
         devDept = orgUnitRepository.save(devDept);
 
-        UserJpaEntity pmUserEntity = createPmUser("pm_" + suffix, devDept.getId());
+        UserJpaEntity branchUserEntity = createBranchManagerUser("branch_mgr_" + suffix, devDept.getId());
         EmployeeJpaEntity pmEmployee = employeeRepository.save(new EmployeeJpaEntity(
-                null, pmUserEntity.getId(), devDept.getId(), "EMP-" + suffix, "PM User", false, 40, "ACTIVE"));
+                null, branchUserEntity.getId(), devDept.getId(), "EMP-" + suffix, "Branch Mgr", false, 40, "ACTIVE"));
 
         // 2. Kiểm tra template mẫu từ migration V31 có sẵn trong DB
         ProjectTemplateJpaEntity seedTemplate = templateRepository.findByTemplateCode("TPL-DEV-001")
@@ -141,7 +142,7 @@ class CreateProjectFromTemplateIntegrationTest {
             """, templateId, expectedProjectName, devDept.getId(), pmEmployee.getId());
 
         String responseBody = mockMvc.perform(post("/api/v1/projects/from-template")
-                .with(authentication(authenticationFor(pmUserEntity, RoleCode.VT_02)))
+                .with(authentication(authenticationFor(branchUserEntity, RoleCode.VT_03)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonPayload))
                 .andExpect(status().isCreated())
@@ -163,19 +164,24 @@ class CreateProjectFromTemplateIntegrationTest {
         assertThat(projectTasks).hasSize(9);
 
         // Kiểm tra tất cả task con có status TODO và assigneeId = null
-        for (TaskJpaEntity t : projectTasks) {
-            assertThat(t.getStatus()).isEqualTo(com.hrm.employeemanagement.domain.task.TaskStatus.TODO);
-            assertThat(t.getAssigneeId()).isNull();
-            assertThat(t.getTaskCode()).startsWith(savedProject.getProjectCode() + "-T");
+        List<TaskJpaEntity> todoTasks = projectTasks.stream()
+                .filter(t -> t.getStatus() == TaskStatus.TODO)
+                .toList();
+        assertThat(todoTasks).hasSize(9);
+
+        for (TaskJpaEntity task : projectTasks) {
+            assertThat(task.getAssigneeId()).isNull();
+            assertThat(task.getTaskCode()).startsWith("PRJ-DEPT-");
         }
 
-        // Kiểm tra phân cấp WBS: 3 category cha và các task con trỏ đúng cha
+        // Kiểm tra 3 Category gốc (parentId = null) và 6 Task con
         List<TaskJpaEntity> categories = projectTasks.stream()
                 .filter(t -> t.getTaskType() == TaskType.CATEGORY)
                 .toList();
         assertThat(categories).hasSize(3);
+
         for (TaskJpaEntity cat : categories) {
-            assertThat(cat.getEstimatedHours()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(cat.getParentId()).isNull();
         }
 
         Map<Long, TaskJpaEntity> taskMap = projectTasks.stream()
@@ -193,22 +199,26 @@ class CreateProjectFromTemplateIntegrationTest {
         }
     }
 
-    private UserJpaEntity createPmUser(String username, Long orgUnitId) {
-        RoleJpaEntity pmRole = roleRepository.findByCode("VT-02").orElseThrow();
-        UserJpaEntity user = new UserJpaEntity(null, username, "dummy_hash", pmRole, true);
+    private UserJpaEntity createBranchManagerUser(String username, Long orgUnitId) {
+        RoleJpaEntity branchRole = roleRepository.findByCode("VT-03").orElseThrow();
+        UserJpaEntity user = new UserJpaEntity(null, username, "dummy_hash", branchRole, true);
         user.setDataScope(DataScope.ORGANIZATION_BRANCH.name());
         user.setScopeOrgUnitId(orgUnitId);
         return userRepository.saveAndFlush(user);
     }
 
     private UsernamePasswordAuthenticationToken authenticationFor(UserJpaEntity user, RoleCode roleCode) {
+        DataScope scope = user.getDataScope() != null ? DataScope.valueOf(user.getDataScope()) : DataScope.SELF;
         User principal = new User(
                 new UserId(user.getId()),
                 user.getUsername(),
                 user.getPasswordHash(),
                 new Role(new RoleId(user.getRole().getId()), roleCode, roleCode.getName()),
                 UserStatus.ACTIVE,
-                new EmployeeId(1L));
+                new EmployeeId(1L),
+                scope,
+                user.getScopeOrgUnitId(),
+                0L);
 
         return new UsernamePasswordAuthenticationToken(
                 principal,

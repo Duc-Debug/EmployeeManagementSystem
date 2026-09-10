@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.employee;
 
+import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.employee.CreateEmployeeProfileCommand;
 import com.hrm.employeemanagement.application.dto.employee.EmployeeProfileResult;
 import com.hrm.employeemanagement.application.dto.employee.UpdateEmployeeProfileCommand;
@@ -147,6 +148,25 @@ class EmployeeControllerTest {
         mockMvc.perform(get("/api/v1/employees/by-user/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/employees - Lấy danh sách hồ sơ nhân sự phân trang")
+    void getEmployees_Success() throws Exception {
+        EmployeeProfileResult emp = new EmployeeProfileResult(
+                1L, 1L, 1L, "NV-2026-001", "Nguyễn Văn A", "Developer",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1), false, 40, "ACTIVE"
+        );
+        PageResult<EmployeeProfileResult> pageResult = new PageResult<>(
+                java.util.List.of(emp), 0, 10, 1L
+        );
+
+        when(getEmployeeProfileUseCase.getEmployees(0, 10)).thenReturn(pageResult);
+
+        mockMvc.perform(get("/api/v1/employees?page=0&size=10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.data.totalElements").value(1));
     }
 
     @Test

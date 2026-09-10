@@ -57,3 +57,15 @@ WHERE r.code = 'VT-05'
 DELETE FROM role_permissions
 WHERE role_id IN (SELECT id FROM roles WHERE code = 'VT-06')
   AND permission_id IN (SELECT id FROM permissions WHERE code = 'EMPLOYEE_UPDATE');
+
+-- 7. Gan PROJECT_CREATE cho VT-01, VT-03, VT-06
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE p.code = 'PROJECT_CREATE'
+  AND r.code IN ('VT-01', 'VT-03', 'VT-06')
+  AND NOT EXISTS (
+      SELECT 1 FROM role_permissions rp
+      WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );

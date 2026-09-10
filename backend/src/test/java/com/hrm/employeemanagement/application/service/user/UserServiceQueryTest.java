@@ -32,7 +32,7 @@ class UserServiceQueryTest extends BaseUserServiceTest {
     void testGetUsers_PaginationAndBatchResolving() {
         when(authorizationService.require(PermissionCode.USER_READ)).thenReturn(ADMIN_ID);
 
-        User u1 = testUser(1L, staffRole, 10L);
+        User u1 = testUser(1L, adminRole, 10L);
         u1.changeDataScope(DataScope.COMPANY, null);
         User u2 = testUser(2L, staffRole, 20L);
 
@@ -104,7 +104,7 @@ class UserServiceQueryTest extends BaseUserServiceTest {
     void testGetUsers_ScopeShrinkCompanyToSelf_AppliesOnNextRequest() {
         when(authorizationService.require(PermissionCode.USER_READ)).thenReturn(ADMIN_ID, ADMIN_ID);
 
-        User currentUser = testUser(ADMIN_ID, staffRole, 10L);
+        User currentUser = testUser(ADMIN_ID, adminRole, 10L);
         currentUser.changeDataScope(DataScope.COMPANY, null);
 
         User otherUser = testUser(2L, staffRole, 20L);
@@ -129,7 +129,7 @@ class UserServiceQueryTest extends BaseUserServiceTest {
         PageResult<UserResult> firstRequest = userService.getUsers(0, 20);
         assertEquals(2, firstRequest.getContent().size());
 
-        currentUser.changeDataScope(DataScope.SELF, null);
+        currentUser.changeAuthorization(staffRole, DataScope.SELF, null, 2L);
 
         PageResult<UserResult> secondRequest = userService.getUsers(0, 20);
         assertEquals(1, secondRequest.getContent().size());
@@ -234,7 +234,7 @@ class UserServiceQueryTest extends BaseUserServiceTest {
     void testGetUserById_NotFound_ThrowsException() {
         when(authorizationService.require(PermissionCode.USER_READ)).thenReturn(ADMIN_ID);
 
-        User currentUser = testUser(ADMIN_ID, staffRole, 10L);
+        User currentUser = testUser(ADMIN_ID, adminRole, 10L);
         currentUser.changeDataScope(DataScope.COMPANY, null);
 
         when(loadUserPort.findById(new UserId(ADMIN_ID))).thenReturn(Optional.of(currentUser));
