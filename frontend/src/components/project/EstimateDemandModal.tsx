@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { X, Users, AlertTriangle, CheckCircle2, Calendar, Loader2 } from 'lucide-react';
-import { getRoles, type RoleResponse } from '@/lib/api/roles';
+import { getProjectRoles, type ProjectRoleResponse } from '@/lib/api/project-roles';
 import type { RoleResourceDemand } from '@/lib/api/resource-demands';
 
 interface EstimateDemandModalProps {
@@ -32,26 +32,26 @@ export function EstimateDemandModal({
     onClose,
     onSave,
 }: EstimateDemandModalProps) {
-    const [roles, setRoles] = useState<RoleResponse[]>([]);
+    const [roles, setRoles] = useState<ProjectRoleResponse[]>([]);
     const [selectedRoleId, setSelectedRoleId] = useState<number | ''>('');
     const [hoursPerWeek, setHoursPerWeek] = useState<string>('40');
     const [isLoadingRoles, setIsLoadingRoles] = useState<boolean>(false);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // 1. Tải danh mục vai trò chuẩn từ database
+    // 1. Tải danh mục vai trò chuyên môn dự án (DEV, TEST, BA, UIUX, PM, DEVOPS)
     useEffect(() => {
         if (!open) return;
         setIsLoadingRoles(true);
-        getRoles()
+        getProjectRoles()
             .then((data) => {
                 if (Array.isArray(data)) {
                     setRoles(data);
                 }
             })
             .catch((err) => {
-                console.error('Failed to load roles from backend:', err);
-                setErrorMessage('Không thể tải danh sách vai trò từ hệ thống.');
+                console.error('Failed to load project roles from backend:', err);
+                setErrorMessage('Không thể tải danh sách vai trò chuyên môn từ hệ thống.');
             })
             .finally(() => {
                 setIsLoadingRoles(false);
