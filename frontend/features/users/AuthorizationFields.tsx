@@ -2,6 +2,7 @@ import { FormField } from "@/components/ui/FormField";
 import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
 import { DEMO_ROLES } from "@/src/mocks/hrm";
 import type { DataScope } from "@/src/types/hrm";
+import { getDefaultDataScopeForRole } from "@/lib/role-data-scope";
 
 export interface AuthorizationDraft {
   dataScope: DataScope;
@@ -34,8 +35,11 @@ export function AuthorizationFields({ errors, idPrefix, initialRoleFocusRef, onC
 
   function handleRoleChange(roleCode: string) {
     onChange("roleCode", roleCode);
-    if (roleCode === "VT-06") {
-      onChange("dataScope", "COMPANY");
+    const dataScope = getDefaultDataScopeForRole(roleCode);
+    if (dataScope) {
+      onChange("dataScope", dataScope);
+    }
+    if (dataScope !== "ORGANIZATION_BRANCH") {
       onChange("scopeOrgUnitId", "");
     }
   }

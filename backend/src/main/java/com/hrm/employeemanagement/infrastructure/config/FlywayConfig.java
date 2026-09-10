@@ -1,12 +1,12 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import javax.sql.DataSource;
+
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import javax.sql.DataSource;
 
 /**
  * Cấu hình Flyway - Nguồn chân lý duy nhất cho Database Schema.

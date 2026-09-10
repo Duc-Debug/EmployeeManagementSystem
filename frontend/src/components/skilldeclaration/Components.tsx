@@ -63,23 +63,24 @@ export function SkillsTable({
                                 onApprove,
                                 onReject,
                             }: SkillsTableProps) {
-    const isManager = currentRole === 'VT-01';
+    const isApprovalMode = Boolean(onApprove || onReject);
+    const isManager = isApprovalMode || ["VT-02", "VT-03", "VT-05", "VT-06"].includes(currentRole);
 
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-lg font-bold text-white">
-                        {isManager ? 'Màn hình phê duyệt kỹ năng' : 'Kỹ năng đã khai báo'}
+                    <h2 className="text-lg font-bold text-slate-900">
+                        {isApprovalMode ? 'Màn hình phê duyệt kỹ năng' : 'Kỹ năng cá nhân đã khai báo'}
                     </h2>
-                    <p className="text-xs text-white/70">
-                        {isManager ? 'Xem và phê duyệt yêu cầu từ nhân viên' : `Bạn đã khai báo ${skills.length} kỹ năng`}
+                    <p className="text-xs text-slate-500">
+                        {isApprovalMode ? 'Xem và phê duyệt yêu cầu từ nhân viên' : `Bạn đã khai báo ${skills.length} kỹ năng chuyên môn`}
                     </p>
                 </div>
-                {!isManager && onAdd && (
+                {onAdd && (
                     <button
                         onClick={onAdd}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200 transition active:scale-95 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-xs transition active:scale-95 cursor-pointer"
                     >
                         <Plus className="h-4 w-4 stroke-[2.5]" />
                         Khai báo kỹ năng mới

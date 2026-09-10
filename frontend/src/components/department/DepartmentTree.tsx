@@ -360,7 +360,7 @@ export default function DepartmentTree() {
     }
 
     function collectExpandable(node: DepartmentNode, acc: string[]) {
-        if (node.children.length > 0 && node.id !== tree.id) {
+        if (node.children && node.children.length > 0) {
             acc.push(node.id);
             node.children.forEach((c) => collectExpandable(c, acc));
         }
@@ -769,6 +769,7 @@ export default function DepartmentTree() {
                         node={tree}
                         level={0}
                         isRoot={true}
+                        canEdit={isAdmin}
                         users={users}
                         collapsed={collapsed}
                         onToggle={toggleCollapse}
@@ -860,6 +861,7 @@ interface TreeNodeItemProps {
     node: DepartmentNode;
     level: number;
     isRoot?: boolean;
+    canEdit?: boolean;
     users?: User[];
     collapsed: Set<string>;
     onToggle: (id: string) => void;
@@ -880,6 +882,7 @@ function TreeNodeItem({
                           node,
                           level,
                           isRoot = false,
+                          canEdit = true,
                           users,
                           collapsed,
                           onToggle,
@@ -897,10 +900,10 @@ function TreeNodeItem({
                       }: TreeNodeItemProps) {
     const hasChildren = node.children && node.children.length > 0;
     const isCollapsed = collapsed.has(node.id) && !searchQuery;
-    const isDraggable = !isRoot;
+    const isInactive = node.status === "INACTIVE";
+    const isDraggable = Boolean(canEdit) && !isRoot && !isInactive;
     const isBeingDragged = draggedId === node.id;
     const isTarget = dropTargetId === node.id;
-    const isInactive = node.status === "INACTIVE";
 
     const nodeNumId = parseInt(node.id, 10);
     const memberCount = (users || []).filter(
@@ -1065,59 +1068,54 @@ function TreeNodeItem({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-1">
-                        {/* Add Child */}
-                        <button
-                            type="button"
-                            onClick={() => onAddChild(node.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition"
-                            title="Thêm đơn vị con trực thuộc"
-                        >
-                            <Plus className="h-3.5 w-3.5" />
-                        </button>
+                    {canEdit && (
+                        <div className="flex items-center gap-1">
+                            {!isInactive && (
+                                <>
+                                    {/* Add Child */}
+                                    <button
+                                        type="button"
+                                        onClick={() => onAddChild(node.id)}
+                                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition"
+                                        title="Thêm đơn vị con trực thuộc"
+                                    >
+                                        <Plus className="h-3.5 w-3.5" />
+                                    </button>
 
-                        {/* Edit */}
-                        <button
-                            type="button"
-                            onClick={() => onEdit(node)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-                            title="Chỉnh sửa thông tin"
-                        >
-                            <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                                    {/* Edit */}
+                                    <button
+                                        type="button"
+                                        onClick={() => onEdit(node)}
+                                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                                        title="Chỉnh sửa thông tin"
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                </>
+                            )}
 
-                        {/* Lock / Unlock */}
-                        {!isRoot && (
-                            <button
-                                type="button"
-                                onClick={() => onToggleStatus(node.id)}
-                                className={cn(
-                                    "flex h-7 w-7 items-center justify-center rounded-lg transition",
-                                    isInactive
-                                        ? "text-emerald-600 hover:bg-emerald-50"
-                                        : "text-amber-600 hover:bg-amber-50"
-                                )}
-                                title={isInactive ? "Mở khóa đơn vị này" : "Tạm khóa đơn vị này"}
-                            >
-                                {isInactive ? (
-                                    <Unlock className="h-3.5 w-3.5" />
-                                ) : (
-                                    <Lock className="h-3.5 w-3.5" />
-                                )}
-                            </button>
-                        )}
-
-                        {/* Delete */}
-                        {!isRoot && (
-                            <button
-                                type="button"
-                                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                                title="Xóa đơn vị này"
-                            >
-                                <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                        )}
-                    </div>
+                            {/* Lock / Unlock */}
+                            {!isRoot && (
+                                <button
+                                    type="button"
+                                    onClick={() => onToggleStatus(node.id)}
+                                    className={cn(
+                                        "flex h-7 w-7 items-center justify-center rounded-lg transition",
+                                        isInactive
+                                            ? "text-emerald-600 hover:bg-emerald-50"
+                                            : "text-amber-600 hover:bg-amber-50"
+                                    )}
+                                    title={isInactive ? "Mở khóa đơn vị này" : "Tạm khóa đơn vị này"}
+                                >
+                                    {isInactive ? (
+                                        <Unlock className="h-3.5 w-3.5" />
+                                    ) : (
+                                        <Lock className="h-3.5 w-3.5" />
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1130,6 +1128,7 @@ function TreeNodeItem({
                             node={child}
                             level={level + 1}
                             isRoot={false}
+                            canEdit={canEdit}
                             users={users}
                             collapsed={collapsed}
                             onToggle={onToggle}
@@ -1187,6 +1186,28 @@ function DepartmentTreeModal({ modal, tree, users, onClose, onSave }: Department
     const defaultParentId = isEdit ? findParent(tree, modal.node.id)?.id ?? "" : modal.parentId;
     const [parentId, setParentId] = useState<string>(defaultParentId);
 
+    // Parent node info for fixed display in create mode
+    const fixedParentNode = useMemo(() => {
+        if (modal.mode === "create") {
+            return findNode(tree, modal.parentId);
+        }
+        return null;
+    }, [tree, modal]);
+
+    // Branch nodes for candidate manager filtering
+    const branchUnitIds = useMemo(() => {
+        const rootTargetId = modal.mode === "create" ? modal.parentId : modal.node.id;
+        const targetBranch = findNode(tree, rootTargetId);
+        if (!targetBranch || rootTargetId === tree.id) return null;
+        const ids = new Set<string>();
+        function collect(n: DepartmentNode) {
+            ids.add(n.id);
+            n.children.forEach(collect);
+        }
+        collect(targetBranch);
+        return ids;
+    }, [tree, modal]);
+
     // Đơn vị cha có thể chọn: loại bỏ chính nó và toàn bộ nhánh con của nó (tránh vòng lặp cha-con)
     const parentOptions = useMemo(() => {
         const flat = flattenTree(tree);
@@ -1203,15 +1224,30 @@ function DepartmentTreeModal({ modal, tree, users, onClose, onSave }: Department
             .map(toOption);
     }, [tree, modal]);
 
-    const managerOptions = useMemo(
-        () =>
-            users.map((u) => ({
-                id: String(u.id),
-                label: u.fullName || u.username,
-                sublabel: u.roleName || (u.employeeId ? `Mã NV: ${u.employeeId}` : undefined),
-            })),
-        [users]
-    );
+    const managerOptions = useMemo(() => {
+        const managerRoles = new Set(["VT-01", "VT-02", "VT-03", "VT-05", "VT-06", "ROLE_ADMIN", "ADMIN", "DIRECTOR", "MANAGER", "LEADER", "HR_MANAGER"]);
+
+        // 1. Lọc theo role quản lý (loại bỏ VT-04 / nhân viên thường)
+        let eligible = users.filter((u) => {
+            const r = (u.roleCode || "").toUpperCase();
+            if (r === "VT-04") return false;
+            return managerRoles.has(r) || !r.startsWith("VT-");
+        });
+
+        // 2. Nếu ở trong nhánh cụ thể (không phải toàn công ty), ưu tiên lọc người thuộc nhánh
+        if (branchUnitIds && branchUnitIds.size > 0) {
+            const inBranch = eligible.filter((u) => u.orgUnitId != null && branchUnitIds.has(String(u.orgUnitId)));
+            if (inBranch.length > 0) {
+                eligible = inBranch;
+            }
+        }
+
+        return eligible.map((u) => ({
+            id: String(u.id),
+            label: u.fullName || u.username,
+            sublabel: `${u.roleName || u.roleCode || "Quản lý"}${u.employeeId ? ` • Mã NV: ${u.employeeId}` : ""}`,
+        }));
+    }, [users, branchUnitIds]);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -1325,7 +1361,17 @@ function DepartmentTreeModal({ modal, tree, users, onClose, onSave }: Department
                         <label className="text-xs font-semibold text-slate-700">
                             Đơn vị cha {!isRootNode && "*"}
                         </label>
-                        {isRootNode ? (
+                        {!isEdit ? (
+                            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700">
+                                <Network className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                                <span className="truncate">{fixedParentNode ? fixedParentNode.name : "Đơn vị gốc"}</span>
+                                {fixedParentNode && (
+                                    <span className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-500">
+                                        {fixedParentNode.unitCode}
+                                    </span>
+                                )}
+                            </div>
+                        ) : isRootNode ? (
                             <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-400">
                                 <Network className="h-3.5 w-3.5" />
                                 Đây là đơn vị gốc, không có đơn vị cha

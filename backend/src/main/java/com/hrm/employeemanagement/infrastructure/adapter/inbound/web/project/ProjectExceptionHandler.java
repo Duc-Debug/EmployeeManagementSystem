@@ -80,4 +80,29 @@ public class ProjectExceptionHandler {
         public ResponseEntity<ApiResponse<Void>> handleRoleNotFound(RoleNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException.class)
+        public ResponseEntity<ApiResponse<Void>> handleDuplicateProjectMember(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectMemberNotFound(com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException.class)
+        public ResponseEntity<ApiResponse<Void>> handleMemberHasActiveTasks(com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.ProjectClosedException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectClosed(com.hrm.employeemanagement.domain.exception.task.ProjectClosedException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleEmployeeNotFound(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+        }
 }
