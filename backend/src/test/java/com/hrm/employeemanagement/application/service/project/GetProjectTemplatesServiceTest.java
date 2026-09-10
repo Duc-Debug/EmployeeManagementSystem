@@ -90,7 +90,7 @@ class GetProjectTemplatesServiceTest {
         );
 
         when(loadProjectTemplatePort.findAllActive()).thenReturn(List.of(template));
-        when(loadProjectTemplatePort.findTasksByTemplateId(template.getId())).thenReturn(List.of(cat1, task1, task2));
+        when(loadProjectTemplatePort.findTasksByTemplateIds(List.of(template.getId()))).thenReturn(List.of(cat1, task1, task2));
 
         List<ProjectTemplateSummaryResult> results = service.getActiveTemplates();
 
@@ -130,7 +130,7 @@ class GetProjectTemplatesServiceTest {
                 LocalDateTime.now()
         );
 
-        when(loadProjectTemplatePort.findById(any(ProjectTemplateId.class))).thenReturn(Optional.of(template));
+        when(loadProjectTemplatePort.findActiveById(any(ProjectTemplateId.class))).thenReturn(Optional.of(template));
         when(loadProjectTemplatePort.findTasksByTemplateId(any(ProjectTemplateId.class))).thenReturn(List.of(task1));
 
         ProjectTemplateDetailResult result = service.getTemplateDetail(1L);
@@ -151,9 +151,9 @@ class GetProjectTemplatesServiceTest {
     }
 
     @Test
-    @DisplayName("getTemplateDetail voi id khong ton tai nem loi ProjectTemplateNotFoundException")
+    @DisplayName("getTemplateDetail voi id khong ton tai hoac inactive nem loi ProjectTemplateNotFoundException")
     void getTemplateDetail_NotFound_ThrowsException() {
-        when(loadProjectTemplatePort.findById(any(ProjectTemplateId.class))).thenReturn(Optional.empty());
+        when(loadProjectTemplatePort.findActiveById(any(ProjectTemplateId.class))).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getTemplateDetail(999L))
                 .isInstanceOf(ProjectTemplateNotFoundException.class);

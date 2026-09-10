@@ -28,9 +28,20 @@ public class GetProjectTemplatesService implements GetProjectTemplatesUseCase {
     @Override
     public List<ProjectTemplateSummaryResult> getActiveTemplates() {
         List<ProjectTemplate> activeTemplates = loadProjectTemplatePort.findAllActive();
+        if (activeTemplates.isEmpty()) {
+            return List.of();
+        }
+
+        List<ProjectTemplateId> templateIds = activeTemplates.stream()
+                .map(ProjectTemplate::getId)
+                .toList();
+
+        List<ProjectTemplateTask> allTasks = loadProjectTemplatePort.findTasksByTemplateIds(templateIds);
+        java.util.Map<Long, List<ProjectTemplateTask>> tasksByTemplateId = allTasks.stream()
+                .collect(java.util.stream.Collectors.groupingBy(ProjectTemplateTask::getTemplateIdValue));
 
         return activeTemplates.stream().map(template -> {
-            List<ProjectTemplateTask> tasks = loadProjectTemplatePort.findTasksByTemplateId(template.getId());
+            List<ProjectTemplateTask> tasks = tasksByTemplateId.getOrDefault(template.getIdValue(), List.of());
 
             BigDecimal totalHours = tasks.stream()
                     .map(ProjectTemplateTask::getEstimatedHours)
@@ -64,8 +75,8 @@ public class GetProjectTemplatesService implements GetProjectTemplatesUseCase {
         }
 
         ProjectTemplateId domainId = new ProjectTemplateId(templateId);
-        ProjectTemplate template = loadProjectTemplatePort.findById(domainId)
-                .orElseThrow(() -> new ProjectTemplateNotFoundException(templateId));
+        ProjectTemplate template = loadProjectTemplatePort.findActiveById(domainId)
+                .orElseThrow(() -> new ProjectTemplateNotFoundException("Không tìm thấy mẫu dự án hoặc mẫu đã bị vô hiệu hóa"));
 
         List<ProjectTemplateTask> tasks = loadProjectTemplatePort.findTasksByTemplateId(domainId);
 
@@ -87,7 +98,7 @@ public class GetProjectTemplatesService implements GetProjectTemplatesUseCase {
                 t.getParentIdValue(),
                 t.getName(),
                 t.getDescription(),
-                t.getTaskType() != null ? t.getTaskType().name() : TaskType.TASK.name(),
+                t.getTaskType().name(),
                 t.getEstimatedHours() != null ? t.getEstimatedHours() : BigDecimal.ZERO,
                 t.getSortOrder() != null ? t.getSortOrder() : 0)).toList();
 

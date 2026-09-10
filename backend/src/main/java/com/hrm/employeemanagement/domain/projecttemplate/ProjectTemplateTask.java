@@ -32,7 +32,7 @@ public class ProjectTemplateTask {
         this.parentId = parentId;
         this.name = Objects.requireNonNull(name, "Template task name must not be null");
         this.description = description;
-        this.taskType = taskType != null ? taskType : TaskType.TASK;
+        this.taskType = Objects.requireNonNull(taskType, "Task type must not be null");
         this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
         this.createdAt = createdAt;
