@@ -17,4 +17,11 @@ public interface SpringDataHolidayRepository extends JpaRepository<HolidayJpaEnt
 
     @Query("SELECT h FROM HolidayJpaEntity h WHERE h.holidayDate >= :startDate AND h.holidayDate <= :endDate")
     List<HolidayJpaEntity> findHolidaysBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    boolean existsByHolidayDate(LocalDate holidayDate);
+
+    boolean existsByHolidayDateAndIdNot(LocalDate holidayDate, Long id);
+
+    @Query("SELECT h FROM HolidayJpaEntity h WHERE h.holidayDate >= :startDate AND h.holidayDate <= :endDate ORDER BY h.holidayDate ASC")
+    List<HolidayJpaEntity> findByHolidayDateBetweenOrderByHolidayDateAsc(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

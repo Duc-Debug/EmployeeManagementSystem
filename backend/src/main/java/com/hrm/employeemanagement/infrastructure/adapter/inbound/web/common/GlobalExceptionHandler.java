@@ -131,6 +131,33 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.calendar.DuplicateHolidayException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateHoliday(com.hrm.employeemanagement.domain.exception.calendar.DuplicateHolidayException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_HOLIDAY",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.calendar.HolidayNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleHolidayNotFound(com.hrm.employeemanagement.domain.exception.calendar.HolidayNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "HOLIDAY_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.calendar.InvalidWorkingCalendarException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidWorkingCalendar(com.hrm.employeemanagement.domain.exception.calendar.InvalidWorkingCalendarException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_WORKING_CALENDAR",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     // 3. Handle CyclicDependencyException (400 BAD REQUEST)
     @ExceptionHandler(CyclicDependencyException.class)
     public ResponseEntity<ErrorResponse> handleCyclicDependency(CyclicDependencyException ex) {
