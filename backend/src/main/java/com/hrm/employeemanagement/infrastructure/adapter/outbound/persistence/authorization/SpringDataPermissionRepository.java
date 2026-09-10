@@ -22,4 +22,17 @@ public interface SpringDataPermissionRepository
             @Param("userId") Long userId,
             @Param("permissionCode") String permissionCode
     );
+
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM users u
+            JOIN roles r ON r.id = u.role_id
+            WHERE u.id = :userId
+              AND u.is_active = TRUE
+              AND r.code = :roleCode
+            """, nativeQuery = true)
+    long countUserRoleMatches(
+            @Param("userId") Long userId,
+            @Param("roleCode") String roleCode
+    );
 }
