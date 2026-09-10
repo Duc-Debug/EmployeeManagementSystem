@@ -114,6 +114,32 @@ export async function changePassword(payload: ChangePasswordPayload): Promise<vo
   });
 }
 
+export interface ForgotPasswordPayload {
+  identity: string;
+}
+
+export interface ResetPasswordPayload {
+  confirmPassword: string;
+  newPassword: string;
+  token: string;
+}
+
+export async function forgotPassword(identity: string): Promise<string> {
+  await apiRequest<void>("/auth/forgot-password", {
+    body: JSON.stringify({ identity }),
+    method: "POST",
+  });
+  return "Nếu thông tin tài khoản hợp lệ, liên kết khôi phục mật khẩu đã được gửi đến email đăng ký.";
+}
+
+export async function resetPassword(payload: ResetPasswordPayload): Promise<string> {
+  await apiRequest<void>("/auth/reset-password", {
+    body: JSON.stringify(payload),
+    method: "POST",
+  });
+  return "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.";
+}
+
 export function logout(): void {
   clearAuthSession();
   if (typeof window !== "undefined") {
