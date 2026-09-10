@@ -32,7 +32,8 @@ public class FlywayConfig {
                 .locations("classpath:db/migration")
                 .outOfOrder(outOfOrder)
                 .load();
-
+        
+        flyway.repair();
         flyway.migrate();
 
         System.out.println("==================================================");

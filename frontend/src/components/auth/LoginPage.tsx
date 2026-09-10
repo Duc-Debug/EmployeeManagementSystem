@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import {
     Mail,
     Lock,
@@ -9,8 +9,10 @@ import {
     ArrowRight,
     ShieldCheck,
     Loader2,
+    CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ForgotPasswordModal from "./ForgotPasswordModal";
 
 export interface LoginCredentials {
     username: string;
@@ -31,6 +33,17 @@ export default function LoginPage({ onLogin, initialError }: AdminLoginPageProps
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(initialError ?? null);
+    const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+    const [resetSuccessAlert, setResetSuccessAlert] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("resetSuccess") === "true") {
+                setResetSuccessAlert(true);
+            }
+        }
+    }, []);
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -183,10 +196,24 @@ export default function LoginPage({ onLogin, initialError }: AdminLoginPageProps
                                     />
                                     Ghi nhớ đăng nhập
                                 </label>
-                                <a href="#" className="text-[13px] font-medium text-white/80 hover:text-white transition hover:underline">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsForgotPasswordOpen(true)}
+                                    className="text-[13px] font-medium text-white/80 hover:text-white transition hover:underline"
+                                >
                                     Quên mật khẩu?
-                                </a>
+                                </button>
                             </div>
+
+                            {resetSuccessAlert && (
+                                <div
+                                    role="status"
+                                    className="mb-4 flex items-start gap-2.5 rounded-[14px] border border-emerald-400/30 bg-emerald-500/15 p-3 text-[13px] text-emerald-100 backdrop-blur-md"
+                                >
+                                    <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-400" />
+                                    <span>Đặt lại mật khẩu thành công! Vui lòng đăng nhập với mật khẩu mới.</span>
+                                </div>
+                            )}
 
                             {error && (
                                 <div
@@ -229,6 +256,16 @@ export default function LoginPage({ onLogin, initialError }: AdminLoginPageProps
                     </section>
                 </div>
             </main>
+
+            {/* Forgot Password Modal */}
+            <ForgotPasswordModal
+                isOpen={isForgotPasswordOpen}
+                onClose={() => setIsForgotPasswordOpen(false)}
+                onResetSuccess={() => {
+                    setIsForgotPasswordOpen(false);
+                    setResetSuccessAlert(true);
+                }}
+            />
         </div>
     );
-}
+}

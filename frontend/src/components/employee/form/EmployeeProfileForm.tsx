@@ -146,6 +146,11 @@ export default function EmployeeProfileForm({
             setErrorMessage("Vui lòng nhập địa chỉ email.");
             return;
         }
+        const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+        if (!EMAIL_REGEX.test(formData.email.trim())) {
+            setErrorMessage("Email không đúng định dạng. Email phải có ký tự '@' và tên miền hợp lệ chứa dấu '.' (ví dụ: user@company.com).");
+            return;
+        }
         if (!formData.employeeCode?.trim()) {
             setErrorMessage("Vui lòng nhập hoặc để mã nhân viên tự động.");
             return;

@@ -36,6 +36,7 @@ import com.hrm.employeemanagement.domain.exception.skill.InvalidSkillMergeExcept
 import com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException;
 import com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException;
 import com.hrm.employeemanagement.domain.skill.Skill;
+import com.hrm.employeemanagement.domain.skill.SkillCodeGenerator;
 import com.hrm.employeemanagement.domain.skill.SkillGroup;
 import com.hrm.employeemanagement.domain.skill.SkillGroupId;
 import com.hrm.employeemanagement.domain.skill.SkillId;
@@ -80,19 +81,19 @@ public class SkillService implements
     public SkillResult execute(CreateSkillCommand command) {
         Long currentUserId = authorizationService.require(PermissionCode.SKILL_CREATE);
 
-        if (!loadSkillGroupPort.existsById(new SkillGroupId(command.groupId()))) {
-            throw new SkillGroupNotFoundException("Nhóm kỹ năng với ID " + command.groupId() + " không tồn tại.");
-        }
+        SkillGroup group = loadSkillGroupPort.findById(new SkillGroupId(command.groupId()))
+                .orElseThrow(() -> new SkillGroupNotFoundException("Nhóm kỹ năng với ID " + command.groupId() + " không tồn tại."));
 
         if (loadSkillPort.existsByNameIgnoreCase(command.name())) {
             throw new DuplicateSkillNameException("Tên kỹ năng '" + command.name() + "' đã tồn tại trong hệ thống.");
         }
 
         Skill newSkill = Skill.create(
-                "SKILL-" + command.groupId(),
+                SkillCodeGenerator.generate(),
                 command.name(),
-                "GENERAL",
-                command.description()
+                group.getName(),
+                command.description(),
+                command.groupId()
         );
 
         Skill savedSkill = saveSkillPort.save(newSkill);
@@ -116,9 +117,8 @@ public class SkillService implements
         Skill skill = loadSkillPort.findById(new SkillId(command.id()))
                 .orElseThrow(() -> new SkillNotFoundException("Không tìm thấy kỹ năng với ID: " + command.id()));
 
-        if (!loadSkillGroupPort.existsById(new SkillGroupId(command.groupId()))) {
-            throw new SkillGroupNotFoundException("Nhóm kỹ năng với ID " + command.groupId() + " không tồn tại.");
-        }
+        SkillGroup group = loadSkillGroupPort.findById(new SkillGroupId(command.groupId()))
+                .orElseThrow(() -> new SkillGroupNotFoundException("Nhóm kỹ năng với ID " + command.groupId() + " không tồn tại."));
 
         if (loadSkillPort.existsByNameIgnoreCaseAndIdNot(command.name(), command.id())) {
             throw new DuplicateSkillNameException("Tên kỹ năng '" + command.name() + "' đã tồn tại trong hệ thống.");
@@ -130,8 +130,9 @@ public class SkillService implements
                 skill.getId(),
                 skill.getCode(),
                 command.name(),
-                skill.getCategory(),
+                group.getName(),
                 command.description(),
+                command.groupId(),
                 skill.getCreatedAt()
         );
         Skill savedSkill = saveSkillPort.save(updatedSkill);
@@ -257,7 +258,7 @@ public class SkillService implements
                 command.description(),
                 SkillStatus.ACTIVE,
                 LocalDateTime.now(),
-                null
+                LocalDateTime.now()
         );
 
         SkillGroup savedGroup = saveSkillGroupPort.save(newGroup);

@@ -333,6 +333,71 @@ class CreateProjectServiceTest {
         verify(saveProjectPort).save(any(Project.class));
     }
 
+    @Test
+    @DisplayName("Tạo dự án thành công khi Quản lý dự án (VT-02) tạo trong đơn vị của mình")
+    void testCreateProject_ProjectManager_Success() {
+        when(authorizationService.require(PermissionCode.PROJECT_CREATE)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createProjectManagerUser()));
+        when(loadEmployeePort.findByUserId(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createEmployee(MANAGER_ID)));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(ORG_UNIT_ID, ORG_UNIT_ID)).thenReturn(true);
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.of(createOrgUnit(ORG_UNIT_ID, "IT", OrgUnitStatus.ACTIVE)));
+        when(loadEmployeePort.findById(new EmployeeId(MANAGER_ID))).thenReturn(Optional.of(createEmployee(MANAGER_ID)));
+
+        when(saveProjectPort.save(any(Project.class))).thenAnswer(invocation -> {
+            Project input = invocation.getArgument(0);
+            return new Project(
+                    new ProjectId(5L),
+                    input.getProjectCode(),
+                    input.getProjectName(),
+                    input.getOrgUnitId(),
+                    input.getManagerId(),
+                    input.getStartDate(),
+                    input.getEndDate(),
+                    input.getEstimatedHours(),
+                    input.getDescription(),
+                    ProjectStatus.ACTIVE,
+                    input.getCreatedBy(),
+                    input.getCreatedAt(),
+                    null,
+                    0L
+            );
+        });
+
+        CreateProjectCommand command = new CreateProjectCommand(
+                "Dự án PM Tạo",
+                ORG_UNIT_ID,
+                MANAGER_ID,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 12, 31),
+                BigDecimal.valueOf(100),
+                null
+        );
+
+        ProjectResult result = service.createProject(command);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(5L);
+        verify(saveProjectPort).save(any(Project.class));
+    }
+
+    private User createProjectManagerUser() {
+        Role pmRole = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án");
+        return new User(
+                new UserId(CURRENT_USER_ID),
+                "pm_user",
+                "hash",
+                pmRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(MANAGER_ID),
+                DataScope.SELF,
+                null,
+                "pm@hrm.com",
+                null,
+                1,
+                0L
+        );
+    }
+
     private User createAdminUser() {
         Role adminRole = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
         return new User(

@@ -29,11 +29,13 @@ import {
 } from '@/lib/api/projects';
 import { getOrgTree } from '@/lib/api/org-units';
 import type { OrgUnitTreeNode } from '@/types/hrm';
+import type { AuthUser } from '@/lib/auth-session';
 import type { ProjectMember } from './projectData';
 
 interface ProjectCreateModalProps {
     open: boolean;
     members: ProjectMember[];
+    currentUser: AuthUser | null;
     onClose: () => void;
     onCreated: (newProjectId: number) => void;
 }
@@ -43,6 +45,7 @@ type CreateMode = 'STANDARD' | 'TEMPLATE';
 export function ProjectCreateModal({
     open,
     members,
+    currentUser,
     onClose,
     onCreated,
 }: ProjectCreateModalProps) {
@@ -60,32 +63,46 @@ export function ProjectCreateModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
-    const currentUser = useAuthUser();
+    const authUser = useAuthUser();
+    const effectiveUser = currentUser || authUser;
 
     // Tìm employeeId của người dùng hiện tại
     const currentEmpMember = members.find(
-        (m) => (m.employeeId && m.employeeId === currentUser?.id) ||
-               (currentUser?.employeeCode && m.id === `u-${currentUser.employeeCode}`) ||
-               (currentUser?.fullName && m.name === currentUser.fullName)
+        (m) => (m.employeeId && m.employeeId === effectiveUser?.id) ||
+               (effectiveUser?.employeeCode && m.id === `u-${effectiveUser.employeeCode}`) ||
+               (effectiveUser?.fullName && m.name === effectiveUser.fullName)
     );
-    const currentEmpId = currentEmpMember?.employeeId || (currentUser?.id ? currentUser.id : undefined);
+    const currentEmpId = currentEmpMember?.employeeId || (effectiveUser?.id ? effectiveUser.id : undefined);
 
-    // Chuẩn bị danh sách PM options (đảm bảo currentUser luôn có trong danh sách nếu có thông tin)
+    // Khi modal mở và người dùng là VT-02 (PM), pre-select chính họ làm PM mặc định
+    useEffect(() => {
+        if (open && effectiveUser?.roleCode === 'VT-02') {
+            const selfMember = members.find((m) => m.employeeId === effectiveUser.id
+                || String(m.employeeId) === String(effectiveUser.id));
+            if (selfMember?.employeeId) {
+                setManagerId(selfMember.employeeId);
+            } else if (currentEmpId) {
+                setManagerId(currentEmpId);
+            }
+        }
+    }, [open, effectiveUser, members, currentEmpId]);
+
+    // Chuẩn bị danh sách PM options (đảm bảo effectiveUser luôn có trong danh sách nếu có thông tin)
     const pmOptions = React.useMemo(() => {
         const list = [...members];
-        if (currentUser && currentEmpId && !list.some((m) => m.employeeId === currentEmpId || m.id === `u-${currentEmpId}`)) {
+        if (effectiveUser && currentEmpId && !list.some((m) => m.employeeId === currentEmpId || m.id === `u-${currentEmpId}`)) {
             list.unshift({
                 id: `u-${currentEmpId}`,
                 employeeId: currentEmpId,
-                name: `${currentUser.fullName || currentUser.username} (Tôi)`,
-                role: currentUser.roleCode || 'Nhân viên',
+                name: `${effectiveUser.fullName || effectiveUser.username} (Tôi)`,
+                role: effectiveUser.roleCode || 'Nhân viên',
                 avatar: '',
                 capacity: 40,
                 weeklyHours: {},
             });
         }
         return list;
-    }, [members, currentUser, currentEmpId]);
+    }, [members, effectiveUser, currentEmpId]);
 
     // Templates state
     const [templates, setTemplates] = useState<ProjectTemplateSummary[]>([]);
@@ -173,6 +190,26 @@ export function ProjectCreateModal({
 
         if (mode === 'TEMPLATE' && !selectedTemplateId) {
             setErrorMsg('Vui lòng chọn một mẫu dự án');
+            return;
+        }
+
+        // Validate ngày: năm không được vượt quá 2100
+        if (startDate) {
+            const startYear = new Date(startDate).getFullYear();
+            if (startYear > 2100) {
+                setErrorMsg('Ngày bắt đầu không được vượt quá năm 2100');
+                return;
+            }
+        }
+        if (endDate) {
+            const endYear = new Date(endDate).getFullYear();
+            if (endYear > 2100) {
+                setErrorMsg('Ngày kết thúc không được vượt quá năm 2100');
+                return;
+            }
+        }
+        if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+            setErrorMsg('Ngày kết thúc không được sớm hơn ngày bắt đầu');
             return;
         }
 
@@ -477,7 +514,7 @@ export function ProjectCreateModal({
                                     const isMe = currentEmpId && numId === currentEmpId;
                                     return (
                                         <option key={m.id} value={numId || ''}>
-                                            {m.name}
+                                            {m.name} {isMe ? '⭐ (Tôi)' : ''} ({m.role})
                                         </option>
                                     );
                                 })}

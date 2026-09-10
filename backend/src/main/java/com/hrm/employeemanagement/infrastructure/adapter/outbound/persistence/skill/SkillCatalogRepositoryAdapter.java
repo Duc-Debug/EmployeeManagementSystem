@@ -43,6 +43,16 @@ public class SkillCatalogRepositoryAdapter implements SkillCatalogRepository {
     }
 
     @Override
+    public List<Skill> findAllByIdIn(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return repository.findAllByIdIn(ids).stream()
+                .map(SkillPersistenceMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public boolean existsById(Long id) {
         if (id == null) {
             return false;

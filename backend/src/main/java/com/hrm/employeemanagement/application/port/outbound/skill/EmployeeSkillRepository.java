@@ -2,7 +2,6 @@ package com.hrm.employeemanagement.application.port.outbound.skill;
 
 import java.util.List;
 import java.util.Optional;
-
 import com.hrm.employeemanagement.application.dto.skill.PendingEmployeeSkillItemResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
@@ -32,5 +31,6 @@ public interface EmployeeSkillRepository {
             int page,
             int size
     );
-}
 
+    void deleteByEmployeeIdAndSkillId(Long employeeId, Long skillId);
+}

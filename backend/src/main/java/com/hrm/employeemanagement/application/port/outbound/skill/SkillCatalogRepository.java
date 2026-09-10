@@ -13,5 +13,7 @@ public interface SkillCatalogRepository {
 
     List<Skill> findAll();
 
+    List<Skill> findAllByIdIn(List<Long> ids);
+
     boolean existsById(Long id);
 }

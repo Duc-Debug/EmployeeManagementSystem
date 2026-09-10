@@ -49,4 +49,29 @@ class CreateUserCommandTest {
             new CreateUserCommand("john_doe", "password123", "VT-04", "EMP-001", "John Doe", null);
         });
     }
+
+    @Test
+    @DisplayName("Khởi tạo thành công khi email đúng định dạng")
+    void testValidEmail_Success() {
+        CreateUserCommand command = new CreateUserCommand(
+                "john_doe", "password123", "VT-04", "EMP-001", "John Doe", 10L, "john.doe@company.com"
+        );
+        assertEquals("john.doe@company.com", command.email());
+    }
+
+    @Test
+    @DisplayName("Báo lỗi khi email sai định dạng (thiếu @ hoặc thiếu tên miền có dấu '.')")
+    void testInvalidEmail_ThrowsException() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            new CreateUserCommand("john_doe", "password123", "VT-04", "EMP-001", "John Doe", 10L, "plainaddress");
+        });
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            new CreateUserCommand("john_doe", "password123", "VT-04", "EMP-001", "John Doe", 10L, "user@domain");
+        });
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            new CreateUserCommand("john_doe", "password123", "VT-04", "EMP-001", "John Doe", 10L, "user@");
+        });
+    }
 }
