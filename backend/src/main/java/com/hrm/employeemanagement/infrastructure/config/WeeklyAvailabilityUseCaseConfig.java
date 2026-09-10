@@ -27,7 +27,8 @@ public class WeeklyAvailabilityUseCaseConfig {
             SaveAuditLogPort saveAuditLogPort,
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort,
-            AuthorizationService authorizationService) {
+            AuthorizationService authorizationService,
+            com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort) {
         WeeklyAvailabilityService service = new WeeklyAvailabilityService(
                 loadEmployeePort,
                 loadWeeklyAvailabilityPort,
@@ -37,7 +38,8 @@ public class WeeklyAvailabilityUseCaseConfig {
                 saveAuditLogPort,
                 loadUserPort,
                 loadOrgUnitPort,
-                authorizationService
+                authorizationService,
+                loadWorkingCalendarPort
         );
         return new TransactionalWeeklyAvailabilityServiceDecorator(service);
     }
