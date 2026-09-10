@@ -926,7 +926,12 @@ public UserResult updateUserRole(
 
     @Override
     public List<RoleResult> getRoles() {
-        authorizationService.require(PermissionCode.USER_READ);
+        authorizationService.requireAny(
+                PermissionCode.USER_READ,
+                PermissionCode.PROJECT_RESOURCE_DEMAND_READ,
+                PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE,
+                PermissionCode.PROJECT_READ
+        );
         return loadRolePort.findAll().stream()
                 .map(role -> new RoleResult(
                         role.getId() != null ? role.getId().value() : null,

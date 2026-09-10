@@ -10,5 +10,8 @@ export interface RoleResponse {
 }
 
 export async function getRoles(): Promise<RoleResponse[]> {
-  return apiRequest<RoleResponse[]>("/roles");
+  const roles = await apiRequest<RoleResponse[]>("/roles");
+  return Array.isArray(roles)
+    ? roles.filter((r) => r && r.code?.toUpperCase().replace(/_/g, '-') !== 'VT-07')
+    : [];
 }
