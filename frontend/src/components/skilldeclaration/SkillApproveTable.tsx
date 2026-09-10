@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Check, LoaderCircle, MessageSquare, RefreshCw, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Check, X, ShieldCheck, SlidersHorizontal, AlertCircle } from 'lucide-react';
 import type { PendingApprovalSkill } from './Types.ts';
-import SkillApproveModal from './SkillApproveModal.tsx';
 
 /* ── Level badge ─────────────────────────────────────────── */
 const LEVEL_STYLES: Record<number, { bg: string; text: string; border: string }> = {
@@ -42,38 +41,12 @@ function CategoryBadge({ cat }: { cat: string }) {
 }
 
 /* ── Status badge (cho hàng đã xử lý) ───────────────────── */
-function StatusBadge({
-    status,
-    adjustedLevel,
-    originalLevel,
-    reviewNotes,
-}: {
-    status: 'pending' | 'approved' | 'rejected';
-    adjustedLevel?: number;
-    originalLevel?: number;
-    reviewNotes?: string;
-}) {
+function StatusBadge({ status }: { status: 'approved' | 'rejected' }) {
     if (status === 'approved') {
-        const isAdjusted = adjustedLevel !== undefined && originalLevel !== undefined && adjustedLevel !== originalLevel;
         return (
-            <div className="space-y-1">
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                    <Check className="h-3 w-3" />
-                    Đã duyệt {adjustedLevel ? `(Level ${adjustedLevel})` : ''}
-                </span>
-                {isAdjusted && (
-                    <div className="flex items-center gap-1 text-[10px] text-amber-600 font-medium">
-                        <Sparkles className="h-2.5 w-2.5" />
-                        Đã điều chỉnh từ Lvl {originalLevel}
-                    </div>
-                )}
-                {reviewNotes && (
-                    <div className="flex items-center gap-1 text-[10px] text-slate-500 italic max-w-[180px] truncate" title={reviewNotes}>
-                        <MessageSquare className="h-2.5 w-2.5 shrink-0" />
-                        "{reviewNotes}"
-                    </div>
-                )}
-            </div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                <Check className="h-3 w-3" /> Đã duyệt
+            </span>
         );
     }
     return (
@@ -87,11 +60,11 @@ function StatusBadge({
 function EmptyState() {
     return (
         <tr>
-            <td colSpan={7}>
+            <td colSpan={6}>
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
                     <ShieldCheck className="h-10 w-10 opacity-30" />
                     <p className="text-sm font-medium">Không có yêu cầu chờ duyệt</p>
-                    <p className="text-xs">Tất cả kỹ năng đã được xử lý hoặc chưa có nhân sự khai báo.</p>
+                    <p className="text-xs">Tất cả kỹ năng đã được xử lý.</p>
                 </div>
             </td>
         </tr>
@@ -101,31 +74,44 @@ function EmptyState() {
 /* ── Main component ──────────────────────────────────────── */
 interface SkillApproveTableProps {
     requests: PendingApprovalSkill[];
-    onApprove: (
-        id: number,
-        adjustedProficiencyLevel: number,
-        reviewNotes: string
-    ) => Promise<void>;
-    onReject?: (id: number) => void;
-    onRefresh?: () => void;
-    loading?: boolean;
-    isLoading?: boolean;
-    error?: string | null;
-    approvingId?: number | null;
+    onApprove: (id: number, adjustedLevel?: number, notes?: string) => void;
+    onReject: (id: number, reason?: string) => void;
 }
 
-export default function SkillApproveTable({
-    requests,
-    onApprove,
-    onReject,
-    onRefresh,
-    loading = false,
-    isLoading = false,
-    error,
-}: SkillApproveTableProps) {
-    const [modalItem, setModalItem] = useState<PendingApprovalSkill | null>(null);
+export default function SkillApproveTable({ requests, onApprove, onReject }: SkillApproveTableProps) {
     const pendingCount = requests.filter((r) => r.status === 'pending').length;
-    const busy = loading || isLoading;
+
+    // Modal Điều chỉnh / Phê duyệt
+    const [adjustModalTarget, setAdjustModalTarget] = useState<PendingApprovalSkill | null>(null);
+    const [adjustedLevel, setAdjustedLevel] = useState<number>(3);
+    const [reviewNotes, setReviewNotes] = useState<string>('');
+
+    // Modal Từ chối
+    const [rejectModalTarget, setRejectModalTarget] = useState<PendingApprovalSkill | null>(null);
+    const [rejectionReason, setRejectionReason] = useState<string>('');
+
+    const handleOpenAdjustModal = (req: PendingApprovalSkill) => {
+        setAdjustModalTarget(req);
+        setAdjustedLevel(req.level);
+        setReviewNotes('');
+    };
+
+    const handleConfirmApprove = () => {
+        if (!adjustModalTarget) return;
+        onApprove(adjustModalTarget.id, adjustedLevel, reviewNotes);
+        setAdjustModalTarget(null);
+    };
+
+    const handleOpenRejectModal = (req: PendingApprovalSkill) => {
+        setRejectModalTarget(req);
+        setRejectionReason('');
+    };
+
+    const handleConfirmReject = () => {
+        if (!rejectModalTarget) return;
+        onReject(rejectModalTarget.id, rejectionReason);
+        setRejectModalTarget(null);
+    };
 
     return (
         <div className="space-y-5">
@@ -133,50 +119,29 @@ export default function SkillApproveTable({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h2 className="text-lg font-bold text-slate-800">
-                        Xác nhận mức thành thạo kỹ năng nhân sự
+                        Phê duyệt Kỹ năng Khai báo từ Nhân sự
                     </h2>
                     <p className="mt-0.5 text-xs text-slate-500">
-                        Quản lý nguồn lực (VT-03) phê duyệt, điều chỉnh mức độ chuyên môn và ghi nhận nhận xét đánh giá (NCL-02-CN-006).
+                        Danh sách yêu cầu xác thực mức độ thành thạo và kinh nghiệm từ các thành viên trong bộ phận.
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                    {onRefresh && (
-                        <button
-                            type="button"
-                            onClick={onRefresh}
-                            disabled={busy}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-2xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
-                            title="Làm mới danh sách từ máy chủ"
-                        >
-                            <RefreshCw className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} />
-                            <span className="hidden sm:inline">Làm mới</span>
-                        </button>
-                    )}
-
-                    {pendingCount > 0 && (
-                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 shadow-xs">
-                            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-                            {pendingCount} Yêu cầu chờ duyệt
-                        </span>
-                    )}
-                </div>
+                {pendingCount > 0 && (
+                    <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 shadow-xs">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+                        {pendingCount} Yêu cầu chờ duyệt
+                    </span>
+                )}
             </div>
 
             {/* ── Table ── */}
-            {error && (
-                <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
-                    {error}
-                </p>
-            )}
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-slate-100 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                                 <th className="px-4 py-3 text-left">Nhân viên</th>
-                                <th className="px-4 py-3 text-left">Đơn vị</th>
-                                <th className="px-4 py-3 text-left">Kỹ năng</th>
+                                <th className="px-4 py-3 text-left">Kỹ năng khai báo</th>
                                 <th className="px-4 py-3 text-left">Phân loại</th>
                                 <th className="px-4 py-3 text-left">Mức đề xuất</th>
                                 <th className="px-4 py-3 text-left">Kinh nghiệm</th>
@@ -184,33 +149,19 @@ export default function SkillApproveTable({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {busy ? (
-                                <tr><td colSpan={6} className="py-12 text-center text-slate-500"><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin" />Đang tải dữ liệu...</td></tr>
-                            ) : requests.length === 0 ? (
+                            {requests.length === 0 ? (
                                 <EmptyState />
                             ) : (
                                 requests.map((req) => (
                                     <tr key={req.id} className="transition-colors hover:bg-slate-50/60">
                                         {/* Nhân viên */}
                                         <td className="px-4 py-3">
-                                            <div className="flex flex-col">
-                                                <span className="font-semibold text-slate-800">{req.employeeName}</span>
-                                                {req.employeeCode && (
-                                                    <span className="text-[11px] text-slate-400 font-mono">{req.employeeCode}</span>
-                                                )}
-                                            </div>
-                                        </td>
-
-                                        {/* Đơn vị */}
-                                        <td className="px-4 py-3">
-                                            <span className="text-xs text-slate-600 font-medium">
-                                                {req.orgUnitName || 'Toàn công ty'}
-                                            </span>
+                                            <span className="font-semibold text-slate-800">{req.employeeName}</span>
                                         </td>
 
                                         {/* Kỹ năng */}
                                         <td className="px-4 py-3">
-                                            <span className="font-semibold text-indigo-600">{req.skillName}</span>
+                                            <span className="font-medium text-indigo-600">{req.skillName}</span>
                                         </td>
 
                                         {/* Phân loại */}
@@ -231,34 +182,36 @@ export default function SkillApproveTable({
                                         {/* Xử lý */}
                                         <td className="px-4 py-3">
                                             {req.status === 'pending' ? (
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1.5">
                                                     <button
                                                         type="button"
-                                                        onClick={() => setModalItem(req)}
-                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 cursor-pointer shadow-2xs"
+                                                        onClick={() => onApprove(req.id)}
+                                                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 cursor-pointer"
+                                                        title="Duyệt nhanh giữ nguyên mức tự khai"
                                                     >
-                                                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                                                        Xác nhận / Duyệt
+                                                        <Check className="h-3.5 w-3.5" />
+                                                        Duyệt
                                                     </button>
-                                                    {onReject && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => onReject(req.id)}
-                                                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 active:scale-95 cursor-pointer"
-                                                            title="Từ chối yêu cầu"
-                                                        >
-                                                            <X className="h-3.5 w-3.5" />
-                                                            Từ chối
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenAdjustModal(req)}
+                                                        className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 cursor-pointer"
+                                                        title="Điều chỉnh mức thành thạo & thêm ghi chú"
+                                                    >
+                                                        <SlidersHorizontal className="h-3 w-3" />
+                                                        Điều chỉnh
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenRejectModal(req)}
+                                                        className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 hover:border-rose-300 active:scale-95 cursor-pointer"
+                                                    >
+                                                        <X className="h-3.5 w-3.5" />
+                                                        Từ chối
+                                                    </button>
                                                 </div>
                                             ) : (
-                                                <StatusBadge
-                                                    status={req.status}
-                                                    adjustedLevel={req.adjustedLevel}
-                                                    originalLevel={req.level}
-                                                    reviewNotes={req.reviewNotes}
-                                                />
+                                                <StatusBadge status={req.status} />
                                             )}
                                         </td>
                                     </tr>
@@ -269,15 +222,141 @@ export default function SkillApproveTable({
                 </div>
             </div>
 
-            {/* Modal Xác nhận & Điều chỉnh mức thành thạo */}
-            <SkillApproveModal
-                open={modalItem !== null}
-                skillItem={modalItem}
-                onClose={() => setModalItem(null)}
-                onConfirm={onApprove}
-            />
+            {/* ── Modal Điều chỉnh & Xác nhận mức thành thạo ── */}
+            {adjustModalTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs animate-in fade-in">
+                    <div className="relative w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900">
+                                    Xác nhận / Điều chỉnh mức thành thạo
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Nhân viên: <strong className="text-slate-800">{adjustModalTarget.employeeName}</strong> – Kỹ năng: <strong className="text-indigo-600">{adjustModalTarget.skillName}</strong>
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setAdjustModalTarget(null)}
+                                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div>
+                                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                                    Mức thành thạo (Tự khai: Level {adjustModalTarget.level})
+                                </label>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map((lvl) => (
+                                        <button
+                                            key={lvl}
+                                            type="button"
+                                            onClick={() => setAdjustedLevel(lvl)}
+                                            className={`flex-1 rounded-xl py-2 text-xs font-bold transition border cursor-pointer ${
+                                                adjustedLevel === lvl
+                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                            }`}
+                                        >
+                                            Level {lvl}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                                    Ghi chú đánh giá / Lý do điều chỉnh {adjustedLevel !== adjustModalTarget.level && <span className="text-rose-500">*</span>}
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    value={reviewNotes}
+                                    onChange={(e) => setReviewNotes(e.target.value)}
+                                    placeholder="Nhập nhận xét hoặc kết quả phỏng vấn / bài test chuyên môn..."
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => setAdjustModalTarget(null)}
+                                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmApprove}
+                                className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 shadow-xs cursor-pointer"
+                            >
+                                Xác nhận phê duyệt
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Modal Xác nhận Từ chối ── */}
+            {rejectModalTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs animate-in fade-in">
+                    <div className="relative w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div className="flex items-center gap-2 text-rose-600">
+                                <AlertCircle className="h-5 w-5" />
+                                <h3 className="text-base font-bold text-slate-900">
+                                    Từ chối yêu cầu kỹ năng
+                                </h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setRejectModalTarget(null)}
+                                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-600">
+                            Bạn đang từ chối kỹ năng <strong className="text-indigo-600">"{rejectModalTarget.skillName}"</strong> của nhân viên <strong className="text-slate-900">{rejectModalTarget.employeeName}</strong>.
+                        </p>
+
+                        <div>
+                            <label className="mb-1 block text-xs font-semibold text-slate-600">
+                                Lý do từ chối (tùy chọn)
+                            </label>
+                            <textarea
+                                rows={3}
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                                placeholder="VD: Chưa có đủ chứng chỉ hoặc dự án thực tế chứng minh..."
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-medium text-slate-800 outline-none focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-100"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => setRejectModalTarget(null)}
+                                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmReject}
+                                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 shadow-xs cursor-pointer"
+                            >
+                                Xác nhận từ chối
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
-
-

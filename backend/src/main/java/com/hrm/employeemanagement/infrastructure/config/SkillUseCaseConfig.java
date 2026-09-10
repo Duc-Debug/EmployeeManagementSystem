@@ -58,6 +58,57 @@ public class SkillUseCaseConfig {
     }
 
     @Bean
+    public com.hrm.employeemanagement.application.port.inbound.skill.GetMyEmployeeSkillsUseCase getMyEmployeeSkillsUseCase(
+            EmployeeSkillRepository employeeSkillRepository,
+            SkillCatalogRepository skillCatalogRepository,
+            LoadEmployeePort loadEmployeePort,
+            AuthorizationService authorizationService
+    ) {
+        return new com.hrm.employeemanagement.application.service.skill.GetMyEmployeeSkillsService(
+                employeeSkillRepository,
+                skillCatalogRepository,
+                loadEmployeePort,
+                authorizationService
+        );
+    }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.skill.UpdateEmployeeSkillUseCase updateEmployeeSkillUseCase(
+            EmployeeSkillRepository employeeSkillRepository,
+            SkillCatalogRepository skillCatalogRepository,
+            SaveAuditLogInNewTransactionPort auditLogRepository,
+            LoadEmployeePort loadEmployeePort,
+            AuthorizationService authorizationService
+    ) {
+        com.hrm.employeemanagement.application.service.skill.UpdateEmployeeSkillService service =
+                new com.hrm.employeemanagement.application.service.skill.UpdateEmployeeSkillService(
+                        employeeSkillRepository,
+                        skillCatalogRepository,
+                        auditLogRepository,
+                        loadEmployeePort,
+                        authorizationService
+                );
+        return new com.hrm.employeemanagement.infrastructure.transaction.skill.TransactionalUpdateEmployeeSkillService(service);
+    }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.skill.DeleteEmployeeSkillUseCase deleteEmployeeSkillUseCase(
+            EmployeeSkillRepository employeeSkillRepository,
+            SaveAuditLogInNewTransactionPort auditLogRepository,
+            LoadEmployeePort loadEmployeePort,
+            AuthorizationService authorizationService
+    ) {
+        com.hrm.employeemanagement.application.service.skill.DeleteEmployeeSkillService service =
+                new com.hrm.employeemanagement.application.service.skill.DeleteEmployeeSkillService(
+                        employeeSkillRepository,
+                        auditLogRepository,
+                        loadEmployeePort,
+                        authorizationService
+                );
+        return new com.hrm.employeemanagement.infrastructure.transaction.skill.TransactionalDeleteEmployeeSkillService(service);
+    }
+
+    @Bean
     public SkillService skillService(
             LoadSkillPort loadSkillPort,
             SaveSkillPort saveSkillPort,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Award, Check, Plus, Trash2, Edit3, X } from 'lucide-react';
 import { PROFICIENCY_LEVELS } from './Types.ts';
 import type { CatalogSkill, DeclaredSkill, FormMode, Role, SkillPayload } from './Types.ts';
@@ -56,7 +56,7 @@ interface SkillsTableProps {
 
 export function SkillsTable({
                                 skills,
-                                currentRole,
+                                currentRole: _currentRole,
                                 onAdd,
                                 onEdit,
                                 onDelete,
@@ -64,7 +64,6 @@ export function SkillsTable({
                                 onReject,
                             }: SkillsTableProps) {
     const isApprovalMode = Boolean(onApprove || onReject);
-    const isManager = isApprovalMode || ["VT-02", "VT-03", "VT-05", "VT-06"].includes(currentRole);
 
     return (
         <div className="space-y-4">
@@ -130,7 +129,7 @@ export function SkillsTable({
                                     </td>
                                     <td className="px-5 py-4 text-right">
                                         <div className="flex items-center justify-end gap-1.5">
-                                            {isManager ? (
+                                            {isApprovalMode ? (
                                                 <>
                                                     <button
                                                         title="Phê duyệt"
@@ -219,11 +218,12 @@ export function ConfirmDeleteModal({ open, skillName, onClose, onConfirm }: Conf
 
 /* ============================ SkillFormModal ============================ */
 
-interface SkillFormModalProps {
+export interface SkillFormModalProps {
     open: boolean;
     mode: FormMode;
     catalog: CatalogSkill[];
     editingSkill?: DeclaredSkill | null;
+    targetSkillId?: number | string | null;
     duplicateSkillName?: string | null;
     saving: boolean;
     onClose: () => void;
@@ -237,6 +237,7 @@ function SkillFormModalContent({
                                    mode,
                                    catalog,
                                    editingSkill,
+                                   targetSkillId,
                                    duplicateSkillName,
                                    saving,
                                    onClose,
@@ -245,16 +246,30 @@ function SkillFormModalContent({
                                    onConfirmSwitchToUpdate,
                                    onDismissDuplicateWarning,
                                }: SkillFormModalProps) {
-    const [skillId, setSkillId] = useState(
-        mode === 'update' && editingSkill ? String(editingSkill.skillId) : ''
-    );
+    const initialSkillId = editingSkill
+        ? String(editingSkill.skillId)
+        : targetSkillId != null
+            ? String(targetSkillId)
+            : '';
+
+    const [skillId, setSkillId] = useState(initialSkillId);
     const [level, setLevel] = useState<number | null>(
-        mode === 'update' && editingSkill ? editingSkill.level : null
+        editingSkill ? editingSkill.level : null
     );
     const [years, setYears] = useState(
-        mode === 'update' && editingSkill ? String(editingSkill.years) : ''
+        editingSkill ? String(editingSkill.years) : ''
     );
     const [errors, setErrors] = useState<{ skillId?: boolean; level?: boolean; years?: boolean }>({});
+
+    useEffect(() => {
+        if (editingSkill) {
+            setSkillId(String(editingSkill.skillId));
+            setLevel((prev) => (prev !== null ? prev : editingSkill.level));
+            setYears((prev) => (prev !== '' ? prev : String(editingSkill.years)));
+        } else if (targetSkillId != null) {
+            setSkillId(String(targetSkillId));
+        }
+    }, [editingSkill, targetSkillId, mode]);
 
     const handleSave = () => {
         const numericSkillId = Number(skillId);
@@ -400,7 +415,7 @@ function SkillFormModalContent({
                         onClick={handleSave}
                         className="rounded-xl bg-violet-600 hover:bg-violet-700 px-5 py-2 text-xs font-bold text-white transition shadow-sm disabled:opacity-50"
                     >
-                        {saving ? 'Đang lưu...' : 'Lưu khai báo'}
+                        {saving ? 'Đang lưu...' : (mode === 'update' ? 'Lưu cập nhật' : 'Lưu khai báo')}
                     </button>
                 </div>
             </div>
@@ -410,6 +425,7 @@ function SkillFormModalContent({
 
 export function SkillFormModal(props: SkillFormModalProps) {
     if (!props.open) return null;
-    const key = props.mode === 'update' && props.editingSkill ? `edit-${props.editingSkill.skillId}` : 'create';
+    const resolvedId = props.editingSkill?.skillId ?? props.targetSkillId ?? (props.mode === 'update' ? 'edit' : 'new');
+    const key = `modal-${props.mode}-${resolvedId}`;
     return <SkillFormModalContent key={key} {...props} />;
 }

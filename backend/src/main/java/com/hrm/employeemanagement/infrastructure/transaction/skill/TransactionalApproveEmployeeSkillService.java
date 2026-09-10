@@ -19,4 +19,9 @@ public class TransactionalApproveEmployeeSkillService implements ApproveEmployee
     public EmployeeSkillResult execute(ApproveEmployeeSkillCommand command) {
         return delegate.execute(command);
     }
+    @Override
+    @Transactional
+    public EmployeeSkillResult reject(com.hrm.employeemanagement.application.dto.skill.RejectEmployeeSkillCommand command) {
+        return delegate.reject(command);
+    }
 }
