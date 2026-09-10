@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V45: CREATE PROJECT ROLES AND REFACTOR DEMANDS
+-- FLYWAY MIGRATION V46: CREATE PROJECT ROLES AND REFACTOR DEMANDS
 -- Story: NCL-03-CN-007 (Ước lượng nhu cầu nhân sự theo vai trò)
 --
 -- Tách biệt hoàn toàn:
@@ -41,13 +41,33 @@ INSERT INTO project_roles (code, name, description)
 SELECT 'DEVOPS', 'Kỹ sư hệ thống (DevOps Engineer)', 'Triển khai hạ tầng CI/CD, máy chủ, bảo mật và vận hành hệ thống'
 WHERE NOT EXISTS (SELECT 1 FROM project_roles WHERE code = 'DEVOPS');
 
--- 3. Xóa dữ liệu cũ nếu có trong project_resource_demands để chuyển sang tham chiếu project_roles
-DELETE FROM project_resource_demands;
-
--- 4. Xóa khóa ngoại cũ trỏ vào roles(id)
+-- 3. Xóa khóa ngoại cũ trỏ vào roles(id) (đã được tạo tường minh tại V30)
 ALTER TABLE project_resource_demands DROP CONSTRAINT fk_proj_res_demands_role;
 
--- 5. Tạo khóa ngoại mới trỏ vào project_roles(id)
+-- 4. Chuyển đổi an toàn role_id cũ từ roles sang project_roles tương ứng
+UPDATE project_resource_demands prd
+SET role_id = (
+    SELECT pr.id FROM project_roles pr
+    WHERE pr.code = CASE
+        WHEN (SELECT r.code FROM roles r WHERE r.id = prd.role_id) = 'VT-02' THEN 'PM'
+        ELSE 'DEV'
+    END
+)
+WHERE EXISTS (
+    SELECT 1 FROM roles r WHERE r.id = prd.role_id
+);
+
+-- 5. Khử trùng lặp (nếu có) sau khi map role_id để bảo đảm tính duy nhất (project_id, role_id, year_number, week_number)
+DELETE FROM project_resource_demands
+WHERE id NOT IN (
+    SELECT min_id FROM (
+        SELECT MIN(id) AS min_id
+        FROM project_resource_demands
+        GROUP BY project_id, role_id, year_number, week_number
+    ) t
+);
+
+-- 6. Tạo khóa ngoại mới trỏ vào project_roles(id)
 ALTER TABLE project_resource_demands
     ADD CONSTRAINT fk_proj_res_demands_project_role
     FOREIGN KEY (role_id) REFERENCES project_roles(id) ON DELETE RESTRICT;
