@@ -96,7 +96,7 @@ public class CloseProjectService implements CloseProjectUseCase {
             if (command.closureReason() == null || command.closureReason().trim().length() < 10) {
                 throw new InvalidProjectDataException("Đóng dự án cấp Ban giám đốc bắt buộc phải nhập lý do chi tiết (tối thiểu 10 ký tự)");
             }
-        } else if (currentUser.getDataScope() == DataScope.SELF) {
+        } else {
             Long currentEmployeeId = loadEmployeePort.findByUserId(new UserId(currentUserId))
                     .map(Employee::getIdValue)
                     .orElse(null);
@@ -105,9 +105,6 @@ public class CloseProjectService implements CloseProjectUseCase {
                 saveDeniedAudit(currentUserId, currentUser, project.getIdValue(), "OUTSIDE_DATA_SCOPE_CLOSE");
                 throw new PermissionDeniedException(PermissionCode.PROJECT_CLOSE);
             }
-        } else {
-            saveDeniedAudit(currentUserId, currentUser, project.getIdValue(), "OUTSIDE_DATA_SCOPE_CLOSE");
-            throw new PermissionDeniedException(PermissionCode.PROJECT_CLOSE);
         }
 
         // Kiểm tra công việc WBS: Mọi task thực thi (TASK) phải ở trạng thái DONE hoặc CANCELLED

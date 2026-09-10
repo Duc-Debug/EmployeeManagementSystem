@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project;
 
+import java.util.List;
+
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -13,7 +15,12 @@ import com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDema
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectAlreadyClosedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectDateNotConfiguredException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectHasPendingExpensesException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectHasPendingTimesheetsException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectHasUnfinishedTasksException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectNotClosedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.projecttemplate.ProjectTemplateNotFoundException;
 import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
@@ -27,18 +34,14 @@ public class ProjectExceptionHandler {
         public ResponseEntity<ApiResponse<Void>> handlePermissionDenied(
                         PermissionDeniedException ex) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                .body(
-                                                ApiResponse.error(
-                                                                ex.getMessage()));
+                                .body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(ProjectNotFoundException.class)
         public ResponseEntity<ApiResponse<Void>> handleProjectNotFound(
                         ProjectNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                .body(
-                                                ApiResponse.error(
-                                                                ex.getMessage()));
+                                .body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(DuplicateProjectCodeException.class)
@@ -79,5 +82,31 @@ public class ProjectExceptionHandler {
         @ExceptionHandler(RoleNotFoundException.class)
         public ResponseEntity<ApiResponse<Void>> handleRoleNotFound(RoleNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectAlreadyClosedException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectAlreadyClosed(ProjectAlreadyClosedException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectNotClosedException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectNotClosed(ProjectNotClosedException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectHasUnfinishedTasksException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectHasUnfinishedTasks(ProjectHasUnfinishedTasksException ex) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                                .body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectHasPendingTimesheetsException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectHasPendingTimesheets(ProjectHasPendingTimesheetsException ex) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(ProjectHasPendingExpensesException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectHasPendingExpenses(ProjectHasPendingExpensesException ex) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiResponse.error(ex.getMessage()));
         }
 }
