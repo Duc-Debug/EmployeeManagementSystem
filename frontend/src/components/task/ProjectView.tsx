@@ -657,8 +657,9 @@ export default function ProjectView() {
                 tasks={categories.flatMap((cat) =>
                     cat.tasks.map((t) => ({
                         id: Number(t.id.replace('t-', '')),
-                        taskCode: t.taskCode,
-                        name: t.title,
+                        taskCode: t.code,
+                        name: t.name,
+                        categoryName: cat.name,
                     }))
                 )}
                 canManage={isPM}

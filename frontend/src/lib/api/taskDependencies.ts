@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api/config';
+import { apiRequest } from '../api-client';
 
 export interface TaskDependencyResult {
   id: number;
