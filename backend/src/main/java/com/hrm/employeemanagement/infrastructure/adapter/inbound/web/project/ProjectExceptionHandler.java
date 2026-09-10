@@ -1,7 +1,5 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project;
 
-import java.util.List;
-
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -95,18 +93,51 @@ public class ProjectExceptionHandler {
         }
 
         @ExceptionHandler(ProjectHasUnfinishedTasksException.class)
-        public ResponseEntity<ApiResponse<Void>> handleProjectHasUnfinishedTasks(ProjectHasUnfinishedTasksException ex) {
+        public ResponseEntity<ApiResponse<Void>> handleProjectHasUnfinishedTasks(
+                        ProjectHasUnfinishedTasksException ex) {
                 return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                                 .body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(ProjectHasPendingTimesheetsException.class)
-        public ResponseEntity<ApiResponse<Void>> handleProjectHasPendingTimesheets(ProjectHasPendingTimesheetsException ex) {
+        public ResponseEntity<ApiResponse<Void>> handleProjectHasPendingTimesheets(
+                        ProjectHasPendingTimesheetsException ex) {
                 return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiResponse.error(ex.getMessage()));
         }
 
         @ExceptionHandler(ProjectHasPendingExpensesException.class)
-        public ResponseEntity<ApiResponse<Void>> handleProjectHasPendingExpenses(ProjectHasPendingExpensesException ex) {
+        public ResponseEntity<ApiResponse<Void>> handleProjectHasPendingExpenses(
+                        ProjectHasPendingExpensesException ex) {
                 return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException.class)
+        public ResponseEntity<ApiResponse<Void>> handleDuplicateProjectMember(
+                        com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectMemberNotFound(
+                        com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException.class)
+        public ResponseEntity<ApiResponse<Void>> handleMemberHasActiveTasks(
+                        com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.ProjectClosedException.class)
+        public ResponseEntity<ApiResponse<Void>> handleProjectClosed(
+                        com.hrm.employeemanagement.domain.exception.task.ProjectClosedException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleEmployeeNotFound(
+                        com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
 }
