@@ -133,6 +133,9 @@ public class UserService implements
 
         if (command.email() != null && !command.email().isBlank()) {
             String normalizedEmail = command.email().trim().toLowerCase(java.util.Locale.ROOT);
+            if (!normalizedEmail.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+                throw new IllegalArgumentException("Email không đúng định dạng (phải có ký tự '@' và tên miền có dấu '.' hợp lệ, ví dụ: user@company.com)");
+            }
             if (loadUserPort.existsByEmail(normalizedEmail)) {
                 throw new DuplicateEmailException(
                         "Email '" + command.email() + "' đã tồn tại trong hệ thống"
@@ -484,6 +487,9 @@ public UserResult updateUserRole(
 
         if (command.email() != null && !command.email().isBlank()) {
             String normalizedEmail = command.email().trim().toLowerCase(java.util.Locale.ROOT);
+            if (!normalizedEmail.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+                throw new IllegalArgumentException("Email không đúng định dạng (phải có ký tự '@' và tên miền có dấu '.' hợp lệ, ví dụ: user@company.com)");
+            }
             if (user.getEmail() == null || !normalizedEmail.equalsIgnoreCase(user.getEmail())) {
                 if (loadUserPort.existsByEmail(normalizedEmail)) {
                     throw new DuplicateEmailException("Email '" + command.email() + "' đã được sử dụng bởi tài khoản khác");
