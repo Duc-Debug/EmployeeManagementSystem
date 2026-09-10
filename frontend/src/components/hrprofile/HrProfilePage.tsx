@@ -119,7 +119,8 @@ export default function HrProfilePage() {
                 });
                 showNotification("success", `Đã cập nhật hồ sơ ${data.fullName} thành công.`);
             } else {
-                showNotification("success", `Đã tạo hồ sơ ${data.fullName} thành công.`);
+                showNotification("error", "Việc tạo tài khoản và hồ sơ nhân sự mới được thực hiện tại mục Quản lý tài khoản (dành cho Quản trị viên VT-06).");
+                return;
             }
             await loadProfiles();
         } catch (err: any) {
@@ -175,16 +176,6 @@ export default function HrProfilePage() {
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                         />
                     </div>
-                    {canManage && (
-                        <button
-                            type="button"
-                            onClick={handleOpenAdd}
-                            className="flex items-center gap-1.5 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
-                        >
-                            <Plus className="size-4 stroke-[2.5]" />
-                            <span>Tạo hồ sơ mới</span>
-                        </button>
-                    )}
                 </div>
 
                 {/* List */}
