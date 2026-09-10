@@ -1,10 +1,12 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.repository;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import com.hrm.employeemanagement.domain.task.TaskStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.entity.TaskJpaEntity;
 
 @Repository
@@ -18,5 +20,5 @@ public interface SpringDataTaskRepository extends JpaRepository<TaskJpaEntity, L
 
     long countByProjectId(Long projectId);
 
-    boolean existsByProjectIdAndAssigneeIdAndStatusNot(Long projectId, Long assigneeId, String status);
+    boolean existsByProjectIdAndAssigneeIdAndStatusIn(Long projectId, Long assigneeId, Collection<TaskStatus> statuses);
 }
