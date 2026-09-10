@@ -118,6 +118,42 @@ public class ApproveEmployeeSkillService implements ApproveEmployeeSkillUseCase,
     }
 
     @Override
+    public EmployeeSkillResult reject(com.hrm.employeemanagement.application.dto.skill.RejectEmployeeSkillCommand command) {
+        if (command == null || command.employeeSkillId() == null) {
+            throw new IllegalArgumentException("ID kỹ năng nhân sự không được để trống");
+        }
+
+        Long currentUserId = authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE);
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
+
+        EmployeeSkill employeeSkill = employeeSkillRepository.findById(command.employeeSkillId())
+                .orElseThrow(() -> new EmployeeSkillNotFoundException(
+                        "Không tìm thấy bản ghi kỹ năng nhân sự với ID: " + command.employeeSkillId()));
+
+        Employee employee = loadEmployeePort.findById(new EmployeeId(employeeSkill.getEmployeeId()))
+                .orElseThrow(() -> new EmployeeNotFoundException(
+                        "Không tìm thấy thông tin nhân sự với ID: " + employeeSkill.getEmployeeId()));
+
+        requireEmployeeInScope(currentUser, employee, PermissionCode.EMPLOYEE_SKILL_APPROVE);
+
+        employeeSkill.reject(currentUserId, command.rejectionReason());
+        EmployeeSkill saved = employeeSkillRepository.save(employeeSkill);
+
+        saveAuditLogPort.save(AuditLog.createChange(
+                currentUserId,
+                "REJECT_SKILL",
+                "employee_skills",
+                saved.getId(),
+                "PENDING",
+                "REJECTED"
+        ));
+
+        Skill skill = skillCatalogRepository.findById(saved.getSkillId()).orElse(null);
+        return EmployeeSkillResult.fromDomain(saved, skill);
+    }
+
+    @Override
     public List<PendingEmployeeSkillItemResult> execute(String keyword) {
         return execute(keyword, 0, 1000).getContent();
     }

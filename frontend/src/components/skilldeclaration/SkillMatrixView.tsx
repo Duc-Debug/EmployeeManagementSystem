@@ -1,14 +1,14 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, Check, BookOpen } from 'lucide-react';
-import { MATRIX_EMPLOYEES, MATRIX_SKILL_COLUMNS } from './Types.ts';
-import type { MatrixEmployee, MatrixSkillColumn } from './Types.ts';
+import { Search, ChevronDown, Check, BookOpen, AlertTriangle, Users, Award, ShieldAlert } from 'lucide-react';
 import type { DepartmentItem } from './SkillresourceSearch.tsx';
+import { getDepartmentSkillMatrix, type DepartmentSkillMatrixResponse } from '@/lib/api/skills';
+import { getOrgTree } from '@/lib/api/org-units';
+import type { OrgUnitTreeNode } from '@/types/hrm';
 
 export interface SkillMatrixViewProps {
     departments?: DepartmentItem[];
     onOpenCatalog?: () => void;
 }
-
 
 /* ── Hằng số màu theo level ─────────────────────────────── */
 const LEVEL_STYLE: Record<number, { badge: string; text: string }> = {
@@ -34,32 +34,19 @@ const CAT_BADGE: Record<string, string> = {
     Database: 'bg-teal-50 text-teal-700 border border-teal-100',
 };
 
-/* ── Danh sách phòng ban & nhóm kỹ năng (Đồng bộ với Cây phân cấp đơn vị) ── */
-const ALL_DEPTS = [
-    'Khối Kỹ thuật & Công nghệ',
-    'Phòng Lập trình Frontend',
-    'Phòng Lập trình Backend',
-    'Nhóm UI/UX & Design System',
-    'Nhóm Cloud & DevOps',
-    'Khối Vận hành & Nhân sự',
-    'Phòng Nhân sự & Tuyển dụng',
-    'Phòng Hành chính & Quản trị',
-    'Khối Kinh doanh & Marketing',
-    'Phòng Phát triển Kinh doanh',
-    'Phòng Truyền thông & Marketing',
-];
-const ALL_GROUPS = ['Tất cả nhóm kỹ năng', 'Backend', 'Frontend', 'DevOps', 'Database'];
-
-
 /* ── RoundedSelect Component (Bo góc hoàn toàn cả menu popup) ── */
 function RoundedSelect({
     value,
     options,
     onChange,
+    minWidth = 'min-w-[240px]',
+    placeholder = 'Chọn...',
 }: {
     value: string;
     options: string[];
     onChange: (val: string) => void;
+    minWidth?: string;
+    placeholder?: string;
 }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -79,69 +66,47 @@ function RoundedSelect({
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="flex items-center justify-between gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
             >
-                <span className="truncate">{value}</span>
+                <span className="truncate max-w-[220px]">{value || placeholder}</span>
                 <ChevronDown className={`h-3.5 w-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180 text-indigo-600' : ''}`} />
             </button>
             {open && (
-                <div className="absolute left-0 top-full z-50 mt-1 max-h-60 min-w-full overflow-y-auto whitespace-nowrap rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-900/5 animate-in fade-in-50 zoom-in-95 [scrollbar-width:thin]">
-
-                    {options.map((opt) => {
-                        const isSelected = opt === value;
-                        return (
-                            <button
-                                key={opt}
-                                type="button"
-                                onClick={() => {
-                                    onChange(opt);
-                                    setOpen(false);
-                                }}
-                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-                                    isSelected
-                                        ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                                }`}
-                            >
-                                <span>{opt}</span>
-                                {isSelected && <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0" />}
-                            </button>
-                        );
-                    })}
+                <div className={`absolute left-0 top-full z-[100] mt-1 max-h-64 ${minWidth} overflow-y-auto whitespace-nowrap rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-900/5 animate-in fade-in-50 zoom-in-95 [scrollbar-width:thin]`}>
+                    {options.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-slate-400 italic">Không có dữ liệu lựa chọn</div>
+                    ) : (
+                        options.map((opt) => {
+                            const isSelected = opt === value;
+                            return (
+                                <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(opt);
+                                        setOpen(false);
+                                    }}
+                                    className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                                        isSelected
+                                            ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                            : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <span className="truncate">{opt}</span>
+                                    {isSelected && <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0" />}
+                                </button>
+                            );
+                        })
+                    )}
                 </div>
             )}
         </div>
     );
 }
 
-/* ── Tính stats footer ───────────────────────────────────── */
-function computeStats(employees: MatrixEmployee[], cols: MatrixSkillColumn[]) {
-    const total = employees.length;
-
-    const skillTotals = cols.map((col) => ({
-        name: col.name,
-        total: employees.reduce((sum, e) => sum + (e.skills[col.name] ?? 0), 0),
-    }));
-    const strongest = skillTotals.sort((a, b) => b.total - a.total)[0];
-
-    const gaps = cols.filter((col) =>
-        employees.some((e) => (e.skills[col.name] ?? 0) < 3)
-    );
-    const gapText = gaps.length > 0 ? gaps.map((g) => g.name).join(' & ') + '...' : 'Không có';
-
-    const totalCells = employees.length * cols.length;
-    const readyCells = employees.reduce(
-        (sum, e) => sum + cols.filter((col) => (e.skills[col.name] ?? 0) >= 3).length,
-        0
-    );
-    const readyPct = totalCells === 0 ? 0 : Math.round((readyCells / totalCells) * 100);
-
-    return { total, strongest: strongest?.name ?? '—', gapText, readyPct };
-}
-
 /* ── MatrixCell ─────────────────────────────────────────── */
-function MatrixCell({ level }: { level: number | null | undefined }) {
-    if (level == null) {
+function MatrixCell({ level, notes }: { level?: number | null; notes?: string }) {
+    if (level == null || level <= 0) {
         return (
             <td className="border-b border-r border-slate-100 px-4 py-3 text-center">
                 <span className="text-sm font-medium text-slate-300">–</span>
@@ -153,7 +118,7 @@ function MatrixCell({ level }: { level: number | null | undefined }) {
         <td className="border-b border-r border-slate-100 px-4 py-3 text-center">
             <span
                 className={`inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 text-xs font-bold ${s.badge} ${s.text}`}
-                title={LEVEL_LABELS[level]}
+                title={notes ? `${LEVEL_LABELS[level]} - ${notes}` : LEVEL_LABELS[level]}
             >
                 L{level}
             </span>
@@ -161,68 +126,126 @@ function MatrixCell({ level }: { level: number | null | undefined }) {
     );
 }
 
-/* ── Main component ─────────────────────────────────────── */
-export default function SkillMatrixView({ departments = [], onOpenCatalog }: SkillMatrixViewProps) {
-    const [deptOptions, setDeptOptions] = useState<string[]>(() => {
-        if (departments && departments.length > 0) {
-            return departments.map((d) => d.name);
+function flattenOrgTree(data: OrgUnitTreeNode | OrgUnitTreeNode[] | null | undefined): { id: number; name: string }[] {
+    if (!data) return [];
+    const list: { id: number; name: string }[] = [];
+    const traverse = (item: OrgUnitTreeNode) => {
+        if (!item) return;
+        if (item.id != null && item.unitName) {
+            list.push({ id: Number(item.id), name: item.unitName });
         }
-        try {
-            const saved = localStorage.getItem('sys_dept_units');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            }
-        } catch {}
-        return ALL_DEPTS;
-    });
+        if (Array.isArray(item.children)) {
+            item.children.forEach(traverse);
+        }
+    };
+    if (Array.isArray(data)) {
+        data.forEach(traverse);
+    } else {
+        traverse(data);
+    }
+    return list;
+}
 
-    const [dept, setDept]     = useState<string>('');
-    const [group, setGroup]   = useState(ALL_GROUPS[0]);
+const EMPTY_DEPT_LIST: DepartmentItem[] = [];
+
+export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenCatalog }: SkillMatrixViewProps) {
+    const [deptList, setDeptList] = useState<{ id: number; name: string }[]>([]);
+    const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null);
+    const [selectedGroupName, setSelectedGroupName] = useState('Tất cả nhóm kỹ năng');
     const [search, setSearch] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [matrixData, setMatrixData] = useState<DepartmentSkillMatrixResponse | null>(null);
 
-    // Đồng bộ danh sách đơn vị khi có sự kiện Thêm / Sửa / Xóa phòng ban
+    // 1. Tải danh sách phòng ban thật từ API hoặc props
     useEffect(() => {
         if (departments && departments.length > 0) {
-            setDeptOptions(departments.map((d) => d.name));
+            const parsed = departments.map((d) => ({
+                id: Number(d.id),
+                name: d.name,
+            }));
+            setDeptList(parsed);
+            if (parsed.length > 0) {
+                setSelectedDeptId((prev) => prev ?? (parsed.find((d) => d.id !== 1)?.id || parsed[0].id));
+            }
             return;
         }
-        const handleUnitsChange = (e: Event) => {
-            const customEvent = e as CustomEvent<string[]>;
-            if (Array.isArray(customEvent.detail) && customEvent.detail.length > 0) {
-                setDeptOptions(customEvent.detail);
-            }
-        };
-        window.addEventListener('dept_units_changed', handleUnitsChange);
-        return () => window.removeEventListener('dept_units_changed', handleUnitsChange);
+
+        getOrgTree()
+            .then((tree) => {
+                const flat = flattenOrgTree(tree);
+                setDeptList(flat);
+                if (flat.length > 0) {
+                    // Ưu tiên chọn phòng ban chuyên trách (khác nút gốc công ty) để hiển thị ma trận thực tế
+                    const preferred = flat.find((d) => d.id !== 1) || flat[0];
+                    setSelectedDeptId((prev) => prev ?? preferred.id);
+                }
+            })
+            .catch((err) => {
+                console.error('Failed to load org tree for skill matrix:', err);
+            });
     }, [departments]);
 
-    // Tự động chọn đơn vị đầu tiên hoặc chọn lại khi đơn vị đang chọn bị xóa
+    // 2. Tải ma trận kỹ năng khi phòng ban được chọn thay đổi
     useEffect(() => {
-        if (deptOptions.length > 0 && (!dept || !deptOptions.includes(dept))) {
-            setDept(deptOptions[0]);
+        if (!selectedDeptId) return;
+
+        setLoading(true);
+        getDepartmentSkillMatrix(selectedDeptId)
+            .then((res) => {
+                setMatrixData(res);
+            })
+            .catch((err) => {
+                console.error('Failed to load department skill matrix:', err);
+                setMatrixData(null);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+    }, [selectedDeptId]);
+
+    const deptOptions = useMemo(() => deptList.map((d) => d.name), [deptList]);
+    const currentDeptName = useMemo(() => {
+        const d = deptList.find((item) => item.id === selectedDeptId);
+        return d ? d.name : deptOptions[0] || '';
+    }, [deptList, selectedDeptId, deptOptions]);
+
+    const handleDeptChange = (name: string) => {
+        const found = deptList.find((d) => d.name === name);
+        if (found) {
+            setSelectedDeptId(found.id);
         }
-    }, [deptOptions, dept]);
+    };
 
-    const visibleCols: MatrixSkillColumn[] = useMemo(() =>
-        group === ALL_GROUPS[0]
-            ? MATRIX_SKILL_COLUMNS
-            : MATRIX_SKILL_COLUMNS.filter((c) => c.category === group),
-        [group]
-    );
+    // Danh sách nhóm kỹ năng có trong ma trận
+    const groupOptions = useMemo(() => {
+        const set = new Set<string>(['Tất cả nhóm kỹ năng']);
+        if (matrixData?.skills) {
+            matrixData.skills.forEach((s) => {
+                if (s.category) set.add(s.category);
+            });
+        }
+        return Array.from(set);
+    }, [matrixData]);
 
-    const visibleEmps: MatrixEmployee[] = useMemo(() => {
+    // Lọc cột kỹ năng theo nhóm
+    const visibleSkills = useMemo(() => {
+        if (!matrixData?.skills) return [];
+        if (selectedGroupName === 'Tất cả nhóm kỹ năng') return matrixData.skills;
+        return matrixData.skills.filter((s) => s.category === selectedGroupName);
+    }, [matrixData, selectedGroupName]);
+
+    // Lọc hàng nhân sự theo từ khóa tìm kiếm
+    const visibleRows = useMemo(() => {
+        if (!matrixData?.rows) return [];
         const q = search.trim().toLowerCase();
-        if (!q) return MATRIX_EMPLOYEES;
-        return MATRIX_EMPLOYEES.filter(
-            (e) =>
-                e.name.toLowerCase().includes(q) ||
-                e.code.toLowerCase().includes(q) ||
-                e.role.toLowerCase().includes(q)
+        if (!q) return matrixData.rows;
+        return matrixData.rows.filter(
+            (r) =>
+                r.fullName.toLowerCase().includes(q) ||
+                r.employeeCode.toLowerCase().includes(q) ||
+                (r.professionalRole && r.professionalRole.toLowerCase().includes(q))
         );
-    }, [search]);
-
-    const stats = useMemo(() => computeStats(visibleEmps, visibleCols), [visibleEmps, visibleCols]);
+    }, [matrixData, search]);
 
     return (
         <div className="space-y-5">
@@ -231,16 +254,24 @@ export default function SkillMatrixView({ departments = [], onOpenCatalog }: Ski
                 {/* Phòng ban */}
                 <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Phòng ban</span>
-                    <RoundedSelect value={dept} options={deptOptions} onChange={setDept} />
+                    <RoundedSelect
+                        value={currentDeptName}
+                        options={deptOptions}
+                        onChange={handleDeptChange}
+                    />
                 </div>
 
                 {/* Nhóm kỹ năng */}
                 <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nhóm kỹ năng</span>
-                    <RoundedSelect value={group} options={ALL_GROUPS} onChange={setGroup} />
+                    <RoundedSelect
+                        value={selectedGroupName}
+                        options={groupOptions}
+                        onChange={setSelectedGroupName}
+                    />
                 </div>
 
-                {/* Nút chuyển sang Danh mục kỹ năng (Ngang hàng) */}
+                {/* Nút chuyển sang Danh mục kỹ năng */}
                 {onOpenCatalog && (
                     <div className="flex flex-col gap-1">
                         <span className="text-[10px] opacity-0 select-none">Action</span>
@@ -254,7 +285,6 @@ export default function SkillMatrixView({ departments = [], onOpenCatalog }: Ski
                         </button>
                     </div>
                 )}
-
 
                 {/* Tìm nhân sự */}
                 <div className="flex flex-col gap-1 ml-auto">
@@ -294,10 +324,10 @@ export default function SkillMatrixView({ departments = [], onOpenCatalog }: Ski
                                     Nhân viên
                                 </th>
                                 <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
-                                    Dự án hiện tại
+                                    Chuyên môn
                                 </th>
-                                {visibleCols.map((col) => (
-                                    <th key={col.name} className="px-3 py-2.5 text-center">
+                                {visibleSkills.map((col) => (
+                                    <th key={col.id} className="px-3 py-2.5 text-center">
                                         <div className="flex flex-col items-center gap-1">
                                             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 whitespace-nowrap">
                                                 {col.name}
@@ -305,34 +335,52 @@ export default function SkillMatrixView({ departments = [], onOpenCatalog }: Ski
                                             <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${CAT_BADGE[col.category] ?? 'bg-slate-100 text-slate-600'}`}>
                                                 {col.category}
                                             </span>
+                                            {col.singlePersonRisk && (
+                                                <span className="text-[9px] text-amber-600 font-bold" title="Rủi ro chỉ 1 người thành thạo">
+                                                    ⚠ 1 NV
+                                                </span>
+                                            )}
                                         </div>
                                     </th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {visibleEmps.length === 0 ? (
+                            {loading ? (
                                 <tr>
-                                    <td colSpan={2 + visibleCols.length} className="py-12 text-center text-sm text-slate-400">
-                                        Không tìm thấy nhân sự phù hợp.
+                                    <td colSpan={2 + Math.max(visibleSkills.length, 1)} className="py-12 text-center text-sm text-slate-400">
+                                        Đang tải ma trận kỹ năng...
+                                    </td>
+                                </tr>
+                            ) : visibleRows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={2 + Math.max(visibleSkills.length, 1)} className="py-12 text-center text-sm text-slate-400">
+                                        Không tìm thấy nhân sự hoặc phòng ban chưa có kỹ năng được xác nhận.
                                     </td>
                                 </tr>
                             ) : (
-                                visibleEmps.map((emp) => (
-                                    <tr key={emp.id} className="transition-colors hover:bg-slate-50/60">
+                                visibleRows.map((emp) => (
+                                    <tr key={emp.employeeId} className="transition-colors hover:bg-slate-50/60">
                                         {/* Nhân viên */}
                                         <td className="border-r border-slate-100 px-4 py-3 whitespace-nowrap">
-                                            <p className="font-semibold text-slate-800">{emp.name}</p>
-                                            <p className="text-[11px] text-slate-400">{emp.code} • {emp.role}</p>
+                                            <p className="font-semibold text-slate-800">{emp.fullName}</p>
+                                            <p className="text-[11px] text-slate-400">{emp.employeeCode}</p>
                                         </td>
-                                        {/* Dự án */}
+                                        {/* Chuyên môn */}
                                         <td className="border-r border-slate-100 px-4 py-3 whitespace-nowrap">
-                                            <span className="text-xs font-medium text-indigo-500">{emp.currentProject}</span>
+                                            <span className="text-xs font-medium text-slate-600">{emp.professionalRole || 'Chuyên viên'}</span>
                                         </td>
                                         {/* Skill cells */}
-                                        {visibleCols.map((col) => (
-                                            <MatrixCell key={col.name} level={emp.skills[col.name]} />
-                                        ))}
+                                        {visibleSkills.map((col) => {
+                                            const cell = emp.skills ? emp.skills[col.id] || emp.skills[String(col.id)] : undefined;
+                                            return (
+                                                <MatrixCell
+                                                    key={col.id}
+                                                    level={cell?.proficiencyLevel}
+                                                    notes={cell?.reviewNotes}
+                                                />
+                                            );
+                                        })}
                                     </tr>
                                 ))
                             )}
@@ -345,33 +393,52 @@ export default function SkillMatrixView({ departments = [], onOpenCatalog }: Ski
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {/* Tổng nhân lực */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Tổng nhân lực bộ phận</p>
-                    <p className="mt-1 text-3xl font-black text-slate-800">{stats.total} <span className="text-base font-semibold">Nhân sự</span></p>
-                    <p className="mt-0.5 text-[11px] text-emerald-600">100% Khả dụng</p>
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                        <Users className="h-3.5 w-3.5" />
+                        <p className="text-[11px] font-semibold uppercase tracking-wider">Tổng nhân sự</p>
+                    </div>
+                    <p className="mt-1 text-3xl font-black text-slate-800">
+                        {matrixData?.summary?.totalEmployees ?? 0} <span className="text-base font-semibold">Nhân sự</span>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-emerald-600">Đã kích hoạt trong bộ phận</p>
                 </div>
 
-                {/* Kỹ năng mạnh nhất */}
+                {/* Tổng số kỹ năng */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Kỹ năng mạnh nhất</p>
-                    <p className="mt-1 text-lg font-black text-slate-800">{stats.strongest}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">Mức độ phổ: 83% phòng</p>
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                        <Award className="h-3.5 w-3.5" />
+                        <p className="text-[11px] font-semibold uppercase tracking-wider">Tổng số kỹ năng</p>
+                    </div>
+                    <p className="mt-1 text-3xl font-black text-slate-800">
+                        {matrixData?.summary?.totalSkills ?? 0} <span className="text-base font-semibold">Kỹ năng</span>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">Trong danh mục hệ thống</p>
                 </div>
 
-                {/* Skill Gap */}
+                {/* Rủi ro phụ thuộc 1 người */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Điểm thiếu hụt kỹ năng</p>
-                    <p className="mt-1 text-sm font-bold text-amber-600 leading-snug">{stats.gapText}</p>
-                    <p className="mt-0.5 text-[11px] text-amber-500">⚠ Cần đào tạo thêm</p>
+                    <div className="flex items-center gap-1.5 text-amber-500">
+                        <ShieldAlert className="h-3.5 w-3.5" />
+                        <p className="text-[11px] font-semibold uppercase tracking-wider">Rủi ro phụ thuộc 1 người</p>
+                    </div>
+                    <p className="mt-1 text-3xl font-black text-amber-600">
+                        {matrixData?.summary?.singlePersonRiskSkillCount ?? 0} <span className="text-base font-semibold">Kỹ năng</span>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-amber-500">⚠ Chỉ có 1 nhân sự phụ trách</p>
                 </div>
 
-                {/* Sẵn sàng */}
+                {/* Kỹ năng thiếu người */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Chỉ số sẵn sàng dự án</p>
-                    <p className="mt-1 text-3xl font-black text-slate-800">{stats.readyPct}<span className="text-base font-semibold">%</span></p>
-                    <p className="mt-0.5 text-[11px] text-emerald-600">Sẵn sàng gần việc ngay</p>
+                    <div className="flex items-center gap-1.5 text-rose-500">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <p className="text-[11px] font-semibold uppercase tracking-wider">Kỹ năng thiếu người</p>
+                    </div>
+                    <p className="mt-1 text-3xl font-black text-rose-600">
+                        {matrixData?.summary?.unstaffedSkillCount ?? 0} <span className="text-base font-semibold">Kỹ năng</span>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-rose-500">Chưa có nhân sự nào đạt</p>
                 </div>
             </div>
         </div>
     );
 }
-
