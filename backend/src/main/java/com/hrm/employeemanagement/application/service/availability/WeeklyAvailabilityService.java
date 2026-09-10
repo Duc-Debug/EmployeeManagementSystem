@@ -199,9 +199,7 @@ public class WeeklyAvailabilityService implements DeclareWeeklyAvailabilityUseCa
 
     private java.util.Set<java.time.DayOfWeek> resolveWorkingDays() {
         if (loadWorkingCalendarPort != null) {
-            try {
-                return loadWorkingCalendarPort.loadCompanyCalendar().getWorkingDays();
-            } catch (Exception ignored) {}
+            return loadWorkingCalendarPort.loadCompanyCalendar().getWorkingDays();
         }
         return java.util.Set.of(
                 java.time.DayOfWeek.MONDAY,
