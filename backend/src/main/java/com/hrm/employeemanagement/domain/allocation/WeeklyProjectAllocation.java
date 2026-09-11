@@ -114,14 +114,16 @@ public class WeeklyProjectAllocation {
         return version;
     }
 
-    public void markOverloaded(String reason, Long approvedBy) {
+    public void markOverloaded(String reason, Long approvedBy, java.time.LocalDateTime approvedAt) {
         if (reason == null || reason.trim().isEmpty()) {
-            throw new IllegalArgumentException("Lý do chấp nhận quá tải không được để trống");
+            throw new IllegalArgumentException("Lý do chấp nhận quá tải không được để trống theo QTN-11");
         }
+        Objects.requireNonNull(approvedBy, "Người phê duyệt vượt tải không được để trống theo QTN-11");
+        Objects.requireNonNull(approvedAt, "Thời điểm phê duyệt vượt tải không được để trống theo QTN-11");
         this.isOverloaded = true;
         this.overloadReason = reason.trim();
         this.overloadApprovedBy = approvedBy;
-        this.overloadApprovedAt = java.time.LocalDateTime.now();
+        this.overloadApprovedAt = approvedAt;
     }
 
     public void clearOverload() {

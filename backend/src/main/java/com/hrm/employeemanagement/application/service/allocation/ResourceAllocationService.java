@@ -29,7 +29,6 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
-import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
@@ -40,7 +39,6 @@ import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
-import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -148,9 +146,8 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 );
             }
 
-            // TC-04: Kiểm tra vai trò của người dùng - Chỉ RM (VT-03) mới có quyền xác nhận phân bổ vượt năng lực
-            boolean isResourceManager = currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_03;
-            if (!isResourceManager) {
+            // TC-04: Kiểm tra thẩm quyền phê duyệt vượt tải thông qua AuthorizationService (QTN-11)
+            if (!authorizationService.hasPermission(PermissionCode.RESOURCE_ALLOCATION_OVERLOAD_BYPASS)) {
                 saveAuditLogPort.save(AuditLog.createChange(
                         currentUserId,
                         "ACCESS_DENIED_OVERLOAD_CONFIRM",
@@ -159,7 +156,7 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                         null,
                         "user_id=" + currentUserId + ";role=" + (currentUser.getRole() != null ? currentUser.getRole().getCode().getCode() : "UNKNOWN") + ";attempted_overload_hours=" + excessHours
                 ));
-                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_OVERLOAD_BYPASS);
             }
         }
 
@@ -181,8 +178,9 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                     command.employeeId(), command.projectId(), yearWeek, command.allocatedHours());
         }
 
+        java.time.LocalDateTime approvedAt = java.time.LocalDateTime.now();
         if (isOverloaded) {
-            allocation.markOverloaded(command.overloadReason(), currentUserId);
+            allocation.markOverloaded(command.overloadReason(), currentUserId, approvedAt);
         } else {
             allocation.clearOverload();
         }
@@ -200,15 +198,25 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 "Số giờ phân bổ mới: " + newValue + "h cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
         ));
 
-        // [TC-05] Ghi nhật ký kiểm toán nghiệp vụ khi RM xác nhận vượt tải hợp lệ
+        // [TC-05] Ghi nhật ký kiểm toán nghiệp vụ khi có thẩm quyền xác nhận vượt tải hợp lệ (State transition)
         if (isOverloaded) {
+            String oldOverloadState = existingOpt
+                    .map(a -> "isOverloaded=" + a.isOverloaded() + ";allocatedHours=" + a.getAllocatedHours())
+                    .orElse("isOverloaded=false;allocatedHours=0");
+            String newOverloadState = "isOverloaded=true;overloadReason=" + command.overloadReason().trim()
+                    + ";approvedBy=" + currentUserId
+                    + ";approvedAt=" + approvedAt
+                    + ";allocatedHours=" + totalRequestedAllocated
+                    + ";netAvailableHours=" + netAvailableHours
+                    + ";overloadHours=" + excessHours;
+
             saveAuditLogPort.save(AuditLog.createChange(
                     currentUserId,
                     "ALLOCATION_OVERLOAD_BYPASS",
                     "weekly_project_allocations",
                     saved.getId(),
-                    null,
-                    "availableHours=" + netAvailableHours + ";allocatedHours=" + totalRequestedAllocated + ";overloadHours=" + excessHours + ";reason=" + command.overloadReason().trim()
+                    oldOverloadState,
+                    newOverloadState
             ));
         }
 

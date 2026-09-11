@@ -1,8 +1,9 @@
 package com.hrm.employeemanagement.domain.exception.allocation;
 
 import java.math.BigDecimal;
+import com.hrm.employeemanagement.domain.exception.DomainException;
 
-public class AllocationOverloadWarningException extends AllocationCapacityExceededException {
+public class AllocationOverloadWarningException extends DomainException {
 
     private final BigDecimal availableHours;
     private final BigDecimal allocatedHours;

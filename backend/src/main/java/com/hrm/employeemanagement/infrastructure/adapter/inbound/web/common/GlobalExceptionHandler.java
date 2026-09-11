@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common;
 
 import com.hrm.employeemanagement.domain.exception.DomainException;
+import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;

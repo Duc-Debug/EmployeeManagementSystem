@@ -129,6 +129,7 @@ class AllocationOverloadUseCaseTest {
 
     private void setupMocksForRM() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(rmUserId);
+        lenient().when(authorizationService.hasPermission(PermissionCode.RESOURCE_ALLOCATION_OVERLOAD_BYPASS)).thenReturn(true);
         when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
         when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(activeEmployee));
         when(loadProjectPort.findById(new ProjectId(projectIdB))).thenReturn(Optional.of(projectMock));
@@ -241,9 +242,10 @@ class AllocationOverloadUseCaseTest {
     }
 
     @Test
-    @DisplayName("TC-04: Người dùng không phải RM cố tình xác nhận vượt tải -> Chặn 403 và ghi log ACCESS_DENIED_OVERLOAD_CONFIRM")
+    @DisplayName("TC-04: Người dùng không có quyền RESOURCE_ALLOCATION_OVERLOAD_BYPASS cố tình xác nhận vượt tải -> Chặn 403 và ghi log ACCESS_DENIED_OVERLOAD_CONFIRM")
     void testTC04_NonRMConfirmsOverload_ForbiddenAndAccessDeniedLogged() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(nonRmUserId);
+        when(authorizationService.hasPermission(PermissionCode.RESOURCE_ALLOCATION_OVERLOAD_BYPASS)).thenReturn(false);
         when(loadUserPort.findById(new UserId(nonRmUserId))).thenReturn(Optional.of(nonRmUser));
         when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(activeEmployee));
         when(loadProjectPort.findById(new ProjectId(projectIdB))).thenReturn(Optional.of(projectMock));
@@ -276,7 +278,7 @@ class AllocationOverloadUseCaseTest {
     }
 
     @Test
-    @DisplayName("TC-05: Ghi nhật ký kiểm toán nghiệp vụ ALLOCATION_OVERLOAD_BYPASS khi RM xác nhận vượt tải")
+    @DisplayName("TC-05: Ghi nhật ký kiểm toán nghiệp vụ ALLOCATION_OVERLOAD_BYPASS phản ánh state transition khi RM xác nhận vượt tải")
     void testTC05_ValidRMConfirmation_LogsAllocationOverloadBypass() {
         setupMocksForRM();
 
@@ -310,8 +312,11 @@ class AllocationOverloadUseCaseTest {
         assertNotNull(bypassLog, "Bắt buộc phải có audit log ALLOCATION_OVERLOAD_BYPASS");
         assertEquals(rmUserId, bypassLog.getUserId());
         assertEquals(999L, bypassLog.getRecordId());
+        assertNotNull(bypassLog.getOldValue(), "oldValue phải lưu state transition");
+        assertTrue(bypassLog.getOldValue().contains("isOverloaded=false"));
+        assertTrue(bypassLog.getNewValue().contains("isOverloaded=true"));
         assertTrue(bypassLog.getNewValue().contains("overloadHours=5.00"));
-        assertTrue(bypassLog.getNewValue().contains("reason=Lý do hợp lệ"));
+        assertTrue(bypassLog.getNewValue().contains("overloadReason=Lý do hợp lệ"));
     }
 
     @Test
@@ -381,5 +386,43 @@ class AllocationOverloadUseCaseTest {
 
         assertThrows(AllocationOverloadWarningException.class, () -> service.allocateResource(command));
         verify(saveAllocationPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Domain Invariant: markOverloaded yêu cầu approvedBy và approvedAt không được null")
+    void testDomainInvariant_MarkOverloaded_RequiresNonNullApproverAndTime() {
+        WeeklyProjectAllocation allocation = new WeeklyProjectAllocation(
+                1L, employeeId, projectIdA, yearWeek, BigDecimal.valueOf(35), 0L);
+
+        // approvedBy null -> ném NullPointerException
+        assertThrows(NullPointerException.class, () ->
+                allocation.markOverloaded("Reason", null, java.time.LocalDateTime.now()));
+
+        // approvedAt null -> ném NullPointerException
+        assertThrows(NullPointerException.class, () ->
+                allocation.markOverloaded("Reason", rmUserId, null));
+
+        // reason blank -> ném IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () ->
+                allocation.markOverloaded("   ", rmUserId, java.time.LocalDateTime.now()));
+
+        // Hợp lệ
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        allocation.markOverloaded("Hợp lệ", rmUserId, now);
+        assertTrue(allocation.isOverloaded());
+        assertEquals("Hợp lệ", allocation.getOverloadReason());
+        assertEquals(rmUserId, allocation.getOverloadApprovedBy());
+        assertEquals(now, allocation.getOverloadApprovedAt());
+    }
+
+    @Test
+    @DisplayName("Exception Semantics: AllocationOverloadWarningException kế thừa DomainException, độc lập với AllocationCapacityExceededException")
+    void testExceptionSemantics_DirectDomainExceptionInheritance() {
+        AllocationOverloadWarningException ex = new AllocationOverloadWarningException(
+                "Warning", BigDecimal.valueOf(40), BigDecimal.valueOf(45), BigDecimal.valueOf(5));
+
+        assertTrue(ex instanceof com.hrm.employeemanagement.domain.exception.DomainException);
+        assertTrue(com.hrm.employeemanagement.domain.exception.DomainException.class.isAssignableFrom(AllocationOverloadWarningException.class));
+        assertFalse(com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException.class.isAssignableFrom(AllocationOverloadWarningException.class));
     }
 }
