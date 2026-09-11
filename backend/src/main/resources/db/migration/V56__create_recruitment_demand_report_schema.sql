@@ -27,3 +27,45 @@ WHERE r.code IN ('VT-01', 'VT-03', 'VT-06')
 INSERT INTO skills (code, name, category, description)
 SELECT 'TESTING', 'Kiểm thử (Testing / QA)', 'Testing', 'Kiểm thử phần mềm, kiểm thử tự động và đảm bảo chất lượng'
 WHERE NOT EXISTS (SELECT 1 FROM skills WHERE code IN ('TESTING', 'TEST'));
+
+-- 4. Nạp dữ liệu mẫu nhu cầu nhân sự dự án cho kỹ năng Kiểm thử (TC-01: 400 giờ) và Lập trình năm 2025 (Tuần 3 - Tuần 5)
+INSERT INTO project_resource_demands (project_id, role_id, year_number, week_number, required_hours)
+SELECT p.id, pr.id, 2025, 3, 100.00
+FROM projects p
+JOIN project_roles pr ON pr.code = 'TEST'
+WHERE NOT EXISTS (
+    SELECT 1 FROM project_resource_demands 
+    WHERE year_number = 2025 AND week_number = 3 AND role_id = pr.id
+)
+LIMIT 1;
+
+INSERT INTO project_resource_demands (project_id, role_id, year_number, week_number, required_hours)
+SELECT p.id, pr.id, 2025, 4, 150.00
+FROM projects p
+JOIN project_roles pr ON pr.code = 'TEST'
+WHERE NOT EXISTS (
+    SELECT 1 FROM project_resource_demands 
+    WHERE year_number = 2025 AND week_number = 4 AND role_id = pr.id
+)
+LIMIT 1;
+
+INSERT INTO project_resource_demands (project_id, role_id, year_number, week_number, required_hours)
+SELECT p.id, pr.id, 2025, 5, 150.00
+FROM projects p
+JOIN project_roles pr ON pr.code = 'TEST'
+WHERE NOT EXISTS (
+    SELECT 1 FROM project_resource_demands 
+    WHERE year_number = 2025 AND week_number = 5 AND role_id = pr.id
+)
+LIMIT 1;
+
+INSERT INTO project_resource_demands (project_id, role_id, year_number, week_number, required_hours)
+SELECT p.id, pr.id, 2025, 3, 120.00
+FROM projects p
+JOIN project_roles pr ON pr.code = 'DEV'
+WHERE NOT EXISTS (
+    SELECT 1 FROM project_resource_demands 
+    WHERE year_number = 2025 AND week_number = 3 AND role_id = pr.id
+)
+LIMIT 1;
+
