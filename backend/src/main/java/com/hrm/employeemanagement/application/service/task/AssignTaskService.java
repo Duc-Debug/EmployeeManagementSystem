@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import com.hrm.employeemanagement.application.dto.task.AssignTaskCommand;
 import com.hrm.employeemanagement.application.dto.task.TaskAssignmentResult;
@@ -82,33 +83,6 @@ public class AssignTaskService implements AssignTaskUseCase {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
     }
 
-    public AssignTaskService(
-            LoadTaskPort loadTaskPort,
-            SaveTaskPort saveTaskPort,
-            LoadTaskAssignmentPort loadTaskAssignmentPort,
-            SaveTaskAssignmentPort saveTaskAssignmentPort,
-            LoadProjectPort loadProjectPort,
-            SaveProjectMemberPort saveProjectMemberPort,
-            LoadEmployeePort loadEmployeePort,
-            SaveAuditLogPort saveAuditLogPort,
-            AuthorizationService authorizationService) {
-        this(loadTaskPort, saveTaskPort, loadTaskAssignmentPort, saveTaskAssignmentPort, loadProjectPort, saveProjectMemberPort, loadEmployeePort,
-                userId -> Optional.empty(), (audit) -> {}, authorizationService);
-    }
-
-    public AssignTaskService(
-            LoadTaskPort loadTaskPort,
-            SaveTaskPort saveTaskPort,
-            LoadTaskAssignmentPort loadTaskAssignmentPort,
-            SaveTaskAssignmentPort saveTaskAssignmentPort,
-            LoadProjectPort loadProjectPort,
-            LoadEmployeePort loadEmployeePort,
-            SaveAuditLogPort saveAuditLogPort,
-            AuthorizationService authorizationService) {
-        this(loadTaskPort, saveTaskPort, loadTaskAssignmentPort, saveTaskAssignmentPort, loadProjectPort, null, loadEmployeePort,
-                userId -> Optional.empty(), (audit) -> {}, authorizationService);
-    }
-
     @Override
     public TaskAssignmentResult assignTask(AssignTaskCommand command) {
         Long currentUserId = authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE);
@@ -137,7 +111,6 @@ public class AssignTaskService implements AssignTaskUseCase {
             throw new InvalidTaskDataException("Không thể phân công người thực hiện cho hạng mục (CATEGORY).");
         }
 
-        List<Long> employeeIds = command.employeeIds() != null ? command.employeeIds() : List.of();
         List<Long> employeeIds = command.employeeIds() != null
                 ? new ArrayList<>(new java.util.LinkedHashSet<>(command.employeeIds().stream().filter(Objects::nonNull).toList()))
                 : List.of();

@@ -1522,3 +1522,58 @@ export default function ProjectView() {
                 projectEndDate={selectedProject?.endDate}
                 projectEstimatedHours={selectedProject?.estimatedHours ? Number(selectedProject.estimatedHours) : 0}
                 currentTotalDemandHours={demandSummary?.totalDemandHours ? Number(demandSummary.totalDemandHours) : 0}
+                editingRole={editingDemandRole}
+                existingRoleDemands={demandSummary?.demandsByRole || []}
+                onClose={() => {
+                    setEstimateModalOpen(false);
+                    setEditingDemandRole(null);
+                }}
+                onSave={handleSaveDemand}
+            />
+
+            <DeleteDemandConfirmModal
+                open={deleteModalOpen}
+                roleDemand={roleToDelete}
+                projectName={selectedProject?.projectName}
+                onClose={() => {
+                    setDeleteModalOpen(false);
+                    setRoleToDelete(null);
+                }}
+                onConfirm={handleDeleteDemand}
+            />
+
+            {/* Modal Đóng dự án (NCL-03-CN-004) */}
+            <ProjectCloseModal
+                open={closeModalOpen}
+                project={selectedProject}
+                unfinishedTasks={unfinishedTasks}
+                isExecutive={isExecutive}
+                onClose={() => setCloseModalOpen(false)}
+                onSuccess={handleProjectClosed}
+            />
+
+            {/* Modal Mở lại dự án (NCL-03-CN-004) */}
+            <ProjectReopenModal
+                open={reopenModalOpen}
+                project={selectedProject}
+                isExecutive={isExecutive}
+                onClose={() => setReopenModalOpen(false)}
+                onSuccess={handleProjectReopened}
+            />
+
+            {/* Toast Notification */}
+            {toast && (
+                <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-xs text-white shadow-2xl">
+                    {toast.type === 'success' ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    ) : toast.type === 'error' ? (
+                        <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
+                    ) : (
+                        <Info className="h-4 w-4 text-sky-400 shrink-0" />
+                    )}
+                    <span className="font-medium">{toast.message}</span>
+                </div>
+            )}
+        </div>
+    );
+}
