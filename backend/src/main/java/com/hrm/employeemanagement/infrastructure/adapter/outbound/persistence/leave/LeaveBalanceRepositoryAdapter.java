@@ -31,25 +31,24 @@ public class LeaveBalanceRepositoryAdapter implements LoadLeaveBalancePort, Save
 
     @Override
     public LeaveBalance findOrCreateDefault(Long employeeId, int year) {
-        Optional<EmployeeLeaveBalanceJpaEntity> existing = repository.findByEmployeeIdAndYearNumber(employeeId, year);
-        if (existing.isPresent()) {
-            return mapper.toDomain(existing.get());
-        }
-
-        // Khởi tạo atomic bằng native query ON CONFLICT DO NOTHING, tránh ném exception làm rollback transaction
-        repository.insertIfNotExists(employeeId, year, new java.math.BigDecimal("12.0"), java.math.BigDecimal.ZERO);
+        // MySQL upsert is atomic under the unique (employee_id, year_number) constraint.
+        repository.insertDefaultIfAbsent(employeeId, year, new java.math.BigDecimal("12.0"), java.math.BigDecimal.ZERO);
         return repository.findByEmployeeIdAndYearNumber(employeeId, year)
                 .map(mapper::toDomain)
-                .orElseGet(() -> LeaveBalance.createDefault(employeeId, year));
+                .orElseThrow(() -> new IllegalStateException(
+                        "Leave balance was not found after creating the default balance"
+                ));
     }
 
     @Override
     public LeaveBalance findOrCreateDefaultWithLock(Long employeeId, int year) {
-        // Đảm bảo bản ghi tồn tại một cách atomic trước khi lấy pessimistic lock (SELECT FOR UPDATE)
-        repository.insertIfNotExists(employeeId, year, new java.math.BigDecimal("12.0"), java.math.BigDecimal.ZERO);
+        // Đảm bảo bản ghi tồn tại bằng MySQL atomic upsert trước khi lấy pessimistic lock (SELECT FOR UPDATE).
+        repository.insertDefaultIfAbsent(employeeId, year, new java.math.BigDecimal("12.0"), java.math.BigDecimal.ZERO);
         return repository.findByEmployeeIdAndYearNumberWithLock(employeeId, year)
                 .map(mapper::toDomain)
-                .orElseGet(() -> LeaveBalance.createDefault(employeeId, year));
+                .orElseThrow(() -> new IllegalStateException(
+                        "Leave balance was not found after creating the default balance"
+                ));
     }
 
     @Override

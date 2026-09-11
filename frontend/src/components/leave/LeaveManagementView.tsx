@@ -211,10 +211,15 @@ export default function LeaveManagementView() {
         return calculateWorkingDays(newLeave.startDate, newLeave.endDate);
     }, [newLeave.startDate, newLeave.endDate]);
 
-    // Kiểm tra có bị vượt hạn mức phép năm không (AC-02 & TC-02)
+    // Balance API chỉ trả quỹ của một năm. Đơn vắt năm phải do backend kiểm tra theo từng năm.
+    const isSameCalendarYear =
+        newLeave.startDate.slice(0, 4) === newLeave.endDate.slice(0, 4);
+
+    // Chỉ pre-check đơn trong cùng một năm; backend vẫn là nguồn kiểm tra cuối cùng.
     const isExceedingAnnualLeave =
         newLeave.leaveType === "ANNUAL" &&
         balance !== null &&
+        isSameCalendarYear &&
         estimatedWorkingDays > balance.remainingDays;
 
     // Hủy đơn (dành cho người nộp)
