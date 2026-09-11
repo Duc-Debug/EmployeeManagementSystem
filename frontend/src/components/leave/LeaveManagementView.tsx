@@ -164,7 +164,7 @@ export default function LeaveManagementView() {
     // Thống kê quỹ phép: Ưu tiên dữ liệu chuẩn xác từ LeaveBalanceDto do Backend tính toán
     const totalAllocated = balance ? balance.totalAllocatedDays : 12;
     const usedDays = balance
-        ? balance.approvedDays
+        ? (balance.usedDays ?? balance.approvedDays ?? 0)
         : userRequests
               .filter((r) => r.status === "APPROVED" && r.leaveType === "ANNUAL")
               .reduce((sum, r) => sum + r.daysCount, 0);
@@ -530,7 +530,7 @@ export default function LeaveManagementView() {
                                     </div>
                                     <div className="mt-1 grid grid-cols-3 gap-2 text-[11px] text-blue-700">
                                         <div>Được cấp: <span className="font-bold">{balance.totalAllocatedDays}</span></div>
-                                        <div>Đã nghỉ: <span className="font-bold">{balance.approvedDays}</span></div>
+                                        <div>Đã nghỉ: <span className="font-bold">{balance.usedDays ?? balance.approvedDays ?? 0}</span></div>
                                         <div>Còn lại: <span className="font-black text-blue-950">{balance.remainingDays} ngày</span></div>
                                     </div>
                                 </div>

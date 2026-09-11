@@ -32,7 +32,8 @@ export interface LeaveBalanceDto {
   entitledDays: number;
   carriedOverDays: number;
   totalAllocatedDays: number;
-  approvedDays: number;
+  usedDays: number;
+  approvedDays?: number;
   pendingDays: number;
   remainingDays: number;
 }
