@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,6 +45,7 @@ public class ProjectRoleController {
         this(getProjectRolesUseCase, null, null, null, null, null);
     }
 
+    @Autowired
     public ProjectRoleController(
             GetProjectRolesUseCase getProjectRolesUseCase,
             CreateProjectRoleUseCase createProjectRoleUseCase,
