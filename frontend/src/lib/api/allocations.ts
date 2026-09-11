@@ -98,7 +98,8 @@ export interface EmployeeCapacityRow {
 }
 
 export interface CapacityMatrixSummary {
-  totalEmployees: number;
+  pageEmployeesCount?: number;
+  totalEmployees?: number;
   totalWeeks: number;
   overloadedEmployeesCount: number;
   overloadedCellsCount: number;

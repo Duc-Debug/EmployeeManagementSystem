@@ -81,12 +81,21 @@ public record CompanyWeeklyCapacityMatrixResult(
             int overloadedWeeksCount
     ) {}
 
+    /**
+     * Chỉ số thống kê KPI được tính toán trên phạm vi lát cắt của trang hiện tại (Page-scoped Summary)
+     * để đảm bảo nhất quán với kết quả phân trang và không pha trộn số liệu toàn cục với cục bộ.
+     */
     public record CapacityMatrixSummaryResult(
-            int totalEmployees,
+            int pageEmployeesCount,
             int totalWeeks,
             int overloadedEmployeesCount,
             int overloadedCellsCount,
             int underutilizedCellsCount,
             BigDecimal averageUtilization
-    ) {}
+    ) {
+        // Bí danh để tương thích ngược
+        public int totalEmployees() {
+            return pageEmployeesCount;
+        }
+    }
 }

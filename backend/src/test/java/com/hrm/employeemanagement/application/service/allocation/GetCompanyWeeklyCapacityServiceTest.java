@@ -316,6 +316,9 @@ class GetCompanyWeeklyCapacityServiceTest {
         assertThat(result.rows().get(0).employeeCode()).isEqualTo("EMP002");
         assertThat(result.rows().get(0).fullName()).isEqualTo("Binh Tran");
 
+        // Đảm bảo summary là page-scoped: pageEmployeesCount = 1 (trong khi totalEmployees = 3)
+        assertThat(result.summary().pageEmployeesCount()).isEqualTo(1);
+
         // Đảm bảo chỉ query DB cho đúng nhân viên của trang (ID 2)
         verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeks(eq(List.of(2L)), anyList());
     }

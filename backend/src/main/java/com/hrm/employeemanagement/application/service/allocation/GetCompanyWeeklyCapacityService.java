@@ -324,7 +324,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         BigDecimal companyAvgUtilization = WeeklyCapacityMatrixPolicy.calculateAverageUtilization(companyTotalAllocated, companyTotalAvailable);
 
         CapacityMatrixSummaryResult summary = new CapacityMatrixSummaryResult(
-                totalEmployees,
+                rows.size(), // Số lượng nhân sự trên lát cắt trang hiện tại (pageEmployeesCount)
                 targetWeeks.size(),
                 overloadedEmployeesCount,
                 totalOverloadedCells,
