@@ -47,6 +47,11 @@ public class TaskExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.CyclicTaskDependencyException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCyclicTaskDependency(com.hrm.employeemanagement.domain.exception.task.CyclicTaskDependencyException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(AssigneeNotInProjectException.class)
     public ResponseEntity<ApiResponse<Void>> handleAssigneeNotInProject(AssigneeNotInProjectException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));

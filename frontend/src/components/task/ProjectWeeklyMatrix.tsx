@@ -108,8 +108,11 @@ export function ProjectWeeklyMatrix({
                     </div>
                 </div>
 
-                {/* Heatmap Legend */}
-                <div className="flex items-center gap-2 text-[11px]">
+                {/* Heatmap Legend & Scroll Hint */}
+                <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-600">
+                        ↔ Cuộn ngang để xem đủ các tuần
+                    </span>
                     <span className="flex items-center gap-1 text-slate-500">
                         <span className="h-2.5 w-2.5 rounded-xs border border-slate-300 bg-slate-200" /> Trống (&lt;20h)
                     </span>
@@ -123,7 +126,7 @@ export function ProjectWeeklyMatrix({
             </div>
 
             {/* Matrix Scrollable Container */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[550px] pb-2">
                 <table className="w-full border-collapse text-left text-xs">
                     <thead>
                         <tr className="border-b border-slate-200 bg-slate-100/80 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
@@ -184,11 +187,20 @@ export function ProjectWeeklyMatrix({
                                         <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2.5 shadow-xs group-hover:bg-slate-50/90">
                                             <div className="flex items-center gap-2.5 min-w-0">
                                                 <div className="relative shrink-0">
-                                                    <img
-                                                        className="h-8 w-8 rounded-full border border-slate-200 object-cover"
-                                                        src={member.avatar}
-                                                        alt={member.name}
-                                                    />
+                                                    {member.avatar ? (
+                                                        <img
+                                                            className="h-8 w-8 rounded-full border border-slate-200 object-cover"
+                                                            src={member.avatar}
+                                                            alt={member.name}
+                                                            onError={(e) => {
+                                                                (e.target as HTMLElement).style.display = 'none';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-xs font-bold text-white border border-indigo-200 shadow-2xs">
+                                                            {member.name.trim().charAt(0).toUpperCase() || 'N'}
+                                                        </div>
+                                                    )}
                                                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                                                 </div>
                                                 <div className="min-w-0">
