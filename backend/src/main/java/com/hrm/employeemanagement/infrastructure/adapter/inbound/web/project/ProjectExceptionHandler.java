@@ -126,4 +126,28 @@ public class ProjectExceptionHandler {
                         com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException.class)
+        public ResponseEntity<ApiResponse<Void>> handleDuplicateProjectRoleCode(
+                        com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException.class)
+        public ResponseEntity<ApiResponse<Void>> handleDuplicateProjectRoleName(
+                        com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleDataException.class)
+        public ResponseEntity<ApiResponse<Void>> handleInvalidProjectRoleData(
+                        com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleDataException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+        }
+
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleSkillGroupNotFound(
+                        com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+        }
 }
