@@ -102,10 +102,9 @@ public class GetAssignableEmployeesService implements GetAssignableEmployeesUseC
                         return true;
                     }
                     return switch (finalCurrentUser.getDataScope()) {
-                        case COMPANY -> true;
+                        case COMPANY, SELF -> true;
                         case ORGANIZATION_BRANCH -> emp.getOrgUnitId() != null
                                 && loadOrgUnitPort.existsInOrgUnitBranch(emp.getOrgUnitId(), finalCurrentUser.getScopeOrgUnitId());
-                        case SELF -> Objects.equals(emp.getUserId(), finalCurrentUser.getId());
                     };
                 })
                 // 3. Loại trừ Quản trị viên hệ thống (VT-06) - Giao việc chỉ dành cho nhân sự thực thi dự án

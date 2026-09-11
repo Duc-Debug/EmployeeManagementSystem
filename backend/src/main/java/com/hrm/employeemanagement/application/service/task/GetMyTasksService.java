@@ -3,7 +3,9 @@ package com.hrm.employeemanagement.application.service.task;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.task.MyTaskResult;
 import com.hrm.employeemanagement.application.port.inbound.task.GetMyTasksUseCase;
@@ -14,8 +16,10 @@ import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.project.Project;
+import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskAssignment;
+import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.user.User;
 
 public class GetMyTasksService implements GetMyTasksUseCase {
@@ -56,14 +60,30 @@ public class GetMyTasksService implements GetMyTasksUseCase {
             return Collections.emptyList();
         }
 
+        List<TaskId> taskIds = assignments.stream()
+                .map(TaskAssignment::getTaskId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<TaskId, Task> taskMap = loadTaskPort.findAllById(taskIds).stream()
+                .collect(Collectors.toMap(Task::getId, t -> t, (a, b) -> a));
+
+        List<ProjectId> projectIds = taskMap.values().stream()
+                .map(Task::getProjectId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<ProjectId, Project> projectMap = loadProjectPort.findAllById(projectIds).stream()
+                .collect(Collectors.toMap(Project::getId, p -> p, (a, b) -> a));
+
         List<MyTaskResult> results = new ArrayList<>();
         for (TaskAssignment assignment : assignments) {
-            Task task = loadTaskPort.findById(assignment.getTaskId()).orElse(null);
+            Task task = taskMap.get(assignment.getTaskId());
             if (task == null) {
                 continue;
             }
 
-            Project project = loadProjectPort.findById(task.getProjectId()).orElse(null);
+            Project project = projectMap.get(task.getProjectId());
 
             results.add(new MyTaskResult(
                     task.getIdValue(),

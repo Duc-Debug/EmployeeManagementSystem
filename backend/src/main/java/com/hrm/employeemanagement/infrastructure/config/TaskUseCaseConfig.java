@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.application.port.inbound.task.SetTaskBudgetUse
 import com.hrm.employeemanagement.application.port.inbound.task.UpdateTaskUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectPort;
@@ -78,6 +79,7 @@ public class TaskUseCaseConfig {
             LoadProjectPort loadProjectPort,
             SaveProjectMemberPort saveProjectMemberPort,
             LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
             LoadUserPort loadUserPort,
             SaveAuditLogPort saveAuditLogPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
@@ -90,6 +92,7 @@ public class TaskUseCaseConfig {
                 loadProjectPort,
                 saveProjectMemberPort,
                 loadEmployeePort,
+                loadOrgUnitPort,
                 loadUserPort,
                 saveAuditLogPort,
                 saveDeniedAuditLogPort,

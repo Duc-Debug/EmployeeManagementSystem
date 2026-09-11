@@ -105,7 +105,7 @@ class GetMyTasksServiceTest {
                 "Thiết kế UI", null, TaskType.TASK, new EmployeeId(EMPLOYEE_ID), BigDecimal.valueOf(20),
                 BigDecimal.ZERO, BigDecimal.ZERO, TaskStatus.IN_PROGRESS, 1, LocalDate.of(2026, 9, 15),
                 LocalDate.of(2026, 9, 25), new UserId(1L), LocalDateTime.now(), null, 1L);
-        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(task));
+        when(loadTaskPort.findAllById(List.of(new TaskId(TASK_ID)))).thenReturn(List.of(task));
 
         Project project = new Project(
                 new ProjectId(PROJECT_ID),
@@ -123,7 +123,7 @@ class GetMyTasksServiceTest {
                 LocalDateTime.now(),
                 1L,
                 0);
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadProjectPort.findAllById(List.of(new ProjectId(PROJECT_ID)))).thenReturn(List.of(project));
 
         List<MyTaskResult> results = service.getMyTasks();
 

@@ -8,6 +8,7 @@ import com.hrm.employeemanagement.application.dto.task.AssignTaskCommand;
 import com.hrm.employeemanagement.application.dto.task.TaskAssignmentResult;
 import com.hrm.employeemanagement.application.port.inbound.task.AssignTaskUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
@@ -19,6 +20,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
@@ -50,6 +52,7 @@ public class AssignTaskService implements AssignTaskUseCase {
     private final LoadProjectPort loadProjectPort;
     private final SaveProjectMemberPort saveProjectMemberPort;
     private final LoadEmployeePort loadEmployeePort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadUserPort loadUserPort;
     private final SaveAuditLogPort saveAuditLogPort;
     private final SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
@@ -63,6 +66,7 @@ public class AssignTaskService implements AssignTaskUseCase {
             LoadProjectPort loadProjectPort,
             SaveProjectMemberPort saveProjectMemberPort,
             LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
             LoadUserPort loadUserPort,
             SaveAuditLogPort saveAuditLogPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
@@ -74,10 +78,27 @@ public class AssignTaskService implements AssignTaskUseCase {
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
         this.saveProjectMemberPort = saveProjectMemberPort;
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
+        this.loadOrgUnitPort = loadOrgUnitPort;
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.saveAuditLogPort = saveAuditLogPort;
         this.saveDeniedAuditLogPort = Objects.requireNonNull(saveDeniedAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+    }
+
+    public AssignTaskService(
+            LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
+            LoadTaskAssignmentPort loadTaskAssignmentPort,
+            SaveTaskAssignmentPort saveTaskAssignmentPort,
+            LoadProjectPort loadProjectPort,
+            SaveProjectMemberPort saveProjectMemberPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+            AuthorizationService authorizationService) {
+        this(loadTaskPort, saveTaskPort, loadTaskAssignmentPort, saveTaskAssignmentPort, loadProjectPort, saveProjectMemberPort,
+                loadEmployeePort, null, loadUserPort, saveAuditLogPort, saveDeniedAuditLogPort, authorizationService);
     }
 
     @Override
@@ -121,6 +142,14 @@ public class AssignTaskService implements AssignTaskUseCase {
                 throw new AssigneeInactiveException("Nhân sự [" + employee.getFullName() + "] không ở trạng thái hoạt động (ACTIVE).");
             }
 
+            // Enforce data scope on employee
+            if (currentUser.getDataScope() == DataScope.ORGANIZATION_BRANCH && loadOrgUnitPort != null) {
+                if (employee.getOrgUnitId() == null || !loadOrgUnitPort.existsInOrgUnitBranch(employee.getOrgUnitId(), currentUser.getScopeOrgUnitId())) {
+                    saveDeniedAudit(currentUserId, currentUser, project.getIdValue(), "ASSIGNEE_OUTSIDE_DATA_SCOPE");
+                    throw new PermissionDeniedException(PermissionCode.PROJECT_WBS_MANAGE);
+                }
+            }
+
             java.time.LocalDate plannedStart = command.plannedStartDate() != null ? command.plannedStartDate() : task.getPlannedStartDate();
             if (plannedStart != null && employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(plannedStart)) {
                 throw new AssigneeInactiveException("Nhân sự [" + employee.getFullName() + "] đã kết thúc hợp đồng lao động (" + employee.getContractEndDate() + ") trước ngày bắt đầu công việc (" + plannedStart + ").");
@@ -134,6 +163,9 @@ public class AssignTaskService implements AssignTaskUseCase {
             if (!isMember) {
                 if (saveProjectMemberPort != null) {
                     saveProjectMemberPort.addMember(command.projectId(), empId);
+                    if (saveAuditLogPort != null) {
+                        saveAuditLogPort.save(AuditLog.create(currentUserId, "ADD_PROJECT_MEMBER", "project_members", command.projectId()));
+                    }
                 } else {
                     throw new AssigneeNotInProjectException(empId, command.projectId());
                 }

@@ -34,6 +34,18 @@ public class TaskRepositoryAdapter implements LoadTaskPort, SaveTaskPort {
     }
 
     @Override
+    public List<Task> findAllById(List<TaskId> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Long> rawIds = ids.stream().map(TaskId::value).filter(Objects::nonNull).toList();
+        if (rawIds.isEmpty()) {
+            return List.of();
+        }
+        return taskRepository.findAllById(rawIds).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
     public List<Task> findAllByProjectId(ProjectId projectId) {
         if (projectId == null || projectId.value() == null) {
             return List.of();

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.hrm.employeemanagement.application.dto.task.AssignTaskCommand;
 import com.hrm.employeemanagement.application.dto.task.TaskAssignmentResult;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
@@ -85,6 +87,9 @@ class AssignTaskServiceTest {
     private LoadEmployeePort loadEmployeePort;
 
     @Mock
+    private LoadOrgUnitPort loadOrgUnitPort;
+
+    @Mock
     private LoadUserPort loadUserPort;
 
     @Mock
@@ -108,6 +113,7 @@ class AssignTaskServiceTest {
                 loadProjectPort,
                 saveProjectMemberPort,
                 loadEmployeePort,
+                loadOrgUnitPort,
                 loadUserPort,
                 saveAuditLogPort,
                 saveDeniedAuditLogPort,
@@ -485,6 +491,19 @@ class AssignTaskServiceTest {
         );
     }
 
+    private User createBranchUser(Long userId, Long scopeOrgUnitId) {
+        return new User(
+                new UserId(userId),
+                "branch_user",
+                "hash",
+                new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý bộ phận"),
+                UserStatus.ACTIVE,
+                null,
+                DataScope.ORGANIZATION_BRANCH,
+                scopeOrgUnitId,
+                1L);
+    }
+
     private Employee createEmployee(Long id, EmployeeStatus status) {
         return new Employee(
                 new EmployeeId(id),
@@ -496,5 +515,82 @@ class AssignTaskServiceTest {
                 40,
                 status
         );
+    }
+
+    @Test
+    @DisplayName("Ném PermissionDeniedException khi giao việc cho nhân sự ngoài đơn vị (DataScope ORGANIZATION_BRANCH)")
+    void shouldThrowPermissionDeniedWhenAssigneeOutsideOrgBranchScope() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        User branchUser = createBranchUser(CURRENT_USER_ID, 1L);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(branchUser));
+
+        Project project = createProject(ProjectStatus.ACTIVE);
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadProjectPort.existsInOrgUnitBranch(PROJECT_ID, 1L)).thenReturn(true);
+
+        Task task = createTask(TaskType.TASK);
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(task));
+
+        Employee emp = new Employee(
+                new EmployeeId(EMPLOYEE_ID_1),
+                new UserId(EMPLOYEE_ID_1),
+                99L,
+                "EMP-10",
+                "Nhân viên 10",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(EMPLOYEE_ID_1))).thenReturn(Optional.of(emp));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(99L, 1L)).thenReturn(false);
+
+        AssignTaskCommand command = new AssignTaskCommand(
+                PROJECT_ID,
+                TASK_ID,
+                List.of(EMPLOYEE_ID_1),
+                null,
+                null
+        );
+
+        assertThrows(PermissionDeniedException.class, () -> service.assignTask(command));
+        org.mockito.ArgumentCaptor<com.hrm.employeemanagement.domain.audit.AuditLog> captor =
+                org.mockito.ArgumentCaptor.forClass(com.hrm.employeemanagement.domain.audit.AuditLog.class);
+        verify(saveDeniedAuditLogPort).save(captor.capture());
+        assertEquals("PROJECT_ACCESS_DENIED", captor.getValue().getAction());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getNewValue()).contains("ASSIGNEE_OUTSIDE_DATA_SCOPE");
+    }
+
+    @Test
+    @DisplayName("Ghi audit log ADD_PROJECT_MEMBER khi tự động thêm nhân sự vào dự án")
+    void shouldSaveAuditLogWhenAutoAddingMemberToProject() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+
+        Project project = createProject(ProjectStatus.ACTIVE);
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+
+        Task task = createTask(TaskType.TASK);
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(task));
+
+        Employee emp1 = createEmployee(EMPLOYEE_ID_1, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findById(new EmployeeId(EMPLOYEE_ID_1))).thenReturn(Optional.of(emp1));
+
+        when(loadProjectPort.existsMember(PROJECT_ID, EMPLOYEE_ID_1)).thenReturn(false);
+
+        AssignTaskCommand command = new AssignTaskCommand(
+                PROJECT_ID,
+                TASK_ID,
+                List.of(EMPLOYEE_ID_1),
+                null,
+                null
+        );
+
+        service.assignTask(command);
+
+        verify(saveProjectMemberPort).addMember(PROJECT_ID, EMPLOYEE_ID_1);
+        verify(saveAuditLogPort).save(argThat(log ->
+                "ADD_PROJECT_MEMBER".equals(log.getAction()) &&
+                "project_members".equals(log.getTableName()) &&
+                Long.valueOf(PROJECT_ID).equals(log.getRecordId())
+        ));
     }
 }

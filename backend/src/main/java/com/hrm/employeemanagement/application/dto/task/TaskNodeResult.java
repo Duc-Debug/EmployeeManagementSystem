@@ -51,22 +51,25 @@ public record TaskNodeResult(
         if (assigneeIds == null) {
             assigneeIds = assigneeId != null ? List.of(assigneeId) : List.of();
         }
-        if (startDate == null && plannedStartDate != null) {
-            startDate = plannedStartDate;
+        if (budgetHours == null) {
+            budgetHours = BigDecimal.ZERO;
         }
-        if (plannedStartDate == null && startDate != null) {
-            plannedStartDate = startDate;
+        if (burnedPercentage == null) {
+            burnedPercentage = BigDecimal.ZERO;
         }
-        if (dueDate == null && plannedEndDate != null) {
-            dueDate = plannedEndDate;
+        if (burnStatus == null) {
+            burnStatus = TaskBudgetBurnStatus.NOT_SET;
         }
-        if (plannedEndDate == null && dueDate != null) {
-            plannedEndDate = dueDate;
+        if (isOverBudget == null) {
+            isOverBudget = false;
+        }
+        if (slackDays == null) {
+            slackDays = 0;
         }
     }
 
     /**
-     * Constructor hỗ trợ plannedStartDate, plannedEndDate (từ nhánh feat/task-assignment)
+     * Constructor rút gọn không truyền startDate/dueDate/actualEndDate (giữ giá trị null độc lập với planned dates).
      */
     public TaskNodeResult(
             Long id,
@@ -106,237 +109,18 @@ public record TaskNodeResult(
                 assigneeIds,
                 estimatedHours,
                 actualHours,
-                budgetHours != null ? budgetHours : BigDecimal.ZERO,
-                burnedPercentage != null ? burnedPercentage : BigDecimal.ZERO,
-                burnStatus != null ? burnStatus : TaskBudgetBurnStatus.NOT_SET,
-                isOverBudget != null ? isOverBudget : false,
+                budgetHours,
+                burnedPercentage,
+                burnStatus,
+                isOverBudget,
                 status,
                 sortOrder,
                 plannedStartDate,
                 plannedEndDate,
-                plannedStartDate,
-                plannedEndDate,
-                null,
-                0,
-                createdBy,
-                createdAt,
-                updatedAt,
-                version,
-                children
-        );
-    }
-
-    /**
-     * Constructor hỗ trợ startDate, dueDate, actualEndDate, slackDays (từ nhánh develop)
-     */
-    public TaskNodeResult(
-            Long id,
-            Long projectId,
-            Long parentId,
-            String taskCode,
-            String name,
-            String description,
-            TaskType taskType,
-            Long assigneeId,
-            BigDecimal estimatedHours,
-            BigDecimal actualHours,
-            BigDecimal budgetHours,
-            BigDecimal burnedPercentage,
-            TaskBudgetBurnStatus burnStatus,
-            Boolean isOverBudget,
-            TaskStatus status,
-            Integer sortOrder,
-            LocalDate startDate,
-            LocalDate dueDate,
-            LocalDate actualEndDate,
-            Integer slackDays,
-            Long createdBy,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            Long version,
-            List<TaskNodeResult> children
-    ) {
-        this(
-                id,
-                projectId,
-                parentId,
-                taskCode,
-                name,
-                description,
-                taskType,
-                assigneeId,
-                assigneeId != null ? List.of(assigneeId) : List.of(),
-                estimatedHours,
-                actualHours,
-                budgetHours != null ? budgetHours : BigDecimal.ZERO,
-                burnedPercentage != null ? burnedPercentage : BigDecimal.ZERO,
-                burnStatus != null ? burnStatus : TaskBudgetBurnStatus.NOT_SET,
-                isOverBudget != null ? isOverBudget : false,
-                status,
-                sortOrder,
-                startDate,
-                dueDate,
-                startDate,
-                dueDate,
-                actualEndDate,
-                slackDays,
-                createdBy,
-                createdAt,
-                updatedAt,
-                version,
-                children
-        );
-    }
-
-    /**
-     * Constructor 21 tham số (tương thích backward)
-     */
-    public TaskNodeResult(
-            Long id,
-            Long projectId,
-            Long parentId,
-            String taskCode,
-            String name,
-            String description,
-            TaskType taskType,
-            Long assigneeId,
-            BigDecimal estimatedHours,
-            BigDecimal actualHours,
-            BigDecimal budgetHours,
-            BigDecimal burnedPercentage,
-            TaskBudgetBurnStatus burnStatus,
-            Boolean isOverBudget,
-            TaskStatus status,
-            Integer sortOrder,
-            Long createdBy,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            Long version,
-            List<TaskNodeResult> children
-    ) {
-        this(
-                id,
-                projectId,
-                parentId,
-                taskCode,
-                name,
-                description,
-                taskType,
-                assigneeId,
-                assigneeId != null ? List.of(assigneeId) : List.of(),
-                estimatedHours,
-                actualHours,
-                budgetHours != null ? budgetHours : BigDecimal.ZERO,
-                burnedPercentage != null ? burnedPercentage : BigDecimal.ZERO,
-                burnStatus != null ? burnStatus : TaskBudgetBurnStatus.NOT_SET,
-                isOverBudget != null ? isOverBudget : false,
-                status,
-                sortOrder,
-                null,
-                null,
                 null,
                 null,
                 null,
                 0,
-                createdBy,
-                createdAt,
-                updatedAt,
-                version,
-                children
-        );
-    }
-
-    /**
-     * Constructor 18 tham số (có budgetHours)
-     */
-    public TaskNodeResult(
-            Long id,
-            Long projectId,
-            Long parentId,
-            String taskCode,
-            String name,
-            String description,
-            TaskType taskType,
-            Long assigneeId,
-            BigDecimal estimatedHours,
-            BigDecimal actualHours,
-            BigDecimal budgetHours,
-            TaskStatus status,
-            Integer sortOrder,
-            Long createdBy,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            Long version,
-            List<TaskNodeResult> children
-    ) {
-        this(
-                id,
-                projectId,
-                parentId,
-                taskCode,
-                name,
-                description,
-                taskType,
-                assigneeId,
-                assigneeId != null ? List.of(assigneeId) : List.of(),
-                estimatedHours,
-                actualHours,
-                budgetHours != null ? budgetHours : BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                TaskBudgetBurnStatus.NOT_SET,
-                false,
-                status,
-                sortOrder,
-                null,
-                null,
-                null,
-                null,
-                null,
-                0,
-                createdBy,
-                createdAt,
-                updatedAt,
-                version,
-                children
-        );
-    }
-
-    /**
-     * Constructor 17 tham số (không có budgetHours)
-     */
-    public TaskNodeResult(
-            Long id,
-            Long projectId,
-            Long parentId,
-            String taskCode,
-            String name,
-            String description,
-            TaskType taskType,
-            Long assigneeId,
-            BigDecimal estimatedHours,
-            BigDecimal actualHours,
-            TaskStatus status,
-            Integer sortOrder,
-            Long createdBy,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            Long version,
-            List<TaskNodeResult> children
-    ) {
-        this(
-                id,
-                projectId,
-                parentId,
-                taskCode,
-                name,
-                description,
-                taskType,
-                assigneeId,
-                estimatedHours,
-                actualHours,
-                BigDecimal.ZERO,
-                status,
-                sortOrder,
                 createdBy,
                 createdAt,
                 updatedAt,
@@ -355,11 +139,21 @@ public record TaskNodeResult(
                 task.description(),
                 task.taskType(),
                 task.assigneeId(),
+                task.assigneeId() != null ? List.of(task.assigneeId()) : List.of(),
                 task.estimatedHours(),
                 task.actualHours(),
                 task.budgetHours(),
+                BigDecimal.ZERO,
+                TaskBudgetBurnStatus.NOT_SET,
+                false,
                 task.status(),
                 task.sortOrder(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                0,
                 task.createdBy(),
                 task.createdAt(),
                 task.updatedAt(),

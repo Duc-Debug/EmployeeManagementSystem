@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -35,6 +36,18 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
 
                 return projectRepository.findById(id.value())
                                 .map(mapper::toDomain);
+        }
+
+        @Override
+        public List<Project> findAllById(List<ProjectId> ids) {
+                if (ids == null || ids.isEmpty()) {
+                        return List.of();
+                }
+                List<Long> rawIds = ids.stream().map(ProjectId::value).filter(Objects::nonNull).toList();
+                if (rawIds.isEmpty()) {
+                        return List.of();
+                }
+                return projectRepository.findAllById(rawIds).stream().map(mapper::toDomain).toList();
         }
 
         @Override

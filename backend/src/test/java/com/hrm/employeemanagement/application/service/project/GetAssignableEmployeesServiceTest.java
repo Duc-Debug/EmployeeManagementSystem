@@ -190,8 +190,8 @@ class GetAssignableEmployeesServiceTest {
     }
 
     @Test
-    @DisplayName("Chỉ trả về chính bản thân khi người dùng có scope SELF")
-    void shouldFilterEmployeesBySelfScopeWhenScopeIsSelf() {
+    @DisplayName("Cho phép người dùng có scope SELF (Quản lý dự án) xem nhân sự active để phân công vào dự án")
+    void shouldAllowProjectManagerWithSelfScopeToViewAssignableEmployees() {
         User selfUser = new User(
                 new UserId(CURRENT_USER_ID), "pm_self", "hash",
                 new Role(new RoleId(2L), RoleCode.VT_02, "PM"),
@@ -210,9 +210,13 @@ class GetAssignableEmployeesServiceTest {
 
         when(loadEmployeePort.findAllActive()).thenReturn(List.of(currentEmp, otherEmp));
 
+        User userMe = new User(new UserId(CURRENT_USER_ID), "pm_self", "hash", new Role(new RoleId(2L), RoleCode.VT_02, "PM"), UserStatus.ACTIVE, new EmployeeId(CURRENT_USER_ID));
+        User userOther = new User(new UserId(88L), "other", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Dev"), UserStatus.ACTIVE, new EmployeeId(88L));
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(userMe));
+        when(loadUserPort.findById(new UserId(88L))).thenReturn(Optional.of(userOther));
+
         List<ProjectMemberResult> results = service.getAssignableEmployees();
 
-        assertThat(results).hasSize(1);
-        assertThat(results.get(0).employeeId()).isEqualTo(CURRENT_USER_ID);
+        assertThat(results).hasSize(2);
     }
 }
