@@ -1,0 +1,63 @@
+﻿-- ============================================================
+-- FLYWAY MIGRATION V51: ADD SKILL GROUP AND STATUS TO PROJECT ROLES
+-- Story: NCL-12-CN-001 (Quản lý danh mục vai trò chuyên môn)
+-- ============================================================
+
+-- 1. Bổ sung cột skill_group_id, status và updated_at cho project_roles
+ALTER TABLE project_roles
+    ADD COLUMN skill_group_id BIGINT NULL;
+
+ALTER TABLE project_roles
+    ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+
+ALTER TABLE project_roles
+    ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+
+-- 2. Backfill: Gán nhóm kỹ năng mặc định (General / MIN id) cho các vai trò chuyên môn hiện có
+UPDATE project_roles
+SET skill_group_id = (SELECT MIN(id) FROM skill_groups)
+WHERE skill_group_id IS NULL;
+
+-- 3. Ràng buộc NOT NULL và Khóa ngoại tới bảng skill_groups
+ALTER TABLE project_roles
+    MODIFY COLUMN skill_group_id BIGINT NOT NULL;
+
+ALTER TABLE project_roles
+    ADD CONSTRAINT fk_project_roles_skill_group
+    FOREIGN KEY (skill_group_id) REFERENCES skill_groups(id) ON DELETE RESTRICT;
+
+CREATE INDEX idx_project_roles_skill_group_id
+    ON project_roles(skill_group_id);
+
+-- 4. Bổ sung các quyền quản trị danh mục vai trò chuyên môn
+INSERT INTO permissions (code, name, description)
+SELECT 'PROJECT_ROLE_READ', 'Xem danh mục vai trò chuyên môn', 'Cho phép xem danh mục vai trò chuyên môn dùng chung'
+WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'PROJECT_ROLE_READ');
+
+INSERT INTO permissions (code, name, description)
+SELECT 'PROJECT_ROLE_MANAGE', 'Quản lý danh mục vai trò chuyên môn', 'Cho phép tạo, cập nhật và ngừng sử dụng vai trò chuyên môn'
+WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'PROJECT_ROLE_MANAGE');
+
+-- 5. Cấp quyền PROJECT_ROLE_READ cho tất cả 6 vai trò chính thức (VT-01 -> VT-06)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE p.code = 'PROJECT_ROLE_READ'
+  AND r.code IN ('VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05', 'VT-06')
+  AND NOT EXISTS (
+      SELECT 1 FROM role_permissions rp
+      WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
+
+-- 6. Cấp quyền PROJECT_ROLE_MANAGE cho duy nhất Quản trị viên (VT-06)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE p.code = 'PROJECT_ROLE_MANAGE'
+  AND r.code = 'VT-06'
+  AND NOT EXISTS (
+      SELECT 1 FROM role_permissions rp
+      WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
