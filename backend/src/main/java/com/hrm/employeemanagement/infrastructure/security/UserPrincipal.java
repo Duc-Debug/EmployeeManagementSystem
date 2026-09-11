@@ -18,11 +18,15 @@ public class UserPrincipal implements UserDetails {
     private final User domainUser;
 
     public UserPrincipal(User user) {
+        this(user, Collections.singletonList(new SimpleGrantedAuthority(user.getRole().getCode().getCode())));
+    }
+
+    public UserPrincipal(User user, Collection<? extends GrantedAuthority> authorities) {
         this.id = user.getIdValue();
         this.username = user.getUsername();
         this.password = user.getPasswordHash();
         this.active = user.isActive();
-        this.authorities = Collections.singletonList(new SimpleGrantedAuthority(user.getRole().getCode().getCode()));
+        this.authorities = authorities != null ? authorities : Collections.emptyList();
         this.domainUser = user;
     }
 
