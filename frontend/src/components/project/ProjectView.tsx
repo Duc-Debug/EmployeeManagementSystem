@@ -257,6 +257,7 @@ export default function ProjectView() {
     // PROJECT_CREATE: Chỉ VT-02 (PM) và VT-06 (Admin) mới có quyền tạo/quản lý dự án
     const canManageProject = isPm;
     const canManageAllocations = userRoleCode === 'VT-03';
+    const canViewAllocations = ['VT-01', 'VT-02', 'VT-03'].includes(userRoleCode);
     const canManageMilestones = isPm || userRoleCode === 'VT-06';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
@@ -526,7 +527,7 @@ export default function ProjectView() {
     }, [months, selectedMonthIdx]);
 
     const loadProjectAllocations = useCallback(async () => {
-        if (!selectedProjectId) return;
+        if (!selectedProjectId || !canViewAllocations) return;
         const month = months[selectedMonthIdx];
         try {
             const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
@@ -546,13 +547,15 @@ export default function ProjectView() {
             setAllocationError(null);
         } catch (error) {
             setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
-            setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
+            if (canViewAllocations) {
+                setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
+            }
         }
-    }, [getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
+    }, [canViewAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
 
     useEffect(() => {
-        if (selectedProjectId && categories.length > 0) void loadProjectAllocations();
-    }, [selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
+        if (selectedProjectId && categories.length > 0 && canViewAllocations) void loadProjectAllocations();
+    }, [selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations, canViewAllocations]);
 
     // 4. Tải ước lượng nhu cầu nhân sự thật từ API Backend (NCL-03-CN-007)
     const loadProjectDemands = useCallback(async (projId: number) => {

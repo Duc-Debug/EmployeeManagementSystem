@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ListOrdered,
     Plus,
@@ -15,10 +15,12 @@ import {
     GitCommit,
     Lock,
     Calendar,
+    MessageSquare,
 } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
 import type { TaskDependencyResult } from '@/lib/api/taskDependencies';
 import { CascadeDelayWarningModal } from '../task/CascadeDelayWarningModal';
+import { TaskDetailDrawer } from '../task/TaskDetailDrawer';
 
 interface ProjectWbsViewProps {
     categories: TaskCategoryGroup[];
@@ -56,6 +58,23 @@ export function ProjectWbsView({
         name: string;
         code?: string;
     } | null>(null);
+    const [discussionTask, setDiscussionTask] = useState<{ task: TaskItem; catName: string } | null>(null);
+
+    useEffect(() => {
+        const handleOpenDiscussion = (event: Event) => {
+            const taskId = Number((event as CustomEvent<{ taskId?: number }>).detail?.taskId);
+            if (!Number.isFinite(taskId)) return;
+            for (const category of categories) {
+                const task = category.tasks.find((candidate) => Number(candidate.id) === taskId);
+                if (task) {
+                    setDiscussionTask({ task, catName: category.name });
+                    return;
+                }
+            }
+        };
+        window.addEventListener('openTaskDiscussion', handleOpenDiscussion);
+        return () => window.removeEventListener('openTaskDiscussion', handleOpenDiscussion);
+    }, [categories]);
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
         'cat-1': true,
@@ -517,6 +536,19 @@ export function ProjectWbsView({
                                                             >
                                                                 <Target className="h-3.5 w-3.5" />
                                                             </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (Number.isFinite(Number(t.id))) {
+                                                                        setDiscussionTask({ task: t, catName: cat.name });
+                                                                    }
+                                                                }}
+                                                                className="rounded-lg p-1 text-indigo-600 transition hover:bg-indigo-50 hover:text-indigo-700"
+                                                                title="Trao đổi và dòng thời gian công việc"
+                                                            >
+                                                                <MessageSquare className="h-3.5 w-3.5" />
+                                                            </button>
                                                             <div
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -621,6 +653,16 @@ export function ProjectWbsView({
                     onSuccess={() => {
                         onRefreshData?.();
                     }}
+                />
+            )}
+
+            {discussionTask && (
+                <TaskDetailDrawer
+                    isOpen
+                    task={discussionTask.task}
+                    categoryName={discussionTask.catName}
+                    members={members}
+                    onClose={() => setDiscussionTask(null)}
                 />
             )}
         </section>
