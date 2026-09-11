@@ -5,8 +5,8 @@
 -- ============================================================
 
 -- 1. Bổ sung cột start_date và due_date cho bảng tasks để phục vụ tính toán lịch trình (TC-01)
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS start_date DATE NULL;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date DATE NULL;
+ALTER TABLE tasks ADD COLUMN start_date DATE NULL;
+ALTER TABLE tasks ADD COLUMN due_date DATE NULL;
 
 -- 2. Tạo bảng task_dependencies quản lý mối quan hệ phụ thuộc giữa các công việc (Finish-to-Start)
 CREATE TABLE IF NOT EXISTS task_dependencies (
