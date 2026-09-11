@@ -34,6 +34,17 @@ import { getSkillGroups, type SkillGroupResponse } from "@/lib/api/skills";
 import { ApiError } from "@/lib/api-client";
 
 /**
+ * Quyền xem danh mục vai trò chuyên môn (NCL-12-CN-001).
+ * Theo ma trận RBAC hệ thống (V51 / PermissionCode.PROJECT_ROLE_READ),
+ * quyền này được cấp cho toàn bộ 6 vai trò chính thức (VT-01 -> VT-06).
+ */
+export function canReadProjectRoles(userRoleCode?: string | null): boolean {
+  if (!userRoleCode) return false;
+  const normalized = userRoleCode.toUpperCase().replace(/_/g, "-");
+  return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+}
+
+/**
  * Quyền quản trị danh mục vai trò chuyên môn (NCL-12-CN-001).
  * Theo ma trận RBAC hệ thống (V51 / PermissionCode.PROJECT_ROLE_MANAGE),
  * quyền này được cấp cho Quản trị viên (VT-06).
@@ -47,6 +58,7 @@ export function canManageProjectRoles(userRoleCode?: string | null): boolean {
 export default function ProjectRoleCatalogView() {
   const currentUser = useAuthUser();
   const canManage = canManageProjectRoles(currentUser?.roleCode);
+  const canRead = canReadProjectRoles(currentUser?.roleCode);
 
   // Data States
   const [roles, setRoles] = useState<ProjectRoleResponse[]>([]);
@@ -273,8 +285,8 @@ export default function ProjectRoleCatalogView() {
     }
   };
 
-  // Check RBAC permission for VT-06 / PROJECT_ROLE_MANAGE
-  if (!canManage) {
+  // Check RBAC permission for PROJECT_ROLE_READ (VT-01 -> VT-06)
+  if (!canRead) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xs animate-in fade-in duration-150">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 mb-4 border border-rose-100">
@@ -284,7 +296,7 @@ export default function ProjectRoleCatalogView() {
           Không có quyền truy cập
         </h3>
         <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-          Chức năng Quản lý danh mục vai trò chuyên môn (NCL-12-CN-001) chỉ dành riêng cho Quản trị viên có quyền PROJECT_ROLE_MANAGE (VT-06).
+          Chức năng Danh mục vai trò chuyên môn yêu cầu quyền PROJECT_ROLE_READ. Vui lòng liên hệ Quản trị viên để được cấp quyền.
         </p>
       </div>
     );
@@ -309,14 +321,16 @@ export default function ProjectRoleCatalogView() {
           </div>
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          type="button"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 active:bg-indigo-800 transition focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-        >
-          <Plus className="h-4 w-4" />
-          Thêm vai trò chuyên môn
-        </button>
+        {canManage && (
+          <button
+            onClick={handleOpenCreate}
+            type="button"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 active:bg-indigo-800 transition focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          >
+            <Plus className="h-4 w-4" />
+            Thêm vai trò chuyên môn
+          </button>
+        )}
       </div>
 
       {/* Notification Toast */}
@@ -410,13 +424,15 @@ export default function ProjectRoleCatalogView() {
             <p className="text-xs text-slate-500 max-w-sm mb-4">
               Không có vai trò nào khớp với bộ lọc hiện tại hoặc danh mục đang trống.
             </p>
-            <button
-              onClick={handleOpenCreate}
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition"
-            >
-              <Plus className="h-3.5 w-3.5" /> Thêm vai trò mới
-            </button>
+            {canManage && (
+              <button
+                onClick={handleOpenCreate}
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition"
+              >
+                <Plus className="h-3.5 w-3.5" /> Thêm vai trò mới
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -429,7 +445,7 @@ export default function ProjectRoleCatalogView() {
                   <th className="py-3.5 px-4 min-w-[180px]">Nhóm kỹ năng tương ứng</th>
                   <th className="py-3.5 px-4">Mô tả</th>
                   <th className="py-3.5 px-4 w-36 text-center">Trạng thái</th>
-                  <th className="py-3.5 pl-4 pr-6 w-44 text-right">Thao tác</th>
+                  {canManage && <th className="py-3.5 pl-4 pr-6 w-44 text-right">Thao tác</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -490,44 +506,46 @@ export default function ProjectRoleCatalogView() {
                         )}
                       </td>
 
-                      <td className="py-4 pl-4 pr-6 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Sửa vai trò */}
-                          <button
-                            onClick={() => handleOpenEdit(role)}
-                            type="button"
-                            title="Sửa vai trò"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                            <span>Sửa</span>
-                          </button>
+                      {canManage && (
+                        <td className="py-4 pl-4 pr-6 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Sửa vai trò */}
+                            <button
+                              onClick={() => handleOpenEdit(role)}
+                              type="button"
+                              title="Sửa vai trò"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                              <span>Sửa</span>
+                            </button>
 
-                          {/* Ngừng sử dụng / Kích hoạt lại */}
-                          {isInactive ? (
-                            <button
-                              onClick={() => handleActivate(role)}
-                              type="button"
-                              title="Kích hoạt lại vai trò"
-                              disabled={isSubmitting}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition disabled:opacity-50"
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                              <span>Kích hoạt lại</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleOpenDeactivate(role)}
-                              type="button"
-                              title="Ngừng sử dụng vai trò"
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-100 transition"
-                            >
-                              <PowerOff className="h-3.5 w-3.5" />
-                              <span>Ngừng dùng</span>
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                            {/* Ngừng sử dụng / Kích hoạt lại */}
+                            {isInactive ? (
+                              <button
+                                onClick={() => handleActivate(role)}
+                                type="button"
+                                title="Kích hoạt lại vai trò"
+                                disabled={isSubmitting}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition disabled:opacity-50"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                <span>Kích hoạt lại</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenDeactivate(role)}
+                                type="button"
+                                title="Ngừng sử dụng vai trò"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-100 transition"
+                              >
+                                <PowerOff className="h-3.5 w-3.5" />
+                                <span>Ngừng dùng</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -538,7 +556,7 @@ export default function ProjectRoleCatalogView() {
       </div>
 
       {/* MODAL: TẠO VAI TRÒ MỚI */}
-      {isCreateOpen && (
+      {canManage && isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-slate-200 flex flex-col gap-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -655,7 +673,7 @@ export default function ProjectRoleCatalogView() {
       )}
 
       {/* MODAL: SỬA VAI TRÒ */}
-      {editingRole && (
+      {canManage && editingRole && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-slate-200 flex flex-col gap-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -763,7 +781,7 @@ export default function ProjectRoleCatalogView() {
       )}
 
       {/* MODAL: XÁC NHẬN NGỪNG SỬ DỤNG (DEACTIVATE) */}
-      {deactivatingRole && (
+      {canManage && deactivatingRole && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-200 flex flex-col gap-4">
             <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
