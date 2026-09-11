@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.dto.allocation;
 
+import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException;
 
@@ -10,7 +11,8 @@ public record CompanyWeeklyCapacityQuery(
         Integer durationWeeks,
         Integer page,
         Integer size,
-        String search
+        String search,
+        CapacityStatus status
 ) {
     public CompanyWeeklyCapacityQuery {
         if (durationWeeks == null || durationWeeks <= 0) {
@@ -43,6 +45,10 @@ public record CompanyWeeklyCapacityQuery(
     }
 
     public CompanyWeeklyCapacityQuery(Long orgUnitId, Integer fromYear, Integer fromWeek, Integer durationWeeks) {
-        this(orgUnitId, fromYear, fromWeek, durationWeeks, 0, 20, null);
+        this(orgUnitId, fromYear, fromWeek, durationWeeks, 0, 20, null, null);
+    }
+
+    public CompanyWeeklyCapacityQuery(Long orgUnitId, Integer fromYear, Integer fromWeek, Integer durationWeeks, Integer page, Integer size, String search) {
+        this(orgUnitId, fromYear, fromWeek, durationWeeks, page, size, search, null);
     }
 }

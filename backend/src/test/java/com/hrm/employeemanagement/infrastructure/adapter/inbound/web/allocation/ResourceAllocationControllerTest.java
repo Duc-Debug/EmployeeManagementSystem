@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -150,5 +151,30 @@ class ResourceAllocationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("DOMAIN_RULE_VIOLATION"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/allocations/weekly-matrix - Nhận tham số status và truyền chính xác vào UseCase")
+    void getWeeklyCapacityMatrix_WithStatusFilter() throws Exception {
+        HeaderWeekInfo weekInfo = new HeaderWeekInfo(
+                2026, 37, LocalDate.of(2026, 9, 7), LocalDate.of(2026, 9, 13), "T37 (07/09 - 13/09)"
+        );
+        CapacityMatrixSummaryResult summary = new CapacityMatrixSummaryResult(
+                50, 1, 5, 5, 10, BigDecimal.valueOf(85.0)
+        );
+        CompanyWeeklyCapacityMatrixResult matrixResult = new CompanyWeeklyCapacityMatrixResult(
+                10L, "Phòng CNTT", 2026, 37, 1, List.of(weekInfo), List.of(), summary, 0, 20, 5, 1
+        );
+
+        when(getCompanyWeeklyCapacityUseCase.getWeeklyCapacityMatrix(argThat(q ->
+                q.status() == com.hrm.employeemanagement.domain.allocation.CapacityStatus.OVERLOADED
+        ))).thenReturn(matrixResult);
+
+        mockMvc.perform(get("/api/v1/allocations/weekly-matrix")
+                        .param("status", "OVERLOADED")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalEmployees").value(5))
+                .andExpect(jsonPath("$.data.totalPages").value(1));
     }
 }

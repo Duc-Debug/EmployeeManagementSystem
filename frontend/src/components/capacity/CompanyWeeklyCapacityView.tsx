@@ -28,8 +28,7 @@ import { getCurrentIsoWeek } from "@/components/availability/availability.types"
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
-  const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
-  const isDirector = roleCode === "VT-01";
+  const isCompanyScope = currentUser?.dataScope === "COMPANY";
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -50,7 +49,7 @@ export default function CompanyWeeklyCapacityView() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 1. Tải danh mục phòng ban
+  // 1. Tải danh mục phòng ban (giới hạn theo phạm vi chi nhánh nếu dataScope là ORGANIZATION_BRANCH)
   useEffect(() => {
     let isMounted = true;
     async function loadOrgUnits() {
@@ -66,7 +65,28 @@ export default function CompanyWeeklyCapacityView() {
             }
           }
         };
-        flatten(tree);
+
+        const findNode = (nodes: readonly OrgUnitTreeNode[], targetId: number): OrgUnitTreeNode | null => {
+          for (const node of nodes) {
+            if (node.id === targetId) return node;
+            if (node.children && node.children.length > 0) {
+              const found = findNode(node.children, targetId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        if (currentUser?.dataScope === "ORGANIZATION_BRANCH" && currentUser.scopeOrgUnitId) {
+          const branchRoot = findNode(tree, currentUser.scopeOrgUnitId);
+          if (branchRoot) {
+            flatten([branchRoot]);
+          } else {
+            flatten(tree);
+          }
+        } else {
+          flatten(tree);
+        }
         setOrgUnits(flatList);
       } catch (err) {
         console.warn("Không thể tải danh sách đơn vị:", err);
@@ -76,7 +96,7 @@ export default function CompanyWeeklyCapacityView() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUser?.dataScope, currentUser?.scopeOrgUnitId]);
 
   // Phân trang Server-side
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -98,7 +118,12 @@ export default function CompanyWeeklyCapacityView() {
     setCurrentPage(1);
   }, [selectedOrgUnitId, selectedYear, selectedWeek]);
 
-  // 2. Tải dữ liệu ma trận năng lực theo tuần từ Server (kèm phân trang và tìm kiếm)
+  const handleStatusFilterChange = (newStatus: "ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED") => {
+    setStatusFilter(newStatus);
+    setCurrentPage(1);
+  };
+
+  // 2. Tải dữ liệu ma trận năng lực theo tuần từ Server (kèm phân trang, tìm kiếm và lọc trạng thái)
   const fetchMatrix = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
@@ -111,6 +136,7 @@ export default function CompanyWeeklyCapacityView() {
         page: currentPage - 1,
         size: pageSize,
         search: debouncedSearch,
+        status: statusFilter === "ALL" ? undefined : statusFilter,
       });
       setMatrixData(data);
     } catch (err: unknown) {
@@ -120,7 +146,7 @@ export default function CompanyWeeklyCapacityView() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedOrgUnitId, selectedYear, selectedWeek, durationWeeks, currentPage, pageSize, debouncedSearch]);
+  }, [selectedOrgUnitId, selectedYear, selectedWeek, durationWeeks, currentPage, pageSize, debouncedSearch, statusFilter]);
 
   useEffect(() => {
     fetchMatrix();
@@ -162,21 +188,6 @@ export default function CompanyWeeklyCapacityView() {
   const rows = matrixData?.rows || [];
   const totalEmployees = matrixData?.totalEmployees ?? 0;
   const totalPages = matrixData?.totalPages ?? 1;
-
-  // Lọc các hàng nhân sự theo trạng thái trên trang hiện tại
-  const filteredRows = useMemo(() => {
-    if (statusFilter === "ALL") return rows;
-    return rows.filter((row: EmployeeCapacityRow) => {
-      if (statusFilter === "OVERLOADED") return row.overloadedWeeksCount > 0;
-      if (statusFilter === "UNDERUTILIZED") {
-        return row.cells.some((c) => c.status === "UNDERUTILIZED");
-      }
-      if (statusFilter === "OPTIMAL") {
-        return row.cells.some((c) => c.status === "OPTIMAL");
-      }
-      return true;
-    });
-  }, [rows, statusFilter]);
 
   // Render 1 ô dữ liệu trong ma trận
   const renderCell = (cell: CapacityMatrixCell) => {
@@ -302,7 +313,7 @@ export default function CompanyWeeklyCapacityView() {
         </div>
       </div>
 
-      {/* 2. Thẻ KPI Thống Kê Tổng Quan (Phân định rõ số liệu Toàn bộ vs Trang hiện tại) */}
+      {/* 2. Thẻ KPI Thống Kê Tổng Quan (Chỉ số toàn diện cho phạm vi bộ phận / công ty) */}
       {matrixData?.summary && (
         <div className="space-y-2">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -314,7 +325,7 @@ export default function CompanyWeeklyCapacityView() {
                 </span>
               </div>
               <div className="mt-2 text-2xl font-bold text-slate-900">
-                {matrixData.totalEmployees}
+                {matrixData.summary.totalEmployees ?? matrixData.totalEmployees}
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Đơn vị: {matrixData.orgUnitName || "Toàn công ty"}
@@ -324,7 +335,7 @@ export default function CompanyWeeklyCapacityView() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
-                  Nhân sự quá tải {matrixData.totalPages > 1 ? `(Trang ${matrixData.page + 1})` : ""}
+                  Nhân sự quá tải
                 </span>
                 <span className="rounded-xl bg-rose-50 p-2 text-rose-600">
                   <AlertTriangle className="h-4 w-4" />
@@ -333,7 +344,7 @@ export default function CompanyWeeklyCapacityView() {
               <div className="mt-2 flex items-baseline gap-1 text-2xl font-bold text-rose-600">
                 <span>{matrixData.summary.overloadedEmployeesCount}</span>
                 <span className="text-xs font-normal text-slate-400">
-                  / {matrixData.summary.pageEmployeesCount ?? matrixData.rows.length} người
+                  / {matrixData.summary.totalEmployees ?? matrixData.totalEmployees} người
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
@@ -344,7 +355,7 @@ export default function CompanyWeeklyCapacityView() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
-                  Ô tuần nhàn rỗi {matrixData.totalPages > 1 ? `(Trang ${matrixData.page + 1})` : ""}
+                  Ô tuần nhàn rỗi
                 </span>
                 <span className="rounded-xl bg-amber-50 p-2 text-amber-600">
                   <Clock className="h-4 w-4" />
@@ -361,7 +372,7 @@ export default function CompanyWeeklyCapacityView() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
-                  Công suất TB {matrixData.totalPages > 1 ? `(Trang ${matrixData.page + 1})` : ""}
+                  Công suất TB
                 </span>
                 <span className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
                   <TrendingUp className="h-4 w-4" />
@@ -375,12 +386,6 @@ export default function CompanyWeeklyCapacityView() {
               </p>
             </div>
           </div>
-
-          {matrixData.totalPages > 1 && (
-            <div className="text-[11px] text-slate-500 italic px-1">
-              * Các chỉ số Quá tải, Nhàn rỗi và Công suất TB được tính toán cho {matrixData.summary.pageEmployeesCount ?? matrixData.rows.length} nhân sự trên trang {matrixData.page + 1}/{matrixData.totalPages}.
-            </div>
-          )}
         </div>
       )}
 
@@ -398,7 +403,7 @@ export default function CompanyWeeklyCapacityView() {
               }}
               className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
             >
-              {isDirector && <option value="">Tất cả phòng ban (Toàn công ty)</option>}
+              {isCompanyScope && <option value="">Tất cả phòng ban (Toàn công ty)</option>}
               {orgUnits.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
@@ -426,7 +431,7 @@ export default function CompanyWeeklyCapacityView() {
           <select
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(
+              handleStatusFilterChange(
                 e.target.value as "ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED"
               )
             }
@@ -459,7 +464,7 @@ export default function CompanyWeeklyCapacityView() {
               Thử lại
             </button>
           </div>
-        ) : !matrixData || filteredRows.length === 0 ? (
+        ) : !matrixData || rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400">
             <Users className="h-10 w-10 text-slate-300 mb-2" />
             <span className="text-sm font-bold text-slate-700">
@@ -495,7 +500,7 @@ export default function CompanyWeeklyCapacityView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {filteredRows.map((row: EmployeeCapacityRow) => (
+                {rows.map((row: EmployeeCapacityRow) => (
                   <tr key={row.employeeId} className="hover:bg-slate-50/50 transition">
                     {/* Cột Nhân sự cố định bên trái */}
                     <td className="sticky left-0 z-10 border-r border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs">

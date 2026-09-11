@@ -162,17 +162,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         .thenComparing(Employee::getEmployeeCode, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
 
-        // [HIGH REVIEW FIX]: Phân trang Server-side (limit/offset slice) để tối ưu RAM và CPU
-        int totalEmployees = employees.size();
-        int pageSize = query.size();
-        int page = query.page();
-        int totalPages = totalEmployees == 0 ? 0 : (int) Math.ceil((double) totalEmployees / pageSize);
-
-        int fromIndex = Math.min(page * pageSize, totalEmployees);
-        int toIndex = Math.min(fromIndex + pageSize, totalEmployees);
-        List<Employee> pageEmployees = employees.subList(fromIndex, toIndex);
-
-        if (pageEmployees.isEmpty()) {
+        if (employees.isEmpty()) {
             return new CompanyWeeklyCapacityMatrixResult(
                     effectiveOrgUnitId,
                     orgUnitName,
@@ -181,17 +171,17 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     durationWeeks,
                     weekHeaders,
                     List.of(),
-                    new CapacityMatrixSummaryResult(totalEmployees, durationWeeks, 0, 0, 0, BigDecimal.ZERO),
-                    page,
-                    pageSize,
-                    totalEmployees,
-                    totalPages
+                    new CapacityMatrixSummaryResult(0, durationWeeks, 0, 0, 0, BigDecimal.ZERO),
+                    query.page(),
+                    query.size(),
+                    0,
+                    0
             );
         }
 
-        List<Long> employeeIds = pageEmployees.stream().map(Employee::getIdValue).toList();
+        List<Long> employeeIds = employees.stream().map(Employee::getIdValue).toList();
 
-        // 1. Batch load toàn bộ phân bổ của danh sách nhân sự trong trang (1 query)
+        // 1. Batch load toàn bộ phân bổ của danh sách nhân sự trong phạm vi (1 query)
         List<WeeklyProjectAllocation> allAllocations = loadAllocationPort.loadAllocationsForEmployeesAndWeeks(employeeIds, targetWeeks);
         Map<String, BigDecimal> allocationMap = allAllocations.stream()
                 .collect(Collectors.groupingBy(
@@ -219,23 +209,23 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         yw -> WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yw, holidays, workingDays)
                 ));
 
-        // 4. Batch load đơn nghỉ phép đã duyệt cho danh sách nhân sự trong trang (1 query)
+        // 4. Batch load đơn nghỉ phép đã duyệt cho danh sách nhân sự trong phạm vi (1 query)
         Map<Long, Map<YearWeek, BigDecimal>> leaveHoursMap = loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(employeeIds, targetWeeks);
 
         // 5. Nạp tên phòng ban cho từng nhân sự
-        List<Long> orgUnitIds = pageEmployees.stream().map(Employee::getOrgUnitId).filter(Objects::nonNull).distinct().toList();
+        List<Long> orgUnitIds = employees.stream().map(Employee::getOrgUnitId).filter(Objects::nonNull).distinct().toList();
         Map<Long, String> orgUnitNameMap = orgUnitIds.isEmpty() ? Map.of() :
                 loadOrgUnitPort.findAllByIdIn(orgUnitIds).stream()
                         .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (e1, e2) -> e1));
 
-        // Xây dựng các hàng (Rows) nhân sự cho trang hiện tại
-        List<EmployeeCapacityRowResult> rows = new ArrayList<>();
+        // Xây dựng các hàng (Rows) nhân sự cho toàn bộ danh sách trong phạm vi
+        List<EmployeeCapacityRowResult> allRows = new ArrayList<>();
         int totalOverloadedCells = 0;
         int totalUnderutilizedCells = 0;
         BigDecimal companyTotalAllocated = BigDecimal.ZERO;
         BigDecimal companyTotalAvailable = BigDecimal.ZERO;
 
-        for (Employee emp : pageEmployees) {
+        for (Employee emp : employees) {
             BigDecimal empTotalAllocated = BigDecimal.ZERO;
             BigDecimal empTotalAvailable = BigDecimal.ZERO;
             int overloadedWeeksCount = 0;
@@ -305,7 +295,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             companyTotalAvailable = companyTotalAvailable.add(empTotalAvailable);
 
             String empDeptName = emp.getOrgUnitId() != null ? orgUnitNameMap.getOrDefault(emp.getOrgUnitId(), "Chưa gán") : "Chưa gán";
-            rows.add(new EmployeeCapacityRowResult(
+            allRows.add(new EmployeeCapacityRowResult(
                     emp.getIdValue(),
                     emp.getEmployeeCode(),
                     emp.getFullName(),
@@ -320,17 +310,35 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             ));
         }
 
-        int overloadedEmployeesCount = (int) rows.stream().filter(r -> r.overloadedWeeksCount() > 0).count();
+        // [HIGH REVIEW FIX Issue #2]: Tính Global Summary chính xác trên toàn bộ danh sách nhân sự thuộc phạm vi
+        int overloadedEmployeesCount = (int) allRows.stream().filter(r -> r.overloadedWeeksCount() > 0).count();
         BigDecimal companyAvgUtilization = WeeklyCapacityMatrixPolicy.calculateAverageUtilization(companyTotalAllocated, companyTotalAvailable);
 
         CapacityMatrixSummaryResult summary = new CapacityMatrixSummaryResult(
-                rows.size(), // Số lượng nhân sự trên lát cắt trang hiện tại (pageEmployeesCount)
+                allRows.size(),
                 targetWeeks.size(),
                 overloadedEmployeesCount,
                 totalOverloadedCells,
                 totalUnderutilizedCells,
                 companyAvgUtilization
         );
+
+        // [HIGH BLOCKER FIX Issue #1]: Lọc theo status filter trên toàn bộ dữ liệu trước khi phân trang
+        List<EmployeeCapacityRowResult> filteredRows = allRows;
+        if (query.status() != null) {
+            filteredRows = allRows.stream()
+                    .filter(r -> matchesStatus(r, query.status()))
+                    .toList();
+        }
+
+        int totalEmployees = filteredRows.size();
+        int pageSize = query.size();
+        int page = query.page();
+        int totalPages = totalEmployees == 0 ? 0 : (int) Math.ceil((double) totalEmployees / pageSize);
+
+        int fromIndex = Math.min(page * pageSize, totalEmployees);
+        int toIndex = Math.min(fromIndex + pageSize, totalEmployees);
+        List<EmployeeCapacityRowResult> pageRows = filteredRows.subList(fromIndex, toIndex);
 
         return new CompanyWeeklyCapacityMatrixResult(
                 effectiveOrgUnitId,
@@ -339,7 +347,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 fromWeek,
                 durationWeeks,
                 weekHeaders,
-                rows,
+                pageRows,
                 summary,
                 page,
                 pageSize,
@@ -393,5 +401,16 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 DayOfWeek.THURSDAY,
                 DayOfWeek.FRIDAY
         );
+    }
+
+    private boolean matchesStatus(EmployeeCapacityRowResult row, CapacityStatus status) {
+        if (status == null) {
+            return true;
+        }
+        return switch (status) {
+            case OVERLOADED -> row.overloadedWeeksCount() > 0;
+            case UNDERUTILIZED -> row.cells().stream().anyMatch(c -> c.status() == CapacityStatus.UNDERUTILIZED);
+            case OPTIMAL -> row.cells().stream().anyMatch(c -> c.status() == CapacityStatus.OPTIMAL);
+        };
     }
 }

@@ -130,6 +130,7 @@ export interface CompanyWeeklyCapacityMatrixParams {
   page?: number;
   size?: number;
   search?: string;
+  status?: CapacityStatus;
 }
 
 /**
@@ -159,6 +160,9 @@ export async function getCompanyWeeklyCapacityMatrix(
   }
   if (params?.search != null && params.search.trim() !== "") {
     searchParams.append("search", params.search.trim());
+  }
+  if (params?.status != null) {
+    searchParams.append("status", params.status);
   }
   const queryStr = searchParams.toString();
   return apiRequest<CompanyWeeklyCapacityMatrixData>(
