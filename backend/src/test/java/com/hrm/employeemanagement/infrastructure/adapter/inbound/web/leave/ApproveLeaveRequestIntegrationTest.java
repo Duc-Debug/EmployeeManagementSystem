@@ -409,13 +409,28 @@ class ApproveLeaveRequestIntegrationTest {
         ));
 
         try {
-            // RM truy vấn GET /api/v1/leave-requests/pending -> chỉ thấy đơn in-scope
+            // RM truy vấn GET /api/v1/leave-requests/pending -> chỉ thấy đơn in-scope (unpaginated)
             mockMvc.perform(get("/api/v1/leave-requests/pending")
                             .with(authentication(authForRM())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data[?(@.id == " + leaveInScope.getId() + ")]").exists())
                     .andExpect(jsonPath("$.data[?(@.id == " + leaveOutOfScope.getId() + ")]").doesNotExist());
+
+            // RM truy vấn GET /api/v1/leave-requests/pending?page=0&size=10 -> trả về PageResult có phân trang
+            mockMvc.perform(get("/api/v1/leave-requests/pending")
+                            .param("page", "0")
+                            .param("size", "10")
+                            .with(authentication(authForRM())))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content").isArray())
+                    .andExpect(jsonPath("$.data.content[?(@.id == " + leaveInScope.getId() + ")]").exists())
+                    .andExpect(jsonPath("$.data.content[?(@.id == " + leaveOutOfScope.getId() + ")]").doesNotExist())
+                    .andExpect(jsonPath("$.data.totalElements").value(1))
+                    .andExpect(jsonPath("$.data.totalPages").value(1))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(10));
         } finally {
             leaveRequestRepository.deleteById(leaveInScope.getId());
             leaveRequestRepository.deleteById(leaveOutOfScope.getId());

@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.leave;
 import com.hrm.employeemanagement.application.dto.leave.LeaveImpactResult;
 import com.hrm.employeemanagement.application.dto.leave.LeaveRequestResult;
 import com.hrm.employeemanagement.application.dto.leave.SubmitLeaveRequestCommand;
+import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.leave.*;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
@@ -112,10 +113,21 @@ public class LeaveRequestController {
 
     /**
      * NCL-05-CN-003: Lấy danh sách đơn xin nghỉ phép đang chờ duyệt (dành cho RM / HR theo DataScope).
+     * Hỗ trợ phân trang khi cung cấp page/size, hoặc trả về toàn bộ danh sách để tương thích ngược.
      */
     @GetMapping("/pending")
     @PreAuthorize("hasAuthority('LEAVE_REQUEST_APPROVE')")
-    public ResponseEntity<ApiResponse<List<LeaveRequestResult>>> getPendingLeaveRequests() {
+    public ResponseEntity<ApiResponse<?>> getPendingLeaveRequests(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
+    ) {
+        if (page != null || size != null) {
+            int p = page != null ? page : 0;
+            int s = size != null ? size : 10;
+            PageResult<LeaveRequestResult> result = getPendingLeaveRequestsUseCase.getPendingLeaveRequests(p, s);
+            return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn chờ duyệt thành công", result));
+        }
+
         List<LeaveRequestResult> results = getPendingLeaveRequestsUseCase.getPendingLeaveRequests();
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn chờ duyệt thành công", results));
     }

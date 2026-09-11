@@ -44,4 +44,75 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
     List<LeaveRequestJpaEntity> findByEmployeeIdOrderByStartDateDesc(Long employeeId);
 
     List<LeaveRequestJpaEntity> findByStatusOrderByCreatedAtAsc(String status);
+
+    @Query(value = """
+        SELECT lr.*
+        FROM leave_requests lr
+        WHERE lr.status = 'PENDING'
+        ORDER BY lr.created_at ASC, lr.id ASC
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<LeaveRequestJpaEntity> findPendingCompanyScope(
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM leave_requests lr
+        WHERE lr.status = 'PENDING'
+        """, nativeQuery = true)
+    long countPendingCompanyScope();
+
+    @Query(value = """
+        SELECT lr.*
+        FROM leave_requests lr
+        JOIN employees e ON e.id = lr.employee_id
+        JOIN org_units ou ON ou.id = e.org_unit_id
+        JOIN org_units scope ON scope.id = :scopeOrgUnitId
+        WHERE lr.status = 'PENDING'
+          AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+        ORDER BY lr.created_at ASC, lr.id ASC
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<LeaveRequestJpaEntity> findPendingBranchScope(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM leave_requests lr
+        JOIN employees e ON e.id = lr.employee_id
+        JOIN org_units ou ON ou.id = e.org_unit_id
+        JOIN org_units scope ON scope.id = :scopeOrgUnitId
+        WHERE lr.status = 'PENDING'
+          AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+        """, nativeQuery = true)
+    long countPendingBranchScope(@Param("scopeOrgUnitId") Long scopeOrgUnitId);
+
+    @Query(value = """
+        SELECT lr.*
+        FROM leave_requests lr
+        JOIN employees e ON e.id = lr.employee_id
+        WHERE lr.status = 'PENDING'
+          AND e.user_id = :currentUserId
+        ORDER BY lr.created_at ASC, lr.id ASC
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<LeaveRequestJpaEntity> findPendingSelfScope(
+            @Param("currentUserId") Long currentUserId,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM leave_requests lr
+        JOIN employees e ON e.id = lr.employee_id
+        WHERE lr.status = 'PENDING'
+          AND e.user_id = :currentUserId
+        """, nativeQuery = true)
+    long countPendingSelfScope(@Param("currentUserId") Long currentUserId);
 }
