@@ -4,11 +4,10 @@
 -- Story: NCL-06-CN-003 (Phat hien qua tai khi phan bo - QTN-11)
 -- ============================================================
 
-ALTER TABLE weekly_project_allocations
-ADD COLUMN is_overloaded BOOLEAN NOT NULL DEFAULT FALSE,
-ADD COLUMN overload_reason TEXT NULL,
-ADD COLUMN overload_approved_by BIGINT NULL,
-ADD COLUMN overload_approved_at TIMESTAMP NULL;
+ALTER TABLE weekly_project_allocations ADD COLUMN is_overloaded BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE weekly_project_allocations ADD COLUMN overload_reason TEXT NULL;
+ALTER TABLE weekly_project_allocations ADD COLUMN overload_approved_by BIGINT NULL;
+ALTER TABLE weekly_project_allocations ADD COLUMN overload_approved_at TIMESTAMP NULL;
 
 ALTER TABLE weekly_project_allocations
 ADD CONSTRAINT fk_wpa_overload_approver
