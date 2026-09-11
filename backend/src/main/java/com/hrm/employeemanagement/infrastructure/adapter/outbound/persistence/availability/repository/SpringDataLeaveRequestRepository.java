@@ -42,4 +42,14 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
                                   @Param("endDate") LocalDate endDate);
 
     List<LeaveRequestJpaEntity> findByEmployeeIdOrderByStartDateDesc(Long employeeId);
+
+    @Query("SELECT l FROM LeaveRequestJpaEntity l " +
+           "WHERE l.employeeId IN :employeeIds " +
+           "AND l.status IN ('APPROVED', 'PENDING') " +
+           "AND l.startDate <= :endDate AND l.endDate >= :startDate " +
+           "ORDER BY l.startDate ASC")
+    List<LeaveRequestJpaEntity> findDepartmentLeavesBetween(
+            @Param("employeeIds") List<Long> employeeIds,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }
