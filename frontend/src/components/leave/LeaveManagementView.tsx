@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Calendar as CalendarIcon,
     Plus,
@@ -12,10 +12,17 @@ import {
     CalendarDays,
     ListFilter,
     AlertCircle,
+    Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
-import { submitLeaveRequest, getMyLeaveRequests, cancelLeaveRequest } from "@/lib/api/leave";
+import {
+    submitLeaveRequest,
+    getMyLeaveRequests,
+    cancelLeaveRequest,
+    getMyLeaveBalance,
+    LeaveBalanceDto,
+} from "@/lib/api/leave";
 import CalendarView from "../calendar/CalendarView";
 
 export interface LeaveRequest {
@@ -47,6 +54,25 @@ const LEAVE_TYPE_COLORS: Record<LeaveRequest["leaveType"], string> = {
     PERSONAL: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
+// Hàm tiện ích: Tính số ngày làm việc (T2 -> T6) giữa 2 mốc thời gian
+function calculateWorkingDays(startDateStr: string, endDateStr: string): number {
+    if (!startDateStr || !endDateStr) return 0;
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (end < start) return 0;
+
+    let count = 0;
+    const cur = new Date(start);
+    while (cur <= end) {
+        const day = cur.getDay();
+        if (day !== 0 && day !== 6) {
+            count++;
+        }
+        cur.setDate(cur.getDate() + 1);
+    }
+    return count;
+}
+
 export default function LeaveManagementView() {
     const user = useAuthUser();
     const roleCode = user?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
@@ -57,6 +83,7 @@ export default function LeaveManagementView() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
+    const [balance, setBalance] = useState<LeaveBalanceDto | null>(null);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newLeave, setNewLeave] = useState({
@@ -76,14 +103,18 @@ export default function LeaveManagementView() {
         setTimeout(() => setToastMessage(null), 3500);
     };
 
-    // Tải dữ liệu thật từ Backend nếu là nhân viên chuyên môn (VT-04)
+    // Tải dữ liệu thật từ Backend (Đơn nghỉ phép + Quỹ phép cá nhân)
     const loadLeaveData = async () => {
         if (!isEmployee) return;
         setIsLoading(true);
         try {
-            const data = await getMyLeaveRequests();
-            if (Array.isArray(data)) {
-                const mapped: LeaveRequest[] = data.map((item) => ({
+            const [requestsData, balanceData] = await Promise.allSettled([
+                getMyLeaveRequests(),
+                getMyLeaveBalance(),
+            ]);
+
+            if (requestsData.status === "fulfilled" && Array.isArray(requestsData.value)) {
+                const mapped: LeaveRequest[] = requestsData.value.map((item) => ({
                     id: `LV-${item.id}`,
                     employeeId: String(item.employeeId),
                     employeeName: user?.fullName || user?.username || "Tôi (Nhân viên)",
@@ -98,8 +129,12 @@ export default function LeaveManagementView() {
                 }));
                 setRequests(mapped);
             }
+
+            if (balanceData.status === "fulfilled" && balanceData.value) {
+                setBalance(balanceData.value);
+            }
         } catch (err: any) {
-            console.warn("Không thể tải danh sách đơn nghỉ phép từ server:", err);
+            console.warn("Không thể tải thông tin nghỉ phép từ server:", err);
         } finally {
             setIsLoading(false);
         }
@@ -128,13 +163,31 @@ export default function LeaveManagementView() {
         return r.status === filterStatus;
     });
 
-    // Thống kê quỹ phép cá nhân hoặc toàn công ty
-    const totalAnnualLeave = 12;
-    const usedDays = userRequests
-        .filter((r) => r.status === "APPROVED" && r.leaveType === "ANNUAL")
-        .reduce((sum, r) => sum + r.daysCount, 0);
-    const remainingDays = Math.max(0, totalAnnualLeave - usedDays);
+    // Thống kê quỹ phép: Ưu tiên dữ liệu chuẩn xác từ LeaveBalanceDto do Backend tính toán
+    const totalAllocated = balance ? balance.totalAllocatedDays : 12;
+    const usedDays = balance
+        ? balance.approvedDays
+        : userRequests
+              .filter((r) => r.status === "APPROVED" && r.leaveType === "ANNUAL")
+              .reduce((sum, r) => sum + r.daysCount, 0);
+    const pendingDays = balance
+        ? balance.pendingDays
+        : userRequests
+              .filter((r) => r.status === "PENDING" && r.leaveType === "ANNUAL")
+              .reduce((sum, r) => sum + r.daysCount, 0);
+    const remainingDays = balance ? balance.remainingDays : Math.max(0, totalAllocated - usedDays - pendingDays);
     const pendingCount = userRequests.filter((r) => r.status === "PENDING").length;
+
+    // Tính toán số ngày nghỉ đang chọn trong form
+    const estimatedWorkingDays = useMemo(() => {
+        return calculateWorkingDays(newLeave.startDate, newLeave.endDate);
+    }, [newLeave.startDate, newLeave.endDate]);
+
+    // Kiểm tra có bị vượt hạn mức phép năm không (AC-02 & TC-02)
+    const isExceedingAnnualLeave =
+        newLeave.leaveType === "ANNUAL" &&
+        balance !== null &&
+        estimatedWorkingDays > balance.remainingDays;
 
     // Hủy đơn (dành cho người nộp)
     const handleCancelRequest = async (id: string) => {
@@ -166,6 +219,14 @@ export default function LeaveManagementView() {
             return;
         }
 
+        // AC-02 Validation: Chặn gửi nếu vượt quá quỹ phép năm còn lại
+        if (isExceedingAnnualLeave) {
+            showToast(
+                `Số ngày nghỉ (${estimatedWorkingDays} ngày) vượt quá số phép năm còn lại (${balance?.remainingDays} ngày). Vui lòng chọn loại 'Nghỉ không hưởng lương' hoặc điều chỉnh ngày nghỉ.`
+            );
+            return;
+        }
+
         try {
             setIsSubmitting(true);
             await submitLeaveRequest({
@@ -185,6 +246,7 @@ export default function LeaveManagementView() {
             });
             await loadLeaveData();
         } catch (err: any) {
+            // Hiển thị trực tiếp thông báo lỗi từ Backend nếu vi phạm hạn mức
             showToast(err.message || "Không thể gửi đơn nghỉ phép. Vui lòng kiểm tra lại.");
         } finally {
             setIsSubmitting(false);
@@ -237,7 +299,7 @@ export default function LeaveManagementView() {
                         </button>
                     </div>
 
-                    {/* Nút nộp đơn nghỉ phép: Chỉ hiển thị cho vai trò Nhân viên chuyên môn VT-04 (TC-04) */}
+                    {/* Nút nộp đơn nghỉ phép: Chỉ hiển thị cho vai trò Nhân viên chuyên môn VT-04 */}
                     {isEmployee && (
                         <button
                             type="button"
@@ -251,7 +313,7 @@ export default function LeaveManagementView() {
                 </div>
             </div>
 
-            {/* Thẻ thống kê quỹ phép */}
+            {/* Thẻ thống kê quỹ phép - Tích hợp số liệu thực tế */}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4.5">
                     <div className="flex items-center justify-between">
@@ -260,8 +322,12 @@ export default function LeaveManagementView() {
                         </span>
                         <CalendarIcon className="size-4 text-blue-600" />
                     </div>
-                    <p className="mt-2 text-2xl font-black text-blue-950">{totalAnnualLeave} ngày</p>
-                    <p className="mt-1 text-[11px] font-semibold text-blue-600">Quy định luật lao động</p>
+                    <p className="mt-2 text-2xl font-black text-blue-950">{totalAllocated} ngày</p>
+                    <p className="mt-1 text-[11px] font-semibold text-blue-600">
+                        {balance && balance.carriedOverDays > 0
+                            ? `Tiêu chuẩn ${balance.entitledDays} + Chuyển tiếp ${balance.carriedOverDays}`
+                            : "Quy định luật lao động"}
+                    </p>
                 </div>
 
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4.5">
@@ -272,7 +338,7 @@ export default function LeaveManagementView() {
                         <CheckCircle2 className="size-4 text-emerald-600" />
                     </div>
                     <p className="mt-2 text-2xl font-black text-emerald-950">{remainingDays} ngày</p>
-                    <p className="mt-1 text-[11px] font-semibold text-emerald-600">Có thể đăng ký nghỉ</p>
+                    <p className="mt-1 text-[11px] font-semibold text-emerald-600">Khả dụng đăng ký nghỉ</p>
                 </div>
 
                 <div className="rounded-2xl border border-purple-200 bg-purple-50/70 p-4.5">
@@ -289,16 +355,20 @@ export default function LeaveManagementView() {
                 <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4.5">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                            Chờ phê duyệt
+                            Đang chờ duyệt
                         </span>
                         <Clock className="size-4 text-amber-600" />
                     </div>
-                    <p className="mt-2 text-2xl font-black text-amber-950">{pendingCount} đơn</p>
-                    <p className="mt-1 text-[11px] font-semibold text-amber-600">Đang chờ xử lý</p>
+                    <p className="mt-2 text-2xl font-black text-amber-950">
+                        {balance ? `${balance.pendingDays} ngày` : `${pendingCount} đơn`}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-amber-600">
+                        {pendingCount} đơn đang chờ xử lý
+                    </p>
                 </div>
             </div>
 
-            {/* Nội dung chính */}
+            {/* Nội dung chính: Danh sách đơn */}
             {viewMode === "list" ? (
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
                     {/* Bộ lọc bảng */}
@@ -330,113 +400,99 @@ export default function LeaveManagementView() {
                             </div>
                         </div>
 
-                        <span className="text-xs text-slate-400">
-                            Hiển thị {filteredRequests.length} / {userRequests.length} đơn
+                        <span className="text-xs font-semibold text-slate-400">
+                            Tổng cộng: {filteredRequests.length} đơn
                         </span>
                     </div>
 
-                    {/* Table */}
+                    {/* Danh sách table */}
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs text-slate-800">
-                            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        <table className="w-full text-left text-xs text-slate-600">
+                            <thead className="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100">
                                 <tr>
-                                    <th className="px-4 py-3.5">Mã đơn / Nhân viên</th>
-                                    <th className="px-4 py-3.5">Loại nghỉ</th>
-                                    <th className="px-4 py-3.5">Thời gian nghỉ</th>
-                                    <th className="px-4 py-3.5">Số ngày</th>
-                                    <th className="px-4 py-3.5">Lý do</th>
-                                    <th className="px-4 py-3.5">Trạng thái</th>
-                                    <th className="px-4 py-3.5 text-right">Thao tác</th>
+                                    <th className="px-4 py-3">Mã đơn</th>
+                                    {!isEmployee && <th className="px-4 py-3">Nhân viên</th>}
+                                    <th className="px-4 py-3">Loại nghỉ</th>
+                                    <th className="px-4 py-3">Thời gian nghỉ</th>
+                                    <th className="px-4 py-3">Số ngày</th>
+                                    <th className="px-4 py-3">Lý do</th>
+                                    <th className="px-4 py-3">Trạng thái</th>
+                                    <th className="px-4 py-3 text-right">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                                        <td colSpan={8} className="py-8 text-center text-slate-400">
                                             Đang tải dữ liệu đơn nghỉ phép...
                                         </td>
                                     </tr>
                                 ) : filteredRequests.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-slate-400">
-                                            Không có đơn nghỉ phép nào phù hợp với bộ lọc.
+                                        <td colSpan={8} className="py-8 text-center text-slate-400">
+                                            Không tìm thấy đơn nghỉ phép nào phù hợp.
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredRequests.map((req) => (
-                                        <tr key={req.id} className="transition hover:bg-slate-50/80">
-                                            <td className="px-4 py-3">
-                                                <div>
+                                        <tr key={req.id} className="hover:bg-slate-50/60 transition">
+                                            <td className="px-4 py-3.5 font-bold text-slate-900">{req.id}</td>
+                                            {!isEmployee && (
+                                                <td className="px-4 py-3.5">
                                                     <p className="font-bold text-slate-900">{req.employeeName}</p>
-                                                    <p className="font-mono text-[10px] text-slate-400">
-                                                        {req.id} • {req.department}
-                                                    </p>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
+                                                    <p className="text-[11px] text-slate-400">{req.department}</p>
+                                                </td>
+                                            )}
+                                            <td className="px-4 py-3.5">
                                                 <span
                                                     className={cn(
-                                                        "rounded-md border px-2 py-0.5 text-[11px] font-semibold",
+                                                        "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold",
                                                         LEAVE_TYPE_COLORS[req.leaveType]
                                                     )}
                                                 >
                                                     {LEAVE_TYPE_LABELS[req.leaveType]}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 font-mono font-medium text-slate-700">
-                                                {req.startDate === req.endDate
-                                                    ? req.startDate
-                                                    : `${req.startDate} → ${req.endDate}`}
+                                            <td className="px-4 py-3.5 font-medium text-slate-700">
+                                                {req.startDate} <span className="text-slate-400">&rarr;</span> {req.endDate}
                                             </td>
-                                            <td className="px-4 py-3 font-bold text-slate-900">
+                                            <td className="px-4 py-3.5 font-bold text-slate-900">
                                                 {req.daysCount} ngày
                                             </td>
-                                            <td className="px-4 py-3 max-w-xs truncate text-slate-600" title={req.reason}>
+                                            <td className="max-w-[200px] truncate px-4 py-3.5 text-slate-500" title={req.reason}>
                                                 {req.reason}
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3.5">
+                                                {req.status === "PENDING" && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 border border-amber-200">
+                                                        <Clock className="size-3" /> Chờ duyệt
+                                                    </span>
+                                                )}
                                                 {req.status === "APPROVED" && (
-                                                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
                                                         <Check className="size-3" /> Đã duyệt
                                                     </span>
                                                 )}
                                                 {req.status === "REJECTED" && (
-                                                    <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-700 border border-rose-200">
                                                         <X className="size-3" /> Từ chối
                                                     </span>
                                                 )}
                                                 {req.status === "CANCELLED" && (
-                                                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600 border border-slate-200">
                                                         Đã hủy
                                                     </span>
                                                 )}
-                                                {req.status === "PENDING" && (
-                                                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">
-                                                        <Clock className="size-3" /> Chờ duyệt
-                                                    </span>
-                                                )}
                                             </td>
-                                            <td className="px-4 py-3 text-right">
-                                                {/* Thao tác Phê duyệt thuộc phạm vi UC NCL-05-CN-003 */}
-                                                {(isRM || isHR) && req.status === "PENDING" && (
-                                                    <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-500">
-                                                        Chờ duyệt (NCL-05-CN-003)
-                                                    </span>
-                                                )}
-
-                                                {/* Thao tác Hủy đơn cho chính nhân viên */}
+                                            <td className="px-4 py-3.5 text-right">
                                                 {isEmployee && req.status === "PENDING" && (
                                                     <button
                                                         type="button"
                                                         onClick={() => handleCancelRequest(req.id)}
-                                                        className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-rose-600 transition cursor-pointer"
+                                                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
                                                     >
                                                         Hủy đơn
                                                     </button>
-                                                )}
-
-                                                {req.status !== "PENDING" && (
-                                                    <span className="text-[11px] text-slate-400">Đã xử lý</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -447,34 +503,41 @@ export default function LeaveManagementView() {
                     </div>
                 </div>
             ) : (
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-                    <CalendarView />
-                </div>
+                /* Chế độ xem Lịch Workspace */
+                <CalendarView />
             )}
 
             {/* Modal Gửi đơn nghỉ phép */}
             {isCreateModalOpen && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4"
-                    role="dialog"
-                    aria-modal="true"
-                >
-                    <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-150">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                                <CalendarDays className="size-5 text-indigo-600" />
-                                <span>Gửi đơn xin nghỉ phép</span>
-                            </h3>
+                            <h2 className="text-base font-bold text-slate-900">Gửi đơn xin nghỉ phép</h2>
                             <button
                                 type="button"
                                 onClick={() => setIsCreateModalOpen(false)}
                                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
                             >
-                                <X className="size-5" />
+                                <X className="size-4" />
                             </button>
                         </div>
 
                         <form onSubmit={handleSubmitNewLeave} className="mt-4 space-y-4 text-xs">
+                            {/* Thông tin quỹ phép khả dụng */}
+                            {balance && (
+                                <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-blue-900">
+                                    <div className="flex items-center gap-1.5 font-bold">
+                                        <Info className="size-4 text-blue-600 shrink-0" />
+                                        <span>Quỹ phép năm hiện tại:</span>
+                                    </div>
+                                    <div className="mt-1 grid grid-cols-3 gap-2 text-[11px] text-blue-700">
+                                        <div>Được cấp: <span className="font-bold">{balance.totalAllocatedDays}</span></div>
+                                        <div>Đã nghỉ: <span className="font-bold">{balance.approvedDays}</span></div>
+                                        <div>Còn lại: <span className="font-black text-blue-950">{balance.remainingDays} ngày</span></div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block font-bold text-slate-700 mb-1">
                                     Loại nghỉ phép <span className="text-rose-500">*</span>
@@ -489,7 +552,9 @@ export default function LeaveManagementView() {
                                     }
                                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white focus:outline-none"
                                 >
-                                    <option value="ANNUAL">Nghỉ phép năm (Trừ vào 12 ngày tiêu chuẩn)</option>
+                                    <option value="ANNUAL">
+                                        Nghỉ phép năm ({balance ? `còn ${balance.remainingDays} ngày` : "trừ vào quỹ phép năm"})
+                                    </option>
                                     <option value="UNPAID">Nghỉ không hưởng lương</option>
                                     <option value="SICK">Nghỉ ốm đau / Khám bệnh</option>
                                     <option value="PERSONAL">Nghỉ việc riêng / Hiếu hỷ</option>
@@ -527,6 +592,21 @@ export default function LeaveManagementView() {
                                 </div>
                             </div>
 
+                            {/* Cảnh báo tính toán số ngày & cảnh báo vượt phép (AC-02 & TC-02) */}
+                            <div className="text-[11px] text-slate-500 flex justify-between items-center px-1">
+                                <span>Số ngày làm việc dự kiến:</span>
+                                <span className="font-bold text-slate-900">{estimatedWorkingDays} ngày</span>
+                            </div>
+
+                            {isExceedingAnnualLeave && (
+                                <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-[11px] text-rose-800 flex items-start gap-2">
+                                    <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
+                                    <span>
+                                        <strong>Vượt quá quỹ phép năm!</strong> Bạn đang chọn nghỉ <strong>{estimatedWorkingDays} ngày</strong> làm việc nhưng quỹ phép còn lại chỉ có <strong>{balance?.remainingDays} ngày</strong>. Vui lòng chuyển loại nghỉ sang <em>"Nghỉ không hưởng lương"</em> hoặc rút ngắn số ngày.
+                                    </span>
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block font-bold text-slate-700 mb-1">
                                     Lý do nghỉ phép <span className="text-rose-500">*</span>
@@ -543,13 +623,6 @@ export default function LeaveManagementView() {
                                 />
                             </div>
 
-                            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[11px] text-amber-800 flex items-start gap-2">
-                                <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
-                                <span>
-                                    Đơn nghỉ phép sẽ được gửi trực tiếp đến Trưởng bộ phận (RM) hoặc Bộ phận Nhân sự (HR) để phê duyệt.
-                                </span>
-                            </div>
-
                             <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
                                 <button
                                     type="button"
@@ -560,10 +633,10 @@ export default function LeaveManagementView() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || isExceedingAnnualLeave}
                                     className={cn(
                                         "rounded-xl bg-indigo-600 px-4 py-2 font-bold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer",
-                                        isSubmitting && "opacity-60 cursor-not-allowed"
+                                        (isSubmitting || isExceedingAnnualLeave) && "opacity-50 cursor-not-allowed"
                                     )}
                                 >
                                     {isSubmitting ? "Đang gửi..." : "Nộp đơn nghỉ phép"}
@@ -584,4 +657,3 @@ export default function LeaveManagementView() {
         </div>
     );
 }
-
