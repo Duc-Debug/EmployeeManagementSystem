@@ -19,11 +19,13 @@ import { useAuthUser } from "@/lib/auth-session";
 import {
     submitLeaveRequest,
     getMyLeaveRequests,
+    getPendingLeaveRequests,
     cancelLeaveRequest,
     getMyLeaveBalance,
     type LeaveBalanceDto,
 } from "@/lib/api/leave";
 import CalendarView from "../calendar/CalendarView";
+import LeaveApprovalModal from "./LeaveApprovalModal";
 
 export interface LeaveRequest {
     id: string;
@@ -78,10 +80,13 @@ export default function LeaveManagementView() {
     const roleCode = user?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
 
     const isEmployee = roleCode === "VT-04";
+    const isRM = roleCode === "VT-03";
+    const isHR = roleCode === "VT-02" || roleCode === "VT-01";
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [balance, setBalance] = useState<LeaveBalanceDto | null>(null);
+    const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<LeaveRequest | null>(null);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newLeave, setNewLeave] = useState({
@@ -101,35 +106,56 @@ export default function LeaveManagementView() {
         setTimeout(() => setToastMessage(null), 3500);
     };
 
-    // Tải dữ liệu thật từ Backend (Đơn nghỉ phép + Quỹ phép cá nhân)
+    // Tải dữ liệu từ Backend theo vai trò
     const loadLeaveData = async () => {
-        if (!isEmployee) return;
         setIsLoading(true);
         try {
-            const [requestsData, balanceData] = await Promise.allSettled([
-                getMyLeaveRequests(),
-                getMyLeaveBalance(),
-            ]);
+            if (isEmployee) {
+                const [requestsData, balanceData] = await Promise.allSettled([
+                    getMyLeaveRequests(),
+                    getMyLeaveBalance(),
+                ]);
 
-            if (requestsData.status === "fulfilled" && Array.isArray(requestsData.value)) {
-                const mapped: LeaveRequest[] = requestsData.value.map((item) => ({
-                    id: `LV-${item.id}`,
-                    employeeId: String(item.employeeId),
-                    employeeName: user?.fullName || user?.username || "Tôi (Nhân viên)",
-                    department: user?.orgUnitName || "Phòng chuyên môn",
-                    leaveType: item.leaveType,
-                    startDate: item.startDate,
-                    endDate: item.endDate,
-                    daysCount: item.daysCount,
-                    reason: item.reason || "",
-                    status: item.status as any,
-                    createdAt: item.createdAt ? item.createdAt.slice(0, 10) : "",
-                }));
-                setRequests(mapped);
-            }
+                if (requestsData.status === "fulfilled" && Array.isArray(requestsData.value)) {
+                    const mapped: LeaveRequest[] = requestsData.value.map((item) => ({
+                        id: `LV-${item.id}`,
+                        employeeId: String(item.employeeId),
+                        employeeName: user?.fullName || user?.username || "Tôi (Nhân viên)",
+                        department: user?.orgUnitName || "Phòng chuyên môn",
+                        leaveType: item.leaveType,
+                        startDate: item.startDate,
+                        endDate: item.endDate,
+                        daysCount: item.daysCount,
+                        reason: item.reason || "",
+                        status: item.status as any,
+                        approverComment: item.approverComment,
+                        createdAt: item.createdAt ? item.createdAt.slice(0, 10) : "",
+                    }));
+                    setRequests(mapped);
+                }
 
-            if (balanceData.status === "fulfilled" && balanceData.value) {
-                setBalance(balanceData.value);
+                if (balanceData.status === "fulfilled" && balanceData.value) {
+                    setBalance(balanceData.value);
+                }
+            } else if (isRM || isHR) {
+                const data = await getPendingLeaveRequests();
+                if (Array.isArray(data)) {
+                    const mapped: LeaveRequest[] = data.map((item) => ({
+                        id: `LV-${item.id}`,
+                        employeeId: String(item.employeeId),
+                        employeeName: item.employeeName || `Nhân viên #${item.employeeId}`,
+                        department: item.department || "Phòng ban",
+                        leaveType: item.leaveType,
+                        startDate: item.startDate,
+                        endDate: item.endDate,
+                        daysCount: item.daysCount,
+                        reason: item.reason || "",
+                        status: item.status as any,
+                        approverComment: item.approverComment,
+                        createdAt: item.createdAt ? item.createdAt.slice(0, 10) : "",
+                    }));
+                    setRequests(mapped);
+                }
             }
         } catch (err: any) {
             console.warn("Không thể tải thông tin nghỉ phép từ server:", err);
@@ -457,8 +483,13 @@ export default function LeaveManagementView() {
                                             <td className="px-4 py-3.5 font-bold text-slate-900">
                                                 {req.daysCount} ngày
                                             </td>
-                                            <td className="max-w-[200px] truncate px-4 py-3.5 text-slate-500" title={req.reason}>
-                                                {req.reason}
+                                            <td className="px-4 py-3 max-w-xs text-slate-600">
+                                                <p className="truncate" title={req.reason}>{req.reason}</p>
+                                                {req.approverComment && (
+                                                    <p className="text-[10px] text-slate-500 italic mt-0.5" title={req.approverComment}>
+                                                        Phản hồi: {req.approverComment}
+                                                    </p>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3.5">
                                                 {req.status === "PENDING" && (
@@ -482,7 +513,20 @@ export default function LeaveManagementView() {
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3.5 text-right">
+                                            <td className="px-4 py-3 text-right">
+                                                {/* Thao tác Phê duyệt thuộc phạm vi UC NCL-05-CN-003 */}
+                                                {(isRM || isHR) && req.status === "PENDING" && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedApprovalRequest(req)}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition cursor-pointer shadow-2xs"
+                                                    >
+                                                        <CheckCircle2 className="size-3.5 text-indigo-600" />
+                                                        <span>Xem xét &amp; Duyệt</span>
+                                                    </button>
+                                                )}
+
+                                                {/* Thao tác Hủy đơn cho chính nhân viên */}
                                                 {isEmployee && req.status === "PENDING" && (
                                                     <button
                                                         type="button"
@@ -643,6 +687,18 @@ export default function LeaveManagementView() {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Modal Phê duyệt đơn nghỉ phép (NCL-05-CN-003) */}
+            {selectedApprovalRequest && (
+                <LeaveApprovalModal
+                    request={selectedApprovalRequest}
+                    onClose={() => setSelectedApprovalRequest(null)}
+                    onSuccess={(msg) => {
+                        showToast(msg);
+                        loadLeaveData();
+                    }}
+                />
             )}
 
             {/* Toast popup */}

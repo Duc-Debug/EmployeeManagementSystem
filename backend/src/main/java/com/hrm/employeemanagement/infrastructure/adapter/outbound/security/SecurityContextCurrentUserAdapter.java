@@ -17,6 +17,9 @@ public class SecurityContextCurrentUserAdapter implements CurrentUserPort {
         if (auth != null && auth.getPrincipal() instanceof UserPrincipal principal) {
             return Optional.ofNullable(principal.getId());
         }
+        if (auth != null && auth.getPrincipal() instanceof com.hrm.employeemanagement.domain.user.User user) {
+            return Optional.ofNullable(user.getIdValue());
+        }
         return Optional.empty();
     }
 }
