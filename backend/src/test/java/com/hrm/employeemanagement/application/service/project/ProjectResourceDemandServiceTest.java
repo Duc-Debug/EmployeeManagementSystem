@@ -436,7 +436,7 @@ class ProjectResourceDemandServiceTest {
         ProjectRole role1 = new ProjectRole(new ProjectRoleId(1L), "DEV", "Developer", "Lập trình viên");
         ProjectRole role2 = new ProjectRole(new ProjectRoleId(2L), "TEST", "Tester", "Kiểm thử viên");
 
-        when(loadProjectRolePort.findAll()).thenReturn(List.of(role1, role2));
+        when(loadProjectRolePort.findAllActive()).thenReturn(List.of(role1, role2));
 
         List<com.hrm.employeemanagement.application.dto.project.demand.ProjectRoleResult> results = service.getProjectRoles();
 
@@ -447,6 +447,21 @@ class ProjectResourceDemandServiceTest {
                 PermissionCode.PROJECT_READ,
                 PermissionCode.PROJECT_RESOURCE_DEMAND_READ,
                 PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE);
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách vai trò chuyên môn dự án bao gồm inactive thành công")
+    void testGetProjectRoles_IncludeInactive_Success() {
+        ProjectRole role1 = new ProjectRole(new ProjectRoleId(1L), "DEV", "Developer", "Lập trình viên");
+        ProjectRole role2 = new ProjectRole(new ProjectRoleId(2L), "TEST", "Tester", "Kiểm thử viên");
+
+        when(loadProjectRolePort.findAll()).thenReturn(List.of(role1, role2));
+
+        List<com.hrm.employeemanagement.application.dto.project.demand.ProjectRoleResult> results = service.getProjectRoles(true);
+
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).code()).isEqualTo("DEV");
+        assertThat(results.get(1).code()).isEqualTo("TEST");
     }
 
     // ==================== HELPER FACTORIES ====================

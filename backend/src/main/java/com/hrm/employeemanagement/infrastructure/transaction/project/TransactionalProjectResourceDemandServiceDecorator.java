@@ -48,4 +48,10 @@ public class TransactionalProjectResourceDemandServiceDecorator implements
     public java.util.List<ProjectRoleResult> getProjectRoles() {
         return delegate.getProjectRoles();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<ProjectRoleResult> getProjectRoles(boolean includeInactive) {
+        return delegate.getProjectRoles(includeInactive);
+    }
 }

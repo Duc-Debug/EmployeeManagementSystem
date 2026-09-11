@@ -29,6 +29,8 @@ public class LeaveRequestPersistenceMapper {
                 entity.getHoursDeducted(),
                 entity.getReason(),
                 status,
+                entity.getApproverId(),
+                entity.getApproverComment(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -48,6 +50,8 @@ public class LeaveRequestPersistenceMapper {
                 domain.getStatus() != null ? domain.getStatus().name() : LeaveStatus.PENDING.name(),
                 domain.getHoursDeducted(),
                 domain.getReason(),
+                domain.getApproverId(),
+                domain.getApproverComment(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt()
         );

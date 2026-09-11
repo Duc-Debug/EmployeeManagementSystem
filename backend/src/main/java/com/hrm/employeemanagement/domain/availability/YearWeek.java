@@ -31,6 +31,14 @@ public record YearWeek(int year, int weekNumber) {
         return new YearWeek(year, weekNumber);
     }
 
+    public static YearWeek from(LocalDate date) {
+        java.util.Objects.requireNonNull(date, "date không được null");
+        WeekFields weekFields = WeekFields.ISO;
+        int weekNumber = date.get(weekFields.weekOfWeekBasedYear());
+        int year = date.get(weekFields.weekBasedYear());
+        return new YearWeek(year, weekNumber);
+    }
+
     /**
      * Ngày đầu tiên của tuần (Thứ Hai theo chuẩn ISO-8601).
      */

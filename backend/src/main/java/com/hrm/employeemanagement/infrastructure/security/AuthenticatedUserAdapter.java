@@ -30,6 +30,10 @@ public class AuthenticatedUserAdapter
             return user;
         }
 
+        if (principal instanceof UserPrincipal userPrincipal) {
+            return userPrincipal.getDomainUser();
+        }
+
         return null;
     }
 }

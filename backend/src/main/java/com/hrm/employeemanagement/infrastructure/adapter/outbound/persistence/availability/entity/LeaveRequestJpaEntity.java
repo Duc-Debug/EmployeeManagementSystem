@@ -40,6 +40,12 @@ public class LeaveRequestJpaEntity {
     @Column(name = "reason", length = 500)
     private String reason;
 
+    @Column(name = "approver_id")
+    private Long approverId;
+
+    @Column(name = "approver_comment", length = 500)
+    private String approverComment;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -50,11 +56,12 @@ public class LeaveRequestJpaEntity {
 
     public LeaveRequestJpaEntity(Long id, Long employeeId, LocalDate startDate, LocalDate endDate,
                                  String status, BigDecimal hoursDeducted) {
-        this(id, employeeId, "ANNUAL", startDate, endDate, status, hoursDeducted, null, null, null);
+        this(id, employeeId, "ANNUAL", startDate, endDate, status, hoursDeducted, null, null, null, null, null);
     }
 
     public LeaveRequestJpaEntity(Long id, Long employeeId, String leaveType, LocalDate startDate, LocalDate endDate,
                                  String status, BigDecimal hoursDeducted, String reason,
+                                 Long approverId, String approverComment,
                                  LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.employeeId = employeeId;
@@ -64,6 +71,8 @@ public class LeaveRequestJpaEntity {
         this.status = status;
         this.hoursDeducted = hoursDeducted;
         this.reason = reason;
+        this.approverId = approverId;
+        this.approverComment = approverComment;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -130,6 +139,22 @@ public class LeaveRequestJpaEntity {
 
     public void setReason(String reason) {
         this.reason = reason;
+    }
+
+    public Long getApproverId() {
+        return approverId;
+    }
+
+    public void setApproverId(Long approverId) {
+        this.approverId = approverId;
+    }
+
+    public String getApproverComment() {
+        return approverComment;
+    }
+
+    public void setApproverComment(String approverComment) {
+        this.approverComment = approverComment;
     }
 
     public LocalDateTime getCreatedAt() {
