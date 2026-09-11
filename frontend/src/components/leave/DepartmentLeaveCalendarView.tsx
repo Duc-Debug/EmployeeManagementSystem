@@ -12,6 +12,8 @@ import {
     Sliders,
     GitBranch,
     X,
+    CheckCircle2,
+    Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -116,32 +118,53 @@ export default function DepartmentLeaveCalendarView() {
         };
     }, [user?.scopeOrgUnitId, user?.orgUnitId]);
 
-    // Tải dữ liệu lịch nghỉ từ Backend API (NCL-05-CN-006)
-    const loadCalendarData = async () => {
-        if (!selectedOrgUnitId) return;
-        setIsLoading(true);
-        setError(null);
-        try {
-            const data = await getDepartmentMonthlyLeaveCalendar({
-                orgUnitId: Number(selectedOrgUnitId),
-                year,
-                month,
-                warningThreshold,
-                includeSubUnits,
-            });
-            setCalendarData(data);
-        } catch (err: any) {
-            console.error("Lỗi khi tải lịch nghỉ bộ phận:", err);
-            setError(err?.message || "Không thể tải lịch nghỉ bộ phận. Vui lòng kiểm tra quyền truy cập.");
-            setCalendarData(null);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+    // Tải dữ liệu lịch nghỉ từ Backend API (NCL-05-CN-006) - Có cơ chế chống Race Condition
     useEffect(() => {
-        loadCalendarData();
+        let isSubscribed = true;
+        async function fetchCalendar() {
+            if (!selectedOrgUnitId) return;
+            setIsLoading(true);
+            setError(null);
+            try {
+                const data = await getDepartmentMonthlyLeaveCalendar({
+                    orgUnitId: Number(selectedOrgUnitId),
+                    year,
+                    month,
+                    warningThreshold,
+                    includeSubUnits,
+                });
+                if (isSubscribed) {
+                    setCalendarData(data);
+                }
+            } catch (err: any) {
+                if (isSubscribed) {
+                    console.error("Lỗi khi tải lịch nghỉ bộ phận:", err);
+                    setError(err?.message || "Không thể tải lịch nghỉ bộ phận. Vui lòng kiểm tra quyền truy cập.");
+                    setCalendarData(null);
+                }
+            } finally {
+                if (isSubscribed) {
+                    setIsLoading(false);
+                }
+            }
+        }
+        fetchCalendar();
+        return () => {
+            isSubscribed = false;
+        };
     }, [selectedOrgUnitId, year, month, warningThreshold, includeSubUnits]);
+
+    // Lắng nghe phím Escape để đóng nhanh Modal chi tiết
+    useEffect(() => {
+        if (!selectedDayDetail) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setSelectedDayDetail(null);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [selectedDayDetail]);
 
     // Điều hướng tháng
     const handlePrevMonth = () => {
@@ -370,8 +393,25 @@ export default function DepartmentLeaveCalendarView() {
                 </div>
             )}
 
+            {/* Trạng thái rỗng nếu tháng không có ai nghỉ */}
+            {!isLoading && calendarData && calendarData.totalLeaveRequests === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 text-xs text-slate-500 flex items-center justify-center gap-2">
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                    <span>Không có đơn nghỉ phép nào được ghi nhận trong tháng {month}/{year} cho bộ phận này.</span>
+                </div>
+            )}
+
             {/* Lưới Lịch Tháng (Monthly Calendar Grid) */}
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                {/* Lớp phủ tải dữ liệu (Loading Overlay) */}
+                {isLoading && (
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-[1px]">
+                        <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-md border border-slate-100">
+                            <Loader2 className="size-4 animate-spin text-indigo-600" />
+                            <span>Đang cập nhật lịch tháng {month}/{year}...</span>
+                        </div>
+                    </div>
+                )}
                 {/* Header Ngày Trong Tuần (7 cột) */}
                 <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
                     {WEEKDAY_NAMES.map((name, idx) => (
@@ -403,9 +443,18 @@ export default function DepartmentLeaveCalendarView() {
                         return (
                             <div
                                 key={summary.date}
+                                role={hasLeaves ? "button" : undefined}
+                                tabIndex={hasLeaves ? 0 : undefined}
+                                aria-label={hasLeaves ? `Ngày ${dayNum}: ${summary.totalOnLeave} người nghỉ. Nhấn Enter hoặc Phím cách để xem chi tiết.` : undefined}
                                 onClick={() => hasLeaves && setSelectedDayDetail(summary)}
+                                onKeyDown={(e) => {
+                                    if (hasLeaves && (e.key === "Enter" || e.key === " ")) {
+                                        e.preventDefault();
+                                        setSelectedDayDetail(summary);
+                                    }
+                                }}
                                 className={cn(
-                                    "min-h-[125px] p-2 transition flex flex-col justify-between",
+                                    "min-h-[125px] p-2 transition flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:z-10",
                                     hasLeaves ? "cursor-pointer hover:bg-indigo-50/30" : "",
                                     isWeekend ? "bg-slate-50/60" : "bg-white",
                                     summary.isHoliday ? "bg-rose-50/30 border-rose-200" : "",
@@ -524,6 +573,11 @@ export default function DepartmentLeaveCalendarView() {
                     className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4"
                     role="dialog"
                     aria-modal="true"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) {
+                            setSelectedDayDetail(null);
+                        }
+                    }}
                 >
                     <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         {/* Header Modal */}
