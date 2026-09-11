@@ -30,6 +30,10 @@ public record TaskNodeResult(
         Boolean isOverBudget,
         TaskStatus status,
         Integer sortOrder,
+        java.time.LocalDate startDate,
+        java.time.LocalDate dueDate,
+        java.time.LocalDate actualEndDate,
+        Integer slackDays,
         Long createdBy,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
@@ -40,6 +44,36 @@ public record TaskNodeResult(
         if (children == null) {
             children = new ArrayList<>();
         }
+    }
+
+    public TaskNodeResult(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            BigDecimal burnedPercentage,
+            TaskBudgetBurnStatus burnStatus,
+            Boolean isOverBudget,
+            TaskStatus status,
+            Integer sortOrder,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            List<TaskNodeResult> children
+    ) {
+        this(
+                id, projectId, parentId, taskCode, name, description, taskType, assigneeId,
+                estimatedHours, actualHours, budgetHours, burnedPercentage, burnStatus, isOverBudget,
+                status, sortOrder, null, null, null, 0, createdBy, createdAt, updatedAt, version, children
+        );
     }
 
     public TaskNodeResult(

@@ -73,6 +73,10 @@ export interface TaskNodeResult {
   isOverBudget?: boolean;
   status: BackendTaskStatus;
   sortOrder?: number;
+  startDate?: string;
+  dueDate?: string;
+  actualEndDate?: string;
+  slackDays?: number;
   createdBy?: number;
   createdAt?: string;
   updatedAt?: string;
