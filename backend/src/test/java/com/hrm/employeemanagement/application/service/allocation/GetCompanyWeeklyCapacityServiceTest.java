@@ -1,0 +1,486 @@
+package com.hrm.employeemanagement.application.service.allocation;
+
+import com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult;
+import com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult.CapacityMatrixCellResult;
+import com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult.EmployeeCapacityRowResult;
+import com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.*;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class GetCompanyWeeklyCapacityServiceTest {
+
+    @Mock
+    private AuthorizationService authorizationService;
+    @Mock
+    private LoadUserPort loadUserPort;
+    @Mock
+    private LoadEmployeePort loadEmployeePort;
+    @Mock
+    private LoadOrgUnitPort loadOrgUnitPort;
+    @Mock
+    private LoadWeeklyProjectAllocationPort loadAllocationPort;
+    @Mock
+    private LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
+    @Mock
+    private LoadHolidaysPort loadHolidaysPort;
+    @Mock
+    private LoadApprovedLeavesPort loadApprovedLeavesPort;
+    @Mock
+    private LoadWorkingCalendarPort loadWorkingCalendarPort;
+
+    @Mock
+    private User rmUser;
+    @Mock
+    private User directorUser;
+    @Mock
+    private User employeeUser;
+    @Mock
+    private OrgUnit itDept;
+
+    private GetCompanyWeeklyCapacityService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new GetCompanyWeeklyCapacityService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort
+        );
+
+        lenient().when(itDept.getId()).thenReturn(new OrgUnitId(10L));
+        lenient().when(itDept.getUnitName()).thenReturn("Phòng Công nghệ thông tin");
+        lenient().when(itDept.getTreePath()).thenReturn("/1/10");
+
+        lenient().when(rmUser.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        lenient().when(rmUser.getScopeOrgUnitId()).thenReturn(10L);
+
+        lenient().when(directorUser.getDataScope()).thenReturn(DataScope.COMPANY);
+
+        lenient().when(employeeUser.getDataScope()).thenReturn(DataScope.SELF);
+
+        lenient().when(loadEmployeePort.countActive(any(), any())).thenAnswer(inv -> {
+            List<Long> orgUnitIds = inv.getArgument(0);
+            String search = inv.getArgument(1);
+            List<Employee> emps = orgUnitIds != null ? loadEmployeePort.findActiveByOrgUnitIds(orgUnitIds) : loadEmployeePort.findAllActive();
+            if (emps == null || emps.isEmpty()) return 0L;
+            if (search != null && !search.isBlank()) {
+                String pattern = search.toLowerCase();
+                return emps.stream()
+                        .filter(e -> (e.getFullName() != null && e.getFullName().toLowerCase().contains(pattern))
+                                || (e.getEmployeeCode() != null && e.getEmployeeCode().toLowerCase().contains(pattern))
+                                || (e.getProfessionalRole() != null && e.getProfessionalRole().toLowerCase().contains(pattern)))
+                        .count();
+            }
+            return (long) emps.size();
+        });
+        lenient().when(loadEmployeePort.findActivePaged(any(), any(), anyInt(), anyInt())).thenAnswer(inv -> {
+            List<Long> orgUnitIds = inv.getArgument(0);
+            String search = inv.getArgument(1);
+            int size = inv.getArgument(2);
+            int offset = inv.getArgument(3);
+            List<Employee> emps = orgUnitIds != null ? loadEmployeePort.findActiveByOrgUnitIds(orgUnitIds) : loadEmployeePort.findAllActive();
+            if (emps == null || emps.isEmpty()) return List.of();
+            List<Employee> filtered = emps;
+            if (search != null && !search.isBlank()) {
+                String pattern = search.toLowerCase();
+                filtered = emps.stream()
+                        .filter(e -> (e.getFullName() != null && e.getFullName().toLowerCase().contains(pattern))
+                                || (e.getEmployeeCode() != null && e.getEmployeeCode().toLowerCase().contains(pattern))
+                                || (e.getProfessionalRole() != null && e.getProfessionalRole().toLowerCase().contains(pattern)))
+                        .toList();
+            }
+            List<Employee> sorted = filtered.stream()
+                    .sorted(Comparator.comparing(Employee::getFullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+                            .thenComparing(Employee::getEmployeeCode, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                    .toList();
+            int fromIndex = Math.min(offset, sorted.size());
+            int toIndex = Math.min(fromIndex + size, sorted.size());
+            return sorted.subList(fromIndex, toIndex);
+        });
+    }
+
+    private Employee createMockEmployee(Long id, String code, String name, Long orgUnitId, Integer standardHours) {
+        return new Employee(
+                new EmployeeId(id), null, orgUnitId, code, name,
+                "Developer", LocalDate.of(2025, 1, 1), null, false, standardHours, EmployeeStatus.ACTIVE
+        );
+    }
+
+    @Test
+    @DisplayName("TC-01 — Luồng thành công: Bộ phận 5 nhân sự, 8 tuần -> hiển thị lưới 5 hàng × 8 cột với tỷ lệ sử dụng chuẩn")
+    void testSuccessfulGrid5Rows8Columns() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.findAllByIdIn(anyList())).thenReturn(List.of(itDept));
+
+        List<Employee> fiveEmployees = List.of(
+                createMockEmployee(1L, "EMP001", "Nguyễn Văn A", 10L, 40),
+                createMockEmployee(2L, "EMP002", "Trần Thị B", 10L, 40),
+                createMockEmployee(3L, "EMP003", "Lê Văn C", 10L, 40),
+                createMockEmployee(4L, "EMP004", "Phạm Thị D", 10L, 40),
+                createMockEmployee(5L, "EMP005", "Hoàng Văn E", 10L, 40)
+        );
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(fiveEmployees);
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 8);
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result).isNotNull();
+        assertThat(result.weeks()).hasSize(8);
+        assertThat(result.rows()).hasSize(5);
+
+        for (EmployeeCapacityRowResult row : result.rows()) {
+            assertThat(row.cells()).hasSize(8);
+            for (CapacityMatrixCellResult cell : row.cells()) {
+                assertThat(cell.availableHours()).isEqualByComparingTo(BigDecimal.valueOf(40.0));
+                assertThat(cell.allocatedHours()).isEqualByComparingTo(BigDecimal.ZERO);
+                assertThat(cell.utilizationPercentage()).isEqualByComparingTo(BigDecimal.ZERO);
+                assertThat(cell.isOverloaded()).isFalse();
+                assertThat(cell.status()).isEqualTo(CapacityStatus.UNDERUTILIZED);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("TC-02 — Quá tải: Nhân sự có tổng giờ phân bổ vượt quá khả dụng trong tuần -> ô bị đánh dấu quá tải và hiển thị excessHours")
+    void testOverloadedEmployeeFlaggedAndExcessHoursCalculated() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.findAllByIdIn(anyList())).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        Employee emp1 = createMockEmployee(1L, "EMP001", "Nguyễn Văn A", 10L, 40);
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp1));
+
+        // Phân bổ 48 giờ cho tuần 37/2026
+        YearWeek yw37 = YearWeek.of(2026, 37);
+        WeeklyProjectAllocation allocation1 = new WeeklyProjectAllocation(101L, 1L, 999L, yw37, BigDecimal.valueOf(48.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of(allocation1));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 8);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.rows()).hasSize(1);
+        EmployeeCapacityRowResult row = result.rows().get(0);
+        CapacityMatrixCellResult week37Cell = row.cells().get(0);
+
+        assertThat(week37Cell.year()).isEqualTo(2026);
+        assertThat(week37Cell.weekNumber()).isEqualTo(37);
+        assertThat(week37Cell.availableHours()).isEqualByComparingTo(BigDecimal.valueOf(40.0));
+        assertThat(week37Cell.allocatedHours()).isEqualByComparingTo(BigDecimal.valueOf(48.0));
+        assertThat(week37Cell.isOverloaded()).isTrue();
+        assertThat(week37Cell.excessHours()).isEqualByComparingTo(BigDecimal.valueOf(8.0));
+        assertThat(week37Cell.utilizationPercentage()).isEqualByComparingTo(BigDecimal.valueOf(120.0));
+        assertThat(week37Cell.status()).isEqualTo(CapacityStatus.OVERLOADED);
+        assertThat(row.overloadedWeeksCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("TC-03 — Data Scope: Người dùng RM chỉ quản lý một bộ phận, khi mở bảng năng lực ngoài branch thì bị từ chối 403 Forbidden")
+    void testDataScopeEnforcedForBranchManager() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+
+        // Cố tình truy vấn phòng ban 999 không thuộc branch của IT Dept (10L)
+        when(loadOrgUnitPort.existsInOrgUnitBranch(999L, 10L)).thenReturn(false);
+
+        CompanyWeeklyCapacityQuery queryOutsideScope = new CompanyWeeklyCapacityQuery(999L, 2026, 37, 8);
+
+        assertThatThrownBy(() -> service.getWeeklyCapacityMatrix(queryOutsideScope))
+                .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("TC-03 — Data Scope: Người dùng Ban giám đốc (COMPANY) có quyền xem toàn công ty hoặc lọc bất kỳ bộ phận nào")
+    void testCompanyScopeCanViewAnyDepartment() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(200L);
+        when(loadUserPort.findById(new UserId(200L))).thenReturn(Optional.of(directorUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 8);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result).isNotNull();
+        assertThat(result.orgUnitName()).isEqualTo("Phòng Công nghệ thông tin");
+    }
+
+    @Test
+    @DisplayName("Data Scope: Người dùng chỉ có quyền SELF (VT-04) bị từ chối truy cập bảng năng lực tổng thể")
+    void testSelfScopeDeniedAccess() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(300L);
+        when(loadUserPort.findById(new UserId(300L))).thenReturn(Optional.of(employeeUser));
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 8);
+
+        assertThatThrownBy(() -> service.getWeeklyCapacityMatrix(query))
+                .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — contractEndDate được áp dụng chính xác ngay cả khi đã có WeeklyAvailability lưu DB")
+    void testContractEndDateAdjustmentAppliedWhenWeeklyAvailabilityExistsInDb() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.findAllByIdIn(anyList())).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        // Tuần 37/2026: Từ Thứ Hai 07/09/2026 đến Chủ Nhật 13/09/2026
+        // Hợp đồng kết thúc vào Thứ Tư 09/09/2026 -> Còn 3 ngày làm việc (Thứ 2, 3, 4)
+        LocalDate contractEndDate = LocalDate.of(2026, 9, 9);
+        Employee emp = new Employee(
+                new EmployeeId(1L), null, 10L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), contractEndDate, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp));
+
+        // Bản ghi WeeklyAvailability trong DB có sẵn netAvailableHours = 40.0
+        YearWeek yw37 = YearWeek.of(2026, 37);
+        WeeklyAvailability savedAvail = new WeeklyAvailability(
+                1L, 1L, yw37, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0)
+        );
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(List.of(savedAvail));
+
+        // Phân bổ 30 giờ cho tuần 37/2026
+        WeeklyProjectAllocation allocation = new WeeklyProjectAllocation(101L, 1L, 999L, yw37, BigDecimal.valueOf(30.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(List.of(allocation));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.rows()).hasSize(1);
+        CapacityMatrixCellResult cell = result.rows().get(0).cells().get(0);
+
+        // Base khả dụng = 40h, nhưng do hợp đồng kết thúc thứ Tư (3/5 ngày) -> Giờ khả dụng thực tế = 24.0h
+        assertThat(cell.availableHours()).isEqualByComparingTo(BigDecimal.valueOf(24.0));
+        assertThat(cell.allocatedHours()).isEqualByComparingTo(BigDecimal.valueOf(30.0));
+
+        // Quá tải vì 30h > 24h -> vượt 6h
+        assertThat(cell.isOverloaded()).isTrue();
+        assertThat(cell.excessHours()).isEqualByComparingTo(BigDecimal.valueOf(6.0));
+        assertThat(cell.remainingHours()).isEqualByComparingTo(BigDecimal.ZERO); // Semantics: không âm!
+        assertThat(cell.status()).isEqualTo(CapacityStatus.OVERLOADED);
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — Phân trang Server-side chỉ tính toán ma trận cho lát cắt trang (Page Slice)")
+    void testServerSidePaginationSlicesEmployees() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        Employee emp1 = new Employee(new EmployeeId(1L), null, 10L, "EMP001", "An Nguyen", "Dev", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(2L), null, 10L, "EMP002", "Binh Tran", "QA", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp3 = new Employee(new EmployeeId(3L), null, 10L, "EMP003", "Cuong Le", "BA", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp3, emp1, emp2)); // Cố tình không theo thứ tự alphabet
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        // Yêu cầu trang 1, kích thước trang = 1 (Phần tử thứ 2 sau khi sắp xếp: An Nguyen [0], Binh Tran [1], Cuong Le [2])
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1, 1, 1, null);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.pageSize()).isEqualTo(1);
+        assertThat(result.totalEmployees()).isEqualTo(3);
+        assertThat(result.totalPages()).isEqualTo(3);
+        assertThat(result.rows()).hasSize(1);
+        assertThat(result.rows().get(0).employeeCode()).isEqualTo("EMP002");
+        assertThat(result.rows().get(0).fullName()).isEqualTo("Binh Tran");
+
+        // Đảm bảo summary là page-scoped phản ánh lát cắt trang hiện tại (pageEmployeesCount = 1 trong khi totalEmployees = 3)
+        assertThat(result.summary().pageEmployeesCount()).isEqualTo(1);
+
+        // [🔴 HIGH FIX]: Đảm bảo CHỈ query DB và tính toán cho đúng nhân sự của trang (ID 2), không query toàn bộ 3 người
+        verify(loadEmployeePort).countActive(eq(List.of(10L)), isNull());
+        verify(loadEmployeePort).findActivePaged(eq(List.of(10L)), isNull(), eq(1), eq(1));
+        verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeks(eq(List.of(2L)), anyList());
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH BLOCKER FIX — Lọc trạng thái Server-side (status=OVERLOADED) trước khi phân trang")
+    void testServerSideStatusFilterOverloaded() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        Employee emp1 = new Employee(new EmployeeId(1L), null, 10L, "EMP001", "An Nguyen", "Dev", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(2L), null, 10L, "EMP002", "Binh Tran", "QA", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp1, emp2));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        // emp1 phân bổ 45h (> 40h) -> Overloaded; emp2 phân bổ 20h (<= 40h) -> Optimal/Underutilized
+        WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(100L, 1L, 1L, YearWeek.of(2026, 37), BigDecimal.valueOf(45.0));
+        WeeklyProjectAllocation alloc2 = new WeeklyProjectAllocation(101L, 2L, 1L, YearWeek.of(2026, 37), BigDecimal.valueOf(20.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of(alloc1, alloc2));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1, 0, 20, null, CapacityStatus.OVERLOADED);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        // Chỉ trả về 1 nhân viên bị quá tải (emp1), emp2 bị loại trừ
+        assertThat(result.totalEmployees()).isEqualTo(1);
+        assertThat(result.totalPages()).isEqualTo(1);
+        assertThat(result.rows()).hasSize(1);
+        assertThat(result.rows().get(0).employeeCode()).isEqualTo("EMP001");
+
+        // KPI Summary phản ánh số lượng nhân sự khớp trên trang
+        assertThat(result.summary().pageEmployeesCount()).isEqualTo(1);
+        assertThat(result.summary().overloadedEmployeesCount()).isEqualTo(1);
+        assertThat(result.summary().overloadedCellsCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — Tìm kiếm Server-side lọc chính xác nhân sự trước khi phân trang")
+    void testServerSideSearchFilter() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        Employee emp1 = new Employee(new EmployeeId(1L), null, 10L, "EMP001", "An Nguyen", "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(2L), null, 10L, "EMP002", "Binh Tran", "Tester", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp1, emp2));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        // Tìm kiếm theo từ khóa "Developer"
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1, 0, 20, "Developer");
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.totalEmployees()).isEqualTo(1);
+        assertThat(result.rows()).hasSize(1);
+        assertThat(result.rows().get(0).employeeCode()).isEqualTo("EMP001");
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — Query chặn tuần 53 đối với năm chỉ có 52 tuần tại application boundary")
+    void testInvalidWeek53RejectedByQueryBoundary() {
+        // Năm 2024 chỉ có 52 tuần ISO -> Tuần 53 ném InvalidWeekNumberException
+        assertThatThrownBy(() -> new CompanyWeeklyCapacityQuery(10L, 2024, 53, 4))
+                .isInstanceOf(com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException.class);
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — Logic tính availableHours khấu trừ approved leave ngay cả khi đã có WeeklyAvailability lưu DB")
+    void testAvailableHoursDeductsApprovedLeaveWhenWeeklyAvailabilityExists() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.findAllByIdIn(anyList())).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        Employee emp1 = createMockEmployee(1L, "EMP001", "An Nguyen", 10L, 40);
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp1));
+
+        YearWeek yw37 = YearWeek.of(2026, 37);
+
+        // WeeklyAvailability trong DB có sẵn netAvailableHours = 40.0 (tạo lúc chưa xin nghỉ phép)
+        WeeklyAvailability savedAvail = new WeeklyAvailability(
+                10L, 1L, yw37, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0)
+        );
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(List.of(savedAvail));
+
+        // Bảng leave_requests có 8h nghỉ phép đã được phê duyệt
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(Map.of(1L, Map.of(yw37, BigDecimal.valueOf(8.0))));
+
+        // Phân bổ 35 giờ (nếu available = 40h thì là 87.5% OPTIMAL; nếu available = 32h thì là 109.4% OVERLOADED)
+        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(100L, 1L, 999L, yw37, BigDecimal.valueOf(35.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(List.of(alloc));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.rows()).hasSize(1);
+        CapacityMatrixCellResult cell = result.rows().get(0).cells().get(0);
+
+        // Giờ khả dụng thực tế phải là 40h chuẩn - 8h nghỉ phép = 32.0h
+        assertThat(cell.availableHours()).isEqualByComparingTo(BigDecimal.valueOf(32.0));
+        assertThat(cell.allocatedHours()).isEqualByComparingTo(BigDecimal.valueOf(35.0));
+
+        // Trạng thái phải là OVERLOADED vì 35h > 32h, vượt 3.0h
+        assertThat(cell.isOverloaded()).isTrue();
+        assertThat(cell.excessHours()).isEqualByComparingTo(BigDecimal.valueOf(3.0));
+        assertThat(cell.status()).isEqualTo(CapacityStatus.OVERLOADED);
+    }
+}

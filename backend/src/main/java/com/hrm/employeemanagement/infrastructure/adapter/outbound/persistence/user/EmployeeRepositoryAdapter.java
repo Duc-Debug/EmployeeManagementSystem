@@ -110,6 +110,23 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
     }
 
     @Override
+    public List<Employee> findActiveByOrgUnitIds(List<Long> orgUnitIds) {
+        if (orgUnitIds == null || orgUnitIds.isEmpty()) {
+            return List.of();
+        }
+        return springDataEmployeeRepository.findByOrgUnitIdInAndStatus(orgUnitIds, EmployeeStatus.ACTIVE.name()).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Employee> findAllActive() {
+        return springDataEmployeeRepository.findByStatus(EmployeeStatus.ACTIVE.name()).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<Employee> findAllPaged(int size, int offset) {
         return springDataEmployeeRepository.findAllPaged(size, offset).stream()
                 .map(mapper::toDomain)
@@ -155,5 +172,27 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
             return 0L;
         }
         return springDataEmployeeRepository.countByProjectManager(pmEmployeeId);
+    }
+
+    @Override
+    public List<Employee> findActivePaged(List<Long> orgUnitIds, String search, int size, int offset) {
+        String cleanSearch = (search != null && !search.isBlank()) ? search.trim() : null;
+        if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
+            return springDataEmployeeRepository.findActiveByOrgUnitIdsPaged(orgUnitIds, cleanSearch, size, offset).stream()
+                    .map(mapper::toDomain)
+                    .toList();
+        }
+        return springDataEmployeeRepository.findActivePaged(cleanSearch, size, offset).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public long countActive(List<Long> orgUnitIds, String search) {
+        String cleanSearch = (search != null && !search.isBlank()) ? search.trim() : null;
+        if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
+            return springDataEmployeeRepository.countActiveByOrgUnitIdsPaged(orgUnitIds, cleanSearch);
+        }
+        return springDataEmployeeRepository.countActivePaged(cleanSearch);
     }
 }

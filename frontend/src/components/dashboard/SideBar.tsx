@@ -12,6 +12,7 @@ import {
     ShieldCheck,
     CalendarClock,
     CalendarDays,
+    CalendarRange,
     Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import { useAuthUser } from "@/lib/auth-session";
 
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
+    { name: "Bảng năng lực", icon: CalendarRange, id: "capacity" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
@@ -36,9 +38,13 @@ const SIDEBAR_SETTINGS = [
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
 
-export function canAccessTab(roleCode: string | undefined | null, tabId: string): boolean {
-    if (!roleCode) return true;
-    const normalized = roleCode.toUpperCase().replace(/_/g, "-");
+export function canAccessTab(
+    roleCode: string | undefined | null,
+    tabId: string,
+    dataScope?: string | null
+): boolean {
+    if (!roleCode && !dataScope) return true;
+    const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
 
     switch (tabId) {
         case "roles":
@@ -48,6 +54,15 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
         case "overview":
             // Tất cả 6 vai trò (VT-01 -> VT-06) đều có quyền truy cập trang Tổng quan
             return true;
+
+        case "capacity":
+        case "weekly-capacity":
+            // [HIGH REVIEW FIX]: Bảng năng lực công ty / bộ phận xác thực theo DataScope (COMPANY hoặc ORGANIZATION_BRANCH).
+            // Người dùng chỉ có DataScope === 'SELF' (nhân viên thường) không được phép xem bảng năng lực tổng thể.
+            if (dataScope) {
+                return dataScope !== "SELF";
+            }
+            return ["VT-01", "VT-02", "VT-03", "VT-05", "VT-06"].includes(normalized);
 
         case "access":
         case "settings":
@@ -112,9 +127,10 @@ interface SideBarProps {
 export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProps) {
     const user = useAuthUser();
     const roleCode = user?.roleCode;
+    const dataScope = user?.dataScope;
 
-    const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) => canAccessTab(roleCode, item.id));
-    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id));
+    const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) => canAccessTab(roleCode, item.id, dataScope));
+    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope));
 
     return (
         <aside

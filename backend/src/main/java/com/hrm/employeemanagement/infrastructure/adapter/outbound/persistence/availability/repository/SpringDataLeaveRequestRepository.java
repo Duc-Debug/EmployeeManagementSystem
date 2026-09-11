@@ -28,6 +28,14 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
                                                          @Param("startDate") LocalDate startDate,
                                                          @Param("endDate") LocalDate endDate);
 
+    @Query("SELECT l FROM LeaveRequestJpaEntity l " +
+           "WHERE l.employeeId IN :employeeIds " +
+           "AND l.status = 'APPROVED' " +
+           "AND l.startDate <= :endDate AND l.endDate >= :startDate")
+    List<LeaveRequestJpaEntity> findApprovedLeavesForEmployeesBetween(@Param("employeeIds") List<Long> employeeIds,
+                                                                     @Param("startDate") LocalDate startDate,
+                                                                     @Param("endDate") LocalDate endDate);
+
     @Deprecated
     @Query("SELECT COALESCE(SUM(l.hoursDeducted), 0.00) FROM LeaveRequestJpaEntity l " +
            "WHERE l.employeeId = :employeeId " +

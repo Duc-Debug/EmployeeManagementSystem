@@ -35,5 +35,17 @@ class YearWeekTest {
         assertThrows(InvalidWeekNumberException.class, () -> YearWeek.of(2026, 54));
         assertThrows(InvalidWeekNumberException.class, () -> YearWeek.of(1999, 10));
         assertThrows(InvalidWeekNumberException.class, () -> YearWeek.of(2101, 10));
+
+        // Năm 2024 và 2025 chỉ có 52 tuần ISO -> Tuần 53 ném InvalidWeekNumberException
+        assertEquals(52, YearWeek.maxWeeksInYear(2024));
+        assertEquals(52, YearWeek.maxWeeksInYear(2025));
+        assertThrows(InvalidWeekNumberException.class, () -> YearWeek.of(2024, 53));
+        assertThrows(InvalidWeekNumberException.class, () -> YearWeek.of(2025, 53));
+
+        // Năm 2020 và 2026 có 53 tuần ISO -> Tuần 53 hợp lệ, tuần 54 ném exception
+        assertEquals(53, YearWeek.maxWeeksInYear(2020));
+        assertEquals(53, YearWeek.maxWeeksInYear(2026));
+        assertDoesNotThrow(() -> YearWeek.of(2020, 53));
+        assertDoesNotThrow(() -> YearWeek.of(2026, 53));
     }
 }

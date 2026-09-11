@@ -17,10 +17,14 @@ public interface LoadEmployeePort {
     List<Employee> findAllByIdIn(List<EmployeeId> ids);
     List<Employee> findByOrgUnitId(Long orgUnitId);
     List<Employee> findActiveByOrgUnitId(Long orgUnitId);
+    List<Employee> findActiveByOrgUnitIds(List<Long> orgUnitIds);
+    List<Employee> findAllActive();
     List<Employee> findAllPaged(int size, int offset);
     long countAll();
     List<Employee> findByOrgUnitBranch(Long scopeOrgUnitId, int size, int offset);
     long countByOrgUnitBranch(Long scopeOrgUnitId);
     List<Employee> findByProjectManager(Long pmEmployeeId, int size, int offset);
     long countByProjectManager(Long pmEmployeeId);
+    List<Employee> findActivePaged(List<Long> orgUnitIds, String search, int size, int offset);
+    long countActive(List<Long> orgUnitIds, String search);
 }
