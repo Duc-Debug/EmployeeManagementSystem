@@ -59,7 +59,8 @@ class DepartmentLeaveCalendarControllerTest {
 
         DepartmentMonthlyLeaveCalendarResult.DailyLeaveSummaryResult day1 =
                 new DepartmentMonthlyLeaveCalendarResult.DailyLeaveSummaryResult(
-                        LocalDate.of(2026, 9, 1), "TUESDAY", 1, 1, 0, false, null, List.of(item1)
+                        LocalDate.of(2026, 9, 1), "TUESDAY", 1, 1, 0, false, null,
+                        true, false, new BigDecimal("8.00"), List.of(item1)
                 );
 
         DepartmentMonthlyLeaveCalendarResult result = new DepartmentMonthlyLeaveCalendarResult(
@@ -75,6 +76,7 @@ class DepartmentLeaveCalendarControllerTest {
                         .param("orgUnitId", "10")
                         .param("year", "2026")
                         .param("month", "9")
+                        .param("includeSubUnits", "true")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -85,7 +87,10 @@ class DepartmentLeaveCalendarControllerTest {
                 .andExpect(jsonPath("$.data.totalDepartmentEmployees").value(5))
                 .andExpect(jsonPath("$.data.totalLeaveRequests").value(1))
                 .andExpect(jsonPath("$.data.leaveItems[0].employeeCode").value("EMP-01"))
-                .andExpect(jsonPath("$.data.dailySummaries[0].date").value("2026-09-01"));
+                .andExpect(jsonPath("$.data.dailySummaries[0].date").value("2026-09-01"))
+                .andExpect(jsonPath("$.data.dailySummaries[0].isWorkingDay").value(true))
+                .andExpect(jsonPath("$.data.dailySummaries[0].isHoliday").value(false))
+                .andExpect(jsonPath("$.data.dailySummaries[0].totalLeaveHours").value(8.00));
     }
 
     @Test

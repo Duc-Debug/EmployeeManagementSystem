@@ -59,4 +59,18 @@ class LeaveThresholdPolicyTest {
         assertFalse(LeaveThresholdPolicy.isWarningExceeded(10, 0, 0.50));
         assertFalse(LeaveThresholdPolicy.isWarningExceeded(0, 2, 0.50));
     }
+
+    @Test
+    @DisplayName("Cải tiến P1: Ngày nghỉ cuối tuần hoặc ngày lễ (isCompanyWorkingDay = false) -> Bỏ qua cảnh báo dù 4/5 người nghỉ")
+    void weekendOrHoliday_suppressesWarningEvenIfHighLeaveCount() {
+        int totalEmployees = 5;
+        int onLeaveCount = 4;
+        Double threshold = 0.50;
+
+        boolean isWarning = LeaveThresholdPolicy.isWarningExceeded(totalEmployees, onLeaveCount, threshold, false);
+        assertFalse(isWarning, "Ngày không làm việc của công ty không được kích hoạt cảnh báo");
+
+        String msg = LeaveThresholdPolicy.buildWarningMessage(LocalDate.of(2026, 9, 13), totalEmployees, onLeaveCount, threshold, false);
+        assertNull(msg, "Thông điệp cảnh báo phải null khi không vượt ngưỡng do ngày nghỉ");
+    }
 }

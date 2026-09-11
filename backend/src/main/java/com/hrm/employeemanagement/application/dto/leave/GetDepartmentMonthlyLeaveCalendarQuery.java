@@ -7,8 +7,13 @@ public record GetDepartmentMonthlyLeaveCalendarQuery(
         Long orgUnitId,
         Integer year,
         Integer month,
-        Double warningThresholdRate
+        Double warningThresholdRate,
+        Boolean includeSubUnits
 ) {
+    public GetDepartmentMonthlyLeaveCalendarQuery(Long orgUnitId, Integer year, Integer month, Double warningThresholdRate) {
+        this(orgUnitId, year, month, warningThresholdRate, false);
+    }
+
     public GetDepartmentMonthlyLeaveCalendarQuery {
         if (orgUnitId == null || orgUnitId <= 0) {
             throw new IllegalArgumentException("ID đơn vị/bộ phận (orgUnitId) phải là số dương hợp lệ");
@@ -22,5 +27,6 @@ public record GetDepartmentMonthlyLeaveCalendarQuery(
         if (warningThresholdRate != null && (warningThresholdRate <= 0.0 || warningThresholdRate > 1.0)) {
             throw new IllegalArgumentException("Ngưỡng cảnh báo phải lớn hơn 0 và nhỏ hơn hoặc bằng 1.0 (ví dụ 0.5 là 50%)");
         }
+        includeSubUnits = includeSubUnits != null && includeSubUnits;
     }
 }

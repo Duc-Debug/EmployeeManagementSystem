@@ -69,6 +69,12 @@ class DepartmentMonthlyLeaveCalendarServiceTest {
     @Mock
     private SaveAuditLogPort saveAuditLogPort;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort;
+
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.calendar.HolidayQueryPort holidayQueryPort;
+
     private DepartmentMonthlyLeaveCalendarService service;
 
     private User rmUser;
@@ -82,7 +88,9 @@ class DepartmentMonthlyLeaveCalendarServiceTest {
                 loadUserPort,
                 loadDepartmentMonthlyLeavePort,
                 authorizationService,
-                saveAuditLogPort
+                saveAuditLogPort,
+                loadWorkingCalendarPort,
+                holidayQueryPort
         );
 
         Role rmRole = new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực");
@@ -276,6 +284,32 @@ class DepartmentMonthlyLeaveCalendarServiceTest {
         when(loadOrgUnitPort.findById(new OrgUnitId(999L))).thenReturn(Optional.empty());
 
         assertThrows(OrgUnitNotFoundException.class, () -> service.execute(query));
+    }
+
+    @Test
+    @DisplayName("Cải tiến P2: includeSubUnits = true -> Gọi findByOrgUnitBranch để lấy toàn bộ nhân sự cây tổ chức")
+    void tc_includeSubUnits_loadsSubUnitsEmployees() {
+        GetDepartmentMonthlyLeaveCalendarQuery query = new GetDepartmentMonthlyLeaveCalendarQuery(10L, 2026, 9, 0.50, true);
+
+        when(authorizationService.require(PermissionCode.DEPARTMENT_LEAVE_READ)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(department));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        List<Employee> branchEmployees = List.of(
+                createEmployee(1L, "EMP-01", "A"),
+                createEmployee(2L, "EMP-02", "B"),
+                createEmployee(3L, "EMP-03", "C")
+        );
+        when(loadEmployeePort.findByOrgUnitBranch(10L, 1000, 0)).thenReturn(branchEmployees);
+        when(loadDepartmentMonthlyLeavePort.findLeavesForEmployees(anyList(), any(), any(), anyMap())).thenReturn(List.of());
+
+        DepartmentMonthlyLeaveCalendarResult result = service.execute(query);
+
+        assertNotNull(result);
+        assertEquals(3, result.totalDepartmentEmployees());
+        verify(loadEmployeePort).findByOrgUnitBranch(10L, 1000, 0);
+        verify(loadEmployeePort, never()).findActiveByOrgUnitId(anyLong());
     }
 
     private Employee createEmployee(Long id, String code, String name) {

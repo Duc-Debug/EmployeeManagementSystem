@@ -105,4 +105,68 @@ class DepartmentMonthlyLeaveCalendarTest {
         assertTrue(day15.getWarningMessage().contains("4/5"));
         assertEquals(1, calendar.getWarningDaysCount(), "Tổng số ngày cảnh báo trong tháng là 1");
     }
+
+    @Test
+    @DisplayName("Cải tiến P1 & P2: Không cảnh báo ngày cuối tuần & ngày lễ, đồng thời tính đúng tổng giờ nghỉ trong ngày")
+    void weekendAndHoliday_suppressesWarning_andCalculatesTotalHours() {
+        Long orgUnitId = 10L;
+        String orgUnitCode = "DEV";
+        String orgUnitName = "Phòng Phát triển";
+        int year = 2026;
+        int month = 9;
+        int totalEmployees = 5;
+
+        // Ngày 2026-09-02 là ngày Lễ Quốc Khánh
+        LocalDate holidaySep2 = LocalDate.of(2026, 9, 2);
+        // Ngày 2026-09-06 là Chủ Nhật
+        LocalDate sundaySep6 = LocalDate.of(2026, 9, 6);
+        // Ngày 2026-09-07 là Thứ Hai (ngày làm việc)
+        LocalDate mondaySep7 = LocalDate.of(2026, 9, 7);
+
+        // 4 người nghỉ từ 01/09 đến 08/09 (bao gồm cả ngày 2/9 và ngày 6/9)
+        List<LeaveCalendarItem> leaves = List.of(
+                new LeaveCalendarItem(1L, 1L, "EMP-01", "A", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.APPROVED, new BigDecimal("8.00"), "ANNUAL", "Nghỉ"),
+                new LeaveCalendarItem(2L, 2L, "EMP-02", "B", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.APPROVED, new BigDecimal("4.00"), "ANNUAL", "Nghỉ"),
+                new LeaveCalendarItem(3L, 3L, "EMP-03", "C", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.PENDING, new BigDecimal("8.00"), "ANNUAL", "Nghỉ"),
+                new LeaveCalendarItem(4L, 4L, "EMP-04", "D", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.PENDING, new BigDecimal("8.00"), "ANNUAL", "Nghỉ")
+        );
+
+        com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar defaultCalendar =
+                com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar.createDefault();
+        java.util.Set<LocalDate> holidays = java.util.Set.of(holidaySep2);
+
+        DepartmentMonthlyLeaveCalendar calendar = DepartmentMonthlyLeaveCalendar.calculate(
+                orgUnitId,
+                orgUnitCode,
+                orgUnitName,
+                year,
+                month,
+                totalEmployees,
+                0.50,
+                leaves,
+                defaultCalendar,
+                holidays
+        );
+
+        // 1. Kiểm tra ngày Lễ (02/09)
+        DailyLeaveSummary sep2 = calendar.getDailySummaries().get(1); // 2/9
+        assertEquals(holidaySep2, sep2.getDate());
+        assertTrue(sep2.isHoliday(), "Ngày 2/9 phải là ngày lễ");
+        assertFalse(sep2.isCompanyWorkingDay(), "Ngày lễ không phải là ngày làm việc của công ty");
+        assertFalse(sep2.isWarning(), "Ngày lễ không được cảnh báo dù 4/5 người nghỉ");
+        assertEquals(new BigDecimal("28.00"), sep2.getTotalLeaveHours(), "Tổng giờ nghỉ tích lũy trong ngày là 8+4+8+8=28");
+
+        // 2. Kiểm tra ngày Chủ Nhật (06/09)
+        DailyLeaveSummary sep6 = calendar.getDailySummaries().get(5); // 6/9
+        assertEquals(sundaySep6, sep6.getDate());
+        assertFalse(sep6.isCompanyWorkingDay(), "Chủ nhật không phải ngày làm việc");
+        assertFalse(sep6.isWarning(), "Chủ nhật không được kích hoạt cảnh báo");
+
+        // 3. Kiểm tra ngày Thứ Hai (07/09)
+        DailyLeaveSummary sep7 = calendar.getDailySummaries().get(6); // 7/9
+        assertEquals(mondaySep7, sep7.getDate());
+        assertTrue(sep7.isCompanyWorkingDay(), "Thứ Hai là ngày làm việc");
+        assertTrue(sep7.isWarning(), "Thứ Hai có 4/5 người nghỉ -> Bắt buộc phải cảnh báo");
+        assertEquals(new BigDecimal("28.00"), sep7.getTotalLeaveHours());
+    }
 }

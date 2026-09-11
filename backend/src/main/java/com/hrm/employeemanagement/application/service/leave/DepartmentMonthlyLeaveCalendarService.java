@@ -22,12 +22,19 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
+import com.hrm.employeemanagement.application.port.outbound.calendar.HolidayQueryPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.HolidayRecord;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
+import com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -42,6 +49,8 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
     private final LoadDepartmentMonthlyLeavePort loadDepartmentMonthlyLeavePort;
     private final AuthorizationService authorizationService;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final LoadWorkingCalendarPort loadWorkingCalendarPort;
+    private final HolidayQueryPort holidayQueryPort;
 
     public DepartmentMonthlyLeaveCalendarService(
             LoadOrgUnitPort loadOrgUnitPort,
@@ -51,12 +60,27 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
             AuthorizationService authorizationService,
             SaveAuditLogPort saveAuditLogPort
     ) {
+        this(loadOrgUnitPort, loadEmployeePort, loadUserPort, loadDepartmentMonthlyLeavePort, authorizationService, saveAuditLogPort, null, null);
+    }
+
+    public DepartmentMonthlyLeaveCalendarService(
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            LoadDepartmentMonthlyLeavePort loadDepartmentMonthlyLeavePort,
+            AuthorizationService authorizationService,
+            SaveAuditLogPort saveAuditLogPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            HolidayQueryPort holidayQueryPort
+    ) {
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadDepartmentMonthlyLeavePort = Objects.requireNonNull(loadDepartmentMonthlyLeavePort, "LoadDepartmentMonthlyLeavePort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
+        this.holidayQueryPort = holidayQueryPort;
     }
 
     @Override
@@ -84,8 +108,15 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
         LocalDate monthStart = yearMonth.atDay(1);
         LocalDate monthEnd = yearMonth.atEndOfMonth();
 
-        // 5. Lấy danh sách nhân viên đang hoạt động trong bộ phận
-        List<Employee> activeEmployees = loadEmployeePort.findActiveByOrgUnitId(query.orgUnitId());
+        // 5. Lấy danh sách nhân viên đang hoạt động trong bộ phận (hoặc toàn bộ nhánh con nếu includeSubUnits = true)
+        List<Employee> activeEmployees;
+        if (Boolean.TRUE.equals(query.includeSubUnits())) {
+            activeEmployees = loadEmployeePort.findByOrgUnitBranch(query.orgUnitId(), 1000, 0).stream()
+                    .filter(e -> e.getStatus() == EmployeeStatus.ACTIVE)
+                    .toList();
+        } else {
+            activeEmployees = loadEmployeePort.findActiveByOrgUnitId(query.orgUnitId());
+        }
 
         List<LeaveCalendarItem> leaveItems;
         if (activeEmployees.isEmpty()) {
@@ -109,7 +140,15 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
             );
         }
 
-        // 7. Tạo Domain Aggregate và thực thi chính sách cảnh báo ngưỡng
+        // Tải lịch làm việc và danh sách ngày lễ toàn công ty
+        CompanyWorkingCalendar companyCalendar = loadWorkingCalendarPort != null ? loadWorkingCalendarPort.loadCompanyCalendar() : null;
+        Set<LocalDate> holidayDates = (holidayQueryPort != null)
+                ? holidayQueryPort.findByYear(targetYear).stream()
+                        .map(HolidayRecord::date)
+                        .collect(Collectors.toSet())
+                : Collections.emptySet();
+
+        // 7. Tạo Domain Aggregate và thực thi chính sách cảnh báo ngưỡng (kèm nhận diện ngày nghỉ/lễ và tổng giờ nghỉ)
         DepartmentMonthlyLeaveCalendar calendar = DepartmentMonthlyLeaveCalendar.calculate(
                 query.orgUnitId(),
                 orgUnit.getUnitCode(),
@@ -118,7 +157,9 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
                 targetMonth,
                 activeEmployees.size(),
                 query.warningThresholdRate(),
-                leaveItems
+                leaveItems,
+                companyCalendar,
+                holidayDates
         );
 
         // 8. Lưu lịch sử kiểm toán thao tác xem lịch nghỉ bộ phận (TC-04)

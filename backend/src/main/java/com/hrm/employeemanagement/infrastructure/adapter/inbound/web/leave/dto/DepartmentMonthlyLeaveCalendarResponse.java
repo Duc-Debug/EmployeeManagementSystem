@@ -59,6 +59,9 @@ public record DepartmentMonthlyLeaveCalendarResponse(
             int pendingCount,
             boolean isWarning,
             String warningMessage,
+            boolean isWorkingDay,
+            boolean isHoliday,
+            BigDecimal totalLeaveHours,
             List<LeaveCalendarItemResponse> leaveItems
     ) {
         public static DailyLeaveSummaryResponse from(DepartmentMonthlyLeaveCalendarResult.DailyLeaveSummaryResult summary) {
@@ -73,6 +76,9 @@ public record DepartmentMonthlyLeaveCalendarResponse(
                     summary.pendingCount(),
                     summary.isWarning(),
                     summary.warningMessage(),
+                    summary.isWorkingDay(),
+                    summary.isHoliday(),
+                    summary.totalLeaveHours(),
                     items
             );
         }

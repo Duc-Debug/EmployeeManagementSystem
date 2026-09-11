@@ -49,7 +49,8 @@ public class DepartmentLeaveCalendarController {
             @Positive(message = "ID bộ phận phải là số dương") Long orgUnitId,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) @Min(value = 1, message = "Tháng phải từ 1 đến 12") @Max(value = 12, message = "Tháng phải từ 1 đến 12") Integer month,
-            @RequestParam(required = false) @DecimalMin(value = "0.01", message = "Ngưỡng cảnh báo phải lớn hơn 0") @DecimalMax(value = "1.0", message = "Ngưỡng cảnh báo tối đa là 1.0 (100%)") Double warningThreshold
+            @RequestParam(required = false) @DecimalMin(value = "0.01", message = "Ngưỡng cảnh báo phải lớn hơn 0") @DecimalMax(value = "1.0", message = "Ngưỡng cảnh báo tối đa là 1.0 (100%)") Double warningThreshold,
+            @RequestParam(required = false, defaultValue = "false") Boolean includeSubUnits
     ) {
         LocalDate now = LocalDate.now();
         int targetYear = (year != null && year > 1970) ? year : now.getYear();
@@ -59,7 +60,8 @@ public class DepartmentLeaveCalendarController {
                 orgUnitId,
                 targetYear,
                 targetMonth,
-                warningThreshold
+                warningThreshold,
+                includeSubUnits
         );
 
         DepartmentMonthlyLeaveCalendarResult result = getDepartmentMonthlyLeaveCalendarUseCase.execute(query);
@@ -70,7 +72,7 @@ public class DepartmentLeaveCalendarController {
 
     /**
      * Tra cứu lịch nghỉ bộ phận qua path variable:
-     * GET /api/v1/leave-requests/department-calendar/{orgUnitId}?year={y}&month={m}&warningThreshold={rate}
+     * GET /api/v1/leave-requests/department-calendar/{orgUnitId}?year={y}&month={m}&warningThreshold={rate}&includeSubUnits={bool}
      */
     @GetMapping("/{orgUnitId}")
     @PreAuthorize("hasAnyAuthority('VT-03', 'VT-01', 'VT-06', 'ROLE_VT-03', 'ROLE_VT-01', 'ROLE_VT-06', 'DEPARTMENT_LEAVE_READ')")
@@ -79,8 +81,9 @@ public class DepartmentLeaveCalendarController {
             @Positive(message = "ID bộ phận phải là số dương") Long orgUnitId,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) @Min(value = 1, message = "Tháng phải từ 1 đến 12") @Max(value = 12, message = "Tháng phải từ 1 đến 12") Integer month,
-            @RequestParam(required = false) @DecimalMin(value = "0.01", message = "Ngưỡng cảnh báo phải lớn hơn 0") @DecimalMax(value = "1.0", message = "Ngưỡng cảnh báo tối đa là 1.0 (100%)") Double warningThreshold
+            @RequestParam(required = false) @DecimalMin(value = "0.01", message = "Ngưỡng cảnh báo phải lớn hơn 0") @DecimalMax(value = "1.0", message = "Ngưỡng cảnh báo tối đa là 1.0 (100%)") Double warningThreshold,
+            @RequestParam(required = false, defaultValue = "false") Boolean includeSubUnits
     ) {
-        return getDepartmentLeaveCalendar(orgUnitId, year, month, warningThreshold);
+        return getDepartmentLeaveCalendar(orgUnitId, year, month, warningThreshold, includeSubUnits);
     }
 }

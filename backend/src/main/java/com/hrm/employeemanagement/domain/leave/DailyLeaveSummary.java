@@ -19,6 +19,9 @@ public class DailyLeaveSummary {
     private final int pendingCount;
     private final boolean isWarning;
     private final String warningMessage;
+    private final boolean isCompanyWorkingDay;
+    private final boolean isHoliday;
+    private final java.math.BigDecimal totalLeaveHours;
     private final List<LeaveCalendarItem> leaveItems;
 
     public DailyLeaveSummary(
@@ -31,6 +34,22 @@ public class DailyLeaveSummary {
             String warningMessage,
             List<LeaveCalendarItem> leaveItems
     ) {
+        this(date, dayOfWeek, totalOnLeave, approvedCount, pendingCount, isWarning, warningMessage, true, false, java.math.BigDecimal.ZERO, leaveItems);
+    }
+
+    public DailyLeaveSummary(
+            LocalDate date,
+            DayOfWeek dayOfWeek,
+            int totalOnLeave,
+            int approvedCount,
+            int pendingCount,
+            boolean isWarning,
+            String warningMessage,
+            boolean isCompanyWorkingDay,
+            boolean isHoliday,
+            java.math.BigDecimal totalLeaveHours,
+            List<LeaveCalendarItem> leaveItems
+    ) {
         this.date = Objects.requireNonNull(date, "date must not be null");
         this.dayOfWeek = dayOfWeek != null ? dayOfWeek : date.getDayOfWeek();
         this.totalOnLeave = totalOnLeave;
@@ -38,6 +57,9 @@ public class DailyLeaveSummary {
         this.pendingCount = pendingCount;
         this.isWarning = isWarning;
         this.warningMessage = warningMessage;
+        this.isCompanyWorkingDay = isCompanyWorkingDay;
+        this.isHoliday = isHoliday;
+        this.totalLeaveHours = totalLeaveHours != null ? totalLeaveHours : java.math.BigDecimal.ZERO;
         this.leaveItems = leaveItems != null ? Collections.unmodifiableList(leaveItems) : Collections.emptyList();
     }
 
@@ -67,6 +89,18 @@ public class DailyLeaveSummary {
 
     public String getWarningMessage() {
         return warningMessage;
+    }
+
+    public boolean isCompanyWorkingDay() {
+        return isCompanyWorkingDay;
+    }
+
+    public boolean isHoliday() {
+        return isHoliday;
+    }
+
+    public java.math.BigDecimal getTotalLeaveHours() {
+        return totalLeaveHours;
     }
 
     public List<LeaveCalendarItem> getLeaveItems() {

@@ -22,6 +22,17 @@ public final class LeaveThresholdPolicy {
      * @return true nếu số người nghỉ vượt hoặc bằng ngưỡng quy định.
      */
     public static boolean isWarningExceeded(int totalEmployeesInDept, int onLeaveCount, Double thresholdRate) {
+        return isWarningExceeded(totalEmployeesInDept, onLeaveCount, thresholdRate, true);
+    }
+
+    /**
+     * Kiểm tra xem ngày có vượt ngưỡng cảnh báo số người nghỉ hay không, kèm điều kiện là ngày làm việc công ty.
+     * Bỏ qua cảnh báo nếu là ngày nghỉ cuối tuần (Thứ 7/CN) hoặc ngày nghỉ lễ (NCL-05-CN-006 Cải tiến P1).
+     */
+    public static boolean isWarningExceeded(int totalEmployeesInDept, int onLeaveCount, Double thresholdRate, boolean isCompanyWorkingDay) {
+        if (!isCompanyWorkingDay) {
+            return false;
+        }
         if (totalEmployeesInDept <= 0 || onLeaveCount <= 0) {
             return false;
         }
@@ -37,7 +48,11 @@ public final class LeaveThresholdPolicy {
      * Tạo thông điệp cảnh báo định dạng rõ ràng khi vượt ngưỡng.
      */
     public static String buildWarningMessage(LocalDate date, int totalEmployeesInDept, int onLeaveCount, Double thresholdRate) {
-        if (!isWarningExceeded(totalEmployeesInDept, onLeaveCount, thresholdRate)) {
+        return buildWarningMessage(date, totalEmployeesInDept, onLeaveCount, thresholdRate, true);
+    }
+
+    public static String buildWarningMessage(LocalDate date, int totalEmployeesInDept, int onLeaveCount, Double thresholdRate, boolean isCompanyWorkingDay) {
+        if (!isWarningExceeded(totalEmployeesInDept, onLeaveCount, thresholdRate, isCompanyWorkingDay)) {
             return null;
         }
         double threshold = (thresholdRate != null && thresholdRate > 0 && thresholdRate <= 1.0)

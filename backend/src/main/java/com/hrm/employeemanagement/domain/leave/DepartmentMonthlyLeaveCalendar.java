@@ -65,6 +65,35 @@ public class DepartmentMonthlyLeaveCalendar {
             Double customThresholdRate,
             List<LeaveCalendarItem> allLeaveItems
     ) {
+        return calculate(
+                orgUnitId,
+                orgUnitCode,
+                orgUnitName,
+                year,
+                month,
+                totalDepartmentEmployees,
+                customThresholdRate,
+                allLeaveItems,
+                null,
+                null
+        );
+    }
+
+    /**
+     * Factory method nâng cao nhận diện ngày làm việc công ty và ngày lễ (Cải tiến P1 & P2).
+     */
+    public static DepartmentMonthlyLeaveCalendar calculate(
+            Long orgUnitId,
+            String orgUnitCode,
+            String orgUnitName,
+            int year,
+            int month,
+            int totalDepartmentEmployees,
+            Double customThresholdRate,
+            List<LeaveCalendarItem> allLeaveItems,
+            com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar companyCalendar,
+            Set<LocalDate> holidayDates
+    ) {
         YearMonth yearMonth = YearMonth.of(year, month);
         int daysInMonth = yearMonth.lengthOfMonth();
 
@@ -83,6 +112,7 @@ public class DepartmentMonthlyLeaveCalendar {
             Set<Long> employeesOnLeave = new HashSet<>();
             int approvedCount = 0;
             int pendingCount = 0;
+            java.math.BigDecimal totalLeaveHoursInDay = java.math.BigDecimal.ZERO;
 
             for (LeaveCalendarItem item : items) {
                 if (item.coversDate(currentDate)) {
@@ -93,18 +123,32 @@ public class DepartmentMonthlyLeaveCalendar {
                     } else if (item.getStatus() == LeaveStatus.PENDING) {
                         pendingCount++;
                     }
+                    if (item.getHoursDeducted() != null) {
+                        totalLeaveHoursInDay = totalLeaveHoursInDay.add(item.getHoursDeducted());
+                    }
                 }
             }
 
             int distinctOnLeave = employeesOnLeave.size();
+
+            // Nhận diện ngày làm việc công ty & ngày lễ
+            boolean isWorkingDay = (companyCalendar == null)
+                    ? (currentDate.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && currentDate.getDayOfWeek() != java.time.DayOfWeek.SUNDAY)
+                    : companyCalendar.isWorkingDay(currentDate.getDayOfWeek());
+
+            boolean isHoliday = (holidayDates != null) && holidayDates.contains(currentDate);
+            boolean isCompanyWorkingDay = isWorkingDay && !isHoliday;
+
+            // Bỏ qua cảnh báo nếu là ngày nghỉ cuối tuần hoặc ngày lễ (P1)
             boolean isWarning = LeaveThresholdPolicy.isWarningExceeded(
                     totalDepartmentEmployees,
                     distinctOnLeave,
-                    appliedThreshold
+                    appliedThreshold,
+                    isCompanyWorkingDay
             );
 
             String warningMessage = isWarning
-                    ? LeaveThresholdPolicy.buildWarningMessage(currentDate, totalDepartmentEmployees, distinctOnLeave, appliedThreshold)
+                    ? LeaveThresholdPolicy.buildWarningMessage(currentDate, totalDepartmentEmployees, distinctOnLeave, appliedThreshold, isCompanyWorkingDay)
                     : null;
 
             if (isWarning) {
@@ -119,6 +163,9 @@ public class DepartmentMonthlyLeaveCalendar {
                     pendingCount,
                     isWarning,
                     warningMessage,
+                    isCompanyWorkingDay,
+                    isHoliday,
+                    totalLeaveHoursInDay,
                     dayItems
             ));
         }

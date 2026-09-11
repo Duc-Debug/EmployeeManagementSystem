@@ -9,6 +9,8 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.leave.DepartmentMonthlyLeaveCalendarService;
 import com.hrm.employeemanagement.infrastructure.transaction.leave.TransactionalDepartmentMonthlyLeaveCalendarService;
+import com.hrm.employeemanagement.application.port.outbound.calendar.HolidayQueryPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -25,7 +27,9 @@ public class DepartmentLeaveCalendarConfig {
             LoadUserPort loadUserPort,
             LoadDepartmentMonthlyLeavePort loadDepartmentMonthlyLeavePort,
             AuthorizationService authorizationService,
-            SaveAuditLogPort saveAuditLogPort
+            SaveAuditLogPort saveAuditLogPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            HolidayQueryPort holidayQueryPort
     ) {
         DepartmentMonthlyLeaveCalendarService pureService = new DepartmentMonthlyLeaveCalendarService(
                 loadOrgUnitPort,
@@ -33,7 +37,9 @@ public class DepartmentLeaveCalendarConfig {
                 loadUserPort,
                 loadDepartmentMonthlyLeavePort,
                 authorizationService,
-                saveAuditLogPort
+                saveAuditLogPort,
+                loadWorkingCalendarPort,
+                holidayQueryPort
         );
 
         return new TransactionalDepartmentMonthlyLeaveCalendarService(pureService);
