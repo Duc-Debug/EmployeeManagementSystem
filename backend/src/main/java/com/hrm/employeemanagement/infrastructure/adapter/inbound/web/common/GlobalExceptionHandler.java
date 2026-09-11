@@ -11,6 +11,12 @@ import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathExcept
 import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException;
+import com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException;
+import com.hrm.employeemanagement.domain.exception.leave.LeaveBalanceExceededException;
+import com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException;
+import com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -47,8 +53,8 @@ public class GlobalExceptionHandler {
     }
 
     // 1.1 Handle EmployeeNotFoundException (404 NOT FOUND)
-    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleEmployeeNotFound(com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException ex) {
+    @ExceptionHandler(EmployeeNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEmployeeNotFound(EmployeeNotFoundException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "EMPLOYEE_NOT_FOUND",
                 ex.getMessage(),
@@ -65,8 +71,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleSkillNotFound(com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException ex) {
+    @ExceptionHandler(SkillNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSkillNotFound(SkillNotFoundException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "SKILL_NOT_FOUND",
                 ex.getMessage(),
@@ -74,8 +80,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleEmployeeSkillNotFound(com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException ex) {
+    @ExceptionHandler(EmployeeSkillNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEmployeeSkillNotFound(EmployeeSkillNotFoundException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "EMPLOYEE_SKILL_NOT_FOUND",
                 ex.getMessage(),
@@ -336,8 +342,8 @@ public class GlobalExceptionHandler {
     }
 
     // 14.3. Handle InvalidLeaveDateRangeException (NCL-05-CN-002 TC-03)
-    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidLeaveDateRange(com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException ex) {
+    @ExceptionHandler(InvalidLeaveDateRangeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidLeaveDateRange(InvalidLeaveDateRangeException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "INVALID_LEAVE_DATE_RANGE",
                 ex.getMessage(),
@@ -346,8 +352,8 @@ public class GlobalExceptionHandler {
     }
 
     // 14.4. Handle DuplicateLeaveRequestException (NCL-05-CN-002 TC-02)
-    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateLeaveRequest(com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException ex) {
+    @ExceptionHandler(DuplicateLeaveRequestException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateLeaveRequest(DuplicateLeaveRequestException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "DUPLICATE_LEAVE_REQUEST",
                 ex.getMessage(),
@@ -355,7 +361,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
-    // 14.5. Handle IllegalStateException (Invalid state transitions, e.g. approving already approved leave)
+    // 14.5. Handle LeaveBalanceExceededException (NCL-05-CN-005 TC-02)
+    @ExceptionHandler(LeaveBalanceExceededException.class)
+    public ResponseEntity<ErrorResponse> handleLeaveBalanceExceeded(LeaveBalanceExceededException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "LEAVE_BALANCE_EXCEEDED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 14.6. Handle IllegalStateException (Invalid state transitions, e.g. approving already approved leave)
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
         ErrorResponse response = ErrorResponse.of(
