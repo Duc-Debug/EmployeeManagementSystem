@@ -19,6 +19,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException;
 import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException;
+import com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleStatus;
@@ -140,5 +141,53 @@ class ProjectRoleRepositoryAdapterTest {
 
         assertThatThrownBy(() -> adapter.save(domain))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("MEDIUM-02: findById ném InvalidProjectRoleStateException khi status trong CSDL bị corrupt")
+    void testFindById_CorruptedStatus_ThrowsInvalidProjectRoleStateException() {
+        ProjectRoleJpaEntity corrupted = new ProjectRoleJpaEntity();
+        corrupted.setId(99L);
+        corrupted.setCode("TEST");
+        corrupted.setName("Test Role");
+        corrupted.setStatus("INVALID_STATUS_VALUE");
+
+        when(springDataProjectRoleRepository.findById(99L)).thenReturn(java.util.Optional.of(corrupted));
+
+        assertThatThrownBy(() -> adapter.findById(new ProjectRoleId(99L)))
+                .isInstanceOf(InvalidProjectRoleStateException.class)
+                .hasMessageContaining("INVALID_STATUS_VALUE");
+    }
+
+    @Test
+    @DisplayName("MEDIUM-02: findById ném InvalidProjectRoleStateException khi status trong CSDL là null hoặc blank")
+    void testFindById_NullOrBlankStatus_ThrowsInvalidProjectRoleStateException() {
+        ProjectRoleJpaEntity nullStatus = new ProjectRoleJpaEntity();
+        nullStatus.setId(99L);
+        nullStatus.setCode("TEST");
+        nullStatus.setName("Test Role");
+        nullStatus.setStatus("   ");
+
+        when(springDataProjectRoleRepository.findById(99L)).thenReturn(java.util.Optional.of(nullStatus));
+
+        assertThatThrownBy(() -> adapter.findById(new ProjectRoleId(99L)))
+                .isInstanceOf(InvalidProjectRoleStateException.class)
+                .hasMessageContaining("không được để trống");
+    }
+
+    @Test
+    @DisplayName("MEDIUM-02: findById map đúng status INACTIVE")
+    void testFindById_InactiveStatus_MapsSuccessfully() {
+        ProjectRoleJpaEntity inactiveEntity = new ProjectRoleJpaEntity();
+        inactiveEntity.setId(99L);
+        inactiveEntity.setCode("TEST");
+        inactiveEntity.setName("Test Role");
+        inactiveEntity.setStatus("INACTIVE");
+
+        when(springDataProjectRoleRepository.findById(99L)).thenReturn(java.util.Optional.of(inactiveEntity));
+
+        java.util.Optional<ProjectRole> result = adapter.findById(new ProjectRoleId(99L));
+        assertThat(result).isPresent();
+        assertThat(result.get().getStatus()).isEqualTo(ProjectRoleStatus.INACTIVE);
     }
 }

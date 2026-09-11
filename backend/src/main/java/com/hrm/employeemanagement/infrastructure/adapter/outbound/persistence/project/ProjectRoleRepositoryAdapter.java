@@ -11,6 +11,7 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectR
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectRolePort;
 import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException;
 import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException;
+import com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleStatus;
@@ -122,13 +123,16 @@ public class ProjectRoleRepositoryAdapter implements
         if (entity == null) {
             return null;
         }
-        ProjectRoleStatus status = ProjectRoleStatus.ACTIVE;
-        if (entity.getStatus() != null) {
-            try {
-                status = ProjectRoleStatus.valueOf(entity.getStatus().toUpperCase());
-            } catch (IllegalArgumentException ignored) {
-                status = ProjectRoleStatus.ACTIVE;
-            }
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            throw new InvalidProjectRoleStateException(
+                    "Trạng thái vai trò chuyên môn trong CSDL không được để trống (id=" + entity.getId() + ")");
+        }
+        ProjectRoleStatus status;
+        try {
+            status = ProjectRoleStatus.valueOf(entity.getStatus().trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidProjectRoleStateException(
+                    "Trạng thái vai trò chuyên môn không hợp lệ trong CSDL: '" + entity.getStatus() + "' (id=" + entity.getId() + ")");
         }
         return new ProjectRole(
                 new ProjectRoleId(entity.getId()),
