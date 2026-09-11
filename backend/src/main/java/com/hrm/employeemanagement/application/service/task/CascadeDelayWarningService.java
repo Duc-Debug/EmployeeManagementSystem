@@ -26,7 +26,7 @@ import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskId;
-import com.hrm.employeemanagement.domain.task.cascade.CascadeDelayEvaluator;
+import com.hrm.employeemanagement.application.service.task.cascade.CascadeDelayEvaluator;
 import com.hrm.employeemanagement.domain.task.dependency.TaskDependency;
 
 public class CascadeDelayWarningService implements EvaluateCascadeDelayUseCase, UpdateTaskActualEndDateUseCase {
@@ -75,7 +75,7 @@ public class CascadeDelayWarningService implements EvaluateCascadeDelayUseCase, 
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
 
         Task rootTask = loadTaskPort.findById(taskId)
-                .orElseThrow(() -> new TaskNotFoundException("Không tìm thấy công việc với ID: " + command.taskId()));
+                .orElseThrow(() -> new TaskNotFoundException(command.taskId()));
 
         if (!rootTask.getProjectId().equals(projectId)) {
             throw new InvalidTaskDataException("Công việc không thuộc dự án chỉ định");
@@ -125,7 +125,7 @@ public class CascadeDelayWarningService implements EvaluateCascadeDelayUseCase, 
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
 
         Task rootTask = loadTaskPort.findById(taskId)
-                .orElseThrow(() -> new TaskNotFoundException("Không tìm thấy công việc với ID: " + command.taskId()));
+                .orElseThrow(() -> new TaskNotFoundException(command.taskId()));
 
         if (!rootTask.getProjectId().equals(projectId)) {
             throw new InvalidTaskDataException("Công việc không thuộc dự án chỉ định");
