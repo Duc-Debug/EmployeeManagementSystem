@@ -3,20 +3,27 @@ package com.hrm.employeemanagement.infrastructure.config;
 import com.hrm.employeemanagement.application.port.inbound.leave.ApproveLeaveRequestUseCase;
 import com.hrm.employeemanagement.application.port.inbound.leave.CancelLeaveRequestUseCase;
 import com.hrm.employeemanagement.application.port.inbound.leave.GetLeaveImpactUseCase;
+import com.hrm.employeemanagement.application.port.inbound.leave.GetPendingLeaveRequestsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.leave.RejectLeaveRequestUseCase;
 import com.hrm.employeemanagement.application.port.inbound.leave.SubmitLeaveRequestUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.SaveWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadProjectAllocationForLeavePort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveAuditLogPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveRequestPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.leave.ApproveLeaveRequestService;
 import com.hrm.employeemanagement.application.service.leave.CancelLeaveRequestService;
 import com.hrm.employeemanagement.application.service.leave.GetLeaveImpactService;
+import com.hrm.employeemanagement.application.service.leave.GetPendingLeaveRequestsService;
 import com.hrm.employeemanagement.application.service.leave.RejectLeaveRequestService;
 import com.hrm.employeemanagement.application.service.leave.SubmitLeaveRequestService;
 import com.hrm.employeemanagement.infrastructure.transaction.leave.TransactionalApproveLeaveRequestService;
@@ -70,17 +77,51 @@ public class LeaveUseCaseConfig {
     }
 
     @Bean
+    public GetPendingLeaveRequestsUseCase getPendingLeaveRequestsUseCase(
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            AuthorizationService authorizationService
+    ) {
+        return new GetPendingLeaveRequestsService(
+                loadLeaveRequestPort,
+                loadEmployeePort,
+                loadUserPort,
+                loadOrgUnitPort,
+                authorizationService
+        );
+    }
+
+    @Bean
     public ApproveLeaveRequestUseCase approveLeaveRequestUseCase(
             LoadLeaveRequestPort loadLeaveRequestPort,
             SaveLeaveRequestPort saveLeaveRequestPort,
             SaveLeaveAuditLogPort saveLeaveAuditLogPort,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyAvailabilityPort saveWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            LoadWorkingCalendarPort loadWorkingCalendarPort
     ) {
         ApproveLeaveRequestService service = new ApproveLeaveRequestService(
                 loadLeaveRequestPort,
                 saveLeaveRequestPort,
                 saveLeaveAuditLogPort,
-                authorizationService
+                authorizationService,
+                loadUserPort,
+                loadOrgUnitPort,
+                loadEmployeePort,
+                loadWeeklyAvailabilityPort,
+                saveWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort
         );
         return new TransactionalApproveLeaveRequestService(service);
     }
@@ -90,13 +131,19 @@ public class LeaveUseCaseConfig {
             LoadLeaveRequestPort loadLeaveRequestPort,
             SaveLeaveRequestPort saveLeaveRequestPort,
             SaveLeaveAuditLogPort saveLeaveAuditLogPort,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort
     ) {
         RejectLeaveRequestService service = new RejectLeaveRequestService(
                 loadLeaveRequestPort,
                 saveLeaveRequestPort,
                 saveLeaveAuditLogPort,
-                authorizationService
+                authorizationService,
+                loadUserPort,
+                loadOrgUnitPort,
+                loadEmployeePort
         );
         return new TransactionalRejectLeaveRequestService(service);
     }
@@ -106,13 +153,17 @@ public class LeaveUseCaseConfig {
             LoadLeaveRequestPort loadLeaveRequestPort,
             LoadEmployeePort loadEmployeePort,
             LoadProjectAllocationForLeavePort loadProjectAllocationPort,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort
     ) {
         return new GetLeaveImpactService(
                 loadLeaveRequestPort,
                 loadEmployeePort,
                 loadProjectAllocationPort,
-                authorizationService
+                authorizationService,
+                loadUserPort,
+                loadOrgUnitPort
         );
     }
 }

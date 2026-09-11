@@ -41,6 +41,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.repository.SpringDataWeeklyAvailabilityRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.entity.WeeklyAvailabilityJpaEntity;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -49,12 +52,14 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@DisplayName("NCL-05-CN-003: Integration & Security Tests for Leave Approval")
+@DisplayName("NCL-05-CN-003: Phê duyệt đơn xin nghỉ phép Integration Test")
 class ApproveLeaveRequestIntegrationTest {
 
     private MockMvc mockMvc;
@@ -62,7 +67,7 @@ class ApproveLeaveRequestIntegrationTest {
     @Autowired
     private WebApplicationContext webApplicationContext;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Autowired
     private SpringDataUserRepository userRepository;
@@ -87,6 +92,9 @@ class ApproveLeaveRequestIntegrationTest {
 
     @Autowired
     private LoadApprovedLeavesPort loadApprovedLeavesPort;
+
+    @Autowired
+    private SpringDataWeeklyAvailabilityRepository weeklyAvailabilityRepository;
 
     @Autowired
     private com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.repository.SpringDataOrgUnitRepository orgUnitRepository;
@@ -158,6 +166,7 @@ class ApproveLeaveRequestIntegrationTest {
     @AfterEach
     void tearDown() {
         org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        weeklyAvailabilityRepository.deleteAll();
         allocationRepository.deleteAll();
         leaveRequestRepository.deleteAll();
         projectRepository.deleteAll();
@@ -257,6 +266,15 @@ class ApproveLeaveRequestIntegrationTest {
         // Sau khi duyệt: tổng giờ nghỉ đã duyệt theo QTN-10 được tính chính xác = 24.00 giờ
         BigDecimal hoursAfter = loadApprovedLeavesPort.getTotalApprovedLeaveHoursBetween(staffEmployee.getId(), startDate, endDate);
         assertThat(hoursAfter).isEqualByComparingTo(BigDecimal.valueOf(24.00));
+
+        // QTN-10: Chứng minh giờ khả dụng tuần đã được trừ và cập nhật trực tiếp vào cơ sở dữ liệu
+        java.util.Optional<WeeklyAvailabilityJpaEntity> availabilityOpt = weeklyAvailabilityRepository
+                .findByEmployeeIdAndYearAndWeekNumber(staffEmployee.getId(), 2026, 45);
+        assertThat(availabilityOpt).isPresent();
+        assertThat(availabilityOpt.get().getApprovedLeaveHours()).isEqualByComparingTo(BigDecimal.valueOf(24.00));
+        // netAvailableHours = 40 (standard) - 0 (holiday) - 24 (approved leave) = 16.00
+        assertThat(availabilityOpt.get().getNetAvailableHours()).isEqualByComparingTo(BigDecimal.valueOf(16.00));
+        assertThat(availabilityOpt.get().getStandardHours()).isEqualTo(40);
     }
 
     @Test
@@ -352,5 +370,150 @@ class ApproveLeaveRequestIntegrationTest {
                 .toList();
         assertThat(logs).isNotEmpty();
         assertThat(logs.get(0).getUserId()).isEqualTo(rmUser.getId());
+    }
+
+    @Test
+    @DisplayName("Comment 2 - DataScope: GET /pending chỉ trả về đơn trong phạm vi chi nhánh của RM")
+    void testGetPendingLeaveRequests_DataScopeFiltering() throws Exception {
+        // Tạo OrgUnit 2 ngoài phạm vi quản lý của RM
+        com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity otherBranch =
+                new com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity();
+        otherBranch.setUnitCode("BRANCH_OTHER_" + System.nanoTime());
+        otherBranch.setUnitName("Chi nhánh Khác");
+        otherBranch.setUnitType(com.hrm.employeemanagement.domain.orgunit.OrgUnitType.DEPARTMENT);
+        otherBranch.setTreePath("001.999");
+        otherBranch.setLevel(2);
+        otherBranch.setStatus(com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus.ACTIVE);
+        otherBranch.setCreatedAt(LocalDateTime.now());
+        otherBranch.setUpdatedAt(LocalDateTime.now());
+        otherBranch = orgUnitRepository.saveAndFlush(otherBranch);
+
+        // Tạo nhân viên thuộc OrgUnit 2
+        EmployeeJpaEntity otherEmployee = employeeRepository.saveAndFlush(new EmployeeJpaEntity(
+                null, null, otherBranch.getId(), "EMP-OTHER-" + System.nanoTime(),
+                "Other Branch Employee", false, 40, "ACTIVE"
+        ));
+
+        // Đơn của nhân viên thuộc OrgUnit 1 (nằm trong scope của RM)
+        LeaveRequestJpaEntity leaveInScope = leaveRequestRepository.saveAndFlush(new LeaveRequestJpaEntity(
+                null, staffEmployee.getId(), "ANNUAL",
+                LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 4), "PENDING",
+                BigDecimal.valueOf(24.00), "Đơn trong scope", null, null, LocalDateTime.now(), null
+        ));
+
+        // Đơn của nhân viên thuộc OrgUnit 2 (ngoài scope của RM)
+        LeaveRequestJpaEntity leaveOutOfScope = leaveRequestRepository.saveAndFlush(new LeaveRequestJpaEntity(
+                null, otherEmployee.getId(), "ANNUAL",
+                LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 4), "PENDING",
+                BigDecimal.valueOf(24.00), "Đơn ngoài scope", null, null, LocalDateTime.now(), null
+        ));
+
+        try {
+            // RM truy vấn GET /api/v1/leave-requests/pending -> chỉ thấy đơn in-scope
+            mockMvc.perform(get("/api/v1/leave-requests/pending")
+                            .with(authentication(authForRM())))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data[?(@.id == " + leaveInScope.getId() + ")]").exists())
+                    .andExpect(jsonPath("$.data[?(@.id == " + leaveOutOfScope.getId() + ")]").doesNotExist());
+        } finally {
+            leaveRequestRepository.deleteById(leaveInScope.getId());
+            leaveRequestRepository.deleteById(leaveOutOfScope.getId());
+            employeeRepository.deleteById(otherEmployee.getId());
+            orgUnitRepository.deleteById(otherBranch.getId());
+        }
+    }
+
+    @Test
+    @DisplayName("Comment 2 - IDOR: RM duyệt đơn của nhân viên ngoài phạm vi chi nhánh -> 403 Forbidden")
+    void testApproveLeaveRequest_CrossOrgUnit_ShouldForbid() throws Exception {
+        com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity otherBranch =
+                new com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.orgunit.entity.OrgUnitJpaEntity();
+        otherBranch.setUnitCode("BRANCH_DIFF_" + System.nanoTime());
+        otherBranch.setUnitName("Chi nhánh Khác 2");
+        otherBranch.setUnitType(com.hrm.employeemanagement.domain.orgunit.OrgUnitType.DEPARTMENT);
+        otherBranch.setTreePath("001.998");
+        otherBranch.setLevel(2);
+        otherBranch.setStatus(com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus.ACTIVE);
+        otherBranch.setCreatedAt(LocalDateTime.now());
+        otherBranch.setUpdatedAt(LocalDateTime.now());
+        otherBranch = orgUnitRepository.saveAndFlush(otherBranch);
+
+        EmployeeJpaEntity otherEmployee = employeeRepository.saveAndFlush(new EmployeeJpaEntity(
+                null, null, otherBranch.getId(), "EMP-DIFF-" + System.nanoTime(),
+                "Different Branch Staff", false, 40, "ACTIVE"
+        ));
+
+        LeaveRequestJpaEntity leaveOutOfScope = leaveRequestRepository.saveAndFlush(new LeaveRequestJpaEntity(
+                null, otherEmployee.getId(), "ANNUAL",
+                LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 4), "PENDING",
+                BigDecimal.valueOf(24.00), "Nghỉ phép", null, null, LocalDateTime.now(), null
+        ));
+
+        try {
+            // 1. Thử approve -> 403 Forbidden
+            ApproveLeaveWebRequest body = new ApproveLeaveWebRequest("Phê duyệt");
+            mockMvc.perform(put("/api/v1/leave-requests/" + leaveOutOfScope.getId() + "/approve")
+                            .with(authentication(authForRM()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(body)))
+                    .andExpect(status().isForbidden());
+
+            // 2. Thử reject -> 403 Forbidden
+            RejectLeaveWebRequest rejectBody = new RejectLeaveWebRequest("Từ chối đơn");
+            mockMvc.perform(put("/api/v1/leave-requests/" + leaveOutOfScope.getId() + "/reject")
+                            .with(authentication(authForRM()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(rejectBody)))
+                    .andExpect(status().isForbidden());
+
+            // 3. Thử get impact -> 403 Forbidden
+            mockMvc.perform(get("/api/v1/leave-requests/" + leaveOutOfScope.getId() + "/impact")
+                            .with(authentication(authForRM())))
+                    .andExpect(status().isForbidden());
+        } finally {
+            leaveRequestRepository.deleteById(leaveOutOfScope.getId());
+            employeeRepository.deleteById(otherEmployee.getId());
+            orgUnitRepository.deleteById(otherBranch.getId());
+        }
+    }
+
+    @Test
+    @DisplayName("Comment 3: User chỉ có authority LEAVE_REQUEST_APPROVE (không có role VT-03) vẫn duyệt thành công")
+    void testApproveLeaveRequest_WithPurePermissionAuthority_Success() throws Exception {
+        LeaveRequestJpaEntity leave = leaveRequestRepository.saveAndFlush(new LeaveRequestJpaEntity(
+                null, staffEmployee.getId(), "ANNUAL",
+                LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 4), "PENDING",
+                BigDecimal.valueOf(24.00), "Xin nghỉ", null, null, LocalDateTime.now(), null
+        ));
+
+        // User rmUser đã có role VT-03 trong DB (có permission LEAVE_REQUEST_APPROVE theo migration V54).
+        // Ta tạo Authentication chứa principal UserPrincipal NHƯNG authorities chỉ có đúng LEAVE_REQUEST_APPROVE (không hề có "VT-03" hay "ROLE_VT-03").
+        User domainUser = new User(
+                new UserId(rmUser.getId()),
+                rmUser.getUsername(),
+                rmUser.getPasswordHash(),
+                new Role(new RoleId(rmUser.getRole().getId()), RoleCode.VT_03, "Quản lý nguồn lực"),
+                UserStatus.ACTIVE,
+                new EmployeeId(rmEmployee.getId()),
+                DataScope.ORGANIZATION_BRANCH,
+                rmUser.getScopeOrgUnitId(),
+                0L
+        );
+        com.hrm.employeemanagement.infrastructure.security.UserPrincipal principal =
+                new com.hrm.employeemanagement.infrastructure.security.UserPrincipal(
+                        domainUser,
+                        List.of(new SimpleGrantedAuthority("LEAVE_REQUEST_APPROVE"))
+                );
+        var auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+
+        ApproveLeaveWebRequest body = new ApproveLeaveWebRequest("Duyệt theo permission code");
+        mockMvc.perform(put("/api/v1/leave-requests/" + leave.getId() + "/approve")
+                        .with(authentication(auth))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
     }
 }
