@@ -8,15 +8,18 @@ import {
     Clock,
     CheckCircle2,
     FolderOpen,
+    AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TaskCategoryGroup, ProjectMember } from './projectData';
+import { CascadeDelayWarningModal } from './CascadeDelayWarningModal';
 
 interface ProjectWbsViewProps {
     categories: TaskCategoryGroup[];
     members: ProjectMember[];
     searchTerm: string;
     selectedRole: string;
+    projectId?: number;
     canEdit?: boolean;
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
@@ -27,10 +30,17 @@ export function ProjectWbsView({
     members,
     searchTerm,
     selectedRole,
+    projectId = 1,
     canEdit = false,
     onQuickAddTask,
     onToggleTaskStatus,
 }: ProjectWbsViewProps) {
+    const [cascadeModalTask, setCascadeModalTask] = useState<{
+        id: number;
+        name: string;
+        code?: string;
+    } | null>(null);
+
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
         'cat-1': true,
@@ -264,6 +274,20 @@ export function ProjectWbsView({
                                                         <div className="flex shrink-0 items-center gap-2">
                                                             {getPriorityBadge(t.priority)}
                                                             {getStatusBadge(t.status)}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setCascadeModalTask({
+                                                                        id: typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1,
+                                                                        name: t.name,
+                                                                        code: t.code,
+                                                                    })
+                                                                }
+                                                                className="rounded p-1 text-amber-600 hover:bg-amber-50 transition cursor-pointer"
+                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt (Cascade Delay Warning)"
+                                                            >
+                                                                <AlertTriangle className="h-3.5 w-3.5" />
+                                                            </button>
                                                             <div
                                                                 className="flex items-center gap-1.5 pl-1"
                                                                 title={assignee ? `${assignee.name} (${assignee.role})` : 'Chưa giao'}
@@ -299,7 +323,19 @@ export function ProjectWbsView({
                     <CheckCircle2 className="h-3.5 w-3.5" /> Đã hoàn tất {totalDoneTasks}/{totalTasksCount} việc
                 </span>
             </div>
+
+            {/* Cascade Delay Warning Modal */}
+            {cascadeModalTask && (
+                <CascadeDelayWarningModal
+                    open={!!cascadeModalTask}
+                    projectId={projectId}
+                    taskId={cascadeModalTask.id}
+                    taskName={cascadeModalTask.name}
+                    taskCode={cascadeModalTask.code}
+                    canManage={canEdit}
+                    onClose={() => setCascadeModalTask(null)}
+                />
+            )}
         </section>
     );
 }
-

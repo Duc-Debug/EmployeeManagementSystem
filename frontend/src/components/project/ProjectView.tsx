@@ -160,8 +160,12 @@ function mapBackendWbsToUiCategories(
                     burnStatus: child.burnStatus,
                     isOverBudget: child.isOverBudget,
                     status: statusMap[child.status] || 'Chưa làm',
-                    startWeek: 'Chưa cập nhật',
-                    endWeek: 'Chưa cập nhật',
+                    startDate: child.startDate,
+                    dueDate: child.dueDate,
+                    actualEndDate: child.actualEndDate,
+                    slackDays: child.slackDays,
+                    startWeek: child.startDate ? child.startDate : 'Chưa cập nhật',
+                    endWeek: child.actualEndDate ? `${child.actualEndDate}` : (child.dueDate ? child.dueDate : 'Chưa cập nhật'),
                 };
             });
 
@@ -195,8 +199,12 @@ function mapBackendWbsToUiCategories(
                 burnStatus: node.burnStatus,
                 isOverBudget: node.isOverBudget,
                 status: statusMap[node.status] || 'Chưa làm',
-                startWeek: 'Chưa cập nhật',
-                endWeek: 'Chưa cập nhật',
+                startDate: node.startDate,
+                dueDate: node.dueDate,
+                actualEndDate: node.actualEndDate,
+                slackDays: node.slackDays,
+                startWeek: node.startDate ? node.startDate : 'Chưa cập nhật',
+                endWeek: node.actualEndDate ? `${node.actualEndDate}` : (node.dueDate ? node.dueDate : 'Chưa cập nhật'),
             });
         }
     });
@@ -1283,11 +1291,13 @@ export default function ProjectView() {
                             dependencies={taskDependenciesList}
                             searchTerm={search}
                             selectedRole={roleFilter}
+                            projectId={selectedProjectId}
                             isClosed={isProjectClosed}
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
                             onOpenBudgetModal={handleOpenBudgetModal}
                             onOpenCloneModal={canManageWbs && !isProjectClosed ? () => setCloneModalOpen(true) : undefined}
+                            onRefreshData={() => selectedProjectId && loadWbsForProject(selectedProjectId)}
                         />
                     </div>
                 )}
