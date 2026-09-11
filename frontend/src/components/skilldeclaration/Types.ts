@@ -1,5 +1,5 @@
 export type SkillStatus = 'pending' | 'approved' | 'rejected';
-export type Role = 'VT-01' | 'VT-04' | 'OTHER'; // Thêm 'VT-01' vào đây
+export type Role = 'VT-01' | 'VT-02' | 'VT-03' | 'VT-04' | 'VT-05' | 'VT-06' | string;
 export type FormMode = 'create' | 'update';
 
 /** Một mục trong danh mục kỹ năng chuẩn */
@@ -7,6 +7,9 @@ export interface CatalogSkill {
     id: number;
     name: string;
     category: string;
+    groupId?: number;
+    description?: string;
+    version?: number;
 }
 
 /** Một kỹ năng đã được nhân viên khai báo, hiển thị trong bảng */

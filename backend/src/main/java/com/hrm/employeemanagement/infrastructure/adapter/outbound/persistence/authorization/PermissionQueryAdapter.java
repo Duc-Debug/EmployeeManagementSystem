@@ -37,9 +37,6 @@ public class PermissionQueryAdapter
                 "permission must not be null"
         );
 
-        return repository.countPermissionMatches(
-                userId,
-                permission.name()
-        ) > 0;
+        return repository.countPermissionMatches(userId, permission.name()) > 0;
     }
 }

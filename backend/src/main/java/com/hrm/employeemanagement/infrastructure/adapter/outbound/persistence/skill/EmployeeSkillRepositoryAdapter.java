@@ -188,4 +188,12 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
                 p.getCreatedAt()
         );
     }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteByEmployeeIdAndSkillId(Long employeeId, Long skillId) {
+        if (employeeId != null && skillId != null) {
+            repository.deleteByEmployeeIdAndSkillId(employeeId, skillId);
+        }
+    }
 }

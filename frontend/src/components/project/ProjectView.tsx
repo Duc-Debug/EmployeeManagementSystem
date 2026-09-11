@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getUsers } from '@/lib/api/users';
 import { getEmployees } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
@@ -15,6 +15,7 @@ import {
     type TaskAssignmentResult,
 } from '@/lib/api/projects';
 import { setTaskBudget, type CloneProjectWbsResult } from '@/lib/api/tasks';
+import { getTaskDependencies, type TaskDependencyResult } from '@/lib/api/taskDependencies';
 
 import {
     Boxes,
@@ -37,7 +38,23 @@ import {
     Calendar,
     ChevronDown,
     Copy,
+    GitCommit,
+    TrendingUp,
+    Lock,
+    Unlock,
+    Flag,
 } from 'lucide-react';
+import { TaskDependencyModal } from '../task/TaskDependencyModal';
+import {
+    getProjectMilestones,
+    createMilestone,
+    updateMilestone,
+    completeMilestone,
+    deleteMilestone,
+    type MilestoneResult,
+    type CreateMilestonePayload,
+    type UpdateMilestonePayload,
+} from '@/lib/api/milestones';
 import {
     type ProjectMonth,
     type TaskCategoryGroup,
@@ -52,6 +69,19 @@ import { ProjectBudgetModal } from './ProjectBudgetModal';
 import { ProjectCreateModal } from './ProjectCreateModal';
 import { CloneWbsModal } from './CloneWbsModal';
 import { AssignTaskModal } from './AssignTaskModal';
+import { ProjectDemandView } from './ProjectDemandView';
+import { EstimateDemandModal } from './EstimateDemandModal';
+import { DeleteDemandConfirmModal } from './DeleteDemandConfirmModal';
+import {
+    getProjectResourceDemands,
+    estimateResourceDemand,
+    deleteResourceDemand,
+    type ProjectResourceDemandSummaryResult,
+    type RoleResourceDemand,
+} from '@/lib/api/resource-demands';
+import { ProjectCloseModal } from './ProjectCloseModal';
+import { ProjectReopenModal } from './ProjectReopenModal';
+import { MilestoneListView } from './milestone/MilestoneListView';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
@@ -103,7 +133,6 @@ function mapBackendWbsToUiCategories(
         if (m.employeeId) memberMap.set(String(m.employeeId), m);
     });
 
-
     const categories: TaskCategoryGroup[] = [];
     const standaloneTasks: TaskItem[] = [];
 
@@ -143,8 +172,12 @@ function mapBackendWbsToUiCategories(
                     status: statusMap[child.status] || 'Chưa làm',
                     plannedStartDate: child.plannedStartDate,
                     plannedEndDate: child.plannedEndDate,
-                    startWeek: 'Chưa cập nhật',
-                    endWeek: 'Chưa cập nhật',
+                    startDate: child.startDate,
+                    dueDate: child.dueDate,
+                    actualEndDate: child.actualEndDate,
+                    slackDays: child.slackDays,
+                    startWeek: child.startDate ? child.startDate : 'Chưa cập nhật',
+                    endWeek: child.actualEndDate ? `${child.actualEndDate}` : (child.dueDate ? child.dueDate : 'Chưa cập nhật'),
                 };
             });
 
@@ -188,8 +221,12 @@ function mapBackendWbsToUiCategories(
                 status: statusMap[node.status] || 'Chưa làm',
                 plannedStartDate: node.plannedStartDate,
                 plannedEndDate: node.plannedEndDate,
-                startWeek: 'Chưa cập nhật',
-                endWeek: 'Chưa cập nhật',
+                startDate: node.startDate,
+                dueDate: node.dueDate,
+                actualEndDate: node.actualEndDate,
+                slackDays: node.slackDays,
+                startWeek: node.startDate ? node.startDate : 'Chưa cập nhật',
+                endWeek: node.actualEndDate ? `${node.actualEndDate}` : (node.dueDate ? node.dueDate : 'Chưa cập nhật'),
             });
         }
     });
@@ -213,11 +250,15 @@ function mapBackendWbsToUiCategories(
 
 export default function ProjectView() {
     const currentUser = useAuthUser();
-    // PROJECT_CREATE: Chỉ VT-02 (PM) mới có quyền tạo/quản lý dự án (✅ trong ma trận)
-    // VT-01 👁️ Xem | VT-03 👁️ Xem | VT-06 ❌ — theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md
-    const canManageProject = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
-    const canManageAllocations = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-03';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload'>('split');
+    const userRoleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
+    const isExecutive = userRoleCode === 'VT-01';
+    const isPm = userRoleCode === 'VT-02' || userRoleCode === 'VT-06' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
+
+    // PROJECT_CREATE: Chỉ VT-02 (PM) và VT-06 (Admin) mới có quyền tạo/quản lý dự án
+    const canManageProject = isPm;
+    const canManageAllocations = userRoleCode === 'VT-03';
+    const canManageMilestones = isPm || userRoleCode === 'VT-06';
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones'>('split');
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -225,9 +266,15 @@ export default function ProjectView() {
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [selectedAssignTask, setSelectedAssignTask] = useState<TaskItem | null>(null);
+    const [dependencyModalOpen, setDependencyModalOpen] = useState<boolean>(false);
+    const [taskDependenciesList, setTaskDependenciesList] = useState<TaskDependencyResult[]>([]);
+
+    // Mốc tiến độ (NCL-03-CN-006)
+    const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
+    const [isLoadingMilestones, setIsLoadingMilestones] = useState<boolean>(false);
 
     // Real projects backend state
-    const canManageWbs = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') === 'VT-02';
+    const canManageWbs = isPm;
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
@@ -237,9 +284,25 @@ export default function ProjectView() {
     const [allocationError, setAllocationError] = useState<string | null>(null);
     const [projectCreateModalOpen, setProjectCreateModalOpen] = useState<boolean>(false);
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
+    const [closeModalOpen, setCloseModalOpen] = useState<boolean>(false);
+    const [reopenModalOpen, setReopenModalOpen] = useState<boolean>(false);
 
-    // Selected project object
+    // Demand Estimation State (NCL-03-CN-007)
+    const [demandSummary, setDemandSummary] = useState<ProjectResourceDemandSummaryResult | null>(null);
+    const [isLoadingDemand, setIsLoadingDemand] = useState<boolean>(false);
+    const [demandError, setDemandError] = useState<string | null>(null);
+    const [estimateModalOpen, setEstimateModalOpen] = useState<boolean>(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
+    const [editingDemandRole, setEditingDemandRole] = useState<RoleResourceDemand | null>(null);
+    const [roleToDelete, setRoleToDelete] = useState<RoleResourceDemand | null>(null);
+
+    // Selected project object & Closed status (QTN-08)
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
+    const isProjectClosed = selectedProject?.status === 'CLOSED';
+
+    // Quyền đóng và mở lại dự án (NCL-03-CN-004)
+    const canCloseProject = (isExecutive || isPm) && !isProjectClosed && selectedProject !== null;
+    const canReopenProject = (isExecutive || isPm) && isProjectClosed && selectedProject !== null;
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -269,6 +332,19 @@ export default function ProjectView() {
         }
         showToast(`Đã phân công thành công cho công việc ${result.taskCode}!`, 'success');
     };
+
+    // Danh sách task chưa hoàn thành trong WBS (để hiển thị cảnh báo trước khi đóng dự án)
+    const unfinishedTasks = useMemo(() => {
+        const list: { code?: string; name: string }[] = [];
+        categories.forEach((cat) => {
+            cat.tasks.forEach((t) => {
+                if (t.status !== 'Hoàn thành') {
+                    list.push({ code: t.code, name: t.name });
+                }
+            });
+        });
+        return list;
+    }, [categories]);
 
     // 1. Tải danh sách nhân sự thật từ API (ưu tiên getAssignableEmployees cho phép PM thấy mọi nhân sự active)
     useEffect(() => {
@@ -340,7 +416,6 @@ export default function ProjectView() {
         }
     }, []);
 
-
     // 2. Tải danh sách dự án thật từ Database
     const loadProjects = useCallback(async () => {
         setIsLoadingProjects(true);
@@ -395,13 +470,18 @@ export default function ProjectView() {
             const projectMembers = allEmployees.filter((member) =>
                 assignedEmployeeIds.has(Number(member.id.replace('u-', '')))
             );
-            setMembers(projectMembers);
+            // Ưu tiên hiển thị tất cả nhân sự trong hệ thống để Quản lý nguồn lực có thể phân bổ trực tiếp; nếu chưa có WBS thì dùng allEmployees
+            setMembers(allEmployees.length > 0 ? allEmployees : projectMembers);
             const mapped = mapBackendWbsToUiCategories(wbsNodes, projectMembers);
             setCategories(mapped);
+            getTaskDependencies(projId)
+                .then((res) => setTaskDependenciesList(res.dependencies || []))
+                .catch(() => setTaskDependenciesList([]));
         } catch (err) {
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
             setCategories([]);
             setMembers([]);
+            setTaskDependenciesList([]);
         } finally {
             setIsLoadingWbs(false);
         }
@@ -412,6 +492,28 @@ export default function ProjectView() {
             loadWbsForProject(selectedProjectId);
         }
     }, [selectedProjectId, loadWbsForProject]);
+
+    // 4. Tải mốc tiến độ (Milestones) khi chọn một dự án thật
+    const loadMilestonesForProject = useCallback(async (projId: number) => {
+        setIsLoadingMilestones(true);
+        try {
+            const data = await getProjectMilestones(projId);
+            setMilestones(data || []);
+        } catch (err) {
+            console.warn(`Failed to fetch milestones for project ${projId}:`, err);
+            setMilestones([]);
+        } finally {
+            setIsLoadingMilestones(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (selectedProjectId) {
+            loadMilestonesForProject(selectedProjectId);
+        } else {
+            setMilestones([]);
+        }
+    }, [selectedProjectId, loadMilestonesForProject]);
 
     const [months] = useState(buildMonths);
     const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
@@ -451,6 +553,49 @@ export default function ProjectView() {
     useEffect(() => {
         if (selectedProjectId && categories.length > 0) void loadProjectAllocations();
     }, [selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
+
+    // 4. Tải ước lượng nhu cầu nhân sự thật từ API Backend (NCL-03-CN-007)
+    const loadProjectDemands = useCallback(async (projId: number) => {
+        setIsLoadingDemand(true);
+        setDemandError(null);
+        try {
+            const summary = await getProjectResourceDemands(projId);
+            setDemandSummary(summary);
+        } catch (err: any) {
+            console.warn(`Failed to fetch resource demands for project ${projId}:`, err);
+            setDemandSummary(null);
+            setDemandError(err instanceof Error ? err.message : 'Không thể tải bảng ước lượng nhu cầu nhân sự.');
+        } finally {
+            setIsLoadingDemand(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (selectedProjectId) {
+            loadProjectDemands(selectedProjectId);
+        } else {
+            setDemandSummary(null);
+        }
+    }, [selectedProjectId, loadProjectDemands]);
+
+    const handleSaveDemand = async (roleId: number, hoursPerWeek: number) => {
+        if (!selectedProjectId) return;
+        const result = await estimateResourceDemand(selectedProjectId, { roleId, hoursPerWeek });
+        setDemandSummary(result);
+        if (result.exceedsEstimatedHours) {
+            showToast('Ước lượng thành công! Cảnh báo: Nhu cầu nhân sự vượt quy mô dự án.', 'info');
+        } else {
+            showToast('Ước lượng nhu cầu nhân sự theo vai trò thành công!', 'success');
+        }
+    };
+
+    const handleDeleteDemand = async (roleId: number) => {
+        if (!selectedProjectId) return;
+        const result = await deleteResourceDemand(selectedProjectId, roleId);
+        setDemandSummary(result);
+        showToast('Đã xóa ước lượng nhu cầu nhân sự của vai trò thành công!', 'success');
+    };
+
     const selectedMonth = months[selectedMonthIdx] || months[0];
 
     const [search, setSearch] = useState('');
@@ -463,7 +608,6 @@ export default function ProjectView() {
     const [adjustModalOpen, setAdjustModalOpen] = useState(false);
     const [selectedAdjustCell, setSelectedAdjustCell] = useState<{
         memberId: string;
-
         weekKey: string;
         weekLabel: string;
     } | null>(null);
@@ -507,38 +651,38 @@ export default function ProjectView() {
         }
 
         try {
-                let parentIdToUse: number | null = null;
+            let parentIdToUse: number | null = null;
 
-                // Nếu người dùng nhập tên hạng mục mới
-                if (newCategoryName) {
-                    const newCat = await createTask(selectedProjectId, {
-                        name: newCategoryName,
-                        taskType: 'CATEGORY',
-                        sortOrder: categories.length + 1,
-                    });
-                    parentIdToUse = newCat.id;
-                } else if (catId && catId !== '__NEW__' && catId !== 'root-general') {
-                    const numCat = parseInt(catId.replace(/\D/g, ''), 10);
-                    if (!isNaN(numCat) && numCat > 0) {
-                        parentIdToUse = numCat;
-                    }
-                }
-
-                // Tìm member tương ứng để lấy employeeId thật trong database
-                const targetMember = members.find((m) => m.id === assigneeId);
-                const employeeIdToAssign = targetMember?.employeeId || null;
-
-                await createTask(selectedProjectId, {
-                    parentId: parentIdToUse,
-                    name,
-                    taskType: 'TASK',
-                    assigneeId: employeeIdToAssign,
-                    estimatedHours: hours,
-                    sortOrder: 0,
+            // Nếu người dùng nhập tên hạng mục mới
+            if (newCategoryName) {
+                const newCat = await createTask(selectedProjectId, {
+                    name: newCategoryName,
+                    taskType: 'CATEGORY',
+                    sortOrder: categories.length + 1,
                 });
+                parentIdToUse = newCat.id;
+            } else if (catId && catId !== '__NEW__' && catId !== 'root-general') {
+                const numCat = parseInt(catId.replace(/\D/g, ''), 10);
+                if (!isNaN(numCat) && numCat > 0) {
+                    parentIdToUse = numCat;
+                }
+            }
 
-                await loadWbsForProject(selectedProjectId);
-                showToast(`Đã lưu công việc "${name}" vào cơ sở dữ liệu!`, 'success');
+            // Tìm member tương ứng để lấy employeeId thật trong database
+            const targetMember = members.find((m) => m.id === assigneeId);
+            const employeeIdToAssign = targetMember?.employeeId || null;
+
+            await createTask(selectedProjectId, {
+                parentId: parentIdToUse,
+                name,
+                taskType: 'TASK',
+                assigneeId: employeeIdToAssign,
+                estimatedHours: hours,
+                sortOrder: 0,
+            });
+
+            await loadWbsForProject(selectedProjectId);
+            showToast(`Đã lưu công việc "${name}" vào cơ sở dữ liệu!`, 'success');
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Có lỗi khi lưu công việc vào cơ sở dữ liệu';
             showToast(`Lỗi: ${msg}`, 'error');
@@ -613,7 +757,6 @@ export default function ProjectView() {
         }
     };
 
-
     const handleOpenBudgetModal = (task: TaskItem) => {
         if (!canManageProject) {
             showToast('Bạn chỉ có quyền xem dự án.', 'info');
@@ -671,6 +814,85 @@ export default function ProjectView() {
         showToast('Dự án đã được tạo thành công trong Database!', 'success');
     };
 
+    const handleProjectClosed = async (closedProj: ProjectResult) => {
+        showToast(`Đã đóng dự án ${closedProj.projectName} thành công. Toàn bộ công việc và phân bổ đã được khóa (QTN-08)!`, 'info');
+        await loadProjects();
+        if (selectedProjectId) {
+            await loadWbsForProject(selectedProjectId);
+            await loadMilestonesForProject(selectedProjectId);
+        }
+    };
+
+    const handleProjectReopened = async (reopenedProj: ProjectResult) => {
+        showToast(`Đã mở lại dự án ${reopenedProj.projectName} thành công. Dự án đã chuyển về trạng thái hoạt động!`, 'success');
+        await loadProjects();
+        if (selectedProjectId) {
+            await loadWbsForProject(selectedProjectId);
+            await loadMilestonesForProject(selectedProjectId);
+        }
+    };
+
+    // Quản lý mốc tiến độ (NCL-03-CN-006)
+    const handleCreateMilestone = async (payload: CreateMilestonePayload) => {
+        if (!selectedProjectId) {
+            showToast('Vui lòng chọn một dự án trước khi khai báo mốc tiến độ', 'error');
+            return;
+        }
+        try {
+            const created = await createMilestone(selectedProjectId, payload);
+            setMilestones((prev) => [...prev, created]);
+            showToast('Khai báo mốc tiến độ thành công', 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi tạo mốc tiến độ:', err);
+            const errMsg = err?.message || 'Không thể tạo mốc tiến độ. Vui lòng kiểm tra lại.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+            throw err;
+        }
+    };
+
+    const handleUpdateMilestone = async (id: number, payload: UpdateMilestonePayload) => {
+        if (!selectedProjectId) return;
+        try {
+            const updated = await updateMilestone(selectedProjectId, id, payload);
+            setMilestones((prev) => prev.map((m) => (m.id === id ? updated : m)));
+            showToast('Cập nhật mốc tiến độ thành công', 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi cập nhật mốc tiến độ:', err);
+            const errMsg = err?.message || 'Không thể cập nhật mốc tiến độ.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+            throw err;
+        }
+    };
+
+    const handleCompleteMilestone = async (id: number) => {
+        if (!selectedProjectId) return;
+        const today = new Date().toISOString().substring(0, 10);
+        try {
+            const updated = await completeMilestone(selectedProjectId, id, today);
+            setMilestones((prev) => prev.map((m) => (m.id === id ? updated : m)));
+            showToast('Đã đánh dấu hoàn thành mốc tiến độ', 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi hoàn thành mốc tiến độ:', err);
+            const errMsg = err?.message || 'Không thể đánh dấu hoàn thành mốc tiến độ.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+            throw err;
+        }
+    };
+
+    const handleDeleteMilestone = async (id: number) => {
+        if (!selectedProjectId) return;
+        try {
+            await deleteMilestone(selectedProjectId, id);
+            setMilestones((prev) => prev.filter((m) => m.id !== id));
+            showToast('Đã xóa mốc tiến độ thành công', 'success');
+        } catch (err: any) {
+            console.error('Lỗi khi xóa mốc tiến độ:', err);
+            const errMsg = err?.message || 'Không thể xóa mốc tiến độ.';
+            showToast(`Lỗi: ${errMsg}`, 'error');
+            throw err;
+        }
+    };
+
     const handleExportReport = () => {
         showToast('Đang tạo báo cáo ma trận nhân lực & WBS dạng Excel...', 'info');
         setTimeout(() => {
@@ -715,10 +937,28 @@ export default function ProjectView() {
                                     Quản Trị Dự Án & Nguồn Lực
                                 </h1>
 
+                                {/* Status Badge của dự án đang chọn */}
+                                {selectedProject && (
+                                    selectedProject.status === 'CLOSED' ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700 shadow-2xs">
+                                            <Lock className="h-3 w-3 text-rose-600" />
+                                            <span>Đã đóng</span>
+                                        </span>
+                                    ) : selectedProject.status === 'ACTIVE' ? (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 shadow-2xs">
+                                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                                            <span>Đang thực hiện</span>
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 shadow-2xs">
+                                            <span>Tạm dừng</span>
+                                        </span>
+                                    )
+                                )}
+
                                 {isBackendConnected && selectedProject ? (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                                        <Database className="h-3 w-3 text-emerald-700" /> Dữ liệu Database Thật
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                        <Database className="h-3 w-3 text-emerald-600" /> Đồng bộ DB
                                     </span>
                                 ) : (
                                     <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
@@ -741,7 +981,7 @@ export default function ProjectView() {
                                             >
                                                 {projectsList.map((p) => (
                                                     <option key={p.id} value={p.id}>
-                                                        {p.projectName} ({p.projectCode})
+                                                        {p.projectName} ({p.projectCode}) {p.status === 'CLOSED' ? '— [ĐÃ ĐÓNG]' : ''}
                                                     </option>
                                                 ))}
                                             </select>
@@ -785,26 +1025,77 @@ export default function ProjectView() {
                             <span>+ Dự án mới</span>
                         </button>}
 
+                        {/* Nút Đóng dự án (NCL-03-CN-004) */}
+                        {canCloseProject && (
+                            <button
+                                type="button"
+                                onClick={() => setCloseModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 shadow-2xs transition hover:bg-rose-100 active:scale-95 cursor-pointer"
+                                title="Đóng dự án và chốt giờ công / chi phí (QTN-08)"
+                            >
+                                <Lock className="h-3.5 w-3.5 text-rose-600" />
+                                <span>Đóng dự án</span>
+                            </button>
+                        )}
+
+                        {/* Nút Mở lại dự án (NCL-03-CN-004) */}
+                        {canReopenProject && (
+                            <button
+                                type="button"
+                                onClick={() => setReopenModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 shadow-2xs transition hover:bg-emerald-100 active:scale-95 cursor-pointer"
+                                title="Kích hoạt mở lại dự án đã đóng"
+                            >
+                                <Unlock className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>Mở lại dự án</span>
+                            </button>
+                        )}
+
                         {canManageWbs && (
                             <button
                                 type="button"
-                                onClick={() => setCloneModalOpen(true)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-indigo-600/30 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 hover:border-indigo-600/60 active:scale-95 cursor-pointer"
-                                title="Nhân bản toàn bộ cây WBS sang dự án khác"
+                                disabled={isProjectClosed}
+                                onClick={() => !isProjectClosed && setCloneModalOpen(true)}
+                                className={`inline-flex items-center gap-2 rounded-xl border border-indigo-600/30 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 shadow-2xs transition ${
+                                    isProjectClosed
+                                        ? 'opacity-40 cursor-not-allowed'
+                                        : 'hover:bg-indigo-100 hover:border-indigo-600/60 active:scale-95 cursor-pointer'
+                                }`}
+                                title={isProjectClosed ? 'Dự án đã đóng, không thể nhân bản WBS' : 'Nhân bản toàn bộ cây WBS sang dự án khác'}
                             >
                                 <Copy className="h-3.5 w-3.5 text-indigo-600" />
                                 <span>Nhân bản WBS</span>
                             </button>
                         )}
 
-                        {canManageProject && <button
-                            type="button"
-                            onClick={() => handleQuickAddTask()}
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
-                        >
-                            <Plus className="h-4 w-4 stroke-[2.5]" />
-                            <span>Thêm công việc</span>
-                        </button>}
+                        {canManageProject && (
+                            <>
+                                <button
+                                    type="button"
+                                    disabled={isProjectClosed}
+                                    onClick={() => !isProjectClosed && handleQuickAddTask()}
+                                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition ${
+                                        isProjectClosed
+                                            ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
+                                            : 'bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700 active:scale-95 cursor-pointer'
+                                    }`}
+                                    title={isProjectClosed ? 'Dự án đã đóng, không thể tạo thêm công việc mới (QTN-08)' : 'Thêm công việc'}
+                                >
+                                    <Plus className="h-4 w-4 stroke-[2.5]" />
+                                    <span>Thêm công việc</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDependencyModalOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
+                                    title="Khai báo phụ thuộc giữa các công việc (NCL-04-CN-004)"
+                                >
+                                    <GitCommit className="h-4 w-4 text-indigo-600" />
+                                    <span>Phụ thuộc công việc</span>
+                                </button>
+                            </>
+                        )}
 
                         <button
                             type="button"
@@ -819,7 +1110,11 @@ export default function ProjectView() {
                             type="button"
                             onClick={() => {
                                 loadProjects();
-                                if (selectedProjectId) loadWbsForProject(selectedProjectId);
+                                if (selectedProjectId) {
+                                    loadWbsForProject(selectedProjectId);
+                                    loadProjectDemands(selectedProjectId);
+                                    loadMilestonesForProject(selectedProjectId);
+                                }
                                 showToast('Đã làm mới dữ liệu từ Database', 'info');
                             }}
                             className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 transition cursor-pointer"
@@ -837,6 +1132,44 @@ export default function ProjectView() {
                 </div>
             )}
 
+            {/* Banner cảnh báo khi dự án đã đóng theo quy tắc QTN-08 */}
+            {isProjectClosed && selectedProject && (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-xs text-rose-900 shadow-2xs flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-xl bg-rose-100 text-rose-700 shrink-0">
+                            <Lock className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-rose-950 text-sm">
+                                    Dự án đã đóng ({selectedProject.projectCode})
+                                </h3>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                                    Khóa QTN-08
+                                </span>
+                            </div>
+                            <p className="text-rose-700 mt-1 leading-relaxed text-[11px]">
+                                Theo quy tắc <strong>QTN-08</strong>, toàn bộ công việc và phân bổ nguồn lực đã được chốt. Hệ thống không cho phép tạo thêm công việc mới hoặc thay đổi giờ phân bổ.
+                            </p>
+                            {selectedProject.closureReason && (
+                                <p className="mt-1.5 text-[11px] text-rose-800 bg-white/70 p-2 rounded-lg border border-rose-200/60">
+                                    <span className="font-semibold text-rose-900">Lý do đóng:</span> {selectedProject.closureReason}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    {canReopenProject && (
+                        <button
+                            type="button"
+                            onClick={() => setReopenModalOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition shrink-0 cursor-pointer"
+                        >
+                            <Unlock className="h-3.5 w-3.5" />
+                            <span>Mở lại dự án</span>
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* KPI Metric Cards */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -910,75 +1243,106 @@ export default function ProjectView() {
             </div>
 
             {/* View Switcher & Filter Controls */}
-            <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center">
+            <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
-                <div className="inline-flex w-full rounded-xl border border-slate-200/80 bg-slate-100 p-1 sm:w-auto">
+                <div className="inline-flex w-full max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
                     <button
                         type="button"
                         onClick={() => setViewMode('split')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                             viewMode === 'split'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
                         }`}
                     >
-                        <Columns className="h-4 w-4" />
+                        <Columns className="h-3.5 w-3.5" />
                         <span>Xem kết hợp (Split View)</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setViewMode('wbs')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                             viewMode === 'wbs'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
                         }`}
                     >
-                        <Layers className="h-4 w-4" />
+                        <Layers className="h-3.5 w-3.5" />
                         <span>Hạng mục & Task</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setViewMode('workload')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                             viewMode === 'workload'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
                         }`}
                     >
-                        <CalendarDays className="h-4 w-4" />
+                        <CalendarDays className="h-3.5 w-3.5" />
                         <span>Phân bổ theo tuần</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('demand')}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                            viewMode === 'demand'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <TrendingUp className="h-4 w-4" />
+                        <span>Ước lượng nhu cầu</span>
+                        {demandSummary && demandSummary.demandsByRole.length > 0 && (
+                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
+                                {demandSummary.demandsByRole.length}
+                            </span>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('milestones')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                            viewMode === 'milestones'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <Flag className="h-3.5 w-3.5" />
+                        <span>Mốc tiến độ</span>
                     </button>
                 </div>
 
-                {/* Filters */}
-                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-                    {/* Search */}
-                    <div className="relative flex-1 sm:w-56">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Tìm việc, nhân sự..."
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
-                        />
-                    </div>
+                {/* Filters (Ẩn khi ở tab Mốc tiến độ hoặc Ước lượng nhu cầu) */}
+                {viewMode !== 'milestones' && viewMode !== 'demand' && (
+                    <div className="flex w-full flex-wrap items-center justify-end gap-2 xl:w-auto shrink-0">
+                        {/* Search */}
+                        <div className="relative flex-1 sm:w-56">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Tìm việc, nhân sự..."
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </div>
 
-                    {/* Filter Role */}
-                    <select
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
-                    >
-                        <option value="ALL">Tất cả vai trò ({members.length})</option>
-                        {uniqueRoles.map((role) => (
-                            <option key={role} value={role}>
-                                {role}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                        {/* Filter Role */}
+                        <select
+                            value={roleFilter}
+                            onChange={(e) => setRoleFilter(e.target.value)}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        >
+                            <option value="ALL">Tất cả vai trò ({members.length})</option>
+                            {uniqueRoles.map((role) => (
+                                <option key={role} value={role}>
+                                    {role}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* Main Views Container Grid */}
@@ -989,13 +1353,17 @@ export default function ProjectView() {
                         <ProjectWbsView
                             categories={categories}
                             members={allEmployees.length > 0 ? allEmployees : members}
+                            dependencies={taskDependenciesList}
                             searchTerm={search}
                             selectedRole={roleFilter}
+                            projectId={selectedProjectId}
+                            isClosed={isProjectClosed}
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
                             onOpenBudgetModal={handleOpenBudgetModal}
-                            onOpenCloneModal={canManageWbs ? () => setCloneModalOpen(true) : undefined}
+                            onOpenCloneModal={canManageWbs && !isProjectClosed ? () => setCloneModalOpen(true) : undefined}
                             onOpenAssignModal={canManageWbs ? handleOpenAssignModal : undefined}
+                            onRefreshData={() => selectedProjectId && loadWbsForProject(selectedProjectId)}
                         />
                     </div>
                 )}
@@ -1008,9 +1376,65 @@ export default function ProjectView() {
                             members={members}
                             selectedRole={roleFilter}
                             searchTerm={search}
+                            isClosed={isProjectClosed}
                             onNavigateMonth={handleNavigateMonth}
                             onOpenAdjustModal={handleOpenAdjustModal}
                         />
+                    </div>
+                )}
+
+                {/* Section 3: Resource Demand Estimation (NCL-03-CN-007) */}
+                {viewMode === 'demand' && (
+                    <div className="lg:col-span-12">
+                        <ProjectDemandView
+                            project={selectedProject}
+                            canManage={canManageProject}
+                            demandSummary={demandSummary}
+                            isLoading={isLoadingDemand}
+                            error={demandError}
+                            onReload={() => {
+                                if (selectedProjectId) {
+                                    loadProjectDemands(selectedProjectId);
+                                }
+                            }}
+                            onOpenCreateModal={() => {
+                                setEditingDemandRole(null);
+                                setEstimateModalOpen(true);
+                            }}
+                            onOpenEditModal={(role) => {
+                                setEditingDemandRole(role);
+                                setEstimateModalOpen(true);
+                            }}
+                            onOpenDeleteModal={(role) => {
+                                setRoleToDelete(role);
+                                setDeleteModalOpen(true);
+                            }}
+                        />
+                    </div>
+                )}
+
+                {/* Section 4: Project Milestones (NCL-03-CN-006) */}
+                {viewMode === 'milestones' && (
+                    <div className="lg:col-span-12">
+                        {selectedProjectId ? (
+                            <MilestoneListView
+                                milestones={milestones}
+                                categories={categories}
+                                canEdit={canManageMilestones}
+                                isLoading={isLoadingMilestones}
+                                onRefresh={() => loadMilestonesForProject(selectedProjectId)}
+                                onCreateMilestone={handleCreateMilestone}
+                                onUpdateMilestone={handleUpdateMilestone}
+                                onCompleteMilestone={handleCompleteMilestone}
+                                onDeleteMilestone={handleDeleteMilestone}
+                            />
+                        ) : (
+                            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">
+                                <Flag className="mx-auto h-10 w-10 text-slate-300 mb-3" />
+                                <h3 className="text-sm font-bold text-slate-700">Chưa chọn dự án</h3>
+                                <p className="text-xs text-slate-400 mt-1">Vui lòng chọn một dự án ở thanh phía trên để xem và quản lý các mốc tiến độ.</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -1070,21 +1494,31 @@ export default function ProjectView() {
                 onCreated={handleProjectCreated}
             />}
 
-            {/* Toast Notification */}
-            {toast && (
-                <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-xs text-white shadow-2xl">
-                    {toast.type === 'success' ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                    ) : toast.type === 'error' ? (
-                        <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
-                    ) : (
-                        <Info className="h-4 w-4 text-sky-400 shrink-0" />
-                    )}
-                    <span className="font-medium">{toast.message}</span>
-                </div>
-            )}
-        </div>
-    );
-}
+            {canManageProject && <TaskDependencyModal
+                open={dependencyModalOpen}
+                projectId={selectedProjectId || 1}
+                tasks={categories.flatMap((cat) =>
+                    cat.tasks.map((t) => ({
+                        id: Number(t.id.replace(/\D/g, '')),
+                        taskCode: t.code,
+                        name: t.name,
+                        categoryName: cat.name,
+                    }))
+                )}
+                canManage={canManageProject}
+                onClose={() => {
+                    setDependencyModalOpen(false);
+                    if (selectedProjectId) loadWbsForProject(selectedProjectId);
+                }}
+            />}
 
-
+            {/* Modals for Resource Demand Estimation (NCL-03-CN-007) */}
+            <EstimateDemandModal
+                open={estimateModalOpen}
+                projectId={selectedProjectId || 0}
+                projectCode={selectedProject?.projectCode}
+                projectName={selectedProject?.projectName}
+                projectStartDate={selectedProject?.startDate}
+                projectEndDate={selectedProject?.endDate}
+                projectEstimatedHours={selectedProject?.estimatedHours ? Number(selectedProject.estimatedHours) : 0}
+                currentTotalDemandHours={demandSummary?.totalDemandHours ? Number(demandSummary.totalDemandHours) : 0}

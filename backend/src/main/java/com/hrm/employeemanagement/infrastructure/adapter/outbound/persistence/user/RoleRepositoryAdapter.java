@@ -25,18 +25,35 @@ public class RoleRepositoryAdapter implements LoadRolePort {
     @Override
     public Optional<Role> findById(RoleId id) {
         if (id == null || id.value() == null) return Optional.empty();
-        return springDataRoleRepository.findById(id.value()).map(mapper::toDomain);
+        return springDataRoleRepository.findById(id.value())
+                .filter(entity -> isValidRoleCode(entity.getCode()))
+                .map(mapper::toDomain);
     }
 
     @Override
     public Optional<Role> findByCode(RoleCode code) {
         if (code == null) return Optional.empty();
-        return springDataRoleRepository.findByCode(code.getCode()).map(mapper::toDomain);
+        return springDataRoleRepository.findByCode(code.getCode())
+                .filter(entity -> isValidRoleCode(entity.getCode()))
+                .map(mapper::toDomain);
     }
 
     @Override
     public List<Role> findAll() {
-        return springDataRoleRepository.findAll().stream().map(mapper::toDomain).toList();
+        return springDataRoleRepository.findAll().stream()
+                .filter(entity -> isValidRoleCode(entity.getCode()))
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    private boolean isValidRoleCode(String code) {
+        if (code == null || code.isBlank()) return false;
+        try {
+            RoleCode.fromCode(code);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     @Override

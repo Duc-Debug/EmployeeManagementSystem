@@ -16,6 +16,10 @@ export interface TaskItem {
     status: 'Hoàn thành' | 'Đang làm' | 'Chờ duyệt' | 'Chưa làm';
     startWeek: string;
     endWeek: string;
+    startDate?: string;
+    dueDate?: string;
+    actualEndDate?: string;
+    slackDays?: number;
 }
 
 export interface TaskCategoryGroup {

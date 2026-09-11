@@ -1,4 +1,4 @@
-import { Calendar, ChevronLeft, ChevronRight, Lightbulb, AlertTriangle } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Lightbulb, Lock, AlertTriangle } from 'lucide-react';
 import type { ProjectMember, ProjectMonth, MonthWeek } from './projectData';
 
 function isWeekPastContractEnd(w: MonthWeek, contractEndDateStr?: string): boolean {
@@ -25,6 +25,7 @@ interface ProjectWeeklyMatrixProps {
     members: ProjectMember[];
     selectedRole: string;
     searchTerm: string;
+    isClosed?: boolean;
     onNavigateMonth: (direction: number) => void;
     onOpenAdjustModal: (memberId: string, weekKey: string, weekLabel: string) => void;
 }
@@ -34,6 +35,7 @@ export function ProjectWeeklyMatrix({
     members,
     selectedRole,
     searchTerm,
+    isClosed = false,
     onNavigateMonth,
     onOpenAdjustModal,
 }: ProjectWeeklyMatrixProps) {
@@ -98,8 +100,13 @@ export function ProjectWeeklyMatrix({
                         <Calendar className="h-4 w-4" />
                     </span>
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-sm font-bold text-slate-900">Phân Bổ Nhân Lực Các Tuần Trong Tháng</h2>
+                            {isClosed && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                                    <Lock className="h-3 w-3" /> Khóa phân bổ (QTN-08)
+                                </span>
+                            )}
                             {/* Month Navigator Controls */}
                             <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 shadow-2xs">
                                 <button
@@ -125,8 +132,11 @@ export function ProjectWeeklyMatrix({
                     </div>
                 </div>
 
-                {/* Heatmap Legend */}
-                <div className="flex items-center gap-2 text-[11px]">
+                {/* Heatmap Legend & Scroll Hint */}
+                <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-600">
+                        ↔ Cuộn ngang để xem đủ các tuần
+                    </span>
                     <span className="flex items-center gap-1 text-slate-500">
                         <span className="h-2.5 w-2.5 rounded-xs border border-slate-300 bg-slate-200" /> Trống (&lt;20h)
                     </span>
@@ -140,7 +150,7 @@ export function ProjectWeeklyMatrix({
             </div>
 
             {/* Matrix Scrollable Container */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[550px] pb-2">
                 <table className="w-full border-collapse text-left text-xs">
                     <thead>
                         <tr className="border-b border-slate-200 bg-slate-100/80 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
@@ -201,11 +211,20 @@ export function ProjectWeeklyMatrix({
                                         <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2.5 shadow-xs group-hover:bg-slate-50/90">
                                             <div className="flex items-center gap-2.5 min-w-0">
                                                 <div className="relative shrink-0">
-                                                    <img
-                                                        className="h-8 w-8 rounded-full border border-slate-200 object-cover"
-                                                        src={member.avatar}
-                                                        alt={member.name}
-                                                    />
+                                                    {member.avatar ? (
+                                                        <img
+                                                            className="h-8 w-8 rounded-full border border-slate-200 object-cover"
+                                                            src={member.avatar}
+                                                            alt={member.name}
+                                                            onError={(e) => {
+                                                                (e.target as HTMLElement).style.display = 'none';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-xs font-bold text-white border border-indigo-200 shadow-2xs">
+                                                            {member.name.trim().charAt(0).toUpperCase() || 'N'}
+                                                        </div>
+                                                    )}
                                                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                                                 </div>
                                                 <div className="min-w-0">
@@ -242,9 +261,19 @@ export function ProjectWeeklyMatrix({
                                                     className={`px-2 py-2 text-center ${w.isCurrent ? 'bg-indigo-50/30' : ''}`}
                                                 >
                                                     <div
-                                                        onClick={() => onOpenAdjustModal(member.id, w.key, w.label)}
-                                                        title={hasExpiredAllocationWarning ? `Cảnh báo: Nhân sự đã nghỉ việc / hết hạn HĐ (${member.contractEndDate || 'Đã nghỉ'}), phân bổ ${hours}h này vắt qua ngày nghỉ việc!` : undefined}
-                                                        className={`cursor-pointer select-none rounded-lg p-1.5 transition transform hover:scale-105 active:scale-95 border ${
+                                                        onClick={() => !isClosed && onOpenAdjustModal(member.id, w.key, w.label)}
+                                                        title={
+                                                            isClosed
+                                                                ? 'Dự án đã đóng, không thể điều chỉnh phân bổ nguồn lực (QTN-08)'
+                                                                : hasExpiredAllocationWarning
+                                                                ? `Cảnh báo: Nhân sự đã nghỉ việc / hết hạn HĐ (${member.contractEndDate || 'Đã nghỉ'}), phân bổ ${hours}h này vắt qua ngày nghỉ việc!`
+                                                                : 'Bấm để điều chỉnh giờ phân bổ'
+                                                        }
+                                                        className={`select-none rounded-lg p-1.5 transition border ${
+                                                            isClosed
+                                                                ? 'cursor-not-allowed opacity-70'
+                                                                : 'cursor-pointer transform hover:scale-105 active:scale-95'
+                                                        } ${
                                                             hasExpiredAllocationWarning
                                                                 ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-300'
                                                                 : `${cellStyle.bg} ${cellStyle.border} ${cellStyle.text}`
@@ -363,4 +392,3 @@ export function ProjectWeeklyMatrix({
         </section>
     );
 }
-

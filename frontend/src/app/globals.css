@@ -17,26 +17,27 @@ input[type='number'] {
   -moz-appearance: textfield;
 }
 
-/* Custom Scrollbar trong suốt toàn ứng dụng */
+/* Custom Scrollbar toàn ứng dụng (Hiển thị rõ nét trên nền sáng) */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
-/* Nền của thanh cuộn trong suốt hoàn toàn */
+/* Nền của đường rãnh cuộn */
 ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* Tay kéo cuộn tròn, màu trắng trong suốt mờ */
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: #f1f5f9;
   border-radius: 9999px;
 }
 
-/* Đổi màu tươi hơn khi rê chuột vào thanh cuộn */
+/* Con trỏ cuộn (Thumb) màu xám mờ, đổi sang Indigo khi hover */
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  border: 2px solid #f1f5f9;
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: #6366f1;
 }
 
 /* Ẩn hai nút mũi tên ở hai đầu thanh cuộn */

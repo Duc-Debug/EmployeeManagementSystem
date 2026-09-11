@@ -34,6 +34,10 @@ public record TaskNodeResult(
         Integer sortOrder,
         LocalDate plannedStartDate,
         LocalDate plannedEndDate,
+        LocalDate startDate,
+        LocalDate dueDate,
+        LocalDate actualEndDate,
+        Integer slackDays,
         Long createdBy,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
@@ -47,8 +51,146 @@ public record TaskNodeResult(
         if (assigneeIds == null) {
             assigneeIds = assigneeId != null ? List.of(assigneeId) : List.of();
         }
+        if (startDate == null && plannedStartDate != null) {
+            startDate = plannedStartDate;
+        }
+        if (plannedStartDate == null && startDate != null) {
+            plannedStartDate = startDate;
+        }
+        if (dueDate == null && plannedEndDate != null) {
+            dueDate = plannedEndDate;
+        }
+        if (plannedEndDate == null && dueDate != null) {
+            plannedEndDate = dueDate;
+        }
     }
 
+    /**
+     * Constructor hỗ trợ plannedStartDate, plannedEndDate (từ nhánh feat/task-assignment)
+     */
+    public TaskNodeResult(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            List<Long> assigneeIds,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            BigDecimal burnedPercentage,
+            TaskBudgetBurnStatus burnStatus,
+            Boolean isOverBudget,
+            TaskStatus status,
+            Integer sortOrder,
+            LocalDate plannedStartDate,
+            LocalDate plannedEndDate,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            List<TaskNodeResult> children
+    ) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                assigneeIds,
+                estimatedHours,
+                actualHours,
+                budgetHours != null ? budgetHours : BigDecimal.ZERO,
+                burnedPercentage != null ? burnedPercentage : BigDecimal.ZERO,
+                burnStatus != null ? burnStatus : TaskBudgetBurnStatus.NOT_SET,
+                isOverBudget != null ? isOverBudget : false,
+                status,
+                sortOrder,
+                plannedStartDate,
+                plannedEndDate,
+                plannedStartDate,
+                plannedEndDate,
+                null,
+                0,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version,
+                children
+        );
+    }
+
+    /**
+     * Constructor hỗ trợ startDate, dueDate, actualEndDate, slackDays (từ nhánh develop)
+     */
+    public TaskNodeResult(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            BigDecimal burnedPercentage,
+            TaskBudgetBurnStatus burnStatus,
+            Boolean isOverBudget,
+            TaskStatus status,
+            Integer sortOrder,
+            LocalDate startDate,
+            LocalDate dueDate,
+            LocalDate actualEndDate,
+            Integer slackDays,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            List<TaskNodeResult> children
+    ) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                assigneeId != null ? List.of(assigneeId) : List.of(),
+                estimatedHours,
+                actualHours,
+                budgetHours != null ? budgetHours : BigDecimal.ZERO,
+                burnedPercentage != null ? burnedPercentage : BigDecimal.ZERO,
+                burnStatus != null ? burnStatus : TaskBudgetBurnStatus.NOT_SET,
+                isOverBudget != null ? isOverBudget : false,
+                status,
+                sortOrder,
+                startDate,
+                dueDate,
+                startDate,
+                dueDate,
+                actualEndDate,
+                slackDays,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version,
+                children
+        );
+    }
+
+    /**
+     * Constructor 21 tham số (tương thích backward)
+     */
     public TaskNodeResult(
             Long id,
             Long projectId,
@@ -92,6 +234,10 @@ public record TaskNodeResult(
                 sortOrder,
                 null,
                 null,
+                null,
+                null,
+                null,
+                0,
                 createdBy,
                 createdAt,
                 updatedAt,
@@ -100,6 +246,9 @@ public record TaskNodeResult(
         );
     }
 
+    /**
+     * Constructor 18 tham số (có budgetHours)
+     */
     public TaskNodeResult(
             Long id,
             Long projectId,
@@ -140,6 +289,10 @@ public record TaskNodeResult(
                 sortOrder,
                 null,
                 null,
+                null,
+                null,
+                null,
+                0,
                 createdBy,
                 createdAt,
                 updatedAt,
@@ -148,6 +301,9 @@ public record TaskNodeResult(
         );
     }
 
+    /**
+     * Constructor 17 tham số (không có budgetHours)
+     */
     public TaskNodeResult(
             Long id,
             Long projectId,
