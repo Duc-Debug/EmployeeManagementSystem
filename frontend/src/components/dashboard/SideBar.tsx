@@ -12,6 +12,7 @@ import {
     ShieldCheck,
     CalendarClock,
     CalendarDays,
+    TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -27,6 +28,7 @@ const SIDEBAR_WORKSPACE = [
     { name: "Phòng ban", icon: Building2, id: "departments" },
     { name: "Khai báo kỹ năng", icon: ClipboardList, id: "skills" },
     { name: "Dự án", icon: FolderKanban, id: "project" },
+    { name: "Nhu cầu tuyển dụng", icon: TrendingUp, id: "recruitment-demand" },
 ];
 
 const SIDEBAR_SETTINGS = [
@@ -91,6 +93,11 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
         case "reports":
             // Báo cáo & Mô phỏng năng lực: VT-01 (Toàn công ty), VT-02 (Dự án phụ trách), VT-03 (Bộ phận phụ trách)
             return ["VT-01", "VT-02", "VT-03"].includes(normalized);
+
+        case "recruitment-demand":
+        case "recruitment":
+            // Báo cáo nhu cầu tuyển dụng theo kỹ năng (NCL-10-CN-005): VT-01 (Ban Giám Đốc), VT-03 (HR), VT-06 (Admin)
+            return ["VT-01", "VT-03", "VT-06"].includes(normalized);
 
         default:
             return true;
