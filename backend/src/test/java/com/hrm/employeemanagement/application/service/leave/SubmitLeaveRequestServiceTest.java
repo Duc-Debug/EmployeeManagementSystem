@@ -15,6 +15,8 @@ import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException;
 import com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException;
+import com.hrm.employeemanagement.domain.exception.leave.LeaveBalanceExceededException;
+import com.hrm.employeemanagement.domain.leave.LeaveBalance;
 import com.hrm.employeemanagement.domain.leave.LeaveRequest;
 import com.hrm.employeemanagement.domain.leave.LeaveStatus;
 import com.hrm.employeemanagement.domain.leave.LeaveType;
@@ -30,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -53,6 +56,8 @@ class SubmitLeaveRequestServiceTest {
     private com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort;
     @Mock
     private com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort loadHolidaysPort;
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveBalancePort loadLeaveBalancePort;
 
     private SubmitLeaveRequestService service;
 
@@ -65,7 +70,8 @@ class SubmitLeaveRequestServiceTest {
                 auditLogRepository,
                 authorizationService,
                 loadWorkingCalendarPort,
-                loadHolidaysPort
+                loadHolidaysPort,
+                loadLeaveBalancePort
         );
     }
 
@@ -101,6 +107,7 @@ class SubmitLeaveRequestServiceTest {
         when(authorizationService.require(PermissionCode.LEAVE_REQUEST_CREATE)).thenReturn(userId);
         when(loadEmployeePort.findByUserId(new UserId(userId))).thenReturn(Optional.of(createMockEmployee(empId, userId)));
         when(loadLeaveRequestPort.existsOverlappingLeave(empId, start, end)).thenReturn(false);
+        when(loadLeaveBalancePort.findOrCreateDefault(empId, 2026)).thenReturn(LeaveBalance.createDefault(empId, 2026));
         when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(invocation -> {
             LeaveRequest req = invocation.getArgument(0);
             return new LeaveRequest(
@@ -181,5 +188,69 @@ class SubmitLeaveRequestServiceTest {
 
         assertThrows(PermissionDeniedException.class, () -> service.submitLeaveRequest(command));
         verify(saveLeaveRequestPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("AC-02: Nộp đơn phép năm vượt quá số phép còn lại -> Ném LeaveBalanceExceededException")
+    void testSubmitLeaveRequest_AnnualLeave_ExceedsBalance_ThrowsException() {
+        Long empId = 10L;
+        Long userId = 100L;
+        // 5 ngày làm việc (T2 -> T6: 13/04 - 17/04)
+        LocalDate start = LocalDate.of(2026, 4, 13);
+        LocalDate end = LocalDate.of(2026, 4, 17);
+
+        SubmitLeaveRequestCommand command = new SubmitLeaveRequestCommand(
+                empId, LeaveType.ANNUAL, start, end, "Xin nghỉ dài ngày"
+        );
+
+        when(authorizationService.require(PermissionCode.LEAVE_REQUEST_CREATE)).thenReturn(userId);
+        when(loadEmployeePort.findByUserId(new UserId(userId))).thenReturn(Optional.of(createMockEmployee(empId, userId)));
+        when(loadLeaveRequestPort.existsOverlappingLeave(empId, start, end)).thenReturn(false);
+
+        // Chỉ còn 3 ngày phép (Được cấp 12, đã nghỉ 9)
+        LeaveBalance balance = new LeaveBalance(1L, empId, 2026, new BigDecimal("12.00"), BigDecimal.ZERO);
+        when(loadLeaveBalancePort.findOrCreateDefault(empId, 2026)).thenReturn(balance);
+        LeaveRequest approvedReq = new LeaveRequest(
+                1L, empId, LeaveType.ANNUAL,
+                LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 15),
+                9, new BigDecimal("72.00"), "Nghỉ trước đó", LeaveStatus.APPROVED,
+                LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(loadLeaveRequestPort.findByEmployeeIdAndYear(empId, 2026)).thenReturn(List.of(approvedReq));
+
+        assertThrows(LeaveBalanceExceededException.class, () -> service.submitLeaveRequest(command));
+        verify(saveLeaveRequestPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("AC-02: Nghỉ không lương (UNPAID) vẫn được nộp thành công dù quỹ phép năm đã hết")
+    void testSubmitLeaveRequest_UnpaidLeave_AllowedEvenWhenNoBalance() {
+        Long empId = 10L;
+        Long userId = 100L;
+        LocalDate start = LocalDate.of(2026, 4, 13);
+        LocalDate end = LocalDate.of(2026, 4, 14);
+
+        SubmitLeaveRequestCommand command = new SubmitLeaveRequestCommand(
+                empId, LeaveType.UNPAID, start, end, "Nghỉ không lương"
+        );
+
+        when(authorizationService.require(PermissionCode.LEAVE_REQUEST_CREATE)).thenReturn(userId);
+        when(loadEmployeePort.findByUserId(new UserId(userId))).thenReturn(Optional.of(createMockEmployee(empId, userId)));
+        when(loadLeaveRequestPort.existsOverlappingLeave(empId, start, end)).thenReturn(false);
+        when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(invocation -> {
+            LeaveRequest req = invocation.getArgument(0);
+            return new LeaveRequest(
+                    101L, req.getEmployeeId(), req.getLeaveType(),
+                    req.getStartDate(), req.getEndDate(), req.getDaysCount(),
+                    req.getHoursDeducted(), req.getReason(), req.getStatus(),
+                    LocalDateTime.now(), LocalDateTime.now()
+            );
+        });
+
+        LeaveRequestResult result = service.submitLeaveRequest(command);
+
+        assertNotNull(result);
+        assertEquals(LeaveType.UNPAID, result.leaveType());
+        verify(saveLeaveRequestPort, times(1)).save(any(LeaveRequest.class));
     }
 }

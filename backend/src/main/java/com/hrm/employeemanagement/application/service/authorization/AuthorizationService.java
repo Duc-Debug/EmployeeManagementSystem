@@ -116,4 +116,15 @@ public class AuthorizationService {
 
         throw new PermissionDeniedException(permissions[0]);
     }
+
+    public boolean hasPermission(PermissionCode permission) {
+        if (permission == null) {
+            return false;
+        }
+        User currentUser = authenticatedUserPort.getAuthenticatedUser();
+        if (currentUser == null) {
+            return false;
+        }
+        return permissionQueryPort.hasPermission(currentUser.getIdValue(), permission);
+    }
 }
