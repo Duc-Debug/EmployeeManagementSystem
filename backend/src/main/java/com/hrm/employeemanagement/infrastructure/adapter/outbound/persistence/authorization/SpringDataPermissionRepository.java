@@ -35,4 +35,18 @@ public interface SpringDataPermissionRepository
             @Param("userId") Long userId,
             @Param("roleCode") String roleCode
     );
+
+    @Query(value = """
+            SELECT p.code
+            FROM users u
+            JOIN role_permissions rp
+                ON rp.role_id = u.role_id
+            JOIN permissions p
+                ON p.id = rp.permission_id
+            WHERE u.id = :userId
+              AND u.is_active = TRUE
+            """, nativeQuery = true)
+    java.util.List<String> findPermissionCodesByUserId(
+            @Param("userId") Long userId
+    );
 }
