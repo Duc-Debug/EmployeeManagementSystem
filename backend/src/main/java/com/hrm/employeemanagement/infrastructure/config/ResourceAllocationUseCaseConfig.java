@@ -42,7 +42,7 @@ public class ResourceAllocationUseCaseConfig {
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
-            org.springframework.beans.factory.annotation.Autowired(required = false) LoadWorkingCalendarPort loadWorkingCalendarPort) {
+            java.util.Optional<LoadWorkingCalendarPort> loadWorkingCalendarPort) {
         return new GetCompanyWeeklyCapacityService(
                 authorizationService,
                 loadUserPort,
@@ -52,7 +52,7 @@ public class ResourceAllocationUseCaseConfig {
                 loadWeeklyAvailabilityPort,
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
-                loadWorkingCalendarPort
+                loadWorkingCalendarPort.orElse(null)
         );
     }
 

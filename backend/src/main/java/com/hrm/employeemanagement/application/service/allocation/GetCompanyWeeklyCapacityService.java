@@ -38,9 +38,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.springframework.transaction.annotation.Transactional;
 
-@Transactional(readOnly = true)
 public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacityUseCase {
 
     private final AuthorizationService authorizationService;

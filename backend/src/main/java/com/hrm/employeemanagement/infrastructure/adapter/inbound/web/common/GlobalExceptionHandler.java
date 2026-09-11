@@ -335,17 +335,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
-    // 14.2.1 Handle PermissionDeniedException (Domain RBAC check failures)
-    @ExceptionHandler(PermissionDeniedException.class)
-    public ResponseEntity<ErrorResponse> handlePermissionDenied(PermissionDeniedException ex) {
-        log.warn("Permission denied: {}", ex.getMessage());
-        ErrorResponse response = ErrorResponse.of(
-                "FORBIDDEN",
-                ex.getMessage(),
-                HttpStatus.FORBIDDEN.value());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
-    }
-
     // 14.3. Handle InvalidLeaveDateRangeException (NCL-05-CN-002 TC-03)
     @ExceptionHandler(com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException.class)
     public ResponseEntity<ErrorResponse> handleInvalidLeaveDateRange(com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException ex) {
