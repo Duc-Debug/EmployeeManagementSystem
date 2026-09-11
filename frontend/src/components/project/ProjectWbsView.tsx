@@ -13,6 +13,7 @@ import {
     Copy,
     GitCommit,
     Lock,
+    Calendar,
 } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
 import type { TaskDependencyResult } from '@/lib/api/taskDependencies';
@@ -321,10 +322,23 @@ export function ProjectWbsView({
                                                                     <span className="inline-flex items-center gap-1">
                                                                         <Clock className="h-3 w-3 text-slate-400" /> {t.hours}h
                                                                     </span>
-                                                                    <span className="text-slate-300">•</span>
-                                                                    <span className="inline-flex items-center rounded bg-indigo-50 px-1 font-mono text-[10px] font-semibold text-indigo-600">
-                                                                        {t.startWeek} &rarr; {t.endWeek}
-                                                                    </span>
+                                                                     <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-600">
+                                                                         <Calendar className="h-3 w-3 text-indigo-500 shrink-0" />
+                                                                         {t.startDate || t.startWeek} &rarr; {t.actualEndDate ? `${t.actualEndDate} (TT)` : (t.dueDate || t.endWeek)}
+                                                                     </span>
+                                                                     {t.actualEndDate && (
+                                                                         <span
+                                                                             className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                                                                                 t.dueDate && t.actualEndDate > t.dueDate
+                                                                                     ? 'border-rose-200 bg-rose-50 text-rose-700 animate-pulse'
+                                                                                     : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                                             }`}
+                                                                             title={t.dueDate && t.actualEndDate > t.dueDate ? `Công việc trễ ngày kết thúc so với mốc hạn ${t.dueDate}` : `Đã kết thúc thực tế ngày ${t.actualEndDate}`}
+                                                                         >
+                                                                             <AlertTriangle className={`h-3 w-3 ${t.dueDate && t.actualEndDate > t.dueDate ? 'text-rose-600' : 'text-emerald-600'} shrink-0`} />
+                                                                             {t.dueDate && t.actualEndDate > t.dueDate ? 'Trễ thực tế' : 'Đã xong'}
+                                                                         </span>
+                                                                     )}
 
                                                                     {/* Quan hệ Phụ thuộc công việc (NCL-04-CN-004) */}
                                                                     {predecessors.map((p) => (
