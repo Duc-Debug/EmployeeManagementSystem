@@ -16,4 +16,15 @@ public interface LoadLeaveRequestPort {
      * bị trùng với khoảng [startDate, endDate] hay chưa.
      */
     boolean existsOverlappingLeave(Long employeeId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * NCL-05-CN-005: Lấy danh sách đơn nghỉ phép của nhân viên trong một năm dương lịch.
+     */
+    default List<LeaveRequest> findByEmployeeIdAndYear(Long employeeId, int year) {
+        LocalDate startOfYear = LocalDate.of(year, 1, 1);
+        LocalDate endOfYear = LocalDate.of(year, 12, 31);
+        return findByEmployeeId(employeeId).stream()
+                .filter(r -> r.getStartDate() != null && !r.getStartDate().isBefore(startOfYear) && !r.getStartDate().isAfter(endOfYear))
+                .toList();
+    }
 }

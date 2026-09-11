@@ -4,6 +4,7 @@ import com.hrm.employeemanagement.application.dto.leave.LeaveRequestResult;
 import com.hrm.employeemanagement.application.dto.leave.SubmitLeaveRequestCommand;
 import com.hrm.employeemanagement.application.port.inbound.leave.SubmitLeaveRequestUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveBalancePort;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
@@ -18,14 +19,19 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException;
+import com.hrm.employeemanagement.domain.leave.LeaveBalance;
+import com.hrm.employeemanagement.domain.leave.LeaveBalancePolicy;
 import com.hrm.employeemanagement.domain.leave.LeaveRequest;
 import com.hrm.employeemanagement.domain.leave.LeaveRequestPolicy;
+import com.hrm.employeemanagement.domain.leave.LeaveStatus;
+import com.hrm.employeemanagement.domain.leave.LeaveType;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -38,6 +44,27 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
     private final AuthorizationService authorizationService;
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final LoadHolidaysPort loadHolidaysPort;
+    private final LoadLeaveBalancePort loadLeaveBalancePort;
+
+    public SubmitLeaveRequestService(
+            LoadEmployeePort loadEmployeePort,
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            SaveAuditLogInNewTransactionPort auditLogRepository,
+            AuthorizationService authorizationService,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadLeaveBalancePort loadLeaveBalancePort
+    ) {
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
+        this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
+        this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
+        this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
+        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
+        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
+        this.loadHolidaysPort = loadHolidaysPort;
+        this.loadLeaveBalancePort = loadLeaveBalancePort;
+    }
 
     public SubmitLeaveRequestService(
             LoadEmployeePort loadEmployeePort,
@@ -48,13 +75,7 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
             LoadWorkingCalendarPort loadWorkingCalendarPort,
             LoadHolidaysPort loadHolidaysPort
     ) {
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
-        this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
-        this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
-        this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
-        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
-        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
-        this.loadHolidaysPort = loadHolidaysPort;
+        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, loadWorkingCalendarPort, loadHolidaysPort, null);
     }
 
     public SubmitLeaveRequestService(
@@ -64,7 +85,7 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
             SaveAuditLogInNewTransactionPort auditLogRepository,
             AuthorizationService authorizationService
     ) {
-        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, null, null);
+        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, null, null, null);
     }
 
     @Override
@@ -117,6 +138,32 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
                 workingDays,
                 currentEmployee.getStandardHoursPerWeek()
         );
+
+        // 5.1. TC-02 (NCL-05-CN-005): Nếu là nghỉ phép năm (ANNUAL), kiểm tra không được vượt quá số ngày phép còn lại
+        if (command.leaveType() == LeaveType.ANNUAL && loadLeaveBalancePort != null) {
+            int targetYear = command.startDate().getYear();
+            LeaveBalance balance = loadLeaveBalancePort.findByEmployeeIdAndYear(targetEmployeeId, targetYear)
+                    .orElseGet(() -> LeaveBalance.createDefault(targetEmployeeId, targetYear));
+
+            List<LeaveRequest> yearRequests = loadLeaveRequestPort.findByEmployeeIdAndYear(targetEmployeeId, targetYear);
+            BigDecimal currentUsed = yearRequests.stream()
+                    .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.APPROVED)
+                    .map(r -> BigDecimal.valueOf(r.getDaysCount()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal currentPending = yearRequests.stream()
+                    .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.PENDING)
+                    .map(r -> BigDecimal.valueOf(r.getDaysCount()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal remainingDays = LeaveBalancePolicy.calculateRemainingDays(
+                    balance.getEntitledDays(),
+                    balance.getCarriedOverDays(),
+                    currentUsed,
+                    currentPending
+            );
+
+            LeaveBalancePolicy.validateSufficientBalance(remainingDays, BigDecimal.valueOf(workingDays));
+        }
 
         // 6. TC-01: Khởi tạo đơn nghỉ phép ở trạng thái PENDING
         LeaveRequest leaveRequest = LeaveRequest.createPending(
