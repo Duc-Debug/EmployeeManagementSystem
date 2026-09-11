@@ -61,7 +61,7 @@ public class LeaveRequestController {
      * NCL-05-CN-002: Gửi đơn xin nghỉ phép mới (TC-01).
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('LEAVE_REQUEST_CREATE')")
+    @PreAuthorize("hasAnyAuthority('VT-04', 'ROLE_VT-04', 'LEAVE_REQUEST_CREATE')")
     public ResponseEntity<ApiResponse<LeaveRequestResult>> submitLeaveRequest(
             @Valid @RequestBody SubmitLeaveRequestWebRequest request
     ) {
@@ -83,7 +83,7 @@ public class LeaveRequestController {
      * Lấy danh sách toàn bộ đơn nghỉ phép của nhân viên đang đăng nhập.
      */
     @GetMapping("/my")
-    @PreAuthorize("hasAuthority('LEAVE_REQUEST_CREATE')")
+    @PreAuthorize("hasAnyAuthority('VT-04', 'ROLE_VT-04', 'LEAVE_REQUEST_CREATE')")
     public ResponseEntity<ApiResponse<List<LeaveRequestResult>>> getMyLeaveRequests() {
         Long currentUserId = authorizationService.require(PermissionCode.LEAVE_REQUEST_CREATE);
         Employee employee = loadEmployeePort.findByUserId(new UserId(currentUserId))
@@ -101,7 +101,7 @@ public class LeaveRequestController {
      * Hủy đơn xin nghỉ phép cá nhân (chỉ khi đang ở trạng thái PENDING).
      */
     @PutMapping("/{id}/cancel")
-    @PreAuthorize("hasAuthority('LEAVE_REQUEST_CREATE')")
+    @PreAuthorize("hasAnyAuthority('VT-04', 'ROLE_VT-04', 'LEAVE_REQUEST_CREATE')")
     public ResponseEntity<ApiResponse<Void>> cancelLeaveRequest(@PathVariable Long id) {
         cancelLeaveRequestUseCase.cancelLeaveRequest(id);
         return ResponseEntity.ok(ApiResponse.success("Hủy đơn xin nghỉ phép thành công", null));
@@ -111,7 +111,7 @@ public class LeaveRequestController {
      * NCL-05-CN-003: Lấy danh sách đơn xin nghỉ phép đang chờ duyệt (dành cho RM / HR).
      */
     @GetMapping("/pending")
-    @PreAuthorize("hasAuthority('LEAVE_REQUEST_APPROVE')")
+    @PreAuthorize("hasAnyAuthority('VT-03', 'VT-05', 'ROLE_VT-03', 'ROLE_VT-05', 'LEAVE_REQUEST_APPROVE')")
     public ResponseEntity<ApiResponse<List<LeaveRequestResult>>> getPendingLeaveRequests() {
         List<LeaveRequestResult> results = loadLeaveRequestPort.findPendingRequests()
                 .stream()
@@ -124,7 +124,7 @@ public class LeaveRequestController {
      * NCL-05-CN-003: TC-02 - Đánh giá ảnh hưởng của việc nghỉ phép tới các dự án hiện có.
      */
     @GetMapping("/{id}/impact")
-    @PreAuthorize("hasAuthority('LEAVE_REQUEST_APPROVE')")
+    @PreAuthorize("hasAnyAuthority('VT-03', 'VT-05', 'ROLE_VT-03', 'ROLE_VT-05', 'LEAVE_REQUEST_APPROVE')")
     public ResponseEntity<ApiResponse<LeaveImpactResult>> getLeaveImpact(@PathVariable Long id) {
         LeaveImpactResult result = getLeaveImpactUseCase.getLeaveImpact(id);
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin tác động dự án thành công", result));
@@ -134,7 +134,7 @@ public class LeaveRequestController {
      * NCL-05-CN-003: TC-01 & QTN-10 - Phê duyệt đơn xin nghỉ phép.
      */
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('LEAVE_REQUEST_APPROVE')")
+    @PreAuthorize("hasAnyAuthority('VT-03', 'VT-05', 'ROLE_VT-03', 'ROLE_VT-05', 'LEAVE_REQUEST_APPROVE')")
     public ResponseEntity<ApiResponse<LeaveRequestResult>> approveLeaveRequest(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveLeaveWebRequest request
@@ -148,7 +148,7 @@ public class LeaveRequestController {
      * NCL-05-CN-003: TC-04 - Từ chối đơn xin nghỉ phép kèm lý do bắt buộc.
      */
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('LEAVE_REQUEST_APPROVE')")
+    @PreAuthorize("hasAnyAuthority('VT-03', 'VT-05', 'ROLE_VT-03', 'ROLE_VT-05', 'LEAVE_REQUEST_APPROVE')")
     public ResponseEntity<ApiResponse<LeaveRequestResult>> rejectLeaveRequest(
             @PathVariable Long id,
             @Valid @RequestBody RejectLeaveWebRequest request
