@@ -47,4 +47,12 @@ public class LeaveRequestRepositoryAdapter implements SaveLeaveRequestPort, Load
     public boolean existsOverlappingLeave(Long employeeId, LocalDate startDate, LocalDate endDate) {
         return springDataLeaveRequestRepository.existsOverlappingLeave(employeeId, startDate, endDate);
     }
+
+    @Override
+    public List<LeaveRequest> findByEmployeeIdAndYear(Long employeeId, int year) {
+        LocalDate startOfYear = LocalDate.of(year, 1, 1);
+        LocalDate endOfYear = LocalDate.of(year, 12, 31);
+        return springDataLeaveRequestRepository.findAnnualLeavesInYear(employeeId, startOfYear, endOfYear)
+                .stream().map(mapper::toDomain).toList();
+    }
 }

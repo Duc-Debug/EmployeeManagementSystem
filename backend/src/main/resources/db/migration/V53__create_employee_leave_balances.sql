@@ -71,3 +71,8 @@ WHERE r.code IN ('VT-05', 'VT-06')
       SELECT 1 FROM role_permissions rp
       WHERE rp.role_id = r.id AND rp.permission_id = p.id
   );
+
+-- 5. Tạo composite index trên bảng leave_requests phục vụ tính quỹ phép cực nhanh
+CREATE INDEX idx_leave_requests_balance_lookup
+    ON leave_requests (employee_id, leave_type, status, start_date);
+
