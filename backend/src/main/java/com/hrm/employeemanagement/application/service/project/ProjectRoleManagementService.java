@@ -134,6 +134,15 @@ public class ProjectRoleManagementService implements
         return toResult(saved, group.getName());
     }
 
+    /**
+     * Ngừng sử dụng vai trò chuyên môn (Soft-Deactivation).
+     * <p>
+     * Theo đặc tả nghiệp vụ: vai trò không bị xóa vật lý (Hard Delete) để bảo toàn
+     * dữ liệu lịch sử các dự án, ước lượng nhu cầu nhân lực và hồ sơ nhân sự đã liên kết.
+     * Trạng thái được chuyển sang INACTIVE và ẩn khỏi các danh sách chọn tạo mới.
+     * Phương thức {@link #checkUsage(Long)} được cung cấp cho Frontend để hiển thị
+     * thông tin cảnh báo xác nhận trước khi gọi thao tác này.
+     */
     @Override
     public ProjectRoleResult deactivateProjectRole(Long roleId) {
         if (roleId == null) {

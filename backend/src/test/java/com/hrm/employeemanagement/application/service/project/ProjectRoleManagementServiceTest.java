@@ -22,6 +22,7 @@ import com.hrm.employeemanagement.application.dto.project.demand.CreateProjectRo
 import com.hrm.employeemanagement.application.dto.project.demand.ProjectRoleResult;
 import com.hrm.employeemanagement.application.dto.project.demand.ProjectRoleUsageResult;
 import com.hrm.employeemanagement.application.dto.project.demand.UpdateProjectRoleCommand;
+import com.hrm.employeemanagement.application.port.inbound.project.GetProjectRolesUseCase;
 import com.hrm.employeemanagement.application.port.outbound.project.CountProjectRoleUsagePort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectRolePort;
@@ -400,5 +401,24 @@ class ProjectRoleManagementServiceTest {
         assertThat(result.demandCount()).isEqualTo(2L);
         assertThat(result.employeeCount()).isEqualTo(3L);
         assertThat(result.warningMessage()).contains("2 nhu cầu dự án").contains("3 hồ sơ nhân sự");
+    }
+
+    @Test
+    @DisplayName("Contract: GetProjectRolesUseCase default method getProjectRoles() gọi getProjectRoles(false) chính xác")
+    void getProjectRolesUseCase_defaultMethod_delegatesToIncludeInactiveFalse() {
+        GetProjectRolesUseCase customUseCase = includeInactive -> {
+            if (!includeInactive) {
+                return List.of(new ProjectRoleResult(1L, "DEV", "Developer", "Desc", 1L, "Eng", "ACTIVE"));
+            }
+            return List.of(
+                    new ProjectRoleResult(1L, "DEV", "Developer", "Desc", 1L, "Eng", "ACTIVE"),
+                    new ProjectRoleResult(2L, "TEST", "Tester", "Desc", 1L, "Eng", "INACTIVE")
+            );
+        };
+
+        // Gọi method không tham số -> phải ủy quyền đến getProjectRoles(false)
+        List<ProjectRoleResult> defaultResults = customUseCase.getProjectRoles();
+        assertThat(defaultResults).hasSize(1);
+        assertThat(defaultResults.get(0).code()).isEqualTo("DEV");
     }
 }
