@@ -59,6 +59,7 @@ export interface TaskNodeResult {
   description?: string;
   taskType: BackendTaskType;
   assigneeId?: number;
+  assigneeIds?: number[];
   estimatedHours?: number;
   actualHours?: number;
   budgetHours?: number;
@@ -66,6 +67,8 @@ export interface TaskNodeResult {
   burnStatus?: 'NOT_SET' | 'SAFE' | 'WARNING' | 'OVER_BUDGET';
   isOverBudget?: boolean;
   status: BackendTaskStatus;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
   sortOrder?: number;
   createdBy?: number;
   createdAt?: string;
@@ -87,6 +90,8 @@ export interface TaskResult {
   actualHours?: number;
   budgetHours?: number;
   status: BackendTaskStatus;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
   sortOrder?: number;
   createdBy?: number;
   createdAt?: string;
@@ -220,6 +225,7 @@ export interface ProjectMemberResult {
   orgUnitName?: string;
   roleInProject: 'PROJECT_MANAGER' | 'MEMBER';
   status: string;
+  contractEndDate?: string;
 }
 
 /**
@@ -371,4 +377,64 @@ export async function estimateResourceDemand(
     body: JSON.stringify(payload),
   });
 }
+
+export interface AssignTaskPayload {
+  employeeIds: number[];
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+}
+
+export interface TaskAssignmentResult {
+  taskId: number;
+  taskCode: string;
+  taskName: string;
+  assigneeIds: number[];
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+}
+
+export interface MyTaskResult {
+  taskId: number;
+  taskCode: string;
+  taskName: string;
+  projectId: number;
+  projectName: string;
+  status: BackendTaskStatus;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  isPrimary: boolean;
+  assignedAt?: string;
+}
+
+/**
+ * Lấy danh sách toàn bộ nhân sự hoạt động trong công ty có thể phân công vào dự án/công việc
+ */
+export async function getAssignableEmployees(startDate?: string): Promise<ProjectMemberResult[]> {
+  const url = startDate
+    ? `/projects/assignable-employees?startDate=${encodeURIComponent(startDate)}`
+    : '/projects/assignable-employees';
+  return await apiRequest<ProjectMemberResult[]>(url);
+}
+
+/**
+ * Phân công một hoặc nhiều người thực hiện công việc kèm ngày bắt đầu và ngày kết thúc mong muốn
+ */
+export async function assignTask(
+  projectId: number | string,
+  taskId: number | string,
+  payload: AssignTaskPayload
+): Promise<TaskAssignmentResult> {
+  return await apiRequest<TaskAssignmentResult>(`/projects/${projectId}/tasks/${taskId}/assignment`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Lấy danh sách công việc được giao cho nhân sự đang đăng nhập
+ */
+export async function getMyTasks(): Promise<MyTaskResult[]> {
+  return await apiRequest<MyTaskResult[]>('/tasks/me');
+}
+
 

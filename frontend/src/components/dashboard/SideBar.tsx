@@ -36,7 +36,7 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
 
     switch (tabId) {
         case "overview":
-            // Tất cả 6 vai trò (VT-01 -> VT-06) đều có quyền truy cập trang Tổng quan
+            // Tất cả vai trò đều có quyền truy cập trang Tổng quan
             return true;
 
         case "access":

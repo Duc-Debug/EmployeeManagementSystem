@@ -3,6 +3,9 @@ export interface TaskItem {
     code: string;
     name: string;
     assigneeId: string;
+    assigneeIds?: string[];
+    plannedStartDate?: string;
+    plannedEndDate?: string;
     priority: 'Cao' | 'Trung bình' | 'Thấp';
     hours: number;
     budgetHours?: number; // Ngân sách giờ công do PM đặt
@@ -33,6 +36,8 @@ export interface ProjectMember {
     avatar: string;
     capacity: number; // e.g. 40h/week
     weeklyHours: Record<string, number>; // e.g. { W1: 40, W2: 35, W3: 20... }
+    contractEndDate?: string;
+    status?: string;
 }
 
 

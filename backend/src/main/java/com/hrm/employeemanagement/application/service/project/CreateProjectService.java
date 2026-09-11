@@ -145,7 +145,9 @@ public class CreateProjectService implements CreateProjectUseCase {
                 Long employeeOrgUnitId = loadEmployeePort.findByUserId(currentUser.getId())
                         .map(Employee::getOrgUnitId)
                         .orElse(null);
-                yield employeeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, employeeOrgUnitId);
+                yield employeeOrgUnitId != null
+                        && (loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, employeeOrgUnitId)
+                                || loadOrgUnitPort.existsInOrgUnitBranch(employeeOrgUnitId, orgUnitId));
             }
         };
     }

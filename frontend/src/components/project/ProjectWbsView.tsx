@@ -11,6 +11,7 @@ import {
     Target,
     AlertTriangle,
     Copy,
+    UserPlus,
 } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
 
@@ -23,6 +24,7 @@ interface ProjectWbsViewProps {
     onToggleTaskStatus: (catId: string, taskId: string) => void;
     onOpenBudgetModal?: (task: TaskItem) => void;
     onOpenCloneModal?: () => void;
+    onOpenAssignModal?: (task: TaskItem) => void;
 }
 
 export function ProjectWbsView({
@@ -34,6 +36,7 @@ export function ProjectWbsView({
     onToggleTaskStatus,
     onOpenBudgetModal,
     onOpenCloneModal,
+    onOpenAssignModal,
 }: ProjectWbsViewProps) {
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
@@ -59,15 +62,23 @@ export function ProjectWbsView({
 
     const filteredCategories = categories.map((cat) => {
         const filteredTasks = cat.tasks.filter((t) => {
-            const assignee = members.find((m) => m.id === t.assigneeId);
+            const taskAssigneeIds = t.assigneeIds && t.assigneeIds.length > 0
+                ? t.assigneeIds
+                : (t.assigneeId ? [t.assigneeId] : []);
+            const assignedMembers = taskAssigneeIds
+                .map((id) => members.find((m) => m.id === id))
+                .filter(Boolean) as ProjectMember[];
+
             const q = searchTerm.trim().toLowerCase();
             const matchSearch =
                 !q ||
                 t.name.toLowerCase().includes(q) ||
                 t.code.toLowerCase().includes(q) ||
-                (assignee && assignee.name.toLowerCase().includes(q)) ||
+                assignedMembers.some((m) => m.name.toLowerCase().includes(q)) ||
                 cat.name.toLowerCase().includes(q);
-            const matchRole = selectedRole === 'ALL' || (assignee && assignee.role === selectedRole);
+            const matchRole =
+                selectedRole === 'ALL' ||
+                assignedMembers.some((m) => m.role === selectedRole);
             return matchSearch && matchRole;
         });
 
@@ -245,7 +256,12 @@ export function ProjectWbsView({
                                             </div>
                                         ) : (
                                             cat.filteredTasks.map((t) => {
-                                                const assignee = members.find((m) => m.id === t.assigneeId);
+                                                const taskAssigneeIds = t.assigneeIds && t.assigneeIds.length > 0
+                                                    ? t.assigneeIds
+                                                    : (t.assigneeId ? [t.assigneeId] : []);
+                                                const assignedMembers = taskAssigneeIds
+                                                    .map((id) => members.find((m) => m.id === id))
+                                                    .filter(Boolean) as ProjectMember[];
                                                 const isDone = t.status === 'Hoàn thành';
 
                                                 return (
@@ -284,9 +300,15 @@ export function ProjectWbsView({
                                                                         <Clock className="h-3 w-3 text-slate-400" /> {t.hours}h
                                                                     </span>
                                                                     <span className="text-slate-300">•</span>
-                                                                    <span className="inline-flex items-center rounded bg-indigo-50 px-1 font-mono text-[10px] font-semibold text-indigo-600">
-                                                                        {t.startWeek} &rarr; {t.endWeek}
-                                                                    </span>
+                                                                    {t.plannedStartDate || t.plannedEndDate ? (
+                                                                        <span className="inline-flex items-center rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-600 border border-indigo-100" title="Ngày bắt đầu - kết thúc dự kiến">
+                                                                            {t.plannedStartDate || '...'} &rarr; {t.plannedEndDate || '...'}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="inline-flex items-center rounded bg-slate-100 px-1 font-mono text-[10px] font-medium text-slate-600">
+                                                                            {t.startWeek} &rarr; {t.endWeek}
+                                                                        </span>
+                                                                    )}
 
                                                                     {/* Ngân sách giờ công & So sánh thực tế */}
                                                                     <span className="text-slate-300">•</span>
@@ -364,6 +386,17 @@ export function ProjectWbsView({
                                                                 type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
+                                                                    onOpenAssignModal?.(t);
+                                                                }}
+                                                                className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer"
+                                                                title="Giao việc cho nhân sự"
+                                                            >
+                                                                <UserPlus className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     onOpenBudgetModal?.(t);
                                                                 }}
                                                                 className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer"
@@ -372,17 +405,53 @@ export function ProjectWbsView({
                                                                 <Target className="h-3.5 w-3.5" />
                                                             </button>
                                                             <div
-                                                                className="flex items-center gap-1.5 pl-1"
-                                                                title={assignee ? `${assignee.name} (${assignee.role})` : 'Chưa giao'}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onOpenAssignModal?.(t);
+                                                                }}
+                                                                className="flex items-center gap-1.5 pl-1 cursor-pointer hover:opacity-80 transition"
+                                                                title={
+                                                                    assignedMembers.length > 0
+                                                                        ? `Người thực hiện (${assignedMembers.length}): ${assignedMembers.map((m) => `${m.name} (${m.role})`).join(', ')} - Bấm để phân công`
+                                                                        : 'Chưa giao - Bấm để phân công'
+                                                                }
                                                             >
-                                                                <img
-                                                                    className="h-6 w-6 rounded-full border border-slate-200 object-cover"
-                                                                    src={assignee ? assignee.avatar : 'https://placehold.co/100x100?text=NA'}
-                                                                    alt=""
-                                                                />
-                                                                <span className="hidden max-w-[80px] truncate text-[11px] font-medium text-slate-600 md:inline">
-                                                                    {assignee ? assignee.name.split(' ').pop() : 'N/A'}
-                                                                </span>
+                                                                {assignedMembers.length === 0 ? (
+                                                                    <>
+                                                                        <img
+                                                                            className="h-6 w-6 rounded-full border border-slate-200 object-cover"
+                                                                            src="https://placehold.co/100x100?text=NA"
+                                                                            alt=""
+                                                                        />
+                                                                        <span className="hidden max-w-[80px] truncate text-[11px] font-medium text-slate-600 md:inline">
+                                                                            Chưa giao
+                                                                        </span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <div className="flex -space-x-2 overflow-hidden items-center">
+                                                                            {assignedMembers.slice(0, 3).map((m) => (
+                                                                                <img
+                                                                                    key={m.id}
+                                                                                    className="inline-block h-6 w-6 rounded-full ring-2 ring-white border border-slate-200 object-cover"
+                                                                                    src={m.avatar || 'https://placehold.co/100x100?text=NA'}
+                                                                                    alt={m.name}
+                                                                                    title={`${m.name} (${m.role})`}
+                                                                                />
+                                                                            ))}
+                                                                            {assignedMembers.length > 3 && (
+                                                                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 ring-2 ring-white">
+                                                                                    +{assignedMembers.length - 3}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <span className="hidden max-w-[120px] truncate text-[11px] font-medium text-slate-700 md:inline">
+                                                                            {assignedMembers.length === 1
+                                                                                ? assignedMembers[0].name.split(' ').pop()
+                                                                                : `${assignedMembers[0].name.split(' ').pop()} (+${assignedMembers.length - 1})`}
+                                                                        </span>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>

@@ -64,6 +64,12 @@ public class TaskJpaEntity {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
+    @Column(name = "planned_start_date")
+    private java.time.LocalDate plannedStartDate;
+
+    @Column(name = "planned_end_date")
+    private java.time.LocalDate plannedEndDate;
+
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -94,6 +100,8 @@ public class TaskJpaEntity {
             BigDecimal budgetHours,
             TaskStatus status,
             Integer sortOrder,
+            java.time.LocalDate plannedStartDate,
+            java.time.LocalDate plannedEndDate,
             Long createdBy,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
@@ -111,10 +119,52 @@ public class TaskJpaEntity {
         this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
+        this.plannedStartDate = plannedStartDate;
+        this.plannedEndDate = plannedEndDate;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+    }
+
+    public TaskJpaEntity(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                null,
+                null,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version);
     }
 
     public TaskJpaEntity(
@@ -311,6 +361,22 @@ public class TaskJpaEntity {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public java.time.LocalDate getPlannedStartDate() {
+        return plannedStartDate;
+    }
+
+    public void setPlannedStartDate(java.time.LocalDate plannedStartDate) {
+        this.plannedStartDate = plannedStartDate;
+    }
+
+    public java.time.LocalDate getPlannedEndDate() {
+        return plannedEndDate;
+    }
+
+    public void setPlannedEndDate(java.time.LocalDate plannedEndDate) {
+        this.plannedEndDate = plannedEndDate;
     }
 
     public Long getVersion() {

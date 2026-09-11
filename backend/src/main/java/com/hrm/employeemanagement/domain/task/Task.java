@@ -24,6 +24,8 @@ public class Task {
     private BigDecimal budgetHours;
     private TaskStatus status;
     private Integer sortOrder;
+    private java.time.LocalDate plannedStartDate;
+    private java.time.LocalDate plannedEndDate;
     private UserId createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -43,6 +45,8 @@ public class Task {
             BigDecimal budgetHours,
             TaskStatus status,
             Integer sortOrder,
+            java.time.LocalDate plannedStartDate,
+            java.time.LocalDate plannedEndDate,
             UserId createdBy,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
@@ -54,6 +58,7 @@ public class Task {
         validateBudgetHours(budgetHours);
         validateTaskTypeAndAssignee(taskType, assigneeId);
         validateSortOrder(sortOrder);
+        validatePlannedDates(plannedStartDate, plannedEndDate);
         this.id = id;
         this.projectId = projectId;
         this.parentId = parentId;
@@ -67,10 +72,52 @@ public class Task {
         this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
+        this.plannedStartDate = plannedStartDate;
+        this.plannedEndDate = plannedEndDate;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+    }
+
+    public Task(
+            TaskId id,
+            ProjectId projectId,
+            TaskId parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            EmployeeId assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            UserId createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                null,
+                null,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version);
     }
 
     public Task(
@@ -362,6 +409,27 @@ public class Task {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    private void validatePlannedDates(java.time.LocalDate start, java.time.LocalDate end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new InvalidTaskDataException("Ngày kết thúc mong muốn không được trước ngày bắt đầu mong muốn");
+        }
+    }
+
+    public void updatePlannedDates(java.time.LocalDate plannedStartDate, java.time.LocalDate plannedEndDate) {
+        validatePlannedDates(plannedStartDate, plannedEndDate);
+        this.plannedStartDate = plannedStartDate;
+        this.plannedEndDate = plannedEndDate;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public java.time.LocalDate getPlannedStartDate() {
+        return plannedStartDate;
+    }
+
+    public java.time.LocalDate getPlannedEndDate() {
+        return plannedEndDate;
     }
 
     public Long getVersion() {

@@ -156,4 +156,11 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
         }
         return springDataEmployeeRepository.countByProjectManager(pmEmployeeId);
     }
+
+    @Override
+    public List<Employee> findAllActive() {
+        return springDataEmployeeRepository.findByStatus(com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE.name()).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
 }

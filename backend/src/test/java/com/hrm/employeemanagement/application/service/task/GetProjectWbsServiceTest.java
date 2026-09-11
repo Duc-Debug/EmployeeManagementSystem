@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.hrm.employeemanagement.application.dto.task.TaskNodeResult;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -35,6 +36,7 @@ import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.task.Task;
+import com.hrm.employeemanagement.domain.task.TaskAssignment;
 import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.task.TaskStatus;
 import com.hrm.employeemanagement.domain.task.TaskType;
@@ -50,6 +52,9 @@ class GetProjectWbsServiceTest {
 
     @Mock
     private LoadTaskPort loadTaskPort;
+
+    @Mock
+    private LoadTaskAssignmentPort loadTaskAssignmentPort;
 
     @Mock
     private LoadProjectPort loadProjectPort;
@@ -72,6 +77,7 @@ class GetProjectWbsServiceTest {
     void setUp() {
         service = new GetProjectWbsService(
                 loadTaskPort,
+                loadTaskAssignmentPort,
                 loadProjectPort,
                 loadEmployeePort,
                 loadUserPort,
@@ -193,4 +199,48 @@ class GetProjectWbsServiceTest {
         assertThatThrownBy(() -> service.getProjectWbs(999L))
                 .isInstanceOf(ProjectNotFoundException.class);
     }
+
+    private Task createTaskWithAssignee(Long id, Long parentId, String name, TaskType type, int sortOrder, Long assigneeId) {
+        return new Task(
+                new TaskId(id),
+                new ProjectId(PROJECT_ID),
+                parentId != null ? new TaskId(parentId) : null,
+                "PRJ-01-T00" + id,
+                name,
+                null,
+                type,
+                assigneeId != null ? new EmployeeId(assigneeId) : null,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                TaskStatus.TODO,
+                sortOrder,
+                new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(),
+                null,
+                0L);
+    }
+
+    @Test
+    @DisplayName("Trả về danh sách người thực hiện (assigneeIds) đầy đủ cho task có nhiều phân công")
+    void testGetProjectWbs_MultipleAssignees() {
+        when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser()));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+
+        Task task1 = createTaskWithAssignee(1L, null, "Task 1", TaskType.TASK, 1, 10L);
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(task1));
+
+        TaskAssignment assign1 = TaskAssignment.create(new TaskId(1L), new EmployeeId(10L), new UserId(CURRENT_USER_ID), true);
+        TaskAssignment assign2 = TaskAssignment.create(new TaskId(1L), new EmployeeId(20L), new UserId(CURRENT_USER_ID), false);
+        when(loadTaskAssignmentPort.findByTaskIdIn(List.of(new TaskId(1L))))
+                .thenReturn(List.of(assign1, assign2));
+
+        List<TaskNodeResult> tree = service.getProjectWbs(PROJECT_ID);
+
+        assertThat(tree).hasSize(1);
+        TaskNodeResult node = tree.get(0);
+        assertThat(node.assigneeId()).isEqualTo(10L);
+        assertThat(node.assigneeIds()).containsExactlyInAnyOrder(10L, 20L);
+    }
 }
+

@@ -60,7 +60,9 @@ export function ProjectCreateModal({
                     };
                     flatten(tree);
                     setOrgUnits(flat);
-                    if (flat.length > 0) {
+                    if (currentUser?.orgUnitId && flat.some((u) => u.id === currentUser.orgUnitId)) {
+                        setOrgUnitId(currentUser.orgUnitId);
+                    } else if (flat.length > 0) {
                         setOrgUnitId(flat[0].id);
                     }
                 })

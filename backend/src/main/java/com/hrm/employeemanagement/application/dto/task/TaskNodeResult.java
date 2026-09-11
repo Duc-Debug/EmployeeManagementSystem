@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.dto.task;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +23,7 @@ public record TaskNodeResult(
         String description,
         TaskType taskType,
         Long assigneeId,
+        List<Long> assigneeIds,
         BigDecimal estimatedHours,
         BigDecimal actualHours,
         BigDecimal budgetHours,
@@ -30,6 +32,8 @@ public record TaskNodeResult(
         Boolean isOverBudget,
         TaskStatus status,
         Integer sortOrder,
+        LocalDate plannedStartDate,
+        LocalDate plannedEndDate,
         Long createdBy,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
@@ -40,6 +44,60 @@ public record TaskNodeResult(
         if (children == null) {
             children = new ArrayList<>();
         }
+        if (assigneeIds == null) {
+            assigneeIds = assigneeId != null ? List.of(assigneeId) : List.of();
+        }
+    }
+
+    public TaskNodeResult(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            BigDecimal burnedPercentage,
+            TaskBudgetBurnStatus burnStatus,
+            Boolean isOverBudget,
+            TaskStatus status,
+            Integer sortOrder,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            List<TaskNodeResult> children
+    ) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                assigneeId != null ? List.of(assigneeId) : List.of(),
+                estimatedHours,
+                actualHours,
+                budgetHours != null ? budgetHours : BigDecimal.ZERO,
+                burnedPercentage != null ? burnedPercentage : BigDecimal.ZERO,
+                burnStatus != null ? burnStatus : TaskBudgetBurnStatus.NOT_SET,
+                isOverBudget != null ? isOverBudget : false,
+                status,
+                sortOrder,
+                null,
+                null,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version,
+                children
+        );
     }
 
     public TaskNodeResult(
@@ -71,6 +129,7 @@ public record TaskNodeResult(
                 description,
                 taskType,
                 assigneeId,
+                assigneeId != null ? List.of(assigneeId) : List.of(),
                 estimatedHours,
                 actualHours,
                 budgetHours != null ? budgetHours : BigDecimal.ZERO,
@@ -79,6 +138,8 @@ public record TaskNodeResult(
                 false,
                 status,
                 sortOrder,
+                null,
+                null,
                 createdBy,
                 createdAt,
                 updatedAt,

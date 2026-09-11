@@ -27,6 +27,9 @@ public interface SpringDataEmployeeRepository extends JpaRepository<EmployeeJpaE
     List<EmployeeJpaEntity> findByOrgUnitId(Long orgUnitId);
     List<EmployeeJpaEntity> findByOrgUnitIdAndStatus(Long orgUnitId, String status);
 
+    @Query("SELECT e FROM EmployeeJpaEntity e WHERE UPPER(e.status) = UPPER(:status) OR (e.status IS NULL AND UPPER(:status) = 'ACTIVE')")
+    List<EmployeeJpaEntity> findByStatus(@Param("status") String status);
+
     @Query(value = """
         SELECT e.*
         FROM employees e

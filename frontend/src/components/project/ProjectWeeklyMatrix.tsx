@@ -1,5 +1,24 @@
-import { Calendar, ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react';
-import type { ProjectMember, ProjectMonth } from './projectData';
+import { Calendar, ChevronLeft, ChevronRight, Lightbulb, AlertTriangle } from 'lucide-react';
+import type { ProjectMember, ProjectMonth, MonthWeek } from './projectData';
+
+function isWeekPastContractEnd(w: MonthWeek, contractEndDateStr?: string): boolean {
+    if (!contractEndDateStr) return false;
+    const contractDate = new Date(contractEndDateStr);
+    if (isNaN(contractDate.getTime())) return false;
+
+    if (w.year && w.weekNumber) {
+        const simple = new Date(w.year, 0, 1 + (w.weekNumber - 1) * 7);
+        const dow = simple.getDay();
+        const ISOweekStart = new Date(simple);
+        if (dow <= 4) {
+            ISOweekStart.setDate(simple.getDate() - (simple.getDay() || 7) + 1);
+        } else {
+            ISOweekStart.setDate(simple.getDate() + 8 - (simple.getDay() || 7));
+        }
+        return contractDate < ISOweekStart;
+    }
+    return false;
+}
 
 interface ProjectWeeklyMatrixProps {
     month: ProjectMonth;
@@ -190,10 +209,22 @@ export function ProjectWeeklyMatrix({
                                                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="truncate text-xs font-semibold text-slate-800">
-                                                        {member.name}
+                                                    <div className="truncate text-xs font-semibold text-slate-800 flex items-center gap-1">
+                                                        <span>{member.name}</span>
+                                                        {member.status && member.status !== 'ACTIVE' && (
+                                                            <span className="rounded bg-rose-100 px-1 py-0.2 text-[8px] font-bold text-rose-700">
+                                                                Đã nghỉ
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    <div className="truncate text-[10px] text-slate-400">{member.role}</div>
+                                                    <div className="truncate text-[10px] text-slate-400 flex items-center gap-1">
+                                                        <span>{member.role}</span>
+                                                        {member.contractEndDate && (
+                                                            <span className="text-[9px] text-amber-600 font-mono">
+                                                                (HĐ: {member.contractEndDate})
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
@@ -202,6 +233,8 @@ export function ProjectWeeklyMatrix({
                                         {monthWeeks.map((w) => {
                                             const hours = member.weeklyHours[w.key] || 0;
                                             const cellStyle = getHeatmapStyle(hours, member.capacity);
+                                            const isPastContract = isWeekPastContractEnd(w, member.contractEndDate) || (member.status && member.status !== 'ACTIVE');
+                                            const hasExpiredAllocationWarning = hours > 0 && isPastContract;
 
                                             return (
                                                 <td
@@ -210,11 +243,21 @@ export function ProjectWeeklyMatrix({
                                                 >
                                                     <div
                                                         onClick={() => onOpenAdjustModal(member.id, w.key, w.label)}
-                                                        className={`cursor-pointer select-none rounded-lg p-1.5 transition transform hover:scale-105 active:scale-95 border ${cellStyle.bg} ${cellStyle.border} ${cellStyle.text}`}
+                                                        title={hasExpiredAllocationWarning ? `Cảnh báo: Nhân sự đã nghỉ việc / hết hạn HĐ (${member.contractEndDate || 'Đã nghỉ'}), phân bổ ${hours}h này vắt qua ngày nghỉ việc!` : undefined}
+                                                        className={`cursor-pointer select-none rounded-lg p-1.5 transition transform hover:scale-105 active:scale-95 border ${
+                                                            hasExpiredAllocationWarning
+                                                                ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-300'
+                                                                : `${cellStyle.bg} ${cellStyle.border} ${cellStyle.text}`
+                                                        }`}
                                                     >
-                                                        <div className="text-xs font-bold">{hours}h</div>
+                                                        <div className="text-xs font-bold flex items-center justify-center gap-0.5">
+                                                            {hasExpiredAllocationWarning && (
+                                                                <AlertTriangle className="h-3 w-3 text-amber-600 shrink-0" />
+                                                            )}
+                                                            <span>{hours}h</span>
+                                                        </div>
                                                         <div className="mt-0.5 text-[9px] font-medium leading-none opacity-90">
-                                                            {cellStyle.label}
+                                                            {hasExpiredAllocationWarning ? '⚠ Quá hạn HĐ' : cellStyle.label}
                                                         </div>
                                                     </div>
                                                 </td>

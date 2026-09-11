@@ -67,6 +67,9 @@ class ProjectControllerTest {
     @Mock
     private ReopenProjectUseCase reopenProjectUseCase;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase;
+
     @BeforeEach
     void setUp() {
         ProjectController controller =
@@ -78,7 +81,8 @@ class ProjectControllerTest {
                         createProjectFromTemplateUseCase,
                         getProjectTemplatesUseCase,
                         closeProjectUseCase,
-                        reopenProjectUseCase
+                        reopenProjectUseCase,
+                        getAssignableEmployeesUseCase
                 );
 
         mockMvc = MockMvcBuilders
@@ -501,6 +505,29 @@ class ProjectControllerTest {
         )
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/projects/assignable-employees tra ve danh sach nhan su co the phan cong")
+    void testGetAssignableEmployees_Success() throws Exception {
+        when(getAssignableEmployeesUseCase.getAssignableEmployees()).thenReturn(List.of(
+                new com.hrm.employeemanagement.application.dto.project.ProjectMemberResult(
+                        10L,
+                        "EMP01",
+                        "Nguyễn Văn A",
+                        "a@example.com",
+                        1L,
+                        "Phòng Kỹ thuật",
+                        com.hrm.employeemanagement.domain.project.ProjectMemberRole.MEMBER,
+                        "ACTIVE"
+                )
+        ));
+
+        mockMvc.perform(get("/api/v1/projects/assignable-employees"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].employeeId").value(10))
+                .andExpect(jsonPath("$.data[0].fullName").value("Nguyễn Văn A"));
     }
 
     private ProjectResult projectResult(Long id) {
