@@ -50,6 +50,10 @@ class GetEmployeeLeaveBalanceServiceTest {
     private AuthorizationService authorizationService;
     @Mock
     private SaveAuditLogInNewTransactionPort auditLogRepository;
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort;
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort loadHolidaysPort;
 
     private GetEmployeeLeaveBalanceService service;
 
@@ -63,7 +67,9 @@ class GetEmployeeLeaveBalanceServiceTest {
                 saveLeaveBalancePort,
                 loadLeaveRequestPort,
                 authorizationService,
-                auditLogRepository
+                auditLogRepository,
+                loadWorkingCalendarPort,
+                loadHolidaysPort
         );
     }
 

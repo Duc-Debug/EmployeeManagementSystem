@@ -54,14 +54,18 @@ public class LeaveUseCaseConfig {
             LoadLeaveBalancePort loadLeaveBalancePort,
             SaveLeaveBalancePort saveLeaveBalancePort,
             LoadLeaveRequestPort loadLeaveRequestPort,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadHolidaysPort loadHolidaysPort
     ) {
         GetMyLeaveBalanceService service = new GetMyLeaveBalanceService(
                 loadEmployeePort,
                 loadLeaveBalancePort,
                 saveLeaveBalancePort,
                 loadLeaveRequestPort,
-                authorizationService
+                authorizationService,
+                loadWorkingCalendarPort,
+                loadHolidaysPort
         );
         return new TransactionalGetMyLeaveBalanceService(service);
     }
@@ -75,7 +79,9 @@ public class LeaveUseCaseConfig {
             SaveLeaveBalancePort saveLeaveBalancePort,
             LoadLeaveRequestPort loadLeaveRequestPort,
             AuthorizationService authorizationService,
-            SaveAuditLogInNewTransactionPort auditLogRepository
+            SaveAuditLogInNewTransactionPort auditLogRepository,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadHolidaysPort loadHolidaysPort
     ) {
         GetEmployeeLeaveBalanceService service = new GetEmployeeLeaveBalanceService(
                 loadEmployeePort,
@@ -85,7 +91,9 @@ public class LeaveUseCaseConfig {
                 saveLeaveBalancePort,
                 loadLeaveRequestPort,
                 authorizationService,
-                auditLogRepository
+                auditLogRepository,
+                loadWorkingCalendarPort,
+                loadHolidaysPort
         );
         return new TransactionalGetEmployeeLeaveBalanceService(service);
     }

@@ -36,16 +36,20 @@ public class LeaveBalanceRepositoryAdapter implements LoadLeaveBalancePort, Save
             return mapper.toDomain(existing.get());
         }
 
-        EmployeeLeaveBalanceJpaEntity entity = mapper.toJpaEntity(LeaveBalance.createDefault(employeeId, year));
-        try {
-            EmployeeLeaveBalanceJpaEntity saved = repository.saveAndFlush(entity);
-            return mapper.toDomain(saved);
-        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-            // Trường hợp race condition: transaction song song đã insert trước
-            return repository.findByEmployeeIdAndYearNumber(employeeId, year)
-                    .map(mapper::toDomain)
-                    .orElseThrow(() -> ex);
-        }
+        // Khởi tạo atomic bằng native query ON CONFLICT DO NOTHING, tránh ném exception làm rollback transaction
+        repository.insertIfNotExists(employeeId, year, new java.math.BigDecimal("12.0"), java.math.BigDecimal.ZERO);
+        return repository.findByEmployeeIdAndYearNumber(employeeId, year)
+                .map(mapper::toDomain)
+                .orElseGet(() -> LeaveBalance.createDefault(employeeId, year));
+    }
+
+    @Override
+    public LeaveBalance findOrCreateDefaultWithLock(Long employeeId, int year) {
+        // Đảm bảo bản ghi tồn tại một cách atomic trước khi lấy pessimistic lock (SELECT FOR UPDATE)
+        repository.insertIfNotExists(employeeId, year, new java.math.BigDecimal("12.0"), java.math.BigDecimal.ZERO);
+        return repository.findByEmployeeIdAndYearNumberWithLock(employeeId, year)
+                .map(mapper::toDomain)
+                .orElseGet(() -> LeaveBalance.createDefault(employeeId, year));
     }
 
     @Override

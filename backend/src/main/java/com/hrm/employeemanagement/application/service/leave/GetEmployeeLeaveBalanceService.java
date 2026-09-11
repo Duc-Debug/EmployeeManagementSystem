@@ -27,9 +27,16 @@ import java.util.List;
 import java.util.Objects;
 
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.user.User;
+
+import java.time.LocalDate;
+import java.util.Collections;
+import java.util.Set;
 
 public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUseCase {
 
@@ -41,6 +48,8 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
     private final LoadLeaveRequestPort loadLeaveRequestPort;
     private final AuthorizationService authorizationService;
     private final SaveAuditLogInNewTransactionPort auditLogRepository;
+    private final LoadWorkingCalendarPort loadWorkingCalendarPort;
+    private final LoadHolidaysPort loadHolidaysPort;
 
     public GetEmployeeLeaveBalanceService(
             LoadEmployeePort loadEmployeePort,
@@ -50,7 +59,9 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
             SaveLeaveBalancePort saveLeaveBalancePort,
             LoadLeaveRequestPort loadLeaveRequestPort,
             AuthorizationService authorizationService,
-            SaveAuditLogInNewTransactionPort auditLogRepository
+            SaveAuditLogInNewTransactionPort auditLogRepository,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadHolidaysPort loadHolidaysPort
     ) {
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
@@ -60,6 +71,8 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
         this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
+        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
+        this.loadHolidaysPort = loadHolidaysPort;
     }
 
     @Override
@@ -77,6 +90,13 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
 
         int targetYear = (year != null && year > 2000) ? year : LocalDate.now().getYear();
 
+        CompanyWorkingCalendar calendar = loadWorkingCalendarPort != null
+                ? loadWorkingCalendarPort.loadCompanyCalendar()
+                : CompanyWorkingCalendar.createDefault();
+        Set<LocalDate> holidayDates = (loadHolidaysPort != null)
+                ? new java.util.HashSet<>(loadHolidaysPort.getHolidayDatesBetween(LocalDate.of(targetYear, 1, 1), LocalDate.of(targetYear, 12, 31)))
+                : Collections.emptySet();
+
         // Tải thông tin định mức phép năm một cách atomic tránh race condition
         LeaveBalance balance = loadLeaveBalancePort.findOrCreateDefault(targetEmployeeId, targetYear);
 
@@ -84,12 +104,14 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
 
         BigDecimal usedDays = requests.stream()
                 .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.APPROVED)
-                .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(r.getStartDate(), r.getEndDate(), targetYear)))
+                .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(
+                        r.getStartDate(), r.getEndDate(), targetYear, calendar, holidayDates)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal pendingDays = requests.stream()
                 .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.PENDING)
-                .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(r.getStartDate(), r.getEndDate(), targetYear)))
+                .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(
+                        r.getStartDate(), r.getEndDate(), targetYear, calendar, holidayDates)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal remainingDays = LeaveBalancePolicy.calculateRemainingDays(

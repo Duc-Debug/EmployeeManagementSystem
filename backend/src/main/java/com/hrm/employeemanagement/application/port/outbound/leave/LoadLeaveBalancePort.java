@@ -8,4 +8,6 @@ public interface LoadLeaveBalancePort {
     Optional<LeaveBalance> findByEmployeeIdAndYear(Long employeeId, int year);
 
     LeaveBalance findOrCreateDefault(Long employeeId, int year);
+ 
+    LeaveBalance findOrCreateDefaultWithLock(Long employeeId, int year);
 }
