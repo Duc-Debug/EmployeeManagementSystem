@@ -26,9 +26,16 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
+import com.hrm.employeemanagement.domain.user.User;
+
 public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUseCase {
 
     private final LoadEmployeePort loadEmployeePort;
+    private final LoadUserPort loadUserPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadLeaveBalancePort loadLeaveBalancePort;
     private final SaveLeaveBalancePort saveLeaveBalancePort;
     private final LoadLeaveRequestPort loadLeaveRequestPort;
@@ -37,6 +44,8 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
 
     public GetEmployeeLeaveBalanceService(
             LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
             LoadLeaveBalancePort loadLeaveBalancePort,
             SaveLeaveBalancePort saveLeaveBalancePort,
             LoadLeaveRequestPort loadLeaveRequestPort,
@@ -44,6 +53,8 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
             SaveAuditLogInNewTransactionPort auditLogRepository
     ) {
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "loadOrgUnitPort must not be null");
         this.loadLeaveBalancePort = Objects.requireNonNull(loadLeaveBalancePort, "loadLeaveBalancePort must not be null");
         this.saveLeaveBalancePort = Objects.requireNonNull(saveLeaveBalancePort, "saveLeaveBalancePort must not be null");
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
@@ -55,43 +66,30 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
     public LeaveBalanceResult getEmployeeLeaveBalance(Long targetEmployeeId, Integer year) {
         Long currentUserId = authorizationService.require(PermissionCode.LEAVE_BALANCE_READ);
 
-        Employee currentEmployee = loadEmployeePort.findByUserId(new UserId(currentUserId))
-                .orElseThrow(() -> new EmployeeNotFoundException("Tài khoản chưa được liên kết với hồ sơ nhân sự"));
-
-        // TC-03: Kiểm tra quyền truy cập. Nếu nhân viên xem trộm người khác => Từ chối & ghi Audit Log
-        boolean isSelf = currentEmployee.getIdValue().equals(targetEmployeeId);
-        if (!isSelf && !authorizationService.hasPermission(PermissionCode.LEAVE_BALANCE_MANAGE)) {
-            // Ghi nhật ký lần từ chối truy cập (AC-03)
-            auditLogRepository.save(AuditLog.createChange(
-                    currentUserId,
-                    "ACCESS_DENIED_LEAVE_BALANCE",
-                    "employee_leave_balances",
-                    targetEmployeeId,
-                    null,
-                    String.format("Người dùng ID %d cố ý truy cập quỹ ngày phép của nhân viên ID %d mà không có quyền",
-                            currentUserId, targetEmployeeId)
-            ));
-            throw new PermissionDeniedException(PermissionCode.LEAVE_BALANCE_READ);
-        }
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại với ID: " + currentUserId));
 
         Employee targetEmployee = loadEmployeePort.findById(new EmployeeId(targetEmployeeId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự"));
 
+        // Áp dụng mô hình DataScope (SELF / ORG_BRANCH / COMPANY)
+        requireEmployeeInScope(currentUser, targetEmployee, currentUserId, targetEmployeeId);
+
         int targetYear = (year != null && year > 2000) ? year : LocalDate.now().getYear();
 
-        LeaveBalance balance = loadLeaveBalancePort.findByEmployeeIdAndYear(targetEmployeeId, targetYear)
-                .orElseGet(() -> saveLeaveBalancePort.save(LeaveBalance.createDefault(targetEmployeeId, targetYear)));
+        // Tải thông tin định mức phép năm một cách atomic tránh race condition
+        LeaveBalance balance = loadLeaveBalancePort.findOrCreateDefault(targetEmployeeId, targetYear);
 
         List<LeaveRequest> requests = loadLeaveRequestPort.findByEmployeeIdAndYear(targetEmployeeId, targetYear);
 
         BigDecimal usedDays = requests.stream()
                 .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.APPROVED)
-                .map(r -> BigDecimal.valueOf(r.getDaysCount()))
+                .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(r.getStartDate(), r.getEndDate(), targetYear)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal pendingDays = requests.stream()
                 .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.PENDING)
-                .map(r -> BigDecimal.valueOf(r.getDaysCount()))
+                .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(r.getStartDate(), r.getEndDate(), targetYear)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal remainingDays = LeaveBalancePolicy.calculateRemainingDays(
@@ -111,5 +109,29 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
                 pendingDays,
                 remainingDays
         );
+    }
+
+    private void requireEmployeeInScope(User currentUser, Employee targetEmployee, Long currentUserId, Long targetEmployeeId) {
+        boolean allowed = switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case SELF -> currentUser.getIdValue() != null && currentUser.getIdValue().equals(targetEmployee.getUserIdValue());
+            case ORGANIZATION_BRANCH -> targetEmployee.getOrgUnitId() != null
+                    && currentUser.getScopeOrgUnitId() != null
+                    && loadOrgUnitPort.existsInOrgUnitBranch(targetEmployee.getOrgUnitId(), currentUser.getScopeOrgUnitId());
+        };
+
+        if (!allowed) {
+            // Ghi nhật ký lần từ chối truy cập (AC-03)
+            auditLogRepository.save(AuditLog.createChange(
+                    currentUserId,
+                    "ACCESS_DENIED_LEAVE_BALANCE",
+                    "employee_leave_balances",
+                    targetEmployeeId,
+                    null,
+                    String.format("Người dùng ID %d cố ý truy cập quỹ ngày phép của nhân viên ID %d nằm ngoài phạm vi dữ liệu (%s)",
+                            currentUserId, targetEmployeeId, currentUser.getDataScope())
+            ));
+            throw new PermissionDeniedException(PermissionCode.LEAVE_BALANCE_READ);
+        }
     }
 }

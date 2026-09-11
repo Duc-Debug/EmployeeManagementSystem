@@ -139,30 +139,42 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
                 currentEmployee.getStandardHoursPerWeek()
         );
 
-        // 5.1. TC-02 (NCL-05-CN-005): Nếu là nghỉ phép năm (ANNUAL), kiểm tra không được vượt quá số ngày phép còn lại
+        // 5.1. TC-02 (NCL-05-CN-005): Nếu là nghỉ phép năm (ANNUAL), kiểm tra không được vượt quá số ngày phép còn lại cho từng năm tương ứng
         if (command.leaveType() == LeaveType.ANNUAL && loadLeaveBalancePort != null) {
-            int targetYear = command.startDate().getYear();
-            LeaveBalance balance = loadLeaveBalancePort.findByEmployeeIdAndYear(targetEmployeeId, targetYear)
-                    .orElseGet(() -> LeaveBalance.createDefault(targetEmployeeId, targetYear));
+            int startYear = command.startDate().getYear();
+            int endYear = command.endDate().getYear();
 
-            List<LeaveRequest> yearRequests = loadLeaveRequestPort.findByEmployeeIdAndYear(targetEmployeeId, targetYear);
-            BigDecimal currentUsed = yearRequests.stream()
-                    .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.APPROVED)
-                    .map(r -> BigDecimal.valueOf(r.getDaysCount()))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal currentPending = yearRequests.stream()
-                    .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.PENDING)
-                    .map(r -> BigDecimal.valueOf(r.getDaysCount()))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            for (int y = startYear; y <= endYear; y++) {
+                final int targetYear = y;
+                int daysInTargetYear = LeaveBalancePolicy.calculateWorkingDaysInYear(
+                        command.startDate(), command.endDate(), targetYear, calendar, holidayDates);
 
-            BigDecimal remainingDays = LeaveBalancePolicy.calculateRemainingDays(
-                    balance.getEntitledDays(),
-                    balance.getCarriedOverDays(),
-                    currentUsed,
-                    currentPending
-            );
+                if (daysInTargetYear > 0) {
+                    LeaveBalance balance = loadLeaveBalancePort.findByEmployeeIdAndYear(targetEmployeeId, targetYear)
+                            .orElseGet(() -> LeaveBalance.createDefault(targetEmployeeId, targetYear));
 
-            LeaveBalancePolicy.validateSufficientBalance(remainingDays, BigDecimal.valueOf(workingDays));
+                    List<LeaveRequest> yearRequests = loadLeaveRequestPort.findByEmployeeIdAndYear(targetEmployeeId, targetYear);
+                    BigDecimal currentUsed = yearRequests.stream()
+                            .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.APPROVED)
+                            .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(
+                                    r.getStartDate(), r.getEndDate(), targetYear, calendar, holidayDates)))
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal currentPending = yearRequests.stream()
+                            .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.PENDING)
+                            .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(
+                                    r.getStartDate(), r.getEndDate(), targetYear, calendar, holidayDates)))
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    BigDecimal remainingDays = LeaveBalancePolicy.calculateRemainingDays(
+                            balance.getEntitledDays(),
+                            balance.getCarriedOverDays(),
+                            currentUsed,
+                            currentPending
+                    );
+
+                    LeaveBalancePolicy.validateSufficientBalance(remainingDays, BigDecimal.valueOf(daysInTargetYear));
+                }
+            }
         }
 
         // 6. TC-01: Khởi tạo đơn nghỉ phép ở trạng thái PENDING

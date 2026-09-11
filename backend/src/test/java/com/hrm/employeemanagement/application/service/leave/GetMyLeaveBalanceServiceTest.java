@@ -94,7 +94,7 @@ class GetMyLeaveBalanceServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(userId))).thenReturn(Optional.of(createMockEmployee(empId, userId)));
 
         LeaveBalance balance = new LeaveBalance(1L, empId, year, new BigDecimal("12.00"), new BigDecimal("2.00"));
-        when(loadLeaveBalancePort.findByEmployeeIdAndYear(empId, year)).thenReturn(Optional.of(balance));
+        when(loadLeaveBalancePort.findOrCreateDefault(empId, year)).thenReturn(balance);
 
         // Đã nghỉ 3 ngày APPROVED và đang chờ 2 ngày PENDING
         List<LeaveRequest> requests = List.of(
@@ -125,8 +125,8 @@ class GetMyLeaveBalanceServiceTest {
 
         when(authorizationService.require(PermissionCode.LEAVE_BALANCE_READ)).thenReturn(userId);
         when(loadEmployeePort.findByUserId(new UserId(userId))).thenReturn(Optional.of(createMockEmployee(empId, userId)));
-        when(loadLeaveBalancePort.findByEmployeeIdAndYear(empId, year)).thenReturn(Optional.empty());
-        when(saveLeaveBalancePort.save(any(LeaveBalance.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(loadLeaveBalancePort.findOrCreateDefault(empId, year))
+                .thenReturn(LeaveBalance.createDefault(empId, year));
         when(loadLeaveRequestPort.findByEmployeeIdAndYear(empId, year)).thenReturn(List.of());
 
         LeaveBalanceResult result = service.getMyLeaveBalance(year);

@@ -69,6 +69,8 @@ public class LeaveUseCaseConfig {
     @Bean
     public GetEmployeeLeaveBalanceUseCase getEmployeeLeaveBalanceUseCase(
             LoadEmployeePort loadEmployeePort,
+            com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort loadUserPort,
+            com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort loadOrgUnitPort,
             LoadLeaveBalancePort loadLeaveBalancePort,
             SaveLeaveBalancePort saveLeaveBalancePort,
             LoadLeaveRequestPort loadLeaveRequestPort,
@@ -77,6 +79,8 @@ public class LeaveUseCaseConfig {
     ) {
         GetEmployeeLeaveBalanceService service = new GetEmployeeLeaveBalanceService(
                 loadEmployeePort,
+                loadUserPort,
+                loadOrgUnitPort,
                 loadLeaveBalancePort,
                 saveLeaveBalancePort,
                 loadLeaveRequestPort,

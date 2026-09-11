@@ -30,6 +30,25 @@ public class LeaveBalanceRepositoryAdapter implements LoadLeaveBalancePort, Save
     }
 
     @Override
+    public LeaveBalance findOrCreateDefault(Long employeeId, int year) {
+        Optional<EmployeeLeaveBalanceJpaEntity> existing = repository.findByEmployeeIdAndYearNumber(employeeId, year);
+        if (existing.isPresent()) {
+            return mapper.toDomain(existing.get());
+        }
+
+        EmployeeLeaveBalanceJpaEntity entity = mapper.toJpaEntity(LeaveBalance.createDefault(employeeId, year));
+        try {
+            EmployeeLeaveBalanceJpaEntity saved = repository.saveAndFlush(entity);
+            return mapper.toDomain(saved);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            // Trường hợp race condition: transaction song song đã insert trước
+            return repository.findByEmployeeIdAndYearNumber(employeeId, year)
+                    .map(mapper::toDomain)
+                    .orElseThrow(() -> ex);
+        }
+    }
+
+    @Override
     public LeaveBalance save(LeaveBalance leaveBalance) {
         EmployeeLeaveBalanceJpaEntity entity = mapper.toJpaEntity(leaveBalance);
         EmployeeLeaveBalanceJpaEntity saved = repository.save(entity);

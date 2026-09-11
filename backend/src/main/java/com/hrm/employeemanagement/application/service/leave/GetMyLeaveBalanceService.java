@@ -54,21 +54,20 @@ public class GetMyLeaveBalanceService implements GetMyLeaveBalanceUseCase {
         int targetYear = (year != null && year > 2000) ? year : LocalDate.now().getYear();
         Long employeeId = currentEmployee.getIdValue();
 
-        // 1. Tải thông tin định mức phép năm (nếu chưa có thì tự khởi tạo mặc định 12 ngày)
-        LeaveBalance balance = loadLeaveBalancePort.findByEmployeeIdAndYear(employeeId, targetYear)
-                .orElseGet(() -> saveLeaveBalancePort.save(LeaveBalance.createDefault(employeeId, targetYear)));
+        // 1. Tải thông tin định mức phép năm (nếu chưa có thì tự khởi tạo mặc định 12 ngày một cách atomic)
+        LeaveBalance balance = loadLeaveBalancePort.findOrCreateDefault(employeeId, targetYear);
 
         // 2. Tải danh sách đơn nghỉ trong năm của nhân viên để tổng hợp ngày nghỉ phép năm (ANNUAL)
         List<LeaveRequest> requests = loadLeaveRequestPort.findByEmployeeIdAndYear(employeeId, targetYear);
 
         BigDecimal usedDays = requests.stream()
                 .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.APPROVED)
-                .map(r -> BigDecimal.valueOf(r.getDaysCount()))
+                .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(r.getStartDate(), r.getEndDate(), targetYear)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal pendingDays = requests.stream()
                 .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.PENDING)
-                .map(r -> BigDecimal.valueOf(r.getDaysCount()))
+                .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(r.getStartDate(), r.getEndDate(), targetYear)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // 3. Tính số ngày phép còn lại theo Policy

@@ -37,6 +37,10 @@ class GetEmployeeLeaveBalanceServiceTest {
     @Mock
     private LoadEmployeePort loadEmployeePort;
     @Mock
+    private com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort loadUserPort;
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort loadOrgUnitPort;
+    @Mock
     private LoadLeaveBalancePort loadLeaveBalancePort;
     @Mock
     private SaveLeaveBalancePort saveLeaveBalancePort;
@@ -53,6 +57,8 @@ class GetEmployeeLeaveBalanceServiceTest {
     void setUp() {
         service = new GetEmployeeLeaveBalanceService(
                 loadEmployeePort,
+                loadUserPort,
+                loadOrgUnitPort,
                 loadLeaveBalancePort,
                 saveLeaveBalancePort,
                 loadLeaveRequestPort,
@@ -61,11 +67,11 @@ class GetEmployeeLeaveBalanceServiceTest {
         );
     }
 
-    private Employee createMockEmployee(Long empId, Long userId) {
+    private Employee createMockEmployee(Long empId, Long userId, Long orgUnitId) {
         return new Employee(
                 new EmployeeId(empId),
                 new UserId(userId),
-                1L,
+                orgUnitId,
                 "EMP" + empId,
                 "Employee " + empId,
                 false,
@@ -74,23 +80,45 @@ class GetEmployeeLeaveBalanceServiceTest {
         );
     }
 
+    private com.hrm.employeemanagement.domain.user.User createMockUser(
+            Long userId,
+            com.hrm.employeemanagement.domain.role.RoleCode roleCode,
+            com.hrm.employeemanagement.domain.authorization.DataScope dataScope,
+            Long scopeOrgUnitId,
+            Long employeeId
+    ) {
+        return new com.hrm.employeemanagement.domain.user.User(
+                new UserId(userId),
+                "user_" + userId,
+                "hashed",
+                new com.hrm.employeemanagement.domain.role.Role(new com.hrm.employeemanagement.domain.role.RoleId(1L), roleCode, roleCode.getName()),
+                com.hrm.employeemanagement.domain.user.UserStatus.ACTIVE,
+                employeeId != null ? new EmployeeId(employeeId) : null,
+                dataScope,
+                scopeOrgUnitId,
+                1L
+        );
+    }
+
     @Test
-    @DisplayName("TC-03: Quản lý có quyền LEAVE_BALANCE_MANAGE xem thành công quỹ phép của cấp dưới")
-    void testGetEmployeeLeaveBalance_AsManager_Success() {
-        Long managerUserId = 999L;
-        Long managerEmpId = 1L;
+    @DisplayName("TC-03: Quản lý nguồn lực (VT-03) có DataScope ORG_BRANCH xem thành công nhân viên trong chi nhánh")
+    void testGetEmployeeLeaveBalance_AsVT03_BranchScope_Success() {
+        Long vt03UserId = 300L;
         Long targetEmpId = 20L;
+        Long branchOrgUnitId = 10L;
         int year = 2026;
 
-        when(authorizationService.require(PermissionCode.LEAVE_BALANCE_READ)).thenReturn(managerUserId);
-        when(loadEmployeePort.findByUserId(new UserId(managerUserId)))
-                .thenReturn(Optional.of(createMockEmployee(managerEmpId, managerUserId)));
-        when(authorizationService.hasPermission(PermissionCode.LEAVE_BALANCE_MANAGE)).thenReturn(true);
-        when(loadEmployeePort.findById(new EmployeeId(targetEmpId)))
-                .thenReturn(Optional.of(createMockEmployee(targetEmpId, 200L)));
+        when(authorizationService.require(PermissionCode.LEAVE_BALANCE_READ)).thenReturn(vt03UserId);
+        when(loadUserPort.findById(new UserId(vt03UserId)))
+                .thenReturn(Optional.of(createMockUser(vt03UserId, com.hrm.employeemanagement.domain.role.RoleCode.VT_03,
+                        com.hrm.employeemanagement.domain.authorization.DataScope.ORGANIZATION_BRANCH, branchOrgUnitId, 3L)));
+
+        Employee targetEmployee = createMockEmployee(targetEmpId, 200L, branchOrgUnitId);
+        when(loadEmployeePort.findById(new EmployeeId(targetEmpId))).thenReturn(Optional.of(targetEmployee));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(branchOrgUnitId, branchOrgUnitId)).thenReturn(true);
 
         LeaveBalance balance = new LeaveBalance(1L, targetEmpId, year, new BigDecimal("12.00"), BigDecimal.ZERO);
-        when(loadLeaveBalancePort.findByEmployeeIdAndYear(targetEmpId, year)).thenReturn(Optional.of(balance));
+        when(loadLeaveBalancePort.findOrCreateDefault(targetEmpId, year)).thenReturn(balance);
         when(loadLeaveRequestPort.findByEmployeeIdAndYear(targetEmpId, year)).thenReturn(List.of());
 
         LeaveBalanceResult result = service.getEmployeeLeaveBalance(targetEmpId, year);
@@ -101,16 +129,21 @@ class GetEmployeeLeaveBalanceServiceTest {
     }
 
     @Test
-    @DisplayName("AC-03 & TC-03: Nhân viên thường không có quyền LEAVE_BALANCE_MANAGE cố xem của người khác -> Bị chặn và ghi Audit Log")
-    void testGetEmployeeLeaveBalance_Unauthorized_ThrowsAndLogsAudit() {
-        Long empUserId = 100L;
-        Long empId = 10L;
-        Long targetEmpId = 20L; // Nhân viên khác
+    @DisplayName("AC-03 & TC-03: Quản lý VT-03 cố xem nhân viên ngoài chi nhánh -> Bị chặn và ghi Audit Log")
+    void testGetEmployeeLeaveBalance_VT03_OutsideBranch_ThrowsAndLogsAudit() {
+        Long vt03UserId = 300L;
+        Long targetEmpId = 20L;
+        Long myBranchId = 10L;
+        Long otherBranchId = 99L;
 
-        when(authorizationService.require(PermissionCode.LEAVE_BALANCE_READ)).thenReturn(empUserId);
-        when(loadEmployeePort.findByUserId(new UserId(empUserId)))
-                .thenReturn(Optional.of(createMockEmployee(empId, empUserId)));
-        when(authorizationService.hasPermission(PermissionCode.LEAVE_BALANCE_MANAGE)).thenReturn(false);
+        when(authorizationService.require(PermissionCode.LEAVE_BALANCE_READ)).thenReturn(vt03UserId);
+        when(loadUserPort.findById(new UserId(vt03UserId)))
+                .thenReturn(Optional.of(createMockUser(vt03UserId, com.hrm.employeemanagement.domain.role.RoleCode.VT_03,
+                        com.hrm.employeemanagement.domain.authorization.DataScope.ORGANIZATION_BRANCH, myBranchId, 3L)));
+
+        Employee targetEmployee = createMockEmployee(targetEmpId, 200L, otherBranchId);
+        when(loadEmployeePort.findById(new EmployeeId(targetEmpId))).thenReturn(Optional.of(targetEmployee));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(otherBranchId, myBranchId)).thenReturn(false);
 
         assertThrows(PermissionDeniedException.class, () ->
                 service.getEmployeeLeaveBalance(targetEmpId, 2026));
@@ -122,20 +155,21 @@ class GetEmployeeLeaveBalanceServiceTest {
     }
 
     @Test
-    @DisplayName("Nhân viên tự xem số ngày phép của chính mình qua endpoint này -> Cho phép")
+    @DisplayName("Nhân viên (VT-04, DataScope SELF) tự xem số ngày phép của chính mình -> Cho phép")
     void testGetEmployeeLeaveBalance_SelfAccess_Allowed() {
         Long empUserId = 100L;
         Long empId = 10L;
         int year = 2026;
 
         when(authorizationService.require(PermissionCode.LEAVE_BALANCE_READ)).thenReturn(empUserId);
-        when(loadEmployeePort.findByUserId(new UserId(empUserId)))
-                .thenReturn(Optional.of(createMockEmployee(empId, empUserId)));
-        // Không có LEAVE_BALANCE_MANAGE nhưng empId trùng targetEmpId
-        when(loadEmployeePort.findById(new EmployeeId(empId)))
-                .thenReturn(Optional.of(createMockEmployee(empId, empUserId)));
-        when(loadLeaveBalancePort.findByEmployeeIdAndYear(empId, year))
-                .thenReturn(Optional.of(new LeaveBalance(1L, empId, year, new BigDecimal("12.00"), BigDecimal.ZERO)));
+        when(loadUserPort.findById(new UserId(empUserId)))
+                .thenReturn(Optional.of(createMockUser(empUserId, com.hrm.employeemanagement.domain.role.RoleCode.VT_04,
+                        com.hrm.employeemanagement.domain.authorization.DataScope.SELF, null, empId)));
+
+        Employee selfEmployee = createMockEmployee(empId, empUserId, 1L);
+        when(loadEmployeePort.findById(new EmployeeId(empId))).thenReturn(Optional.of(selfEmployee));
+        when(loadLeaveBalancePort.findOrCreateDefault(empId, year))
+                .thenReturn(new LeaveBalance(1L, empId, year, new BigDecimal("12.00"), BigDecimal.ZERO));
         when(loadLeaveRequestPort.findByEmployeeIdAndYear(empId, year)).thenReturn(List.of());
 
         LeaveBalanceResult result = service.getEmployeeLeaveBalance(empId, year);

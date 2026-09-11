@@ -44,4 +44,41 @@ public class LeaveBalancePolicy {
             throw new LeaveBalanceExceededException(safeRemaining, safeRequested);
         }
     }
+
+    /**
+     * Tính số ngày làm việc thuộc về một năm cụ thể cho đơn xin nghỉ phép có thể vắt qua nhiều năm.
+     * Ví dụ: Đơn từ 2026-12-30 đến 2027-01-05.
+     * Khi tính cho năm 2026: Khoảng giao là 2026-12-30 -> 2026-12-31.
+     * Khi tính cho năm 2027: Khoảng giao là 2027-01-01 -> 2027-01-05.
+     */
+    public static int calculateWorkingDaysInYear(
+            java.time.LocalDate startDate,
+            java.time.LocalDate endDate,
+            int targetYear,
+            com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar calendar,
+            java.util.Set<java.time.LocalDate> holidayDates
+    ) {
+        if (startDate == null || endDate == null) {
+            return 0;
+        }
+        java.time.LocalDate yearStart = java.time.LocalDate.of(targetYear, 1, 1);
+        java.time.LocalDate yearEnd = java.time.LocalDate.of(targetYear, 12, 31);
+
+        if (endDate.isBefore(yearStart) || startDate.isAfter(yearEnd)) {
+            return 0;
+        }
+
+        java.time.LocalDate effectiveStart = startDate.isBefore(yearStart) ? yearStart : startDate;
+        java.time.LocalDate effectiveEnd = endDate.isAfter(yearEnd) ? yearEnd : endDate;
+
+        return LeaveRequestPolicy.calculateWorkingDays(effectiveStart, effectiveEnd, calendar, holidayDates);
+    }
+
+    public static int calculateWorkingDaysInYear(
+            java.time.LocalDate startDate,
+            java.time.LocalDate endDate,
+            int targetYear
+    ) {
+        return calculateWorkingDaysInYear(startDate, endDate, targetYear, null, java.util.Collections.emptySet());
+    }
 }

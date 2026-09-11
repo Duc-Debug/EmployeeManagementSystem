@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface LoadLeaveBalancePort {
     Optional<LeaveBalance> findByEmployeeIdAndYear(Long employeeId, int year);
+
+    LeaveBalance findOrCreateDefault(Long employeeId, int year);
 }

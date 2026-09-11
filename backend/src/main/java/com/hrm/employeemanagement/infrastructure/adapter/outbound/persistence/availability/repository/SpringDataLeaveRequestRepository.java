@@ -44,13 +44,13 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
     List<LeaveRequestJpaEntity> findByEmployeeIdOrderByStartDateDesc(Long employeeId);
 
     /**
-     * NCL-05-CN-005: Lấy danh sách đơn nghỉ phép năm (ANNUAL) ở trạng thái PENDING hoặc APPROVED trong khoảng ngày của năm.
+     * NCL-05-CN-005: Lấy danh sách đơn nghỉ phép năm (ANNUAL) ở trạng thái PENDING hoặc APPROVED có khoảng ngày giao thoa với năm chỉ định.
      */
     @Query("SELECT l FROM LeaveRequestJpaEntity l " +
            "WHERE l.employeeId = :employeeId " +
            "AND l.leaveType = 'ANNUAL' " +
            "AND l.status IN ('APPROVED', 'PENDING') " +
-           "AND l.startDate >= :startDate AND l.startDate <= :endDate " +
+           "AND l.startDate <= :endDate AND l.endDate >= :startDate " +
            "ORDER BY l.startDate DESC")
     List<LeaveRequestJpaEntity> findAnnualLeavesInYear(
             @Param("employeeId") Long employeeId,
