@@ -17,19 +17,33 @@ public class WeeklyProjectAllocation {
     private Long projectId;
     private YearWeek yearWeek;
     private BigDecimal allocatedHours;
+    private boolean isOverloaded;
+    private String overloadReason;
+    private Long overloadApprovedBy;
+    private java.time.LocalDateTime overloadApprovedAt;
     private Long version;
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, 0L);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, false, null, null, null, 0L);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, Long version) {
+        this(id, employeeId, projectId, yearWeek, allocatedHours, false, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
         this.id = id;
         this.employeeId = Objects.requireNonNull(employeeId, "ID nhân sự không được null");
         this.projectId = Objects.requireNonNull(projectId, "ID dự án không được null");
         this.yearWeek = Objects.requireNonNull(yearWeek, "Tuần/Năm (YearWeek) không được null");
         setAllocatedHours(allocatedHours);
+        this.isOverloaded = isOverloaded;
+        this.overloadReason = overloadReason;
+        this.overloadApprovedBy = overloadApprovedBy;
+        this.overloadApprovedAt = overloadApprovedAt;
         this.version = version != null ? version : 0L;
     }
 
@@ -98,5 +112,38 @@ public class WeeklyProjectAllocation {
 
     public Long getVersion() {
         return version;
+    }
+
+    public void markOverloaded(String reason, Long approvedBy) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Lý do chấp nhận quá tải không được để trống");
+        }
+        this.isOverloaded = true;
+        this.overloadReason = reason.trim();
+        this.overloadApprovedBy = approvedBy;
+        this.overloadApprovedAt = java.time.LocalDateTime.now();
+    }
+
+    public void clearOverload() {
+        this.isOverloaded = false;
+        this.overloadReason = null;
+        this.overloadApprovedBy = null;
+        this.overloadApprovedAt = null;
+    }
+
+    public boolean isOverloaded() {
+        return isOverloaded;
+    }
+
+    public String getOverloadReason() {
+        return overloadReason;
+    }
+
+    public Long getOverloadApprovedBy() {
+        return overloadApprovedBy;
+    }
+
+    public java.time.LocalDateTime getOverloadApprovedAt() {
+        return overloadApprovedAt;
     }
 }
