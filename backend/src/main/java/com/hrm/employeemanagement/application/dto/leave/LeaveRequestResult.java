@@ -18,6 +18,8 @@ public record LeaveRequestResult(
         BigDecimal hoursDeducted,
         String reason,
         LeaveStatus status,
+        Long approverId,
+        String approverComment,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -32,6 +34,8 @@ public record LeaveRequestResult(
                 domain.getHoursDeducted(),
                 domain.getReason(),
                 domain.getStatus(),
+                domain.getApproverId(),
+                domain.getApproverComment(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt()
         );

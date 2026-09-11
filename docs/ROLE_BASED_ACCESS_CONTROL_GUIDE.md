@@ -13,7 +13,7 @@ Hệ thống có **chính xác 6 Vai trò (Role)** được định nghĩa và g
 | Mã VT | Tên Vai Trò | Trách nhiệm chính | Phạm vi dữ liệu mặc định (Data Scope) |
 | :--- | :--- | :--- | :--- |
 | **`VT-01`** | **Ban giám đốc** *(Executive / Director)* | Điều hành toàn diện, theo dõi năng lực và mức độ tải của toàn bộ nhân sự. Xem kịch bản mô phỏng trước khi cam kết dự án với khách hàng. | `COMPANY` *(Toàn công ty - Báo cáo tổng thể)* |
-| **`VT-02`** | **Quản lý dự án** *(Project Manager - PM)* | Chịu trách nhiệm các dự án được giao: Tạo WBS, giao việc, đặt ngân sách giờ và duyệt bảng chấm công dự án. | `PROJECT_SCOPE` *(Chỉ các dự án được phân công)* |
+| **`VT-02`** | **Quản lý dự án** *(Project Manager - PM)* | Chịu trách nhiệm các dự án được giao: Tạo WBS, giao việc, đặt ngân sách giờ và duyệt bảng chấm công dự án. | `SELF` *(Chỉ các dự án được phân công)* |
 | **`VT-03`** | **Quản lý nguồn lực** *(Resource Manager - RM)* | Trưởng bộ phận chuyên môn: Điều phối nhân sự theo tuần, giữ chỗ nguồn lực, duyệt nghỉ phép bộ phận. | `ORGANIZATION_BRANCH` *(Khối / Phòng ban mình quản lý)* |
 | **`VT-04`** | **Nhân viên chuyên môn** *(Specialist / Employee)* | Thực hiện công việc dự án, xem lịch phân bổ cá nhân, nộp chấm công, gửi đơn nghỉ phép, cập nhật kỹ năng. | `SELF` *(Chỉ dữ liệu cá nhân của chính mình)* |
 | **`VT-05`** | **Nhân sự** *(HR Specialist / Manager)* | Quản lý hồ sơ nhân sự, hợp đồng lao động, lịch làm việc chuẩn và danh sách ngày nghỉ lễ. | `COMPANY` *(Dữ liệu nhân sự toàn đơn vị)* |
@@ -91,9 +91,9 @@ export function isAdmin(user?: User | null): boolean {
   return user?.roleCode === "VT-06";
 }
 
-// Helper kiểm tra quyền quản lý hồ sơ nhân sự (Chỉnh sửa hồ sơ dành riêng cho VT-05; VT-06 chỉ xem)
+// Helper kiểm tra quyền quản lý nhân sự
 export function isHRManager(user?: User | null): boolean {
-  return user?.roleCode === "VT-05";
+  return user?.roleCode === "VT-05" || user?.roleCode === "VT-06";
 }
 
 // Helper kiểm tra quyền điều phối nguồn lực

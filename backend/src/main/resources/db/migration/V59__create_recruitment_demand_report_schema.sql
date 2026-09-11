@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V57: CREATE RECRUITMENT DEMAND REPORT SCHEMA
+-- FLYWAY MIGRATION V59: CREATE RECRUITMENT DEMAND REPORT SCHEMA
 -- Epic: NCL-10 (Báo cáo & Phân tích)
 -- Story: NCL-10-CN-005 (Báo cáo nhu cầu tuyển dụng theo kỹ năng)
 -- ============================================================

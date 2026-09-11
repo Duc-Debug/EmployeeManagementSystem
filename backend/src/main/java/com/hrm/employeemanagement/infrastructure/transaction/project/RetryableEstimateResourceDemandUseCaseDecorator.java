@@ -64,4 +64,9 @@ public class RetryableEstimateResourceDemandUseCaseDecorator implements
     public java.util.List<ProjectRoleResult> getProjectRoles() {
         return transactionalDelegate.getProjectRoles();
     }
+
+    @Override
+    public java.util.List<ProjectRoleResult> getProjectRoles(boolean includeInactive) {
+        return transactionalDelegate.getProjectRoles(includeInactive);
+    }
 }
