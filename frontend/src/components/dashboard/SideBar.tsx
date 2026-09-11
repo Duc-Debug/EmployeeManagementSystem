@@ -12,6 +12,7 @@ import {
     ShieldCheck,
     CalendarClock,
     CalendarDays,
+    Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -30,6 +31,7 @@ const SIDEBAR_WORKSPACE = [
 ];
 
 const SIDEBAR_SETTINGS = [
+    { name: "Vai trò chuyên môn", icon: Briefcase, id: "roles" },
     { name: "Phân quyền truy cập", icon: ShieldCheck, id: "access" },
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
@@ -39,6 +41,10 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
     const normalized = roleCode.toUpperCase().replace(/_/g, "-");
 
     switch (tabId) {
+        case "roles":
+        case "project-roles":
+            // Danh mục vai trò chuyên môn (NCL-12-CN-001): Quản trị viên (VT-06)
+            return normalized === "VT-06";
         case "overview":
             // Tất cả 6 vai trò (VT-01 -> VT-06) đều có quyền truy cập trang Tổng quan
             return true;
