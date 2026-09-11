@@ -420,6 +420,9 @@ public class Task {
     }
 
     public void updateActualEndDate(LocalDate actualEndDate) {
+        if (actualEndDate != null && this.startDate != null && actualEndDate.isBefore(this.startDate)) {
+            throw new InvalidTaskDataException("Ngày kết thúc thực tế (" + actualEndDate + ") không được nhỏ hơn ngày bắt đầu (" + this.startDate + ")");
+        }
         this.actualEndDate = actualEndDate;
         this.updatedAt = LocalDateTime.now();
     }
