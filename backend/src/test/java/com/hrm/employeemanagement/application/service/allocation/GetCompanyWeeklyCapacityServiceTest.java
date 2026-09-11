@@ -17,6 +17,7 @@ import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
@@ -231,5 +232,56 @@ class GetCompanyWeeklyCapacityServiceTest {
 
         assertThatThrownBy(() -> service.getWeeklyCapacityMatrix(query))
                 .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — contractEndDate được áp dụng chính xác ngay cả khi đã có WeeklyAvailability lưu DB")
+    void testContractEndDateAdjustmentAppliedWhenWeeklyAvailabilityExistsInDb() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.findAllByIdIn(anyList())).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        // Tuần 37/2026: Từ Thứ Hai 07/09/2026 đến Chủ Nhật 13/09/2026
+        // Hợp đồng kết thúc vào Thứ Tư 09/09/2026 -> Còn 3 ngày làm việc (Thứ 2, 3, 4)
+        LocalDate contractEndDate = LocalDate.of(2026, 9, 9);
+        Employee emp = new Employee(
+                new EmployeeId(1L), null, 10L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), contractEndDate, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp));
+
+        // Bản ghi WeeklyAvailability trong DB có sẵn netAvailableHours = 40.0
+        YearWeek yw37 = YearWeek.of(2026, 37);
+        WeeklyAvailability savedAvail = new WeeklyAvailability(
+                1L, 1L, yw37, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0)
+        );
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(List.of(savedAvail));
+
+        // Phân bổ 30 giờ cho tuần 37/2026
+        WeeklyProjectAllocation allocation = new WeeklyProjectAllocation(101L, 1L, 999L, yw37, BigDecimal.valueOf(30.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(List.of(allocation));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.rows()).hasSize(1);
+        CapacityMatrixCellResult cell = result.rows().get(0).cells().get(0);
+
+        // Base khả dụng = 40h, nhưng do hợp đồng kết thúc thứ Tư (3/5 ngày) -> Giờ khả dụng thực tế = 24.0h
+        assertThat(cell.availableHours()).isEqualByComparingTo(BigDecimal.valueOf(24.0));
+        assertThat(cell.allocatedHours()).isEqualByComparingTo(BigDecimal.valueOf(30.0));
+
+        // Quá tải vì 30h > 24h -> vượt 6h
+        assertThat(cell.isOverloaded()).isTrue();
+        assertThat(cell.excessHours()).isEqualByComparingTo(BigDecimal.valueOf(6.0));
+        assertThat(cell.remainingHours()).isEqualByComparingTo(BigDecimal.ZERO); // Semantics: không âm!
+        assertThat(cell.status()).isEqualTo(CapacityStatus.OVERLOADED);
     }
 }

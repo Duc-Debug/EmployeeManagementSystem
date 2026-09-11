@@ -106,4 +106,59 @@ class WeeklyCapacityMatrixPolicyTest {
         assertThat(WeeklyCapacityMatrixPolicy.determineStatus(BigDecimal.ZERO, BigDecimal.ZERO))
                 .isEqualTo(CapacityStatus.OPTIMAL);
     }
+
+    @Test
+    @DisplayName("Chuẩn hóa ngữ nghĩa remainingHours: luôn >= 0, không bao giờ âm khi quá tải")
+    void testCalculateRemainingHoursSemantics() {
+        // Còn dư năng lực: available = 40, allocated = 32 -> remaining = 8
+        assertThat(WeeklyCapacityMatrixPolicy.calculateRemainingHours(BigDecimal.valueOf(40), BigDecimal.valueOf(32)))
+                .isEqualByComparingTo(BigDecimal.valueOf(8.0));
+
+        // Vừa vặn 100%: remaining = 0
+        assertThat(WeeklyCapacityMatrixPolicy.calculateRemainingHours(BigDecimal.valueOf(40), BigDecimal.valueOf(40)))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+
+        // Quá tải: available = 40, allocated = 48 -> remaining = 0 (thay vì -8, số giờ vượt được phản ánh qua excessHours = 8)
+        assertThat(WeeklyCapacityMatrixPolicy.calculateRemainingHours(BigDecimal.valueOf(40), BigDecimal.valueOf(48)))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("Điều chỉnh giờ khả dụng khi hợp đồng lao động hết hạn (adjustAvailableHoursForContract)")
+    void testAdjustAvailableHoursForContract() {
+        java.time.LocalDate weekStart = java.time.LocalDate.of(2026, 9, 7); // Thứ Hai
+        java.time.LocalDate weekEnd = java.time.LocalDate.of(2026, 9, 13);   // Chủ Nhật
+        BigDecimal baseHours = BigDecimal.valueOf(40.0);
+
+        // 1. Không có ngày hết hạn hợp đồng -> giữ nguyên base
+        assertThat(WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(baseHours, null, weekStart, weekEnd, 5))
+                .isEqualByComparingTo(BigDecimal.valueOf(40.0));
+
+        // 2. Hết hạn trước tuần bắt đầu (ví dụ 04/09) -> 0h
+        assertThat(WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(baseHours, java.time.LocalDate.of(2026, 9, 4), weekStart, weekEnd, 5))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+
+        // 3. Hết hạn sau tuần kết thúc (ví dụ 30/09) -> giữ nguyên 40h
+        assertThat(WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(baseHours, java.time.LocalDate.of(2026, 9, 30), weekStart, weekEnd, 5))
+                .isEqualByComparingTo(BigDecimal.valueOf(40.0));
+
+        // 4. Hết hạn vào giữa tuần: Thứ Tư (09/09) -> Còn 3 ngày làm việc (Thứ 2, 3, 4) -> 40 * 3 / 5 = 24h
+        assertThat(WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(baseHours, java.time.LocalDate.of(2026, 9, 9), weekStart, weekEnd, 5))
+                .isEqualByComparingTo(BigDecimal.valueOf(24.0));
+    }
+
+    @Test
+    @DisplayName("Tính tỷ lệ sử dụng trung bình (calculateAverageUtilization)")
+    void testCalculateAverageUtilization() {
+        assertThat(WeeklyCapacityMatrixPolicy.calculateAverageUtilization(BigDecimal.valueOf(30), BigDecimal.valueOf(40)))
+                .isEqualByComparingTo(BigDecimal.valueOf(75.0));
+
+        // available = 0, allocated = 10 -> null (Quá tải / Vô cực)
+        assertThat(WeeklyCapacityMatrixPolicy.calculateAverageUtilization(BigDecimal.valueOf(10), BigDecimal.ZERO))
+                .isNull();
+
+        // available = 0, allocated = 0 -> 0.0
+        assertThat(WeeklyCapacityMatrixPolicy.calculateAverageUtilization(BigDecimal.ZERO, BigDecimal.ZERO))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
 }

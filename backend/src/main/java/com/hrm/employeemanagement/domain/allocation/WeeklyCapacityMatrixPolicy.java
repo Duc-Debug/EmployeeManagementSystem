@@ -1,7 +1,10 @@
 package com.hrm.employeemanagement.domain.allocation;
 
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 
 /**
  * Domain Policy thực hiện các quy tắc tính toán năng lực tuần theo QTN-12:
@@ -92,5 +95,68 @@ public class WeeklyCapacityMatrixPolicy {
         }
 
         return CapacityStatus.OPTIMAL;
+    }
+
+    /**
+     * Tính số giờ còn có thể phân bổ (remainingHours) theo ngữ nghĩa capacity planning:
+     * remainingHours = max(0, availableHours - allocatedHours).
+     * Tuyệt đối không trả về giá trị âm khi quá tải (số giờ vượt quá được phản ánh qua excessHours).
+     */
+    public static BigDecimal calculateRemainingHours(BigDecimal availableHours, BigDecimal allocatedHours) {
+        BigDecimal safeAvailable = availableHours != null ? availableHours : BigDecimal.ZERO;
+        BigDecimal safeAllocated = allocatedHours != null ? allocatedHours : BigDecimal.ZERO;
+
+        if (safeAvailable.compareTo(safeAllocated) > 0) {
+            return safeAvailable.subtract(safeAllocated).setScale(2, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Điều chỉnh số giờ khả dụng cơ sở dựa trên ngày kết thúc hợp đồng lao động (contractEndDate):
+     * - Nếu không có ngày kết thúc hợp đồng: giữ nguyên baseHours.
+     * - Nếu hợp đồng hết hạn trước tuần bắt đầu: 0 giờ khả dụng.
+     * - Nếu hợp đồng hết hạn sau tuần kết thúc: giữ nguyên baseHours.
+     * - Nếu hợp đồng hết hạn trong tuần: scale theo số ngày làm việc thực tế còn lại trước hoặc đúng ngày hết hạn.
+     */
+    public static BigDecimal adjustAvailableHoursForContract(
+            BigDecimal baseHours,
+            LocalDate contractEndDate,
+            LocalDate weekStart,
+            LocalDate weekEnd,
+            int weekWorkingDaysCount
+    ) {
+        BigDecimal safeBase = baseHours != null ? baseHours : BigDecimal.ZERO;
+        if (contractEndDate == null) {
+            return safeBase;
+        }
+
+        if (contractEndDate.isBefore(weekStart)) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        if (contractEndDate.isAfter(weekEnd)) {
+            return safeBase;
+        }
+
+        int effectiveWorkingDays = weekWorkingDaysCount > 0 ? weekWorkingDaysCount : 5;
+        int remainingDays = WeeklyAvailabilityPolicy.countWorkingDaysBetween(weekStart, contractEndDate);
+        if (remainingDays == 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        if (remainingDays < effectiveWorkingDays) {
+            return safeBase.multiply(BigDecimal.valueOf(remainingDays))
+                    .divide(BigDecimal.valueOf(effectiveWorkingDays), 2, RoundingMode.HALF_UP);
+        }
+        return safeBase;
+    }
+
+    /**
+     * Tính tỷ lệ sử dụng trung bình (Average Utilization) cho hàng nhân sự hoặc tổng kết công ty.
+     * Trả về null khi totalAvailable = 0 và totalAllocated > 0 (Quá tải / Vô cực).
+     * Trả về 0.0 khi totalAvailable = 0 và totalAllocated = 0.
+     */
+    public static BigDecimal calculateAverageUtilization(BigDecimal totalAllocated, BigDecimal totalAvailable) {
+        return calculateUtilizationPercentage(totalAllocated, totalAvailable);
     }
 }

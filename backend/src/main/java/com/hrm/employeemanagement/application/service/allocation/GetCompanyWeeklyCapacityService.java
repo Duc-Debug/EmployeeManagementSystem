@@ -215,42 +215,37 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             for (YearWeek yw : targetWeeks) {
                 String key = makeKey(emp.getIdValue(), yw.year(), yw.weekNumber());
 
-                // Tính Available Hours
-                BigDecimal availableHours;
+                // 1. Xác định baseAvailableHours (từ WeeklyAvailability đã lưu trong DB hoặc tính từ giờ chuẩn - lễ - phép)
+                BigDecimal baseAvailableHours;
                 WeeklyAvailability savedAvail = availabilityMap.get(key);
                 if (savedAvail != null) {
-                    availableHours = savedAvail.getNetAvailableHours();
+                    baseAvailableHours = savedAvail.getNetAvailableHours();
                 } else {
                     int standardHours = emp.getStandardHoursPerWeek() != null ? emp.getStandardHoursPerWeek() : 40;
                     int holidayHours = holidayHoursByWeek.getOrDefault(yw, 0);
                     BigDecimal leaveHours = leaveHoursMap.getOrDefault(emp.getIdValue(), Map.of()).getOrDefault(yw, BigDecimal.ZERO);
-                    availableHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
-
-                    // Xử lý hết hạn hợp đồng lao động
-                    if (emp.getContractEndDate() != null && emp.getContractEndDate().isBefore(yw.getStartDate())) {
-                        availableHours = BigDecimal.ZERO;
-                    } else if (emp.getContractEndDate() != null && !emp.getContractEndDate().isAfter(yw.getEndDate())) {
-                        int remainingDays = WeeklyAvailabilityPolicy.countWorkingDaysBetween(yw.getStartDate(), emp.getContractEndDate());
-                        int weekWorkingDaysCount = workingDays.isEmpty() ? 5 : workingDays.size();
-                        if (remainingDays == 0) {
-                            availableHours = BigDecimal.ZERO;
-                        } else if (remainingDays < weekWorkingDaysCount) {
-                            availableHours = availableHours.multiply(BigDecimal.valueOf(remainingDays))
-                                    .divide(BigDecimal.valueOf(weekWorkingDaysCount), 2, RoundingMode.HALF_UP);
-                        }
-                    }
+                    baseAvailableHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
                 }
 
-                // Tính Allocated Hours
+                // 2. [🔴 HIGH FIX] Luôn luôn áp dụng điều chỉnh hợp đồng lao động bất kể nguồn baseAvailableHours
+                int weekWorkingDaysCount = workingDays.isEmpty() ? 5 : workingDays.size();
+                BigDecimal availableHours = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
+                        baseAvailableHours,
+                        emp.getContractEndDate(),
+                        yw.getStartDate(),
+                        yw.getEndDate(),
+                        weekWorkingDaysCount
+                );
+
+                // 3. Tính Allocated Hours
                 BigDecimal allocatedHours = allocationMap.getOrDefault(key, BigDecimal.ZERO);
 
-                // Áp dụng QTN-12 qua Domain Policy
+                // 4. Áp dụng QTN-12 & chuẩn hóa ngữ nghĩa qua Domain Policy
                 boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(allocatedHours, availableHours);
                 BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(allocatedHours, availableHours);
+                BigDecimal remainingHours = WeeklyCapacityMatrixPolicy.calculateRemainingHours(availableHours, allocatedHours);
                 BigDecimal utilizationPercentage = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(allocatedHours, availableHours);
                 CapacityStatus status = WeeklyCapacityMatrixPolicy.determineStatus(allocatedHours, availableHours);
-
-                BigDecimal remainingHours = availableHours.subtract(allocatedHours);
 
                 if (isOverloaded) {
                     overloadedWeeksCount++;
@@ -275,11 +270,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 ));
             }
 
-            BigDecimal empAvgUtilization = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(empTotalAllocated, empTotalAvailable);
-            if (empAvgUtilization == null && empTotalAllocated.compareTo(BigDecimal.ZERO) == 0) {
-                empAvgUtilization = BigDecimal.ZERO;
-            }
-            // Nếu empTotalAvailable == 0 và empTotalAllocated > 0: empAvgUtilization giữ nguyên null (Vô cực / Quá tải)
+            BigDecimal empAvgUtilization = WeeklyCapacityMatrixPolicy.calculateAverageUtilization(empTotalAllocated, empTotalAvailable);
 
             companyTotalAllocated = companyTotalAllocated.add(empTotalAllocated);
             companyTotalAvailable = companyTotalAvailable.add(empTotalAvailable);
@@ -301,12 +292,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         }
 
         int overloadedEmployeesCount = (int) rows.stream().filter(r -> r.overloadedWeeksCount() > 0).count();
-        BigDecimal companyAvgUtilization = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(companyTotalAllocated, companyTotalAvailable);
-        if (companyAvgUtilization == null && companyTotalAllocated.compareTo(BigDecimal.ZERO) > 0) {
-            companyAvgUtilization = BigDecimal.valueOf(100.0);
-        } else if (companyAvgUtilization == null) {
-            companyAvgUtilization = BigDecimal.ZERO;
-        }
+        BigDecimal companyAvgUtilization = WeeklyCapacityMatrixPolicy.calculateAverageUtilization(companyTotalAllocated, companyTotalAvailable);
 
         CapacityMatrixSummaryResult summary = new CapacityMatrixSummaryResult(
                 rows.size(),
