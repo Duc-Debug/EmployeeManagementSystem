@@ -190,23 +190,4 @@ class ProjectRoleRepositoryAdapterTest {
         assertThat(result).isPresent();
         assertThat(result.get().getStatus()).isEqualTo(ProjectRoleStatus.INACTIVE);
     }
-
-    @Test
-    @DisplayName("HIGH-02: syncEmployeeProfessionalRole gọi repository khi tên thay đổi")
-    void testSyncEmployeeProfessionalRole_WhenDifferent_CallsRepository() {
-        adapter.syncEmployeeProfessionalRole("Lập trình (Developer)", "Kỹ sư phần mềm");
-
-        verify(springDataProjectRoleRepository)
-                .syncEmployeeProfessionalRole("Lập trình (Developer)", "Kỹ sư phần mềm");
-    }
-
-    @Test
-    @DisplayName("HIGH-02: syncEmployeeProfessionalRole bỏ qua khi tên giống nhau hoặc null")
-    void testSyncEmployeeProfessionalRole_WhenSameOrNull_DoesNotCallRepository() {
-        adapter.syncEmployeeProfessionalRole("Developer", "developer");
-        adapter.syncEmployeeProfessionalRole(null, "Developer");
-        adapter.syncEmployeeProfessionalRole("Developer", null);
-
-        org.mockito.Mockito.verifyNoMoreInteractions(springDataProjectRoleRepository);
-    }
 }

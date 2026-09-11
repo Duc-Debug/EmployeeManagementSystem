@@ -119,13 +119,6 @@ public class ProjectRoleRepositoryAdapter implements
         return springDataProjectRoleRepository.countEmployeesByProfessionalRole(rName, rCode);
     }
 
-    @Override
-    public void syncEmployeeProfessionalRole(String oldRoleName, String newRoleName) {
-        if (oldRoleName != null && newRoleName != null && !oldRoleName.trim().equalsIgnoreCase(newRoleName.trim())) {
-            springDataProjectRoleRepository.syncEmployeeProfessionalRole(oldRoleName.trim(), newRoleName.trim());
-        }
-    }
-
     private ProjectRole toDomain(ProjectRoleJpaEntity entity) {
         if (entity == null) {
             return null;

@@ -120,10 +120,6 @@ public class ProjectRoleManagementService implements
         role.updateInfo(trimmedName, command.skillGroupId(), command.description());
         ProjectRole saved = saveProjectRolePort.save(role);
 
-        if (oldName != null && !oldName.equalsIgnoreCase(trimmedName)) {
-            saveProjectRolePort.syncEmployeeProfessionalRole(oldName, trimmedName);
-        }
-
         String newValue = "name=" + saved.getName() + ";description=" + saved.getDescription() + ";skillGroupId=" + saved.getSkillGroupId();
 
         saveAuditLogPort.save(AuditLog.createChange(

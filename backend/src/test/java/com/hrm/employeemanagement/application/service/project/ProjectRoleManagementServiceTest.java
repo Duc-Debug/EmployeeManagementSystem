@@ -204,34 +204,6 @@ class ProjectRoleManagementServiceTest {
         assertThat(audit.getAction()).isEqualTo("PROJECT_ROLE_UPDATED");
         assertThat(audit.getOldValue()).contains("Chuyên viên BA cũ");
         assertThat(audit.getNewValue()).contains("Chuyên viên BA mới");
-
-        // HIGH-02: Đồng bộ professionalRole của nhân sự khi đổi tên vai trò
-        verify(saveProjectRolePort).syncEmployeeProfessionalRole("Chuyên viên BA cũ", "Chuyên viên BA mới");
-    }
-
-    @Test
-    @DisplayName("HIGH-02: Cập nhật vai trò khi không đổi tên thì không gọi đồng bộ nhân sự")
-    void updateProjectRole_whenNameNotChanged_shouldNotSyncEmployeeRole() {
-        when(authorizationService.require(PermissionCode.PROJECT_ROLE_MANAGE)).thenReturn(ADMIN_USER_ID);
-
-        ProjectRole existing = new ProjectRole(
-                new ProjectRoleId(10L), "BA", "Chuyên viên BA", "Mô tả cũ",
-                SKILL_GROUP_ID, "Business Analysis", ProjectRoleStatus.ACTIVE,
-                LocalDateTime.now(), LocalDateTime.now());
-        when(loadProjectRolePort.findById(new ProjectRoleId(10L))).thenReturn(Optional.of(existing));
-        when(loadProjectRolePort.existsByNameIgnoreCaseAndIdNot("Chuyên viên BA", 10L)).thenReturn(false);
-
-        SkillGroup group = new SkillGroup(
-                new SkillGroupId(SKILL_GROUP_ID), "Business Analysis", "Mô tả", SkillStatus.ACTIVE,
-                LocalDateTime.now(), LocalDateTime.now());
-        when(loadSkillGroupPort.findById(new SkillGroupId(SKILL_GROUP_ID))).thenReturn(Optional.of(group));
-        when(saveProjectRolePort.save(any(ProjectRole.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        UpdateProjectRoleCommand updateCommand = new UpdateProjectRoleCommand(
-                10L, "Chuyên viên BA", "Chỉ đổi mô tả", SKILL_GROUP_ID);
-        service.updateProjectRole(updateCommand);
-
-        verify(saveProjectRolePort, never()).syncEmployeeProfessionalRole(any(), any());
     }
 
     @Test
