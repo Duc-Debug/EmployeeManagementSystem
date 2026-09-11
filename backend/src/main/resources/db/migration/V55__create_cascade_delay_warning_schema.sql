@@ -1,12 +1,12 @@
 -- ============================================================
--- FLYWAY MIGRATION V52: CREATE CASCADE DELAY WARNING SCHEMA
+-- FLYWAY MIGRATION V55: CREATE CASCADE DELAY WARNING SCHEMA
 -- Epic: NCL-04 (Quản lý Tiến độ & Công việc Dự án)
 -- Story: NCL-04-CN-005 (Cảnh báo trễ dây chuyền khi một công việc trượt)
 -- ============================================================
 
 -- 1. Bổ sung cột actual_end_date và slack_days cho bảng tasks (TC-01, TC-02)
-ALTER TABLE tasks ADD COLUMN actual_end_date DATE NULL;
-ALTER TABLE tasks ADD COLUMN slack_days INT NOT NULL DEFAULT 0;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS actual_end_date DATE NULL;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS slack_days INT NOT NULL DEFAULT 0;
 
 -- 2. Thêm các quyền cảnh báo trễ dây chuyền (TC-03)
 INSERT INTO permissions (code, name, description)
