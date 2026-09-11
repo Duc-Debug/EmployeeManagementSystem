@@ -21,7 +21,7 @@ import {
     getMyLeaveRequests,
     cancelLeaveRequest,
     getMyLeaveBalance,
-    LeaveBalanceDto,
+    type LeaveBalanceDto,
 } from "@/lib/api/leave";
 import CalendarView from "../calendar/CalendarView";
 
@@ -78,8 +78,6 @@ export default function LeaveManagementView() {
     const roleCode = user?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
 
     const isEmployee = roleCode === "VT-04";
-    const isRM = roleCode === "VT-03";
-    const isHR = roleCode === "VT-05" || roleCode === "VT-06";
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
