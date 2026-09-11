@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V52: BO SUNG CAC TRUONG PHE DUYET DON NGHI PHEP & PHAN QUYEN (NCL-05-CN-003)
+-- FLYWAY MIGRATION V54: BO SUNG CAC TRUONG PHE DUYET DON NGHI PHEP & PHAN QUYEN (NCL-05-CN-003)
 -- ============================================================
 
 -- 1. Bo sung cot approver_id va approver_comment vao bang leave_requests
