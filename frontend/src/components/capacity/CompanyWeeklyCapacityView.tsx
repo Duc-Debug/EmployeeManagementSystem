@@ -78,7 +78,27 @@ export default function CompanyWeeklyCapacityView() {
     };
   }, []);
 
-  // 2. Tải dữ liệu ma trận năng lực theo tuần
+  // Phân trang Server-side
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 20;
+
+  // Debounced search term for server-side querying
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  // Reset trang về 1 khi đổi phòng ban hoặc tuần
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedOrgUnitId, selectedYear, selectedWeek]);
+
+  // 2. Tải dữ liệu ma trận năng lực theo tuần từ Server (kèm phân trang và tìm kiếm)
   const fetchMatrix = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
@@ -88,6 +108,9 @@ export default function CompanyWeeklyCapacityView() {
         fromYear: selectedYear,
         fromWeek: selectedWeek,
         durationWeeks,
+        page: currentPage - 1,
+        size: pageSize,
+        search: debouncedSearch,
       });
       setMatrixData(data);
     } catch (err: unknown) {
@@ -97,22 +120,34 @@ export default function CompanyWeeklyCapacityView() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedOrgUnitId, selectedYear, selectedWeek, durationWeeks]);
+  }, [selectedOrgUnitId, selectedYear, selectedWeek, durationWeeks, currentPage, pageSize, debouncedSearch]);
 
   useEffect(() => {
     fetchMatrix();
   }, [fetchMatrix]);
 
-  // Điều hướng tuần
+  // [HIGH REVIEW FIX]: Tính số tuần tối đa theo chuẩn ISO-8601 của một năm (52 hoặc 53 tuần)
+  const getMaxIsoWeeks = (year: number): number => {
+    const dec28 = new Date(Date.UTC(year, 11, 28));
+    const day = dec28.getUTCDay() || 7;
+    dec28.setUTCDate(dec28.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(dec28.getUTCFullYear(), 0, 1));
+    return Math.ceil(((dec28.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  };
+
+  // Điều hướng tuần chính xác theo ISO-8601
   const handleNavigateWeek = (delta: number) => {
     let nextWeek = selectedWeek + delta;
     let nextYear = selectedYear;
     if (nextWeek < 1) {
       nextYear -= 1;
-      nextWeek = 52;
-    } else if (nextWeek > 52) {
-      nextYear += 1;
-      nextWeek = 1;
+      nextWeek = getMaxIsoWeeks(nextYear);
+    } else {
+      const maxWeeks = getMaxIsoWeeks(selectedYear);
+      if (nextWeek > maxWeeks) {
+        nextYear += 1;
+        nextWeek = 1;
+      }
     }
     setSelectedYear(nextYear);
     setSelectedWeek(nextWeek);
@@ -124,22 +159,14 @@ export default function CompanyWeeklyCapacityView() {
     setSelectedWeek(iso.weekNumber);
   };
 
-  const rows = matrixData?.rows;
+  const rows = matrixData?.rows || [];
+  const totalEmployees = matrixData?.totalEmployees ?? 0;
+  const totalPages = matrixData?.totalPages ?? 1;
 
-  // Lọc các hàng nhân sự theo ô tìm kiếm và trạng thái
+  // Lọc các hàng nhân sự theo trạng thái trên trang hiện tại
   const filteredRows = useMemo(() => {
-    if (!rows) return [];
+    if (statusFilter === "ALL") return rows;
     return rows.filter((row: EmployeeCapacityRow) => {
-      const q = searchTerm.trim().toLowerCase();
-      const matchSearch =
-        !q ||
-        row.fullName.toLowerCase().includes(q) ||
-        row.employeeCode.toLowerCase().includes(q) ||
-        (row.professionalRole && row.professionalRole.toLowerCase().includes(q));
-
-      if (!matchSearch) return false;
-
-      if (statusFilter === "ALL") return true;
       if (statusFilter === "OVERLOADED") return row.overloadedWeeksCount > 0;
       if (statusFilter === "UNDERUTILIZED") {
         return row.cells.some((c) => c.status === "UNDERUTILIZED");
@@ -149,21 +176,7 @@ export default function CompanyWeeklyCapacityView() {
       }
       return true;
     });
-  }, [rows, searchTerm, statusFilter]);
-
-  // Phân trang Client-side mượt mà tránh DOM Lag khi danh sách lớn
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const pageSize = 20;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, selectedOrgUnitId, selectedYear, selectedWeek]);
-
-  const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
-  const paginatedRows = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, currentPage, pageSize]);
+  }, [rows, statusFilter]);
 
   // Render 1 ô dữ liệu trong ma trận
   const renderCell = (cell: CapacityMatrixCell) => {
@@ -465,7 +478,7 @@ export default function CompanyWeeklyCapacityView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {paginatedRows.map((row: EmployeeCapacityRow) => (
+                {filteredRows.map((row: EmployeeCapacityRow) => (
                   <tr key={row.employeeId} className="hover:bg-slate-50/50 transition">
                     {/* Cột Nhân sự cố định bên trái */}
                     <td className="sticky left-0 z-10 border-r border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs">
@@ -520,15 +533,15 @@ export default function CompanyWeeklyCapacityView() {
             </table>
           </div>
 
-          {/* Thanh phân trang Client-side */}
-          {filteredRows.length > pageSize && (
+          {/* Thanh phân trang Server-side */}
+          {totalEmployees > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 bg-white">
               <div className="text-xs text-slate-500">
                 Hiển thị <span className="font-semibold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> -{" "}
                 <span className="font-semibold text-slate-700">
-                  {Math.min(currentPage * pageSize, filteredRows.length)}
+                  {Math.min(currentPage * pageSize, totalEmployees)}
                 </span>{" "}
-                trong tổng số <span className="font-semibold text-slate-700">{filteredRows.length}</span> nhân sự
+                trong tổng số <span className="font-semibold text-slate-700">{totalEmployees}</span> nhân sự
               </div>
               <div className="flex items-center gap-1.5">
                 <button

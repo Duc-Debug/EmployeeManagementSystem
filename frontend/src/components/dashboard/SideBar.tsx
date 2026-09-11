@@ -36,9 +36,13 @@ const SIDEBAR_SETTINGS = [
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
 
-export function canAccessTab(roleCode: string | undefined | null, tabId: string): boolean {
-    if (!roleCode) return true;
-    const normalized = roleCode.toUpperCase().replace(/_/g, "-");
+export function canAccessTab(
+    roleCode: string | undefined | null,
+    tabId: string,
+    dataScope?: string | null
+): boolean {
+    if (!roleCode && !dataScope) return true;
+    const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
 
     switch (tabId) {
         case "overview":
@@ -47,7 +51,11 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
 
         case "capacity":
         case "weekly-capacity":
-            // Bảng năng lực tuần: VT-01 (Toàn công ty), VT-02 (PM), VT-03 (Trưởng bộ phận), VT-05 (HR), VT-06 (Admin)
+            // [HIGH REVIEW FIX]: Bảng năng lực công ty / bộ phận xác thực theo DataScope (COMPANY hoặc ORGANIZATION_BRANCH).
+            // Người dùng chỉ có DataScope === 'SELF' (nhân viên thường) không được phép xem bảng năng lực tổng thể.
+            if (dataScope) {
+                return dataScope !== "SELF";
+            }
             return ["VT-01", "VT-02", "VT-03", "VT-05", "VT-06"].includes(normalized);
 
         case "access":
@@ -113,9 +121,10 @@ interface SideBarProps {
 export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProps) {
     const user = useAuthUser();
     const roleCode = user?.roleCode;
+    const dataScope = user?.dataScope;
 
-    const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) => canAccessTab(roleCode, item.id));
-    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id));
+    const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) => canAccessTab(roleCode, item.id, dataScope));
+    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope));
 
     return (
         <aside

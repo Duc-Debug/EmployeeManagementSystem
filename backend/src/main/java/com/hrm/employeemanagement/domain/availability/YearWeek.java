@@ -13,9 +13,18 @@ public record YearWeek(int year, int weekNumber) {
         if (year < 2000 || year > 2100) {
             throw new InvalidWeekNumberException("Năm không hợp lệ: " + year + ". Năm phải nằm trong khoảng từ 2000 đến 2100");
         }
-        if (weekNumber < 1 || weekNumber > 53) {
-            throw new InvalidWeekNumberException("Số tuần không hợp lệ: " + weekNumber + ". Số tuần trong năm phải từ 1 đến 53");
+        int maxWeeks = maxWeeksInYear(year);
+        if (weekNumber < 1 || weekNumber > maxWeeks) {
+            throw new InvalidWeekNumberException("Số tuần không hợp lệ: " + weekNumber + ". Năm " + year + " chỉ có " + maxWeeks + " tuần");
         }
+    }
+
+    /**
+     * Tính tổng số tuần ISO-8601 trong một năm (52 hoặc 53 tuần).
+     * Theo chuẩn ISO-8601, tuần chứa ngày 28 tháng 12 luôn là tuần cuối cùng của năm theo tuần.
+     */
+    public static int maxWeeksInYear(int year) {
+        return LocalDate.of(year, 12, 28).get(WeekFields.ISO.weekOfWeekBasedYear());
     }
 
     public static YearWeek of(int year, int weekNumber) {

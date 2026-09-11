@@ -50,11 +50,14 @@ public class ResourceAllocationController {
             @RequestParam(required = false) Long orgUnitId,
             @RequestParam(required = false) Integer fromYear,
             @RequestParam(required = false) Integer fromWeek,
-            @RequestParam(required = false, defaultValue = "8") @Min(1) @Max(16) Integer durationWeeks) {
+            @RequestParam(required = false, defaultValue = "8") @Min(1) @Max(16) Integer durationWeeks,
+            @RequestParam(required = false, defaultValue = "0") @Min(0) Integer page,
+            @RequestParam(required = false, defaultValue = "20") @Min(1) @Max(50) Integer size,
+            @RequestParam(required = false) String search) {
 
         com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery query =
                 new com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery(
-                        orgUnitId, fromYear, fromWeek, durationWeeks);
+                        orgUnitId, fromYear, fromWeek, durationWeeks, page, size, search);
 
         com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult result =
                 getCompanyWeeklyCapacityUseCase.getWeeklyCapacityMatrix(query);

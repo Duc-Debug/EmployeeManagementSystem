@@ -52,7 +52,7 @@ export default function Dashboard() {
         return "overview";
     }, [location.pathname]);
 
-    const isTabAllowed = canAccessTab(user?.roleCode, activeTab);
+    const isTabAllowed = canAccessTab(user?.roleCode, activeTab, user?.dataScope);
 
     const handleTabChange = (tabId: string) => {
         const targetPath = tabId === "overview" ? "/" : `/${tabId}`;

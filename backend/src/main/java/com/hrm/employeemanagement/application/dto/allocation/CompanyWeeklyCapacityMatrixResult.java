@@ -14,8 +14,38 @@ public record CompanyWeeklyCapacityMatrixResult(
         int durationWeeks,
         List<HeaderWeekInfo> weeks,
         List<EmployeeCapacityRowResult> rows,
-        CapacityMatrixSummaryResult summary
+        CapacityMatrixSummaryResult summary,
+        int page,
+        int pageSize,
+        int totalEmployees,
+        int totalPages
 ) {
+
+    public CompanyWeeklyCapacityMatrixResult(
+            Long orgUnitId,
+            String orgUnitName,
+            int fromYear,
+            int fromWeek,
+            int durationWeeks,
+            List<HeaderWeekInfo> weeks,
+            List<EmployeeCapacityRowResult> rows,
+            CapacityMatrixSummaryResult summary
+    ) {
+        this(
+                orgUnitId,
+                orgUnitName,
+                fromYear,
+                fromWeek,
+                durationWeeks,
+                weeks,
+                rows,
+                summary,
+                0,
+                rows != null ? Math.max(1, rows.size()) : 20,
+                rows != null ? rows.size() : 0,
+                rows != null && !rows.isEmpty() ? 1 : 0
+        );
+    }
 
     public record HeaderWeekInfo(
             int year,

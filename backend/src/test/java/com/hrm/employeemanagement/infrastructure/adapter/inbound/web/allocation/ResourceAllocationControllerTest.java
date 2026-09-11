@@ -111,4 +111,44 @@ class ResourceAllocationControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/allocations/weekly-matrix - Nhận tham số page, size, search và trả về metadata phân trang")
+    void getWeeklyCapacityMatrix_WithPaginationAndSearch() throws Exception {
+        HeaderWeekInfo weekInfo = new HeaderWeekInfo(
+                2026, 37, LocalDate.of(2026, 9, 7), LocalDate.of(2026, 9, 13), "T37 (07/09 - 13/09)"
+        );
+        CapacityMatrixSummaryResult summary = new CapacityMatrixSummaryResult(
+                25, 1, 0, 0, 0, BigDecimal.valueOf(80.0)
+        );
+        CompanyWeeklyCapacityMatrixResult matrixResult = new CompanyWeeklyCapacityMatrixResult(
+                10L, "Phòng CNTT", 2026, 37, 1, List.of(weekInfo), List.of(), summary, 1, 10, 25, 3
+        );
+
+        when(getCompanyWeeklyCapacityUseCase.getWeeklyCapacityMatrix(any(CompanyWeeklyCapacityQuery.class)))
+                .thenReturn(matrixResult);
+
+        mockMvc.perform(get("/api/v1/allocations/weekly-matrix")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .param("search", "Nguyen")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(10))
+                .andExpect(jsonPath("$.data.totalEmployees").value(25))
+                .andExpect(jsonPath("$.data.totalPages").value(3));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/allocations/weekly-matrix - Trả về 400 BAD REQUEST khi tuần 53 không hợp lệ với năm chỉ có 52 tuần (2025 W53)")
+    void getWeeklyCapacityMatrix_InvalidIsoWeek_ReturnsBadRequest() throws Exception {
+        // Năm 2025 chỉ có 52 tuần ISO, tuần 53 là không hợp lệ -> Query constructor ném InvalidWeekNumberException
+        mockMvc.perform(get("/api/v1/allocations/weekly-matrix")
+                        .param("fromYear", "2025")
+                        .param("fromWeek", "53")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DOMAIN_RULE_VIOLATION"));
+    }
 }

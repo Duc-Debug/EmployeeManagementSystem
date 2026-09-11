@@ -115,6 +115,10 @@ export interface CompanyWeeklyCapacityMatrixData {
   weeks: HeaderWeekInfo[];
   rows: EmployeeCapacityRow[];
   summary: CapacityMatrixSummary;
+  page: number;
+  pageSize: number;
+  totalEmployees: number;
+  totalPages: number;
 }
 
 export interface CompanyWeeklyCapacityMatrixParams {
@@ -122,6 +126,9 @@ export interface CompanyWeeklyCapacityMatrixParams {
   fromYear?: number;
   fromWeek?: number;
   durationWeeks?: number;
+  page?: number;
+  size?: number;
+  search?: string;
 }
 
 /**
@@ -142,6 +149,15 @@ export async function getCompanyWeeklyCapacityMatrix(
   }
   if (params?.durationWeeks != null) {
     searchParams.append("durationWeeks", String(params.durationWeeks));
+  }
+  if (params?.page != null) {
+    searchParams.append("page", String(params.page));
+  }
+  if (params?.size != null) {
+    searchParams.append("size", String(params.size));
+  }
+  if (params?.search != null && params.search.trim() !== "") {
+    searchParams.append("search", params.search.trim());
   }
   const queryStr = searchParams.toString();
   return apiRequest<CompanyWeeklyCapacityMatrixData>(

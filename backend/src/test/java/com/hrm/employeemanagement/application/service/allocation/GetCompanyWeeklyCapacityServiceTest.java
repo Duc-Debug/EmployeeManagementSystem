@@ -284,4 +284,74 @@ class GetCompanyWeeklyCapacityServiceTest {
         assertThat(cell.remainingHours()).isEqualByComparingTo(BigDecimal.ZERO); // Semantics: không âm!
         assertThat(cell.status()).isEqualTo(CapacityStatus.OVERLOADED);
     }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — Phân trang Server-side chỉ tính toán ma trận cho lát cắt trang (Page Slice)")
+    void testServerSidePaginationSlicesEmployees() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        Employee emp1 = new Employee(new EmployeeId(1L), null, 10L, "EMP001", "An Nguyen", "Dev", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(2L), null, 10L, "EMP002", "Binh Tran", "QA", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp3 = new Employee(new EmployeeId(3L), null, 10L, "EMP003", "Cuong Le", "BA", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp3, emp1, emp2)); // Cố tình không theo thứ tự alphabet
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        // Yêu cầu trang 1, kích thước trang = 1 (Phần tử thứ 2 sau khi sắp xếp: An Nguyen [0], Binh Tran [1], Cuong Le [2])
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1, 1, 1, null);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.pageSize()).isEqualTo(1);
+        assertThat(result.totalEmployees()).isEqualTo(3);
+        assertThat(result.totalPages()).isEqualTo(3);
+        assertThat(result.rows()).hasSize(1);
+        assertThat(result.rows().get(0).employeeCode()).isEqualTo("EMP002");
+        assertThat(result.rows().get(0).fullName()).isEqualTo("Binh Tran");
+
+        // Đảm bảo chỉ query DB cho đúng nhân viên của trang (ID 2)
+        verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeks(eq(List.of(2L)), anyList());
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — Tìm kiếm Server-side lọc chính xác nhân sự trước khi phân trang")
+    void testServerSideSearchFilter() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        Employee emp1 = new Employee(new EmployeeId(1L), null, 10L, "EMP001", "An Nguyen", "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(2L), null, 10L, "EMP002", "Binh Tran", "Tester", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(10L))).thenReturn(List.of(emp1, emp2));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+
+        // Tìm kiếm theo từ khóa "Developer"
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1, 0, 20, "Developer");
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.totalEmployees()).isEqualTo(1);
+        assertThat(result.rows()).hasSize(1);
+        assertThat(result.rows().get(0).employeeCode()).isEqualTo("EMP001");
+    }
+
+    @Test
+    @DisplayName("🔴 HIGH FIX — Query chặn tuần 53 đối với năm chỉ có 52 tuần tại application boundary")
+    void testInvalidWeek53RejectedByQueryBoundary() {
+        // Năm 2024 chỉ có 52 tuần ISO -> Tuần 53 ném InvalidWeekNumberException
+        assertThatThrownBy(() -> new CompanyWeeklyCapacityQuery(10L, 2024, 53, 4))
+                .isInstanceOf(com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException.class);
+    }
 }
