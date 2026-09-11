@@ -124,10 +124,12 @@ export default function CompanyWeeklyCapacityView() {
     setSelectedWeek(iso.weekNumber);
   };
 
+  const rows = matrixData?.rows;
+
   // Lọc các hàng nhân sự theo ô tìm kiếm và trạng thái
   const filteredRows = useMemo(() => {
-    if (!matrixData?.rows) return [];
-    return matrixData.rows.filter((row: EmployeeCapacityRow) => {
+    if (!rows) return [];
+    return rows.filter((row: EmployeeCapacityRow) => {
       const q = searchTerm.trim().toLowerCase();
       const matchSearch =
         !q ||
@@ -147,7 +149,7 @@ export default function CompanyWeeklyCapacityView() {
       }
       return true;
     });
-  }, [matrixData?.rows, searchTerm, statusFilter]);
+  }, [rows, searchTerm, statusFilter]);
 
   // Phân trang Client-side mượt mà tránh DOM Lag khi danh sách lớn
   const [currentPage, setCurrentPage] = useState<number>(1);
