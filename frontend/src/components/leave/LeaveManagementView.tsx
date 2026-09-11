@@ -47,63 +47,6 @@ const LEAVE_TYPE_COLORS: Record<LeaveRequest["leaveType"], string> = {
     PERSONAL: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
-const INITIAL_LEAVE_DATA: LeaveRequest[] = [
-    {
-        id: "LV-2026-001",
-        employeeId: "1",
-        employeeName: "Nguyễn Văn Đức",
-        department: "Phòng Phát triển Phần mềm",
-        leaveType: "ANNUAL",
-        startDate: "2026-09-15",
-        endDate: "2026-09-16",
-        daysCount: 2,
-        reason: "Nghỉ việc gia đình",
-        status: "APPROVED",
-        createdAt: "2026-09-01",
-    },
-    {
-        id: "LV-2026-002",
-        employeeId: "2",
-        employeeName: "Trần Thị Mai",
-        department: "Phòng Kinh doanh",
-        leaveType: "SICK",
-        startDate: "2026-09-18",
-        endDate: "2026-09-18",
-        daysCount: 1,
-        reason: "Khám sức khỏe định kỳ",
-        status: "PENDING",
-        createdAt: "2026-09-08",
-    },
-    {
-        id: "LV-2026-003",
-        employeeId: "3",
-        employeeName: "Lê Hoàng Nam",
-        department: "Phòng Phát triển Phần mềm",
-        leaveType: "ANNUAL",
-        startDate: "2026-09-22",
-        endDate: "2026-09-24",
-        daysCount: 3,
-        reason: "Du lịch cá nhân",
-        status: "PENDING",
-        createdAt: "2026-09-08",
-    },
-    {
-        id: "LV-2026-004",
-        employeeId: "4",
-        employeeName: "Phạm Minh Tuấn",
-        department: "Phòng Nhân sự",
-        leaveType: "PERSONAL",
-        startDate: "2026-09-10",
-        endDate: "2026-09-10",
-        daysCount: 1,
-        reason: "Giải quyết thủ tục hành chính cá nhân",
-        status: "APPROVED",
-        createdAt: "2026-09-05",
-    },
-];
-
-const STORAGE_KEY = "sys_leave_requests";
-
 export default function LeaveManagementView() {
     const user = useAuthUser();
     const roleCode = user?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
@@ -113,16 +56,7 @@ export default function LeaveManagementView() {
     const isHR = roleCode === "VT-05" || roleCode === "VT-06";
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
-    const [requests, setRequests] = useState<LeaveRequest[]>(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            }
-        } catch {}
-        return INITIAL_LEAVE_DATA;
-    });
+    const [requests, setRequests] = useState<LeaveRequest[]>([]);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newLeave, setNewLeave] = useState({
@@ -140,13 +74,6 @@ export default function LeaveManagementView() {
     const showToast = (msg: string) => {
         setToastMessage(msg);
         setTimeout(() => setToastMessage(null), 3500);
-    };
-
-    const saveRequests = (data: LeaveRequest[]) => {
-        setRequests(data);
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        } catch {}
     };
 
     // Tải dữ liệu thật từ Backend nếu là nhân viên chuyên môn (VT-04)
@@ -208,19 +135,6 @@ export default function LeaveManagementView() {
         .reduce((sum, r) => sum + r.daysCount, 0);
     const remainingDays = Math.max(0, totalAnnualLeave - usedDays);
     const pendingCount = userRequests.filter((r) => r.status === "PENDING").length;
-
-    // Duyệt / Từ chối đơn
-    const handleApprove = (id: string) => {
-        const next = requests.map((r) => (r.id === id ? { ...r, status: "APPROVED" as const } : r));
-        saveRequests(next);
-        showToast("Đã phê duyệt đơn nghỉ phép thành công!");
-    };
-
-    const handleReject = (id: string) => {
-        const next = requests.map((r) => (r.id === id ? { ...r, status: "REJECTED" as const } : r));
-        saveRequests(next);
-        showToast("Đã từ chối đơn nghỉ phép.");
-    };
 
     // Hủy đơn (dành cho người nộp)
     const handleCancelRequest = async (id: string) => {
@@ -503,28 +417,11 @@ export default function LeaveManagementView() {
                                                 )}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                {/* Thao tác Phê duyệt cho RM (VT-03), HR (VT-05) */}
+                                                {/* Thao tác Phê duyệt thuộc phạm vi UC NCL-05-CN-003 */}
                                                 {(isRM || isHR) && req.status === "PENDING" && (
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleApprove(req.id)}
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
-                                                            title="Phê duyệt đơn"
-                                                        >
-                                                            <Check className="size-3" />
-                                                            <span>Duyệt</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleReject(req.id)}
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
-                                                            title="Từ chối đơn"
-                                                        >
-                                                            <X className="size-3" />
-                                                            <span>Từ chối</span>
-                                                        </button>
-                                                    </div>
+                                                    <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-500">
+                                                        Chờ duyệt (NCL-05-CN-003)
+                                                    </span>
                                                 )}
 
                                                 {/* Thao tác Hủy đơn cho chính nhân viên */}

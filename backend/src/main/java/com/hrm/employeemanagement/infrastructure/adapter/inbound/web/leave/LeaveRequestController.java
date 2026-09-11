@@ -54,7 +54,7 @@ public class LeaveRequestController {
      * TC-04: Giới hạn nghiêm ngặt chỉ vai trò VT-04 (Nhân viên chuyên môn) mới được nộp đơn.
      */
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('VT-04', 'ROLE_VT-04', 'LEAVE_REQUEST_CREATE')")
+    @PreAuthorize("hasAuthority('LEAVE_REQUEST_CREATE')")
     public ResponseEntity<ApiResponse<LeaveRequestResult>> submitLeaveRequest(
             @Valid @RequestBody SubmitLeaveRequestWebRequest request
     ) {
@@ -76,7 +76,7 @@ public class LeaveRequestController {
      * Lấy danh sách toàn bộ đơn nghỉ phép của nhân viên đang đăng nhập.
      */
     @GetMapping("/my")
-    @PreAuthorize("hasAnyAuthority('VT-04', 'ROLE_VT-04', 'LEAVE_REQUEST_CREATE')")
+    @PreAuthorize("hasAuthority('LEAVE_REQUEST_CREATE')")
     public ResponseEntity<ApiResponse<List<LeaveRequestResult>>> getMyLeaveRequests() {
         Long currentUserId = authorizationService.require(PermissionCode.LEAVE_REQUEST_CREATE);
         Employee employee = loadEmployeePort.findByUserId(new UserId(currentUserId))
@@ -94,7 +94,7 @@ public class LeaveRequestController {
      * Hủy đơn xin nghỉ phép cá nhân (chỉ khi đang ở trạng thái PENDING).
      */
     @org.springframework.web.bind.annotation.PutMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyAuthority('VT-04', 'ROLE_VT-04', 'LEAVE_REQUEST_CREATE')")
+    @PreAuthorize("hasAuthority('LEAVE_REQUEST_CREATE')")
     public ResponseEntity<ApiResponse<Void>> cancelLeaveRequest(@org.springframework.web.bind.annotation.PathVariable Long id) {
         cancelLeaveRequestUseCase.cancelLeaveRequest(id);
         return ResponseEntity.ok(ApiResponse.success("Hủy đơn xin nghỉ phép thành công", null));

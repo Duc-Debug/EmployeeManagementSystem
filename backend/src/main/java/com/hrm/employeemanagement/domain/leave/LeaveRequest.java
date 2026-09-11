@@ -46,6 +46,9 @@ public class LeaveRequest {
                                              int daysCount, BigDecimal hoursDeducted,
                                              String reason) {
         LeaveRequestPolicy.validateDateRange(startDate, endDate);
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Lý do nghỉ phép không được để trống");
+        }
         return new LeaveRequest(
                 null,
                 employeeId,

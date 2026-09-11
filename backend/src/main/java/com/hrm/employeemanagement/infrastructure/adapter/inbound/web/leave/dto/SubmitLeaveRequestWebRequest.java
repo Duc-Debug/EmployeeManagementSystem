@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.leave.dto;
 
 import com.hrm.employeemanagement.domain.leave.LeaveType;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -17,6 +18,7 @@ public class SubmitLeaveRequestWebRequest {
     @NotNull(message = "Ngày kết thúc không được để trống")
     private LocalDate endDate;
 
+    @NotBlank(message = "Lý do nghỉ phép không được để trống")
     @Size(max = 500, message = "Lý do nghỉ phép không được vượt quá 500 ký tự")
     private String reason;
 
