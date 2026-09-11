@@ -1,4 +1,4 @@
-﻿import { test, describe } from "node:test";
+import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-003)", () => {
@@ -74,5 +74,90 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         const overloadPayload = buildPayload(1, 10, 2026, 37, 45, 40, "Cần tăng ca gấp");
         assert.equal(overloadPayload.allocatedHours, 45);
         assert.equal(overloadPayload.overloadReason, "Cần tăng ca gấp");
+    });
+
+    test("QTN-11 / Truth Source: netAvailableHours (đã trừ ngày nghỉ/lễ) là nguồn sự thật cho overload", () => {
+        // Tình huống: Chuẩn 40h, nghỉ phép/lễ 16h => netAvailableHours = 24h
+        const standardHours = 40;
+        const approvedLeaveHours = 16;
+        const netAvailableHours = standardHours - approvedLeaveHours; // 24h
+
+        const computeOverload = (requestedHours, netCapacity, fallbackCapacity) => {
+            const capacity = netCapacity !== null ? netCapacity : fallbackCapacity;
+            const isOverloaded = requestedHours > capacity;
+            const excessHours = isOverloaded ? requestedHours - capacity : 0;
+            return { capacity, isOverloaded, excessHours };
+        };
+
+        // User nhập 32h: 32h <= 40h chuẩn, nhưng 32h > 24h khả dụng thực tế
+        const result = computeOverload(32, netAvailableHours, standardHours);
+        assert.equal(result.capacity, 24, "Capacity thực tế là 24h");
+        assert.equal(result.isOverloaded, true, "32h > 24h phải bị coi là quá tải");
+        assert.equal(result.excessHours, 8, "Vượt quá 8 giờ so với khả dụng thực tế");
+    });
+
+    test("QTN-11 / Cross-project Allocation: Tính tổng giờ phân bổ trên mọi dự án trong tuần", () => {
+        // Nhân sự đã được phân bổ 10h ở Dự án khác, tuần này khả dụng 24h
+        const otherProjectsAllocated = 10;
+        const netCapacity = 24;
+
+        const checkProjectAllocation = (projectHours, otherHours, capacity) => {
+            const totalWeekly = otherHours + projectHours;
+            const isOverloaded = totalWeekly > capacity;
+            const excess = isOverloaded ? totalWeekly - capacity : 0;
+            return { totalWeekly, isOverloaded, excess };
+        };
+
+        // Phân bổ thêm 12h: Tổng 22h <= 24h -> Hợp lệ
+        const validAlloc = checkProjectAllocation(12, otherProjectsAllocated, netCapacity);
+        assert.equal(validAlloc.totalWeekly, 22);
+        assert.equal(validAlloc.isOverloaded, false);
+
+        // Phân bổ thêm 20h: Tổng 30h > 24h -> Quá tải 6h
+        const overloadAlloc = checkProjectAllocation(20, otherProjectsAllocated, netCapacity);
+        assert.equal(overloadAlloc.totalWeekly, 30);
+        assert.equal(overloadAlloc.isOverloaded, true);
+        assert.equal(overloadAlloc.excess, 6);
+    });
+
+    test("QTN-11 / Error Recovery: Parse ALLOCATION_OVERLOAD_WARNING và mở form nhập lý do", () => {
+        const backendErrorResponse = {
+            status: 400,
+            data: {
+                code: "ALLOCATION_OVERLOAD_WARNING",
+                message: "Không thể phân bổ: Tổng số giờ phân bổ (32h) vượt quá số giờ khả dụng (24h)...",
+                details: {
+                    availableHours: 24,
+                    allocatedHours: 32,
+                    overloadHours: 8
+                }
+            }
+        };
+
+        const handleBackendError = (err, isRM) => {
+            const isOverloadWarning = err.data?.code === "ALLOCATION_OVERLOAD_WARNING";
+            if (!isOverloadWarning) {
+                return { forcedOverload: false, errorMessage: err.message };
+            }
+            return {
+                forcedOverload: true,
+                recoveredCapacity: err.data.details.availableHours,
+                overloadHours: err.data.details.overloadHours,
+                canConfirm: isRM,
+                promptMessage: isRM
+                    ? "Phân bổ vượt quá năng lực khả dụng thực tế. Vui lòng nhập lý do để xác nhận (QTN-11)."
+                    : "Nhân sự bị phân bổ vượt quá giờ khả dụng. Chỉ Quản lý nguồn lực (RM) mới có quyền xác nhận vượt tải."
+            };
+        };
+
+        const rmResult = handleBackendError(backendErrorResponse, true);
+        assert.equal(rmResult.forcedOverload, true);
+        assert.equal(rmResult.recoveredCapacity, 24);
+        assert.equal(rmResult.overloadHours, 8);
+        assert.equal(rmResult.canConfirm, true);
+
+        const pmResult = handleBackendError(backendErrorResponse, false);
+        assert.equal(pmResult.forcedOverload, true);
+        assert.equal(pmResult.canConfirm, false);
     });
 });

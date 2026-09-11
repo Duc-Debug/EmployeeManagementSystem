@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Sliders, AlertTriangle, ShieldAlert, CheckCircle } from 'lucide-react';
 import type { ProjectMember } from './projectData';
 import { useAuthUser } from '@/lib/auth-session';
+import { getWeeklyCapacities } from '@/lib/api/allocations';
 
 interface ProjectAdjustHoursModalProps {
     open: boolean;
@@ -9,9 +10,17 @@ interface ProjectAdjustHoursModalProps {
     weekKey: string;
     weekLabel: string;
     monthName: string;
+    year?: number;
+    weekNumber?: number;
     onClose: () => void;
     onSave: (memberId: string, weekKey: string, newHours: number, overloadReason?: string) => Promise<void> | void;
 }
+
+const getEmployeeId = (member: ProjectMember): number | null => {
+    if (member.employeeId && member.employeeId > 0) return member.employeeId;
+    const parsed = Number(member.id.replace('u-', ''));
+    return !isNaN(parsed) && parsed > 0 ? parsed : null;
+};
 
 export function ProjectAdjustHoursModal({
     open,
@@ -19,6 +28,8 @@ export function ProjectAdjustHoursModal({
     weekKey,
     weekLabel,
     monthName,
+    year,
+    weekNumber,
     onClose,
     onSave,
 }: ProjectAdjustHoursModalProps) {
@@ -30,21 +41,61 @@ export function ProjectAdjustHoursModal({
     const [reasonError, setReasonError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // QTN-11 / NCL-06-CN-003: Net capacity state from WeeklyAvailability
+    const [netCapacity, setNetCapacity] = useState<number | null>(null);
+    const [standardHours, setStandardHours] = useState<number | null>(null);
+    const [otherProjectsHours, setOtherProjectsHours] = useState<number>(0);
+    const [isLoadingCapacity, setIsLoadingCapacity] = useState(false);
+    const [forcedOverload, setForcedOverload] = useState(false);
+
     useEffect(() => {
-        if (member && weekKey) {
+        if (open && member && weekKey) {
             setHours(member.weeklyHours[weekKey] ?? 0);
             setOverloadReason('');
             setReasonError(null);
             setIsSubmitting(false);
+            setForcedOverload(false);
+
+            const empId = getEmployeeId(member);
+            if (empId && year && weekNumber) {
+                setIsLoadingCapacity(true);
+                getWeeklyCapacities([empId], year, weekNumber)
+                    .then((capacities) => {
+                        if (capacities && capacities.length > 0) {
+                            const cap = capacities[0];
+                            setNetCapacity(cap.netAvailableHours);
+                            setStandardHours(cap.standardHours);
+                            const currentProjHours = member.weeklyHours[weekKey] ?? 0;
+                            const otherHours = Math.max(0, (cap.totalAllocatedHours ?? 0) - currentProjHours);
+                            setOtherProjectsHours(otherHours);
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn('Không thể tải năng lực khả dụng tuần:', err);
+                    })
+                    .finally(() => {
+                        setIsLoadingCapacity(false);
+                    });
+            } else {
+                setNetCapacity(null);
+                setStandardHours(null);
+                setOtherProjectsHours(0);
+            }
+        } else if (!open) {
+            setNetCapacity(null);
+            setStandardHours(null);
+            setOtherProjectsHours(0);
+            setForcedOverload(false);
         }
-    }, [open, member, weekKey]);
+    }, [open, member, weekKey, year, weekNumber]);
 
     if (!open || !member) return null;
 
-    const capacity = member.capacity || 40;
-    const pct = Math.round((hours / capacity) * 100);
-    const isOverloaded = hours > capacity;
-    const overloadHours = isOverloaded ? hours - capacity : 0;
+    const capacity = netCapacity !== null ? netCapacity : (member.capacity || 40);
+    const totalWeeklyHours = otherProjectsHours + hours;
+    const isOverloaded = forcedOverload || (totalWeeklyHours > capacity);
+    const overloadHours = isOverloaded ? Math.max(0, totalWeeklyHours - capacity) : 0;
+    const pct = capacity > 0 ? Math.round((totalWeeklyHours / capacity) * 100) : (hours > 0 ? 100 : 0);
 
     const handleApply = async () => {
         if (isOverloaded) {
@@ -64,8 +115,26 @@ export function ProjectAdjustHoursModal({
             await onSave(member.id, weekKey, hours, isOverloaded ? overloadReason.trim() : undefined);
             onClose();
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi lưu phân bổ';
-            setReasonError(msg);
+            const anyErr = err as { message?: string; data?: { code?: string; details?: { availableHours?: number; overloadHours?: number } } };
+            const errorMsg = anyErr?.message || (err instanceof Error ? err.message : 'Đã xảy ra lỗi khi lưu phân bổ');
+            const isOverloadWarning = anyErr?.data?.code === 'ALLOCATION_OVERLOAD_WARNING'
+                || errorMsg.includes('ALLOCATION_OVERLOAD_WARNING')
+                || errorMsg.includes('vượt quá số giờ khả dụng');
+
+            if (isOverloadWarning) {
+                setForcedOverload(true);
+                if (anyErr?.data?.details?.availableHours !== undefined) {
+                    setNetCapacity(anyErr.data.details.availableHours);
+                }
+                if (!isResourceManager) {
+                    setReasonError('Nhân sự bị phân bổ vượt quá giờ khả dụng. Chỉ Quản lý nguồn lực (RM) mới có quyền xác nhận vượt tải.');
+                } else {
+                    setReasonError('Phân bổ vượt quá năng lực khả dụng thực tế. Vui lòng nhập lý do để xác nhận (QTN-11).');
+                }
+                return;
+            }
+
+            setReasonError(errorMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -91,37 +160,53 @@ export function ProjectAdjustHoursModal({
 
                 {/* Body */}
                 <div className="p-5 space-y-4 text-xs">
-                    <div className="rounded-lg bg-slate-50 p-3 border border-slate-200/80 space-y-1">
+                    <div className="rounded-lg bg-slate-50 p-3 border border-slate-200/80 space-y-1.5">
                         <p className="text-slate-600">
                             Nhân sự: <strong className="text-slate-900">{member.name} ({member.role})</strong>
                         </p>
                         <p className="text-slate-600">
                             Thời gian: <strong className="font-semibold text-indigo-700">{weekLabel || weekKey} - {monthName}</strong>
                         </p>
-                        <p className="text-slate-500 text-[11px]">
-                            Năng lực khả dụng: <span className="font-bold text-slate-700">{capacity}h/tuần</span>
-                        </p>
+                        <div className="text-slate-500 text-[11px] flex flex-col gap-0.5">
+                            <div className="flex items-center justify-between">
+                                <span>Năng lực khả dụng tuần:</span>
+                                <span className="font-bold text-slate-700">
+                                    {isLoadingCapacity ? 'Đang kiểm tra...' : `${capacity}h/tuần`}
+                                </span>
+                            </div>
+                            {standardHours !== null && netCapacity !== null && netCapacity < standardHours && (
+                                <p className="text-[10px] text-amber-600 font-medium">
+                                    (Chuẩn: {standardHours}h, đã trừ {standardHours - netCapacity}h nghỉ phép/lễ theo QTN-10)
+                                </p>
+                            )}
+                            {otherProjectsHours > 0 && (
+                                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 border-t border-slate-200">
+                                    <span>Đã phân bổ dự án khác:</span>
+                                    <span className="font-semibold text-indigo-600">{otherProjectsHours}h</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div>
                         <div className="mb-1 flex items-center justify-between">
-                            <label className="font-semibold text-slate-700">Tổng số giờ được giao:</label>
+                            <label className="font-semibold text-slate-700">Giờ phân bổ dự án này:</label>
                             <span
                                 className={`rounded px-2 py-0.5 text-[11px] font-bold ${
                                     isOverloaded
                                         ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-300'
-                                        : hours >= 25
+                                        : totalWeeklyHours >= capacity * 0.75
                                         ? 'bg-emerald-100 text-emerald-700'
                                         : 'bg-slate-100 text-slate-700'
-                                }`}
+                                    }`}
                             >
-                                {hours}h ({pct}%)
+                                {otherProjectsHours > 0 ? `${hours}h (Tổng tuần: ${totalWeeklyHours}h - ${pct}%)` : `${hours}h (${pct}%)`}
                             </span>
                         </div>
                         <input
                             type="range"
                             min="0"
-                            max="60"
+                            max={Math.max(60, capacity + 10)}
                             step="1"
                             value={hours}
                             onChange={(e) => {
@@ -132,10 +217,9 @@ export function ProjectAdjustHoursModal({
                         />
                         <div className="mt-1 flex justify-between text-[10px] text-slate-400">
                             <span>0h</span>
-                            <span>20h</span>
-                            <span className="font-bold text-slate-600">{capacity}h (Chuẩn)</span>
-                            <span>50h</span>
-                            <span className="font-bold text-rose-500">60h</span>
+                            <span>{Math.round(capacity / 2)}h</span>
+                            <span className="font-bold text-slate-600">{capacity}h (Khả dụng)</span>
+                            <span className="font-bold text-rose-500">{Math.max(60, capacity + 10)}h</span>
                         </div>
                     </div>
 
@@ -149,7 +233,7 @@ export function ProjectAdjustHoursModal({
                                         Cảnh báo quá tải: Vượt {overloadHours} giờ so với khả dụng!
                                     </p>
                                     <p className="text-[10px] font-normal text-rose-700 mt-0.5">
-                                        Tổng giờ phân bổ ({hours}h) lớn hơn số giờ khả dụng ({capacity}h) của tuần {weekLabel || weekKey}.
+                                        Tổng giờ phân bổ tuần này ({totalWeeklyHours}h{otherProjectsHours > 0 ? ` gồm ${otherProjectsHours}h dự án khác` : ''}) vượt quá năng lực khả dụng thực tế ({capacity}h) của tuần {weekLabel || weekKey}.
                                     </p>
                                 </div>
                             </div>

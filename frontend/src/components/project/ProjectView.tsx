@@ -1405,6 +1405,8 @@ export default function ProjectView() {
                 weekKey={selectedAdjustCell?.weekKey || ''}
                 weekLabel={selectedAdjustCell?.weekLabel || ''}
                 monthName={selectedMonth.name}
+                year={selectedAdjustCell?.weekKey ? getDisplayedIsoWeek(selectedAdjustCell.weekKey).year : undefined}
+                weekNumber={selectedAdjustCell?.weekKey ? getDisplayedIsoWeek(selectedAdjustCell.weekKey).week : undefined}
                 onClose={() => setAdjustModalOpen(false)}
                 onSave={handleSaveAdjustedHours}
             />}

@@ -37,7 +37,7 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code = 'RESOURCE_ALLOCATION_OVERLOAD_BYPASS'
-WHERE r.code IN ('VT-03', 'VT-06')
+WHERE r.code = 'VT-03'
 AND NOT EXISTS (
     SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_id = p.id
 );
