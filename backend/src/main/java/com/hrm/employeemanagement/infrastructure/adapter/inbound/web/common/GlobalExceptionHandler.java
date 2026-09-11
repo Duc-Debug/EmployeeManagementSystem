@@ -74,6 +74,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEmployeeSkillNotFound(com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "EMPLOYEE_SKILL_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler({EmployeeVersionConflictException.class,
             org.springframework.orm.ObjectOptimisticLockingFailureException.class,
             jakarta.persistence.OptimisticLockException.class})
@@ -120,6 +129,33 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 HttpStatus.CONFLICT.value());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.calendar.DuplicateHolidayException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateHoliday(com.hrm.employeemanagement.domain.exception.calendar.DuplicateHolidayException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_HOLIDAY",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.calendar.HolidayNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleHolidayNotFound(com.hrm.employeemanagement.domain.exception.calendar.HolidayNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "HOLIDAY_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.calendar.InvalidWorkingCalendarException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidWorkingCalendar(com.hrm.employeemanagement.domain.exception.calendar.InvalidWorkingCalendarException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_WORKING_CALENDAR",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     // 3. Handle CyclicDependencyException (400 BAD REQUEST)
@@ -283,7 +319,7 @@ public class GlobalExceptionHandler {
         log.error("Data integrity violation: ", ex);
         ErrorResponse response = ErrorResponse.of(
                 "DATA_INTEGRITY_VIOLATION",
-                "Dữ liệu không hợp lệ hoặc tham chiếu tới đối tượng không tồn tại (User ID / Org Unit ID không hợp lệ)",
+                rootMsg != null ? rootMsg : "Dữ liệu không hợp lệ hoặc tham chiếu tới đối tượng không tồn tại (User ID / Org Unit ID không hợp lệ)",
                 HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
@@ -297,6 +333,26 @@ public class GlobalExceptionHandler {
                 "Bạn không có quyền truy cập chức năng này",
                 HttpStatus.FORBIDDEN.value());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    // 14.3. Handle InvalidLeaveDateRangeException (NCL-05-CN-002 TC-03)
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidLeaveDateRange(com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_LEAVE_DATE_RANGE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 14.4. Handle DuplicateLeaveRequestException (NCL-05-CN-002 TC-02)
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateLeaveRequest(com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_LEAVE_REQUEST",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)

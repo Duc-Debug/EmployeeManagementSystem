@@ -8,15 +8,18 @@ import {
     Clock,
     CheckCircle2,
     FolderOpen,
+    AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TaskCategoryGroup, ProjectMember } from './projectData';
+import { CascadeDelayWarningModal } from './CascadeDelayWarningModal';
 
 interface ProjectWbsViewProps {
     categories: TaskCategoryGroup[];
     members: ProjectMember[];
     searchTerm: string;
     selectedRole: string;
+    projectId?: number;
     canEdit?: boolean;
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
@@ -27,10 +30,17 @@ export function ProjectWbsView({
     members,
     searchTerm,
     selectedRole,
+    projectId = 1,
     canEdit = false,
     onQuickAddTask,
     onToggleTaskStatus,
 }: ProjectWbsViewProps) {
+    const [cascadeModalTask, setCascadeModalTask] = useState<{
+        id: number;
+        name: string;
+        code?: string;
+    } | null>(null);
+
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
         'cat-1': true,
@@ -151,28 +161,33 @@ export function ProjectWbsView({
                                     onClick={() => toggleCategory(cat.id)}
                                     className="flex cursor-pointer select-none items-center justify-between border-b border-slate-200 bg-slate-50/80 p-3 transition"
                                 >
-                                    <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                                         <span
-                                            className={`text-slate-400 transition-transform duration-200 ${
+                                            className={`text-slate-400 transition-transform duration-200 shrink-0 ${
                                                 isOpen ? '' : '-rotate-90'
                                             }`}
                                         >
                                             <ChevronDown className="h-4 w-4" />
                                         </span>
-                                        <span className="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 shrink-0">
-                                            {cat.code}
-                                        </span>
+                                        {cat.code && (
+                                            <span
+                                                className="max-w-[120px] truncate rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 shrink-0"
+                                                title={cat.code}
+                                            >
+                                                {cat.code}
+                                            </span>
+                                        )}
                                         <span className="truncate text-xs font-bold text-slate-800 hover:text-indigo-600 transition">
                                             {cat.name}
                                         </span>
-                                        <span className="hidden text-[11px] font-normal text-slate-400 sm:inline shrink-0">
-                                            ({cat.filteredTasks.length} task)
-                                        </span>
                                     </div>
 
-                                    <div className="flex items-center gap-3 text-xs shrink-0">
-                                        <div className="hidden items-center gap-1.5 text-[11px] text-slate-500 sm:flex">
-                                            <span>{cat.progress}%</span>
+                                    <div className="flex items-center gap-3 text-xs shrink-0 whitespace-nowrap">
+                                        <span className="hidden text-[11px] font-medium text-slate-500 sm:inline">
+                                            ({cat.filteredTasks.length} việc)
+                                        </span>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                            <span className="font-semibold text-slate-700">{cat.progress}%</span>
                                             <div className="h-1.5 w-14 overflow-hidden rounded-full bg-slate-200">
                                                 <div
                                                     className="h-1.5 rounded-full bg-indigo-600"
@@ -259,6 +274,20 @@ export function ProjectWbsView({
                                                         <div className="flex shrink-0 items-center gap-2">
                                                             {getPriorityBadge(t.priority)}
                                                             {getStatusBadge(t.status)}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setCascadeModalTask({
+                                                                        id: typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1,
+                                                                        name: t.name,
+                                                                        code: t.code,
+                                                                    })
+                                                                }
+                                                                className="rounded p-1 text-amber-600 hover:bg-amber-50 transition cursor-pointer"
+                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt (Cascade Delay Warning)"
+                                                            >
+                                                                <AlertTriangle className="h-3.5 w-3.5" />
+                                                            </button>
                                                             <div
                                                                 className="flex items-center gap-1.5 pl-1"
                                                                 title={assignee ? `${assignee.name} (${assignee.role})` : 'Chưa giao'}
@@ -294,7 +323,19 @@ export function ProjectWbsView({
                     <CheckCircle2 className="h-3.5 w-3.5" /> Đã hoàn tất {totalDoneTasks}/{totalTasksCount} việc
                 </span>
             </div>
+
+            {/* Cascade Delay Warning Modal */}
+            {cascadeModalTask && (
+                <CascadeDelayWarningModal
+                    open={!!cascadeModalTask}
+                    projectId={projectId}
+                    taskId={cascadeModalTask.id}
+                    taskName={cascadeModalTask.name}
+                    taskCode={cascadeModalTask.code}
+                    canManage={canEdit}
+                    onClose={() => setCascadeModalTask(null)}
+                />
+            )}
         </section>
     );
 }
-

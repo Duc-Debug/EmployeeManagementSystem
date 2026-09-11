@@ -35,7 +35,7 @@ public class ResourceAllocationUseCaseConfig {
     }
 
     @Bean
-    public AllocateResourceUseCase allocateResourceUseCase(
+    public ResourceAllocationService resourceAllocationPureService(
             AuthorizationService authorizationService,
             LoadEmployeePort loadEmployeePort,
             LoadProjectPort loadProjectPort,
@@ -46,7 +46,7 @@ public class ResourceAllocationUseCaseConfig {
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort) {
 
-        ResourceAllocationService pureService = new ResourceAllocationService(
+        return new ResourceAllocationService(
                 authorizationService,
                 loadEmployeePort,
                 loadProjectPort,
@@ -57,9 +57,18 @@ public class ResourceAllocationUseCaseConfig {
                 loadUserPort,
                 loadOrgUnitPort
         );
+    }
 
-        TransactionalAllocateResourceUseCase transactionalUseCase = new TransactionalAllocateResourceUseCase(pureService);
-        return new RetryableAllocateResourceUseCaseDecorator(transactionalUseCase);
+    @Bean
+    public TransactionalAllocateResourceUseCase transactionalAllocateResourceUseCase(
+            ResourceAllocationService resourceAllocationPureService) {
+        return new TransactionalAllocateResourceUseCase(resourceAllocationPureService);
+    }
+
+    @Bean
+    public AllocateResourceUseCase allocateResourceUseCase(
+            TransactionalAllocateResourceUseCase transactionalAllocateResourceUseCase) {
+        return new RetryableAllocateResourceUseCaseDecorator(transactionalAllocateResourceUseCase);
     }
 
     @Bean

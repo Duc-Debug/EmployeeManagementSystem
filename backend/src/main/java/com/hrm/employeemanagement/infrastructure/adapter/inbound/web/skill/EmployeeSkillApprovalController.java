@@ -80,4 +80,22 @@ public class EmployeeSkillApprovalController {
 
         return ResponseEntity.ok(ApiResponse.success("Xác nhận mức thành thạo thành công", response));
     }
+    /**
+     * API từ chối yêu cầu khai báo kỹ năng kèm lý do (NCL-02-CN-006)
+     */
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_APPROVE') or hasAuthority('VT-06') or hasRole('VT-06')")
+    public ResponseEntity<ApiResponse<EmployeeSkillResponse>> rejectSkill(
+            @PathVariable Long id,
+            @RequestBody(required = false) com.hrm.employeemanagement.infrastructure.adapter.inbound.web.skill.dto.RejectEmployeeSkillRequest request
+    ) {
+        String reason = request != null ? request.getRejectionReason() : null;
+        com.hrm.employeemanagement.application.dto.skill.RejectEmployeeSkillCommand command =
+                new com.hrm.employeemanagement.application.dto.skill.RejectEmployeeSkillCommand(id, reason);
+
+        EmployeeSkillResult result = approveEmployeeSkillUseCase.reject(command);
+        EmployeeSkillResponse response = EmployeeSkillResponse.fromResult(result);
+
+        return ResponseEntity.ok(ApiResponse.success("Từ chối kỹ năng thành công", response));
+    }
 }

@@ -33,7 +33,10 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
     @Query("UPDATE EmployeeSkillJpaEntity es SET es.skillId = :targetSkillId WHERE es.skillId = :sourceSkillId")
     int reassignEmployeeSkills(@Param("sourceSkillId") Long sourceSkillId, @Param("targetSkillId") Long targetSkillId);
 
-    void deleteByEmployeeIdAndSkillId(Long employeeId, Long skillId);
+    @Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("DELETE FROM EmployeeSkillJpaEntity es WHERE es.employeeId = :employeeId AND es.skillId = :skillId")
+    void deleteByEmployeeIdAndSkillId(@Param("employeeId") Long employeeId, @Param("skillId") Long skillId);
 
     @Query(value = """
         SELECT 

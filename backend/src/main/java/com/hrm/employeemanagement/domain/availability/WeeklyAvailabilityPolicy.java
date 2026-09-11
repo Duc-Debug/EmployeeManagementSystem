@@ -56,11 +56,15 @@ public class WeeklyAvailabilityPolicy {
         return workingDayHolidayCount * DEFAULT_HOURS_PER_HOLIDAY;
     }
 
-    /**
-     * Tính tổng số giờ nghỉ lễ trong một tuần từ danh sách ngày lễ có số giờ khấu trừ linh hoạt.
-     * Chỉ tính các ngày lễ rơi vào ngày làm việc hành chính (Thứ 2 đến Thứ 6).
-     */
     public static int calculateHolidayHoursFromHolidays(YearWeek yearWeek, List<Holiday> holidays) {
+        return calculateHolidayHoursFromHolidays(yearWeek, holidays, null);
+    }
+
+    /**
+     * Tính tổng số giờ nghỉ lễ trong một tuần từ danh sách ngày lễ có số giờ khấu trừ linh hoạt,
+     * dựa theo tập hợp các ngày làm việc tiêu chuẩn được cấu hình của công ty.
+     */
+    public static int calculateHolidayHoursFromHolidays(YearWeek yearWeek, List<Holiday> holidays, java.util.Set<DayOfWeek> workingDays) {
         if (holidays == null || holidays.isEmpty()) {
             return 0;
         }
@@ -68,13 +72,17 @@ public class WeeklyAvailabilityPolicy {
         LocalDate startDate = yearWeek.getStartDate();
         LocalDate endDate = yearWeek.getEndDate();
 
+        java.util.Set<DayOfWeek> effectiveWorkingDays = (workingDays != null && !workingDays.isEmpty())
+                ? workingDays
+                : java.util.Set.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY);
+
         int totalHours = 0;
         for (Holiday holiday : holidays) {
             if (holiday != null && holiday.date() != null
                     && !holiday.date().isBefore(startDate)
                     && !holiday.date().isAfter(endDate)) {
                 DayOfWeek dow = holiday.date().getDayOfWeek();
-                if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+                if (effectiveWorkingDays.contains(dow)) {
                     totalHours += holiday.workingHoursDeducted();
                 }
             }

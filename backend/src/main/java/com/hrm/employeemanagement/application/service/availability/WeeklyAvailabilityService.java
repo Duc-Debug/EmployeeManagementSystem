@@ -46,6 +46,7 @@ public class WeeklyAvailabilityService implements DeclareWeeklyAvailabilityUseCa
     private final LoadUserPort loadUserPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final AuthorizationService authorizationService;
+    private final com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort;
 
     public WeeklyAvailabilityService(LoadEmployeePort loadEmployeePort,
                                     LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
@@ -56,6 +57,20 @@ public class WeeklyAvailabilityService implements DeclareWeeklyAvailabilityUseCa
                                     LoadUserPort loadUserPort,
                                     LoadOrgUnitPort loadOrgUnitPort,
                                     AuthorizationService authorizationService) {
+        this(loadEmployeePort, loadWeeklyAvailabilityPort, saveWeeklyAvailabilityPort, loadHolidaysPort,
+                loadApprovedLeavesPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort, authorizationService, null);
+    }
+
+    public WeeklyAvailabilityService(LoadEmployeePort loadEmployeePort,
+                                    LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+                                    SaveWeeklyAvailabilityPort saveWeeklyAvailabilityPort,
+                                    LoadHolidaysPort loadHolidaysPort,
+                                    LoadApprovedLeavesPort loadApprovedLeavesPort,
+                                    SaveAuditLogPort saveAuditLogPort,
+                                    LoadUserPort loadUserPort,
+                                    LoadOrgUnitPort loadOrgUnitPort,
+                                    AuthorizationService authorizationService,
+                                    com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort) {
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadWeeklyAvailabilityPort = Objects.requireNonNull(loadWeeklyAvailabilityPort, "LoadWeeklyAvailabilityPort must not be null");
         this.saveWeeklyAvailabilityPort = Objects.requireNonNull(saveWeeklyAvailabilityPort, "SaveWeeklyAvailabilityPort must not be null");
@@ -65,6 +80,7 @@ public class WeeklyAvailabilityService implements DeclareWeeklyAvailabilityUseCa
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
     }
 
     @Override
@@ -80,7 +96,7 @@ public class WeeklyAvailabilityService implements DeclareWeeklyAvailabilityUseCa
         WeeklyAvailabilityPolicy.validateStandardHours(command.standardHours());
 
         List<Holiday> holidays = loadHolidaysPort.getHolidaysBetween(yearWeek.getStartDate(), yearWeek.getEndDate());
-        int holidayHours = WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yearWeek, holidays);
+        int holidayHours = WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yearWeek, holidays, resolveWorkingDays());
 
         Long resolvedEmployeeId = employee.getIdValue() != null ? employee.getIdValue() : command.employeeId();
         BigDecimal approvedLeaveHours = loadApprovedLeavesPort.getTotalApprovedLeaveHoursBetween(
@@ -134,7 +150,7 @@ public class WeeklyAvailabilityService implements DeclareWeeklyAvailabilityUseCa
                 .orElseGet(() -> employee.getStandardHoursPerWeek() != null ? employee.getStandardHoursPerWeek() : 40);
 
         List<Holiday> holidays = loadHolidaysPort.getHolidaysBetween(yearWeek.getStartDate(), yearWeek.getEndDate());
-        int holidayHours = WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yearWeek, holidays);
+        int holidayHours = WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yearWeek, holidays, resolveWorkingDays());
 
         BigDecimal approvedLeaveHours = loadApprovedLeavesPort.getTotalApprovedLeaveHoursBetween(
                 resolvedEmployeeId, yearWeek.getStartDate(), yearWeek.getEndDate());
@@ -179,5 +195,18 @@ public class WeeklyAvailabilityService implements DeclareWeeklyAvailabilityUseCa
         if (!allowed) {
             throw new PermissionDeniedException(permission);
         }
+    }
+
+    private java.util.Set<java.time.DayOfWeek> resolveWorkingDays() {
+        if (loadWorkingCalendarPort != null) {
+            return loadWorkingCalendarPort.loadCompanyCalendar().getWorkingDays();
+        }
+        return java.util.Set.of(
+                java.time.DayOfWeek.MONDAY,
+                java.time.DayOfWeek.TUESDAY,
+                java.time.DayOfWeek.WEDNESDAY,
+                java.time.DayOfWeek.THURSDAY,
+                java.time.DayOfWeek.FRIDAY
+        );
     }
 }

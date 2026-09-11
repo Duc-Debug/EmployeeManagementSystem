@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.entity;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.hrm.employeemanagement.domain.task.TaskStatus;
@@ -65,10 +66,22 @@ public class TaskJpaEntity {
     private Integer sortOrder;
 
     @Column(name = "planned_start_date")
-    private java.time.LocalDate plannedStartDate;
+    private LocalDate plannedStartDate;
 
     @Column(name = "planned_end_date")
-    private java.time.LocalDate plannedEndDate;
+    private LocalDate plannedEndDate;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
+    @Column(name = "actual_end_date")
+    private LocalDate actualEndDate;
+
+    @Column(name = "slack_days", nullable = false)
+    private Integer slackDays;
 
     @Column(name = "created_by")
     private Long createdBy;
@@ -86,6 +99,9 @@ public class TaskJpaEntity {
     public TaskJpaEntity() {
     }
 
+    /**
+     * Constructor đầy đủ tất cả các trường (kết hợp cả 2 nhánh)
+     */
     public TaskJpaEntity(
             Long id,
             Long projectId,
@@ -100,8 +116,12 @@ public class TaskJpaEntity {
             BigDecimal budgetHours,
             TaskStatus status,
             Integer sortOrder,
-            java.time.LocalDate plannedStartDate,
-            java.time.LocalDate plannedEndDate,
+            LocalDate plannedStartDate,
+            LocalDate plannedEndDate,
+            LocalDate startDate,
+            LocalDate dueDate,
+            LocalDate actualEndDate,
+            Integer slackDays,
             Long createdBy,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
@@ -119,12 +139,121 @@ public class TaskJpaEntity {
         this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
-        this.plannedStartDate = plannedStartDate;
-        this.plannedEndDate = plannedEndDate;
+        
+        LocalDate effectiveStart = plannedStartDate != null ? plannedStartDate : startDate;
+        LocalDate effectiveEnd = plannedEndDate != null ? plannedEndDate : dueDate;
+        this.plannedStartDate = effectiveStart;
+        this.plannedEndDate = effectiveEnd;
+        this.startDate = effectiveStart;
+        this.dueDate = effectiveEnd;
+        this.actualEndDate = actualEndDate;
+        this.slackDays = slackDays != null ? slackDays : 0;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+    }
+
+    /**
+     * Constructor hỗ trợ plannedStartDate, plannedEndDate (feat/task-assignment)
+     */
+    public TaskJpaEntity(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            LocalDate plannedStartDate,
+            LocalDate plannedEndDate,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                plannedStartDate,
+                plannedEndDate,
+                plannedStartDate,
+                plannedEndDate,
+                null,
+                0,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version
+        );
+    }
+
+    /**
+     * Constructor hỗ trợ startDate, dueDate, actualEndDate, slackDays (develop)
+     */
+    public TaskJpaEntity(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            LocalDate startDate,
+            LocalDate dueDate,
+            LocalDate actualEndDate,
+            Integer slackDays,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                startDate,
+                dueDate,
+                startDate,
+                dueDate,
+                actualEndDate,
+                slackDays,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version
+        );
     }
 
     public TaskJpaEntity(
@@ -161,6 +290,10 @@ public class TaskJpaEntity {
                 sortOrder,
                 null,
                 null,
+                null,
+                null,
+                null,
+                0,
                 createdBy,
                 createdAt,
                 updatedAt,
@@ -227,11 +360,38 @@ public class TaskJpaEntity {
         if (sortOrder == null) {
             sortOrder = 0;
         }
+        if (slackDays == null) {
+            slackDays = 0;
+        }
+        if (startDate == null && plannedStartDate != null) {
+            startDate = plannedStartDate;
+        }
+        if (plannedStartDate == null && startDate != null) {
+            plannedStartDate = startDate;
+        }
+        if (dueDate == null && plannedEndDate != null) {
+            dueDate = plannedEndDate;
+        }
+        if (plannedEndDate == null && dueDate != null) {
+            plannedEndDate = dueDate;
+        }
     }
 
     @PreUpdate
     void preUpdate() {
         updatedAt = LocalDateTime.now();
+        if (startDate == null && plannedStartDate != null) {
+            startDate = plannedStartDate;
+        }
+        if (plannedStartDate == null && startDate != null) {
+            plannedStartDate = startDate;
+        }
+        if (dueDate == null && plannedEndDate != null) {
+            dueDate = plannedEndDate;
+        }
+        if (plannedEndDate == null && dueDate != null) {
+            plannedEndDate = dueDate;
+        }
     }
 
     // Getters and Setters
@@ -339,6 +499,44 @@ public class TaskJpaEntity {
         this.sortOrder = sortOrder;
     }
 
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+        if (this.plannedStartDate == null) {
+            this.plannedStartDate = startDate;
+        }
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+        if (this.plannedEndDate == null) {
+            this.plannedEndDate = dueDate;
+        }
+    }
+
+    public LocalDate getActualEndDate() {
+        return actualEndDate;
+    }
+
+    public void setActualEndDate(LocalDate actualEndDate) {
+        this.actualEndDate = actualEndDate;
+    }
+
+    public Integer getSlackDays() {
+        return slackDays;
+    }
+
+    public void setSlackDays(Integer slackDays) {
+        this.slackDays = slackDays;
+    }
+
     public Long getCreatedBy() {
         return createdBy;
     }
@@ -363,20 +561,26 @@ public class TaskJpaEntity {
         this.updatedAt = updatedAt;
     }
 
-    public java.time.LocalDate getPlannedStartDate() {
+    public LocalDate getPlannedStartDate() {
         return plannedStartDate;
     }
 
-    public void setPlannedStartDate(java.time.LocalDate plannedStartDate) {
+    public void setPlannedStartDate(LocalDate plannedStartDate) {
         this.plannedStartDate = plannedStartDate;
+        if (this.startDate == null) {
+            this.startDate = plannedStartDate;
+        }
     }
 
-    public java.time.LocalDate getPlannedEndDate() {
+    public LocalDate getPlannedEndDate() {
         return plannedEndDate;
     }
 
-    public void setPlannedEndDate(java.time.LocalDate plannedEndDate) {
+    public void setPlannedEndDate(LocalDate plannedEndDate) {
         this.plannedEndDate = plannedEndDate;
+        if (this.dueDate == null) {
+            this.dueDate = plannedEndDate;
+        }
     }
 
     public Long getVersion() {

@@ -6,7 +6,7 @@ import java.util.Optional;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
-import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 
 public interface LoadProjectResourceDemandPort {
 
@@ -18,11 +18,11 @@ public interface LoadProjectResourceDemandPort {
     /**
      * Lấy danh sách nhu cầu nhân sự của dự án lọc theo vai trò chuyên môn.
      */
-    List<ProjectResourceDemand> findByProjectIdAndRoleId(ProjectId projectId, RoleId roleId);
+    List<ProjectResourceDemand> findByProjectIdAndRoleId(ProjectId projectId, ProjectRoleId roleId);
 
     /**
      * Lấy bản ghi nhu cầu của dự án theo vai trò và tuần cụ thể.
      */
     Optional<ProjectResourceDemand> findByProjectIdAndRoleIdAndYearWeek(
-            ProjectId projectId, RoleId roleId, YearWeek yearWeek);
+            ProjectId projectId, ProjectRoleId roleId, YearWeek yearWeek);
 }

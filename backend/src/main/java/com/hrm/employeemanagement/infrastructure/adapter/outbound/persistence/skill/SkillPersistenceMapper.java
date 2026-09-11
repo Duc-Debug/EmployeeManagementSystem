@@ -18,6 +18,7 @@ public class SkillPersistenceMapper {
                 entity.getName(),
                 entity.getCategory(),
                 entity.getDescription(),
+                entity.getGroupId(),
                 entity.getCreatedAt()
         );
     }
@@ -26,7 +27,7 @@ public class SkillPersistenceMapper {
         if (domain == null) {
             return null;
         }
-        return new SkillJpaEntity(
+        SkillJpaEntity entity = new SkillJpaEntity(
                 domain.getId(),
                 domain.getCode(),
                 domain.getName(),
@@ -34,6 +35,8 @@ public class SkillPersistenceMapper {
                 domain.getDescription(),
                 domain.getCreatedAt()
         );
+        entity.setGroupId(domain.getGroupId());
+        return entity;
     }
 
     public static EmployeeSkill toDomain(EmployeeSkillJpaEntity entity) {

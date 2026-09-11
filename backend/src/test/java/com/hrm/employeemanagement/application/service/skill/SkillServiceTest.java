@@ -70,7 +70,9 @@ class SkillServiceTest {
     @DisplayName("Tạo mới Skill thành công khi quyền và dữ liệu hợp lệ")
     void shouldCreateSkillSuccessfully() {
         when(authorizationService.require(PermissionCode.SKILL_CREATE)).thenReturn(99L);
-        when(loadSkillGroupPort.existsById(new SkillGroupId(1L))).thenReturn(true);
+        when(loadSkillGroupPort.findById(new SkillGroupId(1L))).thenReturn(Optional.of(
+                new SkillGroup(new SkillGroupId(1L), "Backend", "Backend group", SkillStatus.ACTIVE, null, null)
+        ));
         when(loadSkillPort.existsByNameIgnoreCase("Java")).thenReturn(false);
 
         Skill savedSkill = new Skill(1L, "JAVA", "Java", "Backend", "Desc", LocalDateTime.now());
@@ -88,7 +90,9 @@ class SkillServiceTest {
     @DisplayName("Ném DuplicateSkillNameException khi tạo Skill trùng tên")
     void shouldThrowWhenCreatingDuplicateSkillName() {
         when(authorizationService.require(PermissionCode.SKILL_CREATE)).thenReturn(99L);
-        when(loadSkillGroupPort.existsById(new SkillGroupId(1L))).thenReturn(true);
+        when(loadSkillGroupPort.findById(new SkillGroupId(1L))).thenReturn(Optional.of(
+                new SkillGroup(new SkillGroupId(1L), "Backend", "Backend group", SkillStatus.ACTIVE, null, null)
+        ));
         when(loadSkillPort.existsByNameIgnoreCase("Java")).thenReturn(true);
 
         assertThrows(DuplicateSkillNameException.class, () ->

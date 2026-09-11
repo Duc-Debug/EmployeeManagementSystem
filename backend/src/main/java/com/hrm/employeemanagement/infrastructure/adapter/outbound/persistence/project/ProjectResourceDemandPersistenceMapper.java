@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
-import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectResourceDemandJpaEntity;
 
 @Component
@@ -17,7 +17,7 @@ public class ProjectResourceDemandPersistenceMapper {
         }
 
         ProjectId projectId = entity.getProjectId() != null ? new ProjectId(entity.getProjectId()) : null;
-        RoleId roleId = entity.getRoleId() != null ? new RoleId(entity.getRoleId()) : null;
+        ProjectRoleId roleId = entity.getRoleId() != null ? new ProjectRoleId(entity.getRoleId()) : null;
         YearWeek yearWeek = YearWeek.of(entity.getYear(), entity.getWeekNumber());
 
         return new ProjectResourceDemand(

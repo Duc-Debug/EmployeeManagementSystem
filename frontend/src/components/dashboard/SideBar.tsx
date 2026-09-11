@@ -10,6 +10,8 @@ import {
     FolderKanban,
     FileText,
     ShieldCheck,
+    CalendarClock,
+    CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -18,6 +20,8 @@ const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
+    { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
+    { name: "Lịch & Ngày lễ", icon: CalendarDays, id: "working-calendar" },
     { name: "Chấm công", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
     { name: "Phòng ban", icon: Building2, id: "departments" },
@@ -55,6 +59,16 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
             // Hồ sơ nhân sự: VT-05 Toàn quyền; VT-01, VT-02, VT-03, VT-04, VT-06 được Xem theo Data Scope
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
 
+        case "availability":
+        case "weekly-availability":
+            // Giờ khả dụng: VT-01, VT-02, VT-03, VT-04, VT-05, VT-06 (phân quyền theo DataScope)
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+
+        case "working-calendar":
+        case "calendar-config":
+            // Lịch làm việc và ngày lễ: VT-01, VT-02, VT-03, VT-04, VT-05, VT-06 đều được xem
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+
         case "project":
         case "projects":
             // Quản lý dự án & WBS: VT-01 (Xem), VT-02 (Dự án của mình), VT-03 (Xem), VT-04 (Dự án tham gia); HR (VT-05) & Admin (VT-06) bị ẩn (❌)
@@ -71,8 +85,8 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
 
         case "skills":
-            // Khai báo & Duyệt kỹ năng: VT-01, VT-02, VT-03, VT-04, VT-05
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
+            // Khai báo, Quản lý & Duyệt kỹ năng: VT-01, VT-02, VT-03, VT-04, VT-05, VT-06
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
 
         case "reports":
             // Báo cáo & Mô phỏng năng lực: VT-01 (Toàn công ty), VT-02 (Dự án phụ trách), VT-03 (Bộ phận phụ trách)

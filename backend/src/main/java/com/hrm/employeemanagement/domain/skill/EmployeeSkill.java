@@ -224,6 +224,23 @@ public class EmployeeSkill {
         adjustAndApprove(reviewerId, ProficiencyLevel.fromValue(newProficiencyLevel), reviewNotes);
     }
 
+    /**
+     * Từ chối kỹ năng tự khai (Dành cho RM / VT-03 hoặc Admin / VT-06)
+     */
+    public void reject(Long reviewerId, String rejectionReason) {
+        if (reviewerId == null) {
+            throw new IllegalArgumentException("Người duyệt không được để trống");
+        }
+        if (this.status != SkillStatus.PENDING) {
+            throw new IllegalStateException("Chỉ có thể từ chối kỹ năng đang ở trạng thái chờ duyệt (PENDING)");
+        }
+        this.status = SkillStatus.REJECTED;
+        this.approvedBy = reviewerId;
+        this.approvedAt = LocalDateTime.now();
+        this.rejectionReason = rejectionReason != null ? rejectionReason.trim() : null;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     private static void validateInputs(Long employeeId, Long skillId, ProficiencyLevel proficiencyLevel, BigDecimal yearsOfExperience) {
         if (employeeId == null) {
             throw new IllegalArgumentException("ID nhân viên không được để trống");

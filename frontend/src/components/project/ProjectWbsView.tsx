@@ -12,32 +12,50 @@ import {
     AlertTriangle,
     Copy,
     UserPlus,
+    GitCommit,
+    Lock,
+    Calendar,
 } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
+import type { TaskDependencyResult } from '@/lib/api/taskDependencies';
+import { CascadeDelayWarningModal } from '../task/CascadeDelayWarningModal';
 
 interface ProjectWbsViewProps {
     categories: TaskCategoryGroup[];
     members: ProjectMember[];
+    dependencies?: TaskDependencyResult[];
     searchTerm: string;
     selectedRole: string;
+    projectId?: number | null;
+    isClosed?: boolean;
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
     onOpenBudgetModal?: (task: TaskItem) => void;
     onOpenCloneModal?: () => void;
     onOpenAssignModal?: (task: TaskItem) => void;
+    onRefreshData?: () => void;
 }
 
 export function ProjectWbsView({
     categories,
     members,
+    dependencies = [],
     searchTerm,
     selectedRole,
+    projectId = 1,
+    isClosed = false,
     onQuickAddTask,
     onToggleTaskStatus,
     onOpenBudgetModal,
     onOpenCloneModal,
     onOpenAssignModal,
+    onRefreshData,
 }: ProjectWbsViewProps) {
+    const [cascadeModalTask, setCascadeModalTask] = useState<{
+        id: number;
+        name: string;
+        code?: string;
+    } | null>(null);
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
         'cat-1': true,
@@ -145,26 +163,33 @@ export function ProjectWbsView({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {onOpenCloneModal && (
-                        <button
-                            type="button"
-                            onClick={onOpenCloneModal}
-                            className="flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                            title="Nhân bản cây WBS từ dự án mẫu"
-                        >
-                            <Copy className="h-3.5 w-3.5 text-indigo-600" />
-                            <span>Nhân bản WBS</span>
-                        </button>
+                    {isClosed ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                            <Lock className="h-3 w-3" /> Chỉ đọc (Đã đóng)
+                        </span>
+                    ) : (
+                        <>
+                            {onOpenCloneModal && (
+                                <button
+                                    type="button"
+                                    onClick={onOpenCloneModal}
+                                    className="flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                    title="Nhân bản cây WBS từ dự án mẫu"
+                                >
+                                    <Copy className="h-3.5 w-3.5 text-indigo-600" />
+                                    <span>Nhân bản WBS</span>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => onQuickAddTask(categories[0]?.id || '')}
+                                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                            >
+                                <Plus className="h-3.5 w-3.5" /> Thêm việc
+                            </button>
+                        </>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => onQuickAddTask(categories[0]?.id || '')}
-                        className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                    >
-                        <Plus className="h-3.5 w-3.5" /> Thêm việc
-                    </button>
                 </div>
-
             </div>
 
             {/* Tree Content Container */}
@@ -174,7 +199,7 @@ export function ProjectWbsView({
                         <FolderOpen className="mx-auto mb-2 h-8 w-8 text-slate-300" />
                         <p className="font-semibold text-slate-700">Dự án chưa có cây công việc WBS</p>
                         <p className="text-[11px] text-slate-400 mt-0.5 mb-3">Bạn có thể tạo việc mới hoặc sao chép nhanh cấu trúc từ một dự án cũ tương tự</p>
-                        {onOpenCloneModal && (
+                        {!isClosed && onOpenCloneModal && (
                             <button
                                 type="button"
                                 onClick={onOpenCloneModal}
@@ -204,28 +229,33 @@ export function ProjectWbsView({
                                     onClick={() => toggleCategory(cat.id)}
                                     className="flex cursor-pointer select-none items-center justify-between border-b border-slate-200 bg-slate-50/80 p-3 transition"
                                 >
-                                    <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                                         <span
-                                            className={`text-slate-400 transition-transform duration-200 ${
+                                            className={`text-slate-400 transition-transform duration-200 shrink-0 ${
                                                 isOpen ? '' : '-rotate-90'
                                             }`}
                                         >
                                             <ChevronDown className="h-4 w-4" />
                                         </span>
-                                        <span className="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 shrink-0">
-                                            {cat.code}
-                                        </span>
+                                        {cat.code && (
+                                            <span
+                                                className="max-w-[120px] truncate rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 shrink-0"
+                                                title={cat.code}
+                                            >
+                                                {cat.code}
+                                            </span>
+                                        )}
                                         <span className="truncate text-xs font-bold text-slate-800 hover:text-indigo-600 transition">
                                             {cat.name}
                                         </span>
-                                        <span className="hidden text-[11px] font-normal text-slate-400 sm:inline shrink-0">
-                                            ({cat.filteredTasks.length} task)
-                                        </span>
                                     </div>
 
-                                    <div className="flex items-center gap-3 text-xs shrink-0">
-                                        <div className="hidden items-center gap-1.5 text-[11px] text-slate-500 sm:flex">
-                                            <span>{cat.progress}%</span>
+                                    <div className="flex items-center gap-3 text-xs shrink-0 whitespace-nowrap">
+                                        <span className="hidden text-[11px] font-medium text-slate-500 sm:inline">
+                                            ({cat.filteredTasks.length} việc)
+                                        </span>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                            <span className="font-semibold text-slate-700">{cat.progress}%</span>
                                             <div className="h-1.5 w-14 overflow-hidden rounded-full bg-slate-200">
                                                 <div
                                                     className="h-1.5 rounded-full bg-indigo-600"
@@ -233,17 +263,19 @@ export function ProjectWbsView({
                                                 />
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onQuickAddTask(cat.id);
-                                            }}
-                                            className="p-1 text-slate-400 hover:text-indigo-600 transition"
-                                            title="Thêm việc vào mục này"
-                                        >
-                                            <Plus className="h-3.5 w-3.5" />
-                                        </button>
+                                        {!isClosed && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onQuickAddTask(cat.id);
+                                                }}
+                                                className="p-1 text-slate-400 hover:text-indigo-600 transition cursor-pointer"
+                                                title="Thêm việc vào mục này"
+                                            >
+                                                <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -263,6 +295,13 @@ export function ProjectWbsView({
                                                     .map((id) => members.find((m) => m.id === id))
                                                     .filter(Boolean) as ProjectMember[];
                                                 const isDone = t.status === 'Hoàn thành';
+                                                const numId = Number(t.id.replace(/\D/g, ''));
+                                                const predecessors = (dependencies || []).filter(
+                                                    (d) => d.successorId === numId || (t.code && d.successorTaskCode === t.code)
+                                                );
+                                                const successors = (dependencies || []).filter(
+                                                    (d) => d.predecessorId === numId || (t.code && d.predecessorTaskCode === t.code)
+                                                );
 
                                                 return (
                                                     <div
@@ -272,9 +311,10 @@ export function ProjectWbsView({
                                                         <div className="flex min-w-0 flex-1 items-center gap-3">
                                                             <button
                                                                 type="button"
-                                                                onClick={() => onToggleTaskStatus(cat.id, t.id)}
-                                                                className="text-slate-300 transition group-hover:text-slate-400 cursor-pointer"
-                                                                title="Đánh dấu hoàn tất"
+                                                                disabled={isClosed}
+                                                                onClick={() => !isClosed && onToggleTaskStatus(cat.id, t.id)}
+                                                                className={`text-slate-300 transition ${isClosed ? 'cursor-not-allowed opacity-50' : 'group-hover:text-slate-400 cursor-pointer'}`}
+                                                                title={isClosed ? 'Dự án đã đóng, không thể thay đổi trạng thái công việc' : 'Đánh dấu hoàn tất'}
                                                             >
                                                                 {isDone ? (
                                                                     <CircleCheck className="h-4 w-4 text-emerald-500" />
@@ -299,29 +339,76 @@ export function ProjectWbsView({
                                                                     <span className="inline-flex items-center gap-1">
                                                                         <Clock className="h-3 w-3 text-slate-400" /> {t.hours}h
                                                                     </span>
-                                                                    <span className="text-slate-300">•</span>
-                                                                    {t.plannedStartDate || t.plannedEndDate ? (
-                                                                        <span className="inline-flex items-center rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-600 border border-indigo-100" title="Ngày bắt đầu - kết thúc dự kiến">
-                                                                            {t.plannedStartDate || '...'} &rarr; {t.plannedEndDate || '...'}
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="inline-flex items-center rounded bg-slate-100 px-1 font-mono text-[10px] font-medium text-slate-600">
-                                                                            {t.startWeek} &rarr; {t.endWeek}
+
+                                                                    {/* Thời gian hiển thị kết hợp */}
+                                                                    <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-600">
+                                                                        <Calendar className="h-3 w-3 text-indigo-500 shrink-0" />
+                                                                        {t.plannedStartDate || t.startDate || (t.startWeek !== 'Chưa cập nhật' ? t.startWeek : 'Kế hoạch')} &rarr; {t.actualEndDate ? `${t.actualEndDate} (TT)` : (t.plannedEndDate || t.dueDate || t.endWeek)}
+                                                                    </span>
+
+                                                                    {t.actualEndDate && (
+                                                                        <span
+                                                                            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                                                                                t.dueDate && t.actualEndDate > t.dueDate
+                                                                                    ? 'border-rose-200 bg-rose-50 text-rose-700 animate-pulse'
+                                                                                    : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                                            }`}
+                                                                            title={t.dueDate && t.actualEndDate > t.dueDate ? `Công việc trễ ngày kết thúc so với mốc hạn ${t.dueDate}` : `Đã kết thúc thực tế ngày ${t.actualEndDate}`}
+                                                                        >
+                                                                            {t.dueDate && t.actualEndDate > t.dueDate ? (
+                                                                                <>
+                                                                                    <AlertTriangle className="h-3 w-3 text-rose-600 shrink-0" />
+                                                                                    <span>Trễ thực tế</span>
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <CircleCheck className="h-3 w-3 text-emerald-600 shrink-0" />
+                                                                                    <span>Đã xong (TT)</span>
+                                                                                </>
+                                                                            )}
                                                                         </span>
                                                                     )}
+
+                                                                    {/* Quan hệ Phụ thuộc công việc (NCL-04-CN-004) */}
+                                                                    {predecessors.map((p) => (
+                                                                        <span
+                                                                            key={p.id}
+                                                                            className="inline-flex items-center gap-1 rounded bg-purple-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-purple-700 border border-purple-200"
+                                                                            title={`Công việc phải hoàn thành trước: [${p.predecessorTaskCode || p.predecessorId}] ${p.predecessorTaskName}`}
+                                                                        >
+                                                                            <GitCommit className="h-3 w-3 text-purple-600 shrink-0" />
+                                                                            <span>Sau: {p.predecessorTaskCode || `#${p.predecessorId}`}</span>
+                                                                        </span>
+                                                                    ))}
+
+                                                                    {successors.map((s) => (
+                                                                        <span
+                                                                            key={s.id}
+                                                                            className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-indigo-700 border border-indigo-200"
+                                                                            title={`Công việc đang chờ task này xong: [${s.successorTaskCode || s.successorId}] ${s.successorTaskName}`}
+                                                                        >
+                                                                            <GitCommit className="h-3 w-3 text-indigo-600 shrink-0" />
+                                                                            <span>Tiền đề cho: {s.successorTaskCode || `#${s.successorId}`}</span>
+                                                                        </span>
+                                                                    ))}
 
                                                                     {/* Ngân sách giờ công & So sánh thực tế */}
                                                                     <span className="text-slate-300">•</span>
                                                                     <button
                                                                         type="button"
+                                                                        disabled={isClosed}
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            onOpenBudgetModal?.(t);
+                                                                            if (!isClosed) onOpenBudgetModal?.(t);
                                                                         }}
-                                                                        className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700 hover:bg-indigo-100 hover:text-indigo-700 transition cursor-pointer"
-                                                                        title="Bấm để đặt/điều chỉnh ngân sách giờ"
+                                                                        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold transition ${
+                                                                            isClosed
+                                                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                                                : 'bg-slate-100 text-slate-700 hover:bg-indigo-100 hover:text-indigo-700 cursor-pointer'
+                                                                        }`}
+                                                                        title={isClosed ? 'Dự án đã đóng, không thể điều chỉnh ngân sách' : 'Bấm để đặt/điều chỉnh ngân sách giờ'}
                                                                     >
-                                                                        <Target className="h-3 w-3 text-indigo-600" />
+                                                                        <Target className={`h-3 w-3 ${isClosed ? 'text-slate-400' : 'text-indigo-600'}`} />
                                                                         NS: <strong>{t.budgetHours !== undefined ? `${t.budgetHours}h` : 'Chưa đặt'}</strong>
                                                                         <span className="text-slate-300">|</span>
                                                                         TT: <strong>{t.actualHours || 0}h</strong>
@@ -384,12 +471,17 @@ export function ProjectWbsView({
                                                             {getStatusBadge(t.status)}
                                                             <button
                                                                 type="button"
+                                                                disabled={isClosed}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    onOpenAssignModal?.(t);
+                                                                    if (!isClosed) onOpenAssignModal?.(t);
                                                                 }}
-                                                                className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer"
-                                                                title="Giao việc cho nhân sự"
+                                                                className={`rounded-lg p-1 transition ${
+                                                                    isClosed
+                                                                        ? 'text-slate-300 cursor-not-allowed'
+                                                                        : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
+                                                                }`}
+                                                                title={isClosed ? 'Dự án đã đóng, không thể phân công' : 'Giao việc cho nhân sự'}
                                                             >
                                                                 <UserPlus className="h-3.5 w-3.5" />
                                                             </button>
@@ -397,19 +489,42 @@ export function ProjectWbsView({
                                                                 type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    onOpenBudgetModal?.(t);
+                                                                    const numericId = typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1;
+                                                                    setCascadeModalTask({
+                                                                        id: numericId,
+                                                                        name: t.name,
+                                                                        code: t.code,
+                                                                    });
                                                                 }}
-                                                                className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer"
-                                                                title="Đặt ngân sách giờ công"
+                                                                className="rounded-lg p-1 text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition cursor-pointer"
+                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt (Cascade Delay Warning)"
+                                                            >
+                                                                <AlertTriangle className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={isClosed}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (!isClosed) onOpenBudgetModal?.(t);
+                                                                }}
+                                                                className={`rounded-lg p-1 transition ${
+                                                                    isClosed
+                                                                        ? 'text-slate-300 cursor-not-allowed'
+                                                                        : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
+                                                                }`}
+                                                                title={isClosed ? 'Dự án đã đóng, không thể đặt ngân sách' : 'Đặt ngân sách giờ công'}
                                                             >
                                                                 <Target className="h-3.5 w-3.5" />
                                                             </button>
                                                             <div
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    onOpenAssignModal?.(t);
+                                                                    if (!isClosed) onOpenAssignModal?.(t);
                                                                 }}
-                                                                className="flex items-center gap-1.5 pl-1 cursor-pointer hover:opacity-80 transition"
+                                                                className={`flex items-center gap-1.5 pl-1 transition ${
+                                                                    isClosed ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:opacity-80'
+                                                                }`}
                                                                 title={
                                                                     assignedMembers.length > 0
                                                                         ? `Người thực hiện (${assignedMembers.length}): ${assignedMembers.map((m) => `${m.name} (${m.role})`).join(', ')} - Bấm để phân công`
@@ -492,7 +607,22 @@ export function ProjectWbsView({
                     </span>
                 </div>
             </div>
+
+            {/* Cascade Delay Warning Modal */}
+            {cascadeModalTask && (
+                <CascadeDelayWarningModal
+                    open={!!cascadeModalTask}
+                    projectId={projectId || 1}
+                    taskId={cascadeModalTask.id}
+                    taskName={cascadeModalTask.name}
+                    taskCode={cascadeModalTask.code}
+                    canManage={!isClosed}
+                    onClose={() => setCascadeModalTask(null)}
+                    onSuccess={() => {
+                        onRefreshData?.();
+                    }}
+                />
+            )}
         </section>
     );
 }
-
