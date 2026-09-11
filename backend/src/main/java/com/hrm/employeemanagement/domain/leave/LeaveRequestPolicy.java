@@ -1,11 +1,14 @@
 package com.hrm.employeemanagement.domain.leave;
 
+import com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar;
 import com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * Quy tắc nghiệp vụ cốt lõi cho đơn xin nghỉ phép (NCL-05-CN-002).
@@ -27,20 +30,41 @@ public class LeaveRequestPolicy {
     }
 
     /**
-     * Đếm số ngày làm việc hành chính (Thứ 2 đến Thứ 6) trong khoảng ngày nghỉ.
+     * Tính số ngày làm việc thực tế trong khoảng ngày nghỉ dựa trên:
+     * 1. Cấu hình lịch làm việc chuẩn của công ty (CompanyWorkingCalendar).
+     * 2. Danh mục các ngày nghỉ lễ chính thức (holidayDates).
+     * Một ngày chỉ bị trừ phép nếu là ngày làm việc của công ty và không trùng ngày lễ.
      */
-    public static int calculateWorkingDays(LocalDate startDate, LocalDate endDate) {
+    public static int calculateWorkingDays(LocalDate startDate,
+                                          LocalDate endDate,
+                                          CompanyWorkingCalendar calendar,
+                                          Set<LocalDate> holidayDates) {
         validateDateRange(startDate, endDate);
         int count = 0;
         LocalDate current = startDate;
+        Set<LocalDate> safeHolidays = (holidayDates != null) ? holidayDates : Collections.emptySet();
+
         while (!current.isAfter(endDate)) {
             DayOfWeek dow = current.getDayOfWeek();
-            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+            boolean isWorkingDayInWeek = (calendar != null)
+                    ? calendar.isWorkingDay(dow)
+                    : (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY);
+
+            boolean isHoliday = safeHolidays.contains(current);
+
+            if (isWorkingDayInWeek && !isHoliday) {
                 count++;
             }
             current = current.plusDays(1);
         }
         return count;
+    }
+
+    /**
+     * Phương thức tương thích ngược mặc định Thứ 2 đến Thứ 6.
+     */
+    public static int calculateWorkingDays(LocalDate startDate, LocalDate endDate) {
+        return calculateWorkingDays(startDate, endDate, null, Collections.emptySet());
     }
 
     /**

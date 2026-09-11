@@ -49,6 +49,10 @@ class SubmitLeaveRequestServiceTest {
     private SaveAuditLogInNewTransactionPort auditLogRepository;
     @Mock
     private AuthorizationService authorizationService;
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort;
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort loadHolidaysPort;
 
     private SubmitLeaveRequestService service;
 
@@ -59,7 +63,9 @@ class SubmitLeaveRequestServiceTest {
                 loadLeaveRequestPort,
                 saveLeaveRequestPort,
                 auditLogRepository,
-                authorizationService
+                authorizationService,
+                loadWorkingCalendarPort,
+                loadHolidaysPort
         );
     }
 

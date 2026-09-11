@@ -7,9 +7,12 @@ import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogIn
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -20,7 +23,11 @@ import com.hrm.employeemanagement.domain.leave.LeaveRequestPolicy;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
 
@@ -29,6 +36,26 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
     private final SaveLeaveRequestPort saveLeaveRequestPort;
     private final SaveAuditLogInNewTransactionPort auditLogRepository;
     private final AuthorizationService authorizationService;
+    private final LoadWorkingCalendarPort loadWorkingCalendarPort;
+    private final LoadHolidaysPort loadHolidaysPort;
+
+    public SubmitLeaveRequestService(
+            LoadEmployeePort loadEmployeePort,
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            SaveAuditLogInNewTransactionPort auditLogRepository,
+            AuthorizationService authorizationService,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadHolidaysPort loadHolidaysPort
+    ) {
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
+        this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
+        this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
+        this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
+        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
+        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
+        this.loadHolidaysPort = loadHolidaysPort;
+    }
 
     public SubmitLeaveRequestService(
             LoadEmployeePort loadEmployeePort,
@@ -37,11 +64,7 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
             SaveAuditLogInNewTransactionPort auditLogRepository,
             AuthorizationService authorizationService
     ) {
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
-        this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
-        this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
-        this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
-        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
+        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, null, null);
     }
 
     @Override
@@ -76,8 +99,20 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
             throw DuplicateLeaveRequestException.overlapping();
         }
 
-        // 5. TC-01: Tính số ngày làm việc và số giờ bị trừ tương ứng
-        int workingDays = LeaveRequestPolicy.calculateWorkingDays(command.startDate(), command.endDate());
+        // 5. TC-01: Tính số ngày làm việc và số giờ bị trừ tương ứng dựa theo Lịch làm việc & Ngày lễ
+        CompanyWorkingCalendar calendar = (loadWorkingCalendarPort != null)
+                ? loadWorkingCalendarPort.loadCompanyCalendar()
+                : null;
+        Set<LocalDate> holidayDates = (loadHolidaysPort != null)
+                ? new HashSet<>(loadHolidaysPort.getHolidayDatesBetween(command.startDate(), command.endDate()))
+                : Collections.emptySet();
+
+        int workingDays = LeaveRequestPolicy.calculateWorkingDays(
+                command.startDate(),
+                command.endDate(),
+                calendar,
+                holidayDates
+        );
         BigDecimal hoursDeducted = LeaveRequestPolicy.calculateHoursDeducted(
                 workingDays,
                 currentEmployee.getStandardHoursPerWeek()

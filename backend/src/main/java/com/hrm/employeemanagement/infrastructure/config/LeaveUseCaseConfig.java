@@ -20,14 +20,18 @@ public class LeaveUseCaseConfig {
             LoadLeaveRequestPort loadLeaveRequestPort,
             SaveLeaveRequestPort saveLeaveRequestPort,
             SaveAuditLogInNewTransactionPort auditLogRepository,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort,
+            com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort loadHolidaysPort
     ) {
         SubmitLeaveRequestService service = new SubmitLeaveRequestService(
                 loadEmployeePort,
                 loadLeaveRequestPort,
                 saveLeaveRequestPort,
                 auditLogRepository,
-                authorizationService
+                authorizationService,
+                loadWorkingCalendarPort,
+                loadHolidaysPort
         );
         return new TransactionalSubmitLeaveRequestService(service);
     }

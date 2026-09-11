@@ -68,4 +68,39 @@ class LeaveRequestPolicyTest {
         assertFalse(LeaveRequestPolicy.isOverlapping(s1, e1, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 9)));
         assertFalse(LeaveRequestPolicy.isOverlapping(s1, e1, LocalDate.of(2026, 4, 16), LocalDate.of(2026, 4, 25)));
     }
+
+    @Test
+    @DisplayName("Tính đúng ngày làm việc khi công ty làm thêm Thứ 7")
+    void shouldCountSaturdayWhenConfiguredAsWorkingDay() {
+        // Cấu hình công ty làm việc T2 -> T7 (nghỉ CN)
+        com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar calendar =
+                new com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar(java.util.List.of(
+                        new com.hrm.employeemanagement.domain.calendar.WorkingCalendarDay(java.time.DayOfWeek.MONDAY, true),
+                        new com.hrm.employeemanagement.domain.calendar.WorkingCalendarDay(java.time.DayOfWeek.TUESDAY, true),
+                        new com.hrm.employeemanagement.domain.calendar.WorkingCalendarDay(java.time.DayOfWeek.WEDNESDAY, true),
+                        new com.hrm.employeemanagement.domain.calendar.WorkingCalendarDay(java.time.DayOfWeek.THURSDAY, true),
+                        new com.hrm.employeemanagement.domain.calendar.WorkingCalendarDay(java.time.DayOfWeek.FRIDAY, true),
+                        new com.hrm.employeemanagement.domain.calendar.WorkingCalendarDay(java.time.DayOfWeek.SATURDAY, true),
+                        new com.hrm.employeemanagement.domain.calendar.WorkingCalendarDay(java.time.DayOfWeek.SUNDAY, false)
+                ));
+
+        // T6 (17/04/2026) đến T2 tuần sau (20/04/2026): T6, T7, T2 là ngày làm việc -> 3 ngày
+        LocalDate friday = LocalDate.of(2026, 4, 17);
+        LocalDate nextMonday = LocalDate.of(2026, 4, 20);
+        int days = LeaveRequestPolicy.calculateWorkingDays(friday, nextMonday, calendar, java.util.Collections.emptySet());
+        assertEquals(3, days);
+    }
+
+    @Test
+    @DisplayName("Tự động trừ ngày lễ ra khỏi ngày nghỉ phép bị trừ (Ví dụ Quốc khánh 02/09)")
+    void shouldExcludePublicHolidaysFromDeduction() {
+        // T4 (02/09/2026) đến T6 (04/09/2026): 3 ngày làm việc thông thường (T4, T5, T6)
+        // Nhưng ngày 02/09 là ngày lễ Quốc khánh -> Chỉ bị trừ 2 ngày (T5 và T6)
+        LocalDate start = LocalDate.of(2026, 9, 2);
+        LocalDate end = LocalDate.of(2026, 9, 4);
+        java.util.Set<LocalDate> holidays = java.util.Set.of(LocalDate.of(2026, 9, 2));
+
+        int days = LeaveRequestPolicy.calculateWorkingDays(start, end, null, holidays);
+        assertEquals(2, days);
+    }
 }
