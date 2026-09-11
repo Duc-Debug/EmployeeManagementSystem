@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.domain.task;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -24,6 +25,10 @@ public class Task {
     private BigDecimal budgetHours;
     private TaskStatus status;
     private Integer sortOrder;
+    private LocalDate startDate;
+    private LocalDate dueDate;
+    private LocalDate actualEndDate;
+    private Integer slackDays;
     private UserId createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -43,6 +48,10 @@ public class Task {
             BigDecimal budgetHours,
             TaskStatus status,
             Integer sortOrder,
+            LocalDate startDate,
+            LocalDate dueDate,
+            LocalDate actualEndDate,
+            Integer slackDays,
             UserId createdBy,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
@@ -67,10 +76,56 @@ public class Task {
         this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
+        this.startDate = startDate;
+        this.dueDate = dueDate;
+        this.actualEndDate = actualEndDate;
+        this.slackDays = slackDays != null ? slackDays : 0;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+    }
+
+    public Task(
+            TaskId id,
+            ProjectId projectId,
+            TaskId parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            EmployeeId assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            UserId createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                null,
+                null,
+                null,
+                0,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version);
     }
 
     public Task(
@@ -346,6 +401,47 @@ public class Task {
 
     public Integer getSortOrder() {
         return sortOrder;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public LocalDate getActualEndDate() {
+        return actualEndDate;
+    }
+
+    public Integer getSlackDays() {
+        return slackDays != null ? slackDays : 0;
+    }
+
+    public void updateActualEndDate(LocalDate actualEndDate) {
+        if (actualEndDate != null && this.startDate != null && actualEndDate.isBefore(this.startDate)) {
+            throw new InvalidTaskDataException("Ngày kết thúc thực tế (" + actualEndDate + ") không được nhỏ hơn ngày bắt đầu (" + this.startDate + ")");
+        }
+        this.actualEndDate = actualEndDate;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setScheduleDates(LocalDate startDate, LocalDate dueDate) {
+        if (startDate != null && dueDate != null && dueDate.isBefore(startDate)) {
+            throw new InvalidTaskDataException("Ngày hoàn thành kế hoạch không được trước ngày bắt đầu");
+        }
+        this.startDate = startDate;
+        this.dueDate = dueDate;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setSlackDays(Integer slackDays) {
+        if (slackDays != null && slackDays < 0) {
+            throw new InvalidTaskDataException("Thời gian dự phòng (slack days) không được nhỏ hơn 0");
+        }
+        this.slackDays = slackDays != null ? slackDays : 0;
+        this.updatedAt = LocalDateTime.now();
     }
 
     public UserId getCreatedBy() {
