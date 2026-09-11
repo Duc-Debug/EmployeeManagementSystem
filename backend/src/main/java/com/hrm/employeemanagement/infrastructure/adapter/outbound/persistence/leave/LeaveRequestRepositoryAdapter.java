@@ -47,4 +47,10 @@ public class LeaveRequestRepositoryAdapter implements SaveLeaveRequestPort, Load
     public boolean existsOverlappingLeave(Long employeeId, LocalDate startDate, LocalDate endDate) {
         return springDataLeaveRequestRepository.existsOverlappingLeave(employeeId, startDate, endDate);
     }
+
+    @Override
+    public List<LeaveRequest> findPendingRequests() {
+        return springDataLeaveRequestRepository.findByStatusOrderByCreatedAtAsc("PENDING")
+                .stream().map(mapper::toDomain).toList();
+    }
 }

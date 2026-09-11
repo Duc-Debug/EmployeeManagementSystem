@@ -16,4 +16,9 @@ public interface LoadLeaveRequestPort {
      * bị trùng với khoảng [startDate, endDate] hay chưa.
      */
     boolean existsOverlappingLeave(Long employeeId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * NCL-05-CN-003: Lấy danh sách các đơn xin nghỉ phép đang chờ duyệt (PENDING).
+     */
+    List<LeaveRequest> findPendingRequests();
 }

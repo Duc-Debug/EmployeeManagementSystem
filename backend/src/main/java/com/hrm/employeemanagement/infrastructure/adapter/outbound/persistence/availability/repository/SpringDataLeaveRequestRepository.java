@@ -42,4 +42,6 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
                                   @Param("endDate") LocalDate endDate);
 
     List<LeaveRequestJpaEntity> findByEmployeeIdOrderByStartDateDesc(Long employeeId);
+
+    List<LeaveRequestJpaEntity> findByStatusOrderByCreatedAtAsc(String status);
 }
