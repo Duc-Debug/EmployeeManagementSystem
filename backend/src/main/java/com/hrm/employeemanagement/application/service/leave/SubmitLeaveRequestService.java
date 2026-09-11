@@ -150,8 +150,7 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
                         command.startDate(), command.endDate(), targetYear, calendar, holidayDates);
 
                 if (daysInTargetYear > 0) {
-                    LeaveBalance balance = loadLeaveBalancePort.findByEmployeeIdAndYear(targetEmployeeId, targetYear)
-                            .orElseGet(() -> LeaveBalance.createDefault(targetEmployeeId, targetYear));
+                    LeaveBalance balance = loadLeaveBalancePort.findOrCreateDefault(targetEmployeeId, targetYear);
 
                     List<LeaveRequest> yearRequests = loadLeaveRequestPort.findByEmployeeIdAndYear(targetEmployeeId, targetYear);
                     BigDecimal currentUsed = yearRequests.stream()
