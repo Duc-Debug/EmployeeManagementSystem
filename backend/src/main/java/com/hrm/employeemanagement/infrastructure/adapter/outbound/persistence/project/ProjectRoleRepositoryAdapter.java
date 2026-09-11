@@ -3,11 +3,14 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.p
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.project.CountProjectRoleUsagePort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectRolePort;
+import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException;
+import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleStatus;
@@ -89,8 +92,18 @@ public class ProjectRoleRepositoryAdapter implements
         entity.setSkillGroupId(domain.getSkillGroupId());
         entity.setStatus(domain.getStatus() != null ? domain.getStatus().name() : "ACTIVE");
 
-        ProjectRoleJpaEntity saved = springDataProjectRoleRepository.save(entity);
-        return toDomain(saved);
+        try {
+            ProjectRoleJpaEntity saved = springDataProjectRoleRepository.saveAndFlush(entity);
+            return toDomain(saved);
+        } catch (DataIntegrityViolationException ex) {
+            if (isDuplicateConstraintViolation(ex, "uk_project_roles_name") || isDuplicateConstraintViolation(ex, "name")) {
+                throw new DuplicateProjectRoleNameException(domain.getName());
+            }
+            if (isDuplicateConstraintViolation(ex, "code")) {
+                throw new DuplicateProjectRoleCodeException(domain.getCode());
+            }
+            throw ex;
+        }
     }
 
     @Override
@@ -128,5 +141,30 @@ public class ProjectRoleRepositoryAdapter implements
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
+    }
+
+    private boolean isDuplicateConstraintViolation(DataIntegrityViolationException ex, String constraintOrField) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                String cName = cve.getConstraintName();
+                if (cName != null && cName.toLowerCase().contains(constraintOrField.toLowerCase())) {
+                    return true;
+                }
+            }
+            if (current instanceof java.sql.SQLException sqlEx) {
+                String sqlState = sqlEx.getSQLState();
+                int errorCode = sqlEx.getErrorCode();
+                if ("23505".equals(sqlState) || errorCode == 1062) {
+                    String msg = sqlEx.getMessage() != null ? sqlEx.getMessage().toLowerCase() : "";
+                    if (msg.contains(constraintOrField.toLowerCase())) {
+                        return true;
+                    }
+                }
+            }
+            current = current.getCause();
+        }
+        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
+        return rootMsg != null && rootMsg.toLowerCase().contains(constraintOrField.toLowerCase());
     }
 }

@@ -156,4 +156,20 @@ public class ProjectExceptionHandler {
                         com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException ex) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
         }
+
+        @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+        public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
+                        org.springframework.dao.DataIntegrityViolationException ex) {
+                String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
+                if (msg.contains("uk_project_roles_name") || msg.contains("project_roles.name")) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                        .body(ApiResponse.error("Tên vai trò chuyên môn đã tồn tại trong hệ thống"));
+                }
+                if (msg.contains("code")) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                        .body(ApiResponse.error("Mã vai trò chuyên môn đã tồn tại trong hệ thống"));
+                }
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(ApiResponse.error("Dữ liệu vi phạm ràng buộc toàn vẹn hoặc đã tồn tại trong hệ thống"));
+        }
 }

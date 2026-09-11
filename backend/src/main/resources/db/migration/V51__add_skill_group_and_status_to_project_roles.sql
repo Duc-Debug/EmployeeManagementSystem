@@ -35,6 +35,10 @@ ALTER TABLE project_roles
 CREATE INDEX idx_project_roles_skill_group_id
     ON project_roles(skill_group_id);
 
+-- 6. Ràng buộc UNIQUE cho tên vai trò chuyên môn (chống race condition)
+ALTER TABLE project_roles
+    ADD CONSTRAINT uk_project_roles_name UNIQUE (name);
+
 -- 3. Bổ sung các quyền quản trị danh mục vai trò chuyên môn
 INSERT INTO permissions (code, name, description)
 SELECT 'PROJECT_ROLE_READ', 'Xem danh mục vai trò chuyên môn', 'Cho phép xem danh mục vai trò chuyên môn dùng chung'

@@ -215,4 +215,71 @@ class ProjectRoleControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Vai trò chuyên môn đã ở trạng thái ngừng sử dụng"));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/project-roles trả về 409 Conflict khi mã vai trò đã tồn tại")
+    void testCreateProjectRole_DuplicateCode_Returns409Conflict() throws Exception {
+        when(createProjectRoleUseCase.createProjectRole(any(CreateProjectRoleCommand.class)))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException("DEV"));
+
+        String json = """
+                {
+                    "code": "DEV",
+                    "name": "Developer",
+                    "description": "Lập trình viên",
+                    "skillGroupId": 1
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/project-roles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/project-roles trả về 409 Conflict khi tên vai trò đã tồn tại")
+    void testCreateProjectRole_DuplicateName_Returns409Conflict() throws Exception {
+        when(createProjectRoleUseCase.createProjectRole(any(CreateProjectRoleCommand.class)))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException("Developer"));
+
+        String json = """
+                {
+                    "code": "DEV",
+                    "name": "Developer",
+                    "description": "Lập trình viên",
+                    "skillGroupId": 1
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/project-roles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/project-roles trả về 409 Conflict khi gặp DataIntegrityViolationException do race condition")
+    void testCreateProjectRole_DataIntegrityViolation_Returns409Conflict() throws Exception {
+        when(createProjectRoleUseCase.createProjectRole(any(CreateProjectRoleCommand.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate entry"));
+
+        String json = """
+                {
+                    "code": "DEV",
+                    "name": "Developer",
+                    "description": "Lập trình viên",
+                    "skillGroupId": 1
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/project-roles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Dữ liệu vi phạm ràng buộc toàn vẹn hoặc đã tồn tại trong hệ thống"));
+    }
 }
