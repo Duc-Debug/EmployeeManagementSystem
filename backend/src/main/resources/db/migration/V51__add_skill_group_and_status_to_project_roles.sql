@@ -8,9 +8,9 @@ INSERT INTO skill_groups (name, description, status)
 SELECT 'General', 'Default skill group', 'ACTIVE'
 WHERE NOT EXISTS (SELECT 1 FROM skill_groups WHERE name = 'General');
 
--- 2. Bổ sung cột skill_group_id (nullable trước), status và updated_at cho project_roles
+-- 2. Bổ sung cột skill_group_id (với default tạm thời), status và updated_at cho project_roles
 ALTER TABLE project_roles
-    ADD COLUMN skill_group_id BIGINT NULL;
+    ADD COLUMN skill_group_id BIGINT NOT NULL DEFAULT 1;
 
 ALTER TABLE project_roles
     ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
@@ -18,19 +18,14 @@ ALTER TABLE project_roles
 ALTER TABLE project_roles
     ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 
--- 3. Backfill động nhóm kỹ năng hợp lệ (tìm theo tên 'General', fallback về MIN id)
+-- 3. Backfill động nhóm kỹ năng hợp lệ (tìm theo tên 'General' tất định)
 UPDATE project_roles
-SET skill_group_id = (
-    SELECT COALESCE(
-        (SELECT id FROM skill_groups WHERE name = 'General' LIMIT 1),
-        (SELECT MIN(id) FROM skill_groups)
-    )
-)
-WHERE skill_group_id IS NULL;
+SET skill_group_id = (SELECT id FROM skill_groups WHERE name = 'General' LIMIT 1)
+WHERE skill_group_id IS NULL OR skill_group_id = 1;
 
--- 4. Ràng buộc NOT NULL cho skill_group_id
+-- 4. Xóa giá trị mặc định tạm thời để các lệnh INSERT mới bắt buộc phải truyền skill_group_id
 ALTER TABLE project_roles
-    ALTER COLUMN skill_group_id BIGINT NOT NULL;
+    ALTER COLUMN skill_group_id DROP DEFAULT;
 
 -- 5. Ràng buộc Khóa ngoại tới bảng skill_groups
 ALTER TABLE project_roles

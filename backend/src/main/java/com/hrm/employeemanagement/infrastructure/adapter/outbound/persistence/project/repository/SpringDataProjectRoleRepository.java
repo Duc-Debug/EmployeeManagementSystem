@@ -28,8 +28,4 @@ public interface SpringDataProjectRoleRepository extends JpaRepository<ProjectRo
 
     @Query("SELECT COUNT(e) FROM EmployeeJpaEntity e WHERE LOWER(e.professionalRole) = LOWER(:roleName) OR LOWER(e.professionalRole) = LOWER(:roleCode)")
     long countEmployeesByProfessionalRole(@Param("roleName") String roleName, @Param("roleCode") String roleCode);
-
-    @org.springframework.data.jpa.repository.Modifying
-    @Query("UPDATE EmployeeJpaEntity e SET e.professionalRole = :newName WHERE LOWER(e.professionalRole) = LOWER(:oldName)")
-    int updateEmployeeProfessionalRoleName(@Param("oldName") String oldName, @Param("newName") String newName);
 }

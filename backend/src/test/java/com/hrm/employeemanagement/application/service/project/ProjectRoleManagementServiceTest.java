@@ -25,7 +25,6 @@ import com.hrm.employeemanagement.application.dto.project.demand.UpdateProjectRo
 import com.hrm.employeemanagement.application.port.outbound.project.CountProjectRoleUsagePort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectRolePort;
-import com.hrm.employeemanagement.application.port.outbound.project.SyncEmployeeProfessionalRolePort;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillGroupPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
@@ -70,9 +69,6 @@ class ProjectRoleManagementServiceTest {
     @Mock
     private SaveAuditLogPort saveAuditLogPort;
 
-    @Mock
-    private SyncEmployeeProfessionalRolePort syncEmployeeProfessionalRolePort;
-
     private ProjectRoleManagementService service;
 
     @BeforeEach
@@ -83,8 +79,7 @@ class ProjectRoleManagementServiceTest {
                 countUsagePort,
                 loadSkillGroupPort,
                 authorizationService,
-                saveAuditLogPort,
-                syncEmployeeProfessionalRolePort);
+                saveAuditLogPort);
     }
 
     @Test
@@ -363,8 +358,8 @@ class ProjectRoleManagementServiceTest {
     }
 
     @Test
-    @DisplayName("HIGH-01: Đổi tên vai trò chuyên môn tự động đồng bộ sang bảng employees")
-    void updateProjectRole_whenNameChanges_shouldSyncEmployeeProfessionalRole() {
+    @DisplayName("HIGH: Đổi tên vai trò chuyên môn thành công và không mutate ngoài ranh giới domain Employee")
+    void updateProjectRole_whenNameChanges_shouldUpdateRoleSuccessfully() {
         when(authorizationService.require(PermissionCode.PROJECT_ROLE_MANAGE)).thenReturn(ADMIN_USER_ID);
 
         ProjectRole role = new ProjectRole(
@@ -381,10 +376,10 @@ class ProjectRoleManagementServiceTest {
         when(saveProjectRolePort.save(any(ProjectRole.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateProjectRoleCommand cmd = new UpdateProjectRoleCommand(5L, "Senior Software Engineer", "Mô tả mới", SKILL_GROUP_ID);
-        service.updateProjectRole(cmd);
+        ProjectRoleResult result = service.updateProjectRole(cmd);
 
-        // Kiểm tra port đồng bộ tên nhân sự được gọi với oldName và newName
-        verify(syncEmployeeProfessionalRolePort).syncRoleName("Lập trình viên", "Senior Software Engineer");
+        assertThat(result.name()).isEqualTo("Senior Software Engineer");
+        verify(saveProjectRolePort).save(any(ProjectRole.class));
     }
 
     @Test
