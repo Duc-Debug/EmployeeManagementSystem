@@ -173,4 +173,26 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
         }
         return springDataEmployeeRepository.countByProjectManager(pmEmployeeId);
     }
+
+    @Override
+    public List<Employee> findActivePaged(List<Long> orgUnitIds, String search, int size, int offset) {
+        String cleanSearch = (search != null && !search.isBlank()) ? search.trim() : null;
+        if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
+            return springDataEmployeeRepository.findActiveByOrgUnitIdsPaged(orgUnitIds, cleanSearch, size, offset).stream()
+                    .map(mapper::toDomain)
+                    .toList();
+        }
+        return springDataEmployeeRepository.findActivePaged(cleanSearch, size, offset).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public long countActive(List<Long> orgUnitIds, String search) {
+        String cleanSearch = (search != null && !search.isBlank()) ? search.trim() : null;
+        if (orgUnitIds != null && !orgUnitIds.isEmpty()) {
+            return springDataEmployeeRepository.countActiveByOrgUnitIdsPaged(orgUnitIds, cleanSearch);
+        }
+        return springDataEmployeeRepository.countActivePaged(cleanSearch);
+    }
 }

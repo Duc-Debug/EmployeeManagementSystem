@@ -143,10 +143,72 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 ))
                 .toList();
 
-        // Nạp danh sách nhân sự active theo Data Scope
+        // Batch load ngày lễ cho khoảng thời gian tuần (1 query dùng chung cho các nhân sự)
+        LocalDate minStart = targetWeeks.get(0).getStartDate();
+        LocalDate maxEnd = targetWeeks.get(targetWeeks.size() - 1).getEndDate();
+        List<Holiday> holidays = loadHolidaysPort.getHolidaysBetween(minStart, maxEnd);
+        Set<DayOfWeek> workingDays = resolveWorkingDays();
+        Map<YearWeek, Integer> holidayHoursByWeek = targetWeeks.stream()
+                .collect(Collectors.toMap(
+                        yw -> yw,
+                        yw -> WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yw, holidays, workingDays)
+                ));
+
+        // [🔴 HIGH REVIEW FIX]: Phân trang Server-side thực thụ ở tầng Database
+        // Khi không có bộ lọc trạng thái (status == null), truy vấn phân trang trực tiếp từ DB
+        // CHỈ nạp đúng pageSize nhân sự và CHỈ batch-load DB cho các nhân sự trên trang đó
+        if (query.status() == null) {
+            List<Long> branchIds = resolveScopeBranchOrgUnitIds(effectiveOrgUnitId);
+            String search = (query.search() != null && !query.search().isBlank()) ? query.search().trim() : null;
+
+            int pageSize = query.size();
+            int page = query.page();
+            int offset = page * pageSize;
+
+            long totalEmployees = loadEmployeePort.countActive(branchIds, search);
+            int totalPages = totalEmployees == 0 ? 0 : (int) Math.ceil((double) totalEmployees / pageSize);
+
+            if (totalEmployees == 0) {
+                return new CompanyWeeklyCapacityMatrixResult(
+                        effectiveOrgUnitId,
+                        orgUnitName,
+                        fromYear,
+                        fromWeek,
+                        durationWeeks,
+                        weekHeaders,
+                        List.of(),
+                        new CapacityMatrixSummaryResult(0, durationWeeks, 0, 0, 0, BigDecimal.ZERO),
+                        page,
+                        pageSize,
+                        0,
+                        0
+                );
+            }
+
+            List<Employee> pageEmployees = loadEmployeePort.findActivePaged(branchIds, search, pageSize, offset);
+
+            ComputationResult computation = computeMatrixForEmployees(pageEmployees, targetWeeks, workingDays, holidayHoursByWeek);
+
+            return new CompanyWeeklyCapacityMatrixResult(
+                    effectiveOrgUnitId,
+                    orgUnitName,
+                    fromYear,
+                    fromWeek,
+                    durationWeeks,
+                    weekHeaders,
+                    computation.rows(),
+                    computation.summary(),
+                    page,
+                    pageSize,
+                    (int) totalEmployees,
+                    totalPages
+            );
+        }
+
+        // [🟠 MEDIUM REVIEW FIX]: Tối ưu hóa pipeline khi có bộ lọc trạng thái
         List<Employee> employees = loadEmployeesInScope(effectiveOrgUnitId);
 
-        // [HIGH REVIEW FIX]: Áp dụng bộ lọc tìm kiếm theo từ khóa nếu có (search)
+        // Áp dụng bộ lọc tìm kiếm theo từ khóa nếu có (search)
         if (query.search() != null && !query.search().isBlank()) {
             String searchPattern = query.search().trim().toLowerCase();
             employees = employees.stream()
@@ -156,7 +218,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     .toList();
         }
 
-        // [HIGH REVIEW FIX]: Sắp xếp ổn định và tất định (Deterministic Sort) theo họ tên, sau đó mã nhân viên
+        // Sắp xếp ổn định và tất định (Deterministic Sort) theo họ tên, sau đó mã nhân viên
         employees = employees.stream()
                 .sorted(Comparator.comparing(Employee::getFullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
                         .thenComparing(Employee::getEmployeeCode, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
@@ -179,49 +241,6 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             );
         }
 
-        // Batch load ngày lễ cho khoảng thời gian tuần (1 query dùng chung cho các nhân sự)
-        LocalDate minStart = targetWeeks.get(0).getStartDate();
-        LocalDate maxEnd = targetWeeks.get(targetWeeks.size() - 1).getEndDate();
-        List<Holiday> holidays = loadHolidaysPort.getHolidaysBetween(minStart, maxEnd);
-        Set<DayOfWeek> workingDays = resolveWorkingDays();
-        Map<YearWeek, Integer> holidayHoursByWeek = targetWeeks.stream()
-                .collect(Collectors.toMap(
-                        yw -> yw,
-                        yw -> WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yw, holidays, workingDays)
-                ));
-
-        // [🔴 HIGH REVIEW FIX]: Phân trang Server-side thực thụ
-        // Khi không có bộ lọc trạng thái (status == null), cắt lát ứng viên NGAY LẬP TỨC
-        // để CHỈ batch-load DB và CHỈ tính toán ma trận cho đúng các nhân sự trên trang hiện tại (pageSize)
-        if (query.status() == null) {
-            int totalEmployees = employees.size();
-            int pageSize = query.size();
-            int page = query.page();
-            int totalPages = totalEmployees == 0 ? 0 : (int) Math.ceil((double) totalEmployees / pageSize);
-
-            int fromIndex = Math.min(page * pageSize, totalEmployees);
-            int toIndex = Math.min(fromIndex + pageSize, totalEmployees);
-            List<Employee> pageEmployees = employees.subList(fromIndex, toIndex);
-
-            ComputationResult computation = computeMatrixForEmployees(pageEmployees, targetWeeks, workingDays, holidayHoursByWeek);
-
-            return new CompanyWeeklyCapacityMatrixResult(
-                    effectiveOrgUnitId,
-                    orgUnitName,
-                    fromYear,
-                    fromWeek,
-                    durationWeeks,
-                    weekHeaders,
-                    computation.rows(),
-                    computation.summary(),
-                    page,
-                    pageSize,
-                    totalEmployees,
-                    totalPages
-            );
-        }
-
-        // [🟠 MEDIUM REVIEW FIX]: Tối ưu hóa pipeline khi có bộ lọc trạng thái
         List<Employee> candidatesToEvaluate = employees;
         if (query.status() == CapacityStatus.OVERLOADED) {
             // Pre-filter: Theo QTN-12, nhân sự chỉ có thể quá tải nếu có tổng phân bổ > 0 trong tuần.
@@ -334,17 +353,15 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             for (YearWeek yw : targetWeeks) {
                 String key = makeKey(emp.getIdValue(), yw.year(), yw.weekNumber());
 
-                // 1. Xác định baseAvailableHours
-                BigDecimal baseAvailableHours;
+                // 1. Xác định baseAvailableHours: Luôn luôn áp dụng số giờ chuẩn (ưu tiên WeeklyAvailability nếu khai báo riêng),
+                // trừ ngày lễ và trừ giờ nghỉ phép đã duyệt từ nguồn dữ liệu thực tế (leave_requests)
                 WeeklyAvailability savedAvail = availabilityMap.get(key);
-                if (savedAvail != null) {
-                    baseAvailableHours = savedAvail.getNetAvailableHours();
-                } else {
-                    int standardHours = emp.getStandardHoursPerWeek() != null ? emp.getStandardHoursPerWeek() : 40;
-                    int holidayHours = holidayHoursByWeek.getOrDefault(yw, 0);
-                    BigDecimal leaveHours = leaveHoursMap.getOrDefault(emp.getIdValue(), Map.of()).getOrDefault(yw, BigDecimal.ZERO);
-                    baseAvailableHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
-                }
+                int standardHours = savedAvail != null
+                        ? savedAvail.getStandardHours()
+                        : (emp.getStandardHoursPerWeek() != null ? emp.getStandardHoursPerWeek() : 40);
+                int holidayHours = holidayHoursByWeek.getOrDefault(yw, 0);
+                BigDecimal leaveHours = leaveHoursMap.getOrDefault(emp.getIdValue(), Map.of()).getOrDefault(yw, BigDecimal.ZERO);
+                BigDecimal baseAvailableHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
 
                 // 2. Luôn luôn áp dụng điều chỉnh hợp đồng lao động
                 int weekWorkingDaysCount = workingDays.isEmpty() ? 5 : workingDays.size();
@@ -427,16 +444,22 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
 
     private record ComputationResult(List<EmployeeCapacityRowResult> rows, CapacityMatrixSummaryResult summary) {}
 
-    private List<Employee> loadEmployeesInScope(Long effectiveOrgUnitId) {
+    private List<Long> resolveScopeBranchOrgUnitIds(Long effectiveOrgUnitId) {
         if (effectiveOrgUnitId != null) {
-            // Lấy toàn bộ cây đơn vị con trực thuộc (nếu có) để bao phủ đầy đủ branch
             Optional<OrgUnit> unitOpt = loadOrgUnitPort.findById(new OrgUnitId(effectiveOrgUnitId));
             if (unitOpt.isPresent()) {
                 List<OrgUnit> subTree = loadOrgUnitPort.findSubTree(unitOpt.get().getTreePath());
-                List<Long> branchIds = subTree.stream().map(u -> u.getId().getValue()).toList();
-                return loadEmployeePort.findActiveByOrgUnitIds(branchIds);
+                return subTree.stream().map(u -> u.getId().getValue()).toList();
             }
-            return loadEmployeePort.findActiveByOrgUnitId(effectiveOrgUnitId);
+            return List.of(effectiveOrgUnitId);
+        }
+        return null;
+    }
+
+    private List<Employee> loadEmployeesInScope(Long effectiveOrgUnitId) {
+        List<Long> branchIds = resolveScopeBranchOrgUnitIds(effectiveOrgUnitId);
+        if (branchIds != null) {
+            return loadEmployeePort.findActiveByOrgUnitIds(branchIds);
         }
         return loadEmployeePort.findAllActive();
     }

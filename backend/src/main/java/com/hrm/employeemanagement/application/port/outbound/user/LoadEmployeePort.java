@@ -25,4 +25,6 @@ public interface LoadEmployeePort {
     long countByOrgUnitBranch(Long scopeOrgUnitId);
     List<Employee> findByProjectManager(Long pmEmployeeId, int size, int offset);
     long countByProjectManager(Long pmEmployeeId);
+    List<Employee> findActivePaged(List<Long> orgUnitIds, String search, int size, int offset);
+    long countActive(List<Long> orgUnitIds, String search);
 }
