@@ -1297,6 +1297,7 @@ export default function ProjectView() {
                             onToggleTaskStatus={handleToggleTaskStatus}
                             onOpenBudgetModal={handleOpenBudgetModal}
                             onOpenCloneModal={canManageWbs && !isProjectClosed ? () => setCloneModalOpen(true) : undefined}
+                            onRefreshData={() => selectedProjectId && loadWbsForProject(selectedProjectId)}
                         />
                     </div>
                 )}

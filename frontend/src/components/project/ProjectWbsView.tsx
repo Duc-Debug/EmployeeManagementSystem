@@ -31,6 +31,7 @@ interface ProjectWbsViewProps {
     onToggleTaskStatus: (catId: string, taskId: string) => void;
     onOpenBudgetModal?: (task: TaskItem) => void;
     onOpenCloneModal?: () => void;
+    onRefreshData?: () => void;
 }
 
 export function ProjectWbsView({
@@ -45,6 +46,7 @@ export function ProjectWbsView({
     onToggleTaskStatus,
     onOpenBudgetModal,
     onOpenCloneModal,
+    onRefreshData,
 }: ProjectWbsViewProps) {
     const [cascadeModalTask, setCascadeModalTask] = useState<{
         id: number;
@@ -324,7 +326,7 @@ export function ProjectWbsView({
                                                                     </span>
                                                                      <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-600">
                                                                          <Calendar className="h-3 w-3 text-indigo-500 shrink-0" />
-                                                                         {t.startDate || t.startWeek} &rarr; {t.actualEndDate ? `${t.actualEndDate} (TT)` : (t.dueDate || t.endWeek)}
+                                                                         {t.startDate ? t.startDate : (t.startWeek !== 'Chưa cập nhật' ? t.startWeek : 'Kế hoạch')} &rarr; {t.actualEndDate ? `${t.actualEndDate} (TT)` : (t.dueDate || t.endWeek)}
                                                                      </span>
                                                                      {t.actualEndDate && (
                                                                          <span
@@ -335,8 +337,17 @@ export function ProjectWbsView({
                                                                              }`}
                                                                              title={t.dueDate && t.actualEndDate > t.dueDate ? `Công việc trễ ngày kết thúc so với mốc hạn ${t.dueDate}` : `Đã kết thúc thực tế ngày ${t.actualEndDate}`}
                                                                          >
-                                                                             <AlertTriangle className={`h-3 w-3 ${t.dueDate && t.actualEndDate > t.dueDate ? 'text-rose-600' : 'text-emerald-600'} shrink-0`} />
-                                                                             {t.dueDate && t.actualEndDate > t.dueDate ? 'Trễ thực tế' : 'Đã xong'}
+                                                                             {t.dueDate && t.actualEndDate > t.dueDate ? (
+                                                                                 <>
+                                                                                     <AlertTriangle className="h-3 w-3 text-rose-600 shrink-0" />
+                                                                                     <span>Trễ thực tế</span>
+                                                                                 </>
+                                                                             ) : (
+                                                                                 <>
+                                                                                     <CircleCheck className="h-3 w-3 text-emerald-600 shrink-0" />
+                                                                                     <span>Đã xong (TT)</span>
+                                                                                 </>
+                                                                             )}
                                                                          </span>
                                                                      )}
 
@@ -530,6 +541,9 @@ export function ProjectWbsView({
                     taskCode={cascadeModalTask.code}
                     canManage={!isClosed}
                     onClose={() => setCascadeModalTask(null)}
+                    onSuccess={() => {
+                        onRefreshData?.();
+                    }}
                 />
             )}
         </section>
