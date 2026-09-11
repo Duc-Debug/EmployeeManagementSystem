@@ -93,6 +93,14 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 .toList();
     }
 
+    private static <T> List<List<T>> partitionList(List<T> list, int size) {
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return partitions;
+    }
+
     @Override
     public List<WeeklyProjectAllocation> loadAllocationsForEmployeesAndWeeks(List<Long> employeeIds, List<YearWeek> targetWeeks) {
         if (employeeIds == null || employeeIds.isEmpty() || targetWeeks == null || targetWeeks.isEmpty()) {
@@ -102,15 +110,18 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 .collect(Collectors.groupingBy(YearWeek::year, Collectors.mapping(YearWeek::weekNumber, Collectors.toList())));
 
         List<WeeklyProjectAllocation> results = new ArrayList<>();
-        for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
-            Integer year = entry.getKey();
-            List<Integer> weeks = entry.getValue();
-            List<WeeklyProjectAllocationJpaEntity> entities = repository
-                    .findByEmployeeIdInAndYearAndWeekNumberIn(employeeIds, year, weeks);
-            results.addAll(entities.stream().map(e -> new WeeklyProjectAllocation(
-                    e.getId(), e.getEmployeeId(), e.getProjectId(),
-                    YearWeek.of(e.getYear(), e.getWeekNumber()),
-                    e.getAllocatedHours(), e.getVersion())).toList());
+        List<List<Long>> chunks = partitionList(employeeIds, 500);
+        for (List<Long> chunk : chunks) {
+            for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
+                Integer year = entry.getKey();
+                List<Integer> weeks = entry.getValue();
+                List<WeeklyProjectAllocationJpaEntity> entities = repository
+                        .findByEmployeeIdInAndYearAndWeekNumberIn(chunk, year, weeks);
+                results.addAll(entities.stream().map(e -> new WeeklyProjectAllocation(
+                        e.getId(), e.getEmployeeId(), e.getProjectId(),
+                        YearWeek.of(e.getYear(), e.getWeekNumber()),
+                        e.getAllocatedHours(), e.getVersion())).toList());
+            }
         }
         return results;
     }

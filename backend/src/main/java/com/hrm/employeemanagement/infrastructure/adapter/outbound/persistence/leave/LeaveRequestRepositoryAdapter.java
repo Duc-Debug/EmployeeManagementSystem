@@ -54,6 +54,14 @@ public class LeaveRequestRepositoryAdapter implements SaveLeaveRequestPort, Load
     }
 
     @Override
+    public List<LeaveRequest> findByEmployeeIdAndYear(Long employeeId, int year) {
+        LocalDate startOfYear = LocalDate.of(year, 1, 1);
+        LocalDate endOfYear = LocalDate.of(year, 12, 31);
+        return springDataLeaveRequestRepository.findAnnualLeavesInYear(employeeId, startOfYear, endOfYear)
+                .stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
     public List<LeaveRequest> findPendingRequests() {
         return springDataLeaveRequestRepository.findByStatusOrderByCreatedAtAsc("PENDING")
                 .stream().map(mapper::toDomain).toList();

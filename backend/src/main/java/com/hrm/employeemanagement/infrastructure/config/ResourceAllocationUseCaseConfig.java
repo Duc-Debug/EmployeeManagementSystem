@@ -23,8 +23,38 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.RetryableAllocateResourceUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalAllocateResourceUseCase;
 
+import com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase;
+import com.hrm.employeemanagement.application.service.allocation.GetCompanyWeeklyCapacityService;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
+
 @Configuration
 public class ResourceAllocationUseCaseConfig {
+
+    @Bean
+    public GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            java.util.Optional<LoadWorkingCalendarPort> loadWorkingCalendarPort) {
+        return new GetCompanyWeeklyCapacityService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort.orElse(null)
+        );
+    }
 
     @Bean
     public GetProjectWeeklyAllocationsUseCase getProjectWeeklyAllocationsUseCase(

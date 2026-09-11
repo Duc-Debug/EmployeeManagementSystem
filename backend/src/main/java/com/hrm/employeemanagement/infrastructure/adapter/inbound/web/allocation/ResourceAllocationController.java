@@ -20,17 +20,50 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 
 @RestController
 @RequestMapping("/api/v1/allocations")
+@Validated
 public class ResourceAllocationController {
 
     private final AllocateResourceUseCase allocateResourceUseCase;
     private final SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase;
+    private final com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase;
 
-    public ResourceAllocationController(AllocateResourceUseCase allocateResourceUseCase, SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase) {
+    public ResourceAllocationController(
+            AllocateResourceUseCase allocateResourceUseCase,
+            SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase,
+            com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase) {
         this.allocateResourceUseCase = allocateResourceUseCase;
         this.searchResourceUseCase = searchResourceUseCase;
+        this.getCompanyWeeklyCapacityUseCase = getCompanyWeeklyCapacityUseCase;
+    }
+
+    /**
+     * NCL-06-CN-002: Xem bảng năng lực theo tuần của công ty / bộ phận.
+     */
+    @GetMapping("/weekly-matrix")
+    public ResponseEntity<ApiResponse<com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult>> getWeeklyCapacityMatrix(
+            @RequestParam(required = false) Long orgUnitId,
+            @RequestParam(required = false) Integer fromYear,
+            @RequestParam(required = false) Integer fromWeek,
+            @RequestParam(required = false, defaultValue = "8") @Min(1) @Max(16) Integer durationWeeks,
+            @RequestParam(required = false, defaultValue = "0") @Min(0) Integer page,
+            @RequestParam(required = false, defaultValue = "20") @Min(1) @Max(50) Integer size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) com.hrm.employeemanagement.domain.allocation.CapacityStatus status) {
+
+        com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery query =
+                new com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery(
+                        orgUnitId, fromYear, fromWeek, durationWeeks, page, size, search, status);
+
+        com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult result =
+                getCompanyWeeklyCapacityUseCase.getWeeklyCapacityMatrix(query);
+
+        return ResponseEntity.ok(ApiResponse.success("Lấy bảng năng lực theo tuần thành công", result));
     }
 
     /**
