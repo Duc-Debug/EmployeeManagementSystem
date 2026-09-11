@@ -226,15 +226,23 @@ public class ProjectResourceDemandService implements
     }
 
     @Override
-    public List<ProjectRoleResult> getProjectRoles() {
+    public List<ProjectRoleResult> getProjectRoles(boolean includeInactive) {
         authorizationService.requireAny(
                 PermissionCode.PROJECT_READ,
                 PermissionCode.PROJECT_RESOURCE_DEMAND_READ,
                 PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE
         );
-        return loadProjectRolePort.findAll().stream()
+        List<ProjectRole> roles = includeInactive
+                ? loadProjectRolePort.findAll()
+                : loadProjectRolePort.findAllActive();
+        return roles.stream()
                 .map(r -> new ProjectRoleResult(r.getIdValue(), r.getCode(), r.getName(), r.getDescription()))
                 .toList();
+    }
+
+    @Override
+    public List<ProjectRoleResult> getProjectRoles() {
+        return getProjectRoles(false);
     }
 
     // ==================== HELPER METHODS ====================

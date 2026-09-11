@@ -6,15 +6,25 @@ public record ProjectRoleResponse(
         Long id,
         String code,
         String name,
-        String description
+        String description,
+        Long skillGroupId,
+        String skillGroupName,
+        String status
 ) {
+    public ProjectRoleResponse(Long id, String code, String name, String description) {
+        this(id, code, name, description, null, null, "ACTIVE");
+    }
+
     public static ProjectRoleResponse fromResult(ProjectRoleResult result) {
         if (result == null) return null;
         return new ProjectRoleResponse(
                 result.id(),
                 result.code(),
                 result.name(),
-                result.description()
+                result.description(),
+                result.skillGroupId(),
+                result.skillGroupName(),
+                result.status()
         );
     }
 }
