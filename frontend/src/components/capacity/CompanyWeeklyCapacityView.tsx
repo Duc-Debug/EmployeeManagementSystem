@@ -335,7 +335,7 @@ export default function CompanyWeeklyCapacityView() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
-                  Nhân sự quá tải
+                  Nhân sự quá tải {matrixData.totalPages > 1 && statusFilter === "ALL" ? `(Trang ${matrixData.page + 1}/${matrixData.totalPages})` : ""}
                 </span>
                 <span className="rounded-xl bg-rose-50 p-2 text-rose-600">
                   <AlertTriangle className="h-4 w-4" />
@@ -344,7 +344,7 @@ export default function CompanyWeeklyCapacityView() {
               <div className="mt-2 flex items-baseline gap-1 text-2xl font-bold text-rose-600">
                 <span>{matrixData.summary.overloadedEmployeesCount}</span>
                 <span className="text-xs font-normal text-slate-400">
-                  / {matrixData.summary.totalEmployees ?? matrixData.totalEmployees} người
+                  / {matrixData.summary.pageEmployeesCount ?? matrixData.summary.totalEmployees ?? matrixData.totalEmployees} người
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
@@ -355,7 +355,7 @@ export default function CompanyWeeklyCapacityView() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
-                  Ô tuần nhàn rỗi
+                  Ô tuần nhàn rỗi {matrixData.totalPages > 1 && statusFilter === "ALL" ? `(Trang ${matrixData.page + 1}/${matrixData.totalPages})` : ""}
                 </span>
                 <span className="rounded-xl bg-amber-50 p-2 text-amber-600">
                   <Clock className="h-4 w-4" />
@@ -372,7 +372,7 @@ export default function CompanyWeeklyCapacityView() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
-                  Công suất TB
+                  Công suất TB {matrixData.totalPages > 1 && statusFilter === "ALL" ? `(Trang ${matrixData.page + 1}/${matrixData.totalPages})` : ""}
                 </span>
                 <span className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
                   <TrendingUp className="h-4 w-4" />
@@ -386,6 +386,11 @@ export default function CompanyWeeklyCapacityView() {
               </p>
             </div>
           </div>
+          {matrixData.totalPages > 1 && statusFilter === "ALL" && (
+            <p className="mt-2 text-[11px] text-slate-400 italic">
+              * Các chỉ số Quá tải, Nhàn rỗi và Công suất TB được tính toán cho {matrixData.summary.pageEmployeesCount ?? matrixData.rows.length} nhân sự trên trang hiện tại để tối ưu hiệu năng.
+            </p>
+          )}
         </div>
       )}
 

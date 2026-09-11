@@ -316,11 +316,11 @@ class GetCompanyWeeklyCapacityServiceTest {
         assertThat(result.rows().get(0).employeeCode()).isEqualTo("EMP002");
         assertThat(result.rows().get(0).fullName()).isEqualTo("Binh Tran");
 
-        // Đảm bảo summary là global-scoped cho toàn bộ nhân sự trong phạm vi (totalEmployees = 3)
-        assertThat(result.summary().totalEmployees()).isEqualTo(3);
+        // Đảm bảo summary là page-scoped phản ánh lát cắt trang hiện tại (pageEmployeesCount = 1 trong khi totalEmployees = 3)
+        assertThat(result.summary().pageEmployeesCount()).isEqualTo(1);
 
-        // Đảm bảo batch load cho toàn bộ nhân sự trong phạm vi để tính toán chính xác số liệu tổng thể
-        verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeks(argThat(list -> list.containsAll(List.of(1L, 2L, 3L))), anyList());
+        // [🔴 HIGH FIX]: Đảm bảo CHỈ query DB và tính toán cho đúng nhân sự của trang (ID 2), không query toàn bộ 3 người
+        verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeks(eq(List.of(2L)), anyList());
     }
 
     @Test
@@ -353,8 +353,8 @@ class GetCompanyWeeklyCapacityServiceTest {
         assertThat(result.rows()).hasSize(1);
         assertThat(result.rows().get(0).employeeCode()).isEqualTo("EMP001");
 
-        // KPI Summary vẫn phản ánh toàn thể phạm vi phòng ban (2 nhân sự, 1 người quá tải, 1 ô quá tải)
-        assertThat(result.summary().totalEmployees()).isEqualTo(2);
+        // KPI Summary phản ánh số lượng nhân sự khớp trên trang
+        assertThat(result.summary().pageEmployeesCount()).isEqualTo(1);
         assertThat(result.summary().overloadedEmployeesCount()).isEqualTo(1);
         assertThat(result.summary().overloadedCellsCount()).isEqualTo(1);
     }
