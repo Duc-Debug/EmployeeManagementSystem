@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Calendar as CalendarIcon,
     Plus,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
+import { submitLeaveRequest, getMyLeaveRequests, cancelLeaveRequest } from "@/lib/api/leave";
 import CalendarView from "../calendar/CalendarView";
 
 export interface LeaveRequest {
@@ -27,7 +28,7 @@ export interface LeaveRequest {
     endDate: string;
     daysCount: number;
     reason: string;
-    status: "PENDING" | "APPROVED" | "REJECTED";
+    status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
     createdAt: string;
     approverComment?: string;
 }
@@ -46,63 +47,6 @@ const LEAVE_TYPE_COLORS: Record<LeaveRequest["leaveType"], string> = {
     PERSONAL: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
-const INITIAL_LEAVE_DATA: LeaveRequest[] = [
-    {
-        id: "LV-2026-001",
-        employeeId: "1",
-        employeeName: "Nguyễn Văn Đức",
-        department: "Phòng Phát triển Phần mềm",
-        leaveType: "ANNUAL",
-        startDate: "2026-09-15",
-        endDate: "2026-09-16",
-        daysCount: 2,
-        reason: "Nghỉ việc gia đình",
-        status: "APPROVED",
-        createdAt: "2026-09-01",
-    },
-    {
-        id: "LV-2026-002",
-        employeeId: "2",
-        employeeName: "Trần Thị Mai",
-        department: "Phòng Kinh doanh",
-        leaveType: "SICK",
-        startDate: "2026-09-18",
-        endDate: "2026-09-18",
-        daysCount: 1,
-        reason: "Khám sức khỏe định kỳ",
-        status: "PENDING",
-        createdAt: "2026-09-08",
-    },
-    {
-        id: "LV-2026-003",
-        employeeId: "3",
-        employeeName: "Lê Hoàng Nam",
-        department: "Phòng Phát triển Phần mềm",
-        leaveType: "ANNUAL",
-        startDate: "2026-09-22",
-        endDate: "2026-09-24",
-        daysCount: 3,
-        reason: "Du lịch cá nhân",
-        status: "PENDING",
-        createdAt: "2026-09-08",
-    },
-    {
-        id: "LV-2026-004",
-        employeeId: "4",
-        employeeName: "Phạm Minh Tuấn",
-        department: "Phòng Nhân sự",
-        leaveType: "PERSONAL",
-        startDate: "2026-09-10",
-        endDate: "2026-09-10",
-        daysCount: 1,
-        reason: "Giải quyết thủ tục hành chính cá nhân",
-        status: "APPROVED",
-        createdAt: "2026-09-05",
-    },
-];
-
-const STORAGE_KEY = "sys_leave_requests";
-
 export default function LeaveManagementView() {
     const user = useAuthUser();
     const roleCode = user?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
@@ -112,16 +56,7 @@ export default function LeaveManagementView() {
     const isHR = roleCode === "VT-05" || roleCode === "VT-06";
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
-    const [requests, setRequests] = useState<LeaveRequest[]>(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            }
-        } catch {}
-        return INITIAL_LEAVE_DATA;
-    });
+    const [requests, setRequests] = useState<LeaveRequest[]>([]);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newLeave, setNewLeave] = useState({
@@ -133,18 +68,46 @@ export default function LeaveManagementView() {
 
     const [filterStatus, setFilterStatus] = useState<string>("ALL");
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
-        setTimeout(() => setToastMessage(null), 3000);
+        setTimeout(() => setToastMessage(null), 3500);
     };
 
-    const saveRequests = (data: LeaveRequest[]) => {
-        setRequests(data);
+    // Tải dữ liệu thật từ Backend nếu là nhân viên chuyên môn (VT-04)
+    const loadLeaveData = async () => {
+        if (!isEmployee) return;
+        setIsLoading(true);
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        } catch {}
+            const data = await getMyLeaveRequests();
+            if (Array.isArray(data)) {
+                const mapped: LeaveRequest[] = data.map((item) => ({
+                    id: `LV-${item.id}`,
+                    employeeId: String(item.employeeId),
+                    employeeName: user?.fullName || user?.username || "Tôi (Nhân viên)",
+                    department: user?.orgUnitName || "Phòng chuyên môn",
+                    leaveType: item.leaveType,
+                    startDate: item.startDate,
+                    endDate: item.endDate,
+                    daysCount: item.daysCount,
+                    reason: item.reason || "",
+                    status: item.status as any,
+                    createdAt: item.createdAt ? item.createdAt.slice(0, 10) : "",
+                }));
+                setRequests(mapped);
+            }
+        } catch (err: any) {
+            console.warn("Không thể tải danh sách đơn nghỉ phép từ server:", err);
+        } finally {
+            setIsLoading(false);
+        }
     };
+
+    useEffect(() => {
+        loadLeaveData();
+    }, [user?.id, roleCode]);
 
     // Lọc danh sách theo vai trò
     const currentUserName = (user?.fullName || user?.username || "").trim().toLowerCase();
@@ -173,28 +136,23 @@ export default function LeaveManagementView() {
     const remainingDays = Math.max(0, totalAnnualLeave - usedDays);
     const pendingCount = userRequests.filter((r) => r.status === "PENDING").length;
 
-    // Duyệt / Từ chối đơn
-    const handleApprove = (id: string) => {
-        const next = requests.map((r) => (r.id === id ? { ...r, status: "APPROVED" as const } : r));
-        saveRequests(next);
-        showToast("Đã phê duyệt đơn nghỉ phép thành công!");
-    };
-
-    const handleReject = (id: string) => {
-        const next = requests.map((r) => (r.id === id ? { ...r, status: "REJECTED" as const } : r));
-        saveRequests(next);
-        showToast("Đã từ chối đơn nghỉ phép.");
-    };
-
     // Hủy đơn (dành cho người nộp)
-    const handleCancelRequest = (id: string) => {
-        const next = requests.filter((r) => r.id !== id);
-        saveRequests(next);
-        showToast("Đã hủy đơn xin nghỉ phép.");
+    const handleCancelRequest = async (id: string) => {
+        if (!window.confirm("Bạn có chắc chắn muốn hủy đơn xin nghỉ phép này không?")) {
+            return;
+        }
+        try {
+            await cancelLeaveRequest(id);
+            showToast("Đã hủy đơn xin nghỉ phép thành công.");
+            await loadLeaveData();
+        } catch (err: any) {
+            console.error("Lỗi khi hủy đơn:", err);
+            showToast(err?.message || "Không thể hủy đơn nghỉ phép lúc này.");
+        }
     };
 
-    // Gửi đơn mới
-    const handleSubmitNewLeave = (e: React.FormEvent) => {
+    // Gửi đơn mới qua Backend API (TC-01, TC-02, TC-03)
+    const handleSubmitNewLeave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newLeave.reason.trim()) {
             showToast("Vui lòng nhập lý do nghỉ phép.");
@@ -204,37 +162,33 @@ export default function LeaveManagementView() {
         const start = new Date(newLeave.startDate);
         const end = new Date(newLeave.endDate);
         if (end < start) {
-            showToast("Ngày kết thúc không được nhỏ hơn ngày bắt đầu.");
+            showToast("Ngày kết thúc không được sớm hơn ngày bắt đầu.");
             return;
         }
 
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        try {
+            setIsSubmitting(true);
+            await submitLeaveRequest({
+                leaveType: newLeave.leaveType,
+                startDate: newLeave.startDate,
+                endDate: newLeave.endDate,
+                reason: newLeave.reason.trim(),
+            });
 
-        const newReq: LeaveRequest = {
-            id: `LV-${Date.now().toString().slice(-6)}`,
-            employeeId: currentUserIdStr || "NV001",
-            employeeName: user?.fullName || user?.username || "Tôi (Nhân viên)",
-            department: user?.orgUnitName || "Phòng chuyên môn",
-            leaveType: newLeave.leaveType,
-            startDate: newLeave.startDate,
-            endDate: newLeave.endDate,
-            daysCount: diffDays,
-            reason: newLeave.reason.trim(),
-            status: "PENDING",
-            createdAt: new Date().toISOString().slice(0, 10),
-        };
-
-        const next = [newReq, ...requests];
-        saveRequests(next);
-        setIsCreateModalOpen(false);
-        setNewLeave({
-            leaveType: "ANNUAL",
-            startDate: new Date().toISOString().slice(0, 10),
-            endDate: new Date().toISOString().slice(0, 10),
-            reason: "",
-        });
-        showToast("Gửi đơn nghỉ phép thành công. Đang chờ quản lý phê duyệt.");
+            showToast("Gửi đơn nghỉ phép thành công. Đang chờ quản lý phê duyệt.");
+            setIsCreateModalOpen(false);
+            setNewLeave({
+                leaveType: "ANNUAL",
+                startDate: new Date().toISOString().slice(0, 10),
+                endDate: new Date().toISOString().slice(0, 10),
+                reason: "",
+            });
+            await loadLeaveData();
+        } catch (err: any) {
+            showToast(err.message || "Không thể gửi đơn nghỉ phép. Vui lòng kiểm tra lại.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -283,15 +237,17 @@ export default function LeaveManagementView() {
                         </button>
                     </div>
 
-                    {/* Nút nộp đơn nghỉ phép */}
-                    <button
-                        type="button"
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="flex min-h-10 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
-                    >
-                        <Plus className="size-4" />
-                        <span>Gửi đơn nghỉ phép</span>
-                    </button>
+                    {/* Nút nộp đơn nghỉ phép: Chỉ hiển thị cho vai trò Nhân viên chuyên môn VT-04 (TC-04) */}
+                    {isEmployee && (
+                        <button
+                            type="button"
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="flex min-h-10 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
+                        >
+                            <Plus className="size-4" />
+                            <span>Gửi đơn nghỉ phép</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -394,7 +350,13 @@ export default function LeaveManagementView() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filteredRequests.length === 0 ? (
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                                            Đang tải dữ liệu đơn nghỉ phép...
+                                        </td>
+                                    </tr>
+                                ) : filteredRequests.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="p-8 text-center text-slate-400">
                                             Không có đơn nghỉ phép nào phù hợp với bộ lọc.
@@ -443,6 +405,11 @@ export default function LeaveManagementView() {
                                                         <X className="size-3" /> Từ chối
                                                     </span>
                                                 )}
+                                                {req.status === "CANCELLED" && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">
+                                                        Đã hủy
+                                                    </span>
+                                                )}
                                                 {req.status === "PENDING" && (
                                                     <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">
                                                         <Clock className="size-3" /> Chờ duyệt
@@ -450,28 +417,11 @@ export default function LeaveManagementView() {
                                                 )}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                {/* Thao tác Phê duyệt cho RM (VT-03), HR (VT-05) */}
+                                                {/* Thao tác Phê duyệt thuộc phạm vi UC NCL-05-CN-003 */}
                                                 {(isRM || isHR) && req.status === "PENDING" && (
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleApprove(req.id)}
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
-                                                            title="Phê duyệt đơn"
-                                                        >
-                                                            <Check className="size-3" />
-                                                            <span>Duyệt</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleReject(req.id)}
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
-                                                            title="Từ chối đơn"
-                                                        >
-                                                            <X className="size-3" />
-                                                            <span>Từ chối</span>
-                                                        </button>
-                                                    </div>
+                                                    <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-500">
+                                                        Chờ duyệt (NCL-05-CN-003)
+                                                    </span>
                                                 )}
 
                                                 {/* Thao tác Hủy đơn cho chính nhân viên */}
@@ -610,9 +560,13 @@ export default function LeaveManagementView() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="rounded-xl bg-indigo-600 px-4 py-2 font-bold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+                                    disabled={isSubmitting}
+                                    className={cn(
+                                        "rounded-xl bg-indigo-600 px-4 py-2 font-bold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer",
+                                        isSubmitting && "opacity-60 cursor-not-allowed"
+                                    )}
                                 >
-                                    Nộp đơn nghỉ phép
+                                    {isSubmitting ? "Đang gửi..." : "Nộp đơn nghỉ phép"}
                                 </button>
                             </div>
                         </form>
