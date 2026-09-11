@@ -22,7 +22,7 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
-import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectResourceDemandJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository.SpringDataProjectResourceDemandRepository;
 
@@ -46,7 +46,7 @@ class ProjectResourceDemandRepositoryAdapterTest {
     @DisplayName("Lưu danh sách ProjectResourceDemand thành công")
     void testSaveAll_Success() {
         ProjectResourceDemand demand = ProjectResourceDemand.createNew(
-                new ProjectId(1L), new RoleId(4L), YearWeek.of(2026, 41), new BigDecimal("20.00"));
+                new ProjectId(1L), new ProjectRoleId(4L), YearWeek.of(2026, 41), new BigDecimal("20.00"));
 
         when(repository.saveAllAndFlush(any())).thenAnswer(invocation -> {
             List<ProjectResourceDemandJpaEntity> list = invocation.getArgument(0);
@@ -65,7 +65,7 @@ class ProjectResourceDemandRepositoryAdapterTest {
     @DisplayName("Chuyển đổi DataIntegrityViolationException thành DuplicateResourceDemandException khi vi phạm Unique Constraint")
     void testSaveAll_DuplicateConstraintViolation_ThrowsDomainException() {
         ProjectResourceDemand demand = ProjectResourceDemand.createNew(
-                new ProjectId(1L), new RoleId(4L), YearWeek.of(2026, 41), new BigDecimal("20.00"));
+                new ProjectId(1L), new ProjectRoleId(4L), YearWeek.of(2026, 41), new BigDecimal("20.00"));
 
         when(repository.saveAllAndFlush(any()))
                 .thenThrow(new DataIntegrityViolationException("Duplicate entry for key uk_proj_res_demand_proj_role_week"));
@@ -79,7 +79,7 @@ class ProjectResourceDemandRepositoryAdapterTest {
     @DisplayName("Xóa danh sách ProjectResourceDemand qua deleteAll")
     void testDeleteAll_Success() {
         ProjectResourceDemand demand = ProjectResourceDemand.createNew(
-                new ProjectId(1L), new RoleId(4L), YearWeek.of(2026, 41), new BigDecimal("20.00"));
+                new ProjectId(1L), new ProjectRoleId(4L), YearWeek.of(2026, 41), new BigDecimal("20.00"));
 
         adapter.deleteAll(List.of(demand));
 
@@ -96,7 +96,7 @@ class ProjectResourceDemandRepositoryAdapterTest {
                 .thenReturn(Optional.of(entity));
 
         Optional<ProjectResourceDemand> result = adapter.findByProjectIdAndRoleIdAndYearWeek(
-                new ProjectId(1L), new RoleId(4L), YearWeek.of(2026, 41));
+                new ProjectId(1L), new ProjectRoleId(4L), YearWeek.of(2026, 41));
 
         assertThat(result).isPresent();
         assertThat(result.get().getId()).isEqualTo(10L);

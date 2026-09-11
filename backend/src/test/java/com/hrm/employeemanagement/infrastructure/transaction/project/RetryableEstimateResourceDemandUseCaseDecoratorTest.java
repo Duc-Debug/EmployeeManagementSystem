@@ -106,4 +106,29 @@ class RetryableEstimateResourceDemandUseCaseDecoratorTest {
         assertThat(result).isEqualTo(sampleResult);
         verify(delegate, times(1)).getProjectResourceDemands(1L);
     }
+
+    @Test
+    @DisplayName("Ủy quyền deleteDemand trực tiếp")
+    void testDeleteDemand_DelegatesDirectly() {
+        when(delegate.deleteDemand(1L, 4L)).thenReturn(sampleResult);
+
+        ProjectResourceDemandSummaryResult result = decorator.deleteDemand(1L, 4L);
+
+        assertThat(result).isEqualTo(sampleResult);
+        verify(delegate, times(1)).deleteDemand(1L, 4L);
+    }
+
+    @Test
+    @DisplayName("Ủy quyền getProjectRoles trực tiếp")
+    void testGetProjectRoles_DelegatesDirectly() {
+        var expectedRoles = java.util.List.of(
+                new com.hrm.employeemanagement.application.dto.project.demand.ProjectRoleResult(1L, "DEV", "Dev", "Mô tả"));
+
+        when(delegate.getProjectRoles()).thenReturn(expectedRoles);
+
+        var actual = decorator.getProjectRoles();
+
+        assertThat(actual).isEqualTo(expectedRoles);
+        verify(delegate, times(1)).getProjectRoles();
+    }
 }

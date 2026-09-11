@@ -11,16 +11,19 @@ import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.project.demand.EstimateResourceDemandCommand;
 import com.hrm.employeemanagement.application.dto.project.demand.ProjectResourceDemandSummaryResult;
+import com.hrm.employeemanagement.application.dto.project.demand.ProjectRoleResult;
 import com.hrm.employeemanagement.application.dto.project.demand.RoleResourceDemandResult;
 import com.hrm.employeemanagement.application.dto.project.demand.WeeklyDemandItemResult;
+import com.hrm.employeemanagement.application.port.inbound.project.DeleteProjectResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.EstimateResourceDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectResourceDemandUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.GetProjectRolesUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
-import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
@@ -40,17 +43,19 @@ import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
 import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemandPolicy;
-import com.hrm.employeemanagement.domain.role.Role;
-import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
+import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 public class ProjectResourceDemandService implements
         EstimateResourceDemandUseCase,
-        GetProjectResourceDemandUseCase {
+        GetProjectResourceDemandUseCase,
+        DeleteProjectResourceDemandUseCase,
+        GetProjectRolesUseCase {
 
     private final LoadProjectPort loadProjectPort;
-    private final LoadRolePort loadRolePort;
+    private final LoadProjectRolePort loadProjectRolePort;
     private final LoadProjectResourceDemandPort loadDemandPort;
     private final SaveProjectResourceDemandPort saveDemandPort;
     private final LoadUserPort loadUserPort;
@@ -61,7 +66,7 @@ public class ProjectResourceDemandService implements
 
     public ProjectResourceDemandService(
             LoadProjectPort loadProjectPort,
-            LoadRolePort loadRolePort,
+            LoadProjectRolePort loadProjectRolePort,
             LoadProjectResourceDemandPort loadDemandPort,
             SaveProjectResourceDemandPort saveDemandPort,
             LoadUserPort loadUserPort,
@@ -70,7 +75,7 @@ public class ProjectResourceDemandService implements
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
-        this.loadRolePort = Objects.requireNonNull(loadRolePort, "LoadRolePort must not be null");
+        this.loadProjectRolePort = Objects.requireNonNull(loadProjectRolePort, "LoadProjectRolePort must not be null");
         this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadProjectResourceDemandPort must not be null");
         this.saveDemandPort = Objects.requireNonNull(saveDemandPort, "SaveProjectResourceDemandPort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
@@ -88,6 +93,7 @@ public class ProjectResourceDemandService implements
         if (command.roleId() == null) {
             throw new InvalidProjectDataException("Vai trò chuyên môn (roleId) không được để trống");
         }
+        ProjectResourceDemandPolicy.validateRequiredHours(command.hoursPerWeek());
 
         Long currentUserId = authorizationService.require(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE);
         User currentUser = loadCurrentUserOrThrow(currentUserId);
@@ -108,7 +114,7 @@ public class ProjectResourceDemandService implements
             throw ProjectDateNotConfiguredException.missingDates(project.getIdValue());
         }
 
-        Role role = loadRolePort.findById(new RoleId(command.roleId()))
+        ProjectRole role = loadProjectRolePort.findById(new ProjectRoleId(command.roleId()))
                 .orElseThrow(() -> new RoleNotFoundException("Không tìm thấy vai trò chuyên môn với ID: " + command.roleId()));
 
         List<YearWeek> projectWeeks = ProjectResourceDemandPolicy.calculateProjectWeeks(
@@ -175,6 +181,62 @@ public class ProjectResourceDemandService implements
         return buildSummaryResult(project);
     }
 
+    @Override
+    public ProjectResourceDemandSummaryResult deleteDemand(Long projectId, Long roleId) {
+        if (projectId == null) {
+            throw new InvalidProjectDataException("Mã dự án (projectId) không được để trống");
+        }
+        if (roleId == null) {
+            throw new InvalidProjectDataException("Vai trò chuyên môn (roleId) không được để trống");
+        }
+
+        Long currentUserId = authorizationService.require(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE);
+        User currentUser = loadCurrentUserOrThrow(currentUserId);
+
+        Project project = loadProjectPort.findById(new ProjectId(projectId))
+                .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        if (project.getStatus() != ProjectStatus.ACTIVE) {
+            throw new InvalidProjectDataException("Chỉ có thể xóa ước lượng nhu cầu nhân sự cho dự án đang ở trạng thái hoạt động");
+        }
+
+        if (!canAccessProject(currentUser, currentUserId, project)) {
+            saveDeniedAudit(currentUserId, currentUser, project.getIdValue(), "OUTSIDE_DATA_SCOPE_DEMAND_DELETE");
+            throw new PermissionDeniedException(PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE);
+        }
+
+        ProjectRole role = loadProjectRolePort.findById(new ProjectRoleId(roleId))
+                .orElseThrow(() -> new RoleNotFoundException("Không tìm thấy vai trò chuyên môn với ID: " + roleId));
+
+        List<ProjectResourceDemand> existingRoleDemands = loadDemandPort.findByProjectIdAndRoleId(
+                project.getId(), role.getId());
+
+        if (!existingRoleDemands.isEmpty()) {
+            saveDemandPort.deleteAll(existingRoleDemands);
+        }
+
+        saveAuditLogPort.save(AuditLog.create(
+                currentUserId,
+                "DELETE_RESOURCE_DEMAND",
+                "project_resource_demands",
+                project.getIdValue()
+        ));
+
+        return buildSummaryResult(project);
+    }
+
+    @Override
+    public List<ProjectRoleResult> getProjectRoles() {
+        authorizationService.requireAny(
+                PermissionCode.PROJECT_READ,
+                PermissionCode.PROJECT_RESOURCE_DEMAND_READ,
+                PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE
+        );
+        return loadProjectRolePort.findAll().stream()
+                .map(r -> new ProjectRoleResult(r.getIdValue(), r.getCode(), r.getName(), r.getDescription()))
+                .toList();
+    }
+
     // ==================== HELPER METHODS ====================
 
     private ProjectResourceDemandSummaryResult buildSummaryResult(Project project) {
@@ -191,10 +253,10 @@ public class ProjectResourceDemandService implements
                     .toList();
         }
 
-        List<Role> allRoles = loadRolePort.findAll();
-        Map<Long, Role> roleMap = allRoles.stream()
+        List<ProjectRole> allRoles = loadProjectRolePort.findAll();
+        Map<Long, ProjectRole> roleMap = allRoles.stream()
                 .filter(r -> r.getId() != null)
-                .collect(Collectors.toMap(Role::getIdValue, r -> r, (a, b) -> a));
+                .collect(Collectors.toMap(ProjectRole::getIdValue, r -> r, (a, b) -> a));
 
         Map<Long, List<ProjectResourceDemand>> groupedByRole = activeDemands.stream()
                 .collect(Collectors.groupingBy(ProjectResourceDemand::getRoleIdValue));
@@ -206,8 +268,8 @@ public class ProjectResourceDemandService implements
             Long roleId = entry.getKey();
             List<ProjectResourceDemand> demands = entry.getValue();
 
-            Role role = roleMap.get(roleId);
-            String roleCode = role != null ? role.getCode().getCode() : "ROLE_" + roleId;
+            ProjectRole role = roleMap.get(roleId);
+            String roleCode = role != null ? role.getCode() : "ROLE_" + roleId;
             String roleName = role != null ? role.getName() : "Vai trò " + roleId;
 
             demands.sort(Comparator.comparingInt(ProjectResourceDemand::getYear)
@@ -262,7 +324,8 @@ public class ProjectResourceDemandService implements
         return switch (currentUser.getDataScope()) {
             case COMPANY -> true;
             case ORGANIZATION_BRANCH ->
-                loadProjectPort.existsInOrgUnitBranch(project.getIdValue(), currentUser.getScopeOrgUnitId());
+                currentUser.getScopeOrgUnitId() != null
+                        && loadProjectPort.existsInOrgUnitBranch(project.getIdValue(), currentUser.getScopeOrgUnitId());
             case SELF -> {
                 Long employeeId = loadEmployeePort.findByUserId(new UserId(currentUserId))
                         .map(Employee::getIdValue)

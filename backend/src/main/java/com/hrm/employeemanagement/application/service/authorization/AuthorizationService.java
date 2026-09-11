@@ -75,4 +75,45 @@ public class AuthorizationService {
 
         return currentUserId;
     }
+
+    public Long requireAny(PermissionCode... permissions) {
+        Objects.requireNonNull(
+                permissions,
+                "PermissionCodes must not be null"
+        );
+        if (permissions.length == 0) {
+            throw new IllegalArgumentException("At least one PermissionCode must be provided");
+        }
+
+        User currentUser =
+                authenticatedUserPort.getAuthenticatedUser();
+
+        if (currentUser == null) {
+            throw new IllegalStateException(
+                    "Không tìm thấy người dùng đã xác thực"
+            );
+        }
+
+        Long currentUserId = currentUser.getIdValue();
+
+        for (PermissionCode permission : permissions) {
+            if (permission != null && permissionQueryPort.hasPermission(currentUserId, permission)) {
+                return currentUserId;
+            }
+        }
+
+        deniedAuditLogPort.save(
+                AuditLog.createChange(
+                        currentUserId,
+                        "PERMISSION_DENIED",
+                        "permissions",
+                        null,
+                        null,
+                        "permission=" + permissions[0].name()
+                                + ";reason=MISSING_ANY_PERMISSION"
+                )
+        );
+
+        throw new PermissionDeniedException(permissions[0]);
+    }
 }
