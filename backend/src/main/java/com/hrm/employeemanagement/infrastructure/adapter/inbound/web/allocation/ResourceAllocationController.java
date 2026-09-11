@@ -20,9 +20,13 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 
 @RestController
 @RequestMapping("/api/v1/allocations")
+@Validated
 public class ResourceAllocationController {
 
     private final AllocateResourceUseCase allocateResourceUseCase;
@@ -46,7 +50,7 @@ public class ResourceAllocationController {
             @RequestParam(required = false) Long orgUnitId,
             @RequestParam(required = false) Integer fromYear,
             @RequestParam(required = false) Integer fromWeek,
-            @RequestParam(required = false, defaultValue = "8") Integer durationWeeks) {
+            @RequestParam(required = false, defaultValue = "8") @Min(1) @Max(16) Integer durationWeeks) {
 
         com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery query =
                 new com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery(

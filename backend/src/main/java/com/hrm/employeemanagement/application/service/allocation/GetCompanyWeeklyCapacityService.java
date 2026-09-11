@@ -38,7 +38,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 
+@Transactional(readOnly = true)
 public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacityUseCase {
 
     private final AuthorizationService authorizationService;
@@ -128,7 +130,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             fromWeek = now.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
         }
 
-        int durationWeeks = query.durationWeeks() != null ? query.durationWeeks() : 8;
+        int rawDuration = query.durationWeeks() != null ? query.durationWeeks() : 8;
+        int durationWeeks = Math.min(Math.max(1, rawDuration), 16);
 
         List<YearWeek> targetWeeks = buildTargetWeeks(fromYear, fromWeek, durationWeeks);
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM");
@@ -228,11 +231,12 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         availableHours = BigDecimal.ZERO;
                     } else if (emp.getContractEndDate() != null && !emp.getContractEndDate().isAfter(yw.getEndDate())) {
                         int remainingDays = WeeklyAvailabilityPolicy.countWorkingDaysBetween(yw.getStartDate(), emp.getContractEndDate());
+                        int weekWorkingDaysCount = workingDays.isEmpty() ? 5 : workingDays.size();
                         if (remainingDays == 0) {
                             availableHours = BigDecimal.ZERO;
-                        } else if (remainingDays < 5) {
+                        } else if (remainingDays < weekWorkingDaysCount) {
                             availableHours = availableHours.multiply(BigDecimal.valueOf(remainingDays))
-                                    .divide(BigDecimal.valueOf(5), 2, RoundingMode.HALF_UP);
+                                    .divide(BigDecimal.valueOf(weekWorkingDaysCount), 2, RoundingMode.HALF_UP);
                         }
                     }
                 }
@@ -272,11 +276,10 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             }
 
             BigDecimal empAvgUtilization = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(empTotalAllocated, empTotalAvailable);
-            if (empAvgUtilization == null && empTotalAllocated.compareTo(BigDecimal.ZERO) > 0) {
-                empAvgUtilization = BigDecimal.valueOf(100.0);
-            } else if (empAvgUtilization == null) {
+            if (empAvgUtilization == null && empTotalAllocated.compareTo(BigDecimal.ZERO) == 0) {
                 empAvgUtilization = BigDecimal.ZERO;
             }
+            // Nếu empTotalAvailable == 0 và empTotalAllocated > 0: empAvgUtilization giữ nguyên null (Vô cực / Quá tải)
 
             companyTotalAllocated = companyTotalAllocated.add(empTotalAllocated);
             companyTotalAvailable = companyTotalAvailable.add(empTotalAvailable);

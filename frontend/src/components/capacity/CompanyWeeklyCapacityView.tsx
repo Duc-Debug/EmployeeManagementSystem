@@ -149,6 +149,20 @@ export default function CompanyWeeklyCapacityView() {
     });
   }, [matrixData?.rows, searchTerm, statusFilter]);
 
+  // Phân trang Client-side mượt mà tránh DOM Lag khi danh sách lớn
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 20;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, selectedOrgUnitId, selectedYear, selectedWeek]);
+
+  const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, currentPage, pageSize]);
+
   // Render 1 ô dữ liệu trong ma trận
   const renderCell = (cell: CapacityMatrixCell) => {
     const isZeroAvailability = cell.availableHours === 0;
@@ -424,7 +438,8 @@ export default function CompanyWeeklyCapacityView() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80">
@@ -448,7 +463,7 @@ export default function CompanyWeeklyCapacityView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {filteredRows.map((row: EmployeeCapacityRow) => (
+                {paginatedRows.map((row: EmployeeCapacityRow) => (
                   <tr key={row.employeeId} className="hover:bg-slate-50/50 transition">
                     {/* Cột Nhân sự cố định bên trái */}
                     <td className="sticky left-0 z-10 border-r border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs">
@@ -476,7 +491,13 @@ export default function CompanyWeeklyCapacityView() {
                     {/* Cột Tổng kết của nhân sự */}
                     <td className="px-4 py-3 text-center align-middle bg-slate-50/30">
                       <div className="font-bold text-slate-900">
-                        {row.averageUtilization}%
+                        {row.averageUtilization != null ? (
+                          `${row.averageUtilization}%`
+                        ) : row.totalAllocatedHours > 0 ? (
+                          <span className="text-rose-600 font-bold">Quá tải (∞)</span>
+                        ) : (
+                          "0%"
+                        )}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
                         {row.totalAllocatedHours}h / {row.totalAvailableHours}h
@@ -496,6 +517,41 @@ export default function CompanyWeeklyCapacityView() {
               </tbody>
             </table>
           </div>
+
+          {/* Thanh phân trang Client-side */}
+          {filteredRows.length > pageSize && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 bg-white">
+              <div className="text-xs text-slate-500">
+                Hiển thị <span className="font-semibold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> -{" "}
+                <span className="font-semibold text-slate-700">
+                  {Math.min(currentPage * pageSize, filteredRows.length)}
+                </span>{" "}
+                trong tổng số <span className="font-semibold text-slate-700">{filteredRows.length}</span> nhân sự
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition shadow-xs"
+                >
+                  Trang trước
+                </button>
+                <span className="px-2 text-xs font-medium text-slate-600">
+                  Trang {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition shadow-xs"
+                >
+                  Trang sau
+                </button>
+              </div>
+            </div>
+          )}
+        </>
         )}
       </div>
 

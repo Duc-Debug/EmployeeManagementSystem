@@ -61,6 +61,14 @@ public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabili
                 .stream().map(mapper::toDomain).toList();
     }
 
+    private static <T> List<List<T>> partitionList(List<T> list, int size) {
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return partitions;
+    }
+
     @Override
     public List<WeeklyAvailability> loadAvailabilityForEmployeesAndWeeks(List<Long> employeeIds, List<YearWeek> targetWeeks) {
         if (employeeIds == null || employeeIds.isEmpty() || targetWeeks == null || targetWeeks.isEmpty()) {
@@ -70,12 +78,15 @@ public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabili
                 .collect(Collectors.groupingBy(YearWeek::year, Collectors.mapping(YearWeek::weekNumber, Collectors.toList())));
 
         List<WeeklyAvailability> results = new ArrayList<>();
-        for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
-            Integer year = entry.getKey();
-            List<Integer> weeks = entry.getValue();
-            List<WeeklyAvailabilityJpaEntity> entities = weeklyAvailabilityRepository
-                    .findByEmployeeIdInAndYearAndWeekNumberIn(employeeIds, year, weeks);
-            results.addAll(entities.stream().map(mapper::toDomain).toList());
+        List<List<Long>> chunks = partitionList(employeeIds, 500);
+        for (List<Long> chunk : chunks) {
+            for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
+                Integer year = entry.getKey();
+                List<Integer> weeks = entry.getValue();
+                List<WeeklyAvailabilityJpaEntity> entities = weeklyAvailabilityRepository
+                        .findByEmployeeIdInAndYearAndWeekNumberIn(chunk, year, weeks);
+                results.addAll(entities.stream().map(mapper::toDomain).toList());
+            }
         }
         return results;
     }
@@ -134,8 +145,11 @@ public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabili
         LocalDate minStart = targetWeeks.stream().map(YearWeek::getStartDate).min(LocalDate::compareTo).orElse(LocalDate.now());
         LocalDate maxEnd = targetWeeks.stream().map(YearWeek::getEndDate).max(LocalDate::compareTo).orElse(LocalDate.now());
 
-        List<LeaveRequestJpaEntity> allLeaves = leaveRequestRepository.findApprovedLeavesForEmployeesBetween(
-                employeeIds, minStart, maxEnd);
+        List<LeaveRequestJpaEntity> allLeaves = new ArrayList<>();
+        List<List<Long>> chunks = partitionList(employeeIds, 500);
+        for (List<Long> chunk : chunks) {
+            allLeaves.addAll(leaveRequestRepository.findApprovedLeavesForEmployeesBetween(chunk, minStart, maxEnd));
+        }
 
         Map<Long, List<LeaveRequestJpaEntity>> leavesByEmp = allLeaves.stream()
                 .collect(Collectors.groupingBy(LeaveRequestJpaEntity::getEmployeeId));
