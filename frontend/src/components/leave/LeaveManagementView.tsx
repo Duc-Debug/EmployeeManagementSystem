@@ -592,7 +592,7 @@ export default function LeaveManagementView() {
 
                             {/* Cảnh báo tính toán số ngày & cảnh báo vượt phép (AC-02 & TC-02) */}
                             <div className="text-[11px] text-slate-500 flex justify-between items-center px-1">
-                                <span>Số ngày làm việc dự kiến:</span>
+                                <span>Số ngày nghỉ phép dự kiến:</span>
                                 <span className="font-bold text-slate-900">{estimatedWorkingDays} ngày</span>
                             </div>
 
