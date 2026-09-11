@@ -18,6 +18,7 @@ import com.hrm.employeemanagement.application.port.inbound.project.UpdateProject
 import com.hrm.employeemanagement.application.port.outbound.project.CountProjectRoleUsagePort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectRolePort;
+import com.hrm.employeemanagement.application.port.outbound.project.SyncEmployeeProfessionalRolePort;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillGroupPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
@@ -48,6 +49,7 @@ public class ProjectRoleManagementService implements
     private final LoadSkillGroupPort loadSkillGroupPort;
     private final AuthorizationService authorizationService;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final SyncEmployeeProfessionalRolePort syncEmployeeProfessionalRolePort;
 
     public ProjectRoleManagementService(
             LoadProjectRolePort loadProjectRolePort,
@@ -56,12 +58,24 @@ public class ProjectRoleManagementService implements
             LoadSkillGroupPort loadSkillGroupPort,
             AuthorizationService authorizationService,
             SaveAuditLogPort saveAuditLogPort) {
+        this(loadProjectRolePort, saveProjectRolePort, countUsagePort, loadSkillGroupPort, authorizationService, saveAuditLogPort, null);
+    }
+
+    public ProjectRoleManagementService(
+            LoadProjectRolePort loadProjectRolePort,
+            SaveProjectRolePort saveProjectRolePort,
+            CountProjectRoleUsagePort countUsagePort,
+            LoadSkillGroupPort loadSkillGroupPort,
+            AuthorizationService authorizationService,
+            SaveAuditLogPort saveAuditLogPort,
+            SyncEmployeeProfessionalRolePort syncEmployeeProfessionalRolePort) {
         this.loadProjectRolePort = Objects.requireNonNull(loadProjectRolePort, "LoadProjectRolePort must not be null");
         this.saveProjectRolePort = Objects.requireNonNull(saveProjectRolePort, "SaveProjectRolePort must not be null");
         this.countUsagePort = Objects.requireNonNull(countUsagePort, "CountProjectRoleUsagePort must not be null");
         this.loadSkillGroupPort = Objects.requireNonNull(loadSkillGroupPort, "LoadSkillGroupPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+        this.syncEmployeeProfessionalRolePort = syncEmployeeProfessionalRolePort;
     }
 
     @Override
@@ -115,9 +129,15 @@ public class ProjectRoleManagementService implements
 
         SkillGroup group = validateAndGetActiveSkillGroup(command.skillGroupId());
 
+        String oldName = role.getName();
         String oldValue = "name=" + role.getName() + ";description=" + role.getDescription() + ";skillGroupId=" + role.getSkillGroupId();
         role.updateInfo(trimmedName, command.skillGroupId(), command.description());
         ProjectRole saved = saveProjectRolePort.save(role);
+
+        if (!oldName.equalsIgnoreCase(trimmedName) && syncEmployeeProfessionalRolePort != null) {
+            syncEmployeeProfessionalRolePort.syncRoleName(oldName, trimmedName);
+        }
+
         String newValue = "name=" + saved.getName() + ";description=" + saved.getDescription() + ";skillGroupId=" + saved.getSkillGroupId();
 
         saveAuditLogPort.save(AuditLog.createChange(
@@ -202,7 +222,7 @@ public class ProjectRoleManagementService implements
                 .orElseThrow(() -> new RoleNotFoundException("Không tìm thấy vai trò chuyên môn với ID: " + roleId));
 
         long demandCount = countUsagePort.countDemandsByRoleId(roleId);
-        long employeeCount = countUsagePort.countEmployeesByProfessionalRole(role.getName());
+        long employeeCount = countUsagePort.countEmployeesByProfessionalRole(role.getName(), role.getCode());
         boolean inUse = demandCount > 0 || employeeCount > 0;
 
         String warningMessage = null;
@@ -224,10 +244,7 @@ public class ProjectRoleManagementService implements
     public List<ProjectRoleResult> getProjectRoles(boolean includeInactive) {
         authorizationService.requireAny(
                 PermissionCode.PROJECT_ROLE_READ,
-                PermissionCode.PROJECT_ROLE_MANAGE,
-                PermissionCode.PROJECT_READ,
-                PermissionCode.PROJECT_RESOURCE_DEMAND_READ,
-                PermissionCode.PROJECT_RESOURCE_DEMAND_ESTIMATE
+                PermissionCode.PROJECT_ROLE_MANAGE
         );
 
         List<ProjectRole> roles = includeInactive

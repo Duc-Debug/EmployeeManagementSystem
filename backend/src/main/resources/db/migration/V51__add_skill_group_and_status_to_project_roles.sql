@@ -3,9 +3,14 @@
 -- Story: NCL-12-CN-001 (Quản lý danh mục vai trò chuyên môn)
 -- ============================================================
 
--- 1. Bổ sung cột skill_group_id, status và updated_at cho project_roles
+-- 1. Đảm bảo tồn tại nhóm kỹ năng mặc định 'General' nếu chưa có
+INSERT INTO skill_groups (name, description, status)
+SELECT 'General', 'Default skill group', 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM skill_groups WHERE name = 'General');
+
+-- 2. Bổ sung cột skill_group_id (nullable trước), status và updated_at cho project_roles
 ALTER TABLE project_roles
-    ADD COLUMN skill_group_id BIGINT NOT NULL DEFAULT 1;
+    ADD COLUMN skill_group_id BIGINT NULL;
 
 ALTER TABLE project_roles
     ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
@@ -13,7 +18,21 @@ ALTER TABLE project_roles
 ALTER TABLE project_roles
     ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 
--- 2. Ràng buộc Khóa ngoại tới bảng skill_groups
+-- 3. Backfill động nhóm kỹ năng hợp lệ (tìm theo tên 'General', fallback về MIN id)
+UPDATE project_roles
+SET skill_group_id = (
+    SELECT COALESCE(
+        (SELECT id FROM skill_groups WHERE name = 'General' LIMIT 1),
+        (SELECT MIN(id) FROM skill_groups)
+    )
+)
+WHERE skill_group_id IS NULL;
+
+-- 4. Ràng buộc NOT NULL cho skill_group_id
+ALTER TABLE project_roles
+    ALTER COLUMN skill_group_id BIGINT NOT NULL;
+
+-- 5. Ràng buộc Khóa ngoại tới bảng skill_groups
 ALTER TABLE project_roles
     ADD CONSTRAINT fk_project_roles_skill_group
     FOREIGN KEY (skill_group_id) REFERENCES skill_groups(id) ON DELETE RESTRICT;

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 import com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleDataException;
+import com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException;
 
 public class ProjectRole {
 
@@ -59,11 +60,17 @@ public class ProjectRole {
     }
 
     public void deactivate() {
+        if (this.status == ProjectRoleStatus.INACTIVE) {
+            throw new InvalidProjectRoleStateException("Vai trò chuyên môn đã ở trạng thái ngừng sử dụng");
+        }
         this.status = ProjectRoleStatus.INACTIVE;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void activate() {
+        if (this.status == ProjectRoleStatus.ACTIVE) {
+            throw new InvalidProjectRoleStateException("Vai trò chuyên môn đã ở trạng thái đang hoạt động");
+        }
         this.status = ProjectRoleStatus.ACTIVE;
         this.updatedAt = LocalDateTime.now();
     }

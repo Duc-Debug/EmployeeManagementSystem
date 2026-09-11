@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Primary;
 import com.hrm.employeemanagement.application.port.outbound.project.CountProjectRoleUsagePort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectRolePort;
+import com.hrm.employeemanagement.application.port.outbound.project.SyncEmployeeProfessionalRolePort;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillGroupPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
@@ -24,7 +25,8 @@ public class ProjectRoleUseCaseConfig {
             CountProjectRoleUsagePort countUsagePort,
             LoadSkillGroupPort loadSkillGroupPort,
             AuthorizationService authorizationService,
-            SaveAuditLogPort saveAuditLogPort) {
+            SaveAuditLogPort saveAuditLogPort,
+            SyncEmployeeProfessionalRolePort syncEmployeeProfessionalRolePort) {
 
         ProjectRoleManagementService pureJavaService = new ProjectRoleManagementService(
                 loadProjectRolePort,
@@ -32,7 +34,8 @@ public class ProjectRoleUseCaseConfig {
                 countUsagePort,
                 loadSkillGroupPort,
                 authorizationService,
-                saveAuditLogPort);
+                saveAuditLogPort,
+                syncEmployeeProfessionalRolePort);
 
         return new TransactionalProjectRoleManagementServiceDecorator(pureJavaService);
     }

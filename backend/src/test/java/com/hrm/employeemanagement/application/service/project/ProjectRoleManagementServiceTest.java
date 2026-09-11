@@ -25,6 +25,7 @@ import com.hrm.employeemanagement.application.dto.project.demand.UpdateProjectRo
 import com.hrm.employeemanagement.application.port.outbound.project.CountProjectRoleUsagePort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectRolePort;
+import com.hrm.employeemanagement.application.port.outbound.project.SyncEmployeeProfessionalRolePort;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillGroupPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
@@ -34,6 +35,7 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException;
 import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException;
 import com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleDataException;
+import com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException;
 import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
@@ -68,6 +70,9 @@ class ProjectRoleManagementServiceTest {
     @Mock
     private SaveAuditLogPort saveAuditLogPort;
 
+    @Mock
+    private SyncEmployeeProfessionalRolePort syncEmployeeProfessionalRolePort;
+
     private ProjectRoleManagementService service;
 
     @BeforeEach
@@ -78,7 +83,8 @@ class ProjectRoleManagementServiceTest {
                 countUsagePort,
                 loadSkillGroupPort,
                 authorizationService,
-                saveAuditLogPort);
+                saveAuditLogPort,
+                syncEmployeeProfessionalRolePort);
     }
 
     @Test
@@ -133,7 +139,7 @@ class ProjectRoleManagementServiceTest {
 
         // Kiểm tra usage trước khi ngừng sử dụng
         when(countUsagePort.countDemandsByRoleId(5L)).thenReturn(8L);
-        when(countUsagePort.countEmployeesByProfessionalRole("Lập trình viên")).thenReturn(3L);
+        when(countUsagePort.countEmployeesByProfessionalRole("Lập trình viên", "DEV")).thenReturn(3L);
 
         ProjectRoleUsageResult usage = service.checkUsage(5L);
         assertThat(usage.inUse()).isTrue();
@@ -311,5 +317,93 @@ class ProjectRoleManagementServiceTest {
         when(loadProjectRolePort.findAll()).thenReturn(List.of(active1, inactive2));
         List<ProjectRoleResult> allRoles = service.getProjectRoles(true);
         assertThat(allRoles).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("MEDIUM-01: Ngừng sử dụng vai trò đã INACTIVE ném InvalidProjectRoleStateException")
+    void deactivateRole_whenAlreadyInactive_throwsInvalidProjectRoleStateException() {
+        when(authorizationService.require(PermissionCode.PROJECT_ROLE_MANAGE)).thenReturn(ADMIN_USER_ID);
+
+        ProjectRole alreadyInactive = new ProjectRole(
+                new ProjectRoleId(5L), "OLD_DEV", "Developer Cũ", "Mô tả",
+                SKILL_GROUP_ID, "Engineering", ProjectRoleStatus.INACTIVE,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(loadProjectRolePort.findById(new ProjectRoleId(5L))).thenReturn(Optional.of(alreadyInactive));
+
+        assertThatThrownBy(() -> service.deactivateProjectRole(5L))
+                .isInstanceOf(InvalidProjectRoleStateException.class)
+                .hasMessageContaining("ngừng sử dụng");
+
+        verify(saveProjectRolePort, never()).save(any());
+        verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("MEDIUM-01: Kích hoạt lại vai trò đang ACTIVE ném InvalidProjectRoleStateException")
+    void activateRole_whenAlreadyActive_throwsInvalidProjectRoleStateException() {
+        when(authorizationService.require(PermissionCode.PROJECT_ROLE_MANAGE)).thenReturn(ADMIN_USER_ID);
+
+        ProjectRole alreadyActive = new ProjectRole(
+                new ProjectRoleId(5L), "ACTIVE_DEV", "Developer Active", "Mô tả",
+                SKILL_GROUP_ID, "Engineering", ProjectRoleStatus.ACTIVE,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(loadProjectRolePort.findById(new ProjectRoleId(5L))).thenReturn(Optional.of(alreadyActive));
+
+        SkillGroup group = new SkillGroup(
+                new SkillGroupId(SKILL_GROUP_ID), "Engineering", "Mô tả", SkillStatus.ACTIVE,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(loadSkillGroupPort.findById(new SkillGroupId(SKILL_GROUP_ID))).thenReturn(Optional.of(group));
+
+        assertThatThrownBy(() -> service.activateProjectRole(5L))
+                .isInstanceOf(InvalidProjectRoleStateException.class)
+                .hasMessageContaining("đang hoạt động");
+
+        verify(saveProjectRolePort, never()).save(any());
+        verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("HIGH-01: Đổi tên vai trò chuyên môn tự động đồng bộ sang bảng employees")
+    void updateProjectRole_whenNameChanges_shouldSyncEmployeeProfessionalRole() {
+        when(authorizationService.require(PermissionCode.PROJECT_ROLE_MANAGE)).thenReturn(ADMIN_USER_ID);
+
+        ProjectRole role = new ProjectRole(
+                new ProjectRoleId(5L), "DEV", "Lập trình viên", "Mô tả cũ",
+                SKILL_GROUP_ID, "Engineering", ProjectRoleStatus.ACTIVE,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(loadProjectRolePort.findById(new ProjectRoleId(5L))).thenReturn(Optional.of(role));
+        when(loadProjectRolePort.existsByNameIgnoreCaseAndIdNot("Senior Software Engineer", 5L)).thenReturn(false);
+
+        SkillGroup group = new SkillGroup(
+                new SkillGroupId(SKILL_GROUP_ID), "Engineering", "Mô tả", SkillStatus.ACTIVE,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(loadSkillGroupPort.findById(new SkillGroupId(SKILL_GROUP_ID))).thenReturn(Optional.of(group));
+        when(saveProjectRolePort.save(any(ProjectRole.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UpdateProjectRoleCommand cmd = new UpdateProjectRoleCommand(5L, "Senior Software Engineer", "Mô tả mới", SKILL_GROUP_ID);
+        service.updateProjectRole(cmd);
+
+        // Kiểm tra port đồng bộ tên nhân sự được gọi với oldName và newName
+        verify(syncEmployeeProfessionalRolePort).syncRoleName("Lập trình viên", "Senior Software Engineer");
+    }
+
+    @Test
+    @DisplayName("HIGH-01: checkUsage kiểm tra nhân sự bằng cả roleName và roleCode")
+    void checkUsage_shouldQueryByRoleNameAndCode() {
+        when(loadProjectRolePort.findById(new ProjectRoleId(5L))).thenReturn(Optional.of(new ProjectRole(
+                new ProjectRoleId(5L), "DEV", "Senior Software Engineer", "Mô tả",
+                SKILL_GROUP_ID, "Engineering", ProjectRoleStatus.ACTIVE,
+                LocalDateTime.now(), LocalDateTime.now()
+        )));
+
+        when(countUsagePort.countDemandsByRoleId(5L)).thenReturn(2L);
+        when(countUsagePort.countEmployeesByProfessionalRole("Senior Software Engineer", "DEV")).thenReturn(3L);
+
+        ProjectRoleUsageResult result = service.checkUsage(5L);
+
+        assertThat(result.inUse()).isTrue();
+        assertThat(result.demandCount()).isEqualTo(2L);
+        assertThat(result.employeeCount()).isEqualTo(3L);
+        assertThat(result.warningMessage()).contains("2 nhu cầu dự án").contains("3 hồ sơ nhân sự");
     }
 }

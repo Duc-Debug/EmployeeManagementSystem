@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import com.hrm.employeemanagement.application.port.outbound.project.CountProjectRoleUsagePort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectRolePort;
+import com.hrm.employeemanagement.application.port.outbound.project.SyncEmployeeProfessionalRolePort;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleStatus;
@@ -18,7 +19,8 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.pr
 public class ProjectRoleRepositoryAdapter implements
         LoadProjectRolePort,
         SaveProjectRolePort,
-        CountProjectRoleUsagePort {
+        CountProjectRoleUsagePort,
+        SyncEmployeeProfessionalRolePort {
 
     private final SpringDataProjectRoleRepository springDataProjectRoleRepository;
 
@@ -99,10 +101,18 @@ public class ProjectRoleRepositoryAdapter implements
     }
 
     @Override
-    public long countEmployeesByProfessionalRole(String roleName) {
-        return roleName != null && !roleName.isBlank()
-                ? springDataProjectRoleRepository.countEmployeesByProfessionalRole(roleName.trim())
-                : 0L;
+    public long countEmployeesByProfessionalRole(String roleName, String roleCode) {
+        String rName = roleName != null ? roleName.trim() : "";
+        String rCode = roleCode != null ? roleCode.trim() : "";
+        return springDataProjectRoleRepository.countEmployeesByProfessionalRole(rName, rCode);
+    }
+
+    @Override
+    public int syncRoleName(String oldRoleName, String newRoleName) {
+        if (oldRoleName == null || newRoleName == null || oldRoleName.trim().equalsIgnoreCase(newRoleName.trim())) {
+            return 0;
+        }
+        return springDataProjectRoleRepository.updateEmployeeProfessionalRoleName(oldRoleName.trim(), newRoleName.trim());
     }
 
     private ProjectRole toDomain(ProjectRoleJpaEntity entity) {

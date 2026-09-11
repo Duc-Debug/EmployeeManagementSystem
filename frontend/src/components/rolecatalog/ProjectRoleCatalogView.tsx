@@ -9,6 +9,7 @@ import {
   Edit2,
   PowerOff,
   RotateCcw,
+  RefreshCw,
   AlertTriangle,
   CheckCircle2,
   X,
@@ -32,10 +33,20 @@ import {
 import { getSkillGroups, type SkillGroupResponse } from "@/lib/api/skills";
 import { ApiError } from "@/lib/api-client";
 
+/**
+ * Quyền quản trị danh mục vai trò chuyên môn (NCL-12-CN-001).
+ * Theo ma trận RBAC hệ thống (V51 / PermissionCode.PROJECT_ROLE_MANAGE),
+ * quyền này được cấp cho Quản trị viên (VT-06).
+ */
+export function canManageProjectRoles(userRoleCode?: string | null): boolean {
+  if (!userRoleCode) return false;
+  const normalized = userRoleCode.toUpperCase().replace(/_/g, "-");
+  return normalized === "VT-06" || normalized === "ROLE-ADMIN" || normalized === "ADMIN";
+}
+
 export default function ProjectRoleCatalogView() {
   const currentUser = useAuthUser();
-  const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
-  const isAdmin = roleCode === "VT-06";
+  const canManage = canManageProjectRoles(currentUser?.roleCode);
 
   // Data States
   const [roles, setRoles] = useState<ProjectRoleResponse[]>([]);
@@ -63,6 +74,7 @@ export default function ProjectRoleCatalogView() {
   const [editingRole, setEditingRole] = useState<ProjectRoleResponse | null>(null);
   const [deactivatingRole, setDeactivatingRole] = useState<ProjectRoleResponse | null>(null);
   const [usageInfo, setUsageInfo] = useState<ProjectRoleUsageResponse | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
   const [isCheckingUsage, setIsCheckingUsage] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -137,17 +149,15 @@ export default function ProjectRoleCatalogView() {
     setDeactivatingRole(role);
     setIsCheckingUsage(true);
     setUsageInfo(null);
+    setUsageError(null);
     try {
       const usage = await checkProjectRoleUsage(role.id);
       setUsageInfo(usage);
     } catch (err) {
       console.warn("Failed to check project role usage:", err);
-      setUsageInfo({
-        roleId: role.id,
-        demandCount: 0,
-        employeeCount: 0,
-        inUse: false,
-      });
+      setUsageError(
+        "Không thể xác minh mức độ sử dụng của vai trò do lỗi kết nối hoặc máy chủ. Vui lòng thử lại trước khi ngừng sử dụng."
+      );
     } finally {
       setIsCheckingUsage(false);
     }
@@ -263,8 +273,8 @@ export default function ProjectRoleCatalogView() {
     }
   };
 
-  // Check RBAC permission for VT-06
-  if (!isAdmin) {
+  // Check RBAC permission for VT-06 / PROJECT_ROLE_MANAGE
+  if (!canManage) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xs animate-in fade-in duration-150">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 mb-4 border border-rose-100">
@@ -274,7 +284,7 @@ export default function ProjectRoleCatalogView() {
           Không có quyền truy cập
         </h3>
         <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-          Chức năng Quản lý danh mục vai trò chuyên môn (NCL-12-CN-001) chỉ dành riêng cho Quản trị viên (VT-06).
+          Chức năng Quản lý danh mục vai trò chuyên môn (NCL-12-CN-001) chỉ dành riêng cho Quản trị viên có quyền PROJECT_ROLE_MANAGE (VT-06).
         </p>
       </div>
     );
@@ -775,6 +785,26 @@ export default function ProjectRoleCatalogView() {
                 <Loader2 className="h-6 w-6 animate-spin text-indigo-500 mb-2" />
                 <p className="text-xs">Đang kiểm tra dữ liệu sử dụng vai trò trong các dự án...</p>
               </div>
+            ) : usageError ? (
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs leading-relaxed">
+                  <p className="font-bold flex items-center gap-1.5 text-rose-800 mb-1.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                    Lỗi kiểm tra mức độ sử dụng
+                  </p>
+                  <p>{usageError}</p>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => deactivatingRole && handleOpenDeactivate(deactivatingRole)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-semibold transition cursor-pointer"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Thử lại
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : usageInfo?.inUse ? (
               /* Cảnh báo nghiêm ngặt theo yêu cầu TC-02 */
               <div className="space-y-3">
@@ -809,6 +839,7 @@ export default function ProjectRoleCatalogView() {
                 onClick={() => {
                   setDeactivatingRole(null);
                   setUsageInfo(null);
+                  setUsageError(null);
                 }}
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
               >
@@ -817,8 +848,8 @@ export default function ProjectRoleCatalogView() {
               <button
                 type="button"
                 onClick={handleConfirmDeactivate}
-                disabled={isSubmitting || isCheckingUsage}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition disabled:opacity-50 shadow-xs"
+                disabled={isSubmitting || isCheckingUsage || Boolean(usageError)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition disabled:opacity-50 shadow-xs cursor-pointer disabled:cursor-not-allowed"
               >
                 {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Xác nhận ngừng sử dụng

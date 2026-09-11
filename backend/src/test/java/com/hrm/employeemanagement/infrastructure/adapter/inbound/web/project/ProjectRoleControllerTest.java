@@ -203,4 +203,16 @@ class ProjectRoleControllerTest {
                 .andExpect(jsonPath("$.data.demandCount").value(5))
                 .andExpect(jsonPath("$.data.employeeCount").value(2));
     }
+
+    @Test
+    @DisplayName("PATCH /api/v1/project-roles/{id}/deactivate khi vai trò đã INACTIVE trả về 409 Conflict")
+    void testDeactivateProjectRole_WhenAlreadyInactive_Returns409Conflict() throws Exception {
+        when(deactivateProjectRoleUseCase.deactivateProjectRole(10L))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException("Vai trò chuyên môn đã ở trạng thái ngừng sử dụng"));
+
+        mockMvc.perform(patch("/api/v1/project-roles/10/deactivate"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Vai trò chuyên môn đã ở trạng thái ngừng sử dụng"));
+    }
 }

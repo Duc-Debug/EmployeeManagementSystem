@@ -145,6 +145,12 @@ public class ProjectExceptionHandler {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
         }
 
+        @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException.class)
+        public ResponseEntity<ApiResponse<Void>> handleInvalidProjectRoleState(
+                        com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+        }
+
         @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException.class)
         public ResponseEntity<ApiResponse<Void>> handleSkillGroupNotFound(
                         com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException ex) {
