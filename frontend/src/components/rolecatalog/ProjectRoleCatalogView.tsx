@@ -291,9 +291,7 @@ export default function ProjectRoleCatalogView() {
           <div>
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               Danh mục vai trò chuyên môn
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                NCL-12-CN-001
-              </span>
+              
             </h1>
             <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
               Quản lý chuẩn hóa danh mục vai trò kỹ thuật và dự án gắn với nhóm kỹ năng tương ứng, phục vụ việc ước lượng nhu cầu nhân lực và phân bổ chung cho toàn tổ chức.
@@ -379,7 +377,7 @@ export default function ProjectRoleCatalogView() {
           />
           <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 relative"></div>
           <span className="text-xs font-medium text-slate-600">
-            Hiển thị cả vai trò đã ngừng sử dụng
+            Hiển thị tất cả
           </span>
         </label>
       </div>
