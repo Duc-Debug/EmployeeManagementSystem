@@ -128,8 +128,6 @@ export function ProjectAdjustHoursModal({
                         const calculatedOther = Math.max(0, details.allocatedHours - hours);
                         setOtherProjectsHours(calculatedOther);
                     }
-                } else {
-                    setNetCapacity(Math.max(0, hours - 1));
                 }
 
                 if (!isResourceManager) {
