@@ -12,12 +12,14 @@ import {
     ShieldCheck,
     CalendarClock,
     CalendarDays,
+    CalendarRange,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
 
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
+    { name: "Bảng năng lực", icon: CalendarRange, id: "capacity" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
@@ -42,6 +44,11 @@ export function canAccessTab(roleCode: string | undefined | null, tabId: string)
         case "overview":
             // Tất cả 6 vai trò (VT-01 -> VT-06) đều có quyền truy cập trang Tổng quan
             return true;
+
+        case "capacity":
+        case "weekly-capacity":
+            // Bảng năng lực tuần: VT-01 (Toàn công ty), VT-02 (PM), VT-03 (Trưởng bộ phận), VT-05 (HR), VT-06 (Admin)
+            return ["VT-01", "VT-02", "VT-03", "VT-05", "VT-06"].includes(normalized);
 
         case "access":
         case "settings":
