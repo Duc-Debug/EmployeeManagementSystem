@@ -30,6 +30,9 @@ import com.hrm.employeemanagement.application.port.inbound.task.DeleteTaskDepend
 import com.hrm.employeemanagement.application.port.inbound.task.GetTaskDependenciesUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task.dto.CreateTaskDependencyRequest;
 
+import com.hrm.employeemanagement.domain.exception.task.CyclicTaskDependencyException;
+import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
+
 @ExtendWith(MockitoExtension.class)
 class TaskDependencyControllerTest {
 
@@ -52,7 +55,7 @@ class TaskDependencyControllerTest {
     void setUp() {
         TaskDependencyController controller = new TaskDependencyController(createUseCase, deleteUseCase, getUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setControllerAdvice(new TaskExceptionHandler())
+                .setControllerAdvice(new TaskExceptionHandler(), new com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler())
                 .build();
 
         sampleResult = new TaskDependencyResult(
@@ -75,6 +78,62 @@ class TaskDependencyControllerTest {
                 .andExpect(jsonPath("$.data.id").value(1))
                 .andExpect(jsonPath("$.data.predecessorTaskCode").value("TK-001"))
                 .andExpect(jsonPath("$.data.successorTaskCode").value("TK-002"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/tasks/dependencies - Trả về HTTP 400 khi thiếu công việc tiền đề")
+    void shouldReturn400WhenPredecessorIdIsNull() throws Exception {
+        CreateTaskDependencyRequest request = new CreateTaskDependencyRequest(null, 20L, "FINISH_TO_START", 0);
+
+        mockMvc.perform(post("/api/v1/projects/1/tasks/dependencies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/tasks/dependencies - Trả về HTTP 400 khi lagDays là số âm")
+    void shouldReturn400WhenLagDaysIsNegative() throws Exception {
+        CreateTaskDependencyRequest request = new CreateTaskDependencyRequest(10L, 20L, "FINISH_TO_START", -1);
+
+        mockMvc.perform(post("/api/v1/projects/1/tasks/dependencies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/tasks/dependencies - Trả về HTTP 400 khi ném InvalidTaskDataException")
+    void shouldReturn400WhenInvalidTaskDataExceptionThrown() throws Exception {
+        when(createUseCase.createDependency(any(CreateTaskDependencyCommand.class)))
+                .thenThrow(new InvalidTaskDataException("Loại phụ thuộc công việc không hợp lệ: INVALID_TYPE"));
+
+        CreateTaskDependencyRequest request = new CreateTaskDependencyRequest(10L, 20L, "INVALID_TYPE", 0);
+
+        mockMvc.perform(post("/api/v1/projects/1/tasks/dependencies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Loại phụ thuộc công việc không hợp lệ: INVALID_TYPE"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/tasks/dependencies - Trả về HTTP 400 khi phát hiện phụ thuộc vòng lặp")
+    void shouldReturn400WhenCyclicTaskDependencyExceptionThrown() throws Exception {
+        when(createUseCase.createDependency(any(CreateTaskDependencyCommand.class)))
+                .thenThrow(new CyclicTaskDependencyException("Phát hiện phụ thuộc vòng lặp giữa các công việc", List.of("Task A", "Task B", "Task A")));
+
+        CreateTaskDependencyRequest request = new CreateTaskDependencyRequest(20L, 10L, "FINISH_TO_START", 0);
+
+        mockMvc.perform(post("/api/v1/projects/1/tasks/dependencies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Phát hiện phụ thuộc vòng lặp giữa các công việc"));
     }
 
     @Test

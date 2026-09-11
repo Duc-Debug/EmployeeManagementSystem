@@ -134,9 +134,14 @@ public class TaskDependencyService implements
 
         TaskDependencyPolicy.validateNoCycle(existingDependencies, predecessorId, successorId, taskNamesMap);
 
-        TaskDependencyType type = command.dependencyType() != null
-                ? TaskDependencyType.valueOf(command.dependencyType())
-                : TaskDependencyType.FINISH_TO_START;
+        TaskDependencyType type = TaskDependencyType.FINISH_TO_START;
+        if (command.dependencyType() != null && !command.dependencyType().isBlank()) {
+            try {
+                type = TaskDependencyType.valueOf(command.dependencyType());
+            } catch (IllegalArgumentException e) {
+                throw new InvalidTaskDataException("Loại phụ thuộc công việc không hợp lệ: " + command.dependencyType());
+            }
+        }
 
         TaskDependency newDependency = TaskDependency.createNew(
                 project.getId(),

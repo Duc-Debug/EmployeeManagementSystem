@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task.dto;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public record CreateTaskDependencyRequest(
@@ -11,6 +12,7 @@ public record CreateTaskDependencyRequest(
 
         String dependencyType,
 
+        @Min(value = 0, message = "Số ngày chờ không được nhỏ hơn 0")
         Integer lagDays
 ) {
 }

@@ -33,6 +33,13 @@ interface TaskDependencyModalProps {
   onClose: () => void;
 }
 
+const DEPENDENCY_TYPE_LABELS: Record<string, string> = {
+  FINISH_TO_START: 'FS (Kết thúc - Bắt đầu)',
+  START_TO_START: 'SS (Bắt đầu - Bắt đầu)',
+  FINISH_TO_FINISH: 'FF (Kết thúc - Kết thúc)',
+  START_TO_FINISH: 'SF (Bắt đầu - Kết thúc)',
+};
+
 export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
   open,
   projectId,
@@ -334,7 +341,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
 
                         {/* Icon liên kết */}
                         <div className="flex items-center gap-1.5 self-center text-indigo-700 font-medium text-[10px] bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200 shrink-0">
-                          <span>FS (Phải xong mới được bắt đầu)</span>
+                          <span>{DEPENDENCY_TYPE_LABELS[dep.dependencyType] || dep.dependencyType || 'FS'}</span>
                           <ArrowRight className="h-3.5 w-3.5 text-indigo-600" />
                         </div>
 

@@ -55,6 +55,8 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.UserStatus;
 
+import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
+
 class TaskDependencyServiceTest {
 
     @Mock
@@ -194,7 +196,32 @@ class TaskDependencyServiceTest {
     }
 
     @Test
-    @DisplayName("NCL-04-CN-004-TC-03: Từ chối truy cập khi người dùng không có quyền và ghi AuditLog từ chối")
+    @DisplayName("Phát hiện vòng lặp phức tạp A -> B -> C -> A")
+    void shouldThrowCyclicTaskDependencyExceptionOnComplexCycle() {
+        TaskId task3Id = new TaskId(30L);
+        Task task3 = new Task(task3Id, projectId, null, "TK-003", "Công việc Kiểm thử", "Mô tả",
+                TaskType.TASK, new EmployeeId(52L), BigDecimal.valueOf(15), BigDecimal.ZERO, TaskStatus.TODO, 3, new UserId(currentUserId), null, null, 0L);
+
+        when(authorizationService.require(PermissionCode.PROJECT_TASK_DEPENDENCY_MANAGE)).thenReturn(currentUserId);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(testProject));
+        when(loadTaskPort.findById(task3Id)).thenReturn(Optional.of(task3));
+        when(loadTaskPort.findById(task1Id)).thenReturn(Optional.of(task1));
+
+        // Đã có task1 -> task2 và task2 -> task3
+        TaskDependency dep1 = new TaskDependency(1L, projectId, task1Id, task2Id, TaskDependencyType.FINISH_TO_START, 0, new UserId(currentUserId), null);
+        TaskDependency dep2 = new TaskDependency(2L, projectId, task2Id, task3Id, TaskDependencyType.FINISH_TO_START, 0, new UserId(currentUserId), null);
+        when(loadDependencyPort.findByProjectId(projectId)).thenReturn(List.of(dep1, dep2));
+        when(loadTaskPort.findAllByProjectId(projectId)).thenReturn(List.of(task1, task2, task3));
+
+        // Thêm task3 -> task1 làm tạo thành vòng lặp 1 -> 2 -> 3 -> 1
+        CreateTaskDependencyCommand command = new CreateTaskDependencyCommand(1L, 30L, 10L, "FINISH_TO_START", 0);
+
+        assertThrows(CyclicTaskDependencyException.class, () -> service.createDependency(command));
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-004-TC-03a: Từ chối truy cập khi thiếu quyền trong authorizationService")
     void shouldDenyAccessWhenPermissionMissing() {
         when(authorizationService.require(PermissionCode.PROJECT_TASK_DEPENDENCY_MANAGE))
                 .thenThrow(new PermissionDeniedException(PermissionCode.PROJECT_TASK_DEPENDENCY_MANAGE));
@@ -202,6 +229,106 @@ class TaskDependencyServiceTest {
         CreateTaskDependencyCommand command = new CreateTaskDependencyCommand(1L, 10L, 20L, "FINISH_TO_START", 0);
 
         assertThrows(PermissionDeniedException.class, () -> service.createDependency(command));
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-004-TC-03b: Từ chối truy cập khi ngoài Data Scope và lưu denied audit log")
+    void shouldDenyAccessAndSaveAuditLogWhenOutsideDataScope() {
+        when(authorizationService.require(PermissionCode.PROJECT_TASK_DEPENDENCY_MANAGE)).thenReturn(currentUserId);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(pmUser));
+
+        // Project managed by employee 999 (not user's employee 50)
+        Project unmanagedProject = new Project(
+                projectId,
+                "PROJ-01",
+                "Dự án thử nghiệm",
+                10L,
+                new EmployeeId(999L),
+                LocalDate.now(),
+                LocalDate.now().plusMonths(3),
+                BigDecimal.valueOf(100),
+                "Mô tả dự án",
+                ProjectStatus.ACTIVE,
+                new UserId(currentUserId),
+                LocalDateTime.now(),
+                LocalDateTime.now(),
+                1L,
+                0
+        );
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(unmanagedProject));
+
+        CreateTaskDependencyCommand command = new CreateTaskDependencyCommand(1L, 10L, 20L, "FINISH_TO_START", 0);
+
+        assertThrows(PermissionDeniedException.class, () -> service.createDependency(command));
+        verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Ném InvalidTaskDataException khi dependencyType không hợp lệ")
+    void shouldThrowInvalidTaskDataExceptionWhenDependencyTypeInvalid() {
+        when(authorizationService.require(PermissionCode.PROJECT_TASK_DEPENDENCY_MANAGE)).thenReturn(currentUserId);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(testProject));
+        when(loadTaskPort.findById(task1Id)).thenReturn(Optional.of(task1));
+        when(loadTaskPort.findById(task2Id)).thenReturn(Optional.of(task2));
+        when(loadDependencyPort.existsByPredecessorIdAndSuccessorId(task1Id, task2Id)).thenReturn(false);
+        when(loadDependencyPort.findByProjectId(projectId)).thenReturn(List.of());
+        when(loadTaskPort.findAllByProjectId(projectId)).thenReturn(List.of(task1, task2));
+
+        CreateTaskDependencyCommand command = new CreateTaskDependencyCommand(1L, 10L, 20L, "INVALID_TYPE", 0);
+
+        InvalidTaskDataException ex = assertThrows(InvalidTaskDataException.class, () -> service.createDependency(command));
+        assertEquals("Loại phụ thuộc công việc không hợp lệ: INVALID_TYPE", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Ném InvalidTaskDataException khi lagDays là số âm")
+    void shouldThrowInvalidTaskDataExceptionWhenLagDaysNegative() {
+        when(authorizationService.require(PermissionCode.PROJECT_TASK_DEPENDENCY_MANAGE)).thenReturn(currentUserId);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(testProject));
+        when(loadTaskPort.findById(task1Id)).thenReturn(Optional.of(task1));
+        when(loadTaskPort.findById(task2Id)).thenReturn(Optional.of(task2));
+        when(loadDependencyPort.existsByPredecessorIdAndSuccessorId(task1Id, task2Id)).thenReturn(false);
+        when(loadDependencyPort.findByProjectId(projectId)).thenReturn(List.of());
+        when(loadTaskPort.findAllByProjectId(projectId)).thenReturn(List.of(task1, task2));
+
+        CreateTaskDependencyCommand command = new CreateTaskDependencyCommand(1L, 10L, 20L, "FINISH_TO_START", -1);
+
+        InvalidTaskDataException ex = assertThrows(InvalidTaskDataException.class, () -> service.createDependency(command));
+        assertEquals("Số ngày chờ không được nhỏ hơn 0", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Ném InvalidTaskDataException khi công việc tự phụ thuộc vào chính mình")
+    void shouldThrowInvalidTaskDataExceptionWhenSelfDependency() {
+        when(authorizationService.require(PermissionCode.PROJECT_TASK_DEPENDENCY_MANAGE)).thenReturn(currentUserId);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(testProject));
+
+        CreateTaskDependencyCommand command = new CreateTaskDependencyCommand(1L, 10L, 10L, "FINISH_TO_START", 0);
+
+        InvalidTaskDataException ex = assertThrows(InvalidTaskDataException.class, () -> service.createDependency(command));
+        assertEquals("Công việc không thể tự phụ thuộc vào chính mình", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Ném InvalidTaskDataException khi 2 công việc thuộc 2 dự án khác nhau")
+    void shouldThrowInvalidTaskDataExceptionWhenTasksFromDifferentProjects() {
+        ProjectId otherProjectId = new ProjectId(2L);
+        Task otherProjectTask = new Task(task2Id, otherProjectId, null, "TK-002", "Công việc Lập trình", "Mô tả",
+                TaskType.TASK, new EmployeeId(51L), BigDecimal.valueOf(20), BigDecimal.ZERO, TaskStatus.TODO, 2, new UserId(currentUserId), null, null, 0L);
+
+        when(authorizationService.require(PermissionCode.PROJECT_TASK_DEPENDENCY_MANAGE)).thenReturn(currentUserId);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(testProject));
+        when(loadTaskPort.findById(task1Id)).thenReturn(Optional.of(task1));
+        when(loadTaskPort.findById(task2Id)).thenReturn(Optional.of(otherProjectTask));
+
+        CreateTaskDependencyCommand command = new CreateTaskDependencyCommand(1L, 10L, 20L, "FINISH_TO_START", 0);
+
+        InvalidTaskDataException ex = assertThrows(InvalidTaskDataException.class, () -> service.createDependency(command));
+        assertEquals("Hai công việc phụ thuộc phải thuộc cùng một dự án", ex.getMessage());
     }
 
     @Test

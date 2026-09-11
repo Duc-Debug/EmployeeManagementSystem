@@ -35,6 +35,10 @@ public class TaskDependency {
             throw new InvalidTaskDataException("Công việc không thể tự phụ thuộc vào chính mình");
         }
 
+        if (lagDays != null && lagDays < 0) {
+            throw new InvalidTaskDataException("Số ngày chờ không được nhỏ hơn 0");
+        }
+
         this.id = id;
         this.dependencyType = dependencyType != null ? dependencyType : TaskDependencyType.FINISH_TO_START;
         this.lagDays = lagDays != null ? lagDays : 0;
