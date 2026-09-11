@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { TaskCategoryGroup, ProjectMember, TaskItem } from './projectData';
 import type { TaskDependencyResult } from '@/lib/api/taskDependencies';
+import { CascadeDelayWarningModal } from '../task/CascadeDelayWarningModal';
 
 interface ProjectWbsViewProps {
     categories: TaskCategoryGroup[];
@@ -23,6 +24,7 @@ interface ProjectWbsViewProps {
     dependencies?: TaskDependencyResult[];
     searchTerm: string;
     selectedRole: string;
+    projectId?: number | null;
     isClosed?: boolean;
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
@@ -36,12 +38,18 @@ export function ProjectWbsView({
     dependencies = [],
     searchTerm,
     selectedRole,
+    projectId = 1,
     isClosed = false,
     onQuickAddTask,
     onToggleTaskStatus,
     onOpenBudgetModal,
     onOpenCloneModal,
 }: ProjectWbsViewProps) {
+    const [cascadeModalTask, setCascadeModalTask] = useState<{
+        id: number;
+        name: string;
+        code?: string;
+    } | null>(null);
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
         'cat-1': true,
@@ -414,21 +422,37 @@ export function ProjectWbsView({
                                                             </div>
                                                         </div>
 
-                                                        {/* Assignee & Badges */}
-                                                        <div className="flex shrink-0 items-center gap-2">
-                                                            {getPriorityBadge(t.priority)}
-                                                            {getStatusBadge(t.status)}
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    onOpenBudgetModal?.(t);
-                                                                }}
-                                                                className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer"
-                                                                title="Đặt ngân sách giờ công"
-                                                            >
-                                                                <Target className="h-3.5 w-3.5" />
-                                                            </button>
+                                                         {/* Assignee & Badges */}
+                                                         <div className="flex shrink-0 items-center gap-2">
+                                                             {getPriorityBadge(t.priority)}
+                                                             {getStatusBadge(t.status)}
+                                                             <button
+                                                                 type="button"
+                                                                 onClick={(e) => {
+                                                                     e.stopPropagation();
+                                                                     const numericId = typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1;
+                                                                     setCascadeModalTask({
+                                                                         id: numericId,
+                                                                         name: t.name,
+                                                                         code: t.code,
+                                                                     });
+                                                                 }}
+                                                                 className="rounded-lg p-1 text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition cursor-pointer"
+                                                                 title="Cảnh báo trễ dây chuyền khi công việc trượt (Cascade Delay Warning)"
+                                                             >
+                                                                 <AlertTriangle className="h-3.5 w-3.5" />
+                                                             </button>
+                                                             <button
+                                                                 type="button"
+                                                                 onClick={(e) => {
+                                                                     e.stopPropagation();
+                                                                     onOpenBudgetModal?.(t);
+                                                                 }}
+                                                                 className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer"
+                                                                 title="Đặt ngân sách giờ công"
+                                                             >
+                                                                 <Target className="h-3.5 w-3.5" />
+                                                             </button>
                                                             <div
                                                                 className="flex items-center gap-1.5 pl-1"
                                                                 title={assignee ? `${assignee.name} (${assignee.role})` : 'Chưa giao'}
@@ -481,6 +505,19 @@ export function ProjectWbsView({
                     </span>
                 </div>
             </div>
+
+            {/* Cascade Delay Warning Modal */}
+            {cascadeModalTask && (
+                <CascadeDelayWarningModal
+                    open={!!cascadeModalTask}
+                    projectId={projectId || 1}
+                    taskId={cascadeModalTask.id}
+                    taskName={cascadeModalTask.name}
+                    taskCode={cascadeModalTask.code}
+                    canManage={!isClosed}
+                    onClose={() => setCascadeModalTask(null)}
+                />
+            )}
         </section>
     );
 }

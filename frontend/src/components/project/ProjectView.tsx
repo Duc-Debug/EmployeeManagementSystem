@@ -1283,6 +1283,7 @@ export default function ProjectView() {
                             dependencies={taskDependenciesList}
                             searchTerm={search}
                             selectedRole={roleFilter}
+                            projectId={selectedProjectId}
                             isClosed={isProjectClosed}
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
