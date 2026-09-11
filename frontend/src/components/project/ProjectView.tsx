@@ -13,6 +13,7 @@ import {
     type BackendTaskStatus,
 } from '@/lib/api/projects';
 import { setTaskBudget, type CloneProjectWbsResult } from '@/lib/api/tasks';
+import { getTaskDependencies, type TaskDependencyResult } from '@/lib/api/taskDependencies';
 
 import {
     Boxes,
@@ -35,11 +36,13 @@ import {
     Calendar,
     ChevronDown,
     Copy,
+    GitCommit,
     TrendingUp,
     Lock,
     Unlock,
     Flag,
 } from 'lucide-react';
+import { TaskDependencyModal } from '../task/TaskDependencyModal';
 import {
     getProjectMilestones,
     createMilestone,
@@ -219,10 +222,9 @@ export default function ProjectView() {
     const currentUser = useAuthUser();
     const userRoleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
     const isExecutive = userRoleCode === 'VT-01';
-    const isPm = userRoleCode === 'VT-02';
+    const isPm = userRoleCode === 'VT-02' || userRoleCode === 'VT-06' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
 
-    // PROJECT_CREATE: Chỉ VT-02 (PM) mới có quyền tạo/quản lý dự án (✅ trong ma trận)
-    // VT-01 👁️ Xem | VT-03 👁️ Xem | VT-06 ❌ — theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md
+    // PROJECT_CREATE: Chỉ VT-02 (PM) và VT-06 (Admin) mới có quyền tạo/quản lý dự án
     const canManageProject = isPm;
     const canManageAllocations = userRoleCode === 'VT-03';
     const canManageMilestones = isPm || userRoleCode === 'VT-06';
@@ -232,6 +234,8 @@ export default function ProjectView() {
     const [members, setMembers] = useState<ProjectMember[]>([]);
     const [budgetModalOpen, setBudgetModalOpen] = useState(false);
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
+    const [dependencyModalOpen, setDependencyModalOpen] = useState<boolean>(false);
+    const [taskDependenciesList, setTaskDependenciesList] = useState<TaskDependencyResult[]>([]);
 
     // Mốc tiến độ (NCL-03-CN-006)
     const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
@@ -391,13 +395,18 @@ export default function ProjectView() {
             const projectMembers = allEmployees.filter((member) =>
                 assignedEmployeeIds.has(Number(member.id.replace('u-', '')))
             );
-            setMembers(projectMembers);
+            // Ưu tiên hiển thị tất cả nhân sự trong hệ thống để Quản lý nguồn lực có thể phân bổ trực tiếp; nếu chưa có WBS thì dùng allEmployees
+            setMembers(allEmployees.length > 0 ? allEmployees : projectMembers);
             const mapped = mapBackendWbsToUiCategories(wbsNodes, projectMembers);
             setCategories(mapped);
+            getTaskDependencies(projId)
+                .then((res) => setTaskDependenciesList(res.dependencies || []))
+                .catch(() => setTaskDependenciesList([]));
         } catch (err) {
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
             setCategories([]);
             setMembers([]);
+            setTaskDependenciesList([]);
         } finally {
             setIsLoadingWbs(false);
         }
@@ -986,20 +995,34 @@ export default function ProjectView() {
                             </button>
                         )}
 
-                        {canManageProject && <button
-                            type="button"
-                            disabled={isProjectClosed}
-                            onClick={() => !isProjectClosed && handleQuickAddTask()}
-                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition ${
-                                isProjectClosed
-                                    ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
-                                    : 'bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700 active:scale-95 cursor-pointer'
-                            }`}
-                            title={isProjectClosed ? 'Dự án đã đóng, không thể tạo thêm công việc mới (QTN-08)' : 'Thêm công việc'}
-                        >
-                            <Plus className="h-4 w-4 stroke-[2.5]" />
-                            <span>Thêm công việc</span>
-                        </button>}
+                        {canManageProject && (
+                            <>
+                                <button
+                                    type="button"
+                                    disabled={isProjectClosed}
+                                    onClick={() => !isProjectClosed && handleQuickAddTask()}
+                                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition ${
+                                        isProjectClosed
+                                            ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
+                                            : 'bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700 active:scale-95 cursor-pointer'
+                                    }`}
+                                    title={isProjectClosed ? 'Dự án đã đóng, không thể tạo thêm công việc mới (QTN-08)' : 'Thêm công việc'}
+                                >
+                                    <Plus className="h-4 w-4 stroke-[2.5]" />
+                                    <span>Thêm công việc</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDependencyModalOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
+                                    title="Khai báo phụ thuộc giữa các công việc (NCL-04-CN-004)"
+                                >
+                                    <GitCommit className="h-4 w-4 text-indigo-600" />
+                                    <span>Phụ thuộc công việc</span>
+                                </button>
+                            </>
+                        )}
 
                         <button
                             type="button"
@@ -1147,43 +1170,43 @@ export default function ProjectView() {
             </div>
 
             {/* View Switcher & Filter Controls */}
-            <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center">
+            <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
-                <div className="inline-flex w-full rounded-xl border border-slate-200/80 bg-slate-100 p-1 sm:w-auto">
+                <div className="inline-flex w-full max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
                     <button
                         type="button"
                         onClick={() => setViewMode('split')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                             viewMode === 'split'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
                         }`}
                     >
-                        <Columns className="h-4 w-4" />
+                        <Columns className="h-3.5 w-3.5" />
                         <span>Xem kết hợp (Split View)</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setViewMode('wbs')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                             viewMode === 'wbs'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
                         }`}
                     >
-                        <Layers className="h-4 w-4" />
+                        <Layers className="h-3.5 w-3.5" />
                         <span>Hạng mục & Task</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setViewMode('workload')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                             viewMode === 'workload'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
                         }`}
                     >
-                        <CalendarDays className="h-4 w-4" />
+                        <CalendarDays className="h-3.5 w-3.5" />
                         <span>Phân bổ theo tuần</span>
                     </button>
                     <button
@@ -1206,20 +1229,20 @@ export default function ProjectView() {
                     <button
                         type="button"
                         onClick={() => setViewMode('milestones')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                             viewMode === 'milestones'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
                         }`}
                     >
-                        <Flag className="h-4 w-4" />
+                        <Flag className="h-3.5 w-3.5" />
                         <span>Mốc tiến độ</span>
                     </button>
                 </div>
 
                 {/* Filters (Ẩn khi ở tab Mốc tiến độ hoặc Ước lượng nhu cầu) */}
                 {viewMode !== 'milestones' && viewMode !== 'demand' && (
-                    <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+                    <div className="flex w-full flex-wrap items-center justify-end gap-2 xl:w-auto shrink-0">
                         {/* Search */}
                         <div className="relative flex-1 sm:w-56">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -1257,6 +1280,7 @@ export default function ProjectView() {
                         <ProjectWbsView
                             categories={categories}
                             members={members}
+                            dependencies={taskDependenciesList}
                             searchTerm={search}
                             selectedRole={roleFilter}
                             isClosed={isProjectClosed}
@@ -1381,6 +1405,24 @@ export default function ProjectView() {
                 currentUser={currentUser}
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
+            />}
+
+            {canManageProject && <TaskDependencyModal
+                open={dependencyModalOpen}
+                projectId={selectedProjectId || 1}
+                tasks={categories.flatMap((cat) =>
+                    cat.tasks.map((t) => ({
+                        id: Number(t.id.replace(/\D/g, '')),
+                        taskCode: t.code,
+                        name: t.name,
+                        categoryName: cat.name,
+                    }))
+                )}
+                canManage={canManageProject}
+                onClose={() => {
+                    setDependencyModalOpen(false);
+                    if (selectedProjectId) loadWbsForProject(selectedProjectId);
+                }}
             />}
 
             {/* Modals for Resource Demand Estimation (NCL-03-CN-007) */}
