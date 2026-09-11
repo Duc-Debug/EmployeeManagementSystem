@@ -15,6 +15,9 @@ import com.hrm.employeemanagement.domain.task.dependency.TaskDependency;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.entity.TaskDependencyJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.repository.SpringDataTaskDependencyRepository;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
+
 @Component
 public class TaskDependencyRepositoryAdapter implements
         LoadTaskDependencyPort,
@@ -75,9 +78,13 @@ public class TaskDependencyRepositoryAdapter implements
 
     @Override
     public TaskDependency save(TaskDependency dependency) {
-        TaskDependencyJpaEntity entity = TaskDependencyPersistenceMapper.toJpaEntity(dependency);
-        TaskDependencyJpaEntity saved = repository.save(entity);
-        return TaskDependencyPersistenceMapper.toDomain(saved);
+        try {
+            TaskDependencyJpaEntity entity = TaskDependencyPersistenceMapper.toJpaEntity(dependency);
+            TaskDependencyJpaEntity saved = repository.saveAndFlush(entity);
+            return TaskDependencyPersistenceMapper.toDomain(saved);
+        } catch (DataIntegrityViolationException ex) {
+            throw new InvalidTaskDataException("Quan hệ phụ thuộc giữa 2 công việc này đã tồn tại");
+        }
     }
 
     @Override
