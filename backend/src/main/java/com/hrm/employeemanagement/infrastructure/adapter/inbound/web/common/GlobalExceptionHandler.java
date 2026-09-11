@@ -224,6 +224,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    // Handle AllocationOverloadWarningException (400 BAD REQUEST kèm chi tiết số giờ vượt)
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException.class)
+    public ResponseEntity<ErrorResponse> handleAllocationOverloadWarning(com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException ex) {
+        java.util.Map<String, Object> details = java.util.Map.of(
+                "availableHours", ex.getAvailableHours(),
+                "allocatedHours", ex.getAllocatedHours(),
+                "overloadHours", ex.getOverloadHours()
+        );
+        ErrorResponse response = ErrorResponse.of(
+                "ALLOCATION_OVERLOAD_WARNING",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value(),
+                details);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     // 7. Handle Generic DomainException (400 BAD REQUEST)
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleGenericDomainException(DomainException ex) {

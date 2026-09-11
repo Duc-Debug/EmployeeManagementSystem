@@ -8,8 +8,19 @@ public record AllocateResourceCommand(
         Long projectId,
         Integer year,
         Integer weekNumber,
-        BigDecimal allocatedHours
+        BigDecimal allocatedHours,
+        String overloadReason
         ) {
+
+    public AllocateResourceCommand(
+            Long employeeId,
+            Long projectId,
+            Integer year,
+            Integer weekNumber,
+            BigDecimal allocatedHours
+    ) {
+        this(employeeId, projectId, year, weekNumber, allocatedHours, null);
+    }
 
     public AllocateResourceCommand {
         Objects.requireNonNull(employeeId, "ID nhân sự không được null");

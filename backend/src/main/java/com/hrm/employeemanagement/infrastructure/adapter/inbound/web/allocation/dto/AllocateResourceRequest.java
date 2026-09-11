@@ -22,7 +22,17 @@ public record AllocateResourceRequest(
         Integer weekNumber,
         @NotNull(message = "Số giờ phân bổ không được null")
         @DecimalMin(value = "0.0", message = "Số giờ phân bổ không được là số âm")
-        BigDecimal allocatedHours
+        BigDecimal allocatedHours,
+        String overloadReason
         ) {
 
+    public AllocateResourceRequest(
+            Long employeeId,
+            Long projectId,
+            Integer year,
+            Integer weekNumber,
+            BigDecimal allocatedHours
+    ) {
+        this(employeeId, projectId, year, weekNumber, allocatedHours, null);
+    }
 }

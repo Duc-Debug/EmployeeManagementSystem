@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -29,6 +30,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
+import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -38,6 +40,7 @@ import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -129,11 +132,35 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
 
         BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(command.allocatedHours());
 
-        // Enforce capacity limit: Không cho phép vượt netAvailableHours
-        if (totalRequestedAllocated.compareTo(netAvailableHours) > 0) {
-            throw new AllocationCapacityExceededException(
-                    "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
-            );
+        // [QTN-11 / NCL-06-CN-003] Phát hiện quá tải khi phân bổ theo tuần
+        boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalRequestedAllocated, netAvailableHours);
+        BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalRequestedAllocated, netAvailableHours);
+
+        if (isOverloaded) {
+            String reason = command.overloadReason();
+            if (reason == null || reason.trim().isEmpty()) {
+                // TC-01, TC-03: Cảnh báo quá tải và yêu cầu xác nhận kèm lý do
+                throw new AllocationOverloadWarningException(
+                        "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ". Số giờ vượt: " + excessHours + "h. Yêu cầu Quản lý nguồn lực xác nhận có ghi rõ lý do.",
+                        netAvailableHours,
+                        totalRequestedAllocated,
+                        excessHours
+                );
+            }
+
+            // TC-04: Kiểm tra vai trò của người dùng - Chỉ RM (VT-03) mới có quyền xác nhận phân bổ vượt năng lực
+            boolean isResourceManager = currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_03;
+            if (!isResourceManager) {
+                saveAuditLogPort.save(AuditLog.createChange(
+                        currentUserId,
+                        "ACCESS_DENIED_OVERLOAD_CONFIRM",
+                        "weekly_project_allocations",
+                        null,
+                        null,
+                        "user_id=" + currentUserId + ";role=" + (currentUser.getRole() != null ? currentUser.getRole().getCode().getCode() : "UNKNOWN") + ";attempted_overload_hours=" + excessHours
+                ));
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+            }
         }
 
         // Capture oldValue từ bản ghi phân bổ hiện tại cho dự án này (nếu có)
@@ -154,10 +181,16 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                     command.employeeId(), command.projectId(), yearWeek, command.allocatedHours());
         }
 
+        if (isOverloaded) {
+            allocation.markOverloaded(command.overloadReason(), currentUserId);
+        } else {
+            allocation.clearOverload();
+        }
+
         // Lưu bản ghi (Concurrency retry được xử lý tại RetryableAllocateResourceUseCaseDecorator)
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        // [TC-05] Ghi nhật ký kiểm toán (Audit Log)
+        // Ghi nhật ký kiểm toán chuẩn (Audit Log)
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "RESOURCE_ALLOCATED",
@@ -166,6 +199,18 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 "Số giờ phân bổ cũ: " + oldValue + "h",
                 "Số giờ phân bổ mới: " + newValue + "h cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
         ));
+
+        // [TC-05] Ghi nhật ký kiểm toán nghiệp vụ khi RM xác nhận vượt tải hợp lệ
+        if (isOverloaded) {
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "ALLOCATION_OVERLOAD_BYPASS",
+                    "weekly_project_allocations",
+                    saved.getId(),
+                    null,
+                    "availableHours=" + netAvailableHours + ";allocatedHours=" + totalRequestedAllocated + ";overloadHours=" + excessHours + ";reason=" + command.overloadReason().trim()
+            ));
+        }
 
         return calculateCapacity(employee, yearWeek);
     }
