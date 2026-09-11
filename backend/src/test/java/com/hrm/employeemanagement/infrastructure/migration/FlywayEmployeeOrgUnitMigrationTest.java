@@ -346,7 +346,7 @@ class FlywayEmployeeOrgUnitMigrationTest {
                 + name
                 + "_"
                 + UUID.randomUUID().toString().replace("-", "")
-                + ";DB_CLOSE_DELAY=-1";
+                + ";MODE=MySQL;DB_CLOSE_DELAY=-1";
     }
 
     private static Connection connect(String url)
