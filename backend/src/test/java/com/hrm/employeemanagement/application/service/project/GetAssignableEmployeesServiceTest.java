@@ -1,23 +1,25 @@
 package com.hrm.employeemanagement.application.service.project;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectMemberResult;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
@@ -33,6 +35,8 @@ import com.hrm.employeemanagement.domain.user.UserStatus;
 @ExtendWith(MockitoExtension.class)
 class GetAssignableEmployeesServiceTest {
 
+    private static final Long CURRENT_USER_ID = 99L;
+
     @Mock
     private LoadEmployeePort loadEmployeePort;
 
@@ -42,11 +46,30 @@ class GetAssignableEmployeesServiceTest {
     @Mock
     private LoadUserPort loadUserPort;
 
+    @Mock
+    private AuthorizationService authorizationService;
+
     private GetAssignableEmployeesService service;
+
+    private User createCompanyUser(Long userId) {
+        return new User(
+                new UserId(userId),
+                "director_user",
+                "hash",
+                new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám đốc"),
+                UserStatus.ACTIVE,
+                null,
+                DataScope.COMPANY,
+                null,
+                1L
+        );
+    }
 
     @BeforeEach
     void setUp() {
-        service = new GetAssignableEmployeesService(loadEmployeePort, loadOrgUnitPort, loadUserPort);
+        service = new GetAssignableEmployeesService(loadEmployeePort, loadOrgUnitPort, loadUserPort, authorizationService);
+        org.mockito.Mockito.lenient().when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        org.mockito.Mockito.lenient().when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(createCompanyUser(CURRENT_USER_ID)));
     }
 
     @Test
@@ -128,5 +151,68 @@ class GetAssignableEmployeesServiceTest {
         assertThat(results).hasSize(2);
         assertThat(results).extracting(ProjectMemberResult::employeeId).containsExactlyInAnyOrder(3L, 4L);
         assertThat(results).extracting(ProjectMemberResult::contractEndDate).contains(LocalDate.of(2026, 12, 31), (LocalDate) null);
+    }
+
+    @Test
+    @DisplayName("Lọc nhân sự theo nhánh phòng ban khi người dùng có scope ORGANIZATION_BRANCH")
+    void shouldFilterEmployeesByBranchScopeWhenScopeIsOrganizationBranch() {
+        Long branchOrgUnitId = 10L;
+        User branchUser = new User(
+                new UserId(CURRENT_USER_ID), "resource_manager", "hash",
+                new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực"),
+                UserStatus.ACTIVE, null, DataScope.ORGANIZATION_BRANCH, branchOrgUnitId, 1L
+        );
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(branchUser));
+
+        Employee empInsideBranch = new Employee(
+                new EmployeeId(10L), new UserId(10L), 10L, "EMP10", "Nguyen Van Trong Nhanh",
+                "Dev", LocalDate.of(2021, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee empOutsideBranch = new Employee(
+                new EmployeeId(20L), new UserId(20L), 99L, "EMP20", "Tran Van Ngoai Nhanh",
+                "Dev", LocalDate.of(2021, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(empInsideBranch, empOutsideBranch));
+
+        User user10 = new User(new UserId(10L), "u10", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Dev"), UserStatus.ACTIVE, new EmployeeId(10L));
+        User user20 = new User(new UserId(20L), "u20", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Dev"), UserStatus.ACTIVE, new EmployeeId(20L));
+        when(loadUserPort.findById(new UserId(10L))).thenReturn(Optional.of(user10));
+        when(loadUserPort.findById(new UserId(20L))).thenReturn(Optional.of(user20));
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, branchOrgUnitId)).thenReturn(true);
+        when(loadOrgUnitPort.existsInOrgUnitBranch(99L, branchOrgUnitId)).thenReturn(false);
+
+        List<ProjectMemberResult> results = service.getAssignableEmployees();
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).employeeId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("Chỉ trả về chính bản thân khi người dùng có scope SELF")
+    void shouldFilterEmployeesBySelfScopeWhenScopeIsSelf() {
+        User selfUser = new User(
+                new UserId(CURRENT_USER_ID), "pm_self", "hash",
+                new Role(new RoleId(2L), RoleCode.VT_02, "PM"),
+                UserStatus.ACTIVE, null, DataScope.SELF, null, 1L
+        );
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(selfUser));
+
+        Employee currentEmp = new Employee(
+                new EmployeeId(CURRENT_USER_ID), new UserId(CURRENT_USER_ID), 10L, "EMP_ME", "Toi La PM",
+                "PM", LocalDate.of(2021, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee otherEmp = new Employee(
+                new EmployeeId(88L), new UserId(88L), 10L, "EMP88", "Nguoi Khac",
+                "Dev", LocalDate.of(2021, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(currentEmp, otherEmp));
+
+        List<ProjectMemberResult> results = service.getAssignableEmployees();
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).employeeId()).isEqualTo(CURRENT_USER_ID);
     }
 }

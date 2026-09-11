@@ -78,7 +78,9 @@ public class TaskUseCaseConfig {
             LoadProjectPort loadProjectPort,
             SaveProjectMemberPort saveProjectMemberPort,
             LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
             SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
         AssignTaskService pureService = new AssignTaskService(
                 loadTaskPort,
@@ -88,7 +90,9 @@ public class TaskUseCaseConfig {
                 loadProjectPort,
                 saveProjectMemberPort,
                 loadEmployeePort,
+                loadUserPort,
                 saveAuditLogPort,
+                saveDeniedAuditLogPort,
                 authorizationService);
         return new TransactionalAssignTaskUseCase(pureService);
     }

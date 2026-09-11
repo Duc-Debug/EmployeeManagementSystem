@@ -46,5 +46,8 @@ INSERT INTO task_assignments (task_id, employee_id, assigned_at, assigned_by, is
 SELECT t.id, t.assignee_id, CURRENT_TIMESTAMP, t.created_by, TRUE
 FROM tasks t
 WHERE t.assignee_id IS NOT NULL
-ON DUPLICATE KEY UPDATE is_primary = TRUE;
+  AND NOT EXISTS (
+      SELECT 1 FROM task_assignments ta 
+      WHERE ta.task_id = t.id AND ta.employee_id = t.assignee_id
+  );
 

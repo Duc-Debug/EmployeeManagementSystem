@@ -1,19 +1,6 @@
--- Migration V44: Ensure is_primary column exists on task_assignments
-SET @dbname = DATABASE();
-SET @tablename = "task_assignments";
-SET @columnname = "is_primary";
-SET @preparedStatement = (SELECT IF(
-  (
-    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE
-      TABLE_SCHEMA = @dbname
-      AND TABLE_NAME = @tablename
-      AND COLUMN_NAME = @columnname
-  ) > 0,
-  "SELECT 1",
-  "ALTER TABLE task_assignments ADD COLUMN is_primary BOOLEAN NOT NULL DEFAULT FALSE"
-));
-PREPARE alterIfNotExists FROM @preparedStatement;
-EXECUTE alterIfNotExists;
-DEALLOCATE PREPARE alterIfNotExists;
+-- Migration V44: Ensure is_primary column on task_assignments is updated and consistent
+-- Note: is_primary was already added in V43 with DEFAULT FALSE. This migration ensures data consistency across all rows.
+UPDATE task_assignments 
+SET is_primary = FALSE 
+WHERE is_primary IS NULL;
 

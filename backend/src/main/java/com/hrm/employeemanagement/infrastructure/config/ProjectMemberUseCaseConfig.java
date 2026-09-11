@@ -93,10 +93,12 @@ public class ProjectMemberUseCaseConfig {
     public com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase(
             LoadEmployeePort loadEmployeePort,
             LoadOrgUnitPort loadOrgUnitPort,
-            LoadUserPort loadUserPort) {
+            LoadUserPort loadUserPort,
+            com.hrm.employeemanagement.application.service.authorization.AuthorizationService authorizationService) {
         return new com.hrm.employeemanagement.application.service.project.GetAssignableEmployeesService(
                 loadEmployeePort,
                 loadOrgUnitPort,
-                loadUserPort);
+                loadUserPort,
+                authorizationService);
     }
 }
