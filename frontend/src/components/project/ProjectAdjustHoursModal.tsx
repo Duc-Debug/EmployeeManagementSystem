@@ -46,7 +46,6 @@ export function ProjectAdjustHoursModal({
     const [standardHours, setStandardHours] = useState<number | null>(null);
     const [otherProjectsHours, setOtherProjectsHours] = useState<number>(0);
     const [isLoadingCapacity, setIsLoadingCapacity] = useState(false);
-    const [forcedOverload, setForcedOverload] = useState(false);
 
     useEffect(() => {
         if (open && member && weekKey) {
@@ -54,7 +53,6 @@ export function ProjectAdjustHoursModal({
             setOverloadReason('');
             setReasonError(null);
             setIsSubmitting(false);
-            setForcedOverload(false);
 
             const empId = getEmployeeId(member);
             if (empId && year && weekNumber) {
@@ -85,7 +83,6 @@ export function ProjectAdjustHoursModal({
             setNetCapacity(null);
             setStandardHours(null);
             setOtherProjectsHours(0);
-            setForcedOverload(false);
         }
     }, [open, member, weekKey, year, weekNumber]);
 
@@ -93,7 +90,7 @@ export function ProjectAdjustHoursModal({
 
     const capacity = netCapacity !== null ? netCapacity : (member.capacity || 40);
     const totalWeeklyHours = otherProjectsHours + hours;
-    const isOverloaded = forcedOverload || (totalWeeklyHours > capacity);
+    const isOverloaded = totalWeeklyHours > capacity;
     const overloadHours = isOverloaded ? Math.max(0, totalWeeklyHours - capacity) : 0;
     const pct = capacity > 0 ? Math.round((totalWeeklyHours / capacity) * 100) : (hours > 0 ? 100 : 0);
 
@@ -115,17 +112,26 @@ export function ProjectAdjustHoursModal({
             await onSave(member.id, weekKey, hours, isOverloaded ? overloadReason.trim() : undefined);
             onClose();
         } catch (err: unknown) {
-            const anyErr = err as { message?: string; data?: { code?: string; details?: { availableHours?: number; overloadHours?: number } } };
+            const anyErr = err as { message?: string; data?: { code?: string; details?: { availableHours?: number; allocatedHours?: number; overloadHours?: number } } };
             const errorMsg = anyErr?.message || (err instanceof Error ? err.message : 'Đã xảy ra lỗi khi lưu phân bổ');
             const isOverloadWarning = anyErr?.data?.code === 'ALLOCATION_OVERLOAD_WARNING'
                 || errorMsg.includes('ALLOCATION_OVERLOAD_WARNING')
                 || errorMsg.includes('vượt quá số giờ khả dụng');
 
             if (isOverloadWarning) {
-                setForcedOverload(true);
-                if (anyErr?.data?.details?.availableHours !== undefined) {
-                    setNetCapacity(anyErr.data.details.availableHours);
+                const details = anyErr?.data?.details;
+                if (details) {
+                    if (typeof details.availableHours === 'number') {
+                        setNetCapacity(details.availableHours);
+                    }
+                    if (typeof details.allocatedHours === 'number') {
+                        const calculatedOther = Math.max(0, details.allocatedHours - hours);
+                        setOtherProjectsHours(calculatedOther);
+                    }
+                } else {
+                    setNetCapacity(Math.max(0, hours - 1));
                 }
+
                 if (!isResourceManager) {
                     setReasonError('Nhân sự bị phân bổ vượt quá giờ khả dụng. Chỉ Quản lý nguồn lực (RM) mới có quyền xác nhận vượt tải.');
                 } else {

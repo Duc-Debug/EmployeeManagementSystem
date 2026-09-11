@@ -346,10 +346,48 @@ class AllocationOverloadUseCaseTest {
         ArgumentCaptor<WeeklyProjectAllocation> captor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
         verify(saveAllocationPort).save(captor.capture());
         WeeklyProjectAllocation updated = captor.getValue();
-
         assertEquals(2L, updated.getId());
         assertEquals(BigDecimal.valueOf(15), updated.getAllocatedHours());
         assertFalse(updated.isOverloaded());
+    }
+
+    @Test
+    @DisplayName("UPDATE allocation with overload: Sửa phân bổ trên cùng dự án từ 20h lên 30h gây overload -> Audit log ALLOCATION_OVERLOAD_BYPASS ghi nhận chính xác oldOverloadState là 20h trước mutation")
+    void testUpdateAllocation_WithOverloadBypass_CapturesAccurateOldOverloadState() {
+        setupMocksForRM();
+
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        // Dự án A: 15h, Dự án B (đang sửa): 20h (chưa overload)
+        WeeklyProjectAllocation allocA = new WeeklyProjectAllocation(1L, employeeId, projectIdA, yearWeek, BigDecimal.valueOf(15), 0L);
+        WeeklyProjectAllocation allocB = new WeeklyProjectAllocation(2L, employeeId, projectIdB, yearWeek, BigDecimal.valueOf(20), 0L);
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek)).thenReturn(List.of(allocA, allocB));
+        when(saveAllocationPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // RM sửa Dự án B từ 20h lên 30h -> Tổng 15h + 30h = 45h > 40h -> Vượt 5h
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(30), "Ưu tiên hoàn thành sprint");
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertTrue(result.isOverAllocated());
+
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort, times(2)).save(auditCaptor.capture());
+
+        AuditLog bypassLog = auditCaptor.getAllValues().stream()
+                .filter(l -> "ALLOCATION_OVERLOAD_BYPASS".equals(l.getAction()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(bypassLog);
+        assertEquals("isOverloaded=false;allocatedHours=20", bypassLog.getOldValue(),
+                "oldValue phải phản ánh giá trị snapshot 20h trước khi mutation đối tượng");
+        assertTrue(bypassLog.getNewValue().contains("isOverloaded=true"));
+        assertTrue(bypassLog.getNewValue().contains("allocatedHours=45"));
+        assertTrue(bypassLog.getNewValue().contains("overloadHours=5.00"));
     }
 
     @Test

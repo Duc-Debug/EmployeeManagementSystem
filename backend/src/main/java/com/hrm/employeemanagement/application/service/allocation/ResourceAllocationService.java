@@ -165,9 +165,12 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 .filter(a -> a.getProjectId().equals(command.projectId()))
                 .findFirst();
 
+        // Capture snapshot trạng thái cũ TRƯỚC KHI thực hiện bất kỳ mutation nào trên entity
+        boolean oldIsOverloaded = existingOpt.map(WeeklyProjectAllocation::isOverloaded).orElse(false);
         BigDecimal oldHours = existingOpt.map(WeeklyProjectAllocation::getAllocatedHours).orElse(BigDecimal.ZERO);
         String oldValue = oldHours.toString();
         String newValue = command.allocatedHours().toString();
+        String oldOverloadState = "isOverloaded=" + oldIsOverloaded + ";allocatedHours=" + oldHours;
 
         WeeklyProjectAllocation allocation;
         if (existingOpt.isPresent()) {
@@ -200,9 +203,6 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
 
         // [TC-05] Ghi nhật ký kiểm toán nghiệp vụ khi có thẩm quyền xác nhận vượt tải hợp lệ (State transition)
         if (isOverloaded) {
-            String oldOverloadState = existingOpt
-                    .map(a -> "isOverloaded=" + a.isOverloaded() + ";allocatedHours=" + a.getAllocatedHours())
-                    .orElse("isOverloaded=false;allocatedHours=0");
             String newOverloadState = "isOverloaded=true;overloadReason=" + command.overloadReason().trim()
                     + ";approvedBy=" + currentUserId
                     + ";approvedAt=" + approvedAt

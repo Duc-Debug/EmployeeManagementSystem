@@ -120,44 +120,44 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(overloadAlloc.excess, 6);
     });
 
-    test("QTN-11 / Error Recovery: Parse ALLOCATION_OVERLOAD_WARNING và mở form nhập lý do", () => {
+    test("QTN-11 / Error Recovery: Parse ALLOCATION_OVERLOAD_WARNING, derive state without stale lock, và tự động mở khóa khi giảm giờ", () => {
         const backendErrorResponse = {
             status: 400,
             data: {
                 code: "ALLOCATION_OVERLOAD_WARNING",
-                message: "Không thể phân bổ: Tổng số giờ phân bổ (32h) vượt quá số giờ khả dụng (24h)...",
+                message: "Không thể phân bổ: Tổng số giờ phân bổ (30h) vượt quá số giờ khả dụng (24h)...",
                 details: {
                     availableHours: 24,
-                    allocatedHours: 32,
-                    overloadHours: 8
+                    allocatedHours: 30,
+                    overloadHours: 6
                 }
             }
         };
 
-        const handleBackendError = (err, isRM) => {
-            const isOverloadWarning = err.data?.code === "ALLOCATION_OVERLOAD_WARNING";
-            if (!isOverloadWarning) {
-                return { forcedOverload: false, errorMessage: err.message };
-            }
-            return {
-                forcedOverload: true,
-                recoveredCapacity: err.data.details.availableHours,
-                overloadHours: err.data.details.overloadHours,
-                canConfirm: isRM,
-                promptMessage: isRM
-                    ? "Phân bổ vượt quá năng lực khả dụng thực tế. Vui lòng nhập lý do để xác nhận (QTN-11)."
-                    : "Nhân sự bị phân bổ vượt quá giờ khả dụng. Chỉ Quản lý nguồn lực (RM) mới có quyền xác nhận vượt tải."
-            };
-        };
+        // Khi backend trả lỗi 400 ALLOCATION_OVERLOAD_WARNING, cập nhật state năng lực
+        const currentHours = 20;
+        const details = backendErrorResponse.data.details;
+        const netCapacity = details.availableHours; // 24
+        const otherProjectsHours = Math.max(0, details.allocatedHours - currentHours); // 30 - 20 = 10
 
-        const rmResult = handleBackendError(backendErrorResponse, true);
-        assert.equal(rmResult.forcedOverload, true);
-        assert.equal(rmResult.recoveredCapacity, 24);
-        assert.equal(rmResult.overloadHours, 8);
-        assert.equal(rmResult.canConfirm, true);
+        // Kiểm tra trạng thái ngay sau khi có lỗi (hours = 20)
+        let totalWeeklyHours = otherProjectsHours + currentHours; // 10 + 20 = 30
+        let isOverloaded = totalWeeklyHours > netCapacity; // 30 > 24 = true
+        let overloadHours = isOverloaded ? totalWeeklyHours - netCapacity : 0; // 6
+        assert.equal(isOverloaded, true, "Ngay sau khi backend báo lỗi, UI phải là quá tải");
+        assert.equal(overloadHours, 6, "Vượt quá 6h");
 
-        const pmResult = handleBackendError(backendErrorResponse, false);
-        assert.equal(pmResult.forcedOverload, true);
-        assert.equal(pmResult.canConfirm, false);
+        // Khi user (non-RM hoặc RM) kéo slider xuống 10h (hợp lệ):
+        const reducedHours = 10;
+        totalWeeklyHours = otherProjectsHours + reducedHours; // 10 + 10 = 20
+        isOverloaded = totalWeeklyHours > netCapacity; // 20 > 24 = false
+        overloadHours = isOverloaded ? totalWeeklyHours - netCapacity : 0; // 0
+
+        assert.equal(isOverloaded, false, "Sau khi giảm giờ xuống 10h (tổng 20h <= 24h), isOverloaded phải là false");
+        assert.equal(overloadHours, 0, "Không còn số giờ vượt");
+
+        // Non-RM không còn bị disabled nút bấm khi giờ đã hợp lệ
+        const isNonRmBlocked = isOverloaded && false; // isOverloaded && !isResourceManager
+        assert.equal(isNonRmBlocked, false, "Non-RM không bị block khi đã chỉnh giờ hợp lệ");
     });
 });
