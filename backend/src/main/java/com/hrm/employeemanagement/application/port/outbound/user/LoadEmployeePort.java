@@ -17,6 +17,8 @@ public interface LoadEmployeePort {
     List<Employee> findAllByIdIn(List<EmployeeId> ids);
     List<Employee> findByOrgUnitId(Long orgUnitId);
     List<Employee> findActiveByOrgUnitId(Long orgUnitId);
+    List<Employee> findActiveByOrgUnitIds(List<Long> orgUnitIds);
+    List<Employee> findAllActive();
     List<Employee> findAllPaged(int size, int offset);
     long countAll();
     List<Employee> findByOrgUnitBranch(Long scopeOrgUnitId, int size, int offset);

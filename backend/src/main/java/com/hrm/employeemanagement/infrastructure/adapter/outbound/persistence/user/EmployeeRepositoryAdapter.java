@@ -110,6 +110,23 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
     }
 
     @Override
+    public List<Employee> findActiveByOrgUnitIds(List<Long> orgUnitIds) {
+        if (orgUnitIds == null || orgUnitIds.isEmpty()) {
+            return List.of();
+        }
+        return springDataEmployeeRepository.findByOrgUnitIdInAndStatus(orgUnitIds, EmployeeStatus.ACTIVE.name()).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Employee> findAllActive() {
+        return springDataEmployeeRepository.findByStatus(EmployeeStatus.ACTIVE.name()).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<Employee> findAllPaged(int size, int offset) {
         return springDataEmployeeRepository.findAllPaged(size, offset).stream()
                 .map(mapper::toDomain)

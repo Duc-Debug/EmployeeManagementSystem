@@ -123,4 +123,45 @@ public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabili
         }
         return total.setScale(2, RoundingMode.HALF_UP);
     }
+
+    @Override
+    public Map<Long, Map<YearWeek, BigDecimal>> loadApprovedLeaveHoursForEmployeesAndWeeks(
+            List<Long> employeeIds, List<YearWeek> targetWeeks) {
+        if (employeeIds == null || employeeIds.isEmpty() || targetWeeks == null || targetWeeks.isEmpty()) {
+            return Map.of();
+        }
+
+        LocalDate minStart = targetWeeks.stream().map(YearWeek::getStartDate).min(LocalDate::compareTo).orElse(LocalDate.now());
+        LocalDate maxEnd = targetWeeks.stream().map(YearWeek::getEndDate).max(LocalDate::compareTo).orElse(LocalDate.now());
+
+        List<LeaveRequestJpaEntity> allLeaves = leaveRequestRepository.findApprovedLeavesForEmployeesBetween(
+                employeeIds, minStart, maxEnd);
+
+        Map<Long, List<LeaveRequestJpaEntity>> leavesByEmp = allLeaves.stream()
+                .collect(Collectors.groupingBy(LeaveRequestJpaEntity::getEmployeeId));
+
+        Map<Long, Map<YearWeek, BigDecimal>> resultMap = new java.util.HashMap<>();
+        for (Long empId : employeeIds) {
+            List<LeaveRequestJpaEntity> empLeaves = leavesByEmp.getOrDefault(empId, List.of());
+            Map<YearWeek, BigDecimal> weekMap = new java.util.HashMap<>();
+
+            for (YearWeek yw : targetWeeks) {
+                BigDecimal weekTotal = BigDecimal.ZERO;
+                for (LeaveRequestJpaEntity leave : empLeaves) {
+                    BigDecimal allocated = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                            leave.getStartDate(),
+                            leave.getEndDate(),
+                            leave.getHoursDeducted(),
+                            yw.getStartDate(),
+                            yw.getEndDate()
+                    );
+                    weekTotal = weekTotal.add(allocated);
+                }
+                weekMap.put(yw, weekTotal.setScale(2, RoundingMode.HALF_UP));
+            }
+            resultMap.put(empId, weekMap);
+        }
+
+        return resultMap;
+    }
 }
