@@ -26,8 +26,9 @@ public interface SpringDataLeaveBalanceRepository extends JpaRepository<Employee
 
     @Modifying
     @Query(value = "INSERT INTO employee_leave_balances (employee_id, year_number, entitled_days, carried_over_days, created_at, updated_at) " +
-            "VALUES (:employeeId, :yearNumber, :entitledDays, :carriedOverDays, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
-            "ON CONFLICT (employee_id, year_number) DO NOTHING", nativeQuery = true)
+            "SELECT :employeeId, :yearNumber, :entitledDays, :carriedOverDays, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP " +
+            "WHERE NOT EXISTS (SELECT 1 FROM employee_leave_balances WHERE employee_id = :employeeId AND year_number = :yearNumber)",
+            nativeQuery = true)
     int insertIfNotExists(
             @Param("employeeId") Long employeeId,
             @Param("yearNumber") int yearNumber,

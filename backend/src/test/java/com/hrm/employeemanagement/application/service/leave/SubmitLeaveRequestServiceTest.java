@@ -107,7 +107,7 @@ class SubmitLeaveRequestServiceTest {
         when(authorizationService.require(PermissionCode.LEAVE_REQUEST_CREATE)).thenReturn(userId);
         when(loadEmployeePort.findByUserId(new UserId(userId))).thenReturn(Optional.of(createMockEmployee(empId, userId)));
         when(loadLeaveRequestPort.existsOverlappingLeave(empId, start, end)).thenReturn(false);
-        when(loadLeaveBalancePort.findOrCreateDefaultWithLock(empId, 2026)).thenReturn(LeaveBalance.createDefault(empId, 2026));
+        when(loadLeaveBalancePort.findOrCreateDefault(empId, 2026)).thenReturn(LeaveBalance.createDefault(empId, 2026));
         when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(invocation -> {
             LeaveRequest req = invocation.getArgument(0);
             return new LeaveRequest(
@@ -209,7 +209,7 @@ class SubmitLeaveRequestServiceTest {
 
         // Chỉ còn 3 ngày phép (Được cấp 12, đã nghỉ 9)
         LeaveBalance balance = new LeaveBalance(1L, empId, 2026, new BigDecimal("12.00"), BigDecimal.ZERO);
-        when(loadLeaveBalancePort.findOrCreateDefaultWithLock(empId, 2026)).thenReturn(balance);
+        when(loadLeaveBalancePort.findOrCreateDefault(empId, 2026)).thenReturn(balance);
         LeaveRequest approvedReq = new LeaveRequest(
                 1L, empId, LeaveType.ANNUAL,
                 LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 15),
