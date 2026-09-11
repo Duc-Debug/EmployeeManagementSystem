@@ -99,8 +99,8 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
         // 1. TC-03: Kiểm tra quyền phê duyệt đơn nghỉ phép
         Long currentUserId = authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE);
 
-        // 2. Tìm đơn xin nghỉ
-        LeaveRequest leaveRequest = loadLeaveRequestPort.findById(leaveRequestId)
+        // 2. Tìm đơn xin nghỉ kèm khóa pessimistic lock (FOR UPDATE) để đảm bảo atomic state transition
+        LeaveRequest leaveRequest = loadLeaveRequestPort.findByIdForUpdate(leaveRequestId)
                 .orElseThrow(() -> new LeaveRequestNotFoundException("Không tìm thấy đơn xin nghỉ phép với mã: " + leaveRequestId));
 
         // 3. Kiểm tra Data Scope & chống IDOR

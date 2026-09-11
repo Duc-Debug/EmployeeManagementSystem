@@ -83,7 +83,7 @@ class LeaveApprovalApplicationServiceTest {
     void approveLeaveRequest_Success() {
         when(authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE)).thenReturn(99L);
         LeaveRequest sample = createSamplePendingRequest();
-        when(loadLeaveRequestPort.findById(1L)).thenReturn(Optional.of(sample));
+        when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(sample));
         when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LeaveRequestResult result = approveService.approveLeaveRequest(1L, "Đã duyệt");
@@ -111,7 +111,7 @@ class LeaveApprovalApplicationServiceTest {
     void rejectLeaveRequest_Success() {
         when(authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE)).thenReturn(99L);
         LeaveRequest sample = createSamplePendingRequest();
-        when(loadLeaveRequestPort.findById(1L)).thenReturn(Optional.of(sample));
+        when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(sample));
         when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LeaveRequestResult result = rejectService.rejectLeaveRequest(1L, "Trùng lịch release sản phẩm");

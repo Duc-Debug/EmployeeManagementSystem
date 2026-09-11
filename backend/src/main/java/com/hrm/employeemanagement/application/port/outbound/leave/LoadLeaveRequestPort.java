@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface LoadLeaveRequestPort {
     Optional<LeaveRequest> findById(Long id);
 
+    Optional<LeaveRequest> findByIdForUpdate(Long id);
+
     List<LeaveRequest> findByEmployeeId(Long employeeId);
 
     /**
