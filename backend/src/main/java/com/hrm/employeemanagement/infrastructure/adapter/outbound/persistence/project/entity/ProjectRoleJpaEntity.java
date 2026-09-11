@@ -20,23 +20,38 @@ public class ProjectRoleJpaEntity {
     @Column(name = "code", nullable = false, unique = true, length = 50)
     private String code;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
 
     @Column(name = "description", length = 255)
     private String description;
 
+    @Column(name = "skill_group_id", nullable = false)
+    private Long skillGroupId;
+
+    @Column(name = "status", nullable = false, length = 20)
+    private String status;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", insertable = false, updatable = false)
+    private LocalDateTime updatedAt;
 
     public ProjectRoleJpaEntity() {
     }
 
     public ProjectRoleJpaEntity(Long id, String code, String name, String description) {
+        this(id, code, name, description, null, "ACTIVE");
+    }
+
+    public ProjectRoleJpaEntity(Long id, String code, String name, String description, Long skillGroupId, String status) {
         this.id = id;
         this.code = code;
         this.name = name;
         this.description = description;
+        this.skillGroupId = skillGroupId;
+        this.status = status != null ? status : "ACTIVE";
     }
 
     public Long getId() {
@@ -77,5 +92,29 @@ public class ProjectRoleJpaEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getSkillGroupId() {
+        return skillGroupId;
+    }
+
+    public void setSkillGroupId(Long skillGroupId) {
+        this.skillGroupId = skillGroupId;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

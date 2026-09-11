@@ -111,6 +111,76 @@ export async function getEmployeeLeaveBalance(
 }
 
 /**
+ * NCL-05-CN-006: Lịch nghỉ của bộ phận theo tháng
+ */
+export interface LeaveCalendarItemDto {
+  leaveRequestId: number;
+  employeeId: number;
+  employeeCode: string;
+  fullName: string;
+  startDate: string;
+  endDate: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  hoursDeducted: number;
+  leaveType: "ANNUAL" | "UNPAID" | "SICK" | "PERSONAL";
+  reason?: string;
+}
+
+export interface DailyLeaveSummaryDto {
+  date: string;
+  dayOfWeek: string;
+  totalOnLeave: number;
+  approvedCount: number;
+  pendingCount: number;
+  isWarning: boolean;
+  warningMessage?: string | null;
+  isWorkingDay: boolean;
+  isHoliday: boolean;
+  totalLeaveHours: number;
+  leaveItems: LeaveCalendarItemDto[];
+}
+
+export interface DepartmentMonthlyLeaveCalendarDto {
+  orgUnitId: number;
+  orgUnitCode: string;
+  orgUnitName: string;
+  year: number;
+  month: number;
+  totalDepartmentEmployees: number;
+  warningThresholdPercentage: number;
+  totalLeaveRequests: number;
+  warningDaysCount: number;
+  leaveItems: LeaveCalendarItemDto[];
+  dailySummaries: DailyLeaveSummaryDto[];
+}
+
+export interface GetDepartmentMonthlyLeaveCalendarParams {
+  orgUnitId: number;
+  year?: number;
+  month?: number;
+  warningThreshold?: number;
+  includeSubUnits?: boolean;
+}
+
+/**
+ * Tra cứu lịch nghỉ của bộ phận theo tháng (NCL-05-CN-006 & TC-01, TC-02, TC-03)
+ */
+export async function getDepartmentMonthlyLeaveCalendar(
+  params: GetDepartmentMonthlyLeaveCalendarParams
+): Promise<DepartmentMonthlyLeaveCalendarDto> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("orgUnitId", String(params.orgUnitId));
+  if (params.year != null) searchParams.set("year", String(params.year));
+  if (params.month != null) searchParams.set("month", String(params.month));
+  if (params.warningThreshold != null) searchParams.set("warningThreshold", String(params.warningThreshold));
+  if (params.includeSubUnits != null) searchParams.set("includeSubUnits", String(params.includeSubUnits));
+
+  return apiRequest<DepartmentMonthlyLeaveCalendarDto>(
+    `/leave-requests/department-calendar?${searchParams.toString()}`
+  );
+}
+
+/**
  * NCL-05-CN-003: Lấy danh sách đơn chờ duyệt (RM / HR)
  */
 export async function getPendingLeaveRequests(): Promise<LeaveRequestDto[]> {

@@ -6,5 +6,9 @@ import com.hrm.employeemanagement.application.dto.project.demand.ProjectRoleResu
 
 public interface GetProjectRolesUseCase {
 
-    List<ProjectRoleResult> getProjectRoles();
+    List<ProjectRoleResult> getProjectRoles(boolean includeInactive);
+
+    default List<ProjectRoleResult> getProjectRoles() {
+        return getProjectRoles(false);
+    }
 }
