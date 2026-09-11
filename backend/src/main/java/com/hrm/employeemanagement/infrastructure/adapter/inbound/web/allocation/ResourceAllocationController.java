@@ -27,10 +27,35 @@ public class ResourceAllocationController {
 
     private final AllocateResourceUseCase allocateResourceUseCase;
     private final SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase;
+    private final com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase;
 
-    public ResourceAllocationController(AllocateResourceUseCase allocateResourceUseCase, SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase) {
+    public ResourceAllocationController(
+            AllocateResourceUseCase allocateResourceUseCase,
+            SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase,
+            com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase) {
         this.allocateResourceUseCase = allocateResourceUseCase;
         this.searchResourceUseCase = searchResourceUseCase;
+        this.getCompanyWeeklyCapacityUseCase = getCompanyWeeklyCapacityUseCase;
+    }
+
+    /**
+     * NCL-06-CN-002: Xem bảng năng lực theo tuần của công ty / bộ phận.
+     */
+    @GetMapping("/weekly-matrix")
+    public ResponseEntity<ApiResponse<com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult>> getWeeklyCapacityMatrix(
+            @RequestParam(required = false) Long orgUnitId,
+            @RequestParam(required = false) Integer fromYear,
+            @RequestParam(required = false) Integer fromWeek,
+            @RequestParam(required = false, defaultValue = "8") Integer durationWeeks) {
+
+        com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery query =
+                new com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery(
+                        orgUnitId, fromYear, fromWeek, durationWeeks);
+
+        com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult result =
+                getCompanyWeeklyCapacityUseCase.getWeeklyCapacityMatrix(query);
+
+        return ResponseEntity.ok(ApiResponse.success("Lấy bảng năng lực theo tuần thành công", result));
     }
 
     /**
