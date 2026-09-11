@@ -38,8 +38,13 @@ export default function Dashboard() {
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
         if (path.includes("capacity") || path.includes("nang-luc")) return "capacity";
-        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
-        if (path.includes("roles") || path.includes("vai-tro") || path.includes("project-role")) return "roles";
+        if (
+            path.includes("roles") ||
+            path.includes("vai-tro") ||
+            path.includes("project-role")
+        ) {
+            return "roles";
+        }
         if (path.includes("access") || path.includes("phan-quyen")) return "access";
         if (path.includes("working-calendar") || path.includes("lich-lam-viec") || path.includes("ngay-le") || path.includes("calendar-config")) return "working-calendar";
         if (path.includes("availability") || path.includes("kha-dung") || path.includes("gio-tuan")) return "availability";
