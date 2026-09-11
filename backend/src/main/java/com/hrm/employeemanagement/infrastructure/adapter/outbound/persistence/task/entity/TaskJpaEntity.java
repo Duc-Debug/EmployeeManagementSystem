@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.entity;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.hrm.employeemanagement.domain.task.TaskStatus;
@@ -64,6 +65,18 @@ public class TaskJpaEntity {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
+    @Column(name = "actual_end_date")
+    private LocalDate actualEndDate;
+
+    @Column(name = "slack_days", nullable = false)
+    private Integer slackDays;
+
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -94,6 +107,10 @@ public class TaskJpaEntity {
             BigDecimal budgetHours,
             TaskStatus status,
             Integer sortOrder,
+            LocalDate startDate,
+            LocalDate dueDate,
+            LocalDate actualEndDate,
+            Integer slackDays,
             Long createdBy,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
@@ -111,10 +128,56 @@ public class TaskJpaEntity {
         this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
+        this.startDate = startDate;
+        this.dueDate = dueDate;
+        this.actualEndDate = actualEndDate;
+        this.slackDays = slackDays != null ? slackDays : 0;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
+    }
+
+    public TaskJpaEntity(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                null,
+                null,
+                null,
+                0,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version);
     }
 
     public TaskJpaEntity(
@@ -176,6 +239,9 @@ public class TaskJpaEntity {
         }
         if (sortOrder == null) {
             sortOrder = 0;
+        }
+        if (slackDays == null) {
+            slackDays = 0;
         }
     }
 
@@ -287,6 +353,38 @@ public class TaskJpaEntity {
 
     public void setSortOrder(Integer sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    public LocalDate getActualEndDate() {
+        return actualEndDate;
+    }
+
+    public void setActualEndDate(LocalDate actualEndDate) {
+        this.actualEndDate = actualEndDate;
+    }
+
+    public Integer getSlackDays() {
+        return slackDays;
+    }
+
+    public void setSlackDays(Integer slackDays) {
+        this.slackDays = slackDays;
     }
 
     public Long getCreatedBy() {
