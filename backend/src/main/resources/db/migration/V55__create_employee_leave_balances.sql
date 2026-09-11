@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V53: QUAN LY QUY PHEP NAM CUA NHAN SU (NCL-05-CN-005)
+-- FLYWAY MIGRATION V55: QUAN LY QUY PHEP NAM CUA NHAN SU (NCL-05-CN-005)
 -- ============================================================
 
 -- 1. Tạo bảng employee_leave_balances để lưu số ngày phép năm được hưởng của từng nhân sự
