@@ -25,6 +25,7 @@ class LeaveThresholdPolicyTest {
         assertTrue(msg.contains("4/5"));
         assertTrue(msg.contains("80.0%"));
         assertTrue(msg.contains("50.0%"));
+        assertTrue(msg.contains("đạt hoặc vượt ngưỡng quy định"));
     }
 
     @Test
@@ -50,6 +51,33 @@ class LeaveThresholdPolicyTest {
 
         boolean isWarning = LeaveThresholdPolicy.isWarningExceeded(totalEmployees, onLeaveCount, threshold);
         assertTrue(isWarning, "Bằng đúng 50% phải kích hoạt cảnh báo");
+    }
+
+    @Test
+    @DisplayName("Boundary test: 40% (< 50%), 50% (== 50%), 60% (> 50%) với ngưỡng 50%")
+    void boundaryTests_atBelowAndAboveFiftyPercent() {
+        int total = 10;
+        Double threshold = 0.50;
+
+        // 4/10 = 40% (dưới ngưỡng) -> Không cảnh báo
+        assertFalse(LeaveThresholdPolicy.isWarningExceeded(total, 4, threshold));
+        assertNull(LeaveThresholdPolicy.buildWarningMessage(LocalDate.of(2026, 9, 15), total, 4, threshold));
+
+        // 5/10 = 50% (đạt đúng ngưỡng) -> Kích hoạt cảnh báo
+        assertTrue(LeaveThresholdPolicy.isWarningExceeded(total, 5, threshold));
+        String msg50 = LeaveThresholdPolicy.buildWarningMessage(LocalDate.of(2026, 9, 15), total, 5, threshold);
+        assertNotNull(msg50);
+        assertTrue(msg50.contains("5/10"));
+        assertTrue(msg50.contains("50.0%"));
+        assertTrue(msg50.contains("đạt hoặc vượt ngưỡng quy định (50.0%)"));
+
+        // 6/10 = 60% (vượt trên ngưỡng) -> Kích hoạt cảnh báo
+        assertTrue(LeaveThresholdPolicy.isWarningExceeded(total, 6, threshold));
+        String msg60 = LeaveThresholdPolicy.buildWarningMessage(LocalDate.of(2026, 9, 15), total, 6, threshold);
+        assertNotNull(msg60);
+        assertTrue(msg60.contains("6/10"));
+        assertTrue(msg60.contains("60.0%"));
+        assertTrue(msg60.contains("đạt hoặc vượt ngưỡng quy định (50.0%)"));
     }
 
     @Test

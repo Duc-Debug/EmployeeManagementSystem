@@ -39,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -301,15 +302,53 @@ class DepartmentMonthlyLeaveCalendarServiceTest {
                 createEmployee(2L, "EMP-02", "B"),
                 createEmployee(3L, "EMP-03", "C")
         );
-        when(loadEmployeePort.findByOrgUnitBranch(10L, 1000, 0)).thenReturn(branchEmployees);
+        when(loadEmployeePort.findByOrgUnitBranch(10L, 500, 0)).thenReturn(branchEmployees);
         when(loadDepartmentMonthlyLeavePort.findLeavesForEmployees(anyList(), any(), any(), anyMap())).thenReturn(List.of());
 
         DepartmentMonthlyLeaveCalendarResult result = service.execute(query);
 
         assertNotNull(result);
         assertEquals(3, result.totalDepartmentEmployees());
-        verify(loadEmployeePort).findByOrgUnitBranch(10L, 1000, 0);
+        verify(loadEmployeePort).findByOrgUnitBranch(10L, 500, 0);
         verify(loadEmployeePort, never()).findActiveByOrgUnitId(anyLong());
+    }
+
+    @Test
+    @DisplayName("Review Issue 1: includeSubUnits = true với > 1000 nhân sự -> Phân trang qua nhiều trang (500, 500, 50) lấy đủ 1050 người")
+    void tc_includeSubUnits_withOver1000Employees_paginatesCorrectly() {
+        GetDepartmentMonthlyLeaveCalendarQuery query = new GetDepartmentMonthlyLeaveCalendarQuery(10L, 2026, 9, 0.50, true);
+
+        when(authorizationService.require(PermissionCode.DEPARTMENT_LEAVE_READ)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(department));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        // Giả lập 1050 nhân viên: Trang 1 (500), Trang 2 (500), Trang 3 (50)
+        List<Employee> page1 = new ArrayList<>(500);
+        for (long i = 1; i <= 500; i++) {
+            page1.add(createEmployee(i, "EMP-" + i, "Name " + i));
+        }
+        List<Employee> page2 = new ArrayList<>(500);
+        for (long i = 501; i <= 1000; i++) {
+            page2.add(createEmployee(i, "EMP-" + i, "Name " + i));
+        }
+        List<Employee> page3 = new ArrayList<>(50);
+        for (long i = 1001; i <= 1050; i++) {
+            page3.add(createEmployee(i, "EMP-" + i, "Name " + i));
+        }
+
+        when(loadEmployeePort.findByOrgUnitBranch(10L, 500, 0)).thenReturn(page1);
+        when(loadEmployeePort.findByOrgUnitBranch(10L, 500, 500)).thenReturn(page2);
+        when(loadEmployeePort.findByOrgUnitBranch(10L, 500, 1000)).thenReturn(page3);
+        when(loadDepartmentMonthlyLeavePort.findLeavesForEmployees(anyList(), any(), any(), anyMap())).thenReturn(List.of());
+
+        DepartmentMonthlyLeaveCalendarResult result = service.execute(query);
+
+        assertNotNull(result);
+        assertEquals(1050, result.totalDepartmentEmployees(), "Phải lấy đủ toàn bộ 1050 nhân sự từ 3 trang");
+        verify(loadEmployeePort).findByOrgUnitBranch(10L, 500, 0);
+        verify(loadEmployeePort).findByOrgUnitBranch(10L, 500, 500);
+        verify(loadEmployeePort).findByOrgUnitBranch(10L, 500, 1000);
     }
 
     private Employee createEmployee(Long id, String code, String name) {

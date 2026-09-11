@@ -14,20 +14,21 @@ public final class LeaveThresholdPolicy {
     }
 
     /**
-     * Kiểm tra xem ngày có vượt ngưỡng cảnh báo số người nghỉ hay không.
+     * Kiểm tra xem ngày có cảnh báo số người nghỉ hay không (đạt hoặc vượt ngưỡng).
      *
      * @param totalEmployeesInDept Tổng số nhân sự đang hoạt động trong bộ phận.
      * @param onLeaveCount          Số lượng nhân sự có lịch nghỉ (APPROVED hoặc PENDING) trong ngày đó.
      * @param thresholdRate         Tỷ lệ ngưỡng cảnh báo (0.0 < thresholdRate <= 1.0). Mặc định 0.5 (50%).
-     * @return true nếu số người nghỉ vượt hoặc bằng ngưỡng quy định.
+     * @return true nếu số người nghỉ đạt hoặc vượt ngưỡng quy định (currentRatio >= threshold).
      */
     public static boolean isWarningExceeded(int totalEmployeesInDept, int onLeaveCount, Double thresholdRate) {
         return isWarningExceeded(totalEmployeesInDept, onLeaveCount, thresholdRate, true);
     }
 
     /**
-     * Kiểm tra xem ngày có vượt ngưỡng cảnh báo số người nghỉ hay không, kèm điều kiện là ngày làm việc công ty.
+     * Kiểm tra xem ngày có cảnh báo số người nghỉ hay không (đạt hoặc vượt ngưỡng), kèm điều kiện là ngày làm việc công ty.
      * Bỏ qua cảnh báo nếu là ngày nghỉ cuối tuần (Thứ 7/CN) hoặc ngày nghỉ lễ (NCL-05-CN-006 Cải tiến P1).
+     * Quy tắc biên: Kích hoạt khi currentRatio >= threshold (Ví dụ 5/10 = 50% với ngưỡng 50%).
      */
     public static boolean isWarningExceeded(int totalEmployeesInDept, int onLeaveCount, Double thresholdRate, boolean isCompanyWorkingDay) {
         if (!isCompanyWorkingDay) {
@@ -45,7 +46,7 @@ public final class LeaveThresholdPolicy {
     }
 
     /**
-     * Tạo thông điệp cảnh báo định dạng rõ ràng khi vượt ngưỡng.
+     * Tạo thông điệp cảnh báo định dạng rõ ràng khi đạt hoặc vượt ngưỡng.
      */
     public static String buildWarningMessage(LocalDate date, int totalEmployeesInDept, int onLeaveCount, Double thresholdRate) {
         return buildWarningMessage(date, totalEmployeesInDept, onLeaveCount, thresholdRate, true);
@@ -63,7 +64,7 @@ public final class LeaveThresholdPolicy {
         double thresholdPercentage = threshold * 100.0;
 
         return String.format(
-                "Cảnh báo: Có %d/%d nhân sự (%s) nghỉ ngày %s, vượt ngưỡng quy định (%s)",
+                "Cảnh báo: Có %d/%d nhân sự (%s) nghỉ ngày %s, đạt hoặc vượt ngưỡng quy định (%s)",
                 onLeaveCount,
                 totalEmployeesInDept,
                 String.format("%.1f%%", currentPercentage),

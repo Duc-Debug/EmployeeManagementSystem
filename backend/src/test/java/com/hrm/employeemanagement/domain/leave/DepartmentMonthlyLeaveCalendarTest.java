@@ -123,12 +123,13 @@ class DepartmentMonthlyLeaveCalendarTest {
         // Ngày 2026-09-07 là Thứ Hai (ngày làm việc)
         LocalDate mondaySep7 = LocalDate.of(2026, 9, 7);
 
-        // 4 người nghỉ từ 01/09 đến 08/09 (bao gồm cả ngày 2/9 và ngày 6/9)
+        // 4 người nghỉ từ 01/09 đến 08/09 (có 5 ngày làm việc thực tế: 1, 3, 4, 7, 8; ngày 2 là lễ, 5-6 là T7/CN)
+        // Số giờ tổng: EMP-01: 40h (8h/ngày), EMP-02: 20h (4h/ngày), EMP-03: 40h (8h/ngày), EMP-04: 40h (8h/ngày)
         List<LeaveCalendarItem> leaves = List.of(
-                new LeaveCalendarItem(1L, 1L, "EMP-01", "A", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.APPROVED, new BigDecimal("8.00"), "ANNUAL", "Nghỉ"),
-                new LeaveCalendarItem(2L, 2L, "EMP-02", "B", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.APPROVED, new BigDecimal("4.00"), "ANNUAL", "Nghỉ"),
-                new LeaveCalendarItem(3L, 3L, "EMP-03", "C", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.PENDING, new BigDecimal("8.00"), "ANNUAL", "Nghỉ"),
-                new LeaveCalendarItem(4L, 4L, "EMP-04", "D", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.PENDING, new BigDecimal("8.00"), "ANNUAL", "Nghỉ")
+                new LeaveCalendarItem(1L, 1L, "EMP-01", "A", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.APPROVED, new BigDecimal("40.00"), "ANNUAL", "Nghỉ"),
+                new LeaveCalendarItem(2L, 2L, "EMP-02", "B", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.APPROVED, new BigDecimal("20.00"), "ANNUAL", "Nghỉ"),
+                new LeaveCalendarItem(3L, 3L, "EMP-03", "C", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.PENDING, new BigDecimal("40.00"), "ANNUAL", "Nghỉ"),
+                new LeaveCalendarItem(4L, 4L, "EMP-04", "D", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 8), LeaveStatus.PENDING, new BigDecimal("40.00"), "ANNUAL", "Nghỉ")
         );
 
         com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar defaultCalendar =
@@ -154,19 +155,62 @@ class DepartmentMonthlyLeaveCalendarTest {
         assertTrue(sep2.isHoliday(), "Ngày 2/9 phải là ngày lễ");
         assertFalse(sep2.isCompanyWorkingDay(), "Ngày lễ không phải là ngày làm việc của công ty");
         assertFalse(sep2.isWarning(), "Ngày lễ không được cảnh báo dù 4/5 người nghỉ");
-        assertEquals(new BigDecimal("28.00"), sep2.getTotalLeaveHours(), "Tổng giờ nghỉ tích lũy trong ngày là 8+4+8+8=28");
+        assertEquals(BigDecimal.ZERO, sep2.getTotalLeaveHours(), "Ngày lễ công ty không trừ giờ nghỉ làm việc (0h)");
 
         // 2. Kiểm tra ngày Chủ Nhật (06/09)
         DailyLeaveSummary sep6 = calendar.getDailySummaries().get(5); // 6/9
         assertEquals(sundaySep6, sep6.getDate());
         assertFalse(sep6.isCompanyWorkingDay(), "Chủ nhật không phải ngày làm việc");
         assertFalse(sep6.isWarning(), "Chủ nhật không được kích hoạt cảnh báo");
+        assertEquals(BigDecimal.ZERO, sep6.getTotalLeaveHours(), "Ngày cuối tuần không trừ giờ làm việc (0h)");
 
         // 3. Kiểm tra ngày Thứ Hai (07/09)
         DailyLeaveSummary sep7 = calendar.getDailySummaries().get(6); // 7/9
         assertEquals(mondaySep7, sep7.getDate());
         assertTrue(sep7.isCompanyWorkingDay(), "Thứ Hai là ngày làm việc");
         assertTrue(sep7.isWarning(), "Thứ Hai có 4/5 người nghỉ -> Bắt buộc phải cảnh báo");
-        assertEquals(new BigDecimal("28.00"), sep7.getTotalLeaveHours());
+        assertEquals(new BigDecimal("28.00"), sep7.getTotalLeaveHours(), "Tổng giờ nghỉ tích lũy ngày 7/9: 8+4+8+8=28h");
+    }
+
+    @Test
+    @DisplayName("Review Issue 2: Đơn nghỉ 3 ngày (24h) phân bổ đúng 8h/ngày làm việc, không cộng dồn thành 72h")
+    void multiDayLeave_distributesDailyHoursAccurately_noDoubleCounting() {
+        Long orgUnitId = 10L;
+        String orgUnitCode = "DEV";
+        String orgUnitName = "Phòng Phát triển";
+        int year = 2026;
+        int month = 9;
+        int totalEmployees = 5;
+
+        // Đơn nghỉ 3 ngày làm việc: 01/09 (Tue), 02/09 (Wed), 03/09 (Thu), tổng hoursDeducted = 24.00h
+        List<LeaveCalendarItem> leaves = List.of(
+                new LeaveCalendarItem(
+                        1L, 101L, "DEV-01", "Nguyễn Văn A",
+                        LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 3),
+                        LeaveStatus.APPROVED, new BigDecimal("24.00"), "ANNUAL", "Nghỉ phép năm"
+                )
+        );
+
+        DepartmentMonthlyLeaveCalendar calendar = DepartmentMonthlyLeaveCalendar.calculate(
+                orgUnitId, orgUnitCode, orgUnitName, year, month, totalEmployees, 0.50, leaves
+        );
+
+        // Ngày 1/9 (Thứ Ba - làm việc): đúng 8.00h
+        DailyLeaveSummary sep1 = calendar.getDailySummaries().get(0);
+        assertEquals(new BigDecimal("8.00"), sep1.getTotalLeaveHours(), "Ngày 1/9 chỉ được tính 8h thay vì 24h");
+
+        // Ngày 2/9 (Thứ Tư - làm việc): đúng 8.00h
+        DailyLeaveSummary sep2 = calendar.getDailySummaries().get(1);
+        assertEquals(new BigDecimal("8.00"), sep2.getTotalLeaveHours(), "Ngày 2/9 chỉ được tính 8h thay vì 24h");
+
+        // Ngày 3/9 (Thứ Năm - làm việc): đúng 8.00h
+        DailyLeaveSummary sep3 = calendar.getDailySummaries().get(2);
+        assertEquals(new BigDecimal("8.00"), sep3.getTotalLeaveHours(), "Ngày 3/9 chỉ được tính 8h thay vì 24h");
+
+        // Tổng cộng cả 3 ngày đúng 24h, không phải 72h!
+        BigDecimal totalAcrossThreeDays = sep1.getTotalLeaveHours()
+                .add(sep2.getTotalLeaveHours())
+                .add(sep3.getTotalLeaveHours());
+        assertEquals(new BigDecimal("24.00"), totalAcrossThreeDays, "Tổng giờ nghỉ cả 3 ngày phải đúng 24.00h");
     }
 }

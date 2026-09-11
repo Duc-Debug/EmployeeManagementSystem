@@ -30,6 +30,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -111,7 +112,21 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
         // 5. Lấy danh sách nhân viên đang hoạt động trong bộ phận (hoặc toàn bộ nhánh con nếu includeSubUnits = true)
         List<Employee> activeEmployees;
         if (Boolean.TRUE.equals(query.includeSubUnits())) {
-            activeEmployees = loadEmployeePort.findByOrgUnitBranch(query.orgUnitId(), 1000, 0).stream()
+            List<Employee> branchEmployees = new ArrayList<>();
+            int pageSize = 500;
+            int offset = 0;
+            while (true) {
+                List<Employee> page = loadEmployeePort.findByOrgUnitBranch(query.orgUnitId(), pageSize, offset);
+                if (page == null || page.isEmpty()) {
+                    break;
+                }
+                branchEmployees.addAll(page);
+                if (page.size() < pageSize) {
+                    break;
+                }
+                offset += pageSize;
+            }
+            activeEmployees = branchEmployees.stream()
                     .filter(e -> e.getStatus() == EmployeeStatus.ACTIVE)
                     .toList();
         } else {

@@ -105,6 +105,25 @@ public class DepartmentMonthlyLeaveCalendar {
                 ? customThresholdRate
                 : LeaveThresholdPolicy.DEFAULT_WARNING_THRESHOLD_PERCENTAGE;
 
+        // Phân bổ chính xác số giờ nghỉ theo từng ngày làm việc thực tế cho mỗi đơn nghỉ (Review Issue 2)
+        java.util.Map<LeaveCalendarItem, java.math.BigDecimal> dailyHoursByItem = new java.util.HashMap<>();
+        for (LeaveCalendarItem item : items) {
+            java.math.BigDecimal totalHours = item.getHoursDeducted() != null ? item.getHoursDeducted() : java.math.BigDecimal.ZERO;
+            int reqWorkingDays = LeaveRequestPolicy.calculateWorkingDays(
+                    item.getStartDate(),
+                    item.getEndDate(),
+                    companyCalendar,
+                    holidayDates
+            );
+            java.math.BigDecimal dailyHours;
+            if (reqWorkingDays > 0) {
+                dailyHours = totalHours.divide(java.math.BigDecimal.valueOf(reqWorkingDays), 2, java.math.RoundingMode.HALF_UP);
+            } else {
+                dailyHours = totalHours;
+            }
+            dailyHoursByItem.put(item, dailyHours);
+        }
+
         for (int day = 1; day <= daysInMonth; day++) {
             LocalDate currentDate = yearMonth.atDay(day);
 
@@ -113,6 +132,14 @@ public class DepartmentMonthlyLeaveCalendar {
             int approvedCount = 0;
             int pendingCount = 0;
             java.math.BigDecimal totalLeaveHoursInDay = java.math.BigDecimal.ZERO;
+
+            // Nhận diện ngày làm việc công ty & ngày lễ
+            boolean isWorkingDay = (companyCalendar == null)
+                    ? (currentDate.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && currentDate.getDayOfWeek() != java.time.DayOfWeek.SUNDAY)
+                    : companyCalendar.isWorkingDay(currentDate.getDayOfWeek());
+
+            boolean isHoliday = (holidayDates != null) && holidayDates.contains(currentDate);
+            boolean isCompanyWorkingDay = isWorkingDay && !isHoliday;
 
             for (LeaveCalendarItem item : items) {
                 if (item.coversDate(currentDate)) {
@@ -123,21 +150,15 @@ public class DepartmentMonthlyLeaveCalendar {
                     } else if (item.getStatus() == LeaveStatus.PENDING) {
                         pendingCount++;
                     }
-                    if (item.getHoursDeducted() != null) {
-                        totalLeaveHoursInDay = totalLeaveHoursInDay.add(item.getHoursDeducted());
+                    // Chỉ cộng giờ nghỉ vào ngày làm việc thực tế của công ty (không tính vào T7/CN/Lễ)
+                    if (isCompanyWorkingDay) {
+                        java.math.BigDecimal dailyHours = dailyHoursByItem.getOrDefault(item, java.math.BigDecimal.ZERO);
+                        totalLeaveHoursInDay = totalLeaveHoursInDay.add(dailyHours);
                     }
                 }
             }
 
             int distinctOnLeave = employeesOnLeave.size();
-
-            // Nhận diện ngày làm việc công ty & ngày lễ
-            boolean isWorkingDay = (companyCalendar == null)
-                    ? (currentDate.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && currentDate.getDayOfWeek() != java.time.DayOfWeek.SUNDAY)
-                    : companyCalendar.isWorkingDay(currentDate.getDayOfWeek());
-
-            boolean isHoliday = (holidayDates != null) && holidayDates.contains(currentDate);
-            boolean isCompanyWorkingDay = isWorkingDay && !isHoliday;
 
             // Bỏ qua cảnh báo nếu là ngày nghỉ cuối tuần hoặc ngày lễ (P1)
             boolean isWarning = LeaveThresholdPolicy.isWarningExceeded(
