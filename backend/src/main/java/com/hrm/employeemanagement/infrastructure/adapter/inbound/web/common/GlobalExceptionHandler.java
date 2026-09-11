@@ -335,6 +335,26 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
+    // 14.3. Handle InvalidLeaveDateRangeException (NCL-05-CN-002 TC-03)
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidLeaveDateRange(com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_LEAVE_DATE_RANGE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 14.4. Handle DuplicateLeaveRequestException (NCL-05-CN-002 TC-02)
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateLeaveRequest(com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_LEAVE_REQUEST",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
