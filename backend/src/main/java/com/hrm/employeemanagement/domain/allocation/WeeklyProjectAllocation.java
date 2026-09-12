@@ -18,25 +18,39 @@ public class WeeklyProjectAllocation {
     private YearWeek yearWeek;
     private BigDecimal allocatedHours;
     private BigDecimal allocationPercentage;
+    private boolean isOverloaded;
+    private String overloadReason;
+    private Long overloadApprovedBy;
+    private java.time.LocalDateTime overloadApprovedAt;
     private Long version;
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, null, 0L);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, 0L);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, null, version);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
+        this(id, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
         this.id = id;
         this.employeeId = Objects.requireNonNull(employeeId, "ID nhân sự không được null");
         this.projectId = Objects.requireNonNull(projectId, "ID dự án không được null");
         this.yearWeek = Objects.requireNonNull(yearWeek, "Tuần/Năm (YearWeek) không được null");
         setAllocatedHours(allocatedHours);
         setAllocationPercentage(allocationPercentage);
+        this.isOverloaded = isOverloaded;
+        this.overloadReason = overloadReason;
+        this.overloadApprovedBy = overloadApprovedBy;
+        this.overloadApprovedAt = overloadApprovedAt;
         this.version = version != null ? version : 0L;
     }
 
@@ -134,5 +148,40 @@ public class WeeklyProjectAllocation {
 
     public Long getVersion() {
         return version;
+    }
+
+    public void markOverloaded(String reason, Long approvedBy, java.time.LocalDateTime approvedAt) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Lý do chấp nhận quá tải không được để trống theo QTN-11");
+        }
+        Objects.requireNonNull(approvedBy, "Người phê duyệt vượt tải không được để trống theo QTN-11");
+        Objects.requireNonNull(approvedAt, "Thời điểm phê duyệt vượt tải không được để trống theo QTN-11");
+        this.isOverloaded = true;
+        this.overloadReason = reason.trim();
+        this.overloadApprovedBy = approvedBy;
+        this.overloadApprovedAt = approvedAt;
+    }
+
+    public void clearOverload() {
+        this.isOverloaded = false;
+        this.overloadReason = null;
+        this.overloadApprovedBy = null;
+        this.overloadApprovedAt = null;
+    }
+
+    public boolean isOverloaded() {
+        return isOverloaded;
+    }
+
+    public String getOverloadReason() {
+        return overloadReason;
+    }
+
+    public Long getOverloadApprovedBy() {
+        return overloadApprovedBy;
+    }
+
+    public java.time.LocalDateTime getOverloadApprovedAt() {
+        return overloadApprovedAt;
     }
 }

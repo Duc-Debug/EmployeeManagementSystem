@@ -732,8 +732,9 @@ public UserResult updateUserRole(
 
         Employee employee = loadEmployeePort.findByUserId(user.getId()).orElse(null);
         String orgUnitName = resolveOrgUnitName(employee);
+        java.util.List<String> permissions = authorizationService.getUserPermissions(userId);
 
-        return mapToUserResult(user, employee, orgUnitName);
+        return mapToUserResult(user, employee, orgUnitName, permissions);
     }
 
     private OrgUnit loadActiveOrgUnitOrThrow(Long orgUnitId) {
@@ -956,7 +957,8 @@ public UserResult updateUserRole(
     private UserResult mapToUserResult(
             User user,
             Employee employee,
-            String orgUnitName
+            String orgUnitName,
+            java.util.List<String> permissions
     ) {
         return new UserResult(
                 user.getIdValue(),
@@ -976,7 +978,17 @@ public UserResult updateUserRole(
                         : null,
                 orgUnitName,
                 user.getDataScope(),
-                user.getScopeOrgUnitId()
+                user.getScopeOrgUnitId(),
+                permissions
         );
     }
+
+    private UserResult mapToUserResult(
+            User user,
+            Employee employee,
+            String orgUnitName
+    ) {
+        return mapToUserResult(user, employee, orgUnitName, java.util.Collections.emptyList());
+    }
 }
+

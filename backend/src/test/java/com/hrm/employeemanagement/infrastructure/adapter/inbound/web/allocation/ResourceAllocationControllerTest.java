@@ -8,6 +8,7 @@ import com.hrm.employeemanagement.application.port.inbound.allocation.GetCompany
 import com.hrm.employeemanagement.application.port.inbound.allocation.SearchResourceBySkillAndAvailabilityUseCase;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,6 +43,9 @@ class ResourceAllocationControllerTest {
     private AllocateResourceUseCase allocateResourceUseCase;
 
     @Mock
+    private com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase bulkAllocateResourceUseCase;
+
+    @Mock
     private SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase;
 
     @Mock
@@ -50,6 +55,7 @@ class ResourceAllocationControllerTest {
     void setUp() {
         ResourceAllocationController controller = new ResourceAllocationController(
                 allocateResourceUseCase,
+                bulkAllocateResourceUseCase,
                 searchResourceUseCase,
                 getCompanyWeeklyCapacityUseCase
         );
@@ -234,5 +240,37 @@ class ResourceAllocationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/allocations - Trả về 400 và mã ALLOCATION_OVERLOAD_WARNING kèm details khi quá tải")
+    void allocateResource_OverloadWarning_ReturnsBadRequestWithDetails() throws Exception {
+        when(allocateResourceUseCase.allocateResource(any())).thenThrow(
+                new AllocationOverloadWarningException(
+                        "Quá tải 5 giờ",
+                        BigDecimal.valueOf(40),
+                        BigDecimal.valueOf(45),
+                        BigDecimal.valueOf(5)
+                )
+        );
+
+        String requestJson = """
+                {
+                    "employeeId": 1,
+                    "projectId": 2,
+                    "year": 2026,
+                    "weekNumber": 38,
+                    "allocatedHours": 45
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/allocations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("ALLOCATION_OVERLOAD_WARNING"))
+                .andExpect(jsonPath("$.details.availableHours").value(40))
+                .andExpect(jsonPath("$.details.allocatedHours").value(45))
+                .andExpect(jsonPath("$.details.overloadHours").value(5));
     }
 }

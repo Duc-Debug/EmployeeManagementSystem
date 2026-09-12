@@ -25,8 +25,19 @@ public record AllocateResourceRequest(
         BigDecimal allocatedHours,
         @DecimalMin(value = "0.0", message = "Tỷ lệ phần trăm phân bổ không được là số âm")
         @DecimalMax(value = "100.0", message = "Tỷ lệ phần trăm phân bổ tối đa là 100%")
-        BigDecimal allocationPercentage
-        ) {
+        BigDecimal allocationPercentage,
+        String overloadReason
+) {
+
+    public AllocateResourceRequest(
+            Long employeeId,
+            Long projectId,
+            Integer year,
+            Integer weekNumber,
+            BigDecimal allocatedHours
+    ) {
+        this(employeeId, projectId, year, weekNumber, allocatedHours, null, null);
+    }
 
     public AllocateResourceRequest {
         if (allocatedHours == null && allocationPercentage == null) {

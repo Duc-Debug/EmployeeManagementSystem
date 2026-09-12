@@ -9,11 +9,16 @@ public record AllocateResourceCommand(
         Integer year,
         Integer weekNumber,
         BigDecimal allocatedHours,
-        BigDecimal allocationPercentage
-        ) {
+        BigDecimal allocationPercentage,
+        String overloadReason
+) {
 
     public AllocateResourceCommand(Long employeeId, Long projectId, Integer year, Integer weekNumber, BigDecimal allocatedHours) {
-        this(employeeId, projectId, year, weekNumber, allocatedHours, null);
+        this(employeeId, projectId, year, weekNumber, allocatedHours, null, null);
+    }
+
+    public AllocateResourceCommand(Long employeeId, Long projectId, Integer year, Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage) {
+        this(employeeId, projectId, year, weekNumber, allocatedHours, allocationPercentage, null);
     }
 
     public AllocateResourceCommand {

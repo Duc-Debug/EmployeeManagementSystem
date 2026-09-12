@@ -41,6 +41,18 @@ public class WeeklyProjectAllocationJpaEntity {
     @Column(name = "allocation_percentage", precision = 5, scale = 2)
     private BigDecimal allocationPercentage;
 
+    @Column(name = "is_overloaded", nullable = false)
+    private Boolean isOverloaded = false;
+
+    @Column(name = "overload_reason", columnDefinition = "TEXT")
+    private String overloadReason;
+
+    @Column(name = "overload_approved_by")
+    private Long overloadApprovedBy;
+
+    @Column(name = "overload_approved_at")
+    private LocalDateTime overloadApprovedAt;
+
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -55,11 +67,17 @@ public class WeeklyProjectAllocationJpaEntity {
 
     public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
             Integer weekNumber, BigDecimal allocatedHours, Long version) {
-        this(id, employeeId, projectId, year, weekNumber, allocatedHours, null, version);
+        this(id, employeeId, projectId, year, weekNumber, allocatedHours, null, false, null, null, null, version);
     }
 
     public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
             Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
+        this(id, employeeId, projectId, year, weekNumber, allocatedHours, allocationPercentage, false, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
+            Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, LocalDateTime overloadApprovedAt, Long version) {
         this.id = id;
         this.employeeId = employeeId;
         this.projectId = projectId;
@@ -67,6 +85,10 @@ public class WeeklyProjectAllocationJpaEntity {
         this.weekNumber = weekNumber;
         this.allocatedHours = allocatedHours;
         this.allocationPercentage = allocationPercentage;
+        this.isOverloaded = isOverloaded != null ? isOverloaded : false;
+        this.overloadReason = overloadReason;
+        this.overloadApprovedBy = overloadApprovedBy;
+        this.overloadApprovedAt = overloadApprovedAt;
         this.version = version != null ? version : 0L;
     }
 
@@ -141,5 +163,37 @@ public class WeeklyProjectAllocationJpaEntity {
 
     public void setVersion(Long version) {
         this.version = version;
+    }
+
+    public Boolean getIsOverloaded() {
+        return isOverloaded;
+    }
+
+    public void setIsOverloaded(Boolean isOverloaded) {
+        this.isOverloaded = isOverloaded != null ? isOverloaded : false;
+    }
+
+    public String getOverloadReason() {
+        return overloadReason;
+    }
+
+    public void setOverloadReason(String overloadReason) {
+        this.overloadReason = overloadReason;
+    }
+
+    public Long getOverloadApprovedBy() {
+        return overloadApprovedBy;
+    }
+
+    public void setOverloadApprovedBy(Long overloadApprovedBy) {
+        this.overloadApprovedBy = overloadApprovedBy;
+    }
+
+    public LocalDateTime getOverloadApprovedAt() {
+        return overloadApprovedAt;
+    }
+
+    public void setOverloadApprovedAt(LocalDateTime overloadApprovedAt) {
+        this.overloadApprovedAt = overloadApprovedAt;
     }
 }

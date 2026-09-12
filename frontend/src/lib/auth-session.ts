@@ -16,6 +16,7 @@ export interface AuthUser {
   scopeOrgUnitId: number | null;
   status: UserStatus;
   username: string;
+  permissions?: string[];
 }
 
 const TOKEN_KEY = "nexushrm_auth_token";

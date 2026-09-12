@@ -9,6 +9,7 @@ export interface AllocateResourcePayload {
   weekNumber: number;
   allocatedHours?: number;
   allocationPercentage?: number;
+  overloadReason?: string;
 }
 
 export interface WeeklyCapacityResult {

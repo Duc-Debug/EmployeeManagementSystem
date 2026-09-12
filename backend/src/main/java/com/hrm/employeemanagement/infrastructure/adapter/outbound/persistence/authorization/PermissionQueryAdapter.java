@@ -39,4 +39,12 @@ public class PermissionQueryAdapter
 
         return repository.countPermissionMatches(userId, permission.name()) > 0;
     }
+
+    @Override
+    public java.util.List<String> findPermissionsByUserId(Long userId) {
+        if (userId == null) {
+            return java.util.Collections.emptyList();
+        }
+        return repository.findPermissionCodesByUserId(userId);
+    }
 }
