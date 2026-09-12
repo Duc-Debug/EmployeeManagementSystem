@@ -118,6 +118,27 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         BigDecimal netAvailableHours = availabilityOpt.map(WeeklyAvailability::getNetAvailableHours)
                 .orElse(BigDecimal.valueOf(standardHours));
 
+        // Tính toán effectiveAllocatedHours và effectivePercentage (NCL-06-CN-007)
+        BigDecimal effectiveAllocatedHours;
+        BigDecimal effectivePercentage;
+
+        if (command.allocatedHours() != null && command.allocationPercentage() != null) {
+            effectiveAllocatedHours = command.allocatedHours();
+            effectivePercentage = command.allocationPercentage();
+        } else if (command.allocationPercentage() != null) {
+            effectivePercentage = command.allocationPercentage();
+            effectiveAllocatedHours = netAvailableHours.multiply(effectivePercentage)
+                    .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        } else {
+            effectiveAllocatedHours = command.allocatedHours();
+            if (netAvailableHours.compareTo(BigDecimal.ZERO) > 0) {
+                effectivePercentage = effectiveAllocatedHours.multiply(BigDecimal.valueOf(100))
+                        .divide(netAvailableHours, 2, java.math.RoundingMode.HALF_UP);
+            } else {
+                effectivePercentage = BigDecimal.ZERO;
+            }
+        }
+
         // Load tất cả allocations hiện tại của nhân sự trong tuần
         List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(command.employeeId(), yearWeek);
 
@@ -127,9 +148,9 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 .map(WeeklyProjectAllocation::getAllocatedHours)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(command.allocatedHours());
+        BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(effectiveAllocatedHours);
 
-        // Enforce capacity limit: Không cho phép vượt netAvailableHours
+        // Enforce capacity limit: Không cho phép vượt netAvailableHours (QTN-11)
         if (totalRequestedAllocated.compareTo(netAvailableHours) > 0) {
             throw new AllocationCapacityExceededException(
                     "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
@@ -142,29 +163,30 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 .findFirst();
 
         BigDecimal oldHours = existingOpt.map(WeeklyProjectAllocation::getAllocatedHours).orElse(BigDecimal.ZERO);
-        String oldValue = oldHours.toString();
-        String newValue = command.allocatedHours().toString();
+        BigDecimal oldPct = existingOpt.map(WeeklyProjectAllocation::getAllocationPercentage).orElse(null);
+        String oldValue = oldHours + "h" + (oldPct != null ? " (" + oldPct + "%)" : "");
+        String newValue = effectiveAllocatedHours + "h (" + effectivePercentage + "%)";
 
         WeeklyProjectAllocation allocation;
         if (existingOpt.isPresent()) {
             allocation = existingOpt.get();
-            allocation.updateAllocatedHours(command.allocatedHours());
+            allocation.updateAllocation(effectiveAllocatedHours, effectivePercentage);
         } else {
             allocation = WeeklyProjectAllocation.createNew(
-                    command.employeeId(), command.projectId(), yearWeek, command.allocatedHours());
+                    command.employeeId(), command.projectId(), yearWeek, effectiveAllocatedHours, effectivePercentage);
         }
 
         // Lưu bản ghi (Concurrency retry được xử lý tại RetryableAllocateResourceUseCaseDecorator)
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        // [TC-05] Ghi nhật ký kiểm toán (Audit Log)
+        // [TC-04, TC-05] Ghi nhật ký kiểm toán (Audit Log)
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "RESOURCE_ALLOCATED",
                 "weekly_project_allocations",
                 saved.getId(),
-                "Số giờ phân bổ cũ: " + oldValue + "h",
-                "Số giờ phân bổ mới: " + newValue + "h cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
+                "Phân bổ cũ: " + oldValue,
+                "Phân bổ mới: " + newValue + " cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
         ));
 
         return calculateCapacity(employee, yearWeek);

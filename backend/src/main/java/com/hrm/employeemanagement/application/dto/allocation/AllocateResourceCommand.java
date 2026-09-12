@@ -8,14 +8,21 @@ public record AllocateResourceCommand(
         Long projectId,
         Integer year,
         Integer weekNumber,
-        BigDecimal allocatedHours
+        BigDecimal allocatedHours,
+        BigDecimal allocationPercentage
         ) {
+
+    public AllocateResourceCommand(Long employeeId, Long projectId, Integer year, Integer weekNumber, BigDecimal allocatedHours) {
+        this(employeeId, projectId, year, weekNumber, allocatedHours, null);
+    }
 
     public AllocateResourceCommand {
         Objects.requireNonNull(employeeId, "ID nhân sự không được null");
         Objects.requireNonNull(projectId, "ID dự án không được null");
         Objects.requireNonNull(year, "Năm không được null");
         Objects.requireNonNull(weekNumber, "Số tuần không được null");
-        Objects.requireNonNull(allocatedHours, "Số giờ phân bổ không được null");
+        if (allocatedHours == null && allocationPercentage == null) {
+            throw new IllegalArgumentException("Phải cung cấp số giờ phân bổ hoặc tỷ lệ phần trăm phân bổ");
+        }
     }
 }
