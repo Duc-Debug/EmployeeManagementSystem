@@ -33,7 +33,6 @@ import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
-import com.hrm.employeemanagement.domain.report.EmployeeCapacityAttributionPolicy;
 import com.hrm.employeemanagement.domain.skill.Skill;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectRoleSkillJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.projection.ProjectDemandByRoleProjection;
@@ -141,11 +140,13 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
                 unmappedRoles++;
                 continue;
             }
-            // Mappings form one combined role requirement. Split its hours to
-            // prevent a multi-skill role from inflating total demand.
-            EmployeeCapacityAttributionPolicy.allocateHours(
-                    d.getRequiredHours(), EmployeeCapacityAttributionPolicy.equalWeights(skillIds))
-                    .forEach((skillId, hours) -> demandMap.merge(skillId, hours, BigDecimal::add));
+            // A role-to-skill mapping means that the skill is required for the
+            // role. The role's effort must therefore remain visible in full for
+            // every required skill; the mapping contains no allocation weight.
+            skillIds.stream()
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .forEach(skillId -> demandMap.merge(skillId, d.getRequiredHours(), BigDecimal::add));
         }
         return new RecruitmentDemandMetrics(Map.copyOf(demandMap), unmappedHours, unmappedRoles);
     }
@@ -216,10 +217,11 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
             ));
         }
 
-        // Compute real remaining capacity before any skill attribution.
+        // Compute real remaining capacity before projecting it as skill coverage.
         Map<Long, BigDecimal> skillCapacityMap = new HashMap<>();
-        // Every projection represents an approved skill.  With the weighted
-        // allocation policy, all positive employee capacity is attributable.
+        // Capacity is employee-level. It is shown in full for every approved
+        // skill the employee can cover, rather than inventing a split based on
+        // proficiency. Consequently, values across skills are not additive.
         BigDecimal unattributedCapacity = BigDecimal.ZERO;
 
         for (Map.Entry<Long, List<EmployeeSkillCapacityProjection>> entry : skillsByEmployee.entrySet()) {
@@ -227,13 +229,11 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
             List<EmployeeSkillCapacityProjection> empSkills = entry.getValue();
             if (empSkills.isEmpty()) continue;
 
-            Map<Long, Integer> proficiencyBySkillId = empSkills.stream()
+            Set<Long> approvedSkillIds = empSkills.stream()
                     .filter(skill -> skill.getSkillId() != null)
-                    .collect(Collectors.toMap(
-                            EmployeeSkillCapacityProjection::getSkillId,
-                            skill -> skill.getProficiencyLevel() == null ? 1 : skill.getProficiencyLevel(),
-                            Math::max));
-            if (proficiencyBySkillId.isEmpty()) continue;
+                    .map(EmployeeSkillCapacityProjection::getSkillId)
+                    .collect(Collectors.toSet());
+            if (approvedSkillIds.isEmpty()) continue;
 
             int hoursPerWeek = resolveEmployeeStandardHours(empSkills);
 
@@ -251,8 +251,9 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
             }
 
             if (empTotalNetAvailable.compareTo(BigDecimal.ZERO) > 0) {
-                EmployeeCapacityAttributionPolicy.allocateHours(empTotalNetAvailable, proficiencyBySkillId)
-                        .forEach((skillId, hours) -> skillCapacityMap.merge(skillId, hours, BigDecimal::add));
+                for (Long skillId : approvedSkillIds) {
+                    skillCapacityMap.merge(skillId, empTotalNetAvailable, BigDecimal::add);
+                }
             }
         }
         return new RecruitmentCapacityMetrics(Map.copyOf(skillCapacityMap), unattributedCapacity);
