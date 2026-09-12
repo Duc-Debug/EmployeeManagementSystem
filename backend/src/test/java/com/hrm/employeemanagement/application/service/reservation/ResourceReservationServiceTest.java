@@ -154,7 +154,7 @@ class ResourceReservationServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
                 new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
         ));
-        when(loadEmployeePort.findById(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
         when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
                 new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
         ));
@@ -218,7 +218,7 @@ class ResourceReservationServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
                 new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
         ));
-        when(loadEmployeePort.findById(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
         when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
                 new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
         ));
@@ -333,7 +333,7 @@ class ResourceReservationServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
                 new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
         ));
-        when(loadEmployeePort.findById(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
         when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
                 new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
         ));

@@ -29,6 +29,13 @@ public interface SpringDataResourceReservationRepository extends JpaRepository<R
             @Param("status") ReservationStatus status
     );
 
+    @Query("SELECT r FROM ResourceReservationJpaEntity r WHERE r.employeeId IN :employeeIds AND r.status = :status AND (r.yearNumber * 100 + r.weekNumber) IN :yearWeekCodes")
+    List<ResourceReservationJpaEntity> findAllByEmployeeIdInAndStatusAndYearWeekCodes(
+            @Param("employeeIds") List<Long> employeeIds,
+            @Param("status") ReservationStatus status,
+            @Param("yearWeekCodes") List<Integer> yearWeekCodes
+    );
+
     @Query("SELECT r FROM ResourceReservationJpaEntity r WHERE " +
             "(:projectId IS NULL OR r.projectId = :projectId) AND " +
             "(:employeeId IS NULL OR r.employeeId = :employeeId) AND " +

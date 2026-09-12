@@ -13,6 +13,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.reservation.ResourceReservationService;
+import com.hrm.employeemanagement.infrastructure.transaction.reservation.TransactionalResourceReservationServiceDecorator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,7 +21,7 @@ import org.springframework.context.annotation.Configuration;
 public class ResourceReservationUseCaseConfig {
 
     @Bean
-    public ResourceReservationService resourceReservationService(
+    public TransactionalResourceReservationServiceDecorator resourceReservationService(
             AuthorizationService authorizationService,
             LoadEmployeePort loadEmployeePort,
             LoadProjectPort loadProjectPort,
@@ -34,7 +35,7 @@ public class ResourceReservationUseCaseConfig {
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort
     ) {
-        return new ResourceReservationService(
+        ResourceReservationService service = new ResourceReservationService(
                 authorizationService,
                 loadEmployeePort,
                 loadProjectPort,
@@ -48,5 +49,6 @@ public class ResourceReservationUseCaseConfig {
                 loadUserPort,
                 loadOrgUnitPort
         );
+        return new TransactionalResourceReservationServiceDecorator(service);
     }
 }

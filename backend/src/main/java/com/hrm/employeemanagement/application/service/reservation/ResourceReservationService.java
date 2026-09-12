@@ -130,8 +130,8 @@ public class ResourceReservationService implements
             throw new PermissionDeniedException(PermissionCode.RESOURCE_RESERVATION_CREATE);
         }
 
-        // 2. Kiểm tra nhân sự
-        Employee employee = loadEmployeePort.findById(new EmployeeId(command.employeeId()))
+        // 2. Kiểm tra nhân sự (Pessimistic write lock trên employee row để serialize concurrent reservations)
+        Employee employee = loadEmployeePort.findByIdForUpdate(new EmployeeId(command.employeeId()))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + command.employeeId()));
 
         if (employee.getStatus() != EmployeeStatus.ACTIVE) {

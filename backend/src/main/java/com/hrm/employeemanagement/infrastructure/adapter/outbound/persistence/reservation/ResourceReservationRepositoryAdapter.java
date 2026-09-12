@@ -74,16 +74,16 @@ public class ResourceReservationRepositoryAdapter implements LoadResourceReserva
         if (employeeIds == null || employeeIds.isEmpty() || yearWeeks == null || yearWeeks.isEmpty()) {
             return List.of();
         }
-        Set<String> weekKeys = yearWeeks.stream()
-                .map(yw -> yw.year() + "_" + yw.weekNumber())
-                .collect(Collectors.toSet());
+        List<Integer> yearWeekCodes = yearWeeks.stream()
+                .map(yw -> yw.year() * 100 + yw.weekNumber())
+                .distinct()
+                .toList();
 
-        List<ResourceReservationJpaEntity> entities = repository.findAllByEmployeeIdInAndStatus(
-                employeeIds, ReservationStatus.ACTIVE
+        List<ResourceReservationJpaEntity> entities = repository.findAllByEmployeeIdInAndStatusAndYearWeekCodes(
+                employeeIds, ReservationStatus.ACTIVE, yearWeekCodes
         );
 
         return entities.stream()
-                .filter(e -> weekKeys.contains(e.getYearNumber() + "_" + e.getWeekNumber()))
                 .map(ResourceReservationPersistenceMapper::toDomain)
                 .toList();
     }
