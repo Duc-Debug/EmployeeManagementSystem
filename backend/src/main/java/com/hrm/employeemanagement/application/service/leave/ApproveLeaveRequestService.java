@@ -2,6 +2,8 @@ package com.hrm.employeemanagement.application.service.leave;
 
 import com.hrm.employeemanagement.application.dto.leave.LeaveRequestResult;
 import com.hrm.employeemanagement.application.port.inbound.leave.ApproveLeaveRequestUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
@@ -14,6 +16,8 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.Holiday;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
@@ -22,7 +26,6 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.leave.LeaveRequestNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.leave.LeaveRequest;
@@ -32,6 +35,7 @@ import com.hrm.employeemanagement.domain.user.UserId;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -55,6 +59,8 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
     private final LoadHolidaysPort loadHolidaysPort;
     private final LoadApprovedLeavesPort loadApprovedLeavesPort;
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
+    private final LoadWeeklyProjectAllocationPort loadAllocationPort;
+    private final SaveWeeklyProjectAllocationPort saveAllocationPort;
 
     public ApproveLeaveRequestService(
             LoadLeaveRequestPort loadLeaveRequestPort,
@@ -63,7 +69,7 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
             AuthorizationService authorizationService
     ) {
         this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null);
     }
 
     public ApproveLeaveRequestService(
@@ -80,6 +86,28 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             LoadWorkingCalendarPort loadWorkingCalendarPort
     ) {
+        this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
+                loadUserPort, loadOrgUnitPort, loadEmployeePort, loadWeeklyAvailabilityPort,
+                saveWeeklyAvailabilityPort, loadHolidaysPort, loadApprovedLeavesPort, loadWorkingCalendarPort,
+                null, null);
+    }
+
+    public ApproveLeaveRequestService(
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            SaveLeaveAuditLogPort saveLeaveAuditLogPort,
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyAvailabilityPort saveWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort
+    ) {
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
         this.saveLeaveAuditLogPort = Objects.requireNonNull(saveLeaveAuditLogPort, "saveLeaveAuditLogPort must not be null");
@@ -92,6 +120,8 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
         this.loadHolidaysPort = loadHolidaysPort;
         this.loadApprovedLeavesPort = loadApprovedLeavesPort;
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
+        this.loadAllocationPort = loadAllocationPort;
+        this.saveAllocationPort = saveAllocationPort;
     }
 
     @Override
@@ -134,13 +164,13 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
 
         // 7. QTN-10: Cập nhật và trừ giờ khả dụng tuần (WeeklyAvailability) cho tất cả tuần bị ảnh hưởng
         if (employee != null) {
-            recalculateWeeklyAvailability(savedRequest, employee);
+            recalculateWeeklyAvailability(savedRequest, employee, currentUserId);
         }
 
         return LeaveRequestResult.fromDomain(savedRequest);
     }
 
-    private void recalculateWeeklyAvailability(LeaveRequest leaveRequest, Employee employee) {
+    private void recalculateWeeklyAvailability(LeaveRequest leaveRequest, Employee employee, Long currentUserId) {
         if (loadWeeklyAvailabilityPort == null || saveWeeklyAvailabilityPort == null) {
             return;
         }
@@ -186,6 +216,52 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
             }
 
             saveWeeklyAvailabilityPort.save(availability);
+
+            BigDecimal netAvailableHours = availability.getNetAvailableHours();
+
+            // Ghi nhật ký kiểm toán trừ số giờ khả dụng khi nghỉ phép được duyệt
+            if (saveLeaveAuditLogPort != null) {
+                String capacityAuditDesc = String.format(
+                        "Trừ %sh khả dụng của nhân sự #%d tại tuần %d/%d do đơn nghỉ phép #%d được phê duyệt. Giờ khả dụng mới: %sh",
+                        approvedLeaveHours, employee.getIdValue(), yw.weekNumber(), yw.year(), leaveRequest.getId(), netAvailableHours
+                );
+                saveLeaveAuditLogPort.recordAudit(currentUserId, "LEAVE_CAPACITY_DEDUCTED", capacityAuditDesc);
+            }
+
+            // Tự động kiểm tra lại trạng thái quá tải cho các phân bổ dự án của nhân sự trong tuần bị ảnh hưởng
+            if (loadAllocationPort != null) {
+                List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployee(employee.getIdValue(), yw);
+                if (!allocations.isEmpty()) {
+                    BigDecimal totalAllocatedHours = allocations.stream()
+                            .map(WeeklyProjectAllocation::getAllocatedHours)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalAllocatedHours, netAvailableHours);
+                    if (isOverloaded) {
+                        BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalAllocatedHours, netAvailableHours);
+                        String overloadReason = String.format(
+                                "Cảnh báo quá tải: Đơn xin nghỉ phép #%d được phê duyệt làm giảm giờ khả dụng xuống %sh. Tổng phân bổ: %sh (Vượt %sh)",
+                                leaveRequest.getId(), netAvailableHours, totalAllocatedHours, excessHours
+                        );
+
+                        LocalDateTime now = LocalDateTime.now();
+                        for (WeeklyProjectAllocation alloc : allocations) {
+                            alloc.markOverloaded(overloadReason, currentUserId, now);
+                            if (saveAllocationPort != null) {
+                                saveAllocationPort.save(alloc);
+                            }
+                        }
+
+                        if (saveLeaveAuditLogPort != null) {
+                            String overloadAuditDesc = String.format(
+                                    "Phát hiện phân bổ quá tải do duyệt đơn nghỉ phép #%d của nhân sự #%d tại tuần %d/%d. Phân bổ: %sh, Khả dụng mới: %sh, Phân bổ vượt: %sh",
+                                    leaveRequest.getId(), employee.getIdValue(), yw.weekNumber(), yw.year(), totalAllocatedHours, netAvailableHours, excessHours
+                            );
+                            saveLeaveAuditLogPort.recordAudit(currentUserId, "ALLOCATION_OVERLOAD_TRIGGERED_BY_LEAVE", overloadAuditDesc);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -207,3 +283,4 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
         };
     }
 }
+
