@@ -190,11 +190,32 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         java.time.LocalDateTime approvedAt = java.time.LocalDateTime.now();
         if (isOverloaded) {
             allocation.markOverloaded(command.overloadReason(), currentUserId, approvedAt);
-            // Đồng bộ trạng thái isOverloaded cho tất cả phân bổ khác của nhân sự trong tuần
+            // Đồng bộ quyết định phê duyệt overload mới nhất cho tất cả các phân bổ khác của nhân sự trong tuần
             for (WeeklyProjectAllocation otherAlloc : existingAllocations) {
-                if (!otherAlloc.getProjectId().equals(command.projectId()) && !otherAlloc.isOverloaded()) {
+                if (!otherAlloc.getProjectId().equals(command.projectId())) {
+                    String otherOldOverloadState = "isOverloaded=" + otherAlloc.isOverloaded()
+                            + ";projectAllocatedHours=" + otherAlloc.getAllocatedHours()
+                            + ";totalWeeklyAllocatedHours=" + currentTotalAllocated;
+
                     otherAlloc.markOverloaded(command.overloadReason(), currentUserId, approvedAt);
-                    saveAllocationPort.save(otherAlloc);
+                    WeeklyProjectAllocation savedOther = saveAllocationPort.save(otherAlloc);
+
+                    String otherNewOverloadState = "isOverloaded=true;overloadReason=" + command.overloadReason().trim()
+                            + ";approvedBy=" + currentUserId
+                            + ";approvedAt=" + approvedAt
+                            + ";projectAllocatedHours=" + otherAlloc.getAllocatedHours()
+                            + ";totalWeeklyAllocatedHours=" + totalRequestedAllocated
+                            + ";netAvailableHours=" + netAvailableHours
+                            + ";overloadHours=" + excessHours;
+
+                    saveAuditLogPort.save(AuditLog.createChange(
+                            currentUserId,
+                            "ALLOCATION_OVERLOAD_BYPASS",
+                            "weekly_project_allocations",
+                            savedOther.getId(),
+                            otherOldOverloadState,
+                            otherNewOverloadState
+                    ));
                 }
             }
         } else {
@@ -203,8 +224,23 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             // dọn dẹp cờ isOverloaded trên tất cả các phân bổ khác của nhân sự trong tuần này
             for (WeeklyProjectAllocation otherAlloc : existingAllocations) {
                 if (!otherAlloc.getProjectId().equals(command.projectId()) && otherAlloc.isOverloaded()) {
+                    String otherOldOverloadState = "isOverloaded=true;projectAllocatedHours=" + otherAlloc.getAllocatedHours()
+                            + ";totalWeeklyAllocatedHours=" + currentTotalAllocated;
+
                     otherAlloc.clearOverload();
-                    saveAllocationPort.save(otherAlloc);
+                    WeeklyProjectAllocation savedOther = saveAllocationPort.save(otherAlloc);
+
+                    String otherNewOverloadState = "isOverloaded=false;projectAllocatedHours=" + otherAlloc.getAllocatedHours()
+                            + ";totalWeeklyAllocatedHours=" + totalRequestedAllocated;
+
+                    saveAuditLogPort.save(AuditLog.createChange(
+                            currentUserId,
+                            "ALLOCATION_OVERLOAD_CLEARED",
+                            "weekly_project_allocations",
+                            savedOther.getId(),
+                            otherOldOverloadState,
+                            otherNewOverloadState
+                    ));
                 }
             }
         }
@@ -239,6 +275,19 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                     saved.getId(),
                     oldOverloadState,
                     newOverloadState
+            ));
+        } else if (oldIsOverloaded) {
+            // Khi phân bổ hiện tại chuyển từ quá tải sang hết quá tải
+            String newClearState = "isOverloaded=false;projectAllocatedHours=" + command.allocatedHours()
+                    + ";totalWeeklyAllocatedHours=" + totalRequestedAllocated;
+
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "ALLOCATION_OVERLOAD_CLEARED",
+                    "weekly_project_allocations",
+                    saved.getId(),
+                    oldOverloadState,
+                    newClearState
             ));
         }
 

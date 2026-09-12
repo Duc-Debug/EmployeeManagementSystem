@@ -312,13 +312,13 @@ class AllocationOverloadUseCaseTest {
 
         service.allocateResource(command);
 
-        // Verify ghi 2 log: 1 RESOURCE_ALLOCATED chuẩn và 1 ALLOCATION_OVERLOAD_BYPASS
+        // Verify ghi 3 log: 1 RESOURCE_ALLOCATED cho dự án B, 1 ALLOCATION_OVERLOAD_BYPASS cho dự án B, và 1 ALLOCATION_OVERLOAD_BYPASS cho dự án A (liên đới)
         ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(saveAuditLogPort, times(2)).save(auditCaptor.capture());
+        verify(saveAuditLogPort, times(3)).save(auditCaptor.capture());
 
         List<AuditLog> logs = auditCaptor.getAllValues();
         AuditLog bypassLog = logs.stream()
-                .filter(l -> "ALLOCATION_OVERLOAD_BYPASS".equals(l.getAction()))
+                .filter(l -> "ALLOCATION_OVERLOAD_BYPASS".equals(l.getAction()) && Long.valueOf(999L).equals(l.getRecordId()))
                 .findFirst()
                 .orElse(null);
 
@@ -388,20 +388,94 @@ class AllocationOverloadUseCaseTest {
         assertTrue(result.isOverAllocated());
 
         ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(saveAuditLogPort, times(2)).save(auditCaptor.capture());
+        verify(saveAuditLogPort, times(3)).save(auditCaptor.capture());
 
-        AuditLog bypassLog = auditCaptor.getAllValues().stream()
+        List<AuditLog> bypassLogs = auditCaptor.getAllValues().stream()
                 .filter(l -> "ALLOCATION_OVERLOAD_BYPASS".equals(l.getAction()))
-                .findFirst()
-                .orElse(null);
+                .toList();
 
-        assertNotNull(bypassLog);
-        assertEquals("isOverloaded=false;projectAllocatedHours=20;totalWeeklyAllocatedHours=35", bypassLog.getOldValue(),
+        assertEquals(2, bypassLogs.size(), "Cả 2 dự án (Dự án B và Dự án A) đều phải có audit log ALLOCATION_OVERLOAD_BYPASS");
+
+        AuditLog bypassLogB = bypassLogs.stream()
+                .filter(l -> Long.valueOf(2L).equals(l.getRecordId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("isOverloaded=false;projectAllocatedHours=20;totalWeeklyAllocatedHours=35", bypassLogB.getOldValue(),
                 "oldValue phải phản ánh giá trị snapshot 20h và tổng 35h trước khi mutation đối tượng");
-        assertTrue(bypassLog.getNewValue().contains("isOverloaded=true"));
-        assertTrue(bypassLog.getNewValue().contains("projectAllocatedHours=30"));
-        assertTrue(bypassLog.getNewValue().contains("totalWeeklyAllocatedHours=45"));
-        assertTrue(bypassLog.getNewValue().contains("overloadHours=5.00"));
+        assertTrue(bypassLogB.getNewValue().contains("isOverloaded=true"));
+        assertTrue(bypassLogB.getNewValue().contains("projectAllocatedHours=30"));
+        assertTrue(bypassLogB.getNewValue().contains("totalWeeklyAllocatedHours=45"));
+        assertTrue(bypassLogB.getNewValue().contains("overloadHours=5.00"));
+
+        AuditLog bypassLogA = bypassLogs.stream()
+                .filter(l -> Long.valueOf(1L).equals(l.getRecordId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("isOverloaded=false;projectAllocatedHours=15;totalWeeklyAllocatedHours=35", bypassLogA.getOldValue());
+        assertTrue(bypassLogA.getNewValue().contains("isOverloaded=true"));
+        assertTrue(bypassLogA.getNewValue().contains("projectAllocatedHours=15"));
+        assertTrue(bypassLogA.getNewValue().contains("totalWeeklyAllocatedHours=45"));
+    }
+
+    @Test
+    @DisplayName("Fix Blocker: Tuần đã quá tải, cập nhật phân bổ với lý do/người duyệt mới -> Luôn đồng bộ metadata phê duyệt mới nhất cho tất cả các dự án trong tuần")
+    void testReAllocateOverloadedWeek_SynchronizesLatestApprovalMetadataAcrossAllAllocations() {
+        setupMocksForRM();
+
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        // Ban đầu Tuần 40: Nhân sự có Dự án A (20h) và Dự án B (25h) đã quá tải với Lý do cũ ("Sprint 1 gấp") bởi User 101L lúc 10:00
+        LocalDateTime oldApprovedAt = LocalDateTime.now().minusDays(2);
+        Long oldApproverId = 101L;
+        String oldReason = "Sprint 1 gấp";
+
+        WeeklyProjectAllocation allocA = new WeeklyProjectAllocation(
+                1L, employeeId, projectIdA, yearWeek, BigDecimal.valueOf(20), true, oldReason, oldApproverId, oldApprovedAt, 0L);
+        WeeklyProjectAllocation allocB = new WeeklyProjectAllocation(
+                2L, employeeId, projectIdB, yearWeek, BigDecimal.valueOf(25), true, oldReason, oldApproverId, oldApprovedAt, 0L);
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek)).thenReturn(List.of(allocA, allocB));
+        when(saveAllocationPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // RM (rmUserId) điều chỉnh Dự án B từ 25h lên 30h (tổng tuần thành 50h, quá tải 10h)
+        // Lý do mới: "Bổ sung nhân lực fix bug release"
+        String newReason = "Bổ sung nhân lực fix bug release";
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(30), newReason);
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertTrue(result.isOverAllocated());
+
+        // Kiểm tra cả 2 bản ghi (Dự án B và Dự án A) đều được lưu với metadata mới
+        ArgumentCaptor<WeeklyProjectAllocation> captor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
+        verify(saveAllocationPort, times(2)).save(captor.capture());
+
+        List<WeeklyProjectAllocation> savedList = captor.getAllValues();
+        WeeklyProjectAllocation savedB = savedList.stream().filter(a -> a.getProjectId().equals(projectIdB)).findFirst().orElseThrow();
+        WeeklyProjectAllocation savedA = savedList.stream().filter(a -> a.getProjectId().equals(projectIdA)).findFirst().orElseThrow();
+
+        // Dự án B nhận metadata mới
+        assertTrue(savedB.isOverloaded());
+        assertEquals(newReason, savedB.getOverloadReason());
+        assertEquals(rmUserId, savedB.getOverloadApprovedBy());
+        assertNotNull(savedB.getOverloadApprovedAt());
+        assertTrue(savedB.getOverloadApprovedAt().isAfter(oldApprovedAt));
+
+        // Dự án A (otherAlloc) BẮT BUỘC được đồng bộ sang metadata mới, không bị giữ lý do cũ "Sprint 1 gấp"
+        assertTrue(savedA.isOverloaded());
+        assertEquals(newReason, savedA.getOverloadReason(), "Dự án A phải được đồng bộ lý do phê duyệt mới nhất");
+        assertEquals(rmUserId, savedA.getOverloadApprovedBy(), "Dự án A phải được đồng bộ người phê duyệt mới nhất");
+        assertEquals(savedB.getOverloadApprovedAt(), savedA.getOverloadApprovedAt(), "Timestamp phê duyệt của A và B phải đồng nhất");
+
+        // Xác nhận audit log ghi nhận ALLOCATION_OVERLOAD_BYPASS cho cả 2 dự án
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort, times(3)).save(auditCaptor.capture());
+        List<AuditLog> bypassLogs = auditCaptor.getAllValues().stream()
+                .filter(l -> "ALLOCATION_OVERLOAD_BYPASS".equals(l.getAction()))
+                .toList();
+        assertEquals(2, bypassLogs.size());
     }
 
     @Test
@@ -445,6 +519,14 @@ class AllocationOverloadUseCaseTest {
         assertFalse(savedB.isOverloaded(), "Dự án B phải được dọn dẹp cờ overload");
         assertNull(savedB.getOverloadReason());
         assertNull(savedB.getOverloadApprovedBy());
+
+        // Kiểm tra Audit log ALLOCATION_OVERLOAD_CLEARED được ghi cho cả 2 dự án
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort, times(3)).save(auditCaptor.capture());
+        List<AuditLog> clearedLogs = auditCaptor.getAllValues().stream()
+                .filter(l -> "ALLOCATION_OVERLOAD_CLEARED".equals(l.getAction()))
+                .toList();
+        assertEquals(2, clearedLogs.size(), "Cả 2 dự án đều phải có audit log ALLOCATION_OVERLOAD_CLEARED");
     }
 
     @Test
