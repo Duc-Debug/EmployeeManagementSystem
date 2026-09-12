@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V53: CREATE TASK ASSIGNMENTS & PLANNED DATES
+-- FLYWAY MIGRATION V64: CREATE TASK ASSIGNMENTS & PLANNED DATES
 -- UC: Phân công công việc cho nhân sự kèm ngày bắt đầu và kết thúc mong muốn
 -- ============================================================
 
