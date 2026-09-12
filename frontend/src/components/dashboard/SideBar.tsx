@@ -9,7 +9,6 @@ import {
     ClipboardList,
     FolderKanban,
     FileText,
-    ShieldCheck,
     CalendarClock,
     CalendarDays,
     CalendarRange,
@@ -34,7 +33,6 @@ const SIDEBAR_WORKSPACE = [
 
 const SIDEBAR_SETTINGS = [
     { name: "Vai trò chuyên môn", icon: Briefcase, id: "roles" },
-    { name: "Phân quyền truy cập", icon: ShieldCheck, id: "access" },
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
 
