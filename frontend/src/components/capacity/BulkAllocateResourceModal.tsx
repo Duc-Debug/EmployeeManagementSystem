@@ -1,9 +1,9 @@
 /**
- * NCL-06-CN-006: Modal phân bổ nguồn lực hàng loạt cho nhiều tuần.
- * Cho phép Quản lý nguồn lực chọn nhân sự, dự án, khoảng tuần và số giờ/tuần để phân bổ trong 1 thao tác.
+ * NCL-06-CN-006 & NCL-06-CN-007: Modal phân bổ nguồn lực hàng loạt cho nhiều tuần.
+ * Cho phép Quản lý nguồn lực chọn nhân sự, dự án, khoảng tuần và số giờ/tuần hoặc tỷ lệ phần trăm (%) để phân bổ trong 1 thao tác.
  */
 import { useState, useEffect } from 'react';
-import { X, Layers, AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { X, Layers, AlertCircle, Loader2, Sparkles, Percent, Clock } from 'lucide-react';
 import { bulkAllocateResource, type BulkAllocationResult } from '@/lib/api/allocations';
 import { getProjects, type ProjectResult } from '@/lib/api/projects';
 
@@ -60,7 +60,11 @@ export function BulkAllocateResourceModal({
   const [fromWeek, setFromWeek] = useState<number>(initialWeek);
   const [toYear, setToYear] = useState<number>(initialYear);
   const [toWeek, setToWeek] = useState<number>(12);
+
+  // Allocation mode (Hours vs Percentage)
+  const [mode, setMode] = useState<'PERCENTAGE' | 'HOURS'>('PERCENTAGE');
   const [allocatedHours, setAllocatedHours] = useState<number>(20);
+  const [percentage, setPercentage] = useState<number>(50);
 
   const [projects, setProjects] = useState<ProjectResult[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(false);
@@ -82,6 +86,8 @@ export function BulkAllocateResourceModal({
       const range = addIsoWeeks(initialYear, initialWeek, 12);
       setToYear(range.year);
       setToWeek(range.week);
+      setMode('PERCENTAGE');
+      setPercentage(50);
       setAllocatedHours(20);
       setErrorMessage(null);
     }
@@ -120,6 +126,23 @@ export function BulkAllocateResourceModal({
     setToWeek(range.week);
   };
 
+  const handlePercentagePreset = (pct: number) => {
+    setPercentage(pct);
+    setAllocatedHours(Math.round((40 * pct) / 100));
+  };
+
+  const handlePercentageSlider = (pct: number) => {
+    const clamped = Math.max(0, Math.min(100, pct));
+    setPercentage(clamped);
+    setAllocatedHours(Number(((40 * clamped) / 100).toFixed(1)));
+  };
+
+  const handleHoursSlider = (hours: number) => {
+    const clamped = Math.max(0, Math.min(168, hours));
+    setAllocatedHours(clamped);
+    setPercentage(Math.round((clamped / 40) * 100));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -132,9 +155,17 @@ export function BulkAllocateResourceModal({
       setErrorMessage('Vui lòng chọn dự án đang hoạt động');
       return;
     }
-    if (allocatedHours <= 0 || allocatedHours > 168) {
-      setErrorMessage('Số giờ mỗi tuần phải lớn hơn 0 và không vượt quá 168 giờ');
-      return;
+
+    if (mode === 'HOURS') {
+      if (allocatedHours <= 0 || allocatedHours > 168) {
+        setErrorMessage('Số giờ mỗi tuần phải lớn hơn 0 và không vượt quá 168 giờ');
+        return;
+      }
+    } else {
+      if (percentage < 0 || percentage > 100) {
+        setErrorMessage('Tỷ lệ phần trăm phải nằm trong khoảng từ 0% đến 100%');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -146,7 +177,8 @@ export function BulkAllocateResourceModal({
         fromWeek,
         toYear,
         toWeek,
-        allocatedHoursPerWeek: allocatedHours,
+        allocatedHoursPerWeek: mode === 'HOURS' ? allocatedHours : undefined,
+        allocationPercentagePerWeek: mode === 'PERCENTAGE' ? percentage : undefined,
       });
 
       onSuccess(result);
@@ -175,7 +207,7 @@ export function BulkAllocateResourceModal({
                 Phân Bổ Nguồn Lực Hàng Loạt Nhiều Tuần
               </h3>
               <p className="text-[11px] text-slate-500">
-                User Story NCL-06-CN-006 • Lập kế hoạch phân bổ theo quý
+                NCL-06-CN-006 & NCL-06-CN-007 • Hỗ trợ theo Số Giờ và Tỷ Lệ %
               </p>
             </div>
           </div>
@@ -183,7 +215,7 @@ export function BulkAllocateResourceModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -260,21 +292,21 @@ export function BulkAllocateResourceModal({
                 <button
                   type="button"
                   onClick={() => applyPresetWeeks(4)}
-                  className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition"
+                  className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition cursor-pointer"
                 >
                   4 tuần
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPresetWeeks(8)}
-                  className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition"
+                  className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition cursor-pointer"
                 >
                   8 tuần
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPresetWeeks(12)}
-                  className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 transition"
+                  className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
                 >
                   12 tuần (1 Quý)
                 </button>
@@ -336,30 +368,115 @@ export function BulkAllocateResourceModal({
             </div>
           </div>
 
-          {/* 4. Số giờ phân bổ mỗi tuần */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="font-semibold text-slate-700">
-                Số giờ phân bổ mỗi tuần <span className="text-rose-500">*</span>
-              </label>
-              <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
-                {allocatedHours}h / tuần
-              </span>
+          {/* 4. Định mức phân bổ: Toggle Mode (% vs Hours) */}
+          <div className="space-y-2">
+            <div className="flex items-center rounded-xl bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setMode('PERCENTAGE')}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  mode === 'PERCENTAGE'
+                    ? 'bg-white text-indigo-600 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Percent className="h-3.5 w-3.5" />
+                <span>Theo Tỷ Lệ Phần Trăm (%)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('HOURS')}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  mode === 'HOURS'
+                    ? 'bg-white text-indigo-600 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Clock className="h-3.5 w-3.5" />
+                <span>Theo Số Giờ Cố Định (h)</span>
+              </button>
             </div>
-            <input
-              type="range"
-              min="2"
-              max="40"
-              step="2"
-              value={allocatedHours}
-              onChange={(e) => setAllocatedHours(Number(e.target.value))}
-              className="w-full cursor-pointer accent-indigo-600"
-            />
-            <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
-              <span>10h (Part-time)</span>
-              <span className="font-bold text-indigo-600">20h (50%)</span>
-              <span className="font-bold text-slate-600">40h (Full-time)</span>
-            </div>
+
+            {mode === 'PERCENTAGE' ? (
+              <div className="space-y-2.5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
+                {/* Presets */}
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[25, 50, 75, 100].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handlePercentagePreset(preset)}
+                      className={`rounded-lg py-1 text-xs font-bold border transition cursor-pointer ${
+                        percentage === preset
+                          ? 'border-indigo-600 bg-indigo-600 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {preset}%
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="font-semibold text-slate-700">Tỷ lệ phân bổ mỗi tuần:</label>
+                    <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
+                      {percentage}% khả dụng
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={percentage}
+                    onChange={(e) => handlePercentageSlider(Number(e.target.value))}
+                    className="w-full cursor-pointer accent-indigo-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                    <span>75%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                {/* Live Preview */}
+                <div className="text-[11px] text-indigo-900 font-medium bg-white/80 p-2 rounded-lg border border-indigo-100">
+                  <span>Quy đổi dự kiến: </span>
+                  <strong className="text-indigo-700 font-bold">{percentage}%</strong>
+                  <span> khả dụng mỗi tuần (khoảng </span>
+                  <strong className="text-indigo-700 font-bold">{allocatedHours}h/tuần</strong>
+                  <span> đối với tuần chuẩn 40h). Số giờ thực tế sẽ tự động tính theo giờ khả dụng từng tuần (đã trừ nghỉ phép/lễ).</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700">
+                    Số giờ cố định mỗi tuần:
+                  </label>
+                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
+                    {allocatedHours}h / tuần ({percentage}%)
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="40"
+                  step="2"
+                  value={allocatedHours}
+                  onChange={(e) => handleHoursSlider(Number(e.target.value))}
+                  className="w-full cursor-pointer accent-indigo-600"
+                />
+                <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>10h (Part-time)</span>
+                  <span className="font-bold text-indigo-600">20h (50%)</span>
+                  <span className="font-bold text-slate-600">40h (Full-time)</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Note on QTN-11 */}
@@ -373,14 +490,14 @@ export function BulkAllocateResourceModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 transition"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white shadow-xs hover:bg-indigo-700 disabled:opacity-50 transition"
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white shadow-xs hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer"
             >
               {isSubmitting ? (
                 <>

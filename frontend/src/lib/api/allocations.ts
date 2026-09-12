@@ -74,7 +74,7 @@ export interface BulkAllocateResourcePayload {
   fromWeek: number;
   toYear: number;
   toWeek: number;
-  allocatedHoursPerWeek: number;
+  allocatedHoursPerWeek?: number;
   allocationPercentagePerWeek?: number;
 }
 
