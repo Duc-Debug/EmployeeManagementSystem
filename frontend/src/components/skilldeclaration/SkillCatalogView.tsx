@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, Pencil, Trash2, BookOpen, Check, X, ShieldAlert, ChevronDown, FolderPlus, AlertCircle } from 'lucide-react';
-import type { CatalogSkill } from './Types.ts';
-import { SKILL_CATALOG, MATRIX_EMPLOYEES } from './Types.ts';
+import type { CatalogSkill, DeclaredSkill } from './Types.ts';
+import { SKILL_CATALOG } from './Types.ts';
 import { useAuthUser } from '@/lib/auth-session';
 import {
     getSkills,
@@ -88,42 +88,27 @@ function RoundedModalSelect({
     );
 }
 
-function getSkillProficiencyStats(item: CatalogSkill) {
-    const totalEmps = MATRIX_EMPLOYEES.length || 6;
-    const proficientEmps = MATRIX_EMPLOYEES.filter((emp) => {
-        const level = emp.skills[item.name];
-        return level != null && level >= 3;
-    });
-
-    if (proficientEmps.length > 0) {
-        const count = proficientEmps.length;
-        const pct = Math.round((count / totalEmps) * 100);
-        return { count, totalEmps, pct };
+function getSkillProficiencyStats(item: CatalogSkill, declaredSkills?: DeclaredSkill[], totalEmployees?: number) {
+    if (!declaredSkills || declaredSkills.length === 0) {
+        return { count: 0, totalEmps: totalEmployees || 0, pct: 0 };
     }
-
-    const fallbackPctMap: Record<string, number> = {
-        'PostgreSQL': 33,
-        'AWS': 50,
-        'Vue.js': 17,
-    };
-    
-    if (fallbackPctMap[item.name] !== undefined) {
-        const pct = fallbackPctMap[item.name];
-        const count = Math.round((pct / 100) * totalEmps);
-        return { count, totalEmps, pct };
-    }
-
-    const count = ((item.id % 4) + 1);
-    const pct = Math.round((count / totalEmps) * 100);
+    const matching = declaredSkills.filter(
+        (s) => s.skillId === item.id || s.name.toLowerCase() === item.name.toLowerCase()
+    );
+    const count = matching.length;
+    const totalEmps = totalEmployees && totalEmployees > 0 ? totalEmployees : (declaredSkills.length || 1);
+    const pct = totalEmps > 0 ? Math.round((count / totalEmps) * 100) : 0;
     return { count, totalEmps, pct };
 }
 
 interface SkillCatalogViewProps {
     catalog?: CatalogSkill[];
+    declaredSkills?: DeclaredSkill[];
+    totalEmployees?: number;
     onUpdateCatalog?: (newCatalog: CatalogSkill[]) => void;
 }
 
-export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCatalog }: SkillCatalogViewProps) {
+export default function SkillCatalogView({ catalog: externalCatalog, declaredSkills, totalEmployees, onUpdateCatalog }: SkillCatalogViewProps) {
     const currentUser = useAuthUser();
     const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
     const canManageCatalog = roleCode === 'VT-06';
@@ -435,7 +420,7 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                             ) : (
                                 filteredCatalog.map((item) => {
                                     const badgeClass = CATEGORY_BADGES[item.category] || CATEGORY_BADGES['Khác'];
-                                    const stats = getSkillProficiencyStats(item);
+                                    const stats = getSkillProficiencyStats(item, declaredSkills, totalEmployees);
                                     return (
                                         <tr key={item.id} className="transition-colors hover:bg-slate-50/60">
                                             <td className="px-4 py-3 font-mono text-xs text-slate-400 font-medium">

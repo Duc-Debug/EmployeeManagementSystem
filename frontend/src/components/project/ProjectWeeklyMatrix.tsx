@@ -1,4 +1,4 @@
-import { Calendar, ChevronLeft, ChevronRight, Lightbulb, Lock } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Lightbulb, Lock, UserPlus } from 'lucide-react';
 import type { ProjectMember, ProjectMonth } from './projectData';
 
 interface ProjectWeeklyMatrixProps {
@@ -9,6 +9,7 @@ interface ProjectWeeklyMatrixProps {
     isClosed?: boolean;
     onNavigateMonth: (direction: number) => void;
     onOpenAdjustModal: (memberId: string, weekKey: string, weekLabel: string) => void;
+    onOpenSkillSearchModal?: () => void;
 }
 
 export function ProjectWeeklyMatrix({
@@ -19,6 +20,7 @@ export function ProjectWeeklyMatrix({
     isClosed = false,
     onNavigateMonth,
     onOpenAdjustModal,
+    onOpenSkillSearchModal,
 }: ProjectWeeklyMatrixProps) {
     const monthWeeks = month.weeks;
 
@@ -93,7 +95,7 @@ export function ProjectWeeklyMatrix({
                                 <button
                                     type="button"
                                     onClick={() => onNavigateMonth(-1)}
-                                    className="p-0.5 text-[10px] text-slate-400 hover:text-slate-700 transition"
+                                    className="p-0.5 text-[10px] text-slate-400 hover:text-slate-700 transition cursor-pointer"
                                     title="Tháng trước"
                                 >
                                     <ChevronLeft className="h-3 w-3" />
@@ -102,7 +104,7 @@ export function ProjectWeeklyMatrix({
                                 <button
                                     type="button"
                                     onClick={() => onNavigateMonth(1)}
-                                    className="p-0.5 text-[10px] text-slate-400 hover:text-slate-700 transition"
+                                    className="p-0.5 text-[10px] text-slate-400 hover:text-slate-700 transition cursor-pointer"
                                     title="Tháng sau"
                                 >
                                     <ChevronRight className="h-3 w-3" />
@@ -113,8 +115,18 @@ export function ProjectWeeklyMatrix({
                     </div>
                 </div>
 
-                {/* Heatmap Legend & Scroll Hint */}
+                {/* Controls & Heatmap Legend */}
                 <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                    {onOpenSkillSearchModal && !isClosed && (
+                        <button
+                            type="button"
+                            onClick={onOpenSkillSearchModal}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+                        >
+                            <UserPlus className="h-3.5 w-3.5" />
+                            Thêm Nhân Sự Theo Kỹ Năng
+                        </button>
+                    )}
                     <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-600">
                         ↔ Cuộn ngang để xem đủ các tuần
                     </span>
@@ -128,6 +140,7 @@ export function ProjectWeeklyMatrix({
                         <span className="h-2.5 w-2.5 rounded-xs bg-rose-500" /> Quá tải (&gt;40h)
                     </span>
                 </div>
+
             </div>
 
             {/* Matrix Scrollable Container */}
@@ -170,7 +183,9 @@ export function ProjectWeeklyMatrix({
                         {filteredMembers.length === 0 ? (
                             <tr>
                                 <td colSpan={monthWeeks.length + 2} className="py-8 text-center text-xs text-slate-400">
-                                    Không tìm thấy nhân sự phù hợp với bộ lọc.
+                                    {members.length === 0
+                                        ? "Dự án chưa có nhân sự nào được phân bổ. Nhấn '+ Thêm Nhân Sự Theo Kỹ Năng' để chọn thành viên vào dự án."
+                                        : "Không tìm thấy nhân sự phù hợp với bộ lọc."}
                                 </td>
                             </tr>
                         ) : (

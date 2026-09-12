@@ -142,19 +142,18 @@ export default function SkilldeclarationView({
     const loadCatalog = async () => {
         try {
             const data = await getSkills();
-            if (data && data.length > 0) {
-                const mapped: CatalogSkill[] = data.map((s) => ({
-                    id: s.id,
-                    name: s.name,
-                    category: s.groupName || 'Khác',
-                    groupId: s.groupId,
-                    description: s.description,
-                    version: s.version,
-                }));
-                setCatalog(mapped);
-            }
+            const mapped: CatalogSkill[] = (data || []).map((s) => ({
+                id: s.id,
+                name: s.name,
+                category: s.groupName || 'Khác',
+                groupId: s.groupId,
+                description: s.description,
+                version: s.version,
+            }));
+            setCatalog(mapped);
         } catch (err) {
             console.error('Failed to load skills catalog from backend:', err);
+            setCatalog([]);
         }
     };
 
@@ -297,6 +296,11 @@ export default function SkilldeclarationView({
     async function handleSave(payload: SkillPayload) {
         setSaving(true);
         try {
+            if (!payload.skillId || isNaN(Number(payload.skillId))) {
+                pushToast('Lỗi khai báo', 'Vui lòng chọn một kỹ năng hợp lệ từ danh mục CSDL.');
+                setSaving(false);
+                return;
+            }
             if (formMode === 'update') {
                 await updateMySkill(payload.skillId, {
                     skillId: payload.skillId,
@@ -460,6 +464,7 @@ export default function SkilldeclarationView({
                 {activeTab === 'catalog' && (
                     <SkillCatalogView
                         catalog={catalog}
+                        declaredSkills={skills}
                         onUpdateCatalog={setCatalog}
                     />
                 )}
