@@ -8,6 +8,7 @@ export interface AllocateResourcePayload {
   year: number;
   weekNumber: number;
   allocatedHours: number;
+  overloadReason?: string;
 }
 
 export interface WeeklyCapacityResult {

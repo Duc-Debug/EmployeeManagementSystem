@@ -16,6 +16,37 @@ public class UserResult {
     private final String orgUnitName;
     private final DataScope dataScope;
     private final Long scopeOrgUnitId;
+    private final java.util.List<String> permissions;
+
+    public UserResult(
+            Long id,
+            String username,
+            String email,
+            String roleCode,
+            String roleName,
+            UserStatus status,
+            Long employeeId,
+            String fullName,
+            Long orgUnitId,
+            String orgUnitName,
+            DataScope dataScope,
+            Long scopeOrgUnitId,
+            java.util.List<String> permissions
+    ) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.roleCode = roleCode;
+        this.roleName = roleName;
+        this.status = status;
+        this.employeeId = employeeId;
+        this.fullName = fullName;
+        this.orgUnitId = orgUnitId;
+        this.orgUnitName = orgUnitName;
+        this.dataScope = dataScope;
+        this.scopeOrgUnitId = scopeOrgUnitId;
+        this.permissions = permissions != null ? permissions : java.util.Collections.emptyList();
+    }
 
     public UserResult(
             Long id,
@@ -31,18 +62,7 @@ public class UserResult {
             DataScope dataScope,
             Long scopeOrgUnitId
     ) {
-        this.id = id;
-        this.username = username;
-        this.email = email;
-        this.roleCode = roleCode;
-        this.roleName = roleName;
-        this.status = status;
-        this.employeeId = employeeId;
-        this.fullName = fullName;
-        this.orgUnitId = orgUnitId;
-        this.orgUnitName = orgUnitName;
-        this.dataScope = dataScope;
-        this.scopeOrgUnitId = scopeOrgUnitId;
+        this(id, username, email, roleCode, roleName, status, employeeId, fullName, orgUnitId, orgUnitName, dataScope, scopeOrgUnitId, java.util.Collections.emptyList());
     }
 
     public UserResult(
@@ -107,5 +127,9 @@ public class UserResult {
 
     public Long getScopeOrgUnitId() {
         return scopeOrgUnitId;
+    }
+
+    public java.util.List<String> getPermissions() {
+        return permissions != null ? permissions : java.util.Collections.emptyList();
     }
 }
