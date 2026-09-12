@@ -15,8 +15,10 @@ import {
 import { cn } from "@/lib/utils";
 import {
   getRecruitmentDemandReport,
+  downloadRecruitmentDemandReport,
   type RecruitmentDemandReportData
 } from "@/lib/api/recruitment-demand";
+import { getIsoWeeksInYear } from "@/lib/iso-week";
 import { getOrgTree } from "@/lib/api/org-units";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 
@@ -25,7 +27,7 @@ export default function RecruitmentDemandReportView() {
   const [fromYear, setFromYear] = useState<number>(currentYear);
   const [fromWeek, setFromWeek] = useState<number>(1);
   const [toYear, setToYear] = useState<number>(currentYear);
-  const [toWeek, setToWeek] = useState<number>(52);
+  const [toWeek, setToWeek] = useState<number>(getIsoWeeksInYear(currentYear));
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>("");
 
   const [reportData, setReportData] = useState<RecruitmentDemandReportData | null>(null);
@@ -96,12 +98,30 @@ export default function RecruitmentDemandReportView() {
     setShowConfirmModal(true);
   };
 
-  const handleExecuteExport = () => {
+  const handleExecuteExport = async () => {
+    try {
+      await downloadRecruitmentDemandReport({
+        fromYear, fromWeek, toYear, toWeek,
+        orgUnitId: selectedOrgUnitId ? Number(selectedOrgUnitId) : undefined,
+      });
     setShowConfirmModal(false);
     const nowStr = new Date().toLocaleString("vi-VN");
     setAuditNotice(`Đã ghi nhận nhật ký thao tác xuất báo cáo thành công lúc ${nowStr}.`);
     setTimeout(() => setAuditNotice(null), 5000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể xuất báo cáo.");
+    }
   };
+
+  useEffect(() => {
+    const maxWeek = getIsoWeeksInYear(fromYear);
+    if (fromWeek > maxWeek) setFromWeek(maxWeek);
+  }, [fromYear, fromWeek]);
+
+  useEffect(() => {
+    const maxWeek = getIsoWeeksInYear(toYear);
+    if (toWeek > maxWeek) setToWeek(maxWeek);
+  }, [toYear, toWeek]);
 
   return (
     <div className="space-y-6 pb-12">
@@ -186,7 +206,7 @@ export default function RecruitmentDemandReportView() {
               onChange={(e) => setFromWeek(Number(e.target.value))}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-none transition"
             >
-              {Array.from({ length: 52 }, (_, i) => i + 1).map((w) => (
+              {Array.from({ length: getIsoWeeksInYear(fromYear) }, (_, i) => i + 1).map((w) => (
                 <option key={w} value={w}>Tuần {w}</option>
               ))}
             </select>
@@ -216,7 +236,7 @@ export default function RecruitmentDemandReportView() {
               onChange={(e) => setToWeek(Number(e.target.value))}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-none transition"
             >
-              {Array.from({ length: 52 }, (_, i) => i + 1).map((w) => (
+              {Array.from({ length: getIsoWeeksInYear(toYear) }, (_, i) => i + 1).map((w) => (
                 <option key={w} value={w}>Tuần {w}</option>
               ))}
             </select>

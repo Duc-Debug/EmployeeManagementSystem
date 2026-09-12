@@ -28,10 +28,12 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.skill.Skill;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectResourceDemandJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectRoleJpaEntity;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentCapacityMetrics;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandMetrics;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectRoleSkillJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.projection.ProjectDemandByRoleProjection;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository.SpringDataProjectResourceDemandRepository;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository.SpringDataProjectRoleRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository.SpringDataProjectRoleSkillRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.SkillJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataEmployeeSkillRepository;
@@ -45,7 +47,7 @@ class RecruitmentDemandReportPersistenceAdapterTest {
     private SpringDataSkillRepository skillRepository;
 
     @Mock
-    private SpringDataProjectRoleRepository projectRoleRepository;
+    private SpringDataProjectRoleSkillRepository projectRoleSkillRepository;
 
     @Mock
     private SpringDataProjectResourceDemandRepository projectResourceDemandRepository;
@@ -77,7 +79,7 @@ class RecruitmentDemandReportPersistenceAdapterTest {
     void setUp() {
         adapter = new RecruitmentDemandReportPersistenceAdapter(
                 skillRepository,
-                projectRoleRepository,
+                projectRoleSkillRepository,
                 projectResourceDemandRepository,
                 employeeSkillRepository,
                 loadWeeklyAvailabilityPort,
@@ -102,19 +104,23 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         assertEquals(1, skills.size());
         assertEquals("JAVA", skills.get(0).getCode());
 
-        ProjectRoleJpaEntity role = new ProjectRoleJpaEntity(100L, "JAVA", "Java Skill", "Desc", 10L, "ACTIVE");
-        when(projectRoleRepository.findAllById(anyList())).thenReturn(List.of(role));
-
-        ProjectResourceDemandJpaEntity demand = new ProjectResourceDemandJpaEntity(1L, 50L, 100L, 2026, 1, BigDecimal.valueOf(120), 0L);
-        when(projectResourceDemandRepository.findDemandsFilteredByOrgUnitIds(List.of(10L), 2026, 1, 2026, 4))
+        ProjectDemandByRoleProjection demand = new ProjectDemandByRoleProjection() {
+            @Override public Long getRoleId() { return 100L; }
+            @Override public BigDecimal getRequiredHours() { return BigDecimal.valueOf(120); }
+        };
+        ProjectRoleSkillJpaEntity mapping = org.mockito.Mockito.mock(ProjectRoleSkillJpaEntity.class);
+        when(mapping.getRoleId()).thenReturn(100L);
+        when(mapping.getSkillId()).thenReturn(1L);
+        when(projectResourceDemandRepository.sumDemandsByRoleFilteredByOrgUnitIds(List.of(10L), 2026, 1, 2026, 4))
                 .thenReturn(List.of(demand));
+        when(projectRoleSkillRepository.findActiveMappingsByRoleIdIn(List.of(100L))).thenReturn(List.of(mapping));
 
         Map<Long, BigDecimal> demandMap = adapter.loadProjectDemandHoursGroupedBySkill(2026, 1, 2026, 4, 10L);
 
         assertEquals(1, demandMap.size());
         assertEquals(BigDecimal.valueOf(120), demandMap.get(1L));
 
-        verify(projectResourceDemandRepository).findDemandsFilteredByOrgUnitIds(List.of(10L), 2026, 1, 2026, 4);
+        verify(projectResourceDemandRepository).sumDemandsByRoleFilteredByOrgUnitIds(List.of(10L), 2026, 1, 2026, 4);
     }
 
     @Test
@@ -160,15 +166,9 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         when(employeeSkillRepository.findApprovedCapacityByOrgUnit(null))
                 .thenReturn(List.of(emp1Skill1, emp1Skill2));
 
-        Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, null);
-
-        BigDecimal javaCapacity = capacityMap.getOrDefault(1L, BigDecimal.ZERO);
-        BigDecimal reactCapacity = capacityMap.getOrDefault(2L, BigDecimal.ZERO);
-        BigDecimal totalDerivedCapacity = javaCapacity.add(reactCapacity);
-
-        assertEquals(0, BigDecimal.valueOf(160.00).compareTo(javaCapacity), "Full 160h should be attributed to primary skill Java");
-        assertEquals(0, BigDecimal.ZERO.compareTo(reactCapacity), "Secondary skill React should get 0h");
-        assertEquals(0, BigDecimal.valueOf(160.00).compareTo(totalDerivedCapacity), "Total derived capacity must equal Employee net capacity (160h)");
+        RecruitmentCapacityMetrics metrics = adapter.loadAvailableCapacityMetrics(2026, 1, 2026, 4, null);
+        assertTrue(metrics.capacityHoursBySkill().isEmpty());
+        assertEquals(0, BigDecimal.valueOf(160).compareTo(metrics.unattributedCapacityHours()));
     }
 
     @Test
@@ -202,15 +202,11 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         when(employeeSkillRepository.findApprovedCapacityByOrgUnit(null))
                 .thenReturn(List.of(emp1Skill1, emp1Skill2, emp2Skill1));
 
-        Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, null);
-
-        BigDecimal javaCap = capacityMap.getOrDefault(1L, BigDecimal.ZERO);
-        BigDecimal reactCap = capacityMap.getOrDefault(2L, BigDecimal.ZERO);
-        BigDecimal totalDerivedCap = javaCap.add(reactCap);
-
-        assertEquals(0, BigDecimal.valueOf(160.00).compareTo(javaCap));
-        assertEquals(0, BigDecimal.valueOf(160.00).compareTo(reactCap));
-        assertEquals(0, BigDecimal.valueOf(320.00).compareTo(totalDerivedCap));
+        RecruitmentCapacityMetrics metrics = adapter.loadAvailableCapacityMetrics(2026, 1, 2026, 4, null);
+        Map<Long, BigDecimal> capacityMap = metrics.capacityHoursBySkill();
+        assertEquals(0, BigDecimal.ZERO.compareTo(capacityMap.getOrDefault(1L, BigDecimal.ZERO)));
+        assertEquals(0, BigDecimal.valueOf(160).compareTo(capacityMap.getOrDefault(2L, BigDecimal.ZERO)));
+        assertEquals(0, BigDecimal.valueOf(160).compareTo(metrics.unattributedCapacityHours()));
     }
 
     @Test
@@ -229,37 +225,31 @@ class RecruitmentDemandReportPersistenceAdapterTest {
 
         YearWeek yw = YearWeek.of(2026, 1);
         when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList()))
-                .thenReturn(Map.of(101L, Map.of(yw, BigDecimal.valueOf(16))));
+                .thenReturn(Map.of(101L, Map.of(yw, BigDecimal.valueOf(8))));
 
-        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(1L, 101L, 10L, yw, BigDecimal.valueOf(24));
+        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(1L, 101L, 10L, yw, BigDecimal.valueOf(16));
         when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList()))
                 .thenReturn(List.of(alloc));
 
-        Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, null);
+        Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 1, null);
 
         BigDecimal javaCap = capacityMap.getOrDefault(1L, BigDecimal.ZERO);
-        assertEquals(0, BigDecimal.valueOf(120.00).compareTo(javaCap));
+        assertEquals(0, BigDecimal.valueOf(16.00).compareTo(javaCap));
     }
 
     @Test
     @DisplayName("HIGH-03: Role không khớp skill nào sẽ trả về unmapped (null)")
     void testUnmappedRole_ReturnsNull() {
-        SkillJpaEntity javaSkill = new SkillJpaEntity(1L, "JAVA", "Java Skill", "Backend", "Desc", LocalDateTime.now());
-        javaSkill.setStatus("ACTIVE");
-        javaSkill.setGroupId(10L);
+        ProjectDemandByRoleProjection demand = new ProjectDemandByRoleProjection() {
+            @Override public Long getRoleId() { return 200L; }
+            @Override public BigDecimal getRequiredHours() { return BigDecimal.valueOf(100); }
+        };
+        when(projectResourceDemandRepository.sumDemandsByRoleFiltered(null, 2026, 1, 2026, 4)).thenReturn(List.of(demand));
+        when(projectRoleSkillRepository.findActiveMappingsByRoleIdIn(List.of(200L))).thenReturn(List.of());
 
-        when(skillRepository.findAllActiveSkills()).thenReturn(List.of(javaSkill));
-
-        ProjectRoleJpaEntity unknownRole = new ProjectRoleJpaEntity(200L, "UNKNOWN", "Unknown Role", "Desc", 99L, "ACTIVE");
-        when(projectRoleRepository.findAllById(anyList())).thenReturn(List.of(unknownRole));
-
-        ProjectResourceDemandJpaEntity demand = new ProjectResourceDemandJpaEntity(2L, 50L, 200L, 2026, 1, BigDecimal.valueOf(100), 0L);
-        when(projectResourceDemandRepository.findDemandsFiltered(null, 2026, 1, 2026, 4))
-                .thenReturn(List.of(demand));
-
-        Map<Long, BigDecimal> demandMap = adapter.loadProjectDemandHoursGroupedBySkill(2026, 1, 2026, 4, null);
-
-        assertEquals(0, demandMap.size());
+        RecruitmentDemandMetrics metrics = adapter.loadProjectDemandMetrics(2026, 1, 2026, 4, null);
+        assertTrue(metrics.demandHoursBySkill().isEmpty());
+        assertEquals(0, BigDecimal.valueOf(100).compareTo(metrics.unmappedDemandHours()));
+        assertEquals(1, metrics.unmappedRoleCount());
     }
 }
-

@@ -588,24 +588,22 @@ export default function ProjectView() {
     };
 
     const handleAddMembersFromSkillSearch = async (newMembers: ProjectMember[]) => {
-        if (selectedProjectId) {
-            for (const m of newMembers) {
-                const empIdNum = m.employeeId || Number(m.id.replace('u-', ''));
-                if (empIdNum) {
-                    try {
-                        await addProjectMember(selectedProjectId, empIdNum);
-                    } catch (e) {
-                        console.warn(`Failed to add project member ${empIdNum} to backend:`, e);
-                    }
-                }
-            }
+        if (!selectedProjectId) {
+            showToast('Vui lòng chọn dự án trước khi thêm thành viên.', 'error');
+            throw new Error('No project selected');
         }
-        setMembers((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const filteredNew = newMembers.filter((m) => !existingIds.has(m.id));
-            return [...prev, ...filteredNew];
-        });
-        showToast(`Đã thêm ${newMembers.length} nhân sự có kỹ năng phù hợp vào ma trận phân bổ!`, 'success');
+        const results = await Promise.allSettled(newMembers.map((member) => {
+            const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
+            return employeeId ? addProjectMember(selectedProjectId, employeeId) : Promise.reject(new Error('Invalid employee id'));
+        }));
+        const succeeded = results.filter((result) => result.status === 'fulfilled').length;
+        const failed = results.length - succeeded;
+        if (succeeded > 0) await loadWbsForProject(selectedProjectId);
+        if (failed > 0) {
+            showToast(`Đã thêm ${succeeded}/${results.length} nhân sự. ${failed} thao tác thất bại; danh sách đã được đồng bộ từ backend.`, 'error');
+        } else {
+            showToast(`Đã thêm ${succeeded} nhân sự và đồng bộ từ backend.`, 'success');
+        }
     };
 
     const handleQuickAddTask = (catId?: string) => {

@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectResourceDemandJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.projection.ProjectDemandByRoleProjection;
 
 @Repository
 public interface SpringDataProjectResourceDemandRepository
@@ -50,4 +51,30 @@ public interface SpringDataProjectResourceDemandRepository
             @Param("toYear") Integer toYear,
             @Param("toWeek") Integer toWeek
     );
+
+    @Query("""
+        SELECT d.roleId AS roleId, SUM(d.requiredHours) AS requiredHours
+        FROM ProjectResourceDemandJpaEntity d JOIN ProjectJpaEntity p ON p.id = d.projectId
+        WHERE (:orgUnitId IS NULL OR p.orgUnitId = :orgUnitId)
+          AND p.status = com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE
+          AND (d.year > :fromYear OR (d.year = :fromYear AND d.weekNumber >= :fromWeek))
+          AND (d.year < :toYear OR (d.year = :toYear AND d.weekNumber <= :toWeek))
+        GROUP BY d.roleId
+    """)
+    List<ProjectDemandByRoleProjection> sumDemandsByRoleFiltered(
+            @Param("orgUnitId") Long orgUnitId, @Param("fromYear") Integer fromYear,
+            @Param("fromWeek") Integer fromWeek, @Param("toYear") Integer toYear, @Param("toWeek") Integer toWeek);
+
+    @Query("""
+        SELECT d.roleId AS roleId, SUM(d.requiredHours) AS requiredHours
+        FROM ProjectResourceDemandJpaEntity d JOIN ProjectJpaEntity p ON p.id = d.projectId
+        WHERE p.orgUnitId IN :orgUnitIds
+          AND p.status = com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE
+          AND (d.year > :fromYear OR (d.year = :fromYear AND d.weekNumber >= :fromWeek))
+          AND (d.year < :toYear OR (d.year = :toYear AND d.weekNumber <= :toWeek))
+        GROUP BY d.roleId
+    """)
+    List<ProjectDemandByRoleProjection> sumDemandsByRoleFilteredByOrgUnitIds(
+            @Param("orgUnitIds") List<Long> orgUnitIds, @Param("fromYear") Integer fromYear,
+            @Param("fromWeek") Integer fromWeek, @Param("toYear") Integer toYear, @Param("toWeek") Integer toWeek);
 }

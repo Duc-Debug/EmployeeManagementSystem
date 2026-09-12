@@ -1,6 +1,7 @@
 "use client";
 
-import { apiRequest } from "../api-client";
+import { API_BASE_URL, apiRequest, ApiError } from "../api-client";
+import { getAuthToken } from "../auth-session";
 
 export interface RecruitmentSkillDemandItem {
   skillId: number;
@@ -20,6 +21,9 @@ export interface RecruitmentDemandReportData {
   skills: RecruitmentSkillDemandItem[];
   timeRangeText: string;
   generatedAt?: string;
+  unmappedDemandHours: number;
+  unmappedRoleCount: number;
+  unattributedCapacityHours: number;
 }
 
 export async function getRecruitmentDemandReport(params?: {
@@ -37,9 +41,20 @@ export async function getRecruitmentDemandReport(params?: {
   if (params?.orgUnitId) query.append("orgUnitId", String(params.orgUnitId));
 
   const qs = query.toString() ? `?${query.toString()}` : "";
-  const res = await apiRequest<any>(`/reports/recruitment-demand${qs}`);
-  if (res && typeof res === "object" && "data" in res && res.data) {
-    return res.data as RecruitmentDemandReportData;
-  }
-  return res as RecruitmentDemandReportData;
+  return apiRequest<RecruitmentDemandReportData>(`/reports/recruitment-demand${qs}`);
+}
+
+export async function downloadRecruitmentDemandReport(params: {
+  fromYear: number; fromWeek: number; toYear: number; toWeek: number; orgUnitId?: number;
+}): Promise<void> {
+  const query = new URLSearchParams({ fromYear: String(params.fromYear), fromWeek: String(params.fromWeek), toYear: String(params.toYear), toWeek: String(params.toWeek) });
+  if (params.orgUnitId !== undefined) query.set("orgUnitId", String(params.orgUnitId));
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/reports/recruitment-demand/export?${query}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!response.ok) throw new ApiError(`Xuất báo cáo thất bại (${response.status})`, response.status);
+  const blob = await response.blob();
+  const filename = /filename="?([^";]+)"?/i.exec(response.headers.get("Content-Disposition") || "")?.[1] || "recruitment-demand.csv";
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
 }

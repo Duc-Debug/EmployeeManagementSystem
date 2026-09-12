@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, UserPlus, Award, AlertCircle, CheckCircle } from 'lucide-react';
 import { getSkills, type SkillResponse } from '@/lib/api/skills';
 import { searchResourceCandidates, type ResourceSearchResult } from '@/lib/api/allocations';
+import { addIsoWeeks } from '@/lib/iso-week';
 import type { ProjectMember } from './projectData';
 
 interface ResourceSkillSearchModalProps {
@@ -10,7 +11,7 @@ interface ResourceSkillSearchModalProps {
     fromYear: number;
     fromWeek: number;
     existingMemberIds: string[];
-    onAddMembers: (newMembers: ProjectMember[]) => void;
+    onAddMembers: (newMembers: ProjectMember[]) => Promise<void>;
 }
 
 export function ResourceSkillSearchModal({
@@ -54,9 +55,7 @@ export function ResourceSkillSearchModal({
         setSearchError(null);
         setSelectedCandidateIds([]);
         try {
-            const targetEndWeek = fromWeek + 3;
-            const toYear = targetEndWeek > 52 ? fromYear + 1 : fromYear;
-            const toWeek = targetEndWeek > 52 ? targetEndWeek - 52 : targetEndWeek;
+            const { year: toYear, week: toWeek } = addIsoWeeks(fromYear, fromWeek, 3);
 
             const results = await searchResourceCandidates({
                 skillId: selectedSkillId,
@@ -83,7 +82,7 @@ export function ResourceSkillSearchModal({
         );
     };
 
-    const handleConfirmAdd = () => {
+    const handleConfirmAdd = async () => {
         const selectedCandidates = searchResults.filter((cand) =>
             selectedCandidateIds.includes(cand.employeeId)
         );
@@ -98,7 +97,7 @@ export function ResourceSkillSearchModal({
             weeklyHours: {},
         }));
 
-        onAddMembers(newMembers);
+        await onAddMembers(newMembers);
         onClose();
     };
 

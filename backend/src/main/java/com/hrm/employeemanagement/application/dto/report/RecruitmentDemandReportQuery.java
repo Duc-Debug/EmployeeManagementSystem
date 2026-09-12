@@ -31,6 +31,10 @@ public record RecruitmentDemandReportQuery(
             throw new IllegalArgumentException("Phải cung cấp đầy đủ cả khoảng thời gian (từ năm/tuần đến năm/tuần) hoặc không cung cấp cả hai");
         }
 
+        if (!hasFrom) {
+            throw new IllegalArgumentException("Recruitment demand report requires a week range to calculate capacity accurately");
+        }
+
         if (hasFrom && hasTo) {
             if (fromYear <= 0) {
                 throw new IllegalArgumentException("fromYear phải là số nguyên dương");

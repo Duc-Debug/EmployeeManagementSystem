@@ -21,6 +21,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportQuery;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandMetrics;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentCapacityMetrics;
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportResult;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -80,10 +82,10 @@ class RecruitmentDemandReportServiceTest {
         );
         when(loadReportPort.loadAllActiveSkills()).thenReturn(List.of(testingSkill));
 
-        when(loadReportPort.loadProjectDemandHoursGroupedBySkill(any(), any(), any(), any(), any()))
-                .thenReturn(Map.of(1L, BigDecimal.valueOf(400.0)));
-        when(loadReportPort.loadAvailableCapacityHoursGroupedBySkill(any(), any(), any(), any(), any()))
-                .thenReturn(Map.of(1L, BigDecimal.ZERO));
+        when(loadReportPort.loadProjectDemandMetrics(any(), any(), any(), any(), any()))
+                .thenReturn(new RecruitmentDemandMetrics(Map.of(1L, BigDecimal.valueOf(400.0)), BigDecimal.ZERO, 0));
+        when(loadReportPort.loadAvailableCapacityMetrics(any(), any(), any(), any(), any()))
+                .thenReturn(new RecruitmentCapacityMetrics(Map.of(1L, BigDecimal.ZERO), BigDecimal.ZERO));
 
         RecruitmentDemandReportQuery query = new RecruitmentDemandReportQuery(2026, 1, 2026, 4, null);
         RecruitmentDemandReportResult result = service.execute(query);
@@ -120,10 +122,10 @@ class RecruitmentDemandReportServiceTest {
         );
         when(loadReportPort.loadAllActiveSkills()).thenReturn(List.of(devSkill));
 
-        when(loadReportPort.loadProjectDemandHoursGroupedBySkill(any(), any(), any(), any(), any()))
-                .thenReturn(Map.of(2L, BigDecimal.valueOf(100.0)));
-        when(loadReportPort.loadAvailableCapacityHoursGroupedBySkill(any(), any(), any(), any(), any()))
-                .thenReturn(Map.of(2L, BigDecimal.valueOf(160.0)));
+        when(loadReportPort.loadProjectDemandMetrics(any(), any(), any(), any(), any()))
+                .thenReturn(new RecruitmentDemandMetrics(Map.of(2L, BigDecimal.valueOf(100.0)), BigDecimal.ZERO, 0));
+        when(loadReportPort.loadAvailableCapacityMetrics(any(), any(), any(), any(), any()))
+                .thenReturn(new RecruitmentCapacityMetrics(Map.of(2L, BigDecimal.valueOf(160.0)), BigDecimal.ZERO));
 
         RecruitmentDemandReportQuery query = new RecruitmentDemandReportQuery(2026, 1, 2026, 4, null);
         RecruitmentDemandReportResult result = service.execute(query);

@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.hrm.employeemanagement.domain.skill.Skill;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentCapacityMetrics;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandMetrics;
 
 public interface LoadRecruitmentDemandReportPort {
 
@@ -25,5 +27,11 @@ public interface LoadRecruitmentDemandReportPort {
      * Return Map<SkillId, TotalAvailableCapacityHours>
      */
     Map<Long, BigDecimal> loadAvailableCapacityHoursGroupedBySkill(
+            Integer fromYear, Integer fromWeek, Integer toYear, Integer toWeek, Long orgUnitId);
+
+    RecruitmentDemandMetrics loadProjectDemandMetrics(
+            Integer fromYear, Integer fromWeek, Integer toYear, Integer toWeek, Long orgUnitId);
+
+    RecruitmentCapacityMetrics loadAvailableCapacityMetrics(
             Integer fromYear, Integer fromWeek, Integer toYear, Integer toWeek, Long orgUnitId);
 }

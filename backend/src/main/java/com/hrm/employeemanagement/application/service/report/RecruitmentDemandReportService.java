@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.service.report;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -9,7 +10,11 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportQuery;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportExport;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandMetrics;
+import com.hrm.employeemanagement.application.dto.report.RecruitmentCapacityMetrics;
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportResult;
+import com.hrm.employeemanagement.application.port.inbound.report.ExportRecruitmentDemandReportUseCase;
 import com.hrm.employeemanagement.application.port.inbound.report.GetRecruitmentDemandReportUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -25,7 +30,7 @@ import com.hrm.employeemanagement.domain.skill.Skill;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
-public class RecruitmentDemandReportService implements GetRecruitmentDemandReportUseCase {
+public class RecruitmentDemandReportService implements GetRecruitmentDemandReportUseCase, ExportRecruitmentDemandReportUseCase {
 
     private final AuthorizationService authorizationService;
     private final LoadUserPort loadUserPort;
@@ -100,15 +105,16 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
         List<Skill> skills = loadReportPort.loadAllActiveSkills();
 
         // 2. Tải tổng số giờ nhu cầu theo dự án và năng lực hiện có theo kỹ năng
-        Map<Long, BigDecimal> demandHoursMap = loadReportPort.loadProjectDemandHoursGroupedBySkill(
+        RecruitmentDemandMetrics demandMetrics = loadReportPort.loadProjectDemandMetrics(
                 effectiveQuery.fromYear(), effectiveQuery.fromWeek(),
                 effectiveQuery.toYear(), effectiveQuery.toWeek(),
                 effectiveOrgUnitId);
-
-        Map<Long, BigDecimal> capacityHoursMap = loadReportPort.loadAvailableCapacityHoursGroupedBySkill(
+        RecruitmentCapacityMetrics capacityMetrics = loadReportPort.loadAvailableCapacityMetrics(
                 effectiveQuery.fromYear(), effectiveQuery.fromWeek(),
                 effectiveQuery.toYear(), effectiveQuery.toWeek(),
                 effectiveOrgUnitId);
+        Map<Long, BigDecimal> demandHoursMap = demandMetrics == null ? Map.of() : demandMetrics.demandHoursBySkill();
+        Map<Long, BigDecimal> capacityHoursMap = capacityMetrics == null ? Map.of() : capacityMetrics.capacityHoursBySkill();
 
         List<RecruitmentSkillDemand> skillDemands = new ArrayList<>();
         BigDecimal totalDeficitHours = BigDecimal.ZERO;
@@ -151,8 +157,34 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
                 deficitCount,
                 skillDemands,
                 timeRangeText,
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                demandMetrics == null ? BigDecimal.ZERO : demandMetrics.unmappedDemandHours(),
+                demandMetrics == null ? 0 : demandMetrics.unmappedRoleCount(),
+                capacityMetrics == null ? BigDecimal.ZERO : capacityMetrics.unattributedCapacityHours()
         );
+    }
+
+    @Override
+    public RecruitmentDemandReportExport export(RecruitmentDemandReportQuery query) {
+        RecruitmentDemandReportResult report = execute(query);
+        saveAuditLogPort.save(AuditLog.createChange(
+                authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ),
+                "EXPORT", "RECRUITMENT_DEMAND_REPORT", null, null,
+                "Export recruitment demand report: " + buildTimeRangeText(query)));
+        StringBuilder csv = new StringBuilder("\uFEFF");
+        csv.append("Skill code,Skill name,Category,Demand hours,Available capacity hours,Shortfall hours,Status\n");
+        for (RecruitmentSkillDemand item : report.skills()) {
+            csv.append(csvValue(item.getSkillCode())).append(',').append(csvValue(item.getSkillName())).append(',')
+                    .append(csvValue(item.getCategory())).append(',').append(item.getRequiredDemandHours()).append(',')
+                    .append(item.getAvailableCapacityHours()).append(',').append(item.getShortfallHours()).append(',')
+                    .append(item.getStatus()).append('\n');
+        }
+        return new RecruitmentDemandReportExport("recruitment-demand-" + report.generatedAt().toLocalDate() + ".csv",
+                csv.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String csvValue(String value) {
+        return "\"" + (value == null ? "" : value.replace("\"", "\"\"")) + "\"";
     }
 
     private String buildTimeRangeText(RecruitmentDemandReportQuery query) {

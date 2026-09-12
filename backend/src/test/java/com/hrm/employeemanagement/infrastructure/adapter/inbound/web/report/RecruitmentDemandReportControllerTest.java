@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportResult;
 import com.hrm.employeemanagement.application.port.inbound.report.GetRecruitmentDemandReportUseCase;
+import com.hrm.employeemanagement.application.port.inbound.report.ExportRecruitmentDemandReportUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.report.RecruitmentSkillDemand;
@@ -33,6 +34,9 @@ class RecruitmentDemandReportControllerTest {
 
     @Mock
     private GetRecruitmentDemandReportUseCase getRecruitmentDemandReportUseCase;
+
+    @Mock
+    private ExportRecruitmentDemandReportUseCase exportRecruitmentDemandReportUseCase;
 
     @InjectMocks
     private RecruitmentDemandReportController controller;
