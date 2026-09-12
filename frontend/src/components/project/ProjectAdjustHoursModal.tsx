@@ -3,6 +3,14 @@ import { X, Sliders, AlertTriangle, ShieldAlert, CheckCircle } from 'lucide-reac
 import type { ProjectMember } from './projectData';
 import { useAuthUser } from '@/lib/auth-session';
 import { getWeeklyCapacities } from '@/lib/api/allocations';
+import {
+    canBypassResourceOverload,
+    computeAllocationOverload,
+    isAdjustHoursSubmitDisabled,
+    validateOverloadSubmission,
+} from '@/lib/allocation-overload';
+
+export { canBypassResourceOverload };
 
 interface ProjectAdjustHoursModalProps {
     open: boolean;
@@ -20,14 +28,6 @@ const getEmployeeId = (member: ProjectMember): number | null => {
     if (member.employeeId && member.employeeId > 0) return member.employeeId;
     const parsed = Number(member.id.replace('u-', ''));
     return !isNaN(parsed) && parsed > 0 ? parsed : null;
-};
-
-/**
- * Theo RBAC hệ thống (V61 / QTN-11), quyền RESOURCE_ALLOCATION_OVERLOAD_BYPASS
- * được cấp riêng cho vai trò Quản lý nguồn lực (VT-03).
- */
-export const canBypassResourceOverload = (user: ReturnType<typeof useAuthUser>): boolean => {
-    return user?.roleCode === 'VT-03';
 };
 
 export function ProjectAdjustHoursModal({
@@ -101,21 +101,14 @@ export function ProjectAdjustHoursModal({
     if (!open || !member) return null;
 
     const capacity = netCapacity !== null ? netCapacity : (member.capacity || 40);
-    const totalWeeklyHours = otherProjectsHours + hours;
-    const isOverloaded = totalWeeklyHours > capacity;
-    const overloadHours = isOverloaded ? Math.max(0, totalWeeklyHours - capacity) : 0;
-    const pct = capacity > 0 ? Math.round((totalWeeklyHours / capacity) * 100) : (hours > 0 ? 100 : 0);
+    const { totalWeeklyHours, isOverloaded, overloadHours, utilizationPercentage: pct } =
+        computeAllocationOverload(hours, otherProjectsHours, capacity);
 
     const handleApply = async () => {
-        if (isOverloaded) {
-            if (!isResourceManager) {
-                setReasonError('Chỉ Quản lý nguồn lực (RM) mới có quyền phê duyệt phân bổ vượt năng lực.');
-                return;
-            }
-            if (!overloadReason.trim()) {
-                setReasonError('Vui lòng nhập lý do chấp nhận quá tải (QTN-11).');
-                return;
-            }
+        const validation = validateOverloadSubmission(isOverloaded, isResourceManager, overloadReason);
+        if (!validation.valid) {
+            setReasonError(validation.error || 'Dữ liệu không hợp lệ.');
+            return;
         }
 
         setReasonError(null);
@@ -309,7 +302,7 @@ export function ProjectAdjustHoursModal({
                         <button
                             type="button"
                             onClick={handleApply}
-                            disabled={isSubmitting || isLoadingCapacity || (isOverloaded && !isResourceManager)}
+                            disabled={isAdjustHoursSubmitDisabled(isSubmitting, isLoadingCapacity, isOverloaded, isResourceManager)}
                             className={`rounded-lg px-4 py-1.5 font-medium text-white shadow-xs transition flex items-center gap-1.5 ${
                                 isOverloaded && !isResourceManager
                                     ? 'bg-slate-300 cursor-not-allowed text-slate-500'
