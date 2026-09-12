@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
+import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationHoursException;
 import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
@@ -177,8 +178,8 @@ class ResourceAllocationServiceTest {
         // Request 20h for new project -> Total would be 50h > 40h netAvailable
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
 
-        AllocationCapacityExceededException exception = assertThrows(
-                AllocationCapacityExceededException.class,
+        AllocationOverloadWarningException exception = assertThrows(
+                AllocationOverloadWarningException.class,
                 () -> service.allocateResource(command)
         );
 
@@ -368,10 +369,10 @@ class ResourceAllocationServiceTest {
     }
 
     @Test
-    @DisplayName("DTO Invariant Check: null allocatedHours ném lỗi NullPointerException")
-    void testNullAllocatedHours_ThrowsNullPointerException() {
+    @DisplayName("DTO Invariant Check: null cả allocatedHours và allocationPercentage ném lỗi IllegalArgumentException")
+    void testNullAllocatedHours_ThrowsIllegalArgumentException() {
         assertThrows(
-                NullPointerException.class,
+                IllegalArgumentException.class,
                 () -> new AllocateResourceCommand(employeeId, projectId, year, weekNumber, null)
         );
     }
@@ -449,5 +450,181 @@ class ResourceAllocationServiceTest {
         assertEquals(1, results.size());
         assertEquals(employeeId, results.get(0).employeeId());
         assertEquals(BigDecimal.valueOf(40), results.get(0).remainingAvailableHours());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 TC-01: Tuần 40h khả dụng -> Phân bổ 50% -> Quy đổi 20h và lưu cả 20h và 50%")
+    void testNCL06CN007_TC01_StandardWeek40Hours_Allocate50Percent() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+
+        YearWeek yearWeek = YearWeek.of(year, weekNumber);
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        WeeklyProjectAllocation savedAllocation = WeeklyProjectAllocation.createNew(
+                employeeId, projectId, yearWeek, BigDecimal.valueOf(20).setScale(2), BigDecimal.valueOf(50).setScale(2));
+        when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenReturn(savedAllocation);
+
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek))
+                .thenReturn(List.of())
+                .thenReturn(List.of(savedAllocation));
+
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectId, year, weekNumber, null, BigDecimal.valueOf(50));
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertEquals(BigDecimal.valueOf(40), result.netAvailableHours());
+        assertEquals(BigDecimal.valueOf(20).setScale(2), result.totalAllocatedHours());
+        assertEquals(BigDecimal.valueOf(20).setScale(2), result.remainingAvailableHours());
+
+        verify(saveAllocationPort).save(argThat(alloc ->
+                alloc.getAllocatedHours().compareTo(BigDecimal.valueOf(20)) == 0 &&
+                alloc.getAllocationPercentage().compareTo(BigDecimal.valueOf(50)) == 0
+        ));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 TC-02: Tuần có ngày lễ chỉ còn 32h khả dụng -> Phân bổ 50% -> Quy đổi 16h chứ không phải 20h")
+    void testNCL06CN007_TC02_HolidayWeek32Hours_Allocate50Percent() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn B",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+
+        YearWeek yearWeek = YearWeek.of(year, weekNumber);
+        // Tuần có 1 ngày lễ (8h nghỉ lễ), khả dụng còn 32h
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 8, BigDecimal.ZERO, BigDecimal.valueOf(32));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        WeeklyProjectAllocation savedAllocation = WeeklyProjectAllocation.createNew(
+                employeeId, projectId, yearWeek, BigDecimal.valueOf(16).setScale(2), BigDecimal.valueOf(50).setScale(2));
+        when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenReturn(savedAllocation);
+
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek))
+                .thenReturn(List.of())
+                .thenReturn(List.of(savedAllocation));
+
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectId, year, weekNumber, null, BigDecimal.valueOf(50));
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertEquals(BigDecimal.valueOf(32), result.netAvailableHours());
+        assertEquals(BigDecimal.valueOf(16).setScale(2), result.totalAllocatedHours());
+        assertEquals(BigDecimal.valueOf(16).setScale(2), result.remainingAvailableHours());
+
+        verify(saveAllocationPort).save(argThat(alloc ->
+                alloc.getAllocatedHours().compareTo(BigDecimal.valueOf(16)) == 0 &&
+                alloc.getAllocationPercentage().compareTo(BigDecimal.valueOf(50)) == 0
+        ));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 TC-04: Ghi Audit Log chi tiết khi phân bổ theo phần trăm")
+    void testNCL06CN007_TC04_AuditLogRecordedWithPercentage() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn C",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+
+        YearWeek yearWeek = YearWeek.of(year, weekNumber);
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        WeeklyProjectAllocation savedAllocation = new WeeklyProjectAllocation(
+                555L, employeeId, projectId, yearWeek, BigDecimal.valueOf(20).setScale(2), BigDecimal.valueOf(50).setScale(2), 1L);
+        when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenReturn(savedAllocation);
+
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek))
+                .thenReturn(List.of())
+                .thenReturn(List.of(savedAllocation));
+
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectId, year, weekNumber, null, BigDecimal.valueOf(50));
+
+        service.allocateResource(command);
+
+        verify(saveAuditLogPort).save(argThat(audit ->
+                "RESOURCE_ALLOCATED".equals(audit.getAction()) &&
+                "weekly_project_allocations".equals(audit.getTableName()) &&
+                audit.getNewValue().contains("20.00h (50%)")
+        ));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 QTN-11: Phân bổ % vượt quá giờ khả dụng còn lại ném ngoại lệ AllocationCapacityExceededException")
+    void testNCL06CN007_QTN11_PercentageExceedsCapacity_ThrowsException() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn D",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+
+        YearWeek yearWeek = YearWeek.of(year, weekNumber);
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        // Đã phân bổ 25h cho dự án khác (project 99L)
+        WeeklyProjectAllocation otherProjectAlloc = WeeklyProjectAllocation.createNew(
+                employeeId, 99L, yearWeek, BigDecimal.valueOf(25));
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek)).thenReturn(List.of(otherProjectAlloc));
+
+        // Yêu cầu phân bổ thêm 50% (20h) cho dự án projectId (10L) -> 25h + 20h = 45h > 40h
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectId, year, weekNumber, null, BigDecimal.valueOf(50));
+
+        AllocationOverloadWarningException ex = assertThrows(
+                AllocationOverloadWarningException.class,
+                () -> service.allocateResource(command)
+        );
+
+        assertEquals(0, BigDecimal.valueOf(40).compareTo(ex.getAvailableHours()));
+        assertEquals(0, new BigDecimal("45.00").compareTo(ex.getAllocatedHours()));
+        assertEquals(0, new BigDecimal("5.00").compareTo(ex.getOverloadHours()));
+
+        verify(saveAllocationPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 BLOCKING: Không cho phép truyền đồng thời cả allocatedHours và allocationPercentage")
+    void testAllocateResourceCommand_ThrowsException_WhenBothHoursAndPercentageProvided() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> new AllocateResourceCommand(
+                        employeeId, projectId, year, weekNumber,
+                        BigDecimal.valueOf(20), BigDecimal.valueOf(50), null
+                )
+        );
+
+        assertTrue(ex.getMessage().contains("Không được cung cấp đồng thời"));
     }
 }

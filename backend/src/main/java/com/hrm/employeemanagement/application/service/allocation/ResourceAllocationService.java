@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -28,7 +29,7 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
-import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
+import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -118,6 +119,28 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         BigDecimal netAvailableHours = availabilityOpt.map(WeeklyAvailability::getNetAvailableHours)
                 .orElse(BigDecimal.valueOf(standardHours));
 
+        // Tính toán effectiveAllocatedHours và effectivePercentage (NCL-06-CN-007)
+        if (command.allocatedHours() != null && command.allocationPercentage() != null) {
+            throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ");
+        }
+
+        BigDecimal effectiveAllocatedHours;
+        BigDecimal effectivePercentage;
+
+        if (command.allocationPercentage() != null) {
+            effectivePercentage = command.allocationPercentage();
+            effectiveAllocatedHours = netAvailableHours.multiply(effectivePercentage)
+                    .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        } else {
+            effectiveAllocatedHours = command.allocatedHours();
+            if (netAvailableHours.compareTo(BigDecimal.ZERO) > 0) {
+                effectivePercentage = effectiveAllocatedHours.multiply(BigDecimal.valueOf(100))
+                        .divide(netAvailableHours, 2, java.math.RoundingMode.HALF_UP);
+            } else {
+                effectivePercentage = BigDecimal.ZERO;
+            }
+        }
+
         // Load tất cả allocations hiện tại của nhân sự trong tuần
         List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(command.employeeId(), yearWeek);
 
@@ -127,13 +150,36 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 .map(WeeklyProjectAllocation::getAllocatedHours)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(command.allocatedHours());
+        BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(effectiveAllocatedHours);
 
-        // Enforce capacity limit: Không cho phép vượt netAvailableHours
-        if (totalRequestedAllocated.compareTo(netAvailableHours) > 0) {
-            throw new AllocationCapacityExceededException(
-                    "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
-            );
+        // [QTN-11 / NCL-06-CN-003] Phát hiện quá tải khi phân bổ theo tuần
+        boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalRequestedAllocated, netAvailableHours);
+        BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalRequestedAllocated, netAvailableHours);
+
+        if (isOverloaded) {
+            String reason = command.overloadReason();
+            if (reason == null || reason.trim().isEmpty()) {
+                // TC-01, TC-03: Cảnh báo quá tải và yêu cầu xác nhận kèm lý do
+                throw new AllocationOverloadWarningException(
+                        "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ". Số giờ vượt: " + excessHours + "h. Yêu cầu Quản lý nguồn lực xác nhận có ghi rõ lý do.",
+                        netAvailableHours,
+                        totalRequestedAllocated,
+                        excessHours
+                );
+            }
+
+            // TC-04: Kiểm tra thẩm quyền phê duyệt vượt tải thông qua AuthorizationService (QTN-11)
+            if (!authorizationService.hasPermission(PermissionCode.RESOURCE_ALLOCATION_OVERLOAD_BYPASS)) {
+                saveAuditLogPort.save(AuditLog.createChange(
+                        currentUserId,
+                        "ACCESS_DENIED_OVERLOAD_CONFIRM",
+                        "weekly_project_allocations",
+                        null,
+                        null,
+                        "user_id=" + currentUserId + ";role=" + (currentUser.getRole() != null ? currentUser.getRole().getCode().getCode() : "UNKNOWN") + ";attempted_overload_hours=" + excessHours
+                ));
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_OVERLOAD_BYPASS);
+            }
         }
 
         // Capture oldValue từ bản ghi phân bổ hiện tại cho dự án này (nếu có)
@@ -141,31 +187,104 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 .filter(a -> a.getProjectId().equals(command.projectId()))
                 .findFirst();
 
+        BigDecimal currentTotalAllocated = existingAllocations.stream()
+                .map(WeeklyProjectAllocation::getAllocatedHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Capture snapshot trạng thái cũ TRƯỚC KHI thực hiện bất kỳ mutation nào trên entity
+        boolean oldIsOverloaded = existingOpt.map(WeeklyProjectAllocation::isOverloaded).orElse(false);
         BigDecimal oldHours = existingOpt.map(WeeklyProjectAllocation::getAllocatedHours).orElse(BigDecimal.ZERO);
-        String oldValue = oldHours.toString();
-        String newValue = command.allocatedHours().toString();
+        BigDecimal oldPct = existingOpt.map(WeeklyProjectAllocation::getAllocationPercentage).orElse(null);
+        String oldValue = oldHours + "h" + (oldPct != null ? " (" + oldPct + "%)" : "");
+        String newValue = effectiveAllocatedHours + "h (" + effectivePercentage + "%)";
+        String oldOverloadState = "isOverloaded=" + oldIsOverloaded
+                + ";projectAllocatedHours=" + oldHours
+                + ";totalWeeklyAllocatedHours=" + currentTotalAllocated;
 
         WeeklyProjectAllocation allocation;
         if (existingOpt.isPresent()) {
             allocation = existingOpt.get();
-            allocation.updateAllocatedHours(command.allocatedHours());
+            allocation.updateAllocation(effectiveAllocatedHours, effectivePercentage);
         } else {
             allocation = WeeklyProjectAllocation.createNew(
-                    command.employeeId(), command.projectId(), yearWeek, command.allocatedHours());
+                    command.employeeId(), command.projectId(), yearWeek, effectiveAllocatedHours, effectivePercentage);
+        }
+
+        java.time.LocalDateTime approvedAt = java.time.LocalDateTime.now();
+        if (isOverloaded) {
+            allocation.markOverloaded(command.overloadReason(), currentUserId, approvedAt);
+        } else {
+            allocation.clearOverload();
+            // Khi tổng giờ trong tuần không còn quá tải (totalRequestedAllocated <= netAvailableHours),
+            // dọn dẹp cờ isOverloaded trên tất cả các phân bổ khác của nhân sự trong tuần này
+            for (WeeklyProjectAllocation otherAlloc : existingAllocations) {
+                if (!otherAlloc.getProjectId().equals(command.projectId()) && otherAlloc.isOverloaded()) {
+                    String otherOldOverloadState = "isOverloaded=true;projectAllocatedHours=" + otherAlloc.getAllocatedHours()
+                            + ";totalWeeklyAllocatedHours=" + currentTotalAllocated;
+
+                    otherAlloc.clearOverload();
+                    WeeklyProjectAllocation savedOther = saveAllocationPort.save(otherAlloc);
+
+                    String otherNewOverloadState = "isOverloaded=false;projectAllocatedHours=" + otherAlloc.getAllocatedHours()
+                            + ";totalWeeklyAllocatedHours=" + totalRequestedAllocated;
+
+                    saveAuditLogPort.save(AuditLog.createChange(
+                            currentUserId,
+                            "ALLOCATION_OVERLOAD_CLEARED",
+                            "weekly_project_allocations",
+                            savedOther.getId(),
+                            otherOldOverloadState,
+                            otherNewOverloadState
+                    ));
+                }
+            }
         }
 
         // Lưu bản ghi (Concurrency retry được xử lý tại RetryableAllocateResourceUseCaseDecorator)
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        // [TC-05] Ghi nhật ký kiểm toán (Audit Log)
+        // [TC-04, TC-05] Ghi nhật ký kiểm toán (Audit Log)
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "RESOURCE_ALLOCATED",
                 "weekly_project_allocations",
                 saved.getId(),
-                "Số giờ phân bổ cũ: " + oldValue + "h",
-                "Số giờ phân bổ mới: " + newValue + "h cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
+                "Phân bổ cũ: " + oldValue,
+                "Phân bổ mới: " + newValue + " cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
         ));
+
+        // [TC-05] Ghi nhật ký kiểm toán nghiệp vụ khi có thẩm quyền xác nhận vượt tải hợp lệ (State transition)
+        if (isOverloaded) {
+            String newOverloadState = "isOverloaded=true;overloadReason=" + command.overloadReason().trim()
+                    + ";approvedBy=" + currentUserId
+                    + ";approvedAt=" + approvedAt
+                    + ";projectAllocatedHours=" + command.allocatedHours()
+                    + ";totalWeeklyAllocatedHours=" + totalRequestedAllocated
+                    + ";netAvailableHours=" + netAvailableHours
+                    + ";overloadHours=" + excessHours;
+
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "ALLOCATION_OVERLOAD_BYPASS",
+                    "weekly_project_allocations",
+                    saved.getId(),
+                    oldOverloadState,
+                    newOverloadState
+            ));
+        } else if (oldIsOverloaded) {
+            // Khi phân bổ hiện tại chuyển từ quá tải sang hết quá tải
+            String newClearState = "isOverloaded=false;projectAllocatedHours=" + command.allocatedHours()
+                    + ";totalWeeklyAllocatedHours=" + totalRequestedAllocated;
+
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "ALLOCATION_OVERLOAD_CLEARED",
+                    "weekly_project_allocations",
+                    saved.getId(),
+                    oldOverloadState,
+                    newClearState
+            ));
+        }
 
         return calculateCapacity(employee, yearWeek);
     }

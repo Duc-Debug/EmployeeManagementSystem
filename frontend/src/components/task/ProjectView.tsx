@@ -310,7 +310,7 @@ export default function ProjectView() {
         setAdjustModalOpen(true);
     };
 
-    const handleSaveAdjustedHours = (memberId: string, weekKey: string, newHours: number) => {
+    const handleSaveAdjustedHours = (memberId: string, weekKey: string, newHours: number, percentage?: number) => {
         const member = members.find((m) => m.id === memberId);
         setMembers((prev) =>
             prev.map((m) =>
@@ -325,7 +325,7 @@ export default function ProjectView() {
                     : m
             )
         );
-        showToast(`Đã lưu phân bổ ${newHours}h cho ${member?.name || 'nhân sự'} (${weekKey})`, 'success');
+        showToast(`Đã lưu phân bổ ${newHours}h ${percentage !== undefined ? `(${percentage}%)` : ''} cho ${member?.name || 'nhân sự'} (${weekKey})`, 'success');
     };
 
     const handleExportReport = () => {

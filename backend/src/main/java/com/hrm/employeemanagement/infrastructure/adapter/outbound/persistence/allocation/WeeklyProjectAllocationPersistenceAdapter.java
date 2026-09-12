@@ -35,9 +35,19 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                             allocation.getYear(),
                             allocation.getWeekNumber(),
                             allocation.getAllocatedHours(),
+                            allocation.getAllocationPercentage(),
+                            allocation.isOverloaded(),
+                            allocation.getOverloadReason(),
+                            allocation.getOverloadApprovedBy(),
+                            allocation.getOverloadApprovedAt(),
                             null
                     ));
             entity.setAllocatedHours(allocation.getAllocatedHours());
+            entity.setAllocationPercentage(allocation.getAllocationPercentage());
+            entity.setIsOverloaded(allocation.isOverloaded());
+            entity.setOverloadReason(allocation.getOverloadReason());
+            entity.setOverloadApprovedBy(allocation.getOverloadApprovedBy());
+            entity.setOverloadApprovedAt(allocation.getOverloadApprovedAt());
         } else {
             entity = new WeeklyProjectAllocationJpaEntity(
                     null,
@@ -46,39 +56,31 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                     allocation.getYear(),
                     allocation.getWeekNumber(),
                     allocation.getAllocatedHours(),
+                    allocation.getAllocationPercentage(),
+                    allocation.isOverloaded(),
+                    allocation.getOverloadReason(),
+                    allocation.getOverloadApprovedBy(),
+                    allocation.getOverloadApprovedAt(),
                     null
             );
         }
 
         WeeklyProjectAllocationJpaEntity saved = repository.save(entity);
-        return new WeeklyProjectAllocation(
-                saved.getId(),
-                saved.getEmployeeId(),
-                saved.getProjectId(),
-                YearWeek.of(saved.getYear(), saved.getWeekNumber()),
-                saved.getAllocatedHours(),
-                saved.getVersion()
-        );
+        return toDomain(saved);
     }
 
     @Override
     public Optional<WeeklyProjectAllocation> loadAllocation(Long employeeId, Long projectId, YearWeek yearWeek) {
         return repository.findByEmployeeIdAndProjectIdAndYearAndWeekNumber(
                 employeeId, projectId, yearWeek.year(), yearWeek.weekNumber())
-                .map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()));
+                .map(this::toDomain);
     }
 
     @Override
     public List<WeeklyProjectAllocation> loadAllocationsForEmployee(Long employeeId, YearWeek yearWeek) {
         return repository.findByEmployeeIdAndYearAndWeekNumber(employeeId, yearWeek.year(), yearWeek.weekNumber())
                 .stream()
-                .map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                .map(this::toDomain)
                 .toList();
     }
 
@@ -86,10 +88,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
     public List<WeeklyProjectAllocation> loadAllocationsForEmployeesInWeekRange(List<Long> employeeIds, Integer year, Integer startWeek, Integer endWeek) {
         return repository.findByEmployeeIdInAndYearAndWeekNumberBetween(employeeIds, year, startWeek, endWeek)
                 .stream()
-                .map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                .map(this::toDomain)
                 .toList();
     }
 
@@ -117,10 +116,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 List<Integer> weeks = entry.getValue();
                 List<WeeklyProjectAllocationJpaEntity> entities = repository
                         .findByEmployeeIdInAndYearAndWeekNumberIn(chunk, year, weeks);
-                results.addAll(entities.stream().map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion())).toList());
+                results.addAll(entities.stream().map(this::toDomain).toList());
             }
         }
         return results;
@@ -130,10 +126,23 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
     public List<WeeklyProjectAllocation> loadAllocationsForProjectInWeekRange(Long projectId, Integer year, Integer startWeek, Integer endWeek) {
         return repository.findByProjectIdAndYearAndWeekNumberBetween(projectId, year, startWeek, endWeek)
                 .stream()
-                .map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                .map(this::toDomain)
                 .toList();
+    }
+
+    private WeeklyProjectAllocation toDomain(WeeklyProjectAllocationJpaEntity e) {
+        return new WeeklyProjectAllocation(
+                e.getId(),
+                e.getEmployeeId(),
+                e.getProjectId(),
+                YearWeek.of(e.getYear(), e.getWeekNumber()),
+                e.getAllocatedHours(),
+                e.getAllocationPercentage(),
+                e.getIsOverloaded() != null ? e.getIsOverloaded() : false,
+                e.getOverloadReason(),
+                e.getOverloadApprovedBy(),
+                e.getOverloadApprovedAt(),
+                e.getVersion()
+        );
     }
 }
