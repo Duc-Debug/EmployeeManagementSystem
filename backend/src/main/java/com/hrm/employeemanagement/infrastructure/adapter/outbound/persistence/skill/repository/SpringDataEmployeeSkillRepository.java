@@ -244,4 +244,15 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
             @Param("skillId") Long skillId,
             @Param("minLevel") int minLevel
     );
+
+    @Query("""
+        SELECT es.skillId AS skillId, es.employeeId AS employeeId, COALESCE(e.standardHoursPerWeek, 40) AS standardHoursPerWeek
+        FROM EmployeeSkillJpaEntity es
+        JOIN EmployeeJpaEntity e ON e.id = es.employeeId
+        WHERE es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
+          AND (:orgUnitId IS NULL OR e.orgUnitId = :orgUnitId)
+    """)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection> findApprovedCapacityByOrgUnit(
+            @Param("orgUnitId") Long orgUnitId
+    );
 }

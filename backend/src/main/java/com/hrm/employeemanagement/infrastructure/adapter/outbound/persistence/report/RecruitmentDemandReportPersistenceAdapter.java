@@ -11,13 +11,12 @@ import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.report.LoadRecruitmentDemandReportPort;
 import com.hrm.employeemanagement.domain.skill.Skill;
-import com.hrm.employeemanagement.domain.skill.SkillStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectResourceDemandJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectRoleJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository.SpringDataProjectResourceDemandRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository.SpringDataProjectRoleRepository;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.EmployeeSkillJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.SkillJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataEmployeeSkillRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataSkillRepository;
 
@@ -43,7 +42,7 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
 
     @Override
     public List<Skill> loadAllActiveSkills() {
-        List<SkillJpaEntity> entities = skillRepository.findAll();
+        List<SkillJpaEntity> entities = skillRepository.findAllActiveSkills();
         return entities.stream()
                 .map(e -> new Skill(
                         e.getId(),
@@ -60,9 +59,10 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
     public Map<Long, BigDecimal> loadProjectDemandHoursGroupedBySkill(
             Integer fromYear, Integer fromWeek, Integer toYear, Integer toWeek, Long orgUnitId) {
 
-        List<SkillJpaEntity> skills = skillRepository.findAll();
+        List<SkillJpaEntity> activeSkills = skillRepository.findAllActiveSkills();
         List<ProjectRoleJpaEntity> roles = projectRoleRepository.findAll();
-        List<ProjectResourceDemandJpaEntity> demands = projectResourceDemandRepository.findAll();
+        List<ProjectResourceDemandJpaEntity> demands = projectResourceDemandRepository.findDemandsFiltered(
+                orgUnitId, fromYear, fromWeek, toYear, toWeek);
 
         Map<Long, ProjectRoleJpaEntity> roleMap = roles.stream()
                 .collect(Collectors.toMap(ProjectRoleJpaEntity::getId, r -> r, (a, b) -> a));
@@ -70,17 +70,10 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
         Map<Long, BigDecimal> demandMap = new HashMap<>();
 
         for (ProjectResourceDemandJpaEntity d : demands) {
-            // Lọc theo tuần / năm
-            if (fromYear != null && d.getYear() < fromYear) continue;
-            if (toYear != null && d.getYear() > toYear) continue;
-            if (fromYear != null && fromWeek != null && d.getYear().equals(fromYear) && d.getWeekNumber() < fromWeek) continue;
-            if (toYear != null && toWeek != null && d.getYear().equals(toYear) && d.getWeekNumber() > toWeek) continue;
-
             ProjectRoleJpaEntity role = roleMap.get(d.getRoleId());
             if (role == null) continue;
 
-            // Áp khớp project_role với skill trong danh mục
-            Long targetSkillId = resolveSkillIdForRole(role, skills);
+            Long targetSkillId = resolveSkillIdForRole(role, activeSkills);
             if (targetSkillId != null) {
                 demandMap.merge(targetSkillId, d.getRequiredHours(), BigDecimal::add);
             }
@@ -93,17 +86,15 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
     public Map<Long, BigDecimal> loadAvailableCapacityHoursGroupedBySkill(
             Integer fromYear, Integer fromWeek, Integer toYear, Integer toWeek, Long orgUnitId) {
 
-        List<EmployeeSkillJpaEntity> approvedSkills = employeeSkillRepository.findAll().stream()
-                .filter(es -> es.getStatus() == SkillStatus.APPROVED)
-                .toList();
+        List<EmployeeSkillCapacityProjection> projections = employeeSkillRepository.findApprovedCapacityByOrgUnit(orgUnitId);
 
         int numberOfWeeks = calculateNumberOfWeeks(fromYear, fromWeek, toYear, toWeek);
 
         Map<Long, BigDecimal> capacityMap = new HashMap<>();
 
-        // Với mỗi nhân sự sở hữu kỹ năng đã phê duyệt, giả định 40h/tuần tiêu chuẩn
-        for (EmployeeSkillJpaEntity es : approvedSkills) {
-            BigDecimal employeeCapacity = BigDecimal.valueOf(40L * numberOfWeeks);
+        for (EmployeeSkillCapacityProjection es : projections) {
+            int hoursPerWeek = es.getStandardHoursPerWeek() != null ? es.getStandardHoursPerWeek() : 40;
+            BigDecimal employeeCapacity = BigDecimal.valueOf((long) hoursPerWeek * numberOfWeeks);
             capacityMap.merge(es.getSkillId(), employeeCapacity, BigDecimal::add);
         }
 
@@ -111,39 +102,38 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
     }
 
     private Long resolveSkillIdForRole(ProjectRoleJpaEntity role, List<SkillJpaEntity> skills) {
-        String roleCode = role.getCode().toUpperCase();
-        String roleName = role.getName().toLowerCase();
+        if (role == null || skills == null || skills.isEmpty()) {
+            return null;
+        }
 
-        for (SkillJpaEntity s : skills) {
-            String sCode = s.getCode().toUpperCase();
-            String sName = s.getName().toLowerCase();
-
-            if (roleCode.equals("TEST") && (sCode.contains("TEST") || sName.contains("kiểm thử") || sName.contains("qa"))) {
-                return s.getId();
-            }
-            if (roleCode.equals("DEV") && (sCode.contains("JAVA") || sName.contains("java") || sCode.contains("DEV"))) {
-                return s.getId();
-            }
-            if (roleCode.equals("BA") && (sCode.contains("BA") || sName.contains("nghiệp vụ"))) {
-                return s.getId();
-            }
-            if (roleCode.equals("UIUX") && (sCode.contains("UI") || sName.contains("thiết kế"))) {
-                return s.getId();
-            }
-            if (roleCode.equals("DEVOPS") && (sCode.contains("DOCKER") || sCode.contains("DEVOPS") || sName.contains("devops"))) {
-                return s.getId();
-            }
-            if (sCode.equals(roleCode) || sName.equalsIgnoreCase(roleName)) {
-                return s.getId();
+        // 1. Khớp theo skillGroupId == groupId
+        if (role.getSkillGroupId() != null) {
+            for (SkillJpaEntity s : skills) {
+                if (role.getSkillGroupId().equals(s.getGroupId())) {
+                    return s.getId();
+                }
             }
         }
 
-        // Fallback: nếu skill trùng code hoặc có skill đầu tiên
-        return skills.stream()
-                .filter(s -> s.getCode().equalsIgnoreCase(roleCode) || s.getName().toLowerCase().contains(roleName))
-                .map(SkillJpaEntity::getId)
-                .findFirst()
-                .orElse(skills.isEmpty() ? null : skills.get(0).getId());
+        // 2. Khớp theo code chính xác
+        if (role.getCode() != null) {
+            for (SkillJpaEntity s : skills) {
+                if (s.getCode() != null && s.getCode().equalsIgnoreCase(role.getCode())) {
+                    return s.getId();
+                }
+            }
+        }
+
+        // 3. Khớp theo name chính xác
+        if (role.getName() != null) {
+            for (SkillJpaEntity s : skills) {
+                if (s.getName() != null && s.getName().equalsIgnoreCase(role.getName())) {
+                    return s.getId();
+                }
+            }
+        }
+
+        return null;
     }
 
     private int calculateNumberOfWeeks(Integer fromYear, Integer fromWeek, Integer toYear, Integer toWeek) {

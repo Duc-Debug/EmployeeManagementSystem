@@ -29,7 +29,7 @@ public class RecruitmentDemandReportController {
      * Dành riêng cho Ban Giám đốc (VT-01), HR/Quản lý nguồn lực (VT-03), Quản trị viên (VT-06).
      */
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('VT-01', 'VT-03', 'VT-06', 'ROLE_VT-01', 'ROLE_VT-03', 'ROLE_VT-06', 'RECRUITMENT_DEMAND_REPORT_READ')")
+    @PreAuthorize("hasAuthority('RECRUITMENT_DEMAND_REPORT_READ')")
     public ResponseEntity<ApiResponse<RecruitmentDemandReportResult>> getRecruitmentDemandReport(
             @RequestParam(required = false) Integer fromYear,
             @RequestParam(required = false) Integer fromWeek,

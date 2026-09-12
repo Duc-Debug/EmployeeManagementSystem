@@ -147,4 +147,23 @@ class RecruitmentDemandReportServiceTest {
 
         verify(saveAuditLogPort).save(any());
     }
+
+    @Test
+    @DisplayName("NCL-10-CN-005-MEDIUM-01: Parameter Validation - Tuần hoặc năm không hợp lệ ném IllegalArgumentException")
+    void testInvalidQueryParameters_ThrowsException() {
+        Long currentUserId = 100L;
+        when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 55, 2026, 4, null))
+        );
+
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 10, 2025, 4, null))
+        );
+
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 10, 2026, 4, null))
+        );
+    }
 }

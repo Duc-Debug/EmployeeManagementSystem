@@ -115,13 +115,25 @@ public class ResourceAllocationController {
             @RequestParam(required = false) Long orgUnitId,
             @RequestParam Integer fromYear,
             @RequestParam Integer fromWeek,
-            @RequestParam Integer toYear,
-            @RequestParam Integer toWeek,
+            @RequestParam(required = false) Integer toYear,
+            @RequestParam(required = false) Integer toWeek,
+            @RequestParam(required = false) Integer durationWeeks,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
         if (minProficiencyLevel != null && minLevel != null && !minProficiencyLevel.equals(minLevel)) {
             throw new IllegalArgumentException("Không được truyền đồng thời cả minProficiencyLevel và minLevel với giá trị khác nhau");
         }
+
+        if (toYear == null || toWeek == null) {
+            int duration = (durationWeeks != null && durationWeeks > 0) ? durationWeeks : 4;
+            java.time.LocalDate endMonday = com.hrm.employeemanagement.domain.availability.YearWeek
+                    .of(fromYear, fromWeek).getStartDate().plusWeeks(duration - 1);
+            com.hrm.employeemanagement.domain.availability.YearWeek endWeek = 
+                    com.hrm.employeemanagement.domain.availability.YearWeek.from(endMonday);
+            toYear = endWeek.year();
+            toWeek = endWeek.weekNumber();
+        }
+
         Integer effectiveMinLevel = minProficiencyLevel != null ? minProficiencyLevel : (minLevel != null ? minLevel : 1);
         SearchResourceQuery query = new SearchResourceQuery(
                 skillId,

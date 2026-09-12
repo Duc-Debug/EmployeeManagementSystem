@@ -41,6 +41,7 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
         Long currentUserId = authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
 
         RecruitmentDemandReportQuery effectiveQuery = query != null ? query : new RecruitmentDemandReportQuery(null, null, null, null, null);
+        effectiveQuery.validate();
 
         // 1. Tải danh mục kỹ năng chuẩn trong hệ thống
         List<Skill> skills = loadReportPort.loadAllActiveSkills();
