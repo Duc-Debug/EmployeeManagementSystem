@@ -124,7 +124,13 @@ public class ResourceAllocationController {
             throw new IllegalArgumentException("Không được truyền đồng thời cả minProficiencyLevel và minLevel với giá trị khác nhau");
         }
 
-        if (toYear == null || toWeek == null) {
+        boolean hasToYear = toYear != null;
+        boolean hasToWeek = toWeek != null;
+        if (hasToYear != hasToWeek) {
+            throw new IllegalArgumentException("toYear và toWeek phải được cung cấp cùng nhau");
+        }
+
+        if (!hasToYear) {
             int duration = (durationWeeks != null && durationWeeks > 0) ? durationWeeks : 4;
             java.time.LocalDate endMonday = com.hrm.employeemanagement.domain.availability.YearWeek
                     .of(fromYear, fromWeek).getStartDate().plusWeeks(duration - 1);

@@ -269,7 +269,7 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
         WHERE es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
           AND (s.status IS NULL OR UPPER(s.status) = 'ACTIVE')
           AND (e.status IS NULL OR UPPER(e.status) = 'ACTIVE')
-          AND (COALESCE(:orgUnitIds, NULL) IS NULL OR e.orgUnitId IN :orgUnitIds)
+          AND e.orgUnitId IN :orgUnitIds
     """)
     List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection> findApprovedCapacityByOrgUnitIds(
             @Param("orgUnitIds") List<Long> orgUnitIds

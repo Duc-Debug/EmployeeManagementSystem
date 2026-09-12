@@ -40,7 +40,7 @@ public interface SpringDataProjectResourceDemandRepository
     @Query("""
         SELECT d FROM ProjectResourceDemandJpaEntity d
         JOIN ProjectJpaEntity p ON p.id = d.projectId
-        WHERE (COALESCE(:orgUnitIds, NULL) IS NULL OR p.orgUnitId IN :orgUnitIds)
+        WHERE p.orgUnitId IN :orgUnitIds
           AND (:fromYear IS NULL OR d.year > :fromYear OR (d.year = :fromYear AND d.weekNumber >= :fromWeek))
           AND (:toYear IS NULL OR d.year < :toYear OR (d.year = :toYear AND d.weekNumber <= :toWeek))
     """)
