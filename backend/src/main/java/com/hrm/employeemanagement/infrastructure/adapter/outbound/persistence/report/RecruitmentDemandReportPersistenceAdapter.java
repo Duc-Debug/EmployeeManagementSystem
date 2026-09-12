@@ -58,17 +58,7 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
 
-    public RecruitmentDemandReportPersistenceAdapter(
-            SpringDataSkillRepository skillRepository,
-            SpringDataProjectRoleRepository projectRoleRepository,
-            SpringDataProjectResourceDemandRepository projectResourceDemandRepository,
-            SpringDataEmployeeSkillRepository employeeSkillRepository
-    ) {
-        this(skillRepository, projectRoleRepository, projectResourceDemandRepository, employeeSkillRepository,
-                null, null, null, null, null, null);
-    }
-
-    @Autowired(required = false)
+    @Autowired
     public RecruitmentDemandReportPersistenceAdapter(
             SpringDataSkillRepository skillRepository,
             SpringDataProjectRoleRepository projectRoleRepository,
@@ -85,12 +75,12 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
         this.projectRoleRepository = Objects.requireNonNull(projectRoleRepository, "SpringDataProjectRoleRepository must not be null");
         this.projectResourceDemandRepository = Objects.requireNonNull(projectResourceDemandRepository, "SpringDataProjectResourceDemandRepository must not be null");
         this.employeeSkillRepository = Objects.requireNonNull(employeeSkillRepository, "SpringDataEmployeeSkillRepository must not be null");
-        this.loadWeeklyAvailabilityPort = loadWeeklyAvailabilityPort;
-        this.loadHolidaysPort = loadHolidaysPort;
-        this.loadApprovedLeavesPort = loadApprovedLeavesPort;
-        this.loadAllocationPort = loadAllocationPort;
-        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
-        this.loadOrgUnitPort = loadOrgUnitPort;
+        this.loadWeeklyAvailabilityPort = Objects.requireNonNull(loadWeeklyAvailabilityPort, "LoadWeeklyAvailabilityPort must not be null");
+        this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "LoadHolidaysPort must not be null");
+        this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "LoadApprovedLeavesPort must not be null");
+        this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "LoadWeeklyProjectAllocationPort must not be null");
+        this.loadWorkingCalendarPort = Objects.requireNonNull(loadWorkingCalendarPort, "LoadWorkingCalendarPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
     }
 
     @Override
@@ -213,14 +203,27 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
             ));
         }
 
-        // Compute net available capacity per employee
-        Map<Long, BigDecimal> employeeNetCapacityMap = new HashMap<>();
-        Map<Long, Set<Long>> employeeApprovedSkillsMap = new HashMap<>();
+        // Compute net available capacity per employee and attribute to Primary Approved Skill
+        Map<Long, BigDecimal> skillCapacityMap = new HashMap<>();
+
+        Comparator<EmployeeSkillCapacityProjection> primarySkillComparator = Comparator
+                .<EmployeeSkillCapacityProjection, Integer>comparing(
+                        p -> p.getProficiencyLevel() != null ? p.getProficiencyLevel() : 0)
+                .thenComparing(
+                        p -> p.getYearsOfExperience() != null ? p.getYearsOfExperience() : BigDecimal.ZERO)
+                .thenComparing(
+                        p -> p.getSkillId() != null ? -p.getSkillId() : Long.MIN_VALUE);
 
         for (Map.Entry<Long, List<EmployeeSkillCapacityProjection>> entry : skillsByEmployee.entrySet()) {
             Long empId = entry.getKey();
             List<EmployeeSkillCapacityProjection> empSkills = entry.getValue();
             if (empSkills.isEmpty()) continue;
+
+            EmployeeSkillCapacityProjection primarySkill = empSkills.stream()
+                    .max(primarySkillComparator)
+                    .orElse(null);
+
+            if (primarySkill == null || primarySkill.getSkillId() == null) continue;
 
             Integer stdHours = empSkills.get(0).getStandardHoursPerWeek();
             int hoursPerWeek = stdHours != null ? stdHours : 40;
@@ -251,72 +254,7 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
             }
 
             if (empTotalNetAvailable.compareTo(BigDecimal.ZERO) > 0) {
-                employeeNetCapacityMap.put(empId, empTotalNetAvailable);
-                Set<Long> skillIds = empSkills.stream()
-                        .map(EmployeeSkillCapacityProjection::getSkillId)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toSet());
-                employeeApprovedSkillsMap.put(empId, skillIds);
-            }
-        }
-
-        // Fetch project demand by skill
-        Map<Long, BigDecimal> demandMap = loadProjectDemandHoursGroupedBySkill(fromYear, fromWeek, toYear, toWeek, orgUnitId);
-
-        Map<Long, BigDecimal> skillCapacityMap = new HashMap<>();
-
-        Set<Long> allSkills = new HashSet<>();
-        employeeApprovedSkillsMap.values().forEach(allSkills::addAll);
-        allSkills.addAll(demandMap.keySet());
-
-        List<Long> sortedSkillIds = allSkills.stream()
-                .sorted(Comparator.comparing((Long sId) -> demandMap.getOrDefault(sId, BigDecimal.ZERO)).reversed()
-                        .thenComparing(sId -> sId))
-                .toList();
-
-        Map<Long, BigDecimal> remainingEmpCapacity = new HashMap<>(employeeNetCapacityMap);
-
-        // Step 1: Assign employee capacity to skills to satisfy demands without double counting
-        for (Long skillId : sortedSkillIds) {
-            BigDecimal demand = demandMap.getOrDefault(skillId, BigDecimal.ZERO);
-            BigDecimal assignedForSkill = BigDecimal.ZERO;
-
-            if (demand.compareTo(BigDecimal.ZERO) > 0) {
-                List<Long> candidateEmpIds = remainingEmpCapacity.entrySet().stream()
-                        .filter(e -> e.getValue().compareTo(BigDecimal.ZERO) > 0)
-                        .filter(e -> employeeApprovedSkillsMap.getOrDefault(e.getKey(), Set.of()).contains(skillId))
-                        .sorted(Comparator.comparingInt((Map.Entry<Long, BigDecimal> e) -> employeeApprovedSkillsMap.get(e.getKey()).size())
-                                .thenComparing(Map.Entry::getKey))
-                        .map(Map.Entry::getKey)
-                        .toList();
-
-                for (Long empId : candidateEmpIds) {
-                    BigDecimal needed = demand.subtract(assignedForSkill);
-                    if (needed.compareTo(BigDecimal.ZERO) <= 0) break;
-
-                    BigDecimal empRem = remainingEmpCapacity.get(empId);
-                    BigDecimal take = empRem.min(needed);
-
-                    assignedForSkill = assignedForSkill.add(take);
-                    remainingEmpCapacity.put(empId, empRem.subtract(take));
-                }
-            }
-
-            skillCapacityMap.put(skillId, assignedForSkill);
-        }
-
-        // Step 2: Distribute remaining idle employee capacity across their skills (without exceeding net capacity)
-        for (Map.Entry<Long, BigDecimal> entry : remainingEmpCapacity.entrySet()) {
-            Long empId = entry.getKey();
-            BigDecimal leftover = entry.getValue();
-            if (leftover.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-            Set<Long> empSkills = employeeApprovedSkillsMap.getOrDefault(empId, Set.of());
-            if (empSkills.isEmpty()) continue;
-
-            BigDecimal share = leftover.divide(BigDecimal.valueOf(empSkills.size()), 2, RoundingMode.HALF_UP);
-            for (Long skillId : empSkills) {
-                skillCapacityMap.merge(skillId, share, BigDecimal::add);
+                skillCapacityMap.merge(primarySkill.getSkillId(), empTotalNetAvailable, BigDecimal::add);
             }
         }
 
@@ -326,14 +264,6 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
     private Long resolveSkillIdForRole(ProjectRoleJpaEntity role, List<SkillJpaEntity> skills) {
         if (role == null || skills == null || skills.isEmpty()) {
             return null;
-        }
-
-        if (role.getSkillGroupId() != null) {
-            for (SkillJpaEntity s : skills) {
-                if (role.getSkillGroupId().equals(s.getGroupId())) {
-                    return s.getId();
-                }
-            }
         }
 
         if (role.getCode() != null) {
@@ -349,6 +279,15 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
                 if (s.getName() != null && s.getName().equalsIgnoreCase(role.getName())) {
                     return s.getId();
                 }
+            }
+        }
+
+        if (role.getSkillGroupId() != null) {
+            List<SkillJpaEntity> groupSkills = skills.stream()
+                    .filter(s -> role.getSkillGroupId().equals(s.getGroupId()))
+                    .toList();
+            if (groupSkills.size() == 1) {
+                return groupSkills.get(0).getId();
             }
         }
 
