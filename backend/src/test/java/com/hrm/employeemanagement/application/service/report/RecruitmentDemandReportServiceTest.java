@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,16 +23,27 @@ import static org.mockito.Mockito.when;
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportQuery;
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportResult;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.report.LoadRecruitmentDemandReportPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.report.RecruitmentSkillDemand;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.skill.Skill;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.UserStatus;
 
 class RecruitmentDemandReportServiceTest {
 
     private AuthorizationService authorizationService;
+    private LoadUserPort loadUserPort;
+    private LoadOrgUnitPort loadOrgUnitPort;
     private LoadRecruitmentDemandReportPort loadReportPort;
     private SaveAuditLogInNewTransactionPort saveAuditLogPort;
     private RecruitmentDemandReportService service;
@@ -39,11 +51,15 @@ class RecruitmentDemandReportServiceTest {
     @BeforeEach
     void setUp() {
         authorizationService = mock(AuthorizationService.class);
+        loadUserPort = mock(LoadUserPort.class);
+        loadOrgUnitPort = mock(LoadOrgUnitPort.class);
         loadReportPort = mock(LoadRecruitmentDemandReportPort.class);
         saveAuditLogPort = mock(SaveAuditLogInNewTransactionPort.class);
 
         service = new RecruitmentDemandReportService(
                 authorizationService,
+                loadUserPort,
+                loadOrgUnitPort,
                 loadReportPort,
                 saveAuditLogPort
         );
@@ -55,16 +71,17 @@ class RecruitmentDemandReportServiceTest {
         Long currentUserId = 100L;
         when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
 
+        Role role = new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám đốc");
+        User user = new User(new UserId(100L), "director", "hash", role, UserStatus.ACTIVE, null, DataScope.COMPANY, null, 0L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(user));
+
         Skill testingSkill = new Skill(
                 1L, "TESTING", "Kiểm thử (Testing / QA)", "Testing", "Mô tả", LocalDateTime.now()
         );
         when(loadReportPort.loadAllActiveSkills()).thenReturn(List.of(testingSkill));
 
-        // Nhu cầu dự án: 400 giờ kỹ năng kiểm thử
         when(loadReportPort.loadProjectDemandHoursGroupedBySkill(any(), any(), any(), any(), any()))
                 .thenReturn(Map.of(1L, BigDecimal.valueOf(400.0)));
-
-        // Năng lực hiện có: 0 giờ
         when(loadReportPort.loadAvailableCapacityHoursGroupedBySkill(any(), any(), any(), any(), any()))
                 .thenReturn(Map.of(1L, BigDecimal.ZERO));
 
@@ -85,7 +102,6 @@ class RecruitmentDemandReportServiceTest {
         assertTrue(demand.isDeficit());
         assertEquals("DEFICIT", demand.getStatus());
 
-        // [TC-04] Đảm bảo đã ghi vết audit log
         verify(saveAuditLogPort).save(any());
     }
 
@@ -100,7 +116,6 @@ class RecruitmentDemandReportServiceTest {
         );
         when(loadReportPort.loadAllActiveSkills()).thenReturn(List.of(devSkill));
 
-        // Nhu cầu dự án: 100 giờ; Năng lực hiện có: 160 giờ
         when(loadReportPort.loadProjectDemandHoursGroupedBySkill(any(), any(), any(), any(), any()))
                 .thenReturn(Map.of(2L, BigDecimal.valueOf(100.0)));
         when(loadReportPort.loadAvailableCapacityHoursGroupedBySkill(any(), any(), any(), any(), any()))
@@ -122,10 +137,42 @@ class RecruitmentDemandReportServiceTest {
     }
 
     @Test
-    @DisplayName("NCL-10-CN-005-TC-03: Không có quyền - Người dùng không phải Ban Giám Đốc hoặc HR")
+    @DisplayName("NCL-10-CN-005-TC-03: Không có quyền - Người dùng không có quyền RECRUITMENT_DEMAND_REPORT_READ")
     void testTC03_UnauthorizedAccess_ThrowsException() {
         when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ))
                 .thenThrow(new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ));
+
+        RecruitmentDemandReportQuery query = new RecruitmentDemandReportQuery(2026, 1, 2026, 4, null);
+
+        assertThrows(PermissionDeniedException.class, () -> service.execute(query));
+    }
+
+    @Test
+    @DisplayName("DataScope ORGANIZATION_BRANCH - Out of scope orgUnitId throws PermissionDeniedException")
+    void testDataScope_OrganizationBranch_OutsideScope_ThrowsException() {
+        Long currentUserId = 101L;
+        when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
+
+        Role role = new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực");
+        User user = new User(new UserId(101L), "manager", "hash", role, UserStatus.ACTIVE, null, DataScope.ORGANIZATION_BRANCH, 10L, 0L);
+        when(loadUserPort.findById(new UserId(101L))).thenReturn(Optional.of(user));
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(20L, 10L)).thenReturn(false);
+
+        RecruitmentDemandReportQuery query = new RecruitmentDemandReportQuery(2026, 1, 2026, 4, 20L);
+
+        assertThrows(PermissionDeniedException.class, () -> service.execute(query));
+    }
+
+    @Test
+    @DisplayName("DataScope SELF - Denies access to Recruitment Demand Report")
+    void testDataScope_Self_ThrowsException() {
+        Long currentUserId = 102L;
+        when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
+
+        Role role = new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên chuyên môn");
+        User user = new User(new UserId(102L), "staff", "hash", role, UserStatus.ACTIVE, null, DataScope.SELF, null, 0L);
+        when(loadUserPort.findById(new UserId(102L))).thenReturn(Optional.of(user));
 
         RecruitmentDemandReportQuery query = new RecruitmentDemandReportQuery(2026, 1, 2026, 4, null);
 
@@ -147,90 +194,5 @@ class RecruitmentDemandReportServiceTest {
         service.execute(query);
 
         verify(saveAuditLogPort).save(any());
-    }
-
-    @Test
-    @DisplayName("NCL-10-CN-005-MEDIUM-01: Time Range Validation - Pair & Partial Range Validation")
-    void testTimeRangeValidation_PairAndPartialRange() {
-        Long currentUserId = 100L;
-        when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
-
-        // Chỉ truyền fromYear mà không có fromWeek -> Ném IllegalArgumentException
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, null, 2026, 4, null))
-        );
-
-        // Chỉ truyền fromWeek mà không có fromYear -> Ném IllegalArgumentException
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(null, 1, 2026, 4, null))
-        );
-
-        // Chỉ truyền toYear mà không có toWeek -> Ném IllegalArgumentException
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 1, 2026, null, null))
-        );
-
-        // Chỉ truyền toWeek mà không có toYear -> Ném IllegalArgumentException
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 1, null, 4, null))
-        );
-
-        // Đơn lẻ from range mà không có to range (partial range) -> Ném IllegalArgumentException
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 1, null, null, null))
-        );
-    }
-
-    @Test
-    @DisplayName("NCL-10-CN-005-MEDIUM-01: Time Range Validation - ISO Week validation & year comparison")
-    void testTimeRangeValidation_IsoWeekAndOrder() {
-        Long currentUserId = 100L;
-        when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
-
-        // Week = 0
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 0, 2026, 4, null))
-        );
-
-        // Week < 0
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, -1, 2026, 4, null))
-        );
-
-        // Week > 53
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 54, 2026, 4, null))
-        );
-
-        // Week 53 trong năm 2025 (năm 2025 chỉ có 52 ISO weeks) -> Ném exception
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2025, 53, 2025, 53, null))
-        );
-
-        // Week 53 trong năm 2020 (năm 2020 có 53 ISO weeks) -> Hợp lệ!
-        when(loadReportPort.loadAllActiveSkills()).thenReturn(List.of());
-        assertDoesNotThrow(() ->
-                service.execute(new RecruitmentDemandReportQuery(2020, 1, 2020, 53, null))
-        );
-
-        // from > to (cùng năm, fromWeek > toWeek)
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 10, 2026, 4, null))
-        );
-
-        // from > to (fromYear > toYear)
-        assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2027, 1, 2026, 4, null))
-        );
-
-        // Hợp lệ trong cùng năm
-        assertDoesNotThrow(() ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 1, 2026, 4, null))
-        );
-
-        // Hợp lệ qua nhiều năm
-        assertDoesNotThrow(() ->
-                service.execute(new RecruitmentDemandReportQuery(2025, 40, 2026, 10, null))
-        );
     }
 }

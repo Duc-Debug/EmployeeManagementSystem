@@ -255,4 +255,15 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
     List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection> findApprovedCapacityByOrgUnit(
             @Param("orgUnitId") Long orgUnitId
     );
+
+    @Query("""
+        SELECT es.skillId AS skillId, es.employeeId AS employeeId, COALESCE(e.standardHoursPerWeek, 40) AS standardHoursPerWeek
+        FROM EmployeeSkillJpaEntity es
+        JOIN EmployeeJpaEntity e ON e.id = es.employeeId
+        WHERE es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
+          AND (COALESCE(:orgUnitIds, NULL) IS NULL OR e.orgUnitId IN :orgUnitIds)
+    """)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection> findApprovedCapacityByOrgUnitIds(
+            @Param("orgUnitIds") List<Long> orgUnitIds
+    );
 }

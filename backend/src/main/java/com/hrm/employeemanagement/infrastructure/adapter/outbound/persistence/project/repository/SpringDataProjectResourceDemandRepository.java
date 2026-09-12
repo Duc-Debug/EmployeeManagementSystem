@@ -35,4 +35,19 @@ public interface SpringDataProjectResourceDemandRepository
             @Param("toYear") Integer toYear,
             @Param("toWeek") Integer toWeek
     );
+
+    @Query("""
+        SELECT d FROM ProjectResourceDemandJpaEntity d
+        JOIN ProjectJpaEntity p ON p.id = d.projectId
+        WHERE (COALESCE(:orgUnitIds, NULL) IS NULL OR p.orgUnitId IN :orgUnitIds)
+          AND (:fromYear IS NULL OR d.year > :fromYear OR (d.year = :fromYear AND d.weekNumber >= :fromWeek))
+          AND (:toYear IS NULL OR d.year < :toYear OR (d.year = :toYear AND d.weekNumber <= :toWeek))
+    """)
+    List<ProjectResourceDemandJpaEntity> findDemandsFilteredByOrgUnitIds(
+            @Param("orgUnitIds") List<Long> orgUnitIds,
+            @Param("fromYear") Integer fromYear,
+            @Param("fromWeek") Integer fromWeek,
+            @Param("toYear") Integer toYear,
+            @Param("toWeek") Integer toWeek
+    );
 }
