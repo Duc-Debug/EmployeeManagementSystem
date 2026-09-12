@@ -528,7 +528,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         isOverloaded,
                         excessHours,
                         status,
-                        reservedHours
+                        reservedHours,
+                        leaveHours
                 ));
             }
 
