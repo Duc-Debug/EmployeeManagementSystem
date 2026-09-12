@@ -27,8 +27,6 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
-import com.hrm.employeemanagement.domain.role.Role;
-import com.hrm.employeemanagement.domain.role.RoleCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -269,106 +267,6 @@ class GetCompanyWeeklyCapacityServiceTest {
     void testSelfScopeDeniedAccess() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(300L);
         when(loadUserPort.findById(new UserId(300L))).thenReturn(Optional.of(employeeUser));
-
-        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 8);
-
-        assertThatThrownBy(() -> service.getWeeklyCapacityMatrix(query))
-                .isInstanceOf(PermissionDeniedException.class);
-    }
-
-    @Test
-    @DisplayName("Data Scope: VT-02 (Quản lý dự án) có Data Scope SELF được phép truy cập bảng năng lực phòng ban trực thuộc")
-    void testProjectManagerSelfScopeAllowedAccess() {
-        User pmUser = mock(User.class);
-        Role pmRole = mock(Role.class);
-        when(pmRole.getCode()).thenReturn(RoleCode.VT_02);
-        when(pmUser.getDataScope()).thenReturn(DataScope.SELF);
-        when(pmUser.getRole()).thenReturn(pmRole);
-        when(pmUser.getEmployeeId()).thenReturn(new EmployeeId(40L));
-
-        Employee pmEmp = new Employee(new EmployeeId(40L), new UserId(400L), 10L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE);
-        when(loadEmployeePort.findById(new EmployeeId(40L))).thenReturn(Optional.of(pmEmp));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
-
-        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(400L);
-        when(loadUserPort.findById(new UserId(400L))).thenReturn(Optional.of(pmUser));
-        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
-        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
-        when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of());
-
-        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 8);
-        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
-
-        assertThat(result).isNotNull();
-        assertThat(result.orgUnitName()).isEqualTo("Phòng Công nghệ thông tin");
-    }
-
-    @Test
-    @DisplayName("Security BOLA Fix: VT-02 truyền orgUnitId = null không được xem toàn công ty, mặc định về phòng ban của PM")
-    void testProjectManagerSelfScopeNullOrgUnitIdDefaultsToOwnBranch() {
-        User pmUser = mock(User.class);
-        Role pmRole = mock(Role.class);
-        when(pmRole.getCode()).thenReturn(RoleCode.VT_02);
-        when(pmUser.getDataScope()).thenReturn(DataScope.SELF);
-        when(pmUser.getRole()).thenReturn(pmRole);
-        when(pmUser.getEmployeeId()).thenReturn(new EmployeeId(40L));
-
-        Employee pmEmp = new Employee(new EmployeeId(40L), new UserId(400L), 10L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE);
-        when(loadEmployeePort.findById(new EmployeeId(40L))).thenReturn(Optional.of(pmEmp));
-
-        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(400L);
-        when(loadUserPort.findById(new UserId(400L))).thenReturn(Optional.of(pmUser));
-        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
-        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
-        when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of());
-
-        // orgUnitId = null
-        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(null, 2026, 37, 8);
-        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
-
-        assertThat(result).isNotNull();
-        // Mặc định về phòng ban 10L của PM chứ không trả về "Toàn công ty"
-        assertThat(result.orgUnitId()).isEqualTo(10L);
-        assertThat(result.orgUnitName()).isEqualTo("Phòng Công nghệ thông tin");
-    }
-
-    @Test
-    @DisplayName("Security BOLA Fix: VT-02 cố tình truyền orgUnitId ngoài branch bị từ chối 403 Forbidden")
-    void testProjectManagerSelfScopeOutsideBranchThrowsForbidden() {
-        User pmUser = mock(User.class);
-        Role pmRole = mock(Role.class);
-        when(pmRole.getCode()).thenReturn(RoleCode.VT_02);
-        when(pmUser.getDataScope()).thenReturn(DataScope.SELF);
-        when(pmUser.getRole()).thenReturn(pmRole);
-        when(pmUser.getEmployeeId()).thenReturn(new EmployeeId(40L));
-
-        Employee pmEmp = new Employee(new EmployeeId(40L), new UserId(400L), 10L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE);
-        when(loadEmployeePort.findById(new EmployeeId(40L))).thenReturn(Optional.of(pmEmp));
-        // Phòng ban 99L không thuộc branch 10L
-        when(loadOrgUnitPort.existsInOrgUnitBranch(99L, 10L)).thenReturn(false);
-
-        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(400L);
-        when(loadUserPort.findById(new UserId(400L))).thenReturn(Optional.of(pmUser));
-
-        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(99L, 2026, 37, 8);
-
-        assertThatThrownBy(() -> service.getWeeklyCapacityMatrix(query))
-                .isInstanceOf(PermissionDeniedException.class);
-    }
-
-    @Test
-    @DisplayName("Security BOLA Fix: VT-02 không có hồ sơ nhân sự hoặc phòng ban bị từ chối 403 Forbidden")
-    void testProjectManagerWithoutOrgUnitThrowsForbidden() {
-        User pmUser = mock(User.class);
-        Role pmRole = mock(Role.class);
-        when(pmRole.getCode()).thenReturn(RoleCode.VT_02);
-        when(pmUser.getDataScope()).thenReturn(DataScope.SELF);
-        when(pmUser.getRole()).thenReturn(pmRole);
-        when(pmUser.getEmployeeId()).thenReturn(null);
-
-        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(400L);
-        when(loadUserPort.findById(new UserId(400L))).thenReturn(Optional.of(pmUser));
-        when(loadEmployeePort.findByUserId(new UserId(400L))).thenReturn(Optional.empty());
 
         CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 8);
 

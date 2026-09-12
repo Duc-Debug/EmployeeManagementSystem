@@ -3,9 +3,7 @@ package com.hrm.employeemanagement.domain.project;
 public enum ProjectStatus {
     ACTIVE,
     INACTIVE,
-    CLOSED,
-    PLANNED,
-    CANCELLED;
+    CLOSED;
 
     public static ProjectStatus fromString(String value) {
         if (value == null || value.isBlank()) {

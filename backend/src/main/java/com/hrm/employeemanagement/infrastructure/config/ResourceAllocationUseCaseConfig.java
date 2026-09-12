@@ -42,8 +42,7 @@ public class ResourceAllocationUseCaseConfig {
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
-            java.util.Optional<LoadWorkingCalendarPort> loadWorkingCalendarPort,
-            java.util.Optional<com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort> loadReservationPort) {
+            java.util.Optional<LoadWorkingCalendarPort> loadWorkingCalendarPort) {
         return new GetCompanyWeeklyCapacityService(
                 authorizationService,
                 loadUserPort,
@@ -53,8 +52,7 @@ public class ResourceAllocationUseCaseConfig {
                 loadWeeklyAvailabilityPort,
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
-                loadWorkingCalendarPort.orElse(null),
-                loadReservationPort.orElse(null)
+                loadWorkingCalendarPort.orElse(null)
         );
     }
 
