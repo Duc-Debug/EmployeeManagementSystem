@@ -39,6 +39,12 @@ public class WeeklyProjectAllocation {
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
         this.id = id;

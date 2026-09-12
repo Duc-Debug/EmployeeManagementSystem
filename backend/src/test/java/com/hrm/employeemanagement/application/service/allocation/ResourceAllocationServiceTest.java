@@ -602,10 +602,14 @@ class ResourceAllocationServiceTest {
         AllocateResourceCommand command = new AllocateResourceCommand(
                 employeeId, projectId, year, weekNumber, null, BigDecimal.valueOf(50));
 
-        assertThrows(
-                AllocationCapacityExceededException.class,
+        AllocationOverloadWarningException ex = assertThrows(
+                AllocationOverloadWarningException.class,
                 () -> service.allocateResource(command)
         );
+
+        assertEquals(0, BigDecimal.valueOf(40).compareTo(ex.getAvailableHours()));
+        assertEquals(0, new BigDecimal("45.00").compareTo(ex.getAllocatedHours()));
+        assertEquals(0, new BigDecimal("5.00").compareTo(ex.getOverloadHours()));
 
         verify(saveAllocationPort, never()).save(any());
     }
