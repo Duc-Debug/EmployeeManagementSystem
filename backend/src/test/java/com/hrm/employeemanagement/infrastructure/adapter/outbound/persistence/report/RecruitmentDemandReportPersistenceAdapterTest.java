@@ -7,12 +7,9 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
@@ -77,28 +74,60 @@ class RecruitmentDemandReportPersistenceAdapterTest {
     }
 
     @Test
-    @DisplayName("HIGH-02: Tính toán capacity dựa trên standardHoursPerWeek thực tế của nhân sự")
-    void testLoadAvailableCapacityHoursGroupedBySkill_ActualStandardHours() {
+    @DisplayName("HIGH-02: Single Employee with 1 Skill - 100% Capacity Assigned")
+    void testLoadAvailableCapacity_SingleSkill() {
         EmployeeSkillCapacityProjection proj1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 1L; }
             @Override public Long getEmployeeId() { return 101L; }
             @Override public Integer getStandardHoursPerWeek() { return 40; }
         };
-        EmployeeSkillCapacityProjection proj2 = new EmployeeSkillCapacityProjection() {
-            @Override public Long getSkillId() { return 1L; }
-            @Override public Long getEmployeeId() { return 102L; }
-            @Override public Integer getStandardHoursPerWeek() { return 20; }
-        };
 
         when(employeeSkillRepository.findApprovedCapacityByOrgUnit(5L))
-                .thenReturn(List.of(proj1, proj2));
+                .thenReturn(List.of(proj1));
 
-        // 4 tuần
+        // 4 tuần => 40h * 4 = 160h
         Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, 5L);
 
-        // 40h * 4 = 160, 20h * 4 = 80 => Tổng: 240h
         assertEquals(1, capacityMap.size());
-        assertEquals(BigDecimal.valueOf(240L), capacityMap.get(1L));
+        assertEquals(0, BigDecimal.valueOf(160.00).compareTo(capacityMap.get(1L)));
+    }
+
+    @Test
+    @DisplayName("HIGH-02: Multi-Skill Capacity Division - Preventing Double-Counting")
+    void testLoadAvailableCapacity_MultipleSkills_NoDoubleCounting() {
+        // Employee 101 có 2 kỹ năng: Skill 1 (Java) và Skill 2 (React)
+        EmployeeSkillCapacityProjection emp1Skill1 = new EmployeeSkillCapacityProjection() {
+            @Override public Long getSkillId() { return 1L; }
+            @Override public Long getEmployeeId() { return 101L; }
+            @Override public Integer getStandardHoursPerWeek() { return 40; }
+        };
+        EmployeeSkillCapacityProjection emp1Skill2 = new EmployeeSkillCapacityProjection() {
+            @Override public Long getSkillId() { return 2L; }
+            @Override public Long getEmployeeId() { return 101L; }
+            @Override public Integer getStandardHoursPerWeek() { return 40; }
+        };
+
+        // Employee 102 chỉ có 1 kỹ năng: Skill 1 (Java)
+        EmployeeSkillCapacityProjection emp2Skill1 = new EmployeeSkillCapacityProjection() {
+            @Override public Long getSkillId() { return 1L; }
+            @Override public Long getEmployeeId() { return 102L; }
+            @Override public Integer getStandardHoursPerWeek() { return 40; }
+        };
+
+        when(employeeSkillRepository.findApprovedCapacityByOrgUnit(null))
+                .thenReturn(List.of(emp1Skill1, emp1Skill2, emp2Skill1));
+
+        // 4 tuần
+        // Employee 101 tổng capacity: 160h. Do có 2 skill -> Mỗi skill nhận 80h.
+        // Employee 102 tổng capacity: 160h. Có 1 skill -> Skill 1 nhận 160h.
+        // Skill 1 tổng capacity = 80h + 160h = 240h.
+        // Skill 2 tổng capacity = 80h.
+        // Tổng capacity 2 skill = 320h (Bằng tổng capacity 2 nhân sự: 160h + 160h = 320h), KHÔNG bị inflate lên 480h!
+        Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, null);
+
+        assertEquals(2, capacityMap.size());
+        assertEquals(0, BigDecimal.valueOf(240.00).compareTo(capacityMap.get(1L)));
+        assertEquals(0, BigDecimal.valueOf(80.00).compareTo(capacityMap.get(2L)));
     }
 
     @Test

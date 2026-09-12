@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -149,21 +150,87 @@ class RecruitmentDemandReportServiceTest {
     }
 
     @Test
-    @DisplayName("NCL-10-CN-005-MEDIUM-01: Parameter Validation - Tuần hoặc năm không hợp lệ ném IllegalArgumentException")
-    void testInvalidQueryParameters_ThrowsException() {
+    @DisplayName("NCL-10-CN-005-MEDIUM-01: Time Range Validation - Pair & Partial Range Validation")
+    void testTimeRangeValidation_PairAndPartialRange() {
         Long currentUserId = 100L;
         when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
 
+        // Chỉ truyền fromYear mà không có fromWeek -> Ném IllegalArgumentException
         assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 55, 2026, 4, null))
+                service.execute(new RecruitmentDemandReportQuery(2026, null, 2026, 4, null))
         );
 
+        // Chỉ truyền fromWeek mà không có fromYear -> Ném IllegalArgumentException
         assertThrows(IllegalArgumentException.class, () ->
-                service.execute(new RecruitmentDemandReportQuery(2026, 10, 2025, 4, null))
+                service.execute(new RecruitmentDemandReportQuery(null, 1, 2026, 4, null))
         );
 
+        // Chỉ truyền toYear mà không có toWeek -> Ném IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 1, 2026, null, null))
+        );
+
+        // Chỉ truyền toWeek mà không có toYear -> Ném IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 1, null, 4, null))
+        );
+
+        // Đơn lẻ from range mà không có to range (partial range) -> Ném IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 1, null, null, null))
+        );
+    }
+
+    @Test
+    @DisplayName("NCL-10-CN-005-MEDIUM-01: Time Range Validation - ISO Week validation & year comparison")
+    void testTimeRangeValidation_IsoWeekAndOrder() {
+        Long currentUserId = 100L;
+        when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
+
+        // Week = 0
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 0, 2026, 4, null))
+        );
+
+        // Week < 0
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, -1, 2026, 4, null))
+        );
+
+        // Week > 53
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 54, 2026, 4, null))
+        );
+
+        // Week 53 trong năm 2025 (năm 2025 chỉ có 52 ISO weeks) -> Ném exception
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2025, 53, 2025, 53, null))
+        );
+
+        // Week 53 trong năm 2020 (năm 2020 có 53 ISO weeks) -> Hợp lệ!
+        when(loadReportPort.loadAllActiveSkills()).thenReturn(List.of());
+        assertDoesNotThrow(() ->
+                service.execute(new RecruitmentDemandReportQuery(2020, 1, 2020, 53, null))
+        );
+
+        // from > to (cùng năm, fromWeek > toWeek)
         assertThrows(IllegalArgumentException.class, () ->
                 service.execute(new RecruitmentDemandReportQuery(2026, 10, 2026, 4, null))
+        );
+
+        // from > to (fromYear > toYear)
+        assertThrows(IllegalArgumentException.class, () ->
+                service.execute(new RecruitmentDemandReportQuery(2027, 1, 2026, 4, null))
+        );
+
+        // Hợp lệ trong cùng năm
+        assertDoesNotThrow(() ->
+                service.execute(new RecruitmentDemandReportQuery(2026, 1, 2026, 4, null))
+        );
+
+        // Hợp lệ qua nhiều năm
+        assertDoesNotThrow(() ->
+                service.execute(new RecruitmentDemandReportQuery(2025, 40, 2026, 10, null))
         );
     }
 }

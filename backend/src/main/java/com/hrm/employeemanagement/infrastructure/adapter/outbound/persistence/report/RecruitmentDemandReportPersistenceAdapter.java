@@ -1,6 +1,11 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.report;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.IsoFields;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,12 +95,29 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
 
         int numberOfWeeks = calculateNumberOfWeeks(fromYear, fromWeek, toYear, toWeek);
 
+        // Nhóm các kỹ năng được duyệt theo từng nhân sự để phân bổ số giờ làm việc chuẩn
+        // Tránh tình trạng double-count capacity khi một nhân sự sở hữu nhiều kỹ năng được phê duyệt
+        Map<Long, List<EmployeeSkillCapacityProjection>> skillsByEmployee = projections.stream()
+                .collect(Collectors.groupingBy(EmployeeSkillCapacityProjection::getEmployeeId));
+
         Map<Long, BigDecimal> capacityMap = new HashMap<>();
 
-        for (EmployeeSkillCapacityProjection es : projections) {
-            int hoursPerWeek = es.getStandardHoursPerWeek() != null ? es.getStandardHoursPerWeek() : 40;
-            BigDecimal employeeCapacity = BigDecimal.valueOf((long) hoursPerWeek * numberOfWeeks);
-            capacityMap.merge(es.getSkillId(), employeeCapacity, BigDecimal::add);
+        for (Map.Entry<Long, List<EmployeeSkillCapacityProjection>> entry : skillsByEmployee.entrySet()) {
+            List<EmployeeSkillCapacityProjection> empSkills = entry.getValue();
+            int approvedSkillsCount = empSkills.size();
+            if (approvedSkillsCount == 0) continue;
+
+            Integer stdHours = empSkills.get(0).getStandardHoursPerWeek();
+            int hoursPerWeek = stdHours != null ? stdHours : 40;
+            BigDecimal totalEmployeeCapacity = BigDecimal.valueOf((long) hoursPerWeek * numberOfWeeks);
+
+            // Phân bổ năng lực tổng của nhân sự đều cho các kỹ năng đã phê duyệt
+            BigDecimal capacityPerSkill = totalEmployeeCapacity.divide(
+                    BigDecimal.valueOf(approvedSkillsCount), 2, RoundingMode.HALF_UP);
+
+            for (EmployeeSkillCapacityProjection es : empSkills) {
+                capacityMap.merge(es.getSkillId(), capacityPerSkill, BigDecimal::add);
+            }
         }
 
         return capacityMap;
@@ -140,9 +162,14 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
         if (fromYear == null || fromWeek == null || toYear == null || toWeek == null) {
             return 1;
         }
-        if (fromYear.equals(toYear)) {
-            return Math.max(1, toWeek - fromWeek + 1);
-        }
-        return Math.max(1, (toYear - fromYear) * 52 + (toWeek - fromWeek + 1));
+        LocalDate fromDate = LocalDate.now()
+                .with(IsoFields.WEEK_BASED_YEAR, fromYear)
+                .with(IsoFields.WEEK_OF_WEEK_BASED_YEAR, fromWeek)
+                .with(DayOfWeek.MONDAY);
+        LocalDate toDate = LocalDate.now()
+                .with(IsoFields.WEEK_BASED_YEAR, toYear)
+                .with(IsoFields.WEEK_OF_WEEK_BASED_YEAR, toWeek)
+                .with(DayOfWeek.MONDAY);
+        return Math.max(1, (int) (ChronoUnit.WEEKS.between(fromDate, toDate) + 1));
     }
 }
