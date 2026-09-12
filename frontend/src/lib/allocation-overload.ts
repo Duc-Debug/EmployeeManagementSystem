@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Thư viện hàm nghiệp vụ thuần túy (pure functions) xử lý tính toán quá tải
  * và kiểm tra quyền vượt tải (NCL-06-CN-003 / QTN-11).
  */
@@ -8,17 +8,51 @@ export interface AuthUserLike {
     permissions?: string[] | null;
 }
 
+export const RESOURCE_OVERLOAD_BYPASS_PERMISSION = 'RESOURCE_ALLOCATION_OVERLOAD_BYPASS';
+
 /**
- * Kiểm tra thẩm quyền phê duyệt phân bổ vượt tải (QTN-11).
- * Ưu tiên kiểm tra permission code RESOURCE_ALLOCATION_OVERLOAD_BYPASS nếu có,
- * kết hợp fallback tương thích 100% với vai trò Quản lý nguồn lực (VT-03).
+ * Danh mục quyền mặc định theo vai trò (đồng bộ với Flyway migrations trong DB: V61, V35...).
+ * Giúp frontend xác thực dựa trên permission một cách nhất quán (permission-based)
+ * ngay cả khi token session chưa nhúng danh sách permissions đầy đủ.
  */
-export function canBypassResourceOverload(user: AuthUserLike | null | undefined): boolean {
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+    'VT-03': [
+        'RESOURCE_ALLOCATION_MANAGE',
+        'RESOURCE_ALLOCATION_OVERLOAD_BYPASS',
+        'RESOURCE_RESERVATION_CREATE',
+        'RESOURCE_RESERVATION_MANAGE',
+    ],
+    'VT-01': [],
+    'VT-02': ['PROJECT_MANAGE', 'RESOURCE_RESERVATION_CREATE'],
+    'VT-04': [],
+    'VT-05': [],
+    'VT-06': ['USER_MANAGE', 'ROLE_MANAGE'],
+};
+
+/**
+ * Kiểm tra xem người dùng có permission cụ thể hay không (Permission-based Authorization).
+ * 1. Ưu tiên kiểm tra mảng permissions gắn trực tiếp trên user session.
+ * 2. Nếu chưa có mảng permissions, tra cứu qua bảng phân quyền chuẩn của vai trò.
+ */
+export function hasUserPermission(user: AuthUserLike | null | undefined, permissionCode: string): boolean {
     if (!user) return false;
-    if (Array.isArray(user.permissions) && user.permissions.includes('RESOURCE_ALLOCATION_OVERLOAD_BYPASS')) {
+    // 1. Khi user session có mảng permissions cụ thể, kiểm tra trực tiếp trên danh sách này (Strict Permission-based)
+    if (Array.isArray(user.permissions)) {
+        return user.permissions.includes(permissionCode);
+    }
+    // 2. Chỉ khi chưa có mảng permissions (session chỉ có roleCode), tra cứu theo bảng phân quyền chuẩn của vai trò
+    if (user.roleCode && DEFAULT_ROLE_PERMISSIONS[user.roleCode]?.includes(permissionCode)) {
         return true;
     }
-    return user.roleCode === 'VT-03';
+    return false;
+}
+
+/**
+ * Kiểm tra thẩm quyền phê duyệt phân bổ vượt tải (QTN-11).
+ * Xác thực hoàn toàn dựa trên Permission: RESOURCE_ALLOCATION_OVERLOAD_BYPASS.
+ */
+export function canBypassResourceOverload(user: AuthUserLike | null | undefined): boolean {
+    return hasUserPermission(user, RESOURCE_OVERLOAD_BYPASS_PERMISSION);
 }
 
 export interface OverloadCalculationResult {
@@ -54,16 +88,18 @@ export function computeAllocationOverload(
 /**
  * Invariant bảo vệ nút Submit:
  * - Vô hiệu hóa khi đang submit
- * - Vô hiệu hóa khi đang tải năng lực tuần (tránh race condition hoặc dữ liệu stale)
+ * - Vô hiệu hóa khi đang tải năng lực tuần (tránh race condition)
+ * - Vô hiệu hóa khi tải năng lực thất bại hoặc chưa có dữ liệu năng lực hợp lệ (hasCapacityError)
  * - Vô hiệu hóa khi tuần bị quá tải nhưng người dùng không có thẩm quyền phê duyệt
  */
 export function isAdjustHoursSubmitDisabled(
     isSubmitting: boolean,
     isLoadingCapacity: boolean,
     isOverloaded: boolean,
-    canBypass: boolean
+    canBypass: boolean,
+    hasCapacityError: boolean = false
 ): boolean {
-    return isSubmitting || isLoadingCapacity || (isOverloaded && !canBypass);
+    return isSubmitting || isLoadingCapacity || hasCapacityError || (isOverloaded && !canBypass);
 }
 
 export interface OverloadValidationResult {

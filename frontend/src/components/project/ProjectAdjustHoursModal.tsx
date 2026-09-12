@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Sliders, AlertTriangle, ShieldAlert, CheckCircle } from 'lucide-react';
 import type { ProjectMember } from './projectData';
 import { useAuthUser } from '@/lib/auth-session';
@@ -24,7 +24,8 @@ interface ProjectAdjustHoursModalProps {
     onSave: (memberId: string, weekKey: string, newHours: number, overloadReason?: string) => Promise<void> | void;
 }
 
-const getEmployeeId = (member: ProjectMember): number | null => {
+const getEmployeeId = (member: ProjectMember | null): number | null => {
+    if (!member) return null;
     if (member.employeeId && member.employeeId > 0) return member.employeeId;
     const parsed = Number(member.id.replace('u-', ''));
     return !isNaN(parsed) && parsed > 0 ? parsed : null;
@@ -56,6 +57,36 @@ export function ProjectAdjustHoursModal({
     const [isLoadingCapacity, setIsLoadingCapacity] = useState(false);
     const [capacityFetchError, setCapacityFetchError] = useState(false);
 
+    const fetchCapacity = useCallback(() => {
+        if (!member) return;
+        const empId = getEmployeeId(member);
+        if (empId && year && weekNumber) {
+            setIsLoadingCapacity(true);
+            setCapacityFetchError(false);
+            getWeeklyCapacities([empId], year, weekNumber)
+                .then((capacities) => {
+                    if (capacities && capacities.length > 0) {
+                        const cap = capacities[0];
+                        setNetCapacity(cap.netAvailableHours);
+                        setStandardHours(cap.standardHours);
+                        const currentProjHours = member.weeklyHours[weekKey] ?? 0;
+                        const otherHours = Math.max(0, (cap.totalAllocatedHours ?? 0) - currentProjHours);
+                        setOtherProjectsHours(otherHours);
+                        setCapacityFetchError(false);
+                    } else {
+                        setCapacityFetchError(true);
+                    }
+                })
+                .catch((err) => {
+                    console.warn('Không thể tải năng lực khả dụng tuần:', err);
+                    setCapacityFetchError(true);
+                })
+                .finally(() => {
+                    setIsLoadingCapacity(false);
+                });
+        }
+    }, [member, year, weekNumber, weekKey]);
+
     useEffect(() => {
         if (open && member && weekKey) {
             setHours(member.weeklyHours[weekKey] ?? 0);
@@ -63,48 +94,31 @@ export function ProjectAdjustHoursModal({
             setReasonError(null);
             setIsSubmitting(false);
             setCapacityFetchError(false);
-
-            const empId = getEmployeeId(member);
-            if (empId && year && weekNumber) {
-                setIsLoadingCapacity(true);
-                getWeeklyCapacities([empId], year, weekNumber)
-                    .then((capacities) => {
-                        if (capacities && capacities.length > 0) {
-                            const cap = capacities[0];
-                            setNetCapacity(cap.netAvailableHours);
-                            setStandardHours(cap.standardHours);
-                            const currentProjHours = member.weeklyHours[weekKey] ?? 0;
-                            const otherHours = Math.max(0, (cap.totalAllocatedHours ?? 0) - currentProjHours);
-                            setOtherProjectsHours(otherHours);
-                        }
-                    })
-                    .catch((err) => {
-                        console.warn('Không thể tải năng lực khả dụng tuần:', err);
-                        setCapacityFetchError(true);
-                    })
-                    .finally(() => {
-                        setIsLoadingCapacity(false);
-                    });
-            } else {
-                setNetCapacity(null);
-                setStandardHours(null);
-                setOtherProjectsHours(0);
-            }
+            fetchCapacity();
         } else if (!open) {
             setNetCapacity(null);
             setStandardHours(null);
             setOtherProjectsHours(0);
             setCapacityFetchError(false);
         }
-    }, [open, member, weekKey, year, weekNumber]);
+    }, [open, member, weekKey, fetchCapacity]);
 
     if (!open || !member) return null;
 
-    const capacity = netCapacity !== null ? netCapacity : (member.capacity || 40);
+    // Không dùng capacity giả (member.capacity || 40) khi API thất bại hoặc chưa có dữ liệu
+    const hasValidCapacity = netCapacity !== null && !capacityFetchError;
+    const capacity = netCapacity ?? 0;
     const { totalWeeklyHours, isOverloaded, overloadHours, utilizationPercentage: pct } =
-        computeAllocationOverload(hours, otherProjectsHours, capacity);
+        hasValidCapacity
+            ? computeAllocationOverload(hours, otherProjectsHours, capacity)
+            : { totalWeeklyHours: hours + otherProjectsHours, isOverloaded: false, overloadHours: 0, utilizationPercentage: 0 };
 
     const handleApply = async () => {
+        if (!hasValidCapacity) {
+            setReasonError('Không thể xác thực thông tin năng lực tuần từ máy chủ. Vui lòng bấm "Thử lại" trước khi lưu.');
+            return;
+        }
+
         const validation = validateOverloadSubmission(isOverloaded, isResourceManager, overloadReason);
         if (!validation.valid) {
             setReasonError(validation.error || 'Dữ liệu không hợp lệ.');
@@ -128,6 +142,7 @@ export function ProjectAdjustHoursModal({
                 if (details) {
                     if (typeof details.availableHours === 'number') {
                         setNetCapacity(details.availableHours);
+                        setCapacityFetchError(false);
                     }
                     if (typeof details.allocatedHours === 'number') {
                         const calculatedOther = Math.max(0, details.allocatedHours - hours);
@@ -180,24 +195,34 @@ export function ProjectAdjustHoursModal({
                             <div className="flex items-center justify-between">
                                 <span>Năng lực khả dụng tuần:</span>
                                 <span className="font-bold text-slate-700">
-                                    {isLoadingCapacity ? 'Đang kiểm tra...' : `${capacity}h/tuần`}
+                                    {isLoadingCapacity ? 'Đang kiểm tra...' : hasValidCapacity ? `${capacity}h/tuần` : 'Chưa xác định'}
                                 </span>
                             </div>
-                            {standardHours !== null && netCapacity !== null && netCapacity < standardHours && (
+                            {hasValidCapacity && standardHours !== null && netCapacity !== null && netCapacity < standardHours && (
                                 <p className="text-[10px] text-amber-600 font-medium">
                                     (Chuẩn: {standardHours}h, đã trừ {standardHours - netCapacity}h nghỉ phép/lễ theo QTN-10)
                                 </p>
                             )}
-                            {otherProjectsHours > 0 && (
+                            {hasValidCapacity && otherProjectsHours > 0 && (
                                 <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 border-t border-slate-200">
                                     <span>Đã phân bổ dự án khác:</span>
                                     <span className="font-semibold text-indigo-600">{otherProjectsHours}h</span>
                                 </div>
                             )}
                             {capacityFetchError && (
-                                <div className="rounded-lg bg-amber-50 p-2 text-[10px] text-amber-800 border border-amber-200 flex items-start gap-1.5 mt-1">
-                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-                                    <span>Không thể xác thực năng lực tuần từ máy chủ. Hiển thị định mức tạm thời ({capacity}h).</span>
+                                <div className="rounded-lg bg-rose-50 p-2.5 text-[10px] text-rose-800 border border-rose-200 flex items-center justify-between gap-2 mt-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                                        <span>Không thể xác thực năng lực tuần từ máy chủ.</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={fetchCapacity}
+                                        disabled={isLoadingCapacity}
+                                        className="rounded bg-white px-2 py-0.5 text-[10px] font-semibold text-rose-700 border border-rose-300 hover:bg-rose-100 transition cursor-pointer shrink-0"
+                                    >
+                                        {isLoadingCapacity ? 'Đang tải...' : 'Thử lại'}
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -302,9 +327,9 @@ export function ProjectAdjustHoursModal({
                         <button
                             type="button"
                             onClick={handleApply}
-                            disabled={isAdjustHoursSubmitDisabled(isSubmitting, isLoadingCapacity, isOverloaded, isResourceManager)}
+                            disabled={isAdjustHoursSubmitDisabled(isSubmitting, isLoadingCapacity, isOverloaded, isResourceManager, !hasValidCapacity)}
                             className={`rounded-lg px-4 py-1.5 font-medium text-white shadow-xs transition flex items-center gap-1.5 ${
-                                isOverloaded && !isResourceManager
+                                !hasValidCapacity || (isOverloaded && !isResourceManager)
                                     ? 'bg-slate-300 cursor-not-allowed text-slate-500'
                                     : isOverloaded
                                     ? 'bg-amber-600 hover:bg-amber-700'
@@ -313,6 +338,8 @@ export function ProjectAdjustHoursModal({
                         >
                             {isLoadingCapacity ? (
                                 <span>Đang kiểm tra năng lực...</span>
+                            ) : !hasValidCapacity ? (
+                                <span>Chưa có dữ liệu năng lực</span>
                             ) : isOverloaded ? (
                                 <>
                                     <CheckCircle className="h-3.5 w-3.5" />

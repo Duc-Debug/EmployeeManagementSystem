@@ -2,6 +2,8 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
     canBypassResourceOverload,
+    hasUserPermission,
+    RESOURCE_OVERLOAD_BYPASS_PERMISSION,
     computeAllocationOverload,
     isAdjustHoursSubmitDisabled,
     validateOverloadSubmission
@@ -22,13 +24,15 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(resExcess.overloadHours, 5, "Vượt quá 5 giờ");
     });
 
-    test("QTN-11 / Quyền hạn: canBypassResourceOverload chỉ cho phép RM (VT-03) hoặc có permission", () => {
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-03" }), true, "RM (VT-03) được phép xác nhận");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-02" }), false, "PM (VT-02) không được phép tự xác nhận");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-01" }), false, "BOD (VT-01) không được phép tự xác nhận");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-04" }), false, "Nhân viên (VT-04) không được phép");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-02", permissions: ["RESOURCE_ALLOCATION_OVERLOAD_BYPASS"] }), true, "Permission override cho phép bypass");
-        assert.equal(canBypassResourceOverload(null), false, "Null user không được phép");
+    test("QTN-11 / Quyền hạn: Xác thực permission-based qua RESOURCE_ALLOCATION_OVERLOAD_BYPASS", () => {
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-03" }), true, "VT-03 map đúng permission");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-02" }), false, "PM (VT-02) không có quyền");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-01" }), false, "BOD (VT-01) không có quyền");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-04" }), false, "Nhân viên (VT-04) không có quyền");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-02", permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }), true, "Permission override trực tiếp");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-03", permissions: ["OTHER_PERMISSION"] }), false, "User có mảng permission cụ thể không chứa bypass -> Không có quyền");
+        assert.equal(canBypassResourceOverload(null), false, "Null user không có quyền");
+        assert.equal(hasUserPermission({ permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }, RESOURCE_OVERLOAD_BYPASS_PERMISSION), true);
     });
 
     test("QTN-11 / Validation: validateOverloadSubmission bắt buộc phải có lý do khi xác nhận vượt tải", () => {
@@ -147,11 +151,12 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(isAdjustHoursSubmitDisabled(false, false, true, true), false, "RM được bấm khi quá tải (để mở khóa phê duyệt)");
         assert.equal(isAdjustHoursSubmitDisabled(false, false, true, false), true, "Non-RM bị khóa nút khi quá tải");
     });
-    test("QTN-11 / RBAC Mapping: canBypassResourceOverload ánh xạ quyền RESOURCE_ALLOCATION_OVERLOAD_BYPASS cho VT-03", () => {
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-03" }), true, "VT-03 có quyền vượt tải");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-02" }), false, "VT-02 không có quyền vượt tải");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-01" }), false, "VT-01 không có quyền vượt tải");
-        assert.equal(canBypassResourceOverload(null), false, "User null không có quyền");
+
+    test("HIGH Fix: Nút submit bị vô hiệu hóa khi API capacity lỗi (hasCapacityError = true) để ngăn dùng capacity giả", () => {
+        // Khi API capacity bị lỗi hoặc netCapacity == null: submit BẮT BUỘC bị disabled cho cả RM lẫn non-RM
+        assert.equal(isAdjustHoursSubmitDisabled(false, false, false, true, true), true, "Phải disable nút khi hasCapacityError = true");
+        assert.equal(isAdjustHoursSubmitDisabled(false, false, false, false, true), true, "Phải disable nút khi hasCapacityError = true (non-RM)");
+        assert.equal(isAdjustHoursSubmitDisabled(false, false, true, true, true), true, "Dù là RM cũng bị khóa khi chưa có capacity thực tế");
     });
 });
 
