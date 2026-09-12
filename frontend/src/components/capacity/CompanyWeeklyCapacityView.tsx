@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   TrendingUp,
   BookmarkCheck,
+  Layers,
 } from "lucide-react";
 import { useAuthUser } from "@/lib/auth-session";
 import { ResourceReservationModal } from "./ResourceReservationModal";
@@ -23,10 +24,13 @@ import {
   type CompanyWeeklyCapacityMatrixData,
   type EmployeeCapacityRow,
   type CapacityMatrixCell,
+  type BulkAllocationResult,
 } from "@/lib/api/allocations";
 import { getOrgTree } from "@/lib/api/org-units";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 import { getCurrentIsoWeek } from "@/components/availability/availability.types";
+import { BulkAllocateResourceModal } from "@/components/capacity/BulkAllocateResourceModal";
+import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationResultModal";
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
@@ -72,6 +76,20 @@ export default function CompanyWeeklyCapacityView() {
     setReservationTarget({ employeeId, employeeName, year, weekNumber });
     setIsReservationModalOpen(true);
   };
+
+  // NCL-06-CN-006: Bulk Allocation Modal States
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
+  const [bulkResult, setBulkResult] = useState<BulkAllocationResult | null>(null);
+  const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
+  const [bulkInitialEmployeeId, setBulkInitialEmployeeId] = useState<number | undefined>(undefined);
+
+  const candidateEmployees = useMemo(() => {
+    return (matrixData?.rows || []).map((r) => ({
+      id: r.employeeId,
+      code: r.employeeCode,
+      name: r.fullName,
+    }));
+  }, [matrixData?.rows]);
 
   // 1. Tải danh mục phòng ban (giới hạn theo phạm vi chi nhánh nếu dataScope là ORGANIZATION_BRANCH)
   useEffect(() => {
@@ -375,6 +393,19 @@ export default function CompanyWeeklyCapacityView() {
               <span>Giữ chỗ nguồn lực</span>
             </button>
           )}
+
+          {/* NCL-06-CN-006: Nút Phân bổ hàng loạt nhiều tuần */}
+          <button
+            type="button"
+            onClick={() => {
+              setBulkInitialEmployeeId(undefined);
+              setIsBulkModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-2xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-2xs"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span>Phân bổ hàng loạt</span>
+          </button>
         </div>
       </div>
 
@@ -700,6 +731,31 @@ export default function CompanyWeeklyCapacityView() {
         initialEmployeeName={reservationTarget?.employeeName}
         initialYear={reservationTarget?.year}
         initialWeekNumber={reservationTarget?.weekNumber}
+      />
+
+      {/* NCL-06-CN-006: Bulk Allocate Resource Modal */}
+      <BulkAllocateResourceModal
+        open={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onSuccess={(result) => {
+          setBulkResult(result);
+          setIsResultModalOpen(true);
+          fetchMatrix();
+        }}
+        employees={candidateEmployees}
+        initialEmployeeId={bulkInitialEmployeeId}
+        initialYear={selectedYear}
+        initialWeek={selectedWeek}
+      />
+
+      {/* NCL-06-CN-006: Bulk Allocation Result Summary Modal */}
+      <BulkAllocationResultModal
+        open={isResultModalOpen}
+        result={bulkResult}
+        onClose={() => {
+          setIsResultModalOpen(false);
+          setBulkResult(null);
+        }}
       />
     </div>
   );
