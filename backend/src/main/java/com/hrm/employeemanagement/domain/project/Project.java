@@ -340,6 +340,45 @@ public class Project {
         return this.status == ProjectStatus.CLOSED;
     }
 
+    public boolean isPlanned() {
+        return this.status == ProjectStatus.PLANNED;
+    }
+
+    public boolean isCancelled() {
+        return this.status == ProjectStatus.CANCELLED;
+    }
+
+    /**
+     * Phê duyệt triển khai dự án dự kiến (PLANNED -> ACTIVE).
+     */
+    public void approve(UserId approvedBy) {
+        if (this.status != ProjectStatus.PLANNED) {
+            throw new InvalidProjectDataException("Chỉ có thể phê duyệt triển khai cho dự án đang ở trạng thái dự kiến");
+        }
+        if (approvedBy == null) {
+            throw new InvalidProjectDataException("Người thực hiện phê duyệt dự án không được để trống");
+        }
+        this.status = ProjectStatus.ACTIVE;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Hủy dự án dự kiến (PLANNED -> CANCELLED).
+     */
+    public void cancel(UserId cancelledBy, String cancelReason) {
+        if (this.status != ProjectStatus.PLANNED) {
+            throw new InvalidProjectDataException("Chỉ có thể hủy dự án đang ở trạng thái dự kiến");
+        }
+        if (cancelledBy == null) {
+            throw new InvalidProjectDataException("Người thực hiện hủy dự án không được để trống");
+        }
+        this.status = ProjectStatus.CANCELLED;
+        this.closureReason = cancelReason != null ? cancelReason.trim() : "Dự án dự kiến bị hủy";
+        this.closedAt = LocalDateTime.now();
+        this.closedBy = cancelledBy;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public ProjectId getId() {
         return id;
     }

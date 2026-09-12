@@ -1,0 +1,665 @@
+package com.hrm.employeemanagement.application.service.reservation;
+
+import com.hrm.employeemanagement.application.dto.reservation.CancelReservationCommand;
+import com.hrm.employeemanagement.application.dto.reservation.CreateReservationCommand;
+import com.hrm.employeemanagement.application.dto.reservation.ResourceReservationResult;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort;
+import com.hrm.employeemanagement.application.port.outbound.reservation.SaveResourceReservationPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
+import com.hrm.employeemanagement.domain.exception.reservation.InvalidReservationDataException;
+import com.hrm.employeemanagement.domain.project.Project;
+import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.project.ProjectStatus;
+import com.hrm.employeemanagement.domain.reservation.ReservationStatus;
+import com.hrm.employeemanagement.domain.reservation.ResourceReservation;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.UserStatus;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("ResourceReservationService Application Unit Tests (UC NCL-06-CN-005)")
+class ResourceReservationServiceTest {
+
+    @Mock
+    private AuthorizationService authorizationService;
+    @Mock
+    private LoadEmployeePort loadEmployeePort;
+    @Mock
+    private LoadProjectPort loadProjectPort;
+    @Mock
+    private LoadWeeklyProjectAllocationPort loadAllocationPort;
+    @Mock
+    private SaveWeeklyProjectAllocationPort saveAllocationPort;
+    @Mock
+    private LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
+    @Mock
+    private LoadResourceReservationPort loadReservationPort;
+    @Mock
+    private SaveResourceReservationPort saveReservationPort;
+    @Mock
+    private SaveAuditLogPort saveAuditLogPort;
+    @Mock
+    private SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
+    @Mock
+    private LoadUserPort loadUserPort;
+    @Mock
+    private LoadOrgUnitPort loadOrgUnitPort;
+
+    private ResourceReservationService service;
+
+    private final Long pmUserId = 2L;
+    private final Long pmEmployeeId = 20L;
+    private final Long targetEmployeeId = 50L;
+    private final Long projectId = 100L;
+    private final YearWeek yearWeek = YearWeek.of(2026, 40);
+
+    private User pmUser;
+    private Project plannedProject;
+    private Employee targetEmployee;
+
+    @BeforeEach
+    void setUp() {
+        service = new ResourceReservationService(
+                authorizationService,
+                loadEmployeePort,
+                loadProjectPort,
+                loadAllocationPort,
+                saveAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadReservationPort,
+                saveReservationPort,
+                saveAuditLogPort,
+                saveDeniedAuditLogPort,
+                loadUserPort,
+                loadOrgUnitPort
+        );
+
+        Role pmRole = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án");
+        pmUser = new User(new UserId(pmUserId), "pm_user", "hash", pmRole, UserStatus.ACTIVE, new EmployeeId(pmEmployeeId), DataScope.SELF, null, 0L);
+
+        plannedProject = new Project(
+                new ProjectId(projectId),
+                "PRJ-PLAN-01",
+                "Dự án ERP mới",
+                1L,
+                new EmployeeId(pmEmployeeId),
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 12, 31),
+                BigDecimal.valueOf(500),
+                "Mô tả dự án dự kiến",
+                ProjectStatus.PLANNED,
+                new UserId(pmUserId),
+                LocalDateTime.now(),
+                null,
+                0L,
+                0
+        );
+
+        targetEmployee = new Employee(
+                new EmployeeId(targetEmployeeId),
+                new UserId(pmUserId + 100),
+                1L,
+                "EMP050",
+                "Nguyen Van A",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+    }
+
+    @Test
+    @DisplayName("TC-01: Happy Path - Tạo giữ chỗ 20h/tuần thành công cho dự án dự kiến")
+    void shouldCreateReservationSuccessfully() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RESERVATION_CREATE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
+                new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
+        ));
+        when(loadAllocationPort.loadAllocationsForEmployee(targetEmployeeId, yearWeek)).thenReturn(List.of());
+        when(loadReservationPort.findActiveByProjectAndEmployeeAndYearWeek(projectId, targetEmployeeId, yearWeek)).thenReturn(Optional.empty());
+
+        when(saveReservationPort.save(any(ResourceReservation.class))).thenAnswer(invocation -> {
+            ResourceReservation r = invocation.getArgument(0);
+            return new ResourceReservation(
+                    1L, r.getProjectId(), r.getEmployeeId(), r.getYearWeek(), r.getReservedHours(),
+                    r.getStatus(), r.getConvertedAllocationId(), r.getCancelledReason(), r.getNote(),
+                    r.getCreatedBy(), r.getCreatedAt(), null, null, 0L
+            );
+        });
+
+        CreateReservationCommand command = new CreateReservationCommand(
+                projectId, targetEmployeeId, yearWeek.year(), yearWeek.weekNumber(), BigDecimal.valueOf(20.0), "Giữ chỗ sprint 1"
+        );
+
+        ResourceReservationResult result = service.createReservation(command);
+
+        assertNotNull(result);
+        assertEquals(1L, result.id());
+        assertEquals(projectId, result.projectId());
+        assertEquals(targetEmployeeId, result.employeeId());
+        assertEquals(BigDecimal.valueOf(20.0), result.reservedHours());
+        assertEquals(ReservationStatus.ACTIVE, result.status());
+
+        verify(saveAuditLogPort, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném InvalidProjectDataException khi dự án KHÔNG ở trạng thái dự kiến (PLANNED)")
+    void shouldThrowWhenProjectIsNotPlanned() {
+        Project activeProject = new Project(
+                new ProjectId(projectId), "PRJ-ACT-01", "Dự án đang chạy", 1L, new EmployeeId(pmEmployeeId),
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), BigDecimal.valueOf(500),
+                "Mô tả", ProjectStatus.ACTIVE, new UserId(pmUserId), LocalDateTime.now(), null, 0L, 0
+        );
+
+        when(authorizationService.require(PermissionCode.RESOURCE_RESERVATION_CREATE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(activeProject));
+
+        CreateReservationCommand command = new CreateReservationCommand(
+                projectId, targetEmployeeId, yearWeek.year(), yearWeek.weekNumber(), BigDecimal.valueOf(20.0), "Note"
+        );
+
+        InvalidProjectDataException ex = assertThrows(InvalidProjectDataException.class, () ->
+                service.createReservation(command)
+        );
+        assertTrue(ex.getMessage().contains("trạng thái dự kiến"));
+    }
+
+    @Test
+    @DisplayName("Ném InvalidReservationDataException khi số giờ giữ chỗ vượt quá năng lực còn lại chưa cam kết")
+    void shouldThrowWhenReservedHoursExceedsRemainingCapacity() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RESERVATION_CREATE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
+                new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
+        ));
+
+        // Đã cam kết 30h cho dự án khác -> còn lại 10h
+        WeeklyProjectAllocation otherAlloc = new WeeklyProjectAllocation(
+                1L, targetEmployeeId, 999L, yearWeek, BigDecimal.valueOf(30.0)
+        );
+        when(loadAllocationPort.loadAllocationsForEmployee(targetEmployeeId, yearWeek)).thenReturn(List.of(otherAlloc));
+
+        CreateReservationCommand command = new CreateReservationCommand(
+                projectId, targetEmployeeId, yearWeek.year(), yearWeek.weekNumber(), BigDecimal.valueOf(15.0), "Yêu cầu 15h nhưng chỉ còn 10h"
+        );
+
+        InvalidReservationDataException ex = assertThrows(InvalidReservationDataException.class, () ->
+                service.createReservation(command)
+        );
+        assertTrue(ex.getMessage().contains("vượt quá số giờ còn lại có thể giữ chỗ"));
+    }
+
+    @Test
+    @DisplayName("TC-04: Từ chối truy cập (403) và ghi security log khi PM thao tác ngoài phạm vi DataScope (dự án của người khác)")
+    void shouldDenyWhenPmAttemptsToReserveOnAnotherPmProject() {
+        // Dự án do PM khác quản lý (managerId = 999L != pmEmployeeId)
+        Project otherPmProject = new Project(
+                new ProjectId(projectId), "PRJ-OTHER", "Dự án của PM khác", 1L, new EmployeeId(999L),
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), BigDecimal.valueOf(500),
+                "Mô tả", ProjectStatus.PLANNED, new UserId(999L), LocalDateTime.now(), null, 0L, 0
+        );
+
+        when(authorizationService.require(PermissionCode.RESOURCE_RESERVATION_CREATE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(otherPmProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        CreateReservationCommand command = new CreateReservationCommand(
+                projectId, targetEmployeeId, yearWeek.year(), yearWeek.weekNumber(), BigDecimal.valueOf(10.0), "Note"
+        );
+
+        assertThrows(PermissionDeniedException.class, () ->
+                service.createReservation(command)
+        );
+
+        // Kiểm tra ghi security log từ chối truy cập
+        verify(saveDeniedAuditLogPort, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("TC-02: Auto-cancel tất cả bản ghi giữ chỗ ACTIVE khi dự án bị hủy (CR-02 & CR-05)")
+    void shouldAutoCancelActiveReservationsWhenProjectCancelled() {
+        ResourceReservation r1 = ResourceReservation.createNew(projectId, 101L, yearWeek, BigDecimal.valueOf(20.0), "Note 1", 1L);
+        ResourceReservation r2 = ResourceReservation.createNew(projectId, 102L, yearWeek, BigDecimal.valueOf(15.0), "Note 2", 1L);
+
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+        when(loadReservationPort.findActiveByProjectId(projectId)).thenReturn(List.of(r1, r2));
+
+        int cancelledCount = service.autoCancelForProject(projectId, "Dự án không được phê duyệt");
+
+        assertEquals(2, cancelledCount);
+        assertTrue(r1.isCancelled());
+        assertTrue(r2.isCancelled());
+        assertEquals("Dự án không được phê duyệt", r1.getCancelledReason());
+        verify(saveReservationPort, times(2)).save(any());
+        verify(saveAuditLogPort, times(2)).save(any());
+    }
+
+    @Test
+    @DisplayName("TC-03: Auto-convert tất cả bản ghi giữ chỗ ACTIVE thành phân bổ chính thức khi dự án được duyệt (CR-02 & CR-05)")
+    void shouldAutoConvertActiveReservationsToAllocationsWhenProjectApproved() {
+        ResourceReservation r1 = ResourceReservation.createNew(projectId, 101L, yearWeek, BigDecimal.valueOf(20.0), "Note 1", 1L);
+
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+        when(loadReservationPort.findActiveByProjectId(projectId)).thenReturn(List.of(r1));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(101L, yearWeek)).thenReturn(Optional.of(
+                new WeeklyAvailability(1L, 101L, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
+        ));
+        when(loadAllocationPort.loadAllocationsForEmployee(101L, yearWeek)).thenReturn(List.of());
+
+        when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenAnswer(invocation -> {
+            WeeklyProjectAllocation a = invocation.getArgument(0);
+            return new WeeklyProjectAllocation(555L, a.getEmployeeId(), a.getProjectId(), a.getYearWeek(), a.getAllocatedHours());
+        });
+
+        int convertedCount = service.autoConvertForProject(projectId);
+
+        assertEquals(1, convertedCount);
+        assertTrue(r1.isConverted());
+        assertEquals(555L, r1.getConvertedAllocationId());
+        verify(saveAllocationPort, times(1)).save(any());
+        verify(saveReservationPort, times(1)).save(r1);
+        verify(saveAuditLogPort, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("CR-01: Ném InvalidReservationDataException khi số giờ giữ chỗ vượt quá năng lực còn lại do các reservation ACTIVE khác")
+    void shouldThrowWhenReservedHoursExceedsRemainingAfterOtherActiveReservations() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RESERVATION_CREATE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
+                new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
+        ));
+
+        // Phân bổ chính thức: 20h -> Còn lại: 20h
+        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(1L, targetEmployeeId, 888L, yearWeek, BigDecimal.valueOf(20.0));
+        when(loadAllocationPort.loadAllocationsForEmployee(targetEmployeeId, yearWeek)).thenReturn(List.of(alloc));
+
+        // Reservation ACTIVE khác cho dự án 999L: 15h -> Chỉ còn lại có thể giữ chỗ: 40 - 20 - 15 = 5h
+        ResourceReservation otherReservation = ResourceReservation.createNew(999L, targetEmployeeId, yearWeek, BigDecimal.valueOf(15.0), "Dự án khác", 1L);
+        when(loadReservationPort.findActiveByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(List.of(otherReservation));
+
+        // Yêu cầu giữ chỗ 10h (> 5h)
+        CreateReservationCommand command = new CreateReservationCommand(
+                projectId, targetEmployeeId, yearWeek.year(), yearWeek.weekNumber(), BigDecimal.valueOf(10.0), "Cần 10h"
+        );
+
+        InvalidReservationDataException ex = assertThrows(InvalidReservationDataException.class, () ->
+                service.createReservation(command)
+        );
+        assertTrue(ex.getMessage().contains("vượt quá số giờ còn lại có thể giữ chỗ"));
+    }
+
+    @Test
+    @DisplayName("CR-03: getReservations lọc bỏ các bản ghi giữ chỗ thuộc dự án ngoài DataScope của user")
+    void shouldFilterReservationsByDataScope() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        Project otherProject = new Project(
+                new ProjectId(200L), "PRJ-OTHER", "Dự án PM khác", 1L, new EmployeeId(999L),
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), BigDecimal.valueOf(500),
+                "Mô tả", ProjectStatus.PLANNED, new UserId(999L), LocalDateTime.now(), null, 0L, 0
+        );
+
+        ResourceReservation rInScope = ResourceReservation.createNew(projectId, targetEmployeeId, yearWeek, BigDecimal.valueOf(10.0), "Scope OK", pmUserId);
+        ResourceReservation rOutScope = ResourceReservation.createNew(200L, targetEmployeeId, yearWeek, BigDecimal.valueOf(15.0), "Outside Scope", 999L);
+
+        when(loadReservationPort.findReservations(null, null, null, null, null)).thenReturn(List.of(rInScope, rOutScope));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadProjectPort.findById(new ProjectId(200L))).thenReturn(Optional.of(otherProject));
+        when(loadEmployeePort.findById(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
+
+        List<ResourceReservationResult> results = service.getReservations(null, null, null, null, null);
+
+        assertEquals(1, results.size());
+        assertEquals(projectId, results.get(0).projectId());
+    }
+
+    @Test
+    @DisplayName("CR-04: autoConvertForProject ném ngoại lệ khi tổng phân bổ sau chuyển đổi vượt quá năng lực khả dụng")
+    void shouldThrowWhenAutoConvertExceedsAvailableCapacity() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        ResourceReservation res = ResourceReservation.createNew(projectId, targetEmployeeId, yearWeek, BigDecimal.valueOf(25.0), "Giữ 25h", pmUserId);
+        when(loadReservationPort.findActiveByProjectId(projectId)).thenReturn(List.of(res));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
+                new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
+        ));
+
+        // Đã phân bổ 20h cho dự án khác. 20h + 25h = 45h > 40h -> Vượt capacity!
+        WeeklyProjectAllocation existingAlloc = new WeeklyProjectAllocation(1L, targetEmployeeId, 888L, yearWeek, BigDecimal.valueOf(20.0));
+        when(loadAllocationPort.loadAllocationsForEmployee(targetEmployeeId, yearWeek)).thenReturn(List.of(existingAlloc));
+
+        InvalidReservationDataException ex = assertThrows(InvalidReservationDataException.class, () ->
+                service.autoConvertForProject(projectId)
+        );
+        assertTrue(ex.getMessage().contains("vượt quá năng lực khả dụng"));
+        verify(saveAllocationPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("CR-05: autoCancelForProject và autoConvertForProject từ chối khi thao tác dự án ngoài DataScope")
+    void shouldDenyAutoOperationsWhenProjectOutsideDataScope() {
+        Project otherProject = new Project(
+                new ProjectId(200L), "PRJ-OTHER", "Dự án PM khác", 1L, new EmployeeId(999L),
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), BigDecimal.valueOf(500),
+                "Mô tả", ProjectStatus.PLANNED, new UserId(999L), LocalDateTime.now(), null, 0L, 0
+        );
+
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(200L))).thenReturn(Optional.of(otherProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        assertThrows(PermissionDeniedException.class, () -> service.autoCancelForProject(200L, "Cancel"));
+        assertThrows(PermissionDeniedException.class, () -> service.autoConvertForProject(200L));
+
+        verify(saveDeniedAuditLogPort, times(2)).save(any());
+    }
+
+    @Test
+    @DisplayName("Hủy thủ công bản ghi giữ chỗ thành công (CancelReservation)")
+    void shouldCancelReservationManually() {
+        ResourceReservation activeRes = ResourceReservation.createNew(projectId, targetEmployeeId, yearWeek, BigDecimal.valueOf(20.0), "Note", pmUserId);
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_RESERVATION_MANAGE, PermissionCode.RESOURCE_RESERVATION_CREATE))
+                .thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadReservationPort.findById(10L)).thenReturn(Optional.of(activeRes));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+        when(saveReservationPort.save(any(ResourceReservation.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CancelReservationCommand command = new CancelReservationCommand(10L, "Thay đổi kế hoạch");
+        ResourceReservationResult result = service.cancelReservation(command);
+
+        assertNotNull(result);
+        assertEquals(ReservationStatus.CANCELLED, result.status());
+        assertEquals("Thay đổi kế hoạch", result.cancelledReason());
+        verify(saveAuditLogPort, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném InvalidReservationDataException khi giữ chỗ vượt quá năng lực đã giảm trừ do hợp đồng kết thúc giữa tuần")
+    void shouldThrowWhenReservedHoursExceedsCapacityDueToMidWeekContractEnd() {
+        // Tuần 2026-W40: Thứ Hai đến Chủ Nhật
+        // Hợp đồng kết thúc vào Thứ Tư (+ 2 ngày -> 3 ngày làm việc -> capacity = 40 * 3 / 5 = 24h)
+        LocalDate contractEndDate = yearWeek.getStartDate().plusDays(2);
+        Employee contractEndingEmployee = new Employee(
+                new EmployeeId(targetEmployeeId),
+                new UserId(pmUserId + 100),
+                1L,
+                "EMP050",
+                "Nguyen Van A",
+                "Developer",
+                LocalDate.of(2025, 1, 1),
+                contractEndDate,
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(authorizationService.require(PermissionCode.RESOURCE_RESERVATION_CREATE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(contractEndingEmployee));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
+                new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
+        ));
+        when(loadAllocationPort.loadAllocationsForEmployee(targetEmployeeId, yearWeek)).thenReturn(List.of());
+        when(loadReservationPort.findActiveByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(List.of());
+
+        // Yêu cầu giữ 25h trong khi khả dụng sau điều chỉnh hợp đồng chỉ còn 24h
+        CreateReservationCommand command = new CreateReservationCommand(
+                projectId, targetEmployeeId, yearWeek.year(), yearWeek.weekNumber(), BigDecimal.valueOf(25.0), "Giữ 25h"
+        );
+
+        InvalidReservationDataException ex = assertThrows(InvalidReservationDataException.class, () ->
+                service.createReservation(command)
+        );
+        assertTrue(ex.getMessage().contains("vượt quá số giờ còn lại có thể giữ chỗ"));
+        assertTrue(ex.getMessage().contains("24.00h"));
+    }
+
+    @Test
+    @DisplayName("Ghi nhận AuditLog với action RESOURCE_RESERVATION_UPDATED khi cập nhật giữ chỗ ACTIVE đã tồn tại")
+    void shouldLogUpdatedActionWithOldAndNewValuesWhenUpdatingExistingActiveReservation() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RESERVATION_CREATE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(targetEmployee));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
+                new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
+        ));
+        when(loadAllocationPort.loadAllocationsForEmployee(targetEmployeeId, yearWeek)).thenReturn(List.of());
+
+        ResourceReservation existingRes = ResourceReservation.createNew(
+                projectId, targetEmployeeId, yearWeek, BigDecimal.valueOf(10.0), "Giữ cũ 10h", pmUserId
+        );
+        when(loadReservationPort.findActiveByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(List.of(existingRes));
+        when(loadReservationPort.findActiveByProjectAndEmployeeAndYearWeek(projectId, targetEmployeeId, yearWeek))
+                .thenReturn(Optional.of(existingRes));
+        when(saveReservationPort.save(any(ResourceReservation.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateReservationCommand command = new CreateReservationCommand(
+                projectId, targetEmployeeId, yearWeek.year(), yearWeek.weekNumber(), BigDecimal.valueOf(18.0), "Cập nhật lên 18h"
+        );
+
+        ResourceReservationResult result = service.createReservation(command);
+
+        assertNotNull(result);
+        assertEquals(BigDecimal.valueOf(18.0), result.reservedHours());
+
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(auditCaptor.capture());
+        AuditLog logged = auditCaptor.getValue();
+        assertEquals("RESOURCE_RESERVATION_UPDATED", logged.getAction());
+        assertEquals("reservedHours=10.0", logged.getOldValue());
+        assertEquals("reservedHours=18.0", logged.getNewValue());
+    }
+
+    @Test
+    @DisplayName("autoConvertForProject ném ngoại lệ khi hợp đồng kết thúc giữa tuần dẫn đến quá tải năng lực")
+    void shouldThrowWhenAutoConvertExceedsCapacityDueToMidWeekContractEnd() {
+        LocalDate contractEndDate = yearWeek.getStartDate().plusDays(2); // Thứ Tư -> 24h
+        Employee contractEndingEmployee = new Employee(
+                new EmployeeId(targetEmployeeId),
+                new UserId(pmUserId + 100),
+                1L,
+                "EMP050",
+                "Nguyen Van A",
+                "Developer",
+                LocalDate.of(2025, 1, 1),
+                contractEndDate,
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        // Reservation 15h, nhưng đã có 12h phân bổ cho dự án khác. 15 + 12 = 27h > 24h (capacity sau điều chỉnh)
+        ResourceReservation res = ResourceReservation.createNew(projectId, targetEmployeeId, yearWeek, BigDecimal.valueOf(15.0), "Giữ 15h", pmUserId);
+        when(loadReservationPort.findActiveByProjectId(projectId)).thenReturn(List.of(res));
+        when(loadEmployeePort.findById(new EmployeeId(targetEmployeeId))).thenReturn(Optional.of(contractEndingEmployee));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(targetEmployeeId, yearWeek)).thenReturn(Optional.of(
+                new WeeklyAvailability(1L, targetEmployeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0))
+        ));
+
+        WeeklyProjectAllocation otherAlloc = new WeeklyProjectAllocation(1L, targetEmployeeId, 888L, yearWeek, BigDecimal.valueOf(12.0));
+        when(loadAllocationPort.loadAllocationsForEmployee(targetEmployeeId, yearWeek)).thenReturn(List.of(otherAlloc));
+
+        InvalidReservationDataException ex = assertThrows(InvalidReservationDataException.class, () ->
+                service.autoConvertForProject(projectId)
+        );
+        assertTrue(ex.getMessage().contains("vượt quá năng lực khả dụng"));
+        assertTrue(ex.getMessage().contains("24.00h"));
+        verify(saveAllocationPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("3.2 & 3.3: autoConvertForProject áp dụng khóa bi quan và batch loading để chống race condition và N+1 query")
+    void shouldLockProjectAndEmployeesAndUseBatchLoadingDuringAutoConvert() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        ResourceReservation r1 = ResourceReservation.createNew(projectId, 101L, yearWeek, BigDecimal.valueOf(15.0), "Batch 1", pmUserId);
+        ResourceReservation r2 = ResourceReservation.createNew(projectId, 102L, yearWeek, BigDecimal.valueOf(20.0), "Batch 2", pmUserId);
+        when(loadReservationPort.findActiveByProjectId(projectId)).thenReturn(List.of(r1, r2));
+
+        Employee emp101 = new Employee(new EmployeeId(101L), new UserId(101L), 1L, "EMP101", "Emp 101", false, 40, EmployeeStatus.ACTIVE);
+        Employee emp102 = new Employee(new EmployeeId(102L), new UserId(102L), 1L, "EMP102", "Emp 102", false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(101L))).thenReturn(Optional.of(emp101));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(102L))).thenReturn(Optional.of(emp102));
+
+        WeeklyAvailability avail101 = new WeeklyAvailability(1L, 101L, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0));
+        WeeklyAvailability avail102 = new WeeklyAvailability(2L, 102L, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(List.of(101L, 102L), List.of(yearWeek)))
+                .thenReturn(List.of(avail101, avail102));
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(List.of(101L, 102L), List.of(yearWeek)))
+                .thenReturn(List.of());
+
+        when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenAnswer(inv -> {
+            WeeklyProjectAllocation a = inv.getArgument(0);
+            return new WeeklyProjectAllocation(777L, a.getEmployeeId(), a.getProjectId(), a.getYearWeek(), a.getAllocatedHours());
+        });
+
+        int converted = service.autoConvertForProject(projectId);
+
+        assertEquals(2, converted);
+        assertTrue(r1.isConverted());
+        assertTrue(r2.isConverted());
+
+        // Kiểm tra khóa bi quan được thực hiện
+        verify(loadProjectPort).findByIdForUpdate(new ProjectId(projectId));
+        verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(101L));
+        verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(102L));
+
+        // Kiểm tra batch load được gọi 1 lần duy nhất thay vì N+1 queries
+        verify(loadWeeklyAvailabilityPort).loadAvailabilityForEmployeesAndWeeks(List.of(101L, 102L), List.of(yearWeek));
+        verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeks(List.of(101L, 102L), List.of(yearWeek));
+    }
+
+    @Test
+    @DisplayName("3.3: getReservations sử dụng batch load findAllByIdIn cho nhân sự")
+    void shouldBatchLoadEmployeesInGetReservations() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+
+        ResourceReservation r1 = ResourceReservation.createNew(projectId, 101L, yearWeek, BigDecimal.valueOf(10.0), "R1", pmUserId);
+        ResourceReservation r2 = ResourceReservation.createNew(projectId, 102L, yearWeek, BigDecimal.valueOf(15.0), "R2", pmUserId);
+
+        when(loadReservationPort.findReservations(projectId, null, null, null, null)).thenReturn(List.of(r1, r2));
+
+        Employee emp101 = new Employee(new EmployeeId(101L), new UserId(101L), 1L, "EMP101", "Emp 101", false, 40, EmployeeStatus.ACTIVE);
+        Employee emp102 = new Employee(new EmployeeId(102L), new UserId(102L), 1L, "EMP102", "Emp 102", false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp101, emp102));
+
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        List<ResourceReservationResult> results = service.getReservations(projectId, null, null, null, null);
+
+        assertEquals(2, results.size());
+        verify(loadEmployeePort, times(1)).findAllByIdIn(anyList());
+    }
+}
