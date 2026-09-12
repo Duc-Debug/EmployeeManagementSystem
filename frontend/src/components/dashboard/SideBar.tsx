@@ -57,12 +57,9 @@ export function canAccessTab(
 
         case "capacity":
         case "weekly-capacity":
-            // [HIGH REVIEW FIX]: Bảng năng lực công ty / bộ phận xác thực theo DataScope (COMPANY hoặc ORGANIZATION_BRANCH).
-            // Người dùng chỉ có DataScope === 'SELF' (nhân viên thường) không được phép xem bảng năng lực tổng thể.
-            if (dataScope) {
-                return dataScope !== "SELF";
-            }
-            return ["VT-01", "VT-02", "VT-03", "VT-05", "VT-06"].includes(normalized);
+            // NCL-06 / NCL-06-CN-002: Bảng năng lực chỉ dành cho VT-01 (Ban giám đốc), VT-02 (Quản lý dự án), VT-03 (Quản lý nguồn lực).
+            // VT-04 (Nhân viên), VT-05 (Nhân sự), VT-06 (Admin) KHÔNG có quyền truy cập.
+            return ["VT-01", "VT-02", "VT-03"].includes(normalized);
 
         case "access":
         case "settings":
