@@ -22,6 +22,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
@@ -297,22 +298,36 @@ public class ResourceReservationService implements
         Set<Long> projectIds = list.stream().map(ResourceReservation::getProjectId).collect(Collectors.toSet());
         Set<Long> employeeIds = list.stream().map(ResourceReservation::getEmployeeId).collect(Collectors.toSet());
 
-        Map<Long, Project> projectMap = projectIds.stream()
-                .map(id -> loadProjectPort.findById(new ProjectId(id)).orElse(null))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toMap(Project::getIdValue, p -> p, (a, b) -> a));
+        // [3.3 FIX]: Batch load nhân sự thay vì lặp từng ID đơn lẻ
+        List<Employee> loadedEmployees = loadEmployeePort.findAllByIdIn(
+                employeeIds.stream().map(EmployeeId::new).toList()
+        );
+        Map<Long, Employee> employeeMap;
+        if (loadedEmployees != null && !loadedEmployees.isEmpty()) {
+            employeeMap = loadedEmployees.stream()
+                    .collect(Collectors.toMap(Employee::getIdValue, e -> e, (a, b) -> a));
+        } else {
+            employeeMap = employeeIds.stream()
+                    .map(id -> loadEmployeePort.findById(new EmployeeId(id)).orElse(null))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(Employee::getIdValue, e -> e, (a, b) -> a));
+        }
 
-        Map<Long, Employee> employeeMap = employeeIds.stream()
-                .map(id -> loadEmployeePort.findById(new EmployeeId(id)).orElse(null))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toMap(Employee::getIdValue, e -> e, (a, b) -> a));
+        Map<Long, Project> projectMap = new HashMap<>();
+        Map<Long, Boolean> projectAccessCache = new HashMap<>();
+        for (Long pId : projectIds) {
+            Project p = loadProjectPort.findById(new ProjectId(pId)).orElse(null);
+            if (p != null) {
+                projectMap.put(pId, p);
+                projectAccessCache.put(pId, canAccessProject(currentUser, currentUserId, p));
+            } else {
+                projectAccessCache.put(pId, false);
+            }
+        }
 
         // [CR-03 FIX]: Enforce DataScope của user hiện tại với từng dự án để ngăn chặn rò rỉ dữ liệu
         return list.stream()
-                .filter(r -> {
-                    Project p = projectMap.get(r.getProjectId());
-                    return p != null && canAccessProject(currentUser, currentUserId, p);
-                })
+                .filter(r -> Boolean.TRUE.equals(projectAccessCache.get(r.getProjectId())))
                 .map(r -> mapToResult(r, projectMap.get(r.getProjectId()), employeeMap.get(r.getEmployeeId())))
                 .toList();
     }
@@ -324,7 +339,9 @@ public class ResourceReservationService implements
         Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
         User currentUser = loadCurrentUserOrThrow(currentUserId);
 
-        Project project = loadProjectPort.findById(new ProjectId(projectId))
+        // [3.2 FIX]: Khóa bi quan dự án để ngăn chặn xung đột đồng thời với autoConvert
+        Project project = loadProjectPort.findByIdForUpdate(new ProjectId(projectId))
+                .or(() -> loadProjectPort.findById(new ProjectId(projectId)))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + projectId));
 
         if (!canAccessProject(currentUser, currentUserId, project)) {
@@ -361,7 +378,9 @@ public class ResourceReservationService implements
         Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
         User currentUser = loadCurrentUserOrThrow(currentUserId);
 
-        Project project = loadProjectPort.findById(new ProjectId(projectId))
+        // [3.2 FIX]: Khóa bi quan hàng dự án với findByIdForUpdate để ngăn chặn 2 request đồng thời
+        Project project = loadProjectPort.findByIdForUpdate(new ProjectId(projectId))
+                .or(() -> loadProjectPort.findById(new ProjectId(projectId)))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + projectId));
 
         if (!canAccessProject(currentUser, currentUserId, project)) {
@@ -374,13 +393,40 @@ public class ResourceReservationService implements
             return 0;
         }
 
-        // [CR-04 FIX]: Kiểm tra capacity trước khi convert từng reservation để không gây overload
+        // [3.2 FIX]: Khóa bi quan nhân sự theo thứ tự ID tăng dần (deterministic) để chống Deadlock và đảm bảo atomic
+        List<Long> distinctEmployeeIds = activeReservations.stream()
+                .map(ResourceReservation::getEmployeeId)
+                .distinct()
+                .sorted()
+                .toList();
+
+        Map<Long, Employee> employeeMap = new HashMap<>();
+        for (Long empId : distinctEmployeeIds) {
+            Employee emp = loadEmployeePort.findByIdForUpdate(new EmployeeId(empId))
+                    .or(() -> loadEmployeePort.findById(new EmployeeId(empId)))
+                    .orElse(null);
+            if (emp != null) {
+                employeeMap.put(empId, emp);
+            }
+        }
+
+        List<YearWeek> distinctYearWeeks = activeReservations.stream()
+                .map(ResourceReservation::getYearWeek)
+                .distinct()
+                .toList();
+
+        // [3.3 FIX]: Batch loading availability và allocation thay cho N+1 queries trong vòng lặp kép
+        Map<String, WeeklyAvailability> availabilityMap = batchLoadAvailability(distinctEmployeeIds, distinctYearWeeks);
+        Map<String, List<WeeklyProjectAllocation>> allocationMap = batchLoadAllocations(distinctEmployeeIds, distinctYearWeeks);
+
+        // [CR-04 FIX]: 1. Kiểm tra capacity trước khi convert từng reservation để không gây overload
         for (ResourceReservation reservation : activeReservations) {
             YearWeek yw = reservation.getYearWeek();
-            Optional<WeeklyAvailability> availOpt = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(reservation.getEmployeeId(), yw);
-            Employee emp = loadEmployeePort.findById(new EmployeeId(reservation.getEmployeeId())).orElse(null);
+            String key = makeKey(reservation.getEmployeeId(), yw.year(), yw.weekNumber());
+            WeeklyAvailability avail = availabilityMap.get(key);
+            Employee emp = employeeMap.get(reservation.getEmployeeId());
             int standardHours = (emp != null && emp.getStandardHoursPerWeek() != null) ? emp.getStandardHoursPerWeek() : 40;
-            BigDecimal netAvailable = availOpt.map(WeeklyAvailability::getNetAvailableHours).orElse(BigDecimal.valueOf(standardHours));
+            BigDecimal netAvailable = avail != null ? avail.getNetAvailableHours() : BigDecimal.valueOf(standardHours);
 
             if (emp != null) {
                 netAvailable = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
@@ -392,9 +438,7 @@ public class ResourceReservationService implements
                 );
             }
 
-            List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(
-                    reservation.getEmployeeId(), yw
-            );
+            List<WeeklyProjectAllocation> existingAllocations = allocationMap.getOrDefault(key, List.of());
 
             Optional<WeeklyProjectAllocation> matchingOpt = existingAllocations.stream()
                     .filter(a -> a.getProjectId().equals(projectId))
@@ -419,10 +463,11 @@ public class ResourceReservationService implements
             }
         }
 
+        // 2. Chuyển đổi giữ chỗ thành phân bổ chính thức
         for (ResourceReservation reservation : activeReservations) {
-            List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(
-                    reservation.getEmployeeId(), reservation.getYearWeek()
-            );
+            YearWeek yw = reservation.getYearWeek();
+            String key = makeKey(reservation.getEmployeeId(), yw.year(), yw.weekNumber());
+            List<WeeklyProjectAllocation> existingAllocations = allocationMap.getOrDefault(key, List.of());
 
             Optional<WeeklyProjectAllocation> matchingOpt = existingAllocations.stream()
                     .filter(a -> a.getProjectId().equals(projectId))
@@ -457,6 +502,48 @@ public class ResourceReservationService implements
         }
 
         return activeReservations.size();
+    }
+
+    private Map<String, WeeklyAvailability> batchLoadAvailability(List<Long> employeeIds, List<YearWeek> yearWeeks) {
+        List<WeeklyAvailability> batch = loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(employeeIds, yearWeeks);
+        if (batch != null && !batch.isEmpty()) {
+            return batch.stream().collect(Collectors.toMap(
+                    a -> makeKey(a.getEmployeeId(), a.getYearWeek().year(), a.getYearWeek().weekNumber()),
+                    a -> a,
+                    (first, second) -> first
+            ));
+        }
+        Map<String, WeeklyAvailability> map = new HashMap<>();
+        for (Long empId : employeeIds) {
+            for (YearWeek yw : yearWeeks) {
+                loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(empId, yw)
+                        .ifPresent(a -> map.put(makeKey(empId, yw.year(), yw.weekNumber()), a));
+            }
+        }
+        return map;
+    }
+
+    private Map<String, List<WeeklyProjectAllocation>> batchLoadAllocations(List<Long> employeeIds, List<YearWeek> yearWeeks) {
+        List<WeeklyProjectAllocation> batch = loadAllocationPort.loadAllocationsForEmployeesAndWeeks(employeeIds, yearWeeks);
+        if (batch != null && !batch.isEmpty()) {
+            return batch.stream().collect(Collectors.groupingBy(
+                    a -> makeKey(a.getEmployeeId(), a.getYearWeek().year(), a.getYearWeek().weekNumber())
+            ));
+        }
+        Map<String, List<WeeklyProjectAllocation>> map = new HashMap<>();
+        for (Long empId : employeeIds) {
+            for (YearWeek yw : yearWeeks) {
+                List<WeeklyProjectAllocation> list = loadAllocationPort.loadAllocationsForEmployee(empId, yw);
+                if (list != null && !list.isEmpty()) {
+                    map.put(makeKey(empId, yw.year(), yw.weekNumber()), new ArrayList<>(list));
+                }
+            }
+        }
+        return map;
+    }
+
+    private String makeKey(Long employeeId, int year, int weekNumber) {
+        return employeeId + "_" + year + "_" + weekNumber;
     }
 
     private boolean canAccessProject(User currentUser, Long currentUserId, Project project) {

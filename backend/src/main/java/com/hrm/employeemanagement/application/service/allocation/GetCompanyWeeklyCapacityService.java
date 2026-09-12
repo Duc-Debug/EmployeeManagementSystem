@@ -136,8 +136,21 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             }
             case SELF -> {
                 if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
-                    // VT-02 (Quản lý dự án): Có quyền xem bảng năng lực theo các dự án được phân công (RBAC Guide)
-                    effectiveOrgUnitId = query.orgUnitId();
+                    // VT-02 (Quản lý dự án): Thẩm định phạm vi phòng ban quản lý của PM
+                    Long pmOrgUnitId = resolveEmployeeOrgUnitId(currentUser, currentUserId);
+                    if (pmOrgUnitId == null) {
+                        throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                    }
+                    if (query.orgUnitId() != null) {
+                        boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), pmOrgUnitId);
+                        if (!inScope) {
+                            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                        }
+                        effectiveOrgUnitId = query.orgUnitId();
+                    } else {
+                        // Không cho phép PM xem toàn công ty (orgUnitId = null); mặc định giới hạn trong phòng ban của PM
+                        effectiveOrgUnitId = pmOrgUnitId;
+                    }
                 } else {
                     // Người dùng chỉ có quyền SELF (nhân viên chuyên môn VT-04) không được xem bảng năng lực
                     throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
@@ -556,5 +569,17 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             case UNDERUTILIZED -> row.cells().stream().anyMatch(c -> c.status() == CapacityStatus.UNDERUTILIZED);
             case OPTIMAL -> row.cells().stream().anyMatch(c -> c.status() == CapacityStatus.OPTIMAL);
         };
+    }
+
+    private Long resolveEmployeeOrgUnitId(User currentUser, Long currentUserId) {
+        if (currentUser.getEmployeeId() != null) {
+            Employee emp = loadEmployeePort.findById(currentUser.getEmployeeId()).orElse(null);
+            if (emp != null && emp.getOrgUnitId() != null) {
+                return emp.getOrgUnitId();
+            }
+        }
+        return loadEmployeePort.findByUserId(new UserId(currentUserId))
+                .map(Employee::getOrgUnitId)
+                .orElse(null);
     }
 }

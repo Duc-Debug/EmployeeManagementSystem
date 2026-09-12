@@ -588,4 +588,78 @@ class ResourceReservationServiceTest {
         assertTrue(ex.getMessage().contains("24.00h"));
         verify(saveAllocationPort, never()).save(any());
     }
+
+    @Test
+    @DisplayName("3.2 & 3.3: autoConvertForProject áp dụng khóa bi quan và batch loading để chống race condition và N+1 query")
+    void shouldLockProjectAndEmployeesAndUseBatchLoadingDuringAutoConvert() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        ResourceReservation r1 = ResourceReservation.createNew(projectId, 101L, yearWeek, BigDecimal.valueOf(15.0), "Batch 1", pmUserId);
+        ResourceReservation r2 = ResourceReservation.createNew(projectId, 102L, yearWeek, BigDecimal.valueOf(20.0), "Batch 2", pmUserId);
+        when(loadReservationPort.findActiveByProjectId(projectId)).thenReturn(List.of(r1, r2));
+
+        Employee emp101 = new Employee(new EmployeeId(101L), new UserId(101L), 1L, "EMP101", "Emp 101", false, 40, EmployeeStatus.ACTIVE);
+        Employee emp102 = new Employee(new EmployeeId(102L), new UserId(102L), 1L, "EMP102", "Emp 102", false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(101L))).thenReturn(Optional.of(emp101));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(102L))).thenReturn(Optional.of(emp102));
+
+        WeeklyAvailability avail101 = new WeeklyAvailability(1L, 101L, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0));
+        WeeklyAvailability avail102 = new WeeklyAvailability(2L, 102L, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40.0));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(List.of(101L, 102L), List.of(yearWeek)))
+                .thenReturn(List.of(avail101, avail102));
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(List.of(101L, 102L), List.of(yearWeek)))
+                .thenReturn(List.of());
+
+        when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenAnswer(inv -> {
+            WeeklyProjectAllocation a = inv.getArgument(0);
+            return new WeeklyProjectAllocation(777L, a.getEmployeeId(), a.getProjectId(), a.getYearWeek(), a.getAllocatedHours());
+        });
+
+        int converted = service.autoConvertForProject(projectId);
+
+        assertEquals(2, converted);
+        assertTrue(r1.isConverted());
+        assertTrue(r2.isConverted());
+
+        // Kiểm tra khóa bi quan được thực hiện
+        verify(loadProjectPort).findByIdForUpdate(new ProjectId(projectId));
+        verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(101L));
+        verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(102L));
+
+        // Kiểm tra batch load được gọi 1 lần duy nhất thay vì N+1 queries
+        verify(loadWeeklyAvailabilityPort).loadAvailabilityForEmployeesAndWeeks(List.of(101L, 102L), List.of(yearWeek));
+        verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeks(List.of(101L, 102L), List.of(yearWeek));
+    }
+
+    @Test
+    @DisplayName("3.3: getReservations sử dụng batch load findAllByIdIn cho nhân sự")
+    void shouldBatchLoadEmployeesInGetReservations() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(pmUserId);
+        when(loadUserPort.findById(new UserId(pmUserId))).thenReturn(Optional.of(pmUser));
+
+        ResourceReservation r1 = ResourceReservation.createNew(projectId, 101L, yearWeek, BigDecimal.valueOf(10.0), "R1", pmUserId);
+        ResourceReservation r2 = ResourceReservation.createNew(projectId, 102L, yearWeek, BigDecimal.valueOf(15.0), "R2", pmUserId);
+
+        when(loadReservationPort.findReservations(projectId, null, null, null, null)).thenReturn(List.of(r1, r2));
+
+        Employee emp101 = new Employee(new EmployeeId(101L), new UserId(101L), 1L, "EMP101", "Emp 101", false, 40, EmployeeStatus.ACTIVE);
+        Employee emp102 = new Employee(new EmployeeId(102L), new UserId(102L), 1L, "EMP102", "Emp 102", false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp101, emp102));
+
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(plannedProject));
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(
+                new Employee(new EmployeeId(pmEmployeeId), new UserId(pmUserId), 1L, "PM01", "PM User", false, 40, EmployeeStatus.ACTIVE)
+        ));
+
+        List<ResourceReservationResult> results = service.getReservations(projectId, null, null, null, null);
+
+        assertEquals(2, results.size());
+        verify(loadEmployeePort, times(1)).findAllByIdIn(anyList());
+    }
 }
