@@ -244,4 +244,34 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
             @Param("skillId") Long skillId,
             @Param("minLevel") int minLevel
     );
+
+    @Query("""
+        SELECT es.skillId AS skillId, es.employeeId AS employeeId, COALESCE(e.standardHoursPerWeek, 40) AS standardHoursPerWeek,
+               es.proficiencyLevel AS proficiencyLevel, es.yearsOfExperience AS yearsOfExperience
+        FROM EmployeeSkillJpaEntity es
+        JOIN EmployeeJpaEntity e ON e.id = es.employeeId
+        JOIN SkillJpaEntity s ON s.id = es.skillId
+        WHERE es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
+          AND (s.status IS NULL OR UPPER(s.status) = 'ACTIVE')
+          AND (e.status IS NULL OR UPPER(e.status) = 'ACTIVE')
+          AND (:orgUnitId IS NULL OR e.orgUnitId = :orgUnitId)
+    """)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection> findApprovedCapacityByOrgUnit(
+            @Param("orgUnitId") Long orgUnitId
+    );
+
+    @Query("""
+        SELECT es.skillId AS skillId, es.employeeId AS employeeId, COALESCE(e.standardHoursPerWeek, 40) AS standardHoursPerWeek,
+               es.proficiencyLevel AS proficiencyLevel, es.yearsOfExperience AS yearsOfExperience
+        FROM EmployeeSkillJpaEntity es
+        JOIN EmployeeJpaEntity e ON e.id = es.employeeId
+        JOIN SkillJpaEntity s ON s.id = es.skillId
+        WHERE es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
+          AND (s.status IS NULL OR UPPER(s.status) = 'ACTIVE')
+          AND (e.status IS NULL OR UPPER(e.status) = 'ACTIVE')
+          AND (COALESCE(:orgUnitIds, NULL) IS NULL OR e.orgUnitId IN :orgUnitIds)
+    """)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection> findApprovedCapacityByOrgUnitIds(
+            @Param("orgUnitIds") List<Long> orgUnitIds
+    );
 }

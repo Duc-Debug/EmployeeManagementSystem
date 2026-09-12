@@ -9,9 +9,6 @@ public record DeclareEmployeeSkillCommand(
         BigDecimal yearsOfExperience
 ) {
     public DeclareEmployeeSkillCommand {
-        if (employeeId == null) {
-            throw new IllegalArgumentException("ID nhân viên không được để trống");
-        }
         if (skillId == null) {
             throw new IllegalArgumentException("ID kỹ năng không được để trống");
         }
