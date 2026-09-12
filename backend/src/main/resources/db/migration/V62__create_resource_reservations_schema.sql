@@ -56,6 +56,12 @@ CREATE TABLE IF NOT EXISTS resource_reservations (
     CONSTRAINT chk_rr_reserved_hours
         CHECK (reserved_hours > 0.00 AND reserved_hours <= 168.00),
 
+    CONSTRAINT chk_rr_week
+        CHECK (week_number BETWEEN 1 AND 53),
+
+    CONSTRAINT chk_rr_year
+        CHECK (year_number >= 2000),
+
     CONSTRAINT chk_rr_status
         CHECK (status IN ('ACTIVE', 'CONVERTED', 'CANCELLED'))
 );

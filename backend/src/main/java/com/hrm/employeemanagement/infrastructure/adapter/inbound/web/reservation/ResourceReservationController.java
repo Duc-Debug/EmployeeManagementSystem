@@ -96,10 +96,9 @@ public class ResourceReservationController {
     @PostMapping("/projects/{projectId}/auto-cancel")
     public ResponseEntity<ApiResponse<Integer>> autoCancelForProject(
             @PathVariable Long projectId,
-            @RequestParam(required = false, defaultValue = "Dự án dự kiến bị hủy") String cancelReason,
-            @RequestParam(required = false, defaultValue = "1") Long executedBy
+            @RequestParam(required = false, defaultValue = "Dự án dự kiến bị hủy") String cancelReason
     ) {
-        int count = autoProcessUseCase.autoCancelForProject(projectId, cancelReason, executedBy);
+        int count = autoProcessUseCase.autoCancelForProject(projectId, cancelReason);
         return ResponseEntity.ok(ApiResponse.success("Đã tự hủy " + count + " dòng giữ chỗ của dự án", count));
     }
 
@@ -108,10 +107,9 @@ public class ResourceReservationController {
      */
     @PostMapping("/projects/{projectId}/auto-convert")
     public ResponseEntity<ApiResponse<Integer>> autoConvertForProject(
-            @PathVariable Long projectId,
-            @RequestParam(required = false, defaultValue = "1") Long executedBy
+            @PathVariable Long projectId
     ) {
-        int count = autoProcessUseCase.autoConvertForProject(projectId, executedBy);
+        int count = autoProcessUseCase.autoConvertForProject(projectId);
         return ResponseEntity.ok(ApiResponse.success("Đã chuyển đổi " + count + " dòng giữ chỗ thành phân bổ chính thức", count));
     }
 }

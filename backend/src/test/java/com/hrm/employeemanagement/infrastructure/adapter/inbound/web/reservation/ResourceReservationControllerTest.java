@@ -170,7 +170,7 @@ class ResourceReservationControllerTest {
     @Test
     @DisplayName("POST /api/v1/resource-reservations/projects/{id}/auto-cancel -> 200 OK (TC-02)")
     void shouldAutoCancelForProject() throws Exception {
-        when(autoProcessUseCase.autoCancelForProject(100L, "Dự án dự kiến bị hủy", 1L)).thenReturn(3);
+        when(autoProcessUseCase.autoCancelForProject(100L, "Dự án dự kiến bị hủy")).thenReturn(3);
 
         mockMvc.perform(post("/api/v1/resource-reservations/projects/100/auto-cancel"))
                 .andExpect(status().isOk())
@@ -181,7 +181,7 @@ class ResourceReservationControllerTest {
     @Test
     @DisplayName("POST /api/v1/resource-reservations/projects/{id}/auto-convert -> 200 OK (TC-03)")
     void shouldAutoConvertForProject() throws Exception {
-        when(autoProcessUseCase.autoConvertForProject(100L, 1L)).thenReturn(2);
+        when(autoProcessUseCase.autoConvertForProject(100L)).thenReturn(2);
 
         mockMvc.perform(post("/api/v1/resource-reservations/projects/100/auto-convert"))
                 .andExpect(status().isOk())

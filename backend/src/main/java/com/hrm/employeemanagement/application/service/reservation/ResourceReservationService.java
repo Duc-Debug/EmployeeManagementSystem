@@ -157,14 +157,28 @@ public class ResourceReservationService implements
 
         BigDecimal remainingHours = WeeklyCapacityMatrixPolicy.calculateRemainingHours(netAvailableHours, totalCommittedHours);
 
+        // [CR-01 FIX]: Tính tổng số giờ của các reservation ACTIVE khác trong tuần (loại trừ chính dự án hiện tại nếu đang cập nhật)
+        List<ResourceReservation> activeReservations = loadReservationPort.findActiveByEmployeeIdAndYearWeek(command.employeeId(), yearWeek);
+        BigDecimal otherActiveReservedHours = activeReservations.stream()
+                .filter(r -> !Objects.equals(r.getProjectId(), command.projectId()))
+                .map(ResourceReservation::getReservedHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal availableForReservation = remainingHours.subtract(otherActiveReservedHours);
+        if (availableForReservation.compareTo(BigDecimal.ZERO) < 0) {
+            availableForReservation = BigDecimal.ZERO;
+        }
+
         if (command.reservedHours() == null || command.reservedHours().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidReservationDataException("Số giờ giữ chỗ phải lớn hơn 0");
         }
 
-        if (command.reservedHours().compareTo(remainingHours) > 0) {
+        if (command.reservedHours().compareTo(availableForReservation) > 0) {
             throw new InvalidReservationDataException(
-                    "Số giờ giữ chỗ (" + command.reservedHours() + "h) vượt quá số giờ còn lại chưa cam kết ("
-                            + remainingHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
+                    "Số giờ giữ chỗ (" + command.reservedHours() + "h) vượt quá số giờ còn lại có thể giữ chỗ ("
+                            + availableForReservation + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
+                            + " (Khả dụng: " + netAvailableHours + "h, Đã phân bổ chính thức: " + totalCommittedHours
+                            + "h, Các dự án khác đã giữ chỗ: " + otherActiveReservedHours + "h)"
             );
         }
 
@@ -249,7 +263,8 @@ public class ResourceReservationService implements
     public List<ResourceReservationResult> getReservations(
             Long projectId, Long employeeId, Integer year, Integer weekNumber, ReservationStatus status
     ) {
-        authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
+        User currentUser = loadCurrentUserOrThrow(currentUserId);
 
         List<ResourceReservation> list = loadReservationPort.findReservations(projectId, employeeId, year, weekNumber, status);
         if (list.isEmpty()) {
@@ -269,14 +284,31 @@ public class ResourceReservationService implements
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(Employee::getIdValue, e -> e, (a, b) -> a));
 
+        // [CR-03 FIX]: Enforce DataScope của user hiện tại với từng dự án để ngăn chặn rò rỉ dữ liệu
         return list.stream()
+                .filter(r -> {
+                    Project p = projectMap.get(r.getProjectId());
+                    return p != null && canAccessProject(currentUser, currentUserId, p);
+                })
                 .map(r -> mapToResult(r, projectMap.get(r.getProjectId()), employeeMap.get(r.getEmployeeId())))
                 .toList();
     }
 
     @Override
-    public int autoCancelForProject(Long projectId, String cancelReason, Long executedBy) {
+    public int autoCancelForProject(Long projectId, String cancelReason) {
         Objects.requireNonNull(projectId, "Mã dự án (projectId) không được để trống");
+        // [CR-02 & CR-05 FIX]: Enforce RESOURCE_ALLOCATION_MANAGE và DataScope tại Service layer
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+        User currentUser = loadCurrentUserOrThrow(currentUserId);
+
+        Project project = loadProjectPort.findById(new ProjectId(projectId))
+                .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        if (!canAccessProject(currentUser, currentUserId, project)) {
+            saveDeniedAudit(currentUserId, currentUser, projectId, "OUTSIDE_DATA_SCOPE_RESERVATION_AUTO_CANCEL");
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+        }
+
         List<ResourceReservation> activeReservations = loadReservationPort.findActiveByProjectId(projectId);
         if (activeReservations.isEmpty()) {
             return 0;
@@ -284,10 +316,10 @@ public class ResourceReservationService implements
 
         String reason = cancelReason != null && !cancelReason.isBlank() ? cancelReason : "Dự án dự kiến bị hủy";
         for (ResourceReservation reservation : activeReservations) {
-            reservation.cancel(executedBy, reason);
+            reservation.cancel(currentUserId, reason);
             saveReservationPort.save(reservation);
             saveAuditLogPort.save(AuditLog.createChange(
-                    executedBy,
+                    currentUserId,
                     "RESOURCE_RESERVATION_AUTO_CANCELLED",
                     "resource_reservations",
                     reservation.getId(),
@@ -300,11 +332,58 @@ public class ResourceReservationService implements
     }
 
     @Override
-    public int autoConvertForProject(Long projectId, Long executedBy) {
+    public int autoConvertForProject(Long projectId) {
         Objects.requireNonNull(projectId, "Mã dự án (projectId) không được để trống");
+        // [CR-02 & CR-05 FIX]: Enforce RESOURCE_ALLOCATION_MANAGE và DataScope tại Service layer
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+        User currentUser = loadCurrentUserOrThrow(currentUserId);
+
+        Project project = loadProjectPort.findById(new ProjectId(projectId))
+                .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        if (!canAccessProject(currentUser, currentUserId, project)) {
+            saveDeniedAudit(currentUserId, currentUser, projectId, "OUTSIDE_DATA_SCOPE_RESERVATION_AUTO_CONVERT");
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+        }
+
         List<ResourceReservation> activeReservations = loadReservationPort.findActiveByProjectId(projectId);
         if (activeReservations.isEmpty()) {
             return 0;
+        }
+
+        // [CR-04 FIX]: Kiểm tra capacity trước khi convert từng reservation để không gây overload
+        for (ResourceReservation reservation : activeReservations) {
+            YearWeek yw = reservation.getYearWeek();
+            Optional<WeeklyAvailability> availOpt = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(reservation.getEmployeeId(), yw);
+            Employee emp = loadEmployeePort.findById(new EmployeeId(reservation.getEmployeeId())).orElse(null);
+            int standardHours = (emp != null && emp.getStandardHoursPerWeek() != null) ? emp.getStandardHoursPerWeek() : 40;
+            BigDecimal netAvailable = availOpt.map(WeeklyAvailability::getNetAvailableHours).orElse(BigDecimal.valueOf(standardHours));
+
+            List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(
+                    reservation.getEmployeeId(), yw
+            );
+
+            Optional<WeeklyProjectAllocation> matchingOpt = existingAllocations.stream()
+                    .filter(a -> a.getProjectId().equals(projectId))
+                    .findFirst();
+
+            BigDecimal otherAllocatedHours = existingAllocations.stream()
+                    .filter(a -> !a.getProjectId().equals(projectId))
+                    .map(WeeklyProjectAllocation::getAllocatedHours)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal currentProjectHours = matchingOpt.map(WeeklyProjectAllocation::getAllocatedHours).orElse(BigDecimal.ZERO);
+            BigDecimal newProjectHours = currentProjectHours.add(reservation.getReservedHours());
+            BigDecimal totalNewAllocated = otherAllocatedHours.add(newProjectHours);
+
+            if (totalNewAllocated.compareTo(netAvailable) > 0) {
+                throw new InvalidReservationDataException(
+                        "Không thể tự động chuyển đổi giữ chỗ sang phân bổ chính thức cho nhân sự ID " + reservation.getEmployeeId()
+                                + " ở tuần " + yw.weekNumber() + "/" + yw.year()
+                                + ": Tổng phân bổ sau khi chuyển đổi (" + totalNewAllocated + "h) sẽ vượt quá năng lực khả dụng ("
+                                + netAvailable + "h). Vui lòng điều chỉnh phân bổ trước khi duyệt dự án."
+                );
+            }
         }
 
         for (ResourceReservation reservation : activeReservations) {
@@ -331,11 +410,11 @@ public class ResourceReservationService implements
 
             WeeklyProjectAllocation savedAllocation = saveAllocationPort.save(allocationToSave);
 
-            reservation.convert(savedAllocation.getId(), executedBy);
+            reservation.convert(savedAllocation.getId(), currentUserId);
             saveReservationPort.save(reservation);
 
             saveAuditLogPort.save(AuditLog.createChange(
-                    executedBy,
+                    currentUserId,
                     "RESOURCE_RESERVATION_CONVERTED",
                     "resource_reservations",
                     reservation.getId(),
