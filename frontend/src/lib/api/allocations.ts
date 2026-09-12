@@ -54,6 +54,7 @@ export async function allocateProjectHours(payload: {
   year: number;
   weekNumber: number;
   allocatedHours: number;
+  overloadReason?: string;
 }): Promise<WeeklyCapacityResult> {
   return apiRequest<WeeklyCapacityResult>('/allocations', {
     method: 'POST',

@@ -40,6 +40,7 @@ export interface UserResultDto {
   scopeOrgUnitId: number | null;
   status: UserStatus;
   username: string;
+  permissions?: string[];
 }
 
 export async function login(payload: LoginPayload): Promise<AuthUser> {
@@ -73,6 +74,7 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
       scopeOrgUnitId: userRes.scopeOrgUnitId,
       status: userRes.status,
       username: userRes.username,
+      permissions: userRes.permissions || [],
     };
 
     setStoredUser(authUser);
@@ -101,6 +103,7 @@ export async function getCurrentUser(): Promise<AuthUser> {
     scopeOrgUnitId: userRes.scopeOrgUnitId,
     status: userRes.status,
     username: userRes.username,
+    permissions: userRes.permissions || [],
   };
 
   setStoredUser(authUser);

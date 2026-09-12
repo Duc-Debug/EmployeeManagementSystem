@@ -127,4 +127,12 @@ public class AuthorizationService {
         }
         return permissionQueryPort.hasPermission(currentUser.getIdValue(), permission);
     }
+
+    public java.util.List<String> getUserPermissions(Long userId) {
+        if (userId == null) {
+            return java.util.Collections.emptyList();
+        }
+        return permissionQueryPort.findPermissionsByUserId(userId);
+    }
 }
+
