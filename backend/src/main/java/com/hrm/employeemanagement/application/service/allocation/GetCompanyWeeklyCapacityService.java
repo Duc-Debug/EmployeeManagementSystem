@@ -21,6 +21,7 @@ import com.hrm.employeemanagement.domain.availability.Holiday;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
@@ -134,8 +135,13 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 }
             }
             case SELF -> {
-                // Người dùng chỉ có quyền SELF không được xem bảng năng lực tổng thể công ty/bộ phận
-                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
+                    // VT-02 (Quản lý dự án): Có quyền xem bảng năng lực theo các dự án được phân công (RBAC Guide)
+                    effectiveOrgUnitId = query.orgUnitId();
+                } else {
+                    // Người dùng chỉ có quyền SELF (nhân viên chuyên môn VT-04) không được xem bảng năng lực
+                    throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                }
             }
             default -> throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
         }

@@ -31,6 +31,8 @@ import { getCurrentIsoWeek } from "@/components/availability/availability.types"
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
   const isCompanyScope = currentUser?.dataScope === "COMPANY";
+  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const canManageReservations = normalizedRole === "VT-02" || normalizedRole === "VT-03";
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -66,6 +68,7 @@ export default function CompanyWeeklyCapacityView() {
     year?: number,
     weekNumber?: number
   ) => {
+    if (!canManageReservations) return;
     setReservationTarget({ employeeId, employeeName, year, weekNumber });
     setIsReservationModalOpen(true);
   };
@@ -215,18 +218,28 @@ export default function CompanyWeeklyCapacityView() {
     const isZeroAvailability = cell.availableHours === 0;
 
     const reservationBadge = cell.reservedHours != null && cell.reservedHours > 0 ? (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleOpenReservationModal(row.employeeId, row.fullName, cell.year, cell.weekNumber);
-        }}
-        className="mt-1 flex items-center justify-center gap-1 rounded-md border border-dashed border-amber-400 bg-amber-50/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition shadow-2xs w-full"
-        title={`QTN-13: Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức). Bấm để xem hoặc quản lý.`}
-      >
-        <BookmarkCheck className="h-3 w-3 text-amber-600 shrink-0" />
-        <span>Giữ: {cell.reservedHours}h</span>
-      </button>
+      canManageReservations ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenReservationModal(row.employeeId, row.fullName, cell.year, cell.weekNumber);
+          }}
+          className="mt-1 flex items-center justify-center gap-1 rounded-md border border-dashed border-amber-400 bg-amber-50/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition shadow-2xs w-full"
+          title={`QTN-13: Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức). Bấm để xem hoặc quản lý.`}
+        >
+          <BookmarkCheck className="h-3 w-3 text-amber-600 shrink-0" />
+          <span>Giữ: {cell.reservedHours}h</span>
+        </button>
+      ) : (
+        <div
+          className="mt-1 flex items-center justify-center gap-1 rounded-md border border-dashed border-amber-400 bg-amber-50/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 w-full"
+          title={`QTN-13: Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức).`}
+        >
+          <BookmarkCheck className="h-3 w-3 text-amber-600 shrink-0" />
+          <span>Giữ: {cell.reservedHours}h</span>
+        </div>
+      )
     ) : null;
 
     if (isZeroAvailability && cell.allocatedHours === 0) {
@@ -351,15 +364,17 @@ export default function CompanyWeeklyCapacityView() {
             <span>Tuần hiện tại</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleOpenReservationModal()}
-            className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
-            title="Giữ chỗ nguồn lực cho dự án dự kiến (NCL-06-CN-005, QTN-13)"
-          >
-            <BookmarkCheck className="h-3.5 w-3.5 text-amber-600" />
-            <span>Giữ chỗ nguồn lực</span>
-          </button>
+          {canManageReservations && (
+            <button
+              type="button"
+              onClick={() => handleOpenReservationModal()}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
+              title="Giữ chỗ nguồn lực cho dự án dự kiến (NCL-06-CN-005, QTN-13)"
+            >
+              <BookmarkCheck className="h-3.5 w-3.5 text-amber-600" />
+              <span>Giữ chỗ nguồn lực</span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -27,6 +27,8 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -272,6 +274,28 @@ class GetCompanyWeeklyCapacityServiceTest {
 
         assertThatThrownBy(() -> service.getWeeklyCapacityMatrix(query))
                 .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("Data Scope: VT-02 (Quản lý dự án) có Data Scope SELF nhưng được phép truy cập bảng năng lực theo dự án phụ trách")
+    void testProjectManagerSelfScopeAllowedAccess() {
+        User pmUser = mock(User.class);
+        Role pmRole = mock(Role.class);
+        when(pmRole.getCode()).thenReturn(RoleCode.VT_02);
+        when(pmUser.getDataScope()).thenReturn(DataScope.SELF);
+        when(pmUser.getRole()).thenReturn(pmRole);
+
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(400L);
+        when(loadUserPort.findById(new UserId(400L))).thenReturn(Optional.of(pmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 8);
+        CompanyWeeklyCapacityMatrixResult result = service.getWeeklyCapacityMatrix(query);
+
+        assertThat(result).isNotNull();
+        assertThat(result.orgUnitName()).isEqualTo("Phòng Công nghệ thông tin");
     }
 
     @Test
