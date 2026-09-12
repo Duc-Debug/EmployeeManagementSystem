@@ -273,4 +273,48 @@ class ResourceAllocationControllerTest {
                 .andExpect(jsonPath("$.details.allocatedHours").value(45))
                 .andExpect(jsonPath("$.details.overloadHours").value(5));
     }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 BLOCKING: POST /api/v1/allocations - Trả về 400 khi truyền đồng thời cả allocatedHours và allocationPercentage")
+    void allocateResource_BothHoursAndPercentage_ReturnsBadRequest() throws Exception {
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "year": 2026,
+                    "weekNumber": 36,
+                    "allocatedHours": 20,
+                    "allocationPercentage": 50
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/allocations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 BLOCKING: POST /api/v1/allocations/bulk - Trả về 400 khi truyền đồng thời cả allocatedHoursPerWeek và allocationPercentagePerWeek")
+    void bulkAllocateResource_BothHoursAndPercentage_ReturnsBadRequest() throws Exception {
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "fromYear": 2026,
+                    "fromWeek": 1,
+                    "toYear": 2026,
+                    "toWeek": 4,
+                    "allocatedHoursPerWeek": 20,
+                    "allocationPercentagePerWeek": 50
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/allocations/bulk")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
 }

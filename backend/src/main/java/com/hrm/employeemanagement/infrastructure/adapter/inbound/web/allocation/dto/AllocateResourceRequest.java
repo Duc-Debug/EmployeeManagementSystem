@@ -43,5 +43,8 @@ public record AllocateResourceRequest(
         if (allocatedHours == null && allocationPercentage == null) {
             throw new IllegalArgumentException("Phải cung cấp số giờ phân bổ hoặc tỷ lệ phần trăm phân bổ");
         }
+        if (allocatedHours != null && allocationPercentage != null) {
+            throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ");
+        }
     }
 }

@@ -55,5 +55,8 @@ public record BulkAllocateResourceRequest(
         if (allocatedHoursPerWeek == null && allocationPercentagePerWeek == null) {
             throw new IllegalArgumentException("Phải cung cấp số giờ phân bổ hoặc tỷ lệ phần trăm phân bổ mỗi tuần");
         }
+        if (allocatedHoursPerWeek != null && allocationPercentagePerWeek != null) {
+            throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ mỗi tuần");
+        }
     }
 }
