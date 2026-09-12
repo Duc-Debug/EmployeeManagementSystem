@@ -1,7 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.report;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.IsoFields;
@@ -142,8 +141,11 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
                 unmappedRoles++;
                 continue;
             }
-            // Each mapping is an explicit requirement.  A role may require several skills.
-            for (Long skillId : skillIds) demandMap.merge(skillId, d.getRequiredHours(), BigDecimal::add);
+            // Mappings form one combined role requirement. Split its hours to
+            // prevent a multi-skill role from inflating total demand.
+            EmployeeCapacityAttributionPolicy.allocateHours(
+                    d.getRequiredHours(), EmployeeCapacityAttributionPolicy.equalWeights(skillIds))
+                    .forEach((skillId, hours) -> demandMap.merge(skillId, hours, BigDecimal::add));
         }
         return new RecruitmentDemandMetrics(Map.copyOf(demandMap), unmappedHours, unmappedRoles);
     }
@@ -216,6 +218,8 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
 
         // Compute real remaining capacity before any skill attribution.
         Map<Long, BigDecimal> skillCapacityMap = new HashMap<>();
+        // Every projection represents an approved skill.  With the weighted
+        // allocation policy, all positive employee capacity is attributable.
         BigDecimal unattributedCapacity = BigDecimal.ZERO;
 
         for (Map.Entry<Long, List<EmployeeSkillCapacityProjection>> entry : skillsByEmployee.entrySet()) {
@@ -223,10 +227,13 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
             List<EmployeeSkillCapacityProjection> empSkills = entry.getValue();
             if (empSkills.isEmpty()) continue;
 
-            List<Long> approvedSkillIds = empSkills.stream().map(EmployeeSkillCapacityProjection::getSkillId)
-                    .filter(Objects::nonNull).distinct().toList();
-            Long attributedSkillId = EmployeeCapacityAttributionPolicy.attributedSkillId(approvedSkillIds);
-            if (approvedSkillIds.isEmpty()) continue;
+            Map<Long, Integer> proficiencyBySkillId = empSkills.stream()
+                    .filter(skill -> skill.getSkillId() != null)
+                    .collect(Collectors.toMap(
+                            EmployeeSkillCapacityProjection::getSkillId,
+                            skill -> skill.getProficiencyLevel() == null ? 1 : skill.getProficiencyLevel(),
+                            Math::max));
+            if (proficiencyBySkillId.isEmpty()) continue;
 
             int hoursPerWeek = resolveEmployeeStandardHours(empSkills);
 
@@ -244,8 +251,8 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
             }
 
             if (empTotalNetAvailable.compareTo(BigDecimal.ZERO) > 0) {
-                if (attributedSkillId == null) unattributedCapacity = unattributedCapacity.add(empTotalNetAvailable);
-                else skillCapacityMap.merge(attributedSkillId, empTotalNetAvailable, BigDecimal::add);
+                EmployeeCapacityAttributionPolicy.allocateHours(empTotalNetAvailable, proficiencyBySkillId)
+                        .forEach((skillId, hours) -> skillCapacityMap.merge(skillId, hours, BigDecimal::add));
             }
         }
         return new RecruitmentCapacityMetrics(Map.copyOf(skillCapacityMap), unattributedCapacity);

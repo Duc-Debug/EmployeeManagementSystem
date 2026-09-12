@@ -118,7 +118,7 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         Map<Long, BigDecimal> demandMap = adapter.loadProjectDemandHoursGroupedBySkill(2026, 1, 2026, 4, 10L);
 
         assertEquals(1, demandMap.size());
-        assertEquals(BigDecimal.valueOf(120), demandMap.get(1L));
+        assertEquals(0, BigDecimal.valueOf(120).compareTo(demandMap.get(1L)));
 
         verify(projectResourceDemandRepository).sumDemandsByRoleFilteredByOrgUnitIds(List.of(10L), 2026, 1, 2026, 4);
     }
@@ -145,8 +145,8 @@ class RecruitmentDemandReportPersistenceAdapterTest {
     }
 
     @Test
-    @DisplayName("Case 2 — Multiple skills: Employee 160h, skills Java (Level 4) & React (Level 3). Attributed to Primary Approved Skill Java (160h)")
-    void testLoadAvailableCapacity_Case2_MultipleSkills_PrimarySkillAttribution() {
+    @DisplayName("Case 2 — Multiple skills: capacity is split by proficiency without losing hours")
+    void testLoadAvailableCapacity_Case2_MultipleSkills_WeightedAttribution() {
         // Employee 101 has 2 skills: Skill 1 (Java, Level 4) and Skill 2 (React, Level 3)
         EmployeeSkillCapacityProjection emp1Skill1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 1L; }
@@ -167,14 +167,15 @@ class RecruitmentDemandReportPersistenceAdapterTest {
                 .thenReturn(List.of(emp1Skill1, emp1Skill2));
 
         RecruitmentCapacityMetrics metrics = adapter.loadAvailableCapacityMetrics(2026, 1, 2026, 4, null);
-        assertTrue(metrics.capacityHoursBySkill().isEmpty());
-        assertEquals(0, BigDecimal.valueOf(160).compareTo(metrics.unattributedCapacityHours()));
+        assertEquals(0, new BigDecimal("91.42857143").compareTo(metrics.capacityHoursBySkill().get(1L)));
+        assertEquals(0, new BigDecimal("68.57142857").compareTo(metrics.capacityHoursBySkill().get(2L)));
+        assertEquals(0, BigDecimal.ZERO.compareTo(metrics.unattributedCapacityHours()));
     }
 
     @Test
     @DisplayName("Case 3 — Multiple employees, overlapping skills: Capacity accounting <= total net capacity")
     void testLoadAvailableCapacity_Case3_MultipleEmployees_OverlappingSkills() {
-        // Employee 101: Java (Level 4) & React (Level 3) -> Primary Java (160h)
+        // Employee 101: Java (Level 4) & React (Level 3) -> 4:3 split.
         EmployeeSkillCapacityProjection emp1Skill1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 1L; }
             @Override public Long getEmployeeId() { return 101L; }
@@ -190,7 +191,7 @@ class RecruitmentDemandReportPersistenceAdapterTest {
             @Override public BigDecimal getYearsOfExperience() { return BigDecimal.valueOf(2); }
         };
 
-        // Employee 102: React (Level 5) -> Primary React (160h)
+        // Employee 102: React (Level 5) -> all 160h on React.
         EmployeeSkillCapacityProjection emp2Skill1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 2L; }
             @Override public Long getEmployeeId() { return 102L; }
@@ -204,13 +205,13 @@ class RecruitmentDemandReportPersistenceAdapterTest {
 
         RecruitmentCapacityMetrics metrics = adapter.loadAvailableCapacityMetrics(2026, 1, 2026, 4, null);
         Map<Long, BigDecimal> capacityMap = metrics.capacityHoursBySkill();
-        assertEquals(0, BigDecimal.ZERO.compareTo(capacityMap.getOrDefault(1L, BigDecimal.ZERO)));
-        assertEquals(0, BigDecimal.valueOf(160).compareTo(capacityMap.getOrDefault(2L, BigDecimal.ZERO)));
-        assertEquals(0, BigDecimal.valueOf(160).compareTo(metrics.unattributedCapacityHours()));
+        assertEquals(0, new BigDecimal("91.42857143").compareTo(capacityMap.getOrDefault(1L, BigDecimal.ZERO)));
+        assertEquals(0, new BigDecimal("228.57142857").compareTo(capacityMap.getOrDefault(2L, BigDecimal.ZERO)));
+        assertEquals(0, BigDecimal.ZERO.compareTo(metrics.unattributedCapacityHours()));
     }
 
     @Test
-    @DisplayName("Case 4 — Leave + allocation + primary skill: Net capacity = 120h")
+    @DisplayName("Case 4 — Leave + allocation: net capacity is attributed to its approved skill")
     void testLoadAvailableCapacity_Case4_LeaveAndAllocation_MultiSkill() {
         EmployeeSkillCapacityProjection emp1Skill1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 1L; }
@@ -251,5 +252,29 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         assertTrue(metrics.demandHoursBySkill().isEmpty());
         assertEquals(0, BigDecimal.valueOf(100).compareTo(metrics.unmappedDemandHours()));
         assertEquals(1, metrics.unmappedRoleCount());
+    }
+
+    @Test
+    @DisplayName("Multiple role skills split one role demand instead of multiplying it")
+    void testLoadProjectDemand_MultipleMappedSkills_SplitsDemand() {
+        ProjectDemandByRoleProjection demand = new ProjectDemandByRoleProjection() {
+            @Override public Long getRoleId() { return 300L; }
+            @Override public BigDecimal getRequiredHours() { return BigDecimal.valueOf(100); }
+        };
+        ProjectRoleSkillJpaEntity java = org.mockito.Mockito.mock(ProjectRoleSkillJpaEntity.class);
+        ProjectRoleSkillJpaEntity spring = org.mockito.Mockito.mock(ProjectRoleSkillJpaEntity.class);
+        when(java.getRoleId()).thenReturn(300L);
+        when(java.getSkillId()).thenReturn(1L);
+        when(spring.getRoleId()).thenReturn(300L);
+        when(spring.getSkillId()).thenReturn(2L);
+        when(projectResourceDemandRepository.sumDemandsByRoleFiltered(null, 2026, 1, 2026, 4)).thenReturn(List.of(demand));
+        when(projectRoleSkillRepository.findActiveMappingsByRoleIdIn(List.of(300L))).thenReturn(List.of(java, spring));
+
+        RecruitmentDemandMetrics metrics = adapter.loadProjectDemandMetrics(2026, 1, 2026, 4, null);
+
+        assertEquals(0, BigDecimal.valueOf(50).compareTo(metrics.demandHoursBySkill().get(1L)));
+        assertEquals(0, BigDecimal.valueOf(50).compareTo(metrics.demandHoursBySkill().get(2L)));
+        assertEquals(0, BigDecimal.valueOf(100).compareTo(
+                metrics.demandHoursBySkill().values().stream().reduce(BigDecimal.ZERO, BigDecimal::add)));
     }
 }

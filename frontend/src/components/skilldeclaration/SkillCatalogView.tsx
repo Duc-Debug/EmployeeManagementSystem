@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, Pencil, Trash2, BookOpen, Check, X, ShieldAlert, ChevronDown, FolderPlus, AlertCircle } from 'lucide-react';
-import type { CatalogSkill, DeclaredSkill } from './Types.ts';
+import type { CatalogSkill } from './Types.ts';
 import { SKILL_CATALOG } from './Types.ts';
 import { useAuthUser } from '@/lib/auth-session';
 import {
@@ -88,27 +88,12 @@ function RoundedModalSelect({
     );
 }
 
-function getSkillProficiencyStats(item: CatalogSkill, declaredSkills?: DeclaredSkill[], totalEmployees?: number) {
-    if (!declaredSkills || declaredSkills.length === 0) {
-        return { count: 0, totalEmps: totalEmployees || 0, pct: 0 };
-    }
-    const matching = declaredSkills.filter(
-        (s) => s.skillId === item.id || s.name.toLowerCase() === item.name.toLowerCase()
-    );
-    const count = matching.length;
-    const totalEmps = totalEmployees && totalEmployees > 0 ? totalEmployees : (declaredSkills.length || 1);
-    const pct = totalEmps > 0 ? Math.round((count / totalEmps) * 100) : 0;
-    return { count, totalEmps, pct };
-}
-
 interface SkillCatalogViewProps {
     catalog?: CatalogSkill[];
-    declaredSkills?: DeclaredSkill[];
-    totalEmployees?: number;
     onUpdateCatalog?: (newCatalog: CatalogSkill[]) => void;
 }
 
-export default function SkillCatalogView({ catalog: externalCatalog, declaredSkills, totalEmployees, onUpdateCatalog }: SkillCatalogViewProps) {
+export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCatalog }: SkillCatalogViewProps) {
     const currentUser = useAuthUser();
     const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
     const canManageCatalog = roleCode === 'VT-06';
@@ -403,7 +388,7 @@ export default function SkillCatalogView({ catalog: externalCatalog, declaredSki
                                 <th className="px-4 py-3 text-left">Mã SK</th>
                                 <th className="px-4 py-3 text-left">Tên kỹ năng</th>
                                 <th className="px-4 py-3 text-left">Nhóm kỹ năng</th>
-                                <th className="px-4 py-3 text-left">Tỉ lệ thành thạo (%)</th>
+                                <th className="px-4 py-3 text-left">Thống kê nhân sự</th>
                                 <th className="px-4 py-3 text-left">Trạng thái</th>
                                 {canManageCatalog && (
                                     <th className="px-4 py-3 text-right">Thao tác</th>
@@ -420,7 +405,6 @@ export default function SkillCatalogView({ catalog: externalCatalog, declaredSki
                             ) : (
                                 filteredCatalog.map((item) => {
                                     const badgeClass = CATEGORY_BADGES[item.category] || CATEGORY_BADGES['Khác'];
-                                    const stats = getSkillProficiencyStats(item, declaredSkills, totalEmployees);
                                     return (
                                         <tr key={item.id} className="transition-colors hover:bg-slate-50/60">
                                             <td className="px-4 py-3 font-mono text-xs text-slate-400 font-medium">
@@ -435,26 +419,7 @@ export default function SkillCatalogView({ catalog: externalCatalog, declaredSki
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="flex flex-col gap-1 max-w-[140px]">
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="font-bold text-slate-800">{stats.pct}%</span>
-                                                        <span className="text-[11px] font-medium text-slate-400">({stats.count}/{stats.totalEmps} NV)</span>
-                                                    </div>
-                                                    <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full transition-all duration-300 ${
-                                                                stats.pct >= 60
-                                                                    ? 'bg-emerald-500'
-                                                                    : stats.pct >= 40
-                                                                    ? 'bg-indigo-500'
-                                                                    : stats.pct >= 20
-                                                                    ? 'bg-amber-500'
-                                                                    : 'bg-rose-400'
-                                                            }`}
-                                                            style={{ width: `${stats.pct}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
+                                                <span className="text-xs text-slate-400">Xem tại Ma trận kỹ năng</span>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">

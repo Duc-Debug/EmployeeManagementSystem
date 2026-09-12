@@ -464,7 +464,6 @@ export default function SkilldeclarationView({
                 {activeTab === 'catalog' && (
                     <SkillCatalogView
                         catalog={catalog}
-                        declaredSkills={skills}
                         onUpdateCatalog={setCatalog}
                     />
                 )}
