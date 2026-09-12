@@ -9,9 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportQuery;
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandReportExport;
 import com.hrm.employeemanagement.application.dto.report.RecruitmentDemandMetrics;
@@ -56,7 +53,6 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
     }
 
     @Override
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public RecruitmentDemandReportResult execute(RecruitmentDemandReportQuery query) {
         // [TC-03] Kiểm tra quyền hạn và tự động ghi log từ chối nếu không có quyền
         Long currentUserId = authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
@@ -169,7 +165,6 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
     }
 
     @Override
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public RecruitmentDemandReportExport export(RecruitmentDemandReportQuery query) {
         RecruitmentDemandReportResult report = execute(query);
         saveAuditLogPort.save(AuditLog.createChange(
