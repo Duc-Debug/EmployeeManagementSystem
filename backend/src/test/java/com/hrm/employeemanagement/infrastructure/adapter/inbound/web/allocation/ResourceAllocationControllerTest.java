@@ -27,6 +27,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -182,6 +183,21 @@ class ResourceAllocationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalEmployees").value(5))
                 .andExpect(jsonPath("$.data.totalPages").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/allocations/search - Từ chối toYear/toWeek chỉ được truyền một phần")
+    void searchResources_WithPartialEndPeriod_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/allocations/search")
+                        .param("skillId", "1")
+                        .param("fromYear", "2026")
+                        .param("fromWeek", "50")
+                        .param("toYear", "2027"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"))
+                .andExpect(jsonPath("$.message").value("toYear và toWeek phải được cung cấp cùng nhau"));
+
+        verifyNoInteractions(searchResourceUseCase);
     }
 
     @Test

@@ -171,9 +171,9 @@ public class LeaveUseCaseConfig {
             @org.springframework.beans.factory.annotation.Autowired(required = false)
             LoadWorkingCalendarPort loadWorkingCalendarPort,
             @org.springframework.beans.factory.annotation.Autowired(required = false)
-            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort,
             @org.springframework.beans.factory.annotation.Autowired(required = false)
-            SaveWeeklyProjectAllocationPort saveAllocationPort
+            SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort
     ) {
         ApproveLeaveRequestService service = new ApproveLeaveRequestService(
                 loadLeaveRequestPort,
@@ -188,8 +188,8 @@ public class LeaveUseCaseConfig {
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
                 loadWorkingCalendarPort,
-                loadAllocationPort,
-                saveAllocationPort
+                loadWeeklyProjectAllocationPort,
+                saveWeeklyProjectAllocationPort
         );
         return new TransactionalApproveLeaveRequestService(service);
     }

@@ -5,7 +5,10 @@
 -- ============================================================
 
 ALTER TABLE weekly_project_allocations 
-ADD COLUMN allocation_percentage DECIMAL(5, 2) NULL;
+ADD COLUMN IF NOT EXISTS allocation_percentage DECIMAL(5, 2) NULL;
+
+ALTER TABLE weekly_project_allocations 
+DROP CONSTRAINT IF EXISTS chk_wpa_allocation_percentage;
 
 ALTER TABLE weekly_project_allocations 
 ADD CONSTRAINT chk_wpa_allocation_percentage 

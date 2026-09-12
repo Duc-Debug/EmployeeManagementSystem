@@ -20,8 +20,8 @@ public class WeeklyAvailabilityJpaEntity {
     private Long id;
 
     @Version
-    @Column(name = "version")
-    private Long version;
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
 
     @Column(name = "employee_id", nullable = false)
     private Long employeeId;
@@ -63,7 +63,7 @@ public class WeeklyAvailabilityJpaEntity {
         this.holidayHours = holidayHours;
         this.approvedLeaveHours = approvedLeaveHours;
         this.netAvailableHours = netAvailableHours;
-        this.version = null;
+        this.version = 0L;
     }
 
     public WeeklyAvailabilityJpaEntity(Long id, Long employeeId, Integer year, Integer weekNumber,
@@ -77,7 +77,7 @@ public class WeeklyAvailabilityJpaEntity {
         this.holidayHours = holidayHours;
         this.approvedLeaveHours = approvedLeaveHours;
         this.netAvailableHours = netAvailableHours;
-        this.version = version;
+        this.version = version != null ? version : 0L;
     }
 
     public Long getId() {
