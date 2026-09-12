@@ -137,6 +137,10 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
         List<BulkAllocationResult.BlockedWeekSummary> blockedWeeks = new ArrayList<>();
         List<WeeklyProjectAllocation> allocationsToSave = new ArrayList<>();
 
+        if (command.allocatedHoursPerWeek() != null && command.allocationPercentagePerWeek() != null) {
+            throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ mỗi tuần");
+        }
+
         int standardHours = employee.getStandardHoursPerWeek() != null ? employee.getStandardHoursPerWeek() : 40;
 
         for (YearWeek yw : targetWeeks) {
@@ -148,10 +152,7 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
             BigDecimal effectiveHours;
             BigDecimal effectivePercentage;
 
-            if (command.allocatedHoursPerWeek() != null && command.allocationPercentagePerWeek() != null) {
-                effectiveHours = command.allocatedHoursPerWeek();
-                effectivePercentage = command.allocationPercentagePerWeek();
-            } else if (command.allocationPercentagePerWeek() != null) {
+            if (command.allocationPercentagePerWeek() != null) {
                 effectivePercentage = command.allocationPercentagePerWeek();
                 effectiveHours = netAvailable.multiply(effectivePercentage)
                         .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);

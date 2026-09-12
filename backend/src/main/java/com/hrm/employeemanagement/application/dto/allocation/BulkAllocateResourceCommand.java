@@ -41,6 +41,10 @@ public record BulkAllocateResourceCommand(
             throw new IllegalArgumentException("Phải cung cấp số giờ phân bổ hoặc tỷ lệ phần trăm phân bổ mỗi tuần");
         }
 
+        if (allocatedHoursPerWeek != null && allocationPercentagePerWeek != null) {
+            throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ mỗi tuần");
+        }
+
         if (allocatedHoursPerWeek != null) {
             if (allocatedHoursPerWeek.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("Số giờ phân bổ mỗi tuần phải lớn hơn 0");

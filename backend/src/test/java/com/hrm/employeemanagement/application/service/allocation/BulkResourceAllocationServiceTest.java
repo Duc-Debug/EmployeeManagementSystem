@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.application.service.allocation;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -439,5 +440,19 @@ class BulkResourceAllocationServiceTest {
 
         assertEquals(0, new BigDecimal("16.00").compareTo(saved.get(1).getAllocatedHours()));
         assertEquals(0, BigDecimal.valueOf(50).compareTo(saved.get(1).getAllocationPercentage()));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 BLOCKING: Không cho phép truyền đồng thời cả allocatedHoursPerWeek và allocationPercentagePerWeek trong BulkAllocateResourceCommand")
+    void shouldThrowException_WhenBothHoursAndPercentageProvided() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> new BulkAllocateResourceCommand(
+                        employeeId, projectId, 2026, 1, 2026, 4,
+                        BigDecimal.valueOf(20), BigDecimal.valueOf(50)
+                )
+        );
+
+        assertTrue(ex.getMessage().contains("Không được cung cấp đồng thời"));
     }
 }

@@ -120,13 +120,14 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 .orElse(BigDecimal.valueOf(standardHours));
 
         // Tính toán effectiveAllocatedHours và effectivePercentage (NCL-06-CN-007)
+        if (command.allocatedHours() != null && command.allocationPercentage() != null) {
+            throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ");
+        }
+
         BigDecimal effectiveAllocatedHours;
         BigDecimal effectivePercentage;
 
-        if (command.allocatedHours() != null && command.allocationPercentage() != null) {
-            effectiveAllocatedHours = command.allocatedHours();
-            effectivePercentage = command.allocationPercentage();
-        } else if (command.allocationPercentage() != null) {
+        if (command.allocationPercentage() != null) {
             effectivePercentage = command.allocationPercentage();
             effectiveAllocatedHours = netAvailableHours.multiply(effectivePercentage)
                     .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);

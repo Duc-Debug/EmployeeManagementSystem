@@ -613,4 +613,18 @@ class ResourceAllocationServiceTest {
 
         verify(saveAllocationPort, never()).save(any());
     }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 BLOCKING: Không cho phép truyền đồng thời cả allocatedHours và allocationPercentage")
+    void testAllocateResourceCommand_ThrowsException_WhenBothHoursAndPercentageProvided() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> new AllocateResourceCommand(
+                        employeeId, projectId, year, weekNumber,
+                        BigDecimal.valueOf(20), BigDecimal.valueOf(50), null
+                )
+        );
+
+        assertTrue(ex.getMessage().contains("Không được cung cấp đồng thời"));
+    }
 }
