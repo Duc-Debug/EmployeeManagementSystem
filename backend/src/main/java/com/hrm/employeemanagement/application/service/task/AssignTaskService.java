@@ -129,6 +129,19 @@ public class AssignTaskService implements AssignTaskUseCase {
             throw new InvalidTaskDataException("Không thể phân công người thực hiện cho hạng mục (CATEGORY).");
         }
 
+        java.time.LocalDate effectiveStart = command.plannedStartDate() != null
+                ? command.plannedStartDate()
+                : task.getPlannedStartDate();
+        java.time.LocalDate effectiveEnd = command.plannedEndDate() != null
+                ? command.plannedEndDate()
+                : task.getPlannedEndDate();
+        if (effectiveStart != null && effectiveEnd != null && effectiveEnd.isBefore(effectiveStart)) {
+            throw new InvalidTaskDataException("Planned end date must not be before planned start date.");
+        }
+        java.time.LocalDate requiredContractDate = effectiveEnd != null
+                ? effectiveEnd
+                : (effectiveStart != null ? effectiveStart : java.time.LocalDate.now());
+
         List<Long> employeeIds = command.employeeIds() != null
                 ? new ArrayList<>(new java.util.LinkedHashSet<>(command.employeeIds().stream().filter(Objects::nonNull).toList()))
                 : List.of();
@@ -150,11 +163,11 @@ public class AssignTaskService implements AssignTaskUseCase {
                 }
             }
 
-            java.time.LocalDate plannedStart = command.plannedStartDate() != null ? command.plannedStartDate() : task.getPlannedStartDate();
-            if (plannedStart != null && employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(plannedStart)) {
-                throw new AssigneeInactiveException("Nhân sự [" + employee.getFullName() + "] đã kết thúc hợp đồng lao động (" + employee.getContractEndDate() + ") trước ngày bắt đầu công việc (" + plannedStart + ").");
-            } else if (plannedStart == null && employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(java.time.LocalDate.now())) {
-                throw new AssigneeInactiveException("Nhân sự [" + employee.getFullName() + "] đã hết hạn hợp đồng lao động (" + employee.getContractEndDate() + ").");
+            if (employee.getContractEndDate() != null
+                    && employee.getContractEndDate().isBefore(requiredContractDate)) {
+                throw new AssigneeInactiveException("Nhân sự [" + employee.getFullName()
+                        + "] có hợp đồng kết thúc ngày " + employee.getContractEndDate()
+                        + ", không bao phủ đến ngày kết thúc công việc " + requiredContractDate + ".");
             }
 
             boolean isMember = (project.getManagerId() != null && Objects.equals(project.getManagerId().value(), empId))
@@ -175,7 +188,7 @@ public class AssignTaskService implements AssignTaskUseCase {
         }
 
         // Cập nhật ngày mong muốn và người phụ trách chính (primary) trên Task
-        task.updatePlannedDates(command.plannedStartDate(), command.plannedEndDate());
+        task.updatePlannedDates(effectiveStart, effectiveEnd);
         EmployeeId primaryAssignee = validEmployeeIds.isEmpty() ? null : validEmployeeIds.get(0);
         task.assignTo(primaryAssignee);
         saveTaskPort.save(task);

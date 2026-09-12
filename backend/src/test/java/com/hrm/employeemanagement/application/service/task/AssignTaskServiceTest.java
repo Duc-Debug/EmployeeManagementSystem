@@ -310,7 +310,65 @@ class AssignTaskServiceTest {
         );
 
         AssigneeInactiveException ex = assertThrows(AssigneeInactiveException.class, () -> service.assignTask(command));
-        org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("đã kết thúc hợp đồng lao động"));
+        org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("hợp đồng kết thúc"));
+    }
+
+    @Test
+    @DisplayName("Reject assignment when contract expires during the task")
+    void shouldThrowWhenContractExpiresBeforePlannedEndDate() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID)))
+                .thenReturn(Optional.of(createProject(ProjectStatus.ACTIVE)));
+        when(loadTaskPort.findById(new TaskId(TASK_ID)))
+                .thenReturn(Optional.of(createTask(TaskType.TASK)));
+
+        Employee employee = employeeWithContractEnd(LocalDate.of(2026, 10, 15));
+        when(loadEmployeePort.findById(new EmployeeId(EMPLOYEE_ID_1))).thenReturn(Optional.of(employee));
+
+        AssignTaskCommand command = new AssignTaskCommand(
+                PROJECT_ID, TASK_ID, List.of(EMPLOYEE_ID_1),
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+
+        assertThrows(AssigneeInactiveException.class, () -> service.assignTask(command));
+    }
+
+    @Test
+    @DisplayName("Accept assignment when contract ends exactly on task end date")
+    void shouldAllowContractEndingOnPlannedEndDate() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID)))
+                .thenReturn(Optional.of(createProject(ProjectStatus.ACTIVE)));
+        when(loadTaskPort.findById(new TaskId(TASK_ID)))
+                .thenReturn(Optional.of(createTask(TaskType.TASK)));
+        when(loadEmployeePort.findById(new EmployeeId(EMPLOYEE_ID_1)))
+                .thenReturn(Optional.of(employeeWithContractEnd(LocalDate.of(2026, 10, 31))));
+        when(loadProjectPort.existsMember(PROJECT_ID, EMPLOYEE_ID_1)).thenReturn(true);
+
+        TaskAssignmentResult result = service.assignTask(new AssignTaskCommand(
+                PROJECT_ID, TASK_ID, List.of(EMPLOYEE_ID_1),
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31)));
+
+        assertEquals(LocalDate.of(2026, 10, 31), result.plannedEndDate());
+    }
+
+    @Test
+    @DisplayName("Use existing task dates when command omits dates")
+    void shouldPreserveAndValidateAgainstExistingTaskDates() {
+        when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
+        when(loadProjectPort.findByIdForUpdate(new ProjectId(PROJECT_ID)))
+                .thenReturn(Optional.of(createProject(ProjectStatus.ACTIVE)));
+        Task task = createTaskWithPlannedDates(
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(task));
+        when(loadEmployeePort.findById(new EmployeeId(EMPLOYEE_ID_1)))
+                .thenReturn(Optional.of(employeeWithContractEnd(LocalDate.of(2026, 10, 15))));
+
+        AssignTaskCommand command = new AssignTaskCommand(
+                PROJECT_ID, TASK_ID, List.of(EMPLOYEE_ID_1), null, null);
+
+        assertThrows(AssigneeInactiveException.class, () -> service.assignTask(command));
+        assertEquals(LocalDate.of(2026, 10, 1), task.getPlannedStartDate());
+        assertEquals(LocalDate.of(2026, 10, 31), task.getPlannedEndDate());
     }
 
     @Test
@@ -489,6 +547,21 @@ class AssignTaskServiceTest {
                 null,
                 1L
         );
+    }
+
+    private Task createTaskWithPlannedDates(LocalDate plannedStart, LocalDate plannedEnd) {
+        return new Task(
+                new TaskId(TASK_ID), new ProjectId(PROJECT_ID), null, "PRJ-01-T001", "Task 1", null,
+                TaskType.TASK, null, BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.ZERO,
+                TaskStatus.TODO, 1, plannedStart, plannedEnd, new UserId(CURRENT_USER_ID),
+                LocalDateTime.now(), null, 1L);
+    }
+
+    private Employee employeeWithContractEnd(LocalDate contractEndDate) {
+        return new Employee(
+                new EmployeeId(EMPLOYEE_ID_1), new UserId(EMPLOYEE_ID_1), 1L,
+                "EMP-1", "Contract employee", "Developer", LocalDate.of(2025, 1, 1),
+                contractEndDate, false, 40, EmployeeStatus.ACTIVE);
     }
 
     private User createBranchUser(Long userId, Long scopeOrgUnitId) {
