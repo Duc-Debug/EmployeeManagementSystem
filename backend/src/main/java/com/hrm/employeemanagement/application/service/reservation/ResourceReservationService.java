@@ -150,6 +150,15 @@ public class ResourceReservationService implements
         BigDecimal netAvailableHours = availabilityOpt.map(WeeklyAvailability::getNetAvailableHours)
                 .orElse(BigDecimal.valueOf(standardHours));
 
+        // Điều chỉnh năng lực khả dụng theo hợp đồng lao động nếu hết hạn trong tuần
+        netAvailableHours = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
+                netAvailableHours,
+                employee.getContractEndDate(),
+                yearWeek.getStartDate(),
+                yearWeek.getEndDate(),
+                5
+        );
+
         List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(command.employeeId(), yearWeek);
         BigDecimal totalCommittedHours = existingAllocations.stream()
                 .map(WeeklyProjectAllocation::getAllocatedHours)
@@ -187,8 +196,11 @@ public class ResourceReservationService implements
                 .findActiveByProjectAndEmployeeAndYearWeek(command.projectId(), command.employeeId(), yearWeek);
 
         ResourceReservation reservationToSave;
-        if (existingActive.isPresent()) {
+        boolean isUpdate = existingActive.isPresent();
+        BigDecimal oldReservedHours = null;
+        if (isUpdate) {
             ResourceReservation existing = existingActive.get();
+            oldReservedHours = existing.getReservedHours();
             existing.updateReservedHours(command.reservedHours(), currentUserId);
             reservationToSave = existing;
         } else {
@@ -205,16 +217,27 @@ public class ResourceReservationService implements
         ResourceReservation saved = saveReservationPort.save(reservationToSave);
 
         // [TC-05]: Ghi nhật ký kiểm toán Business Audit Log
-        saveAuditLogPort.save(AuditLog.createChange(
-                currentUserId,
-                "RESOURCE_RESERVATION_CREATED",
-                "resource_reservations",
-                saved.getId(),
-                null,
-                "projectId=" + project.getIdValue() + ";employeeId=" + employee.getIdValue()
-                        + ";yearWeek=" + yearWeek.year() + "-W" + yearWeek.weekNumber()
-                        + ";reservedHours=" + saved.getReservedHours()
-        ));
+        if (isUpdate) {
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "RESOURCE_RESERVATION_UPDATED",
+                    "resource_reservations",
+                    saved.getId(),
+                    "reservedHours=" + oldReservedHours,
+                    "reservedHours=" + saved.getReservedHours()
+            ));
+        } else {
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "RESOURCE_RESERVATION_CREATED",
+                    "resource_reservations",
+                    saved.getId(),
+                    null,
+                    "projectId=" + project.getIdValue() + ";employeeId=" + employee.getIdValue()
+                            + ";yearWeek=" + yearWeek.year() + "-W" + yearWeek.weekNumber()
+                            + ";reservedHours=" + saved.getReservedHours()
+            ));
+        }
 
         return mapToResult(saved, project, employee);
     }
@@ -358,6 +381,16 @@ public class ResourceReservationService implements
             Employee emp = loadEmployeePort.findById(new EmployeeId(reservation.getEmployeeId())).orElse(null);
             int standardHours = (emp != null && emp.getStandardHoursPerWeek() != null) ? emp.getStandardHoursPerWeek() : 40;
             BigDecimal netAvailable = availOpt.map(WeeklyAvailability::getNetAvailableHours).orElse(BigDecimal.valueOf(standardHours));
+
+            if (emp != null) {
+                netAvailable = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
+                        netAvailable,
+                        emp.getContractEndDate(),
+                        yw.getStartDate(),
+                        yw.getEndDate(),
+                        5
+                );
+            }
 
             List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(
                     reservation.getEmployeeId(), yw
