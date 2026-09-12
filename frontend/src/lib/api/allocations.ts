@@ -140,6 +140,7 @@ export interface CapacityMatrixCell {
   isOverloaded: boolean;
   excessHours: number;
   reservedHours?: number;
+  approvedLeaveHours?: number;
   status: CapacityStatus;
 }
 
