@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V61: CREATE RESOURCE RESERVATIONS SCHEMA
+-- FLYWAY MIGRATION V62: CREATE RESOURCE RESERVATIONS SCHEMA
 -- Epic: NCL-06 (Phan bo nguon luc theo tuan)
 -- Story: NCL-06-CN-005 (Giu cho nguon luc cho du an du kien - QTN-13)
 -- ============================================================
