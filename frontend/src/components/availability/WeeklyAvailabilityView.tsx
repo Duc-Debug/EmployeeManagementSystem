@@ -30,8 +30,7 @@ export default function WeeklyAvailabilityView() {
   const currentUser = useAuthUser();
   const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
   const isHR = roleCode === "VT-05";
-  const isAdmin = roleCode === "VT-06";
-  const canDeclare = isHR || isAdmin;
+  const canDeclare = isHR;
   const isSelfOnly = roleCode === "VT-04" || currentUser?.dataScope === "SELF";
 
   // Current ISO Week state
