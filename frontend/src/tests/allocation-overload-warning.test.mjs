@@ -24,14 +24,15 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(resExcess.overloadHours, 5, "Vượt quá 5 giờ");
     });
 
-    test("QTN-11 / Quyền hạn: Xác thực permission-based qua RESOURCE_ALLOCATION_OVERLOAD_BYPASS", () => {
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-03" }), true, "VT-03 map đúng permission");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-02" }), false, "PM (VT-02) không có quyền");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-01" }), false, "BOD (VT-01) không có quyền");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-04" }), false, "Nhân viên (VT-04) không có quyền");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-02", permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }), true, "Permission override trực tiếp");
-        assert.equal(canBypassResourceOverload({ roleCode: "VT-03", permissions: ["OTHER_PERMISSION"] }), false, "User có mảng permission cụ thể không chứa bypass -> Không có quyền");
-        assert.equal(canBypassResourceOverload(null), false, "Null user không có quyền");
+    test("QTN-11 / Quyền hạn: Xác thực permission-based qua RESOURCE_ALLOCATION_OVERLOAD_BYPASS từ backend session", () => {
+        // Source of truth là user.permissions từ backend
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-03", permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }), true, "User có permission RESOURCE_ALLOCATION_OVERLOAD_BYPASS -> Được phép");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-02", permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }), true, "Bất kể roleCode nào, nếu backend cấp permission -> Được phép");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-03", permissions: ["OTHER_PERMISSION"] }), false, "User có permission khác không chứa bypass -> Không có quyền");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-03", permissions: [] }), false, "User có mảng rỗng -> Không có quyền");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-03" }), false, "Không có hardcoded role fallback, thiếu permissions -> Không có quyền");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-02" }), false, "PM không có permissions -> Không có quyền");
+        assert.equal(canBypassResourceOverload(null), false, "Null user -> Không có quyền");
         assert.equal(hasUserPermission({ permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }, RESOURCE_OVERLOAD_BYPASS_PERMISSION), true);
     });
 

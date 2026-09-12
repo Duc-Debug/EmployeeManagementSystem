@@ -11,40 +11,13 @@ export interface AuthUserLike {
 export const RESOURCE_OVERLOAD_BYPASS_PERMISSION = 'RESOURCE_ALLOCATION_OVERLOAD_BYPASS';
 
 /**
- * Danh mục quyền mặc định theo vai trò (đồng bộ với Flyway migrations trong DB: V61, V35...).
- * Giúp frontend xác thực dựa trên permission một cách nhất quán (permission-based)
- * ngay cả khi token session chưa nhúng danh sách permissions đầy đủ.
- */
-export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
-    'VT-03': [
-        'RESOURCE_ALLOCATION_MANAGE',
-        'RESOURCE_ALLOCATION_OVERLOAD_BYPASS',
-        'RESOURCE_RESERVATION_CREATE',
-        'RESOURCE_RESERVATION_MANAGE',
-    ],
-    'VT-01': [],
-    'VT-02': ['PROJECT_MANAGE', 'RESOURCE_RESERVATION_CREATE'],
-    'VT-04': [],
-    'VT-05': [],
-    'VT-06': ['USER_MANAGE', 'ROLE_MANAGE'],
-};
-
-/**
- * Kiểm tra xem người dùng có permission cụ thể hay không (Permission-based Authorization).
- * 1. Ưu tiên kiểm tra mảng permissions gắn trực tiếp trên user session.
- * 2. Nếu chưa có mảng permissions, tra cứu qua bảng phân quyền chuẩn của vai trò.
+ * Kiểm tra xem người dùng có permission cụ thể hay không (Strict Permission-based Authorization).
+ * Nguồn dữ liệu quyền là mảng permissions thực tế được backend trả về trong user session (DB role_permissions là Single Source of Truth),
+ * không duplicate mapping roleCode -> permissions ở frontend.
  */
 export function hasUserPermission(user: AuthUserLike | null | undefined, permissionCode: string): boolean {
-    if (!user) return false;
-    // 1. Khi user session có mảng permissions cụ thể, kiểm tra trực tiếp trên danh sách này (Strict Permission-based)
-    if (Array.isArray(user.permissions)) {
-        return user.permissions.includes(permissionCode);
-    }
-    // 2. Chỉ khi chưa có mảng permissions (session chỉ có roleCode), tra cứu theo bảng phân quyền chuẩn của vai trò
-    if (user.roleCode && DEFAULT_ROLE_PERMISSIONS[user.roleCode]?.includes(permissionCode)) {
-        return true;
-    }
-    return false;
+    if (!user || !Array.isArray(user.permissions)) return false;
+    return user.permissions.includes(permissionCode);
 }
 
 /**
