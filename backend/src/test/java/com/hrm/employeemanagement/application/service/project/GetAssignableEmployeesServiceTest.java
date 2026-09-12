@@ -10,6 +10,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -97,8 +99,8 @@ class GetAssignableEmployeesServiceTest {
                 UserStatus.ACTIVE, new EmployeeId(2L)
         );
 
-        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(adminUser));
-        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(regularUser));
+        when(loadUserPort.findAllByIdIn(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(List.of(adminUser, regularUser));
 
         OrgUnit ou = new OrgUnit(
                 new OrgUnitId(10L), "TECH", "Phòng Kỹ thuật",
@@ -106,13 +108,15 @@ class GetAssignableEmployeesServiceTest {
                 null, "/10/", 1, com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus.ACTIVE,
                 "Phòng Kỹ thuật", null, java.time.LocalDateTime.now(), java.time.LocalDateTime.now()
         );
-        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(ou));
+        when(loadOrgUnitPort.findAllByIdIn(org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of(ou));
 
         List<ProjectMemberResult> results = service.getAssignableEmployees();
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0).employeeId()).isEqualTo(2L);
         assertThat(results.get(0).fullName()).isEqualTo("Nguyen Van A");
+        verify(loadUserPort, times(1)).findAllByIdIn(org.mockito.ArgumentMatchers.anyList());
+        verify(loadOrgUnitPort, times(1)).findAllByIdIn(org.mockito.ArgumentMatchers.anyList());
     }
 
     @Test
@@ -142,9 +146,8 @@ class GetAssignableEmployeesServiceTest {
         User user3 = new User(new UserId(3L), "u3", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Tester"), UserStatus.ACTIVE, new EmployeeId(3L));
         User user4 = new User(new UserId(4L), "u4", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Designer"), UserStatus.ACTIVE, new EmployeeId(4L));
 
-        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user2));
-        when(loadUserPort.findById(new UserId(3L))).thenReturn(Optional.of(user3));
-        when(loadUserPort.findById(new UserId(4L))).thenReturn(Optional.of(user4));
+        when(loadUserPort.findAllByIdIn(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(List.of(user2, user3, user4));
 
         List<ProjectMemberResult> results = service.getAssignableEmployees(taskStartDate);
 
@@ -173,20 +176,25 @@ class GetAssignableEmployeesServiceTest {
                 "Dev", LocalDate.of(2021, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
 
-        when(loadEmployeePort.findAllActive()).thenReturn(List.of(empInsideBranch, empOutsideBranch));
+        OrgUnit branch = new OrgUnit(
+                new OrgUnitId(branchOrgUnitId), "BRANCH", "Branch",
+                com.hrm.employeemanagement.domain.orgunit.OrgUnitType.DEPARTMENT,
+                null, "/10/", 1, com.hrm.employeemanagement.domain.orgunit.OrgUnitStatus.ACTIVE,
+                null, null, java.time.LocalDateTime.now(), java.time.LocalDateTime.now());
+        when(loadOrgUnitPort.findById(new OrgUnitId(branchOrgUnitId))).thenReturn(Optional.of(branch));
+        when(loadOrgUnitPort.findSubTree("/10/")).thenReturn(List.of(branch));
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(branchOrgUnitId))).thenReturn(List.of(empInsideBranch));
 
         User user10 = new User(new UserId(10L), "u10", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Dev"), UserStatus.ACTIVE, new EmployeeId(10L));
         User user20 = new User(new UserId(20L), "u20", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Dev"), UserStatus.ACTIVE, new EmployeeId(20L));
-        when(loadUserPort.findById(new UserId(10L))).thenReturn(Optional.of(user10));
-        when(loadUserPort.findById(new UserId(20L))).thenReturn(Optional.of(user20));
-
-        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, branchOrgUnitId)).thenReturn(true);
-        when(loadOrgUnitPort.existsInOrgUnitBranch(99L, branchOrgUnitId)).thenReturn(false);
+        when(loadUserPort.findAllByIdIn(org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of(user10));
+        when(loadOrgUnitPort.findAllByIdIn(org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of(branch));
 
         List<ProjectMemberResult> results = service.getAssignableEmployees();
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0).employeeId()).isEqualTo(10L);
+        verify(loadEmployeePort, times(1)).findActiveByOrgUnitIds(List.of(branchOrgUnitId));
     }
 
     @Test
@@ -212,8 +220,8 @@ class GetAssignableEmployeesServiceTest {
 
         User userMe = new User(new UserId(CURRENT_USER_ID), "pm_self", "hash", new Role(new RoleId(2L), RoleCode.VT_02, "PM"), UserStatus.ACTIVE, new EmployeeId(CURRENT_USER_ID));
         User userOther = new User(new UserId(88L), "other", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Dev"), UserStatus.ACTIVE, new EmployeeId(88L));
-        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(userMe));
-        when(loadUserPort.findById(new UserId(88L))).thenReturn(Optional.of(userOther));
+        when(loadUserPort.findAllByIdIn(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(List.of(userMe, userOther));
 
         List<ProjectMemberResult> results = service.getAssignableEmployees();
 

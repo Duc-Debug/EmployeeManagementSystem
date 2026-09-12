@@ -60,7 +60,7 @@ public class GetAssignableEmployeesService implements GetAssignableEmployeesUseC
             currentUser = loadUserPort.findById(new UserId(currentUserId))
                     .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại với ID: " + currentUserId));
         }
-        List<Employee> activeEmployees = loadEmployeePort.findAllActive();
+        List<Employee> activeEmployees = findEmployeesInScope(currentUser);
         if (activeEmployees.isEmpty()) {
             return Collections.emptyList();
         }
@@ -75,38 +75,18 @@ public class GetAssignableEmployeesService implements GetAssignableEmployeesUseC
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        Map<Long, String> orgNames = new java.util.HashMap<>();
-        for (Long id : orgUnitIds) {
-            loadOrgUnitPort.findById(new OrgUnitId(id)).ifPresent(ou -> {
-                if (ou.getUnitName() != null) {
-                    orgNames.put(ou.getId().getValue(), ou.getUnitName());
-                }
-            });
-        }
+        Map<Long, String> orgNames = loadOrgUnitPort.findAllByIdIn(List.copyOf(orgUnitIds)).stream()
+                .filter(orgUnit -> orgUnit.getId() != null && orgUnit.getUnitName() != null)
+                .collect(Collectors.toMap(orgUnit -> orgUnit.getId().getValue(), orgUnit -> orgUnit.getUnitName()));
 
-        Map<Long, User> users = new java.util.HashMap<>();
-        for (UserId uid : userIds) {
-            loadUserPort.findById(uid).ifPresent(u -> {
-                users.put(u.getId().value(), u);
-            });
-        }
-
-        final User finalCurrentUser = currentUser;
+        Map<Long, User> users = loadUserPort.findAllByIdIn(List.copyOf(userIds)).stream()
+                .filter(user -> user.getId() != null && user.getId().value() != null)
+                .collect(Collectors.toMap(user -> user.getId().value(), user -> user));
 
         return activeEmployees.stream()
                 // 1. Chỉ lấy nhân sự còn hoạt động (ACTIVE)
                 .filter(emp -> emp.getStatus() == null || emp.getStatus() == EmployeeStatus.ACTIVE)
                 // 2. Lọc theo Data Scope của người dùng hiện tại
-                .filter(emp -> {
-                    if (finalCurrentUser == null) {
-                        return true;
-                    }
-                    return switch (finalCurrentUser.getDataScope()) {
-                        case COMPANY, SELF -> true;
-                        case ORGANIZATION_BRANCH -> emp.getOrgUnitId() != null
-                                && loadOrgUnitPort.existsInOrgUnitBranch(emp.getOrgUnitId(), finalCurrentUser.getScopeOrgUnitId());
-                    };
-                })
                 // 3. Loại trừ Quản trị viên hệ thống (VT-06) - Giao việc chỉ dành cho nhân sự thực thi dự án
                 .filter(emp -> {
                     if (emp.getUserId() == null) return true;
@@ -141,5 +121,25 @@ public class GetAssignableEmployeesService implements GetAssignableEmployeesUseC
                     );
                 })
                 .toList();
+    }
+
+    private List<Employee> findEmployeesInScope(User currentUser) {
+        if (currentUser == null
+                || currentUser.getDataScope() != com.hrm.employeemanagement.domain.authorization.DataScope.ORGANIZATION_BRANCH) {
+            return loadEmployeePort.findAllActive();
+        }
+        Long scopeOrgUnitId = currentUser.getScopeOrgUnitId();
+        if (scopeOrgUnitId == null) {
+            return List.of();
+        }
+        return loadOrgUnitPort.findById(new OrgUnitId(scopeOrgUnitId))
+                .map(scope -> loadOrgUnitPort.findSubTree(scope.getTreePath()).stream()
+                        .map(orgUnit -> orgUnit.getId() != null ? orgUnit.getId().getValue() : null)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList())
+                .filter(ids -> !ids.isEmpty())
+                .map(loadEmployeePort::findActiveByOrgUnitIds)
+                .orElseGet(List::of);
     }
 }

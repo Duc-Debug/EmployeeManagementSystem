@@ -71,9 +71,9 @@ public class Task {
         validateTaskTypeAndAssignee(taskType, assigneeId);
         validateSortOrder(sortOrder);
         
-        LocalDate effectiveStart = plannedStartDate != null ? plannedStartDate : startDate;
-        LocalDate effectiveEnd = plannedEndDate != null ? plannedEndDate : dueDate;
-        validatePlannedDates(effectiveStart, effectiveEnd);
+        LocalDate effectivePlannedStart = plannedStartDate != null ? plannedStartDate : startDate;
+        LocalDate effectivePlannedEnd = plannedEndDate != null ? plannedEndDate : dueDate;
+        validatePlannedDates(effectivePlannedStart, effectivePlannedEnd);
 
         this.id = id;
         this.projectId = projectId;
@@ -88,10 +88,10 @@ public class Task {
         this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
-        this.plannedStartDate = effectiveStart;
-        this.plannedEndDate = effectiveEnd;
-        this.startDate = effectiveStart;
-        this.dueDate = effectiveEnd;
+        this.plannedStartDate = effectivePlannedStart;
+        this.plannedEndDate = effectivePlannedEnd;
+        this.startDate = startDate != null ? startDate : plannedStartDate;
+        this.dueDate = dueDate != null ? dueDate : plannedEndDate;
         this.actualEndDate = actualEndDate;
         this.slackDays = slackDays != null ? slackDays : 0;
         this.createdBy = createdBy;

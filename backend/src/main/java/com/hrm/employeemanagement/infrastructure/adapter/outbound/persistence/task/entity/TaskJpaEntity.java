@@ -140,12 +140,10 @@ public class TaskJpaEntity {
         this.status = status != null ? status : TaskStatus.TODO;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
         
-        LocalDate effectiveStart = plannedStartDate != null ? plannedStartDate : startDate;
-        LocalDate effectiveEnd = plannedEndDate != null ? plannedEndDate : dueDate;
-        this.plannedStartDate = effectiveStart;
-        this.plannedEndDate = effectiveEnd;
-        this.startDate = effectiveStart;
-        this.dueDate = effectiveEnd;
+        this.plannedStartDate = plannedStartDate != null ? plannedStartDate : startDate;
+        this.plannedEndDate = plannedEndDate != null ? plannedEndDate : dueDate;
+        this.startDate = startDate != null ? startDate : plannedStartDate;
+        this.dueDate = dueDate != null ? dueDate : plannedEndDate;
         this.actualEndDate = actualEndDate;
         this.slackDays = slackDays != null ? slackDays : 0;
         this.createdBy = createdBy;
