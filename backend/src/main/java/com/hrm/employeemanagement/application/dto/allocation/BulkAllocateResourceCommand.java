@@ -23,5 +23,11 @@ public record BulkAllocateResourceCommand(
         Objects.requireNonNull(toYear, "Năm kết thúc không được null");
         Objects.requireNonNull(toWeek, "Tuần kết thúc không được null");
         Objects.requireNonNull(allocatedHoursPerWeek, "Số giờ phân bổ mỗi tuần không được null");
+        if (allocatedHoursPerWeek.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Số giờ phân bổ mỗi tuần phải lớn hơn 0");
+        }
+        if (allocatedHoursPerWeek.compareTo(BigDecimal.valueOf(168)) > 0) {
+            throw new IllegalArgumentException("Số giờ phân bổ mỗi tuần không được vượt quá 168 giờ");
+        }
     }
 }

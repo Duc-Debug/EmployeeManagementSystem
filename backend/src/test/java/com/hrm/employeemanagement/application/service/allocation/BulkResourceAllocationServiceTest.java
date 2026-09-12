@@ -326,4 +326,63 @@ class BulkResourceAllocationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.bulkAllocateResource(command));
         verify(saveAllocationPort, never()).save(any());
     }
+
+    @Test
+    @DisplayName("HIGH-02: Ném IllegalArgumentException khi allocatedHoursPerWeek <= 0 hoặc > 168")
+    void shouldThrowWhenAllocatedHoursPerWeekIsInvalid() {
+        // Zero hours
+        assertThrows(IllegalArgumentException.class, () -> new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 4, BigDecimal.ZERO
+        ));
+
+        // Negative hours
+        assertThrows(IllegalArgumentException.class, () -> new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 4, BigDecimal.valueOf(-10)
+        ));
+
+        // Excessive hours > 168
+        assertThrows(IllegalArgumentException.class, () -> new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 4, BigDecimal.valueOf(200)
+        ));
+    }
+
+    @Test
+    @DisplayName("MEDIUM-01: BlockedWeekSummary trả về đúng currentTotalAllocatedHours của tất cả dự án hiện tại")
+    void shouldReturnCorrectCurrentTotalAllocatedHoursWhenBlocked() {
+        // Given
+        mockAuthAndUser();
+        Employee employee = createMockEmployee(EmployeeStatus.ACTIVE, null);
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+
+        YearWeek yw = YearWeek.of(2026, 1);
+        // Project khác (ID 99) đang chiếm 30h
+        WeeklyProjectAllocation otherAlloc = WeeklyProjectAllocation.createNew(employeeId, 99L, yw, BigDecimal.valueOf(30));
+        // Chính project hiện tại (ID 10) đang có 5h
+        WeeklyProjectAllocation currentProjAlloc = WeeklyProjectAllocation.createNew(employeeId, projectId, yw, BigDecimal.valueOf(5));
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of(otherAlloc, currentProjAlloc));
+
+        // Yêu cầu phân bổ thêm 20h cho project 10 -> otherProjectsSum (30h) + 20h = 50h > 40h -> Blocked!
+        BulkAllocateResourceCommand command = new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 1, BigDecimal.valueOf(20)
+        );
+
+        // When
+        BulkAllocationResult result = service.bulkAllocateResource(command);
+
+        // Then
+        assertEquals(0, result.successCount());
+        assertEquals(1, result.blockedCount());
+        BulkAllocationResult.BlockedWeekSummary blocked = result.blockedWeeks().get(0);
+        assertEquals("CAPACITY_EXCEEDED", blocked.reasonCode());
+        // currentAllocatedHours phải là tổng hiện tại của cả 2 dự án (30 + 5 = 35h)
+        assertEquals(BigDecimal.valueOf(35), blocked.currentAllocatedHours());
+        assertEquals(BigDecimal.valueOf(40), blocked.netAvailableHours());
+        assertEquals(BigDecimal.valueOf(20), blocked.requestedHours());
+    }
 }

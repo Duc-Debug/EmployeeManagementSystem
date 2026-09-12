@@ -37,6 +37,7 @@ export default function CompanyWeeklyCapacityView() {
   const isCompanyScope = currentUser?.dataScope === "COMPANY";
   const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
   const canManageReservations = normalizedRole === "VT-02" || normalizedRole === "VT-03";
+  const canManageAllocations = normalizedRole === "VT-02" || normalizedRole === "VT-03";
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -395,17 +396,19 @@ export default function CompanyWeeklyCapacityView() {
           )}
 
           {/* NCL-06-CN-006: Nút Phân bổ hàng loạt nhiều tuần */}
-          <button
-            type="button"
-            onClick={() => {
-              setBulkInitialEmployeeId(undefined);
-              setIsBulkModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-2xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-2xs"
-          >
-            <Layers className="h-3.5 w-3.5" />
-            <span>Phân bổ hàng loạt</span>
-          </button>
+          {canManageAllocations && (
+            <button
+              type="button"
+              onClick={() => {
+                setBulkInitialEmployeeId(undefined);
+                setIsBulkModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-2xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-2xs"
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Phân bổ hàng loạt</span>
+            </button>
+          )}
         </div>
       </div>
 

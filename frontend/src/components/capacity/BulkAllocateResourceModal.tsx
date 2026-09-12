@@ -23,6 +23,28 @@ interface BulkAllocateResourceModalProps {
   initialWeek?: number;
 }
 
+export function getMaxIsoWeeks(year: number): number {
+  const dec28 = new Date(Date.UTC(year, 11, 28));
+  const day = dec28.getUTCDay() || 7;
+  dec28.setUTCDate(dec28.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(dec28.getUTCFullYear(), 0, 1));
+  return Math.ceil(((dec28.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+export function addIsoWeeks(startYear: number, startWeek: number, count: number): { year: number; week: number } {
+  let curYear = startYear;
+  let curWeek = startWeek;
+  for (let i = 1; i < count; i++) {
+    curWeek++;
+    const maxWeeks = getMaxIsoWeeks(curYear);
+    if (curWeek > maxWeeks) {
+      curYear++;
+      curWeek = 1;
+    }
+  }
+  return { year: curYear, week: curWeek };
+}
+
 export function BulkAllocateResourceModal({
   open,
   onClose,
@@ -37,7 +59,7 @@ export function BulkAllocateResourceModal({
   const [fromYear, setFromYear] = useState<number>(initialYear);
   const [fromWeek, setFromWeek] = useState<number>(initialWeek);
   const [toYear, setToYear] = useState<number>(initialYear);
-  const [toWeek, setToWeek] = useState<number>(Math.min(initialWeek + 11, 52));
+  const [toWeek, setToWeek] = useState<number>(12);
   const [allocatedHours, setAllocatedHours] = useState<number>(20);
 
   const [projects, setProjects] = useState<ProjectResult[]>([]);
@@ -56,15 +78,10 @@ export function BulkAllocateResourceModal({
       setFromYear(initialYear);
       setFromWeek(initialWeek);
       
-      // Mặc định 12 tuần (1 Quý) theo TC-01
-      let endW = initialWeek + 11;
-      let endY = initialYear;
-      if (endW > 52) {
-        endW -= 52;
-        endY += 1;
-      }
-      setToYear(endY);
-      setToWeek(endW);
+      // Mặc định 12 tuần (1 Quý) theo chuẩn ISO-8601 (xử lý chính xác cả năm 52 và 53 tuần)
+      const range = addIsoWeeks(initialYear, initialWeek, 12);
+      setToYear(range.year);
+      setToWeek(range.week);
       setAllocatedHours(20);
       setErrorMessage(null);
     }
@@ -96,16 +113,11 @@ export function BulkAllocateResourceModal({
     };
   }, [open]);
 
-  // Preset buttons handler
+  // Preset buttons handler (4, 8, 12 tuần) theo ISO-8601
   const applyPresetWeeks = (weeksCount: number) => {
-    let endW = fromWeek + weeksCount - 1;
-    let endY = fromYear;
-    if (endW > 52) {
-      endW -= 52;
-      endY += 1;
-    }
-    setToYear(endY);
-    setToWeek(endW);
+    const range = addIsoWeeks(fromYear, fromWeek, weeksCount);
+    setToYear(range.year);
+    setToWeek(range.week);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

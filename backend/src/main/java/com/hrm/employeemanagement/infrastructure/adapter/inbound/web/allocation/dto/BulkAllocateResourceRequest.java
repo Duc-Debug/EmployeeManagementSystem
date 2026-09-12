@@ -32,6 +32,7 @@ public record BulkAllocateResourceRequest(
         @Max(value = 53, message = "Tuần kết thúc tối đa là 53")
         Integer toWeek,
         @NotNull(message = "Số giờ phân bổ mỗi tuần không được null")
-        @DecimalMin(value = "0.0", message = "Số giờ phân bổ không được là số âm")
+        @DecimalMin(value = "0.1", message = "Số giờ phân bổ mỗi tuần phải lớn hơn 0")
+        @jakarta.validation.constraints.DecimalMax(value = "168.0", message = "Số giờ phân bổ mỗi tuần không được vượt quá 168 giờ")
         BigDecimal allocatedHoursPerWeek
 ) {}

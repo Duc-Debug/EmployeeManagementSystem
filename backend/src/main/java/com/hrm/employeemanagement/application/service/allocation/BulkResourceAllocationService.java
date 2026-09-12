@@ -158,10 +158,14 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
             WeeklyAvailability avail = availabilityMap.get(yw);
             BigDecimal netAvailable = avail != null ? avail.getNetAvailableHours() : BigDecimal.valueOf(standardHours);
 
-            // 3. Tính tổng giờ phân bổ cho các dự án KHÁC
+            // 3. Tính tổng giờ phân bổ cho các dự án KHÁC và tổng hiện tại của tất cả dự án
             List<WeeklyProjectAllocation> weekAllocs = allocationMap.getOrDefault(yw, List.of());
             BigDecimal otherProjectsSum = weekAllocs.stream()
                     .filter(a -> !a.getProjectId().equals(command.projectId()))
+                    .map(WeeklyProjectAllocation::getAllocatedHours)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal currentTotalAllocated = weekAllocs.stream()
                     .map(WeeklyProjectAllocation::getAllocatedHours)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -176,7 +180,7 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                         "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequested + "h) vượt quá số giờ khả dụng ("
                                 + netAvailable + "h) của nhân sự trong tuần " + yw.weekNumber() + "/" + yw.year(),
                         netAvailable,
-                        otherProjectsSum,
+                        currentTotalAllocated,
                         command.allocatedHoursPerWeek()));
                 continue;
             }
