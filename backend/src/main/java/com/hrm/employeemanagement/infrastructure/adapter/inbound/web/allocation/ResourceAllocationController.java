@@ -106,7 +106,8 @@ public class ResourceAllocationController {
                         request.fromWeek(),
                         request.toYear(),
                         request.toWeek(),
-                        request.allocatedHoursPerWeek()
+                        request.allocatedHoursPerWeek(),
+                        request.allocationPercentagePerWeek()
                 );
 
         com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult result =
