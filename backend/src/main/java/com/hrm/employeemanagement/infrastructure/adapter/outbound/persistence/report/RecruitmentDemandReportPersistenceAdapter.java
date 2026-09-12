@@ -1,12 +1,15 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.report;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.IsoFields;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -210,7 +213,9 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
             ));
         }
 
-        Map<Long, BigDecimal> capacityMap = new HashMap<>();
+        // Compute net available capacity per employee
+        Map<Long, BigDecimal> employeeNetCapacityMap = new HashMap<>();
+        Map<Long, Set<Long>> employeeApprovedSkillsMap = new HashMap<>();
 
         for (Map.Entry<Long, List<EmployeeSkillCapacityProjection>> entry : skillsByEmployee.entrySet()) {
             Long empId = entry.getKey();
@@ -245,17 +250,77 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
                 empTotalNetAvailable = BigDecimal.valueOf((long) hoursPerWeek * numberOfWeeks);
             }
 
-            Set<Long> empSkillIds = empSkills.stream()
-                    .map(EmployeeSkillCapacityProjection::getSkillId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-
-            for (Long skillId : empSkillIds) {
-                capacityMap.merge(skillId, empTotalNetAvailable, BigDecimal::add);
+            if (empTotalNetAvailable.compareTo(BigDecimal.ZERO) > 0) {
+                employeeNetCapacityMap.put(empId, empTotalNetAvailable);
+                Set<Long> skillIds = empSkills.stream()
+                        .map(EmployeeSkillCapacityProjection::getSkillId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+                employeeApprovedSkillsMap.put(empId, skillIds);
             }
         }
 
-        return capacityMap;
+        // Fetch project demand by skill
+        Map<Long, BigDecimal> demandMap = loadProjectDemandHoursGroupedBySkill(fromYear, fromWeek, toYear, toWeek, orgUnitId);
+
+        Map<Long, BigDecimal> skillCapacityMap = new HashMap<>();
+
+        Set<Long> allSkills = new HashSet<>();
+        employeeApprovedSkillsMap.values().forEach(allSkills::addAll);
+        allSkills.addAll(demandMap.keySet());
+
+        List<Long> sortedSkillIds = allSkills.stream()
+                .sorted(Comparator.comparing((Long sId) -> demandMap.getOrDefault(sId, BigDecimal.ZERO)).reversed()
+                        .thenComparing(sId -> sId))
+                .toList();
+
+        Map<Long, BigDecimal> remainingEmpCapacity = new HashMap<>(employeeNetCapacityMap);
+
+        // Step 1: Assign employee capacity to skills to satisfy demands without double counting
+        for (Long skillId : sortedSkillIds) {
+            BigDecimal demand = demandMap.getOrDefault(skillId, BigDecimal.ZERO);
+            BigDecimal assignedForSkill = BigDecimal.ZERO;
+
+            if (demand.compareTo(BigDecimal.ZERO) > 0) {
+                List<Long> candidateEmpIds = remainingEmpCapacity.entrySet().stream()
+                        .filter(e -> e.getValue().compareTo(BigDecimal.ZERO) > 0)
+                        .filter(e -> employeeApprovedSkillsMap.getOrDefault(e.getKey(), Set.of()).contains(skillId))
+                        .sorted(Comparator.comparingInt((Map.Entry<Long, BigDecimal> e) -> employeeApprovedSkillsMap.get(e.getKey()).size())
+                                .thenComparing(Map.Entry::getKey))
+                        .map(Map.Entry::getKey)
+                        .toList();
+
+                for (Long empId : candidateEmpIds) {
+                    BigDecimal needed = demand.subtract(assignedForSkill);
+                    if (needed.compareTo(BigDecimal.ZERO) <= 0) break;
+
+                    BigDecimal empRem = remainingEmpCapacity.get(empId);
+                    BigDecimal take = empRem.min(needed);
+
+                    assignedForSkill = assignedForSkill.add(take);
+                    remainingEmpCapacity.put(empId, empRem.subtract(take));
+                }
+            }
+
+            skillCapacityMap.put(skillId, assignedForSkill);
+        }
+
+        // Step 2: Distribute remaining idle employee capacity across their skills (without exceeding net capacity)
+        for (Map.Entry<Long, BigDecimal> entry : remainingEmpCapacity.entrySet()) {
+            Long empId = entry.getKey();
+            BigDecimal leftover = entry.getValue();
+            if (leftover.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            Set<Long> empSkills = employeeApprovedSkillsMap.getOrDefault(empId, Set.of());
+            if (empSkills.isEmpty()) continue;
+
+            BigDecimal share = leftover.divide(BigDecimal.valueOf(empSkills.size()), 2, RoundingMode.HALF_UP);
+            for (Long skillId : empSkills) {
+                skillCapacityMap.merge(skillId, share, BigDecimal::add);
+            }
+        }
+
+        return skillCapacityMap;
     }
 
     private Long resolveSkillIdForRole(ProjectRoleJpaEntity role, List<SkillJpaEntity> skills) {

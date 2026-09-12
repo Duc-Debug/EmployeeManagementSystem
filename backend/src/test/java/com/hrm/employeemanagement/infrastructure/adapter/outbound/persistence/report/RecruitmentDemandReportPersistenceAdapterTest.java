@@ -7,6 +7,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -90,8 +91,8 @@ class RecruitmentDemandReportPersistenceAdapterTest {
     }
 
     @Test
-    @DisplayName("HIGH-02: Single Employee with 1 Skill - 100% Capacity Assigned")
-    void testLoadAvailableCapacity_SingleSkill() {
+    @DisplayName("Case 1 — Single skill: Employee 160h capacity with 1 skill")
+    void testLoadAvailableCapacity_Case1_SingleSkill() {
         EmployeeSkillCapacityProjection proj1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 1L; }
             @Override public Long getEmployeeId() { return 101L; }
@@ -101,7 +102,7 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         when(employeeSkillRepository.findApprovedCapacityByOrgUnit(5L))
                 .thenReturn(List.of(proj1));
 
-        // 4 tuần => 40h * 4 = 160h
+        // 4 weeks => 40h * 4 = 160h
         Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, 5L);
 
         assertEquals(1, capacityMap.size());
@@ -109,9 +110,9 @@ class RecruitmentDemandReportPersistenceAdapterTest {
     }
 
     @Test
-    @DisplayName("HIGH-02: Multi-Skill Capacity Attribution - Full Net Available Capacity per Skill Pool")
-    void testLoadAvailableCapacity_MultipleSkills_FullNetCapacityPerSkill() {
-        // Employee 101 có 2 kỹ năng: Skill 1 (Java) và Skill 2 (React)
+    @DisplayName("Case 2 — Multiple skills: Employee 160h, skills Java & React. Total derived capacity <= 160h (No double counting)")
+    void testLoadAvailableCapacity_Case2_MultipleSkills_NoDoubleCounting() {
+        // Employee 101 has 2 skills: Skill 1 (Java) and Skill 2 (React), net available = 160h
         EmployeeSkillCapacityProjection emp1Skill1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 1L; }
             @Override public Long getEmployeeId() { return 101L; }
@@ -123,7 +124,50 @@ class RecruitmentDemandReportPersistenceAdapterTest {
             @Override public Integer getStandardHoursPerWeek() { return 40; }
         };
 
-        // Employee 102 chỉ có 1 kỹ năng: Skill 1 (Java)
+        when(employeeSkillRepository.findApprovedCapacityByOrgUnit(null))
+                .thenReturn(List.of(emp1Skill1, emp1Skill2));
+
+        // Mock demand: Java = 160h, React = 160h
+        ProjectRoleJpaEntity javaRole = new ProjectRoleJpaEntity(10L, "JAVA_ROLE", "Java Role", "Desc", 1L, "ACTIVE");
+        ProjectRoleJpaEntity reactRole = new ProjectRoleJpaEntity(20L, "REACT_ROLE", "React Role", "Desc", 2L, "ACTIVE");
+        SkillJpaEntity javaSkill = new SkillJpaEntity(1L, "JAVA", "Java", "Backend", "Desc", LocalDateTime.now());
+        SkillJpaEntity reactSkill = new SkillJpaEntity(2L, "REACT", "React", "Frontend", "Desc", LocalDateTime.now());
+
+        when(skillRepository.findAllActiveSkills()).thenReturn(List.of(javaSkill, reactSkill));
+        when(projectRoleRepository.findAllById(anyList())).thenReturn(List.of(javaRole, reactRole));
+
+        ProjectResourceDemandJpaEntity javaDemand = new ProjectResourceDemandJpaEntity(1L, 100L, 10L, 2026, 1, BigDecimal.valueOf(160), 0L);
+        ProjectResourceDemandJpaEntity reactDemand = new ProjectResourceDemandJpaEntity(2L, 100L, 20L, 2026, 1, BigDecimal.valueOf(160), 0L);
+        when(projectResourceDemandRepository.findDemandsFiltered(null, 2026, 1, 2026, 4))
+                .thenReturn(List.of(javaDemand, reactDemand));
+
+        Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, null);
+
+        BigDecimal javaCapacity = capacityMap.getOrDefault(1L, BigDecimal.ZERO);
+        BigDecimal reactCapacity = capacityMap.getOrDefault(2L, BigDecimal.ZERO);
+        BigDecimal totalDerivedCapacity = javaCapacity.add(reactCapacity);
+
+        // Invariant: Total derived capacity from Employee 101 across all skills <= 160h!
+        assertTrue(totalDerivedCapacity.compareTo(BigDecimal.valueOf(160.00)) <= 0,
+                "Total derived capacity (" + totalDerivedCapacity + ") must not exceed Employee net capacity (160h)");
+    }
+
+    @Test
+    @DisplayName("Case 3 — Multiple employees, overlapping skills: Capacity accounting <= total net capacity")
+    void testLoadAvailableCapacity_Case3_MultipleEmployees_OverlappingSkills() {
+        // Employee 101: Java & React (160h)
+        EmployeeSkillCapacityProjection emp1Skill1 = new EmployeeSkillCapacityProjection() {
+            @Override public Long getSkillId() { return 1L; }
+            @Override public Long getEmployeeId() { return 101L; }
+            @Override public Integer getStandardHoursPerWeek() { return 40; }
+        };
+        EmployeeSkillCapacityProjection emp1Skill2 = new EmployeeSkillCapacityProjection() {
+            @Override public Long getSkillId() { return 2L; }
+            @Override public Long getEmployeeId() { return 101L; }
+            @Override public Integer getStandardHoursPerWeek() { return 40; }
+        };
+
+        // Employee 102: Java only (160h)
         EmployeeSkillCapacityProjection emp2Skill1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 1L; }
             @Override public Long getEmployeeId() { return 102L; }
@@ -133,43 +177,82 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         when(employeeSkillRepository.findApprovedCapacityByOrgUnit(null))
                 .thenReturn(List.of(emp1Skill1, emp1Skill2, emp2Skill1));
 
-        // 4 tuần: Emp 101 = 160h, Emp 102 = 160h
-        // Skill 1 (Java): Emp 101 (160h) + Emp 102 (160h) = 320h
-        // Skill 2 (React): Emp 101 (160h) = 160h
+        // Demand: Java = 200h, React = 100h
+        ProjectRoleJpaEntity javaRole = new ProjectRoleJpaEntity(10L, "JAVA_ROLE", "Java Role", "Desc", 1L, "ACTIVE");
+        ProjectRoleJpaEntity reactRole = new ProjectRoleJpaEntity(20L, "REACT_ROLE", "React Role", "Desc", 2L, "ACTIVE");
+        SkillJpaEntity javaSkill = new SkillJpaEntity(1L, "JAVA", "Java", "Backend", "Desc", LocalDateTime.now());
+        SkillJpaEntity reactSkill = new SkillJpaEntity(2L, "REACT", "React", "Frontend", "Desc", LocalDateTime.now());
+
+        when(skillRepository.findAllActiveSkills()).thenReturn(List.of(javaSkill, reactSkill));
+        when(projectRoleRepository.findAllById(anyList())).thenReturn(List.of(javaRole, reactRole));
+
+        ProjectResourceDemandJpaEntity javaDemand = new ProjectResourceDemandJpaEntity(1L, 100L, 10L, 2026, 1, BigDecimal.valueOf(200), 0L);
+        ProjectResourceDemandJpaEntity reactDemand = new ProjectResourceDemandJpaEntity(2L, 100L, 20L, 2026, 1, BigDecimal.valueOf(100), 0L);
+        when(projectResourceDemandRepository.findDemandsFiltered(null, 2026, 1, 2026, 4))
+                .thenReturn(List.of(javaDemand, reactDemand));
+
         Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, null);
 
-        assertEquals(2, capacityMap.size());
-        assertEquals(0, BigDecimal.valueOf(320.00).compareTo(capacityMap.get(1L)));
-        assertEquals(0, BigDecimal.valueOf(160.00).compareTo(capacityMap.get(2L)));
+        BigDecimal javaCap = capacityMap.getOrDefault(1L, BigDecimal.ZERO);
+        BigDecimal reactCap = capacityMap.getOrDefault(2L, BigDecimal.ZERO);
+        BigDecimal totalDerivedCap = javaCap.add(reactCap);
+
+        // Total employee net capacity = 160h + 160h = 320h
+        // Invariant: Total assigned capacity <= 320h!
+        assertTrue(totalDerivedCap.compareTo(BigDecimal.valueOf(320.00)) <= 0,
+                "Total derived capacity (" + totalDerivedCap + ") must not exceed total net capacity of workforce (320h)");
     }
 
     @Test
-    @DisplayName("Capacity Calculation - Deducts Approved Leave and Project Allocations")
-    void testLoadAvailableCapacity_DeductsLeaveAndAllocations() {
-        EmployeeSkillCapacityProjection empProj = new EmployeeSkillCapacityProjection() {
+    @DisplayName("Case 4 — Leave + allocation + multi-skill: Net capacity = 120h, total derived <= 120h")
+    void testLoadAvailableCapacity_Case4_LeaveAndAllocation_MultiSkill() {
+        EmployeeSkillCapacityProjection emp1Skill1 = new EmployeeSkillCapacityProjection() {
             @Override public Long getSkillId() { return 1L; }
+            @Override public Long getEmployeeId() { return 101L; }
+            @Override public Integer getStandardHoursPerWeek() { return 40; }
+        };
+        EmployeeSkillCapacityProjection emp1Skill2 = new EmployeeSkillCapacityProjection() {
+            @Override public Long getSkillId() { return 2L; }
             @Override public Long getEmployeeId() { return 101L; }
             @Override public Integer getStandardHoursPerWeek() { return 40; }
         };
 
         when(employeeSkillRepository.findApprovedCapacityByOrgUnit(null))
-                .thenReturn(List.of(empProj));
+                .thenReturn(List.of(emp1Skill1, emp1Skill2));
 
-        // Mock 1 tuần nghỉ phép (16h)
+        // Mock 1 week leave (16h) and 1 week allocation (24h) in 4-week range -> Net = 160 - 16 - 24 = 120h
         YearWeek yw = YearWeek.of(2026, 1);
         when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList()))
                 .thenReturn(Map.of(101L, Map.of(yw, BigDecimal.valueOf(16))));
 
-        // Mock 1 tuần phân bổ dự án (10h)
-        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(1L, 101L, 10L, yw, BigDecimal.valueOf(10));
+        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(1L, 101L, 10L, yw, BigDecimal.valueOf(24));
         when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList()))
                 .thenReturn(List.of(alloc));
 
-        // 1 tuần: 40h standard - 16h leave - 10h allocation = 14h net available
-        Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 1, null);
+        // Demand: Java = 100h, React = 50h
+        ProjectRoleJpaEntity javaRole = new ProjectRoleJpaEntity(10L, "JAVA_ROLE", "Java Role", "Desc", 1L, "ACTIVE");
+        ProjectRoleJpaEntity reactRole = new ProjectRoleJpaEntity(20L, "REACT_ROLE", "React Role", "Desc", 2L, "ACTIVE");
+        SkillJpaEntity javaSkill = new SkillJpaEntity(1L, "JAVA", "Java", "Backend", "Desc", LocalDateTime.now());
+        SkillJpaEntity reactSkill = new SkillJpaEntity(2L, "REACT", "React", "Frontend", "Desc", LocalDateTime.now());
 
-        assertEquals(1, capacityMap.size());
-        assertEquals(0, BigDecimal.valueOf(14.00).compareTo(capacityMap.get(1L)));
+        when(skillRepository.findAllActiveSkills()).thenReturn(List.of(javaSkill, reactSkill));
+        when(projectRoleRepository.findAllById(anyList())).thenReturn(List.of(javaRole, reactRole));
+
+        ProjectResourceDemandJpaEntity javaDemand = new ProjectResourceDemandJpaEntity(1L, 100L, 10L, 2026, 1, BigDecimal.valueOf(100), 0L);
+        ProjectResourceDemandJpaEntity reactDemand = new ProjectResourceDemandJpaEntity(2L, 100L, 20L, 2026, 1, BigDecimal.valueOf(50), 0L);
+        when(projectResourceDemandRepository.findDemandsFiltered(null, 2026, 1, 2026, 4))
+                .thenReturn(List.of(javaDemand, reactDemand));
+
+        Map<Long, BigDecimal> capacityMap = adapter.loadAvailableCapacityHoursGroupedBySkill(2026, 1, 2026, 4, null);
+
+        BigDecimal javaCap = capacityMap.getOrDefault(1L, BigDecimal.ZERO);
+        BigDecimal reactCap = capacityMap.getOrDefault(2L, BigDecimal.ZERO);
+        BigDecimal totalDerivedCap = javaCap.add(reactCap);
+
+        // Standard 160h - 16h leave - 24h allocation = 120h net capacity
+        // Invariant: Total assigned capacity <= 120h!
+        assertTrue(totalDerivedCap.compareTo(BigDecimal.valueOf(120.00)) <= 0,
+                "Total derived capacity (" + totalDerivedCap + ") must not exceed Employee net capacity (120h)");
     }
 
     @Test

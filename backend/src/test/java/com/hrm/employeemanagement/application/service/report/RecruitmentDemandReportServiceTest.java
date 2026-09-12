@@ -111,6 +111,10 @@ class RecruitmentDemandReportServiceTest {
         Long currentUserId = 100L;
         when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
 
+        Role role = new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám đốc");
+        User user = new User(new UserId(100L), "director", "hash", role, UserStatus.ACTIVE, null, DataScope.COMPANY, null, 0L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(user));
+
         Skill devSkill = new Skill(
                 2L, "JAVA", "Lập trình Java", "Backend", "Mô tả", LocalDateTime.now()
         );
@@ -145,6 +149,25 @@ class RecruitmentDemandReportServiceTest {
         RecruitmentDemandReportQuery query = new RecruitmentDemandReportQuery(2026, 1, 2026, 4, null);
 
         assertThrows(PermissionDeniedException.class, () -> service.execute(query));
+    }
+
+    @Test
+    @DisplayName("DataScope ORGANIZATION_BRANCH - In-scope child orgUnitId allowed")
+    void testDataScope_OrganizationBranch_InScope_Allowed() {
+        Long currentUserId = 101L;
+        when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
+
+        Role role = new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực");
+        User user = new User(new UserId(101L), "manager", "hash", role, UserStatus.ACTIVE, null, DataScope.ORGANIZATION_BRANCH, 10L, 0L);
+        when(loadUserPort.findById(new UserId(101L))).thenReturn(Optional.of(user));
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(15L, 10L)).thenReturn(true);
+        when(loadReportPort.loadAllActiveSkills()).thenReturn(List.of());
+
+        RecruitmentDemandReportQuery query = new RecruitmentDemandReportQuery(2026, 1, 2026, 4, 15L);
+        RecruitmentDemandReportResult result = service.execute(query);
+
+        assertNotNull(result);
     }
 
     @Test
@@ -184,6 +207,10 @@ class RecruitmentDemandReportServiceTest {
     void testTC04_AuditLogSavedOnReportQuery() {
         Long currentUserId = 105L;
         when(authorizationService.require(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ)).thenReturn(currentUserId);
+
+        Role role = new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám đốc");
+        User user = new User(new UserId(105L), "director", "hash", role, UserStatus.ACTIVE, null, DataScope.COMPANY, null, 0L);
+        when(loadUserPort.findById(new UserId(105L))).thenReturn(Optional.of(user));
 
         Skill skill = new Skill(
                 3L, "REACT", "React.js", "Frontend", "Mô tả", LocalDateTime.now()

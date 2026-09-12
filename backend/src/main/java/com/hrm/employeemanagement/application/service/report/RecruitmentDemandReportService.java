@@ -19,6 +19,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.report.RecruitmentSkillDemand;
 import com.hrm.employeemanagement.domain.skill.Skill;
 import com.hrm.employeemanagement.domain.user.User;
@@ -34,22 +35,14 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
 
     public RecruitmentDemandReportService(
             AuthorizationService authorizationService,
-            LoadRecruitmentDemandReportPort loadReportPort,
-            SaveAuditLogInNewTransactionPort saveAuditLogPort
-    ) {
-        this(authorizationService, null, null, loadReportPort, saveAuditLogPort);
-    }
-
-    public RecruitmentDemandReportService(
-            AuthorizationService authorizationService,
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort,
             LoadRecruitmentDemandReportPort loadReportPort,
             SaveAuditLogInNewTransactionPort saveAuditLogPort
     ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
-        this.loadUserPort = loadUserPort;
-        this.loadOrgUnitPort = loadOrgUnitPort;
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
         this.loadReportPort = Objects.requireNonNull(loadReportPort, "LoadRecruitmentDemandReportPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
     }
@@ -62,41 +55,44 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
         RecruitmentDemandReportQuery effectiveQuery = query != null ? query : new RecruitmentDemandReportQuery(null, null, null, null, null);
         effectiveQuery.validate();
 
-        Long effectiveOrgUnitId = effectiveQuery.orgUnitId();
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại: " + currentUserId));
 
-        // Enforcement of DataScope
-        if (loadUserPort != null) {
-            User currentUser = loadUserPort.findById(new UserId(currentUserId)).orElse(null);
-            if (currentUser != null && currentUser.getDataScope() != null) {
-                switch (currentUser.getDataScope()) {
-                    case COMPANY -> {
-                        effectiveOrgUnitId = effectiveQuery.orgUnitId();
-                    }
-                    case ORGANIZATION_BRANCH -> {
-                        if (currentUser.getScopeOrgUnitId() == null) {
-                            saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
-                            throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
-                        }
-                        if (effectiveQuery.orgUnitId() != null) {
-                            boolean inScope = loadOrgUnitPort != null && loadOrgUnitPort.existsInOrgUnitBranch(effectiveQuery.orgUnitId(), currentUser.getScopeOrgUnitId());
-                            if (!inScope) {
-                                saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
-                                throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
-                            }
-                            effectiveOrgUnitId = effectiveQuery.orgUnitId();
-                        } else {
-                            effectiveOrgUnitId = currentUser.getScopeOrgUnitId();
-                        }
-                    }
-                    case SELF -> {
-                        saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
-                        throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
-                    }
-                    default -> {
-                        saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
-                        throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
-                    }
+        Long effectiveOrgUnitId;
+
+        // Security invariant: Mandatory DataScope enforcement
+        if (currentUser.getDataScope() == null) {
+            saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
+            throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
+        }
+
+        switch (currentUser.getDataScope()) {
+            case COMPANY -> {
+                effectiveOrgUnitId = effectiveQuery.orgUnitId();
+            }
+            case ORGANIZATION_BRANCH -> {
+                if (currentUser.getScopeOrgUnitId() == null) {
+                    saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
+                    throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
                 }
+                if (effectiveQuery.orgUnitId() != null) {
+                    boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(effectiveQuery.orgUnitId(), currentUser.getScopeOrgUnitId());
+                    if (!inScope) {
+                        saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
+                        throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
+                    }
+                    effectiveOrgUnitId = effectiveQuery.orgUnitId();
+                } else {
+                    effectiveOrgUnitId = currentUser.getScopeOrgUnitId();
+                }
+            }
+            case SELF -> {
+                saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
+                throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
+            }
+            default -> {
+                saveAuditLogPort.save(AuditLog.create(null, "ACCESS_DENIED", "RECRUITMENT_DEMAND_REPORT", effectiveQuery.orgUnitId()));
+                throw new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ);
             }
         }
 
