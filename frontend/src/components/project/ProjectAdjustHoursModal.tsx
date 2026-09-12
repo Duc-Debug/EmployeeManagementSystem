@@ -22,6 +22,14 @@ const getEmployeeId = (member: ProjectMember): number | null => {
     return !isNaN(parsed) && parsed > 0 ? parsed : null;
 };
 
+/**
+ * Theo RBAC hệ thống (V61 / QTN-11), quyền RESOURCE_ALLOCATION_OVERLOAD_BYPASS
+ * được cấp riêng cho vai trò Quản lý nguồn lực (VT-03).
+ */
+export const canBypassResourceOverload = (user: ReturnType<typeof useAuthUser>): boolean => {
+    return user?.roleCode === 'VT-03';
+};
+
 export function ProjectAdjustHoursModal({
     open,
     member,
@@ -34,7 +42,7 @@ export function ProjectAdjustHoursModal({
     onSave,
 }: ProjectAdjustHoursModalProps) {
     const authUser = useAuthUser();
-    const isResourceManager = authUser?.roleCode === 'VT-03';
+    const isResourceManager = canBypassResourceOverload(authUser);
 
     const [hours, setHours] = useState(35);
     const [overloadReason, setOverloadReason] = useState('');
@@ -46,6 +54,7 @@ export function ProjectAdjustHoursModal({
     const [standardHours, setStandardHours] = useState<number | null>(null);
     const [otherProjectsHours, setOtherProjectsHours] = useState<number>(0);
     const [isLoadingCapacity, setIsLoadingCapacity] = useState(false);
+    const [capacityFetchError, setCapacityFetchError] = useState(false);
 
     useEffect(() => {
         if (open && member && weekKey) {
@@ -53,6 +62,7 @@ export function ProjectAdjustHoursModal({
             setOverloadReason('');
             setReasonError(null);
             setIsSubmitting(false);
+            setCapacityFetchError(false);
 
             const empId = getEmployeeId(member);
             if (empId && year && weekNumber) {
@@ -70,6 +80,7 @@ export function ProjectAdjustHoursModal({
                     })
                     .catch((err) => {
                         console.warn('Không thể tải năng lực khả dụng tuần:', err);
+                        setCapacityFetchError(true);
                     })
                     .finally(() => {
                         setIsLoadingCapacity(false);
@@ -83,6 +94,7 @@ export function ProjectAdjustHoursModal({
             setNetCapacity(null);
             setStandardHours(null);
             setOtherProjectsHours(0);
+            setCapacityFetchError(false);
         }
     }, [open, member, weekKey, year, weekNumber]);
 
@@ -189,6 +201,12 @@ export function ProjectAdjustHoursModal({
                                     <span className="font-semibold text-indigo-600">{otherProjectsHours}h</span>
                                 </div>
                             )}
+                            {capacityFetchError && (
+                                <div className="rounded-lg bg-amber-50 p-2 text-[10px] text-amber-800 border border-amber-200 flex items-start gap-1.5 mt-1">
+                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                    <span>Không thể xác thực năng lực tuần từ máy chủ. Hiển thị định mức tạm thời ({capacity}h).</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -291,7 +309,7 @@ export function ProjectAdjustHoursModal({
                         <button
                             type="button"
                             onClick={handleApply}
-                            disabled={isSubmitting || (isOverloaded && !isResourceManager)}
+                            disabled={isSubmitting || isLoadingCapacity || (isOverloaded && !isResourceManager)}
                             className={`rounded-lg px-4 py-1.5 font-medium text-white shadow-xs transition flex items-center gap-1.5 ${
                                 isOverloaded && !isResourceManager
                                     ? 'bg-slate-300 cursor-not-allowed text-slate-500'
@@ -300,7 +318,9 @@ export function ProjectAdjustHoursModal({
                                     : 'bg-indigo-600 hover:bg-indigo-700'
                             } disabled:opacity-50`}
                         >
-                            {isOverloaded ? (
+                            {isLoadingCapacity ? (
+                                <span>Đang kiểm tra năng lực...</span>
+                            ) : isOverloaded ? (
                                 <>
                                     <CheckCircle className="h-3.5 w-3.5" />
                                     <span>{isResourceManager ? 'Xác Nhận Vượt Tải & Lưu' : 'Bị Khóa (Chờ RM)'}</span>

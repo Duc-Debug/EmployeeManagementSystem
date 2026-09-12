@@ -41,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -200,16 +201,28 @@ class AllocationOverloadUseCaseTest {
         assertNotNull(result);
         assertTrue(result.isOverAllocated());
 
-        // Kiểm tra thực thể được lưu
+        // Kiểm tra cả 2 thực thể (Dự án B mới và Dự án A cũ) đều được lưu với trạng thái overload đồng bộ
         ArgumentCaptor<WeeklyProjectAllocation> allocationCaptor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
-        verify(saveAllocationPort).save(allocationCaptor.capture());
-        WeeklyProjectAllocation saved = allocationCaptor.getValue();
+        verify(saveAllocationPort, times(2)).save(allocationCaptor.capture());
+        List<WeeklyProjectAllocation> savedAllocations = allocationCaptor.getAllValues();
 
-        assertTrue(saved.isOverloaded());
-        assertEquals(reason, saved.getOverloadReason());
-        assertEquals(rmUserId, saved.getOverloadApprovedBy());
-        assertNotNull(saved.getOverloadApprovedAt());
-        assertEquals(BigDecimal.valueOf(10), saved.getAllocatedHours());
+        WeeklyProjectAllocation savedB = savedAllocations.stream()
+                .filter(a -> a.getProjectId().equals(projectIdB))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(savedB.isOverloaded());
+        assertEquals(reason, savedB.getOverloadReason());
+        assertEquals(rmUserId, savedB.getOverloadApprovedBy());
+        assertNotNull(savedB.getOverloadApprovedAt());
+        assertEquals(BigDecimal.valueOf(10), savedB.getAllocatedHours());
+
+        WeeklyProjectAllocation savedA = savedAllocations.stream()
+                .filter(a -> a.getProjectId().equals(projectIdA))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(savedA.isOverloaded());
+        assertEquals(reason, savedA.getOverloadReason());
+        assertEquals(rmUserId, savedA.getOverloadApprovedBy());
     }
 
     @Test
@@ -383,11 +396,55 @@ class AllocationOverloadUseCaseTest {
                 .orElse(null);
 
         assertNotNull(bypassLog);
-        assertEquals("isOverloaded=false;allocatedHours=20", bypassLog.getOldValue(),
-                "oldValue phải phản ánh giá trị snapshot 20h trước khi mutation đối tượng");
+        assertEquals("isOverloaded=false;projectAllocatedHours=20;totalWeeklyAllocatedHours=35", bypassLog.getOldValue(),
+                "oldValue phải phản ánh giá trị snapshot 20h và tổng 35h trước khi mutation đối tượng");
         assertTrue(bypassLog.getNewValue().contains("isOverloaded=true"));
-        assertTrue(bypassLog.getNewValue().contains("allocatedHours=45"));
+        assertTrue(bypassLog.getNewValue().contains("projectAllocatedHours=30"));
+        assertTrue(bypassLog.getNewValue().contains("totalWeeklyAllocatedHours=45"));
         assertTrue(bypassLog.getNewValue().contains("overloadHours=5.00"));
+    }
+
+    @Test
+    @DisplayName("Issue 1: Giảm giờ phân bổ xuống dưới khả dụng -> Xóa cờ isOverloaded trên TẤT CẢ các phân bổ trong tuần")
+    void testReduceAllocation_ClearsOverloadOnAllAllocationsForEmployeeWeek() {
+        setupMocksForRM();
+
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        // Ban đầu cả 2 dự án đang mang cờ isOverloaded = true (tổng 20h + 25h = 45h > 40h)
+        LocalDateTime approvedAt = LocalDateTime.now().minusDays(1);
+        WeeklyProjectAllocation allocA = new WeeklyProjectAllocation(
+                1L, employeeId, projectIdA, yearWeek, BigDecimal.valueOf(20), true, "Lý do cũ", rmUserId, approvedAt, 0L);
+        WeeklyProjectAllocation allocB = new WeeklyProjectAllocation(
+                2L, employeeId, projectIdB, yearWeek, BigDecimal.valueOf(25), true, "Lý do cũ", rmUserId, approvedAt, 0L);
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek)).thenReturn(List.of(allocA, allocB));
+        when(saveAllocationPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // User giảm Dự án B từ 25h xuống 15h -> Tổng tuần mới: 20h + 15h = 35h <= 40h (Hết quá tải)
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(15), null);
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertFalse(result.isOverAllocated(), "Tuần không còn bị quá tải");
+
+        // Cả 2 dự án (Dự án A và Dự án B) đều được lưu với clearOverload()
+        ArgumentCaptor<WeeklyProjectAllocation> captor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
+        verify(saveAllocationPort, times(2)).save(captor.capture());
+
+        List<WeeklyProjectAllocation> savedList = captor.getAllValues();
+        WeeklyProjectAllocation savedA = savedList.stream().filter(a -> a.getProjectId().equals(projectIdA)).findFirst().orElseThrow();
+        WeeklyProjectAllocation savedB = savedList.stream().filter(a -> a.getProjectId().equals(projectIdB)).findFirst().orElseThrow();
+
+        assertFalse(savedA.isOverloaded(), "Dự án A phải được dọn dẹp cờ overload");
+        assertNull(savedA.getOverloadReason());
+        assertNull(savedA.getOverloadApprovedBy());
+
+        assertFalse(savedB.isOverloaded(), "Dự án B phải được dọn dẹp cờ overload");
+        assertNull(savedB.getOverloadReason());
+        assertNull(savedB.getOverloadApprovedBy());
     }
 
     @Test

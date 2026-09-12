@@ -165,12 +165,18 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 .filter(a -> a.getProjectId().equals(command.projectId()))
                 .findFirst();
 
+        BigDecimal currentTotalAllocated = existingAllocations.stream()
+                .map(WeeklyProjectAllocation::getAllocatedHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         // Capture snapshot trạng thái cũ TRƯỚC KHI thực hiện bất kỳ mutation nào trên entity
         boolean oldIsOverloaded = existingOpt.map(WeeklyProjectAllocation::isOverloaded).orElse(false);
         BigDecimal oldHours = existingOpt.map(WeeklyProjectAllocation::getAllocatedHours).orElse(BigDecimal.ZERO);
         String oldValue = oldHours.toString();
         String newValue = command.allocatedHours().toString();
-        String oldOverloadState = "isOverloaded=" + oldIsOverloaded + ";allocatedHours=" + oldHours;
+        String oldOverloadState = "isOverloaded=" + oldIsOverloaded
+                + ";projectAllocatedHours=" + oldHours
+                + ";totalWeeklyAllocatedHours=" + currentTotalAllocated;
 
         WeeklyProjectAllocation allocation;
         if (existingOpt.isPresent()) {
@@ -184,8 +190,23 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         java.time.LocalDateTime approvedAt = java.time.LocalDateTime.now();
         if (isOverloaded) {
             allocation.markOverloaded(command.overloadReason(), currentUserId, approvedAt);
+            // Đồng bộ trạng thái isOverloaded cho tất cả phân bổ khác của nhân sự trong tuần
+            for (WeeklyProjectAllocation otherAlloc : existingAllocations) {
+                if (!otherAlloc.getProjectId().equals(command.projectId()) && !otherAlloc.isOverloaded()) {
+                    otherAlloc.markOverloaded(command.overloadReason(), currentUserId, approvedAt);
+                    saveAllocationPort.save(otherAlloc);
+                }
+            }
         } else {
             allocation.clearOverload();
+            // Khi tổng giờ trong tuần không còn quá tải (totalRequestedAllocated <= netAvailableHours),
+            // dọn dẹp cờ isOverloaded trên tất cả các phân bổ khác của nhân sự trong tuần này
+            for (WeeklyProjectAllocation otherAlloc : existingAllocations) {
+                if (!otherAlloc.getProjectId().equals(command.projectId()) && otherAlloc.isOverloaded()) {
+                    otherAlloc.clearOverload();
+                    saveAllocationPort.save(otherAlloc);
+                }
+            }
         }
 
         // Lưu bản ghi (Concurrency retry được xử lý tại RetryableAllocateResourceUseCaseDecorator)
@@ -206,7 +227,8 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             String newOverloadState = "isOverloaded=true;overloadReason=" + command.overloadReason().trim()
                     + ";approvedBy=" + currentUserId
                     + ";approvedAt=" + approvedAt
-                    + ";allocatedHours=" + totalRequestedAllocated
+                    + ";projectAllocatedHours=" + command.allocatedHours()
+                    + ";totalWeeklyAllocatedHours=" + totalRequestedAllocated
                     + ";netAvailableHours=" + netAvailableHours
                     + ";overloadHours=" + excessHours;
 

@@ -160,4 +160,33 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         const isNonRmBlocked = isOverloaded && false; // isOverloaded && !isResourceManager
         assert.equal(isNonRmBlocked, false, "Non-RM không bị block khi đã chỉnh giờ hợp lệ");
     });
+
+    test("QTN-11 / UX Invariant: Nút submit bị vô hiệu hóa khi đang tải năng lực tuần (isLoadingCapacity)", () => {
+        const isSubmitDisabled = (isSubmitting, isLoadingCapacity, isOverloaded, isResourceManager) => {
+            return isSubmitting || isLoadingCapacity || (isOverloaded && !isResourceManager);
+        };
+
+        // Khi đang tải năng lực: nút submit bắt buộc bị disabled dù không quá tải
+        assert.equal(isSubmitDisabled(false, true, false, true), true, "Phải disable nút khi isLoadingCapacity = true");
+        assert.equal(isSubmitDisabled(false, true, false, false), true, "Phải disable nút khi isLoadingCapacity = true (non-RM)");
+
+        // Sau khi tải xong: hợp lệ thì được phép bấm
+        assert.equal(isSubmitDisabled(false, false, false, false), false, "Mở khóa nút khi đã tải xong và không quá tải");
+
+        // Khi quá tải: RM được bấm, non-RM bị khóa
+        assert.equal(isSubmitDisabled(false, false, true, true), false, "RM được bấm khi quá tải (để mở khóa phê duyệt)");
+        assert.equal(isSubmitDisabled(false, false, true, false), true, "Non-RM bị khóa nút khi quá tải");
+    });
+
+    test("QTN-11 / RBAC Mapping: canBypassResourceOverload ánh xạ quyền RESOURCE_ALLOCATION_OVERLOAD_BYPASS cho VT-03", () => {
+        const canBypassResourceOverload = (user) => {
+            return user?.roleCode === "VT-03";
+        };
+
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-03" }), true, "VT-03 có quyền vượt tải");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-02" }), false, "VT-02 không có quyền vượt tải");
+        assert.equal(canBypassResourceOverload({ roleCode: "VT-01" }), false, "VT-01 không có quyền vượt tải");
+        assert.equal(canBypassResourceOverload(null), false, "User null không có quyền");
+    });
 });
+
