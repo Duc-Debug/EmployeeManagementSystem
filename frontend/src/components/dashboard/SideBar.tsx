@@ -52,7 +52,7 @@ export function canAccessTab(
             // Danh mục vai trò chuyên môn (NCL-12-CN-001): VT-01 -> VT-06 đều có quyền xem (PROJECT_ROLE_READ)
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
         case "overview":
-            // Tất cả 6 vai trò (VT-01 -> VT-06) đều có quyền truy cập trang Tổng quan
+            // Tất cả vai trò đều có quyền truy cập trang Tổng quan
             return true;
 
         case "capacity":

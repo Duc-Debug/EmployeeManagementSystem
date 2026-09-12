@@ -41,18 +41,22 @@ public class TaskController {
     private final GetProjectWbsUseCase getProjectWbsUseCase;
     private final SetTaskBudgetUseCase setTaskBudgetUseCase;
     private final CloneProjectWbsUseCase cloneProjectWbsUseCase;
+    private final com.hrm.employeemanagement.application.port.inbound.task.AssignTaskUseCase assignTaskUseCase;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public TaskController(
             CreateTaskUseCase createTaskUseCase,
             UpdateTaskUseCase updateTaskUseCase,
             GetProjectWbsUseCase getProjectWbsUseCase,
             SetTaskBudgetUseCase setTaskBudgetUseCase,
-            CloneProjectWbsUseCase cloneProjectWbsUseCase) {
+            CloneProjectWbsUseCase cloneProjectWbsUseCase,
+            com.hrm.employeemanagement.application.port.inbound.task.AssignTaskUseCase assignTaskUseCase) {
         this.createTaskUseCase = Objects.requireNonNull(createTaskUseCase, "CreateTaskUseCase must not be null");
         this.updateTaskUseCase = Objects.requireNonNull(updateTaskUseCase, "UpdateTaskUseCase must not be null");
         this.getProjectWbsUseCase = Objects.requireNonNull(getProjectWbsUseCase, "GetProjectWbsUseCase must not be null");
         this.setTaskBudgetUseCase = Objects.requireNonNull(setTaskBudgetUseCase, "SetTaskBudgetUseCase must not be null");
         this.cloneProjectWbsUseCase = Objects.requireNonNull(cloneProjectWbsUseCase, "CloneProjectWbsUseCase must not be null");
+        this.assignTaskUseCase = assignTaskUseCase;
     }
 
     @PostMapping("/{projectId}/tasks")
@@ -71,6 +75,26 @@ public class TaskController {
             @Valid @RequestBody UpdateTaskRequest request) {
         TaskResult result = updateTaskUseCase.updateTask(request.toCommand(projectId, taskId));
         return ResponseEntity.ok(ApiResponse.success("Cập nhật hạng mục/công việc thành công", result));
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{projectId}/tasks/{taskId}/assignment")
+    public ResponseEntity<ApiResponse<com.hrm.employeemanagement.application.dto.task.TaskAssignmentResult>> assignTask(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            @Valid @RequestBody com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task.dto.AssignTaskRequest request) {
+        if (assignTaskUseCase == null) {
+            throw new IllegalStateException("AssignTaskUseCase is not configured");
+        }
+        com.hrm.employeemanagement.application.dto.task.AssignTaskCommand command =
+                new com.hrm.employeemanagement.application.dto.task.AssignTaskCommand(
+                        projectId,
+                        taskId,
+                        request.employeeIds(),
+                        request.plannedStartDate(),
+                        request.plannedEndDate()
+                );
+        com.hrm.employeemanagement.application.dto.task.TaskAssignmentResult result = assignTaskUseCase.assignTask(command);
+        return ResponseEntity.ok(ApiResponse.success("Phân công công việc thành công", result));
     }
 
     @GetMapping("/{projectId}/wbs")

@@ -11,6 +11,7 @@ import {
     Target,
     AlertTriangle,
     Copy,
+    UserPlus,
     GitCommit,
     Lock,
     Calendar,
@@ -31,6 +32,7 @@ interface ProjectWbsViewProps {
     onToggleTaskStatus: (catId: string, taskId: string) => void;
     onOpenBudgetModal?: (task: TaskItem) => void;
     onOpenCloneModal?: () => void;
+    onOpenAssignModal?: (task: TaskItem) => void;
     onRefreshData?: () => void;
 }
 
@@ -46,6 +48,7 @@ export function ProjectWbsView({
     onToggleTaskStatus,
     onOpenBudgetModal,
     onOpenCloneModal,
+    onOpenAssignModal,
     onRefreshData,
 }: ProjectWbsViewProps) {
     const [cascadeModalTask, setCascadeModalTask] = useState<{
@@ -77,15 +80,23 @@ export function ProjectWbsView({
 
     const filteredCategories = categories.map((cat) => {
         const filteredTasks = cat.tasks.filter((t) => {
-            const assignee = members.find((m) => m.id === t.assigneeId);
+            const taskAssigneeIds = t.assigneeIds && t.assigneeIds.length > 0
+                ? t.assigneeIds
+                : (t.assigneeId ? [t.assigneeId] : []);
+            const assignedMembers = taskAssigneeIds
+                .map((id) => members.find((m) => m.id === id))
+                .filter(Boolean) as ProjectMember[];
+
             const q = searchTerm.trim().toLowerCase();
             const matchSearch =
                 !q ||
                 t.name.toLowerCase().includes(q) ||
                 t.code.toLowerCase().includes(q) ||
-                (assignee && assignee.name.toLowerCase().includes(q)) ||
+                assignedMembers.some((m) => m.name.toLowerCase().includes(q)) ||
                 cat.name.toLowerCase().includes(q);
-            const matchRole = selectedRole === 'ALL' || (assignee && assignee.role === selectedRole);
+            const matchRole =
+                selectedRole === 'ALL' ||
+                assignedMembers.some((m) => m.role === selectedRole);
             return matchSearch && matchRole;
         });
 
@@ -179,7 +190,6 @@ export function ProjectWbsView({
                         </>
                     )}
                 </div>
-
             </div>
 
             {/* Tree Content Container */}
@@ -278,7 +288,12 @@ export function ProjectWbsView({
                                             </div>
                                         ) : (
                                             cat.filteredTasks.map((t) => {
-                                                const assignee = members.find((m) => m.id === t.assigneeId);
+                                                const taskAssigneeIds = t.assigneeIds && t.assigneeIds.length > 0
+                                                    ? t.assigneeIds
+                                                    : (t.assigneeId ? [t.assigneeId] : []);
+                                                const assignedMembers = taskAssigneeIds
+                                                    .map((id) => members.find((m) => m.id === id))
+                                                    .filter(Boolean) as ProjectMember[];
                                                 const isDone = t.status === 'Hoàn thành';
                                                 const numId = Number(t.id.replace(/\D/g, ''));
                                                 const predecessors = (dependencies || []).filter(
@@ -324,32 +339,35 @@ export function ProjectWbsView({
                                                                     <span className="inline-flex items-center gap-1">
                                                                         <Clock className="h-3 w-3 text-slate-400" /> {t.hours}h
                                                                     </span>
-                                                                     <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-600">
-                                                                         <Calendar className="h-3 w-3 text-indigo-500 shrink-0" />
-                                                                         {t.startDate ? t.startDate : (t.startWeek !== 'Chưa cập nhật' ? t.startWeek : 'Kế hoạch')} &rarr; {t.actualEndDate ? `${t.actualEndDate} (TT)` : (t.dueDate || t.endWeek)}
-                                                                     </span>
-                                                                     {t.actualEndDate && (
-                                                                         <span
-                                                                             className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold ${
-                                                                                 t.dueDate && t.actualEndDate > t.dueDate
-                                                                                     ? 'border-rose-200 bg-rose-50 text-rose-700 animate-pulse'
-                                                                                     : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                                                             }`}
-                                                                             title={t.dueDate && t.actualEndDate > t.dueDate ? `Công việc trễ ngày kết thúc so với mốc hạn ${t.dueDate}` : `Đã kết thúc thực tế ngày ${t.actualEndDate}`}
-                                                                         >
-                                                                             {t.dueDate && t.actualEndDate > t.dueDate ? (
-                                                                                 <>
-                                                                                     <AlertTriangle className="h-3 w-3 text-rose-600 shrink-0" />
-                                                                                     <span>Trễ thực tế</span>
-                                                                                 </>
-                                                                             ) : (
-                                                                                 <>
-                                                                                     <CircleCheck className="h-3 w-3 text-emerald-600 shrink-0" />
-                                                                                     <span>Đã xong (TT)</span>
-                                                                                 </>
-                                                                             )}
-                                                                         </span>
-                                                                     )}
+
+                                                                    {/* Thời gian hiển thị kết hợp */}
+                                                                    <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-600">
+                                                                        <Calendar className="h-3 w-3 text-indigo-500 shrink-0" />
+                                                                        {t.plannedStartDate || t.startDate || (t.startWeek !== 'Chưa cập nhật' ? t.startWeek : 'Kế hoạch')} &rarr; {t.actualEndDate ? `${t.actualEndDate} (TT)` : (t.plannedEndDate || t.dueDate || t.endWeek)}
+                                                                    </span>
+
+                                                                    {t.actualEndDate && (
+                                                                        <span
+                                                                            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                                                                                t.dueDate && t.actualEndDate > t.dueDate
+                                                                                    ? 'border-rose-200 bg-rose-50 text-rose-700 animate-pulse'
+                                                                                    : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                                            }`}
+                                                                            title={t.dueDate && t.actualEndDate > t.dueDate ? `Công việc trễ ngày kết thúc so với mốc hạn ${t.dueDate}` : `Đã kết thúc thực tế ngày ${t.actualEndDate}`}
+                                                                        >
+                                                                            {t.dueDate && t.actualEndDate > t.dueDate ? (
+                                                                                <>
+                                                                                    <AlertTriangle className="h-3 w-3 text-rose-600 shrink-0" />
+                                                                                    <span>Trễ thực tế</span>
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <CircleCheck className="h-3 w-3 text-emerald-600 shrink-0" />
+                                                                                    <span>Đã xong (TT)</span>
+                                                                                </>
+                                                                            )}
+                                                                        </span>
+                                                                    )}
 
                                                                     {/* Quan hệ Phụ thuộc công việc (NCL-04-CN-004) */}
                                                                     {predecessors.map((p) => (
@@ -447,49 +465,108 @@ export function ProjectWbsView({
                                                             </div>
                                                         </div>
 
-                                                         {/* Assignee & Badges */}
-                                                         <div className="flex shrink-0 items-center gap-2">
-                                                             {getPriorityBadge(t.priority)}
-                                                             {getStatusBadge(t.status)}
-                                                             <button
-                                                                 type="button"
-                                                                 onClick={(e) => {
-                                                                     e.stopPropagation();
-                                                                     const numericId = typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1;
-                                                                     setCascadeModalTask({
-                                                                         id: numericId,
-                                                                         name: t.name,
-                                                                         code: t.code,
-                                                                     });
-                                                                 }}
-                                                                 className="rounded-lg p-1 text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition cursor-pointer"
-                                                                 title="Cảnh báo trễ dây chuyền khi công việc trượt (Cascade Delay Warning)"
-                                                             >
-                                                                 <AlertTriangle className="h-3.5 w-3.5" />
-                                                             </button>
-                                                             <button
-                                                                 type="button"
-                                                                 onClick={(e) => {
-                                                                     e.stopPropagation();
-                                                                     onOpenBudgetModal?.(t);
-                                                                 }}
-                                                                 className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer"
-                                                                 title="Đặt ngân sách giờ công"
-                                                             >
-                                                                 <Target className="h-3.5 w-3.5" />
-                                                             </button>
-                                                            <div
-                                                                className="flex items-center gap-1.5 pl-1"
-                                                                title={assignee ? `${assignee.name} (${assignee.role})` : 'Chưa giao'}
+                                                        {/* Assignee & Badges */}
+                                                        <div className="flex shrink-0 items-center gap-2">
+                                                            {getPriorityBadge(t.priority)}
+                                                            {getStatusBadge(t.status)}
+                                                            <button
+                                                                type="button"
+                                                                disabled={isClosed}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (!isClosed) onOpenAssignModal?.(t);
+                                                                }}
+                                                                className={`rounded-lg p-1 transition ${
+                                                                    isClosed
+                                                                        ? 'text-slate-300 cursor-not-allowed'
+                                                                        : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
+                                                                }`}
+                                                                title={isClosed ? 'Dự án đã đóng, không thể phân công' : 'Giao việc cho nhân sự'}
                                                             >
-                                                                <img
-                                                                    className="h-6 w-6 rounded-full border border-slate-200 object-cover"
-                                                                    src={assignee ? assignee.avatar : 'https://placehold.co/100x100?text=NA'}
-                                                                    alt=""
-                                                                />
-                                                                <span className="hidden max-w-[80px] truncate text-[11px] font-medium text-slate-600 md:inline">
-                                                                    {assignee ? assignee.name.split(' ').pop() : 'N/A'}
-                                                                </span>
+                                                                <UserPlus className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const numericId = typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1;
+                                                                    setCascadeModalTask({
+                                                                        id: numericId,
+                                                                        name: t.name,
+                                                                        code: t.code,
+                                                                    });
+                                                                }}
+                                                                className="rounded-lg p-1 text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition cursor-pointer"
+                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt (Cascade Delay Warning)"
+                                                            >
+                                                                <AlertTriangle className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={isClosed}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (!isClosed) onOpenBudgetModal?.(t);
+                                                                }}
+                                                                className={`rounded-lg p-1 transition ${
+                                                                    isClosed
+                                                                        ? 'text-slate-300 cursor-not-allowed'
+                                                                        : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
+                                                                }`}
+                                                                title={isClosed ? 'Dự án đã đóng, không thể đặt ngân sách' : 'Đặt ngân sách giờ công'}
+                                                            >
+                                                                <Target className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <div
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (!isClosed) onOpenAssignModal?.(t);
+                                                                }}
+                                                                className={`flex items-center gap-1.5 pl-1 transition ${
+                                                                    isClosed ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:opacity-80'
+                                                                }`}
+                                                                title={
+                                                                    assignedMembers.length > 0
+                                                                        ? `Người thực hiện (${assignedMembers.length}): ${assignedMembers.map((m) => `${m.name} (${m.role})`).join(', ')} - Bấm để phân công`
+                                                                        : 'Chưa giao - Bấm để phân công'
+                                                                }
+                                                            >
+                                                                {assignedMembers.length === 0 ? (
+                                                                    <>
+                                                                        <img
+                                                                            className="h-6 w-6 rounded-full border border-slate-200 object-cover"
+                                                                            src="https://placehold.co/100x100?text=NA"
+                                                                            alt=""
+                                                                        />
+                                                                        <span className="hidden max-w-[80px] truncate text-[11px] font-medium text-slate-600 md:inline">
+                                                                            Chưa giao
+                                                                        </span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <div className="flex -space-x-2 overflow-hidden items-center">
+                                                                            {assignedMembers.slice(0, 3).map((m) => (
+                                                                                <img
+                                                                                    key={m.id}
+                                                                                    className="inline-block h-6 w-6 rounded-full ring-2 ring-white border border-slate-200 object-cover"
+                                                                                    src={m.avatar || 'https://placehold.co/100x100?text=NA'}
+                                                                                    alt={m.name}
+                                                                                    title={`${m.name} (${m.role})`}
+                                                                                />
+                                                                            ))}
+                                                                            {assignedMembers.length > 3 && (
+                                                                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 ring-2 ring-white">
+                                                                                    +{assignedMembers.length - 3}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <span className="hidden max-w-[120px] truncate text-[11px] font-medium text-slate-700 md:inline">
+                                                                            {assignedMembers.length === 1
+                                                                                ? assignedMembers[0].name.split(' ').pop()
+                                                                                : `${assignedMembers[0].name.split(' ').pop()} (+${assignedMembers.length - 1})`}
+                                                                        </span>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -549,4 +626,3 @@ export function ProjectWbsView({
         </section>
     );
 }
-

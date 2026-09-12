@@ -9,6 +9,8 @@ import com.hrm.employeemanagement.domain.project.ProjectId;
 public interface LoadProjectPort {
     Optional<Project> findById(ProjectId id);
 
+    List<Project> findAllById(List<ProjectId> ids);
+
     Optional<Project> findByIdForUpdate(ProjectId id);
 
     List<Project> findAll(int page, int size);

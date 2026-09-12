@@ -32,7 +32,11 @@ public class FlywayConfig {
                 .outOfOrder(outOfOrder)
                 .load();
 
-        flyway.repair();
+        try {
+            flyway.repair();
+        } catch (Exception e) {
+            System.out.println("Flyway repair warning: " + e.getMessage());
+        }
         flyway.migrate();
 
         System.out.println("==================================================");
