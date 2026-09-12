@@ -100,4 +100,32 @@ test("Bulk Percentage Allocation Tests (NCL-06-CN-007)", async (t) => {
       { year: 2026, week: 4, netAvailableHours: 24.0, projectedHours: 12.0, percentage: 50.0 },
     ]);
   });
+
+  await t.test("TC-04: Mutually exclusive payload guarantees never sending both allocatedHours and allocationPercentage", () => {
+    const payloadPct = buildBulkPayload({
+      employeeId: "emp-1",
+      projectId: "proj-101",
+      startYear: 2026,
+      startWeek: 10,
+      endYear: 2026,
+      endWeek: 13,
+      allocationMode: "percentage",
+      allocatedHours: 20,
+      allocationPercentage: 50,
+    });
+    assert.strictEqual(payloadPct.allocationPercentagePerWeek !== undefined && payloadPct.allocatedHoursPerWeek === undefined, true);
+
+    const payloadHours = buildBulkPayload({
+      employeeId: "emp-1",
+      projectId: "proj-101",
+      startYear: 2026,
+      startWeek: 10,
+      endYear: 2026,
+      endWeek: 13,
+      allocationMode: "hours",
+      allocatedHours: 20,
+      allocationPercentage: 50,
+    });
+    assert.strictEqual(payloadHours.allocatedHoursPerWeek !== undefined && payloadHours.allocationPercentagePerWeek === undefined, true);
+  });
 });
