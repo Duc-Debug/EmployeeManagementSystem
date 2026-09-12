@@ -185,6 +185,64 @@ class ResourceAllocationControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/allocations - Phân bổ theo tỷ lệ phần trăm thành công (200 OK)")
+    void allocateResource_WithPercentage_Success() throws Exception {
+        com.hrm.employeemanagement.application.dto.allocation.WeeklyCapacityResult capacityResult =
+                new com.hrm.employeemanagement.application.dto.allocation.WeeklyCapacityResult(
+                        100L, "EMP001", "Nguyễn Văn A", 2026, 36, 40,
+                        BigDecimal.valueOf(40), BigDecimal.valueOf(20), BigDecimal.valueOf(20), false, null
+                );
+
+        when(allocateResourceUseCase.allocateResource(argThat(cmd ->
+                cmd.employeeId().equals(100L) &&
+                cmd.projectId().equals(10L) &&
+                cmd.allocationPercentage() != null &&
+                cmd.allocationPercentage().compareTo(BigDecimal.valueOf(50)) == 0
+        ))).thenReturn(capacityResult);
+
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "year": 2026,
+                    "weekNumber": 36,
+                    "allocationPercentage": 50
+                }
+                """;
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/allocations")
+                        .content(jsonBody)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Phân bổ nhân sự vào dự án theo tuần thành công"))
+                .andExpect(jsonPath("$.data.totalAllocatedHours").value(20));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 TC-03: POST /api/v1/allocations - Từ chối khi không có quyền Quản lý nguồn lực (403 FORBIDDEN)")
+    void allocateResource_Forbidden_WhenNotResourceManager() throws Exception {
+        when(allocateResourceUseCase.allocateResource(any()))
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE));
+
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "year": 2026,
+                    "weekNumber": 36,
+                    "allocationPercentage": 50
+                }
+                """;
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/allocations")
+                        .content(jsonBody)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
     @DisplayName("POST /api/v1/allocations - Trả về 400 và mã ALLOCATION_OVERLOAD_WARNING kèm details khi quá tải")
     void allocateResource_OverloadWarning_ReturnsBadRequestWithDetails() throws Exception {
         when(allocateResourceUseCase.allocateResource(any())).thenThrow(
@@ -214,5 +272,49 @@ class ResourceAllocationControllerTest {
                 .andExpect(jsonPath("$.details.availableHours").value(40))
                 .andExpect(jsonPath("$.details.allocatedHours").value(45))
                 .andExpect(jsonPath("$.details.overloadHours").value(5));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 BLOCKING: POST /api/v1/allocations - Trả về 400 khi truyền đồng thời cả allocatedHours và allocationPercentage")
+    void allocateResource_BothHoursAndPercentage_ReturnsBadRequest() throws Exception {
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "year": 2026,
+                    "weekNumber": 36,
+                    "allocatedHours": 20,
+                    "allocationPercentage": 50
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/allocations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-007 BLOCKING: POST /api/v1/allocations/bulk - Trả về 400 khi truyền đồng thời cả allocatedHoursPerWeek và allocationPercentagePerWeek")
+    void bulkAllocateResource_BothHoursAndPercentage_ReturnsBadRequest() throws Exception {
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "fromYear": 2026,
+                    "fromWeek": 1,
+                    "toYear": 2026,
+                    "toWeek": 4,
+                    "allocatedHoursPerWeek": 20,
+                    "allocationPercentagePerWeek": 50
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/allocations/bulk")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
     }
 }

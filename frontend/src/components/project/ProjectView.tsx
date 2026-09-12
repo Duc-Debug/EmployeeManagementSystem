@@ -743,7 +743,7 @@ export default function ProjectView() {
         setAdjustModalOpen(true);
     };
 
-    const handleSaveAdjustedHours = async (memberId: string, weekKey: string, newHours: number, overloadReason?: string) => {
+    const handleSaveAdjustedHours = async (memberId: string, weekKey: string, newHours: number, percentage?: number, overloadReason?: string) => {
         const member = members.find((m) => m.id === memberId);
         if (!canManageAllocations || !selectedProjectId || !member) return;
         const employeeId = Number(member.id.replace('u-', ''));
@@ -755,10 +755,11 @@ export default function ProjectView() {
                 year: isoWeek.year,
                 weekNumber: isoWeek.week,
                 allocatedHours: newHours,
+                allocationPercentage: percentage,
                 overloadReason,
             });
             await loadProjectAllocations();
-            showToast(`Đã lưu phân bổ ${newHours}h cho ${member.name} (${weekKey})`, 'success');
+            showToast(`Đã lưu phân bổ ${newHours}h ${percentage !== undefined ? `(${percentage}%)` : ''} cho ${member.name} (${weekKey})`, 'success');
         } catch (error) {
             showToast(error instanceof Error ? error.message : 'Không thể lưu phân bổ nguồn lực.', 'error');
             throw error;

@@ -35,6 +35,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                             allocation.getYear(),
                             allocation.getWeekNumber(),
                             allocation.getAllocatedHours(),
+                            allocation.getAllocationPercentage(),
                             allocation.isOverloaded(),
                             allocation.getOverloadReason(),
                             allocation.getOverloadApprovedBy(),
@@ -42,6 +43,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                             null
                     ));
             entity.setAllocatedHours(allocation.getAllocatedHours());
+            entity.setAllocationPercentage(allocation.getAllocationPercentage());
             entity.setIsOverloaded(allocation.isOverloaded());
             entity.setOverloadReason(allocation.getOverloadReason());
             entity.setOverloadApprovedBy(allocation.getOverloadApprovedBy());
@@ -54,6 +56,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                     allocation.getYear(),
                     allocation.getWeekNumber(),
                     allocation.getAllocatedHours(),
+                    allocation.getAllocationPercentage(),
                     allocation.isOverloaded(),
                     allocation.getOverloadReason(),
                     allocation.getOverloadApprovedBy(),
@@ -134,6 +137,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 e.getProjectId(),
                 YearWeek.of(e.getYear(), e.getWeekNumber()),
                 e.getAllocatedHours(),
+                e.getAllocationPercentage(),
                 e.getIsOverloaded() != null ? e.getIsOverloaded() : false,
                 e.getOverloadReason(),
                 e.getOverloadApprovedBy(),

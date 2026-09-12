@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Sliders, AlertTriangle, ShieldAlert, CheckCircle } from 'lucide-react';
+import { X, Sliders, AlertTriangle, ShieldAlert, CheckCircle, Percent, Clock } from 'lucide-react';
 import type { ProjectMember } from './projectData';
 import { useAuthUser } from '@/lib/auth-session';
 import { getWeeklyCapacities } from '@/lib/api/allocations';
@@ -21,7 +21,7 @@ interface ProjectAdjustHoursModalProps {
     year?: number;
     weekNumber?: number;
     onClose: () => void;
-    onSave: (memberId: string, weekKey: string, newHours: number, overloadReason?: string) => Promise<void> | void;
+    onSave: (memberId: string, weekKey: string, newHours: number, percentage?: number, overloadReason?: string) => Promise<void> | void;
 }
 
 const getEmployeeId = (member: ProjectMember | null): number | null => {
@@ -45,7 +45,9 @@ export function ProjectAdjustHoursModal({
     const authUser = useAuthUser();
     const isResourceManager = canBypassResourceOverload(authUser);
 
-    const [hours, setHours] = useState(35);
+    const [mode, setMode] = useState<'HOURS' | 'PERCENTAGE'>('PERCENTAGE');
+    const [hours, setHours] = useState(20);
+    const [percentage, setPercentage] = useState(50);
     const [overloadReason, setOverloadReason] = useState('');
     const [reasonError, setReasonError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,7 +91,14 @@ export function ProjectAdjustHoursModal({
 
     useEffect(() => {
         if (open && member && weekKey) {
-            setHours(member.weeklyHours[weekKey] ?? 0);
+            const currentHours = member.weeklyHours[weekKey] ?? 0;
+            const fallbackCap = member.capacity || 40;
+            setHours(currentHours);
+            if (fallbackCap > 0) {
+                setPercentage(Math.round((currentHours / fallbackCap) * 100));
+            } else {
+                setPercentage(0);
+            }
             setOverloadReason('');
             setReasonError(null);
             setIsSubmitting(false);
@@ -107,11 +116,30 @@ export function ProjectAdjustHoursModal({
 
     // Không dùng capacity giả (member.capacity || 40) khi API thất bại hoặc chưa có dữ liệu
     const hasValidCapacity = netCapacity !== null && !capacityFetchError;
-    const capacity = netCapacity ?? 0;
+    const capacity = netCapacity ?? (member.capacity || 40);
     const { totalWeeklyHours, isOverloaded, overloadHours, utilizationPercentage: pct } =
         hasValidCapacity
             ? computeAllocationOverload(hours, otherProjectsHours, capacity)
             : { totalWeeklyHours: hours + otherProjectsHours, isOverloaded: false, overloadHours: 0, utilizationPercentage: 0 };
+
+    const handlePercentageChange = (newPct: number) => {
+        const clampedPct = Math.max(0, Math.min(100, newPct));
+        setPercentage(clampedPct);
+        const baseCap = hasValidCapacity ? capacity : (member.capacity || 40);
+        const calculatedHours = Number(((baseCap * clampedPct) / 100).toFixed(2));
+        setHours(calculatedHours);
+        setReasonError(null);
+    };
+
+    const handleHoursChange = (newHours: number) => {
+        const clampedHours = Math.max(0, newHours);
+        setHours(clampedHours);
+        const baseCap = hasValidCapacity ? capacity : (member.capacity || 40);
+        if (baseCap > 0) {
+            setPercentage(Math.round((clampedHours / baseCap) * 100));
+        }
+        setReasonError(null);
+    };
 
     const handleApply = async () => {
         if (!hasValidCapacity) {
@@ -128,7 +156,13 @@ export function ProjectAdjustHoursModal({
         setReasonError(null);
         setIsSubmitting(true);
         try {
-            await onSave(member.id, weekKey, hours, isOverloaded ? overloadReason.trim() : undefined);
+            await onSave(
+                member.id,
+                weekKey,
+                hours,
+                mode === 'PERCENTAGE' ? percentage : undefined,
+                isOverloaded ? overloadReason.trim() : undefined
+            );
             onClose();
         } catch (err: unknown) {
             const anyErr = err as { message?: string; data?: { code?: string; details?: { availableHours?: number; allocatedHours?: number; overloadHours?: number } } };
@@ -171,12 +205,12 @@ export function ProjectAdjustHoursModal({
                 <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4">
                     <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
                         <Sliders className="h-4 w-4 text-indigo-600" />
-                        Điều Chỉnh Giờ Phân Bổ (NCL-06-CN-003)
+                        Điều Chỉnh Phân Bổ Nguồn Lực
                     </h3>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition cursor-pointer"
                     >
                         <X className="h-4 w-4" />
                     </button>
@@ -228,40 +262,126 @@ export function ProjectAdjustHoursModal({
                         </div>
                     </div>
 
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label className="font-semibold text-slate-700">Giờ phân bổ dự án này:</label>
-                            <span
-                                className={`rounded px-2 py-0.5 text-[11px] font-bold ${
-                                    isOverloaded
-                                        ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-300'
-                                        : totalWeeklyHours >= capacity * 0.75
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-slate-100 text-slate-700'
-                                    }`}
-                            >
-                                {otherProjectsHours > 0 ? `${hours}h (Tổng tuần: ${totalWeeklyHours}h - ${pct}%)` : `${hours}h (${pct}%)`}
-                            </span>
-                        </div>
-                        <input
-                            type="range"
-                            min="0"
-                            max={Math.max(60, capacity + 10)}
-                            step="1"
-                            value={hours}
-                            onChange={(e) => {
-                                setHours(Number(e.target.value));
-                                setReasonError(null);
-                            }}
-                            className="w-full cursor-pointer accent-indigo-600"
-                        />
-                        <div className="mt-1 flex justify-between text-[10px] text-slate-400">
-                            <span>0h</span>
-                            <span>{Math.round(capacity / 2)}h</span>
-                            <span className="font-bold text-slate-600">{capacity}h (Khả dụng)</span>
-                            <span className="font-bold text-rose-500">{Math.max(60, capacity + 10)}h</span>
-                        </div>
+                    {/* Mode Toggle (NCL-06-CN-007) */}
+                    <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                        <button
+                            type="button"
+                            onClick={() => setMode('PERCENTAGE')}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${
+                                mode === 'PERCENTAGE'
+                                    ? 'bg-white text-indigo-600 shadow-2xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            <Percent className="h-3.5 w-3.5" />
+                            <span>Theo Phần Trăm (%)</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMode('HOURS')}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${
+                                mode === 'HOURS'
+                                    ? 'bg-white text-indigo-600 shadow-2xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>Theo Số Giờ (h)</span>
+                        </button>
                     </div>
+
+                    {mode === 'PERCENTAGE' ? (
+                        /* Percentage Mode UI (NCL-06-CN-007) */
+                        <div className="space-y-3">
+                            {/* Preset Buttons */}
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {[25, 50, 75, 100].map((preset) => (
+                                    <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => handlePercentageChange(preset)}
+                                        className={`rounded-lg py-1 text-xs font-bold border transition cursor-pointer ${
+                                            percentage === preset
+                                                ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                                                : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        {preset}%
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div>
+                                <div className="mb-1 flex items-center justify-between">
+                                    <label className="font-semibold text-slate-700">Tỷ lệ phân bổ:</label>
+                                    <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-indigo-100 text-indigo-700">
+                                        {percentage}%
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    value={percentage}
+                                    onChange={(e) => handlePercentageChange(Number(e.target.value))}
+                                    className="w-full cursor-pointer accent-indigo-600"
+                                />
+                                <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+                                    <span>0%</span>
+                                    <span>25%</span>
+                                    <span>50%</span>
+                                    <span>75%</span>
+                                    <span>100%</span>
+                                </div>
+                            </div>
+
+                            {/* Live Conversion Preview */}
+                            <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-2.5 text-[11px] text-indigo-900">
+                                <span className="font-semibold">Quy đổi: </span>
+                                <span>{percentage}% của {capacity}h khả dụng = </span>
+                                <strong className="text-indigo-700 font-bold">{hours} giờ</strong>
+                                {otherProjectsHours > 0 && (
+                                    <span className="text-slate-500 text-[10px] block mt-0.5">
+                                        (Tổng tuần: {totalWeeklyHours}h - {pct}%)
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        /* Hours Mode UI */
+                        <div>
+                            <div className="mb-1 flex items-center justify-between">
+                                <label className="font-semibold text-slate-700">Giờ phân bổ dự án này:</label>
+                                <span
+                                    className={`rounded px-2 py-0.5 text-[11px] font-bold ${
+                                        isOverloaded
+                                            ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-300'
+                                            : totalWeeklyHours >= capacity * 0.75
+                                            ? 'bg-emerald-100 text-emerald-700'
+                                            : 'bg-slate-100 text-slate-700'
+                                    }`}
+                                >
+                                    {otherProjectsHours > 0 ? `${hours}h (Tổng tuần: ${totalWeeklyHours}h - ${pct}%)` : `${hours}h (${percentage}%)`}
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max={Math.max(60, capacity + 10)}
+                                step="1"
+                                value={hours}
+                                onChange={(e) => handleHoursChange(Number(e.target.value))}
+                                className="w-full cursor-pointer accent-indigo-600"
+                            />
+                            <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+                                <span>0h</span>
+                                <span>{Math.round(capacity / 2)}h</span>
+                                <span className="font-bold text-slate-600">{capacity}h (Khả dụng)</span>
+                                <span className="font-bold text-rose-500">{Math.max(60, capacity + 10)}h</span>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Overload Warning Box */}
                     {isOverloaded && (
@@ -320,7 +440,7 @@ export function ProjectAdjustHoursModal({
                             type="button"
                             onClick={onClose}
                             disabled={isSubmitting}
-                            className="rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 font-medium text-slate-700 hover:bg-slate-100 transition disabled:opacity-50"
+                            className="rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 font-medium text-slate-700 hover:bg-slate-100 transition disabled:opacity-50 cursor-pointer"
                         >
                             Đóng
                         </button>
@@ -328,7 +448,7 @@ export function ProjectAdjustHoursModal({
                             type="button"
                             onClick={handleApply}
                             disabled={isAdjustHoursSubmitDisabled(isSubmitting, isLoadingCapacity, isOverloaded, isResourceManager, !hasValidCapacity)}
-                            className={`rounded-lg px-4 py-1.5 font-medium text-white shadow-xs transition flex items-center gap-1.5 ${
+                            className={`rounded-lg px-4 py-1.5 font-medium text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer ${
                                 !hasValidCapacity || (isOverloaded && !isResourceManager)
                                     ? 'bg-slate-300 cursor-not-allowed text-slate-500'
                                     : isOverloaded
@@ -355,4 +475,3 @@ export function ProjectAdjustHoursModal({
         </div>
     );
 }
-

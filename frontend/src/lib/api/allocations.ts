@@ -32,6 +32,7 @@ export interface ProjectWeeklyAllocationResult {
   year: number;
   weekNumber: number;
   allocatedHours: number;
+  allocationPercentage?: number;
 }
 
 export async function getProjectWeeklyAllocations(
@@ -53,7 +54,8 @@ export async function allocateProjectHours(payload: {
   projectId: number;
   year: number;
   weekNumber: number;
-  allocatedHours: number;
+  allocatedHours?: number;
+  allocationPercentage?: number;
   overloadReason?: string;
 }): Promise<WeeklyCapacityResult> {
   return apiRequest<WeeklyCapacityResult>('/allocations', {
@@ -72,7 +74,8 @@ export interface BulkAllocateResourcePayload {
   fromWeek: number;
   toYear: number;
   toWeek: number;
-  allocatedHoursPerWeek: number;
+  allocatedHoursPerWeek?: number;
+  allocationPercentagePerWeek?: number;
 }
 
 export interface AllocatedWeekSummary {
