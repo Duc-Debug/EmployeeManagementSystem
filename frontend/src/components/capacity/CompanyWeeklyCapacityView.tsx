@@ -14,8 +14,10 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   TrendingUp,
+  BookmarkCheck,
 } from "lucide-react";
 import { useAuthUser } from "@/lib/auth-session";
+import { ResourceReservationModal } from "./ResourceReservationModal";
 import {
   getCompanyWeeklyCapacityMatrix,
   type CompanyWeeklyCapacityMatrixData,
@@ -29,6 +31,8 @@ import { getCurrentIsoWeek } from "@/components/availability/availability.types"
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
   const isCompanyScope = currentUser?.dataScope === "COMPANY";
+  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const canManageReservations = normalizedRole === "VT-02" || normalizedRole === "VT-03";
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -48,6 +52,26 @@ export default function CompanyWeeklyCapacityView() {
   const [orgUnits, setOrgUnits] = useState<{ id: number; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // NCL-06-CN-005: State cho Modal Giữ chỗ nguồn lực
+  const [isReservationModalOpen, setIsReservationModalOpen] = useState<boolean>(false);
+  const [reservationTarget, setReservationTarget] = useState<{
+    employeeId?: number;
+    employeeName?: string;
+    year?: number;
+    weekNumber?: number;
+  } | null>(null);
+
+  const handleOpenReservationModal = (
+    employeeId?: number,
+    employeeName?: string,
+    year?: number,
+    weekNumber?: number
+  ) => {
+    if (!canManageReservations) return;
+    setReservationTarget({ employeeId, employeeName, year, weekNumber });
+    setIsReservationModalOpen(true);
+  };
 
   // 1. Tải danh mục phòng ban (giới hạn theo phạm vi chi nhánh nếu dataScope là ORGANIZATION_BRANCH)
   useEffect(() => {
@@ -190,8 +214,33 @@ export default function CompanyWeeklyCapacityView() {
   const totalPages = matrixData?.totalPages ?? 1;
 
   // Render 1 ô dữ liệu trong ma trận
-  const renderCell = (cell: CapacityMatrixCell) => {
+  const renderCell = (cell: CapacityMatrixCell, row: EmployeeCapacityRow) => {
     const isZeroAvailability = cell.availableHours === 0;
+
+    const reservationBadge = cell.reservedHours != null && cell.reservedHours > 0 ? (
+      canManageReservations ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenReservationModal(row.employeeId, row.fullName, cell.year, cell.weekNumber);
+          }}
+          className="mt-1 flex items-center justify-center gap-1 rounded-md border border-dashed border-amber-400 bg-amber-50/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition shadow-2xs w-full"
+          title={`QTN-13: Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức). Bấm để xem hoặc quản lý.`}
+        >
+          <BookmarkCheck className="h-3 w-3 text-amber-600 shrink-0" />
+          <span>Giữ: {cell.reservedHours}h</span>
+        </button>
+      ) : (
+        <div
+          className="mt-1 flex items-center justify-center gap-1 rounded-md border border-dashed border-amber-400 bg-amber-50/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 w-full"
+          title={`QTN-13: Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức).`}
+        >
+          <BookmarkCheck className="h-3 w-3 text-amber-600 shrink-0" />
+          <span>Giữ: {cell.reservedHours}h</span>
+        </div>
+      )
+    ) : null;
 
     if (isZeroAvailability && cell.allocatedHours === 0) {
       return (
@@ -201,6 +250,7 @@ export default function CompanyWeeklyCapacityView() {
         >
           <span className="font-semibold text-slate-500">Nghỉ phép</span>
           <span className="text-[10px] text-slate-400">0h / 0h</span>
+          {reservationBadge}
         </div>
       );
     }
@@ -221,6 +271,7 @@ export default function CompanyWeeklyCapacityView() {
           <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded-full bg-rose-200/80 text-[10px] font-bold text-rose-900">
             + {cell.excessHours}h
           </span>
+          {reservationBadge}
         </div>
       );
     }
@@ -238,6 +289,7 @@ export default function CompanyWeeklyCapacityView() {
             {cell.allocatedHours}h / {cell.availableHours}h
           </span>
           <span className="text-[10px] font-semibold text-amber-600/80">Nhàn rỗi</span>
+          {reservationBadge}
         </div>
       );
     }
@@ -255,6 +307,7 @@ export default function CompanyWeeklyCapacityView() {
         <span className="text-[11px] text-emerald-600">
           {cell.allocatedHours}h / {cell.availableHours}h
         </span>
+        {reservationBadge}
       </div>
     );
   };
@@ -310,6 +363,18 @@ export default function CompanyWeeklyCapacityView() {
             <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
             <span>Tuần hiện tại</span>
           </button>
+
+          {canManageReservations && (
+            <button
+              type="button"
+              onClick={() => handleOpenReservationModal()}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
+              title="Giữ chỗ nguồn lực cho dự án dự kiến (NCL-06-CN-005, QTN-13)"
+            >
+              <BookmarkCheck className="h-3.5 w-3.5 text-amber-600" />
+              <span>Giữ chỗ nguồn lực</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -526,7 +591,7 @@ export default function CompanyWeeklyCapacityView() {
                         key={`${cell.year}-${cell.weekNumber}`}
                         className="p-2 border-r border-slate-200 align-middle text-center last:border-r-0"
                       >
-                        {renderCell(cell)}
+                        {renderCell(cell, row)}
                       </td>
                     ))}
 
@@ -616,7 +681,26 @@ export default function CompanyWeeklyCapacityView() {
           <span className="h-3 w-3 rounded-md bg-slate-300" />
           <span>Nghỉ phép / Chưa phân bổ</span>
         </div>
+        <div className="flex items-center gap-1.5">
+          <span className="flex items-center justify-center rounded-md border border-dashed border-amber-400 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+            Giữ: Xh
+          </span>
+          <span>Giữ chỗ dự kiến (QTN-13: Tách biệt, không tính vào giờ phân bổ chính thức)</span>
+        </div>
       </div>
+
+      {/* Modal Giữ chỗ nguồn lực (NCL-06-CN-005) */}
+      <ResourceReservationModal
+        open={isReservationModalOpen}
+        onClose={() => setIsReservationModalOpen(false)}
+        onSuccess={() => {
+          fetchMatrix();
+        }}
+        initialEmployeeId={reservationTarget?.employeeId}
+        initialEmployeeName={reservationTarget?.employeeName}
+        initialYear={reservationTarget?.year}
+        initialWeekNumber={reservationTarget?.weekNumber}
+      />
     </div>
   );
 }
