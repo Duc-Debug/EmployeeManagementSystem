@@ -80,6 +80,7 @@ export interface CapacityMatrixCell {
   utilizationPercentage: number | null;
   isOverloaded: boolean;
   excessHours: number;
+  reservedHours?: number;
   status: CapacityStatus;
 }
 
@@ -220,4 +221,100 @@ export async function searchResourceCandidates(
   if (params.durationWeeks != null) query.append("durationWeeks", String(params.durationWeeks));
 
   return apiRequest<ResourceSearchResult[]>(`/allocations/search?${query.toString()}`);
+}
+
+// NCL-06-CN-005: Quản lý giữ chỗ nguồn lực (Resource Reservation - QTN-13)
+export type ReservationStatus = "ACTIVE" | "CONVERTED" | "CANCELLED";
+
+export interface ResourceReservationResult {
+  id: number;
+  projectId: number;
+  projectCode: string;
+  projectName: string;
+  employeeId: number;
+  employeeCode: string;
+  employeeFullName: string;
+  year: number;
+  weekNumber: number;
+  reservedHours: number;
+  note?: string | null;
+  status: ReservationStatus;
+  createdBy: number;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface CreateReservationPayload {
+  projectId: number;
+  employeeId: number;
+  year: number;
+  weekNumber: number;
+  reservedHours: number;
+  note?: string;
+}
+
+export interface CancelReservationPayload {
+  reason: string;
+}
+
+export async function createResourceReservation(
+  payload: CreateReservationPayload
+): Promise<ResourceReservationResult> {
+  return apiRequest<ResourceReservationResult>("/resource-reservations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function cancelResourceReservation(
+  id: number,
+  payload: CancelReservationPayload
+): Promise<ResourceReservationResult> {
+  return apiRequest<ResourceReservationResult>(`/resource-reservations/${id}/cancel`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getResourceReservations(params?: {
+  projectId?: number;
+  employeeId?: number;
+  year?: number;
+  weekNumber?: number;
+  status?: ReservationStatus;
+}): Promise<ResourceReservationResult[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.projectId != null) searchParams.append("projectId", String(params.projectId));
+  if (params?.employeeId != null) searchParams.append("employeeId", String(params.employeeId));
+  if (params?.year != null) searchParams.append("year", String(params.year));
+  if (params?.weekNumber != null) searchParams.append("weekNumber", String(params.weekNumber));
+  if (params?.status != null) searchParams.append("status", params.status);
+  const queryStr = searchParams.toString();
+  return apiRequest<ResourceReservationResult[]>(
+    `/resource-reservations${queryStr ? `?${queryStr}` : ""}`
+  );
+}
+
+export async function autoCancelProjectReservations(
+  projectId: number,
+  payload: { reason: string }
+): Promise<{ cancelledCount: number }> {
+  return apiRequest<{ cancelledCount: number }>(
+    `/resource-reservations/projects/${projectId}/auto-cancel`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function autoConvertProjectReservations(
+  projectId: number
+): Promise<{ convertedCount: number }> {
+  return apiRequest<{ convertedCount: number }>(
+    `/resource-reservations/projects/${projectId}/auto-convert`,
+    {
+      method: "POST",
+    }
+  );
 }
