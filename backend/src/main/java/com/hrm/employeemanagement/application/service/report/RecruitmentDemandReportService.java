@@ -188,10 +188,10 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
     }
 
     private String buildTimeRangeText(RecruitmentDemandReportQuery query) {
-        if (query.fromYear() != null && query.fromWeek() != null && query.toYear() != null && query.toWeek() != null) {
+        if (query != null && query.fromYear() != null && query.fromWeek() != null && query.toYear() != null && query.toWeek() != null) {
             return String.format("%d-W%02d đến %d-W%02d", query.fromYear(), query.fromWeek(), query.toYear(), query.toWeek());
         }
-        return "Toàn thời gian";
+        return "N/A";
     }
 
     private void recordSuccessAuditLog(Long userId, RecruitmentDemandReportQuery query, Long effectiveOrgUnitId, int deficitCount, BigDecimal totalDeficitHours) {

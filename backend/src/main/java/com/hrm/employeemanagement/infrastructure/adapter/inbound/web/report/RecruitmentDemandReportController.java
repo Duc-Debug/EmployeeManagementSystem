@@ -38,10 +38,10 @@ public class RecruitmentDemandReportController {
     @GetMapping
     @PreAuthorize("hasAuthority('RECRUITMENT_DEMAND_REPORT_READ')")
     public ResponseEntity<ApiResponse<RecruitmentDemandReportResult>> getRecruitmentDemandReport(
-            @RequestParam(required = false) Integer fromYear,
-            @RequestParam(required = false) Integer fromWeek,
-            @RequestParam(required = false) Integer toYear,
-            @RequestParam(required = false) Integer toWeek,
+            @RequestParam Integer fromYear,
+            @RequestParam Integer fromWeek,
+            @RequestParam Integer toYear,
+            @RequestParam Integer toWeek,
             @RequestParam(required = false) Long orgUnitId
     ) {
         RecruitmentDemandReportQuery query = new RecruitmentDemandReportQuery(fromYear, fromWeek, toYear, toWeek, orgUnitId);

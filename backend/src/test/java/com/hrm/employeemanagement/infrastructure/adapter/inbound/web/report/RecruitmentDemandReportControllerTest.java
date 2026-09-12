@@ -80,7 +80,11 @@ class RecruitmentDemandReportControllerTest {
         when(getRecruitmentDemandReportUseCase.execute(org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new PermissionDeniedException(PermissionCode.RECRUITMENT_DEMAND_REPORT_READ));
 
-        mockMvc.perform(get("/api/v1/reports/recruitment-demand"))
+        mockMvc.perform(get("/api/v1/reports/recruitment-demand")
+                        .param("fromYear", "2026")
+                        .param("fromWeek", "1")
+                        .param("toYear", "2026")
+                        .param("toWeek", "4"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
