@@ -17,6 +17,7 @@ public class WeeklyProjectAllocation {
     private Long projectId;
     private YearWeek yearWeek;
     private BigDecimal allocatedHours;
+    private BigDecimal allocationPercentage;
     private boolean isOverloaded;
     private String overloadReason;
     private Long overloadApprovedBy;
@@ -24,22 +25,34 @@ public class WeeklyProjectAllocation {
     private Long version;
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, false, null, null, null, 0L);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, 0L);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, false, null, null, null, version);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
+        this(id, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
         this.id = id;
         this.employeeId = Objects.requireNonNull(employeeId, "ID nhân sự không được null");
         this.projectId = Objects.requireNonNull(projectId, "ID dự án không được null");
         this.yearWeek = Objects.requireNonNull(yearWeek, "Tuần/Năm (YearWeek) không được null");
         setAllocatedHours(allocatedHours);
+        setAllocationPercentage(allocationPercentage);
         this.isOverloaded = isOverloaded;
         this.overloadReason = overloadReason;
         this.overloadApprovedBy = overloadApprovedBy;
@@ -51,7 +64,12 @@ public class WeeklyProjectAllocation {
      * Phương thức khởi tạo một bản ghi phân bổ mới chưa có ID.
      */
     public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
-        return new WeeklyProjectAllocation(null, employeeId, projectId, yearWeek, allocatedHours);
+        return new WeeklyProjectAllocation(null, employeeId, projectId, yearWeek, allocatedHours, null, 0L);
+    }
+
+    public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage) {
+        return new WeeklyProjectAllocation(null, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, 0L);
     }
 
     /**
@@ -60,6 +78,11 @@ public class WeeklyProjectAllocation {
      */
     public void updateAllocatedHours(BigDecimal newAllocatedHours) {
         setAllocatedHours(newAllocatedHours);
+    }
+
+    public void updateAllocation(BigDecimal newAllocatedHours, BigDecimal newPercentage) {
+        setAllocatedHours(newAllocatedHours);
+        setAllocationPercentage(newPercentage);
     }
 
     private void setAllocatedHours(BigDecimal hours) {
@@ -79,6 +102,21 @@ public class WeeklyProjectAllocation {
         }
 
         this.allocatedHours = hours;
+    }
+
+    public void setAllocationPercentage(BigDecimal percentage) {
+        if (percentage == null) {
+            this.allocationPercentage = null;
+            return;
+        }
+
+        if (percentage.compareTo(BigDecimal.ZERO) < 0 || percentage.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationPercentageException(
+                    "Tỷ lệ phần trăm phân bổ phải nằm trong khoảng từ 0% đến 100%: " + percentage
+            );
+        }
+
+        this.allocationPercentage = percentage;
     }
 
     // Các phương thức Getters
@@ -108,6 +146,10 @@ public class WeeklyProjectAllocation {
 
     public BigDecimal getAllocatedHours() {
         return allocatedHours;
+    }
+
+    public BigDecimal getAllocationPercentage() {
+        return allocationPercentage;
     }
 
     public Long getVersion() {

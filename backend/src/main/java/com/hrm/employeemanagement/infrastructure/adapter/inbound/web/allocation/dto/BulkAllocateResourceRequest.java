@@ -2,13 +2,14 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation
 
 import java.math.BigDecimal;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 /**
- * NCL-06-CN-006: Request DTO cho endpoint POST /api/v1/allocations/bulk, nhận payload phân bổ hàng loạt nhiều tuần từ client.
+ * NCL-06-CN-006 & NCL-06-CN-007: Request DTO cho endpoint POST /api/v1/allocations/bulk, nhận payload phân bổ hàng loạt nhiều tuần từ client.
  */
 public record BulkAllocateResourceRequest(
         @NotNull(message = "ID nhân sự không được null")
@@ -31,8 +32,31 @@ public record BulkAllocateResourceRequest(
         @Min(value = 1, message = "Tuần kết thúc phải từ 1 trở lên")
         @Max(value = 53, message = "Tuần kết thúc tối đa là 53")
         Integer toWeek,
-        @NotNull(message = "Số giờ phân bổ mỗi tuần không được null")
         @DecimalMin(value = "0.1", message = "Số giờ phân bổ mỗi tuần phải lớn hơn 0")
-        @jakarta.validation.constraints.DecimalMax(value = "168.0", message = "Số giờ phân bổ mỗi tuần không được vượt quá 168 giờ")
-        BigDecimal allocatedHoursPerWeek
-) {}
+        @DecimalMax(value = "168.0", message = "Số giờ phân bổ mỗi tuần không được vượt quá 168 giờ")
+        BigDecimal allocatedHoursPerWeek,
+        @DecimalMin(value = "0.0", message = "Tỷ lệ phần trăm phân bổ mỗi tuần không được là số âm")
+        @DecimalMax(value = "100.0", message = "Tỷ lệ phần trăm phân bổ mỗi tuần tối đa là 100%")
+        BigDecimal allocationPercentagePerWeek
+) {
+    public BulkAllocateResourceRequest(
+            Long employeeId,
+            Long projectId,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer toYear,
+            Integer toWeek,
+            BigDecimal allocatedHoursPerWeek
+    ) {
+        this(employeeId, projectId, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, null);
+    }
+
+    public BulkAllocateResourceRequest {
+        if (allocatedHoursPerWeek == null && allocationPercentagePerWeek == null) {
+            throw new IllegalArgumentException("Phải cung cấp số giờ phân bổ hoặc tỷ lệ phần trăm phân bổ mỗi tuần");
+        }
+        if (allocatedHoursPerWeek != null && allocationPercentagePerWeek != null) {
+            throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ mỗi tuần");
+        }
+    }
+}

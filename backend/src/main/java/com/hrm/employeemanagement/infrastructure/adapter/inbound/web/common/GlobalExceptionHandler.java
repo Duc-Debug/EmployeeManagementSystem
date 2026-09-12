@@ -315,6 +315,14 @@ public class GlobalExceptionHandler {
     // value)
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        Throwable mostSpecificCause = ex.getMostSpecificCause();
+        if (mostSpecificCause instanceof IllegalArgumentException) {
+            ErrorResponse response = ErrorResponse.of(
+                    "INVALID_ARGUMENT",
+                    mostSpecificCause.getMessage(),
+                    HttpStatus.BAD_REQUEST.value());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
         ErrorResponse response = ErrorResponse.of(
                 "MALFORMED_JSON",
                 "Malformed JSON request body or invalid property format",

@@ -156,7 +156,7 @@ class AllocationOverloadUseCaseTest {
 
         // Phân bổ thêm 10h cho dự án B mà chưa ghi lý do
         AllocateResourceCommand command = new AllocateResourceCommand(
-                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(10), null);
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(10));
 
         AllocationOverloadWarningException ex = assertThrows(
                 AllocationOverloadWarningException.class,
@@ -228,7 +228,7 @@ class AllocationOverloadUseCaseTest {
 
         // Phân bổ 32h (chưa có lý do)
         AllocateResourceCommand command = new AllocateResourceCommand(
-                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(32), null);
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(32));
 
         AllocationOverloadWarningException ex = assertThrows(
                 AllocationOverloadWarningException.class,
@@ -338,7 +338,7 @@ class AllocationOverloadUseCaseTest {
 
         // Sửa dự án B từ 10h lên 15h -> Tổng = 20h + 15h = 35h <= 40h
         AllocateResourceCommand command = new AllocateResourceCommand(
-                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(15), null);
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(15));
 
         WeeklyCapacityResult result = service.allocateResource(command);
 
@@ -476,7 +476,7 @@ class AllocationOverloadUseCaseTest {
 
         // User giảm Dự án B từ 25h xuống 15h -> Tổng tuần mới: 20h + 15h = 35h <= 40h (Hết quá tải)
         AllocateResourceCommand command = new AllocateResourceCommand(
-                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(15), null);
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(15));
 
         WeeklyCapacityResult result = service.allocateResource(command);
 
@@ -519,7 +519,7 @@ class AllocationOverloadUseCaseTest {
         when(saveAllocationPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         AllocateResourceCommand command = new AllocateResourceCommand(
-                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(40), null);
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(40));
 
         WeeklyCapacityResult result = service.allocateResource(command);
 

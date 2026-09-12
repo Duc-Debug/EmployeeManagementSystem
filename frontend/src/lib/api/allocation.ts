@@ -7,7 +7,8 @@ export interface AllocateResourcePayload {
   projectId: number;
   year: number;
   weekNumber: number;
-  allocatedHours: number;
+  allocatedHours?: number;
+  allocationPercentage?: number;
   overloadReason?: string;
 }
 

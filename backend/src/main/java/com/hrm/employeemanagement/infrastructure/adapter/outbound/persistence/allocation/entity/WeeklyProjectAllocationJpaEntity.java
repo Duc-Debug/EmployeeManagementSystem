@@ -38,6 +38,9 @@ public class WeeklyProjectAllocationJpaEntity {
     @Column(name = "allocated_hours", nullable = false, precision = 5, scale = 2)
     private BigDecimal allocatedHours;
 
+    @Column(name = "allocation_percentage", precision = 5, scale = 2)
+    private BigDecimal allocationPercentage;
+
     @Column(name = "is_overloaded", nullable = false)
     private Boolean isOverloaded = false;
 
@@ -64,11 +67,16 @@ public class WeeklyProjectAllocationJpaEntity {
 
     public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
             Integer weekNumber, BigDecimal allocatedHours, Long version) {
-        this(id, employeeId, projectId, year, weekNumber, allocatedHours, false, null, null, null, version);
+        this(id, employeeId, projectId, year, weekNumber, allocatedHours, null, false, null, null, null, version);
     }
 
     public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
-            Integer weekNumber, BigDecimal allocatedHours, Boolean isOverloaded, String overloadReason,
+            Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
+        this(id, employeeId, projectId, year, weekNumber, allocatedHours, allocationPercentage, false, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
+            Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, LocalDateTime overloadApprovedAt, Long version) {
         this.id = id;
         this.employeeId = employeeId;
@@ -76,6 +84,7 @@ public class WeeklyProjectAllocationJpaEntity {
         this.year = year;
         this.weekNumber = weekNumber;
         this.allocatedHours = allocatedHours;
+        this.allocationPercentage = allocationPercentage;
         this.isOverloaded = isOverloaded != null ? isOverloaded : false;
         this.overloadReason = overloadReason;
         this.overloadApprovedBy = overloadApprovedBy;
@@ -130,6 +139,14 @@ public class WeeklyProjectAllocationJpaEntity {
 
     public void setAllocatedHours(BigDecimal allocatedHours) {
         this.allocatedHours = allocatedHours;
+    }
+
+    public BigDecimal getAllocationPercentage() {
+        return allocationPercentage;
+    }
+
+    public void setAllocationPercentage(BigDecimal allocationPercentage) {
+        this.allocationPercentage = allocationPercentage;
     }
 
     public Long getCreatedBy() {

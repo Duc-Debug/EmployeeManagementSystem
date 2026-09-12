@@ -20,7 +20,7 @@ import { useAuthUser } from "@/lib/auth-session";
 
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
-    { name: "Bảng năng lực", icon: CalendarRange, id: "capacity" },
+    { name: "Bảng năng lực & Phân bổ", icon: CalendarRange, id: "capacity" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
