@@ -35,9 +35,11 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                             allocation.getYear(),
                             allocation.getWeekNumber(),
                             allocation.getAllocatedHours(),
+                            allocation.getAllocationPercentage(),
                             null
                     ));
             entity.setAllocatedHours(allocation.getAllocatedHours());
+            entity.setAllocationPercentage(allocation.getAllocationPercentage());
         } else {
             entity = new WeeklyProjectAllocationJpaEntity(
                     null,
@@ -46,6 +48,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                     allocation.getYear(),
                     allocation.getWeekNumber(),
                     allocation.getAllocatedHours(),
+                    allocation.getAllocationPercentage(),
                     null
             );
         }
@@ -57,6 +60,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 saved.getProjectId(),
                 YearWeek.of(saved.getYear(), saved.getWeekNumber()),
                 saved.getAllocatedHours(),
+                saved.getAllocationPercentage(),
                 saved.getVersion()
         );
     }
@@ -68,7 +72,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 .map(e -> new WeeklyProjectAllocation(
                         e.getId(), e.getEmployeeId(), e.getProjectId(),
                         YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()));
+                        e.getAllocatedHours(), e.getAllocationPercentage(), e.getVersion()));
     }
 
     @Override
@@ -78,7 +82,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 .map(e -> new WeeklyProjectAllocation(
                         e.getId(), e.getEmployeeId(), e.getProjectId(),
                         YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                        e.getAllocatedHours(), e.getAllocationPercentage(), e.getVersion()))
                 .toList();
     }
 
@@ -89,7 +93,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 .map(e -> new WeeklyProjectAllocation(
                         e.getId(), e.getEmployeeId(), e.getProjectId(),
                         YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                        e.getAllocatedHours(), e.getAllocationPercentage(), e.getVersion()))
                 .toList();
     }
 
@@ -120,7 +124,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 results.addAll(entities.stream().map(e -> new WeeklyProjectAllocation(
                         e.getId(), e.getEmployeeId(), e.getProjectId(),
                         YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion())).toList());
+                        e.getAllocatedHours(), e.getAllocationPercentage(), e.getVersion())).toList());
             }
         }
         return results;
@@ -133,7 +137,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 .map(e -> new WeeklyProjectAllocation(
                         e.getId(), e.getEmployeeId(), e.getProjectId(),
                         YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                        e.getAllocatedHours(), e.getAllocationPercentage(), e.getVersion()))
                 .toList();
     }
 }

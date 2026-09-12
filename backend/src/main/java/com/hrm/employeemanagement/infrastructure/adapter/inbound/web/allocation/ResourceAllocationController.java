@@ -79,7 +79,8 @@ public class ResourceAllocationController {
                 request.projectId(),
                 request.year(),
                 request.weekNumber(),
-                request.allocatedHours()
+                request.allocatedHours(),
+                request.allocationPercentage()
         );
 
         WeeklyCapacityResult result = allocateResourceUseCase.allocateResource(command);
