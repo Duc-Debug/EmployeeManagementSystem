@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V52: CREATE CASCADE DELAY WARNING SCHEMA
+-- FLYWAY MIGRATION V60: CREATE CASCADE DELAY WARNING SCHEMA
 -- Epic: NCL-04 (Quản lý Tiến độ & Công việc Dự án)
 -- Story: NCL-04-CN-005 (Cảnh báo trễ dây chuyền khi một công việc trượt)
 -- ============================================================
@@ -27,8 +27,7 @@ SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code IN ('PROJECT_CASCADE_DELAY_READ', 'PROJECT_CASCADE_DELAY_MANAGE')
 WHERE r.code IN ('VT-02', 'VT-06')
-AND NOT EXISTS (
-    SELECT 1 FROM role_permissions rp 
-    WHERE rp.role_id = r.id AND rp.permission_id = p.id
-);
-//hhh
+  AND NOT EXISTS (
+      SELECT 1 FROM role_permissions rp
+      WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
