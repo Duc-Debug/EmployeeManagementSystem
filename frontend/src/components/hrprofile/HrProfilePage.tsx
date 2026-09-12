@@ -5,6 +5,10 @@ import HrProfileCard from "./HrProfileCard";
 import HrProfileForm from "./HrProfileForm";
 import { useAuthUser } from "@/lib/auth-session";
 import { getEmployees, updateEmployeeProfile } from "@/lib/api/employees";
+import { getUsers } from "@/lib/api/users";
+import { getOrgTree } from "@/lib/api/org-units";
+import { flattenActiveOrgTree } from "@/lib/organization";
+import { getStoredDates } from "@/lib/employee-storage";
 
 export default function HrProfilePage() {
     const currentUser = useAuthUser();
@@ -22,19 +26,50 @@ export default function HrProfilePage() {
     const loadProfiles = async () => {
         setIsLoading(true);
         try {
-            const res = await getEmployees(1, 100);
-            if (res && res.content && res.content.length > 0) {
-                const mapped: HrProfileData[] = res.content.map((p) => ({
-                    id: String(p.id),
-                    employeeId: p.id,
-                    employeeCode: p.employeeCode,
-                    fullName: p.fullName,
-                    department: p.orgUnitName || "Chưa phân bổ",
-                    professionalRole: p.professionalRole || "",
-                    startDate: p.startDate || "",
-                    contractEndDate: p.contractEndDate || "",
-                    standardHoursPerWeek: p.standardHoursPerWeek || 40,
-                }));
+            const [empRes, usersRes, treeRes] = await Promise.allSettled([
+                getEmployees(1, 100),
+                getUsers(0, 100),
+                getOrgTree(),
+            ]);
+
+            const orgUnitMap = new Map<number, string>();
+            if (treeRes.status === "fulfilled" && treeRes.value) {
+                const flat = flattenActiveOrgTree(treeRes.value);
+                flat.forEach((unit) => {
+                    orgUnitMap.set(unit.id, unit.unitName);
+                });
+            }
+
+            const userMap = new Map<number, any>();
+            if (usersRes.status === "fulfilled" && usersRes.value?.content) {
+                usersRes.value.content.forEach((u: any) => {
+                    userMap.set(u.id, u);
+                    if (u.employeeId) userMap.set(u.employeeId, u);
+                });
+            }
+
+            if (empRes.status === "fulfilled" && empRes.value && empRes.value.content) {
+                const mapped: HrProfileData[] = empRes.value.content.map((p) => {
+                    const u = (p.userId && userMap.get(p.userId)) || userMap.get(p.id);
+                    const empCode = p.employeeCode || (p.id ? `EMP-${String(p.id).padStart(3, "0")}` : "");
+                    const dates = getStoredDates(p.id) || (p.userId ? getStoredDates(p.userId) : undefined) || getStoredDates(empCode);
+                    const deptName = (p.orgUnitId && orgUnitMap.get(p.orgUnitId)) || u?.orgUnitName || "Chưa phân bổ";
+
+                    return {
+                        id: String(p.id),
+                        employeeId: p.id,
+                        employeeCode: empCode,
+                        fullName: p.fullName || u?.fullName || "",
+                        email: u?.email || "",
+                        username: u?.username || "",
+                        orgUnitId: p.orgUnitId ? String(p.orgUnitId) : undefined,
+                        department: deptName,
+                        professionalRole: p.professionalRole || u?.roleName || "Nhân viên chuyên môn",
+                        startDate: p.startDate || dates?.joinDate || "",
+                        contractEndDate: p.contractEndDate || dates?.contractEndDate || "",
+                        standardHoursPerWeek: p.standardHoursPerWeek || 40,
+                    };
+                });
                 setProfiles(mapped);
             } else {
                 setProfiles([]);
