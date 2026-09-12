@@ -28,6 +28,9 @@ import com.hrm.employeemanagement.application.service.allocation.GetCompanyWeekl
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
+import com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase;
+import com.hrm.employeemanagement.application.service.allocation.BulkResourceAllocationService;
+import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalBulkAllocateResourceUseCase;
 
 @Configuration
 public class ResourceAllocationUseCaseConfig {
@@ -121,5 +124,34 @@ public class ResourceAllocationUseCaseConfig {
                 loadAllocationPort,
                 saveAuditLogPort
         );
+    }
+
+    /**
+     * NCL-06-CN-006: Đăng ký Bean cho BulkAllocateResourceUseCase được bọc Transaction trực tiếp
+     */
+    @Bean
+    public BulkAllocateResourceUseCase bulkAllocateResourceUseCase(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort) {
+        BulkResourceAllocationService pureService =
+                new BulkResourceAllocationService(
+                        authorizationService,
+                        loadEmployeePort,
+                        loadProjectPort,
+                        loadWeeklyAvailabilityPort,
+                        saveAllocationPort,
+                        loadAllocationPort,
+                        saveAuditLogPort,
+                        loadUserPort,
+                        loadOrgUnitPort
+                );
+        return new TransactionalBulkAllocateResourceUseCase(pureService);
     }
 }

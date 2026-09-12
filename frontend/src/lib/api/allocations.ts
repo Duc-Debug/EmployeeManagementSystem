@@ -62,6 +62,61 @@ export async function allocateProjectHours(payload: {
   });
 }
 
+/**
+ * NCL-06-CN-006: Payload yêu cầu phân bổ hàng loạt cho nhiều tuần
+ */
+export interface BulkAllocateResourcePayload {
+  employeeId: number;
+  projectId: number;
+  fromYear: number;
+  fromWeek: number;
+  toYear: number;
+  toWeek: number;
+  allocatedHoursPerWeek: number;
+}
+
+export interface AllocatedWeekSummary {
+  year: number;
+  weekNumber: number;
+  allocatedHours: number;
+  remainingHours: number;
+}
+
+export interface BlockedWeekSummary {
+  year: number;
+  weekNumber: number;
+  reasonCode: string;
+  reasonMessage: string;
+  netAvailableHours: number;
+  currentAllocatedHours: number;
+  requestedHours: number;
+}
+
+/**
+ * NCL-06-CN-006: Kết quả phân bổ hàng loạt nhiều tuần
+ */
+export interface BulkAllocationResult {
+  employeeId: number;
+  projectId: number;
+  totalRequestedWeeks: number;
+  successCount: number;
+  blockedCount: number;
+  successWeeks: AllocatedWeekSummary[];
+  blockedWeeks: BlockedWeekSummary[];
+}
+
+/**
+ * NCL-06-CN-006: Gọi API phân bổ hàng loạt cho nhiều tuần
+ */
+export async function bulkAllocateResource(
+  payload: BulkAllocateResourcePayload
+): Promise<BulkAllocationResult> {
+  return apiRequest<BulkAllocationResult>('/allocations/bulk', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export type CapacityStatus = "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED";
 
 export interface HeaderWeekInfo {

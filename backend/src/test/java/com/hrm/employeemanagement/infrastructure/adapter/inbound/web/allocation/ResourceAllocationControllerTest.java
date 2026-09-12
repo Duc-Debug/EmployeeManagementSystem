@@ -43,6 +43,9 @@ class ResourceAllocationControllerTest {
     private AllocateResourceUseCase allocateResourceUseCase;
 
     @Mock
+    private com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase bulkAllocateResourceUseCase;
+
+    @Mock
     private SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase;
 
     @Mock
@@ -52,6 +55,7 @@ class ResourceAllocationControllerTest {
     void setUp() {
         ResourceAllocationController controller = new ResourceAllocationController(
                 allocateResourceUseCase,
+                bulkAllocateResourceUseCase,
                 searchResourceUseCase,
                 getCompanyWeeklyCapacityUseCase
         );
