@@ -26,6 +26,8 @@ public interface SpringDataEmployeeRepository extends JpaRepository<EmployeeJpaE
     List<EmployeeJpaEntity> findByUserIdIn(List<Long> userIds);
     List<EmployeeJpaEntity> findByOrgUnitId(Long orgUnitId);
     List<EmployeeJpaEntity> findByOrgUnitIdAndStatus(Long orgUnitId, String status);
+    List<EmployeeJpaEntity> findByOrgUnitIdInAndStatus(List<Long> orgUnitIds, String status);
+    List<EmployeeJpaEntity> findByStatus(String status);
 
     @Query("SELECT e FROM EmployeeJpaEntity e WHERE UPPER(e.status) = UPPER(:status) OR (e.status IS NULL AND UPPER(:status) = 'ACTIVE')")
     List<EmployeeJpaEntity> findByStatus(@Param("status") String status);
@@ -105,4 +107,70 @@ public interface SpringDataEmployeeRepository extends JpaRepository<EmployeeJpaE
         """,
         nativeQuery = true)
     long countByProjectManager(@Param("pmEmployeeId") Long pmEmployeeId);
+
+    @Query(value = """
+        SELECT e.*
+        FROM employees e
+        WHERE e.status = 'ACTIVE'
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.professional_role) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        ORDER BY e.full_name ASC, e.employee_code ASC
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<EmployeeJpaEntity> findActivePaged(
+            @Param("keyword") String keyword,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM employees e
+        WHERE e.status = 'ACTIVE'
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.professional_role) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        """, nativeQuery = true)
+    long countActivePaged(@Param("keyword") String keyword);
+
+    @Query(value = """
+        SELECT e.*
+        FROM employees e
+        WHERE e.status = 'ACTIVE'
+          AND e.org_unit_id IN (:orgUnitIds)
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.professional_role) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        ORDER BY e.full_name ASC, e.employee_code ASC
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<EmployeeJpaEntity> findActiveByOrgUnitIdsPaged(
+            @Param("orgUnitIds") List<Long> orgUnitIds,
+            @Param("keyword") String keyword,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM employees e
+        WHERE e.status = 'ACTIVE'
+          AND e.org_unit_id IN (:orgUnitIds)
+          AND (:keyword IS NULL OR (
+              LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(e.professional_role) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          ))
+        """, nativeQuery = true)
+    long countActiveByOrgUnitIdsPaged(
+            @Param("orgUnitIds") List<Long> orgUnitIds,
+            @Param("keyword") String keyword
+    );
 }

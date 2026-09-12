@@ -9,16 +9,21 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.authorization.SpringDataPermissionRepository;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -28,15 +33,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final LoadUserPort loadUserPort;
     private final UserStatusCache userStatusCache;
     private final TokenBlacklistPort tokenBlacklistPort;
+    private final SpringDataPermissionRepository permissionRepository;
+
+    @Autowired
+    public JwtAuthenticationFilter(TokenProviderPort tokenProvider,
+            LoadUserPort loadUserPort,
+            UserStatusCache userStatusCache,
+            TokenBlacklistPort tokenBlacklistPort,
+            @Autowired(required = false) SpringDataPermissionRepository permissionRepository) {
+        this.tokenProvider = java.util.Objects.requireNonNull(tokenProvider, "tokenProvider must not be null");
+        this.loadUserPort = java.util.Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
+        this.userStatusCache = java.util.Objects.requireNonNull(userStatusCache, "userStatusCache must not be null");
+        this.tokenBlacklistPort = java.util.Objects.requireNonNull(tokenBlacklistPort, "tokenBlacklistPort must not be null");
+        this.permissionRepository = permissionRepository;
+    }
 
     public JwtAuthenticationFilter(TokenProviderPort tokenProvider,
             LoadUserPort loadUserPort,
             UserStatusCache userStatusCache,
             TokenBlacklistPort tokenBlacklistPort) {
-        this.tokenProvider = java.util.Objects.requireNonNull(tokenProvider, "tokenProvider must not be null");
-        this.loadUserPort = java.util.Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
-        this.userStatusCache = java.util.Objects.requireNonNull(userStatusCache, "userStatusCache must not be null");
-        this.tokenBlacklistPort = java.util.Objects.requireNonNull(tokenBlacklistPort, "tokenBlacklistPort must not be null");
+        this(tokenProvider, loadUserPort, userStatusCache, tokenBlacklistPort, null);
     }
 
     @Override
@@ -87,10 +103,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         }
                     }
 
-                    SimpleGrantedAuthority authority = new SimpleGrantedAuthority(user.getRole().getCode().getCode());
+                    List<GrantedAuthority> authorities = new ArrayList<>();
+                    String roleCode = user.getRole().getCode().getCode();
+                    authorities.add(new SimpleGrantedAuthority(roleCode));
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + roleCode));
+
+                    if (permissionRepository != null && user.getIdValue() != null) {
+                        List<String> permCodes = permissionRepository.findPermissionCodesByUserId(user.getIdValue());
+                        if (permCodes != null) {
+                            for (String perm : permCodes) {
+                                authorities.add(new SimpleGrantedAuthority(perm));
+                            }
+                        }
+                    }
 
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            user, null, Collections.singletonList(authority));
+                            user, null, authorities);
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);

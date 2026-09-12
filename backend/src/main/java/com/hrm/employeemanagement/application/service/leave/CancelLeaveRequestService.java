@@ -46,7 +46,7 @@ public class CancelLeaveRequestService implements CancelLeaveRequestUseCase {
         Employee currentEmployee = loadEmployeePort.findByUserId(new UserId(currentUserId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Tài khoản chưa được liên kết với hồ sơ nhân sự"));
 
-        LeaveRequest leaveRequest = loadLeaveRequestPort.findById(leaveRequestId)
+        LeaveRequest leaveRequest = loadLeaveRequestPort.findByIdForUpdate(leaveRequestId)
                 .orElseThrow(() -> new NoSuchElementException("Không tìm thấy đơn nghỉ phép với mã ID: " + leaveRequestId));
 
         // Chỉ được hủy đơn của chính mình

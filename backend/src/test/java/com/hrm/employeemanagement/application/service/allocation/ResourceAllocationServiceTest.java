@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException;
+import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationHoursException;
 import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
@@ -177,8 +178,8 @@ class ResourceAllocationServiceTest {
         // Request 20h for new project -> Total would be 50h > 40h netAvailable
         AllocateResourceCommand command = new AllocateResourceCommand(employeeId, projectId, year, weekNumber, BigDecimal.valueOf(20));
 
-        AllocationCapacityExceededException exception = assertThrows(
-                AllocationCapacityExceededException.class,
+        AllocationOverloadWarningException exception = assertThrows(
+                AllocationOverloadWarningException.class,
                 () -> service.allocateResource(command)
         );
 

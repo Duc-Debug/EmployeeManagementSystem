@@ -23,8 +23,43 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.RetryableAllocateResourceUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalAllocateResourceUseCase;
 
+import com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase;
+import com.hrm.employeemanagement.application.service.allocation.GetCompanyWeeklyCapacityService;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
+import com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase;
+import com.hrm.employeemanagement.application.service.allocation.BulkResourceAllocationService;
+import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalBulkAllocateResourceUseCase;
+
 @Configuration
 public class ResourceAllocationUseCaseConfig {
+
+    @Bean
+    public GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            java.util.Optional<LoadWorkingCalendarPort> loadWorkingCalendarPort,
+            java.util.Optional<com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort> loadReservationPort) {
+        return new GetCompanyWeeklyCapacityService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort.orElse(null),
+                loadReservationPort.orElse(null)
+        );
+    }
 
     @Bean
     public GetProjectWeeklyAllocationsUseCase getProjectWeeklyAllocationsUseCase(
@@ -89,5 +124,34 @@ public class ResourceAllocationUseCaseConfig {
                 loadAllocationPort,
                 saveAuditLogPort
         );
+    }
+
+    /**
+     * NCL-06-CN-006: Đăng ký Bean cho BulkAllocateResourceUseCase được bọc Transaction trực tiếp
+     */
+    @Bean
+    public BulkAllocateResourceUseCase bulkAllocateResourceUseCase(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort) {
+        BulkResourceAllocationService pureService =
+                new BulkResourceAllocationService(
+                        authorizationService,
+                        loadEmployeePort,
+                        loadProjectPort,
+                        loadWeeklyAvailabilityPort,
+                        saveAllocationPort,
+                        loadAllocationPort,
+                        saveAuditLogPort,
+                        loadUserPort,
+                        loadOrgUnitPort
+                );
+        return new TransactionalBulkAllocateResourceUseCase(pureService);
     }
 }

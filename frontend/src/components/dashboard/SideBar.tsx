@@ -12,12 +12,15 @@ import {
     ShieldCheck,
     CalendarClock,
     CalendarDays,
+    CalendarRange,
+    Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
 
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
+    { name: "Bảng năng lực", icon: CalendarRange, id: "capacity" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
@@ -30,18 +33,33 @@ const SIDEBAR_WORKSPACE = [
 ];
 
 const SIDEBAR_SETTINGS = [
+    { name: "Vai trò chuyên môn", icon: Briefcase, id: "roles" },
     { name: "Phân quyền truy cập", icon: ShieldCheck, id: "access" },
     { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
 
-export function canAccessTab(roleCode: string | undefined | null, tabId: string): boolean {
-    if (!roleCode) return true;
-    const normalized = roleCode.toUpperCase().replace(/_/g, "-");
+export function canAccessTab(
+    roleCode: string | undefined | null,
+    tabId: string,
+    dataScope?: string | null
+): boolean {
+    if (!roleCode && !dataScope) return true;
+    const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
 
     switch (tabId) {
+        case "roles":
+        case "project-roles":
+            // Danh mục vai trò chuyên môn (NCL-12-CN-001): VT-01 -> VT-06 đều có quyền xem (PROJECT_ROLE_READ)
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
         case "overview":
             // Tất cả vai trò đều có quyền truy cập trang Tổng quan
             return true;
+
+        case "capacity":
+        case "weekly-capacity":
+            // NCL-06 / NCL-06-CN-002: Bảng năng lực chỉ dành cho VT-01 (Ban giám đốc), VT-02 (Quản lý dự án), VT-03 (Quản lý nguồn lực).
+            // VT-04 (Nhân viên), VT-05 (Nhân sự), VT-06 (Admin) KHÔNG có quyền truy cập.
+            return ["VT-01", "VT-02", "VT-03"].includes(normalized);
 
         case "access":
         case "settings":
@@ -106,9 +124,10 @@ interface SideBarProps {
 export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProps) {
     const user = useAuthUser();
     const roleCode = user?.roleCode;
+    const dataScope = user?.dataScope;
 
-    const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) => canAccessTab(roleCode, item.id));
-    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id));
+    const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) => canAccessTab(roleCode, item.id, dataScope));
+    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope));
 
     return (
         <aside

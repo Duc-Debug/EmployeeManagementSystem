@@ -20,17 +20,53 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 
 @RestController
 @RequestMapping("/api/v1/allocations")
+@Validated
 public class ResourceAllocationController {
 
     private final AllocateResourceUseCase allocateResourceUseCase;
+    private final com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase bulkAllocateResourceUseCase;
     private final SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase;
+    private final com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase;
 
-    public ResourceAllocationController(AllocateResourceUseCase allocateResourceUseCase, SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase) {
+    public ResourceAllocationController(
+            AllocateResourceUseCase allocateResourceUseCase,
+            com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase bulkAllocateResourceUseCase,
+            SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase,
+            com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase) {
         this.allocateResourceUseCase = allocateResourceUseCase;
+        this.bulkAllocateResourceUseCase = bulkAllocateResourceUseCase;
         this.searchResourceUseCase = searchResourceUseCase;
+        this.getCompanyWeeklyCapacityUseCase = getCompanyWeeklyCapacityUseCase;
+    }
+
+    /**
+     * NCL-06-CN-002: Xem bảng năng lực theo tuần của công ty / bộ phận.
+     */
+    @GetMapping("/weekly-matrix")
+    public ResponseEntity<ApiResponse<com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult>> getWeeklyCapacityMatrix(
+            @RequestParam(required = false) Long orgUnitId,
+            @RequestParam(required = false) Integer fromYear,
+            @RequestParam(required = false) Integer fromWeek,
+            @RequestParam(required = false, defaultValue = "8") @Min(1) @Max(16) Integer durationWeeks,
+            @RequestParam(required = false, defaultValue = "0") @Min(0) Integer page,
+            @RequestParam(required = false, defaultValue = "20") @Min(1) @Max(50) Integer size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) com.hrm.employeemanagement.domain.allocation.CapacityStatus status) {
+
+        com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery query =
+                new com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityQuery(
+                        orgUnitId, fromYear, fromWeek, durationWeeks, page, size, search, status);
+
+        com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapacityMatrixResult result =
+                getCompanyWeeklyCapacityUseCase.getWeeklyCapacityMatrix(query);
+
+        return ResponseEntity.ok(ApiResponse.success("Lấy bảng năng lực theo tuần thành công", result));
     }
 
     /**
@@ -46,11 +82,40 @@ public class ResourceAllocationController {
                 request.projectId(),
                 request.year(),
                 request.weekNumber(),
-                request.allocatedHours()
+                request.allocatedHours(),
+                request.overloadReason()
         );
 
         WeeklyCapacityResult result = allocateResourceUseCase.allocateResource(command);
         return ResponseEntity.ok(ApiResponse.success("Phân bổ nhân sự vào dự án theo tuần thành công", result));
+    }
+
+    /**
+     * NCL-06-CN-006: Phân bổ hàng loạt cho nhiều tuần trong một thao tác.
+     */
+    @PostMapping("/bulk")
+    public ResponseEntity<ApiResponse<com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult>> bulkAllocateResource(
+            @Valid @RequestBody com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.dto.BulkAllocateResourceRequest request) {
+
+        com.hrm.employeemanagement.application.dto.allocation.BulkAllocateResourceCommand command =
+                new com.hrm.employeemanagement.application.dto.allocation.BulkAllocateResourceCommand(
+                        request.employeeId(),
+                        request.projectId(),
+                        request.fromYear(),
+                        request.fromWeek(),
+                        request.toYear(),
+                        request.toWeek(),
+                        request.allocatedHoursPerWeek()
+                );
+
+        com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult result =
+                bulkAllocateResourceUseCase.bulkAllocateResource(command);
+
+        String message = result.blockedCount() == 0
+                ? "Phân bổ hàng loạt cho nhiều tuần thành công"
+                : "Phân bổ hàng loạt hoàn tất với " + result.blockedCount() + " tuần bị vướng ràng buộc";
+
+        return ResponseEntity.ok(ApiResponse.success(message, result));
     }
 
     /**

@@ -17,6 +17,8 @@ import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
+import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
+import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import type { AttendanceRecord } from "@/lib/hr-data";
 import { useAuthUser } from "@/lib/auth-session";
 import { getUsers } from "@/lib/api/users";
@@ -35,7 +37,15 @@ export default function Dashboard() {
     // Đồng bộ URL trình duyệt với tab tương ứng
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
-        if (path.includes("access") || path.includes("phan-quyen") || path.includes("role")) return "access";
+        if (path.includes("capacity") || path.includes("nang-luc")) return "capacity";
+        if (
+            path.includes("roles") ||
+            path.includes("vai-tro") ||
+            path.includes("project-role")
+        ) {
+            return "roles";
+        }
+        if (path.includes("access") || path.includes("phan-quyen")) return "access";
         if (path.includes("working-calendar") || path.includes("lich-lam-viec") || path.includes("ngay-le") || path.includes("calendar-config")) return "working-calendar";
         if (path.includes("availability") || path.includes("kha-dung") || path.includes("gio-tuan")) return "availability";
         if (path.includes("hrprofile") || path.includes("ho-so") || path.includes("employee")) return "hrprofile";
@@ -50,7 +60,7 @@ export default function Dashboard() {
         return "overview";
     }, [location.pathname]);
 
-    const isTabAllowed = canAccessTab(user?.roleCode, activeTab);
+    const isTabAllowed = canAccessTab(user?.roleCode, activeTab, user?.dataScope);
 
     const handleTabChange = (tabId: string) => {
         const targetPath = tabId === "overview" ? "/" : `/${tabId}`;
@@ -197,6 +207,8 @@ export default function Dashboard() {
 
                                 {activeTab === "hrprofile" && <HrProfilePage />}
 
+                                {activeTab === "capacity" && <CompanyWeeklyCapacityView />}
+
                                 {activeTab === "availability" && <WeeklyAvailabilityView />}
 
                                 {activeTab === "working-calendar" && <WorkingCalendarConfigView />}
@@ -215,6 +227,8 @@ export default function Dashboard() {
                                 {activeTab === "skills" && <SkilldeclarationView />}
 
                                 {activeTab === "project" && <ProjectView />}
+
+                                {activeTab === "roles" && <ProjectRoleCatalogView />}
 
                                 {activeTab === "access" && <AccessControlView />}
 

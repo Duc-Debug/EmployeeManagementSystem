@@ -35,9 +35,17 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                             allocation.getYear(),
                             allocation.getWeekNumber(),
                             allocation.getAllocatedHours(),
+                            allocation.isOverloaded(),
+                            allocation.getOverloadReason(),
+                            allocation.getOverloadApprovedBy(),
+                            allocation.getOverloadApprovedAt(),
                             null
                     ));
             entity.setAllocatedHours(allocation.getAllocatedHours());
+            entity.setIsOverloaded(allocation.isOverloaded());
+            entity.setOverloadReason(allocation.getOverloadReason());
+            entity.setOverloadApprovedBy(allocation.getOverloadApprovedBy());
+            entity.setOverloadApprovedAt(allocation.getOverloadApprovedAt());
         } else {
             entity = new WeeklyProjectAllocationJpaEntity(
                     null,
@@ -46,39 +54,30 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                     allocation.getYear(),
                     allocation.getWeekNumber(),
                     allocation.getAllocatedHours(),
+                    allocation.isOverloaded(),
+                    allocation.getOverloadReason(),
+                    allocation.getOverloadApprovedBy(),
+                    allocation.getOverloadApprovedAt(),
                     null
             );
         }
 
         WeeklyProjectAllocationJpaEntity saved = repository.save(entity);
-        return new WeeklyProjectAllocation(
-                saved.getId(),
-                saved.getEmployeeId(),
-                saved.getProjectId(),
-                YearWeek.of(saved.getYear(), saved.getWeekNumber()),
-                saved.getAllocatedHours(),
-                saved.getVersion()
-        );
+        return toDomain(saved);
     }
 
     @Override
     public Optional<WeeklyProjectAllocation> loadAllocation(Long employeeId, Long projectId, YearWeek yearWeek) {
         return repository.findByEmployeeIdAndProjectIdAndYearAndWeekNumber(
                 employeeId, projectId, yearWeek.year(), yearWeek.weekNumber())
-                .map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()));
+                .map(this::toDomain);
     }
 
     @Override
     public List<WeeklyProjectAllocation> loadAllocationsForEmployee(Long employeeId, YearWeek yearWeek) {
         return repository.findByEmployeeIdAndYearAndWeekNumber(employeeId, yearWeek.year(), yearWeek.weekNumber())
                 .stream()
-                .map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                .map(this::toDomain)
                 .toList();
     }
 
@@ -86,11 +85,16 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
     public List<WeeklyProjectAllocation> loadAllocationsForEmployeesInWeekRange(List<Long> employeeIds, Integer year, Integer startWeek, Integer endWeek) {
         return repository.findByEmployeeIdInAndYearAndWeekNumberBetween(employeeIds, year, startWeek, endWeek)
                 .stream()
-                .map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                .map(this::toDomain)
                 .toList();
+    }
+
+    private static <T> List<List<T>> partitionList(List<T> list, int size) {
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return partitions;
     }
 
     @Override
@@ -102,15 +106,15 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 .collect(Collectors.groupingBy(YearWeek::year, Collectors.mapping(YearWeek::weekNumber, Collectors.toList())));
 
         List<WeeklyProjectAllocation> results = new ArrayList<>();
-        for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
-            Integer year = entry.getKey();
-            List<Integer> weeks = entry.getValue();
-            List<WeeklyProjectAllocationJpaEntity> entities = repository
-                    .findByEmployeeIdInAndYearAndWeekNumberIn(employeeIds, year, weeks);
-            results.addAll(entities.stream().map(e -> new WeeklyProjectAllocation(
-                    e.getId(), e.getEmployeeId(), e.getProjectId(),
-                    YearWeek.of(e.getYear(), e.getWeekNumber()),
-                    e.getAllocatedHours(), e.getVersion())).toList());
+        List<List<Long>> chunks = partitionList(employeeIds, 500);
+        for (List<Long> chunk : chunks) {
+            for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
+                Integer year = entry.getKey();
+                List<Integer> weeks = entry.getValue();
+                List<WeeklyProjectAllocationJpaEntity> entities = repository
+                        .findByEmployeeIdInAndYearAndWeekNumberIn(chunk, year, weeks);
+                results.addAll(entities.stream().map(this::toDomain).toList());
+            }
         }
         return results;
     }
@@ -119,10 +123,22 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
     public List<WeeklyProjectAllocation> loadAllocationsForProjectInWeekRange(Long projectId, Integer year, Integer startWeek, Integer endWeek) {
         return repository.findByProjectIdAndYearAndWeekNumberBetween(projectId, year, startWeek, endWeek)
                 .stream()
-                .map(e -> new WeeklyProjectAllocation(
-                        e.getId(), e.getEmployeeId(), e.getProjectId(),
-                        YearWeek.of(e.getYear(), e.getWeekNumber()),
-                        e.getAllocatedHours(), e.getVersion()))
+                .map(this::toDomain)
                 .toList();
+    }
+
+    private WeeklyProjectAllocation toDomain(WeeklyProjectAllocationJpaEntity e) {
+        return new WeeklyProjectAllocation(
+                e.getId(),
+                e.getEmployeeId(),
+                e.getProjectId(),
+                YearWeek.of(e.getYear(), e.getWeekNumber()),
+                e.getAllocatedHours(),
+                e.getIsOverloaded() != null ? e.getIsOverloaded() : false,
+                e.getOverloadReason(),
+                e.getOverloadApprovedBy(),
+                e.getOverloadApprovedAt(),
+                e.getVersion()
+        );
     }
 }

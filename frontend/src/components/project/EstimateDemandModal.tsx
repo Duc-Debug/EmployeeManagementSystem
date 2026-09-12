@@ -43,7 +43,7 @@ export function EstimateDemandModal({
     useEffect(() => {
         if (!open) return;
         setIsLoadingRoles(true);
-        getProjectRoles()
+        getProjectRoles(Boolean(editingRole))
             .then((data) => {
                 if (Array.isArray(data)) {
                     setRoles(data);
@@ -220,7 +220,7 @@ export function EstimateDemandModal({
                                     const alreadyEstimated = !editingRole && existingRoleDemands.some((d) => d.roleId === r.id);
                                     return (
                                         <option key={r.id} value={r.id} disabled={alreadyEstimated}>
-                                            {r.code} — {r.name} {alreadyEstimated ? '(Đã ước lượng)' : ''}
+                                            {r.code} — {r.name} {alreadyEstimated ? '(Đã ước lượng)' : ''}{r.status === 'INACTIVE' ? ' (Đã ngừng sử dụng)' : ''}
                                         </option>
                                     );
                                 })}

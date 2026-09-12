@@ -743,17 +743,25 @@ export default function ProjectView() {
         setAdjustModalOpen(true);
     };
 
-    const handleSaveAdjustedHours = async (memberId: string, weekKey: string, newHours: number) => {
+    const handleSaveAdjustedHours = async (memberId: string, weekKey: string, newHours: number, overloadReason?: string) => {
         const member = members.find((m) => m.id === memberId);
         if (!canManageAllocations || !selectedProjectId || !member) return;
         const employeeId = Number(member.id.replace('u-', ''));
         const isoWeek = getDisplayedIsoWeek(weekKey);
         try {
-            await allocateProjectHours({ employeeId, projectId: selectedProjectId, year: isoWeek.year, weekNumber: isoWeek.week, allocatedHours: newHours });
+            await allocateProjectHours({
+                employeeId,
+                projectId: selectedProjectId,
+                year: isoWeek.year,
+                weekNumber: isoWeek.week,
+                allocatedHours: newHours,
+                overloadReason,
+            });
             await loadProjectAllocations();
             showToast(`Đã lưu phân bổ ${newHours}h cho ${member.name} (${weekKey})`, 'success');
         } catch (error) {
             showToast(error instanceof Error ? error.message : 'Không thể lưu phân bổ nguồn lực.', 'error');
+            throw error;
         }
     };
 
@@ -1474,6 +1482,8 @@ export default function ProjectView() {
                 weekKey={selectedAdjustCell?.weekKey || ''}
                 weekLabel={selectedAdjustCell?.weekLabel || ''}
                 monthName={selectedMonth.name}
+                year={selectedAdjustCell?.weekKey ? getDisplayedIsoWeek(selectedAdjustCell.weekKey).year : undefined}
+                weekNumber={selectedAdjustCell?.weekKey ? getDisplayedIsoWeek(selectedAdjustCell.weekKey).week : undefined}
                 onClose={() => setAdjustModalOpen(false)}
                 onSave={handleSaveAdjustedHours}
             />}

@@ -18,7 +18,7 @@ export interface ProjectResult {
   projectName: string;
   orgUnitId: number;
   managerId?: number;
-  status: 'ACTIVE' | 'INACTIVE' | 'CLOSED';
+  status: 'ACTIVE' | 'INACTIVE' | 'CLOSED' | 'PLANNED' | 'CANCELLED';
   startDate?: string;
   endDate?: string;
   estimatedHours?: number;
