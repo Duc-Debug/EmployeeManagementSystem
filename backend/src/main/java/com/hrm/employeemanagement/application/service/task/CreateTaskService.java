@@ -27,9 +27,13 @@ import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
 import com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
+import java.time.LocalDateTime;
+import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
+import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskAssignmentPort;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.task.Task;
+import com.hrm.employeemanagement.domain.task.TaskAssignment;
 import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.task.TaskType;
 import com.hrm.employeemanagement.domain.user.User;
@@ -39,6 +43,8 @@ public class CreateTaskService implements CreateTaskUseCase {
 
     private final LoadTaskPort loadTaskPort;
     private final SaveTaskPort saveTaskPort;
+    private final SaveTaskAssignmentPort saveTaskAssignmentPort;
+    private final SaveProjectMemberPort saveProjectMemberPort;
     private final LoadProjectPort loadProjectPort;
     private final SaveProjectPort saveProjectPort;
     private final LoadEmployeePort loadEmployeePort;
@@ -57,8 +63,41 @@ public class CreateTaskService implements CreateTaskUseCase {
             SaveAuditLogPort saveAuditLogPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
+        this(loadTaskPort, saveTaskPort, null, null, loadProjectPort, saveProjectPort, loadEmployeePort, loadUserPort,
+                saveAuditLogPort, saveDeniedAuditLogPort, authorizationService);
+    }
+
+    public CreateTaskService(
+            LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
+            SaveTaskAssignmentPort saveTaskAssignmentPort,
+            LoadProjectPort loadProjectPort,
+            SaveProjectPort saveProjectPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+            AuthorizationService authorizationService) {
+        this(loadTaskPort, saveTaskPort, saveTaskAssignmentPort, null, loadProjectPort, saveProjectPort,
+                loadEmployeePort, loadUserPort, saveAuditLogPort, saveDeniedAuditLogPort, authorizationService);
+    }
+
+    public CreateTaskService(
+            LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
+            SaveTaskAssignmentPort saveTaskAssignmentPort,
+            SaveProjectMemberPort saveProjectMemberPort,
+            LoadProjectPort loadProjectPort,
+            SaveProjectPort saveProjectPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+            AuthorizationService authorizationService) {
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
         this.saveTaskPort = Objects.requireNonNull(saveTaskPort, "SaveTaskPort must not be null");
+        this.saveTaskAssignmentPort = saveTaskAssignmentPort;
+        this.saveProjectMemberPort = saveProjectMemberPort;
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
         this.saveProjectPort = Objects.requireNonNull(saveProjectPort, "SaveProjectPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
@@ -116,7 +155,11 @@ public class CreateTaskService implements CreateTaskUseCase {
                     && Objects.equals(project.getManagerId().value(), assignee.getIdValue()))
                     || loadProjectPort.existsMember(project.getIdValue(), assignee.getIdValue());
             if (!isMember) {
-                throw new AssigneeNotInProjectException(assignee.getIdValue(), project.getIdValue());
+                if (saveProjectMemberPort != null) {
+                    saveProjectMemberPort.addMember(project.getIdValue(), assignee.getIdValue());
+                } else {
+                    throw new AssigneeNotInProjectException(assignee.getIdValue(), project.getIdValue());
+                }
             }
             assigneeEmployeeId = assignee.getId();
         }
@@ -139,6 +182,15 @@ public class CreateTaskService implements CreateTaskUseCase {
                 new UserId(currentUserId));
 
         Task savedTask = saveTaskPort.save(task);
+
+        if (saveTaskAssignmentPort != null && assigneeEmployeeId != null) {
+            saveTaskAssignmentPort.save(TaskAssignment.create(
+                    savedTask.getId(),
+                    assigneeEmployeeId,
+                    new UserId(currentUserId),
+                    true
+            ));
+        }
 
         saveAuditLogPort.save(AuditLog.create(currentUserId, "CREATE_TASK", "tasks", savedTask.getIdValue()));
 

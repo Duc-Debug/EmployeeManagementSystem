@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.application.service.task;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import com.hrm.employeemanagement.application.dto.task.TaskNodeResult;
 import com.hrm.employeemanagement.application.port.inbound.task.GetProjectWbsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -26,12 +28,15 @@ import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.Task;
+import com.hrm.employeemanagement.domain.task.TaskAssignment;
+import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 public class GetProjectWbsService implements GetProjectWbsUseCase {
 
     private final LoadTaskPort loadTaskPort;
+    private final LoadTaskAssignmentPort loadTaskAssignmentPort;
     private final LoadProjectPort loadProjectPort;
     private final LoadEmployeePort loadEmployeePort;
     private final LoadUserPort loadUserPort;
@@ -40,12 +45,14 @@ public class GetProjectWbsService implements GetProjectWbsUseCase {
 
     public GetProjectWbsService(
             LoadTaskPort loadTaskPort,
+            LoadTaskAssignmentPort loadTaskAssignmentPort,
             LoadProjectPort loadProjectPort,
             LoadEmployeePort loadEmployeePort,
             LoadUserPort loadUserPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
+        this.loadTaskAssignmentPort = loadTaskAssignmentPort;
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
@@ -53,6 +60,16 @@ public class GetProjectWbsService implements GetProjectWbsUseCase {
                 "SaveAuditLogInNewTransactionPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService,
                 "AuthorizationService must not be null");
+    }
+
+    public GetProjectWbsService(
+            LoadTaskPort loadTaskPort,
+            LoadProjectPort loadProjectPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+            AuthorizationService authorizationService) {
+        this(loadTaskPort, null, loadProjectPort, loadEmployeePort, loadUserPort, saveDeniedAuditLogPort, authorizationService);
     }
 
     @Override
@@ -81,6 +98,25 @@ public class GetProjectWbsService implements GetProjectWbsUseCase {
             return List.of();
         }
 
+        Map<Long, List<Long>> assigneeMap = new HashMap<>();
+        if (loadTaskAssignmentPort != null) {
+            List<TaskId> taskIds = tasks.stream()
+                    .map(Task::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (!taskIds.isEmpty()) {
+                List<TaskAssignment> assignments = loadTaskAssignmentPort.findByTaskIdIn(taskIds);
+                if (assignments != null) {
+                    for (TaskAssignment a : assignments) {
+                        if (a.getTaskId() != null && a.getEmployeeId() != null) {
+                            assigneeMap.computeIfAbsent(a.getTaskId().value(), k -> new ArrayList<>())
+                                    .add(a.getEmployeeId().value());
+                        }
+                    }
+                }
+            }
+        }
+
         List<Task> sortedTasks = tasks.stream()
                 .sorted(Comparator.comparingInt(Task::getSortOrder)
                         .thenComparing(t -> t.getIdValue() != null ? t.getIdValue() : 0L))
@@ -88,6 +124,11 @@ public class GetProjectWbsService implements GetProjectWbsUseCase {
 
         Map<Long, TaskNodeResult> nodeMap = new LinkedHashMap<>();
         for (Task task : sortedTasks) {
+            List<Long> taskAssigneeIds = assigneeMap.getOrDefault(task.getIdValue(), List.of());
+            if (taskAssigneeIds.isEmpty() && task.getAssigneeIdValue() != null) {
+                taskAssigneeIds = List.of(task.getAssigneeIdValue());
+            }
+
             TaskNodeResult node = new TaskNodeResult(
                     task.getIdValue(),
                     task.getProjectIdValue(),
@@ -97,6 +138,7 @@ public class GetProjectWbsService implements GetProjectWbsUseCase {
                     task.getDescription(),
                     task.getTaskType(),
                     task.getAssigneeIdValue(),
+                    taskAssigneeIds,
                     task.getEstimatedHours(),
                     task.getActualHours(),
                     task.getBudgetHours(),
@@ -105,10 +147,12 @@ public class GetProjectWbsService implements GetProjectWbsUseCase {
                     task.isOverBudget(),
                     task.getStatus(),
                     task.getSortOrder(),
+                    task.getPlannedStartDate(),
+                    task.getPlannedEndDate(),
                     task.getStartDate(),
                     task.getDueDate(),
                     task.getActualEndDate(),
-                    task.getSlackDays(),
+                    task.getSlackDays() != null ? task.getSlackDays() : 0,
                     task.getCreatedByValue(),
                     task.getCreatedAt(),
                     task.getUpdatedAt(),

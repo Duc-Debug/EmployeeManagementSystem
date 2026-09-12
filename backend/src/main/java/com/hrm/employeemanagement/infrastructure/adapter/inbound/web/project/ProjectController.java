@@ -54,24 +54,38 @@ public class ProjectController {
         private final GetProjectTemplatesUseCase getProjectTemplatesUseCase;
         private final CloseProjectUseCase closeProjectUseCase;
         private final ReopenProjectUseCase reopenProjectUseCase;
+        private final com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase;
 
-        public ProjectController(
-                        GetProjectListUseCase getProjectListUseCase,
-                        GetProjectDetailUseCase getProjectDetailUseCase,
-                        CreateProjectUseCase createProjectUseCase,
-                        UpdateProjectUseCase updateProjectUseCase,
-                        CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase,
-                        GetProjectTemplatesUseCase getProjectTemplatesUseCase,
-                        CloseProjectUseCase closeProjectUseCase,
-                        ReopenProjectUseCase reopenProjectUseCase) {
-                this.getProjectListUseCase = getProjectListUseCase;
-                this.getProjectDetailUseCase = getProjectDetailUseCase;
-                this.createProjectUseCase = createProjectUseCase;
-                this.updateProjectUseCase = updateProjectUseCase;
-                this.createProjectFromTemplateUseCase = createProjectFromTemplateUseCase;
-                this.getProjectTemplatesUseCase = getProjectTemplatesUseCase;
-                this.closeProjectUseCase = closeProjectUseCase;
-                this.reopenProjectUseCase = reopenProjectUseCase;
+    @org.springframework.beans.factory.annotation.Autowired
+    public ProjectController(
+            GetProjectListUseCase getProjectListUseCase,
+            GetProjectDetailUseCase getProjectDetailUseCase,
+            CreateProjectUseCase createProjectUseCase,
+            UpdateProjectUseCase updateProjectUseCase,
+            CreateProjectFromTemplateUseCase createProjectFromTemplateUseCase,
+            GetProjectTemplatesUseCase getProjectTemplatesUseCase,
+            CloseProjectUseCase closeProjectUseCase,
+            ReopenProjectUseCase reopenProjectUseCase,
+            com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase) {
+        this.getProjectListUseCase = getProjectListUseCase;
+        this.getProjectDetailUseCase = getProjectDetailUseCase;
+        this.createProjectUseCase = createProjectUseCase;
+        this.updateProjectUseCase = updateProjectUseCase;
+        this.createProjectFromTemplateUseCase = createProjectFromTemplateUseCase;
+        this.getProjectTemplatesUseCase = getProjectTemplatesUseCase;
+        this.closeProjectUseCase = closeProjectUseCase;
+        this.reopenProjectUseCase = reopenProjectUseCase;
+        this.getAssignableEmployeesUseCase = getAssignableEmployeesUseCase;
+    }
+
+        @GetMapping("/assignable-employees")
+        public ResponseEntity<ApiResponse<List<com.hrm.employeemanagement.application.dto.project.ProjectMemberResult>>> getAssignableEmployees(
+                @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate
+        ) {
+                List<com.hrm.employeemanagement.application.dto.project.ProjectMemberResult> list = getAssignableEmployeesUseCase != null
+                                ? (startDate != null ? getAssignableEmployeesUseCase.getAssignableEmployees(startDate) : getAssignableEmployeesUseCase.getAssignableEmployees())
+                                : List.of();
+                return ResponseEntity.ok(ApiResponse.success("Lấy danh sách nhân sự khả dụng thành công", list));
         }
 
         @GetMapping
@@ -88,7 +102,7 @@ public class ProjectController {
                                                 projects));
         }
 
-        @GetMapping("/{id}")
+        @GetMapping("/{id:[0-9]+}")
         public ResponseEntity<ApiResponse<ProjectResult>> getProjectById(
                         @PathVariable Long id) {
                 ProjectResult project = getProjectDetailUseCase.getProjectById(id);

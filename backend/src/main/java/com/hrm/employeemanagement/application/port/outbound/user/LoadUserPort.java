@@ -11,6 +11,7 @@ public interface LoadUserPort {
     Optional<User> findByUsername(String username);
     Optional<User> findByEmail(String email);
     Optional<User> findByUsernameOrEmail(String identity);
+    List<User> findAllByIdIn(List<UserId> ids);
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
     boolean existsInOrgUnitBranch(Long userId, Long scopeOrgUnitId);

@@ -10,6 +10,8 @@ import com.hrm.employeemanagement.domain.task.TaskId;
 public interface LoadTaskPort {
     Optional<Task> findById(TaskId id);
 
+    List<Task> findAllById(List<TaskId> ids);
+
     List<Task> findAllByProjectId(ProjectId projectId);
 
     boolean existsByIdAndProjectId(TaskId id, ProjectId projectId);

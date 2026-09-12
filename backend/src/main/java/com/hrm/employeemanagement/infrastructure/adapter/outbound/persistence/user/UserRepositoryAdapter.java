@@ -89,6 +89,25 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
     }
 
     @Override
+    public List<User> findAllByIdIn(List<UserId> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Long> rawIds = ids.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(UserId::value)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (rawIds.isEmpty()) {
+            return List.of();
+        }
+        return springDataUserRepository.findAllById(rawIds).stream()
+                .map(entity -> mapper.toDomain(entity, null))
+                .toList();
+    }
+
+    @Override
     public boolean existsByUsername(String username) {
         return springDataUserRepository.existsByUsername(username);
     }

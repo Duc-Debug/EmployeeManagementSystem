@@ -120,13 +120,6 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
     }
 
     @Override
-    public List<Employee> findAllActive() {
-        return springDataEmployeeRepository.findByStatus(EmployeeStatus.ACTIVE.name()).stream()
-                .map(mapper::toDomain)
-                .toList();
-    }
-
-    @Override
     public List<Employee> findAllPaged(int size, int offset) {
         return springDataEmployeeRepository.findAllPaged(size, offset).stream()
                 .map(mapper::toDomain)
@@ -172,6 +165,13 @@ public class EmployeeRepositoryAdapter implements LoadEmployeePort, SaveEmployee
             return 0L;
         }
         return springDataEmployeeRepository.countByProjectManager(pmEmployeeId);
+    }
+
+    @Override
+    public List<Employee> findAllActive() {
+        return springDataEmployeeRepository.findByStatus(EmployeeStatus.ACTIVE.name()).stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 
     @Override
