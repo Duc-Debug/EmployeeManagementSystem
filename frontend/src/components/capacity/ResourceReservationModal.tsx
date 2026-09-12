@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   BookmarkCheck,
@@ -72,19 +72,6 @@ export function ResourceReservationModal({
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState<string>("");
 
-  // Reset form when modal opens or initial props change
-  useEffect(() => {
-    if (open) {
-      if (initialEmployeeId) setEmployeeId(initialEmployeeId);
-      if (initialYear) setYear(initialYear);
-      if (initialWeekNumber) setWeekNumber(initialWeekNumber);
-      setErrorMsg(null);
-      setSuccessMsg(null);
-      loadProjectsList();
-      loadReservationsList();
-    }
-  }, [open, initialEmployeeId, initialYear, initialWeekNumber]);
-
   const loadProjectsList = async () => {
     setIsLoadingProjects(true);
     try {
@@ -102,7 +89,7 @@ export function ResourceReservationModal({
     }
   };
 
-  const loadReservationsList = useCallback(async () => {
+  const loadReservationsList = async () => {
     setIsLoadingReservations(true);
     try {
       const data = await getResourceReservations({
@@ -115,13 +102,26 @@ export function ResourceReservationModal({
     } finally {
       setIsLoadingReservations(false);
     }
-  }, [initialEmployeeId, statusFilter]);
+  };
+
+  // Reset form when modal opens or initial props change
+  useEffect(() => {
+    if (open) {
+      if (initialEmployeeId) setEmployeeId(initialEmployeeId);
+      if (initialYear) setYear(initialYear);
+      if (initialWeekNumber) setWeekNumber(initialWeekNumber);
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      loadProjectsList();
+      loadReservationsList();
+    }
+  }, [open, initialEmployeeId, initialYear, initialWeekNumber]);
 
   useEffect(() => {
     if (open && activeTab === "LIST") {
       loadReservationsList();
     }
-  }, [open, activeTab, loadReservationsList]);
+  }, [open, activeTab, statusFilter]);
 
   if (!open) return null;
 
