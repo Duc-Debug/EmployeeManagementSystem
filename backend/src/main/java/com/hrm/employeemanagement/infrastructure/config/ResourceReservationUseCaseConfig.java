@@ -1,9 +1,5 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
-import com.hrm.employeemanagement.application.port.inbound.reservation.AutoProcessProjectReservationsUseCase;
-import com.hrm.employeemanagement.application.port.inbound.reservation.CancelResourceReservationUseCase;
-import com.hrm.employeemanagement.application.port.inbound.reservation.CreateResourceReservationUseCase;
-import com.hrm.employeemanagement.application.port.inbound.reservation.GetResourceReservationsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
@@ -52,25 +48,5 @@ public class ResourceReservationUseCaseConfig {
                 loadUserPort,
                 loadOrgUnitPort
         );
-    }
-
-    @Bean
-    public CreateResourceReservationUseCase createResourceReservationUseCase(ResourceReservationService service) {
-        return service;
-    }
-
-    @Bean
-    public CancelResourceReservationUseCase cancelResourceReservationUseCase(ResourceReservationService service) {
-        return service;
-    }
-
-    @Bean
-    public GetResourceReservationsUseCase getResourceReservationsUseCase(ResourceReservationService service) {
-        return service;
-    }
-
-    @Bean
-    public AutoProcessProjectReservationsUseCase autoProcessProjectReservationsUseCase(ResourceReservationService service) {
-        return service;
     }
 }
