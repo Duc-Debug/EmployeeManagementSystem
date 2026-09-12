@@ -228,39 +228,45 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
                 saveLeaveAuditLogPort.recordAudit(currentUserId, "LEAVE_CAPACITY_DEDUCTED", capacityAuditDesc);
             }
 
-            // Tự động kiểm tra lại trạng thái quá tải cho các phân bổ dự án của nhân sự trong tuần bị ảnh hưởng
-            if (loadAllocationPort != null) {
-                List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployee(employee.getIdValue(), yw);
-                if (!allocations.isEmpty()) {
-                    BigDecimal totalAllocatedHours = allocations.stream()
-                            .map(WeeklyProjectAllocation::getAllocatedHours)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // Tự động kiểm tra lại trạng thái quá tải cho các phân bổ dự án của nhân sự trong tuần bị ảnh hưởng (nếu hệ thống phân bổ hỗ trợ)
+            try {
+                if (loadAllocationPort != null) {
+                    List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployee(employee.getIdValue(), yw);
+                    if (!allocations.isEmpty()) {
+                        BigDecimal totalAllocatedHours = allocations.stream()
+                                .map(WeeklyProjectAllocation::getAllocatedHours)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                    boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalAllocatedHours, netAvailableHours);
-                    if (isOverloaded) {
-                        BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalAllocatedHours, netAvailableHours);
-                        String overloadReason = String.format(
-                                "Cảnh báo quá tải: Đơn xin nghỉ phép #%d được phê duyệt làm giảm giờ khả dụng xuống %sh. Tổng phân bổ: %sh (Vượt %sh)",
-                                leaveRequest.getId(), netAvailableHours, totalAllocatedHours, excessHours
-                        );
-
-                        LocalDateTime now = LocalDateTime.now();
-                        for (WeeklyProjectAllocation alloc : allocations) {
-                            alloc.markOverloaded(overloadReason, currentUserId, now);
-                            if (saveAllocationPort != null) {
-                                saveAllocationPort.save(alloc);
-                            }
-                        }
-
-                        if (saveLeaveAuditLogPort != null) {
-                            String overloadAuditDesc = String.format(
-                                    "Phát hiện phân bổ quá tải do duyệt đơn nghỉ phép #%d của nhân sự #%d tại tuần %d/%d. Phân bổ: %sh, Khả dụng mới: %sh, Phân bổ vượt: %sh",
-                                    leaveRequest.getId(), employee.getIdValue(), yw.weekNumber(), yw.year(), totalAllocatedHours, netAvailableHours, excessHours
+                        boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalAllocatedHours, netAvailableHours);
+                        if (isOverloaded) {
+                            BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalAllocatedHours, netAvailableHours);
+                            String overloadReason = String.format(
+                                    "Cảnh báo quá tải: Đơn xin nghỉ phép #%d được phê duyệt làm giảm giờ khả dụng xuống %sh. Tổng phân bổ: %sh (Vượt %sh)",
+                                    leaveRequest.getId(), netAvailableHours, totalAllocatedHours, excessHours
                             );
-                            saveLeaveAuditLogPort.recordAudit(currentUserId, "ALLOCATION_OVERLOAD_TRIGGERED_BY_LEAVE", overloadAuditDesc);
+
+                            LocalDateTime now = LocalDateTime.now();
+                            for (WeeklyProjectAllocation alloc : allocations) {
+                                alloc.markOverloaded(overloadReason, currentUserId, now);
+                                if (saveAllocationPort != null) {
+                                    saveAllocationPort.save(alloc);
+                                }
+                            }
+
+                            if (saveLeaveAuditLogPort != null) {
+                                String overloadAuditDesc = String.format(
+                                        "Phát hiện phân bổ quá tải do duyệt đơn nghỉ phép #%d của nhân sự #%d tại tuần %d/%d. Phân bổ: %sh, Khả dụng mới: %sh, Phân bổ vượt: %sh",
+                                        leaveRequest.getId(), employee.getIdValue(), yw.weekNumber(), yw.year(), totalAllocatedHours, netAvailableHours, excessHours
+                                );
+                                saveLeaveAuditLogPort.recordAudit(currentUserId, "ALLOCATION_OVERLOAD_TRIGGERED_BY_LEAVE", overloadAuditDesc);
+                            }
                         }
                     }
                 }
+            } catch (Exception ex) {
+                // Đăng nhật ký cảnh báo nếu cơ sở dữ liệu phân bổ dự án chưa hoàn tất migration, đảm bảo việc trừ năng lực và duyệt đơn nghỉ phép vẫn diễn ra thành công
+                org.slf4j.LoggerFactory.getLogger(ApproveLeaveRequestService.class)
+                        .warn("Không thể cập nhật trạng thái quá tải cho các phân bổ dự án của nhân sự #{}: {}", employee.getIdValue(), ex.getMessage());
             }
         }
     }
