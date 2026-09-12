@@ -25,6 +25,8 @@ public class Task {
     private BigDecimal budgetHours;
     private TaskStatus status;
     private Integer sortOrder;
+    private LocalDate plannedStartDate;
+    private LocalDate plannedEndDate;
     private LocalDate startDate;
     private LocalDate dueDate;
     private LocalDate actualEndDate;
@@ -34,6 +36,123 @@ public class Task {
     private LocalDateTime updatedAt;
     private Long version;
 
+    /**
+     * Constructor đầy đủ tất cả tham số (kết hợp cả 2 nhánh)
+     */
+    public Task(
+            TaskId id,
+            ProjectId projectId,
+            TaskId parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            EmployeeId assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            LocalDate plannedStartDate,
+            LocalDate plannedEndDate,
+            LocalDate startDate,
+            LocalDate dueDate,
+            LocalDate actualEndDate,
+            Integer slackDays,
+            UserId createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        validateProjectId(projectId);
+        validateName(name);
+        validateEstimatedHours(estimatedHours);
+        validateActualHours(actualHours);
+        validateBudgetHours(budgetHours);
+        validateTaskTypeAndAssignee(taskType, assigneeId);
+        validateSortOrder(sortOrder);
+        
+        LocalDate effectivePlannedStart = plannedStartDate != null ? plannedStartDate : startDate;
+        LocalDate effectivePlannedEnd = plannedEndDate != null ? plannedEndDate : dueDate;
+        validatePlannedDates(effectivePlannedStart, effectivePlannedEnd);
+
+        this.id = id;
+        this.projectId = projectId;
+        this.parentId = parentId;
+        this.taskCode = taskCode != null ? taskCode.trim() : null;
+        this.name = name.trim();
+        this.description = description != null ? description.trim() : null;
+        this.taskType = taskType != null ? taskType : TaskType.TASK;
+        this.assigneeId = assigneeId;
+        this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
+        this.actualHours = actualHours != null ? actualHours : BigDecimal.ZERO;
+        this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
+        this.status = status != null ? status : TaskStatus.TODO;
+        this.sortOrder = sortOrder != null ? sortOrder : 0;
+        this.plannedStartDate = effectivePlannedStart;
+        this.plannedEndDate = effectivePlannedEnd;
+        this.startDate = startDate != null ? startDate : plannedStartDate;
+        this.dueDate = dueDate != null ? dueDate : plannedEndDate;
+        this.actualEndDate = actualEndDate;
+        this.slackDays = slackDays != null ? slackDays : 0;
+        this.createdBy = createdBy;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.version = version;
+    }
+
+    /**
+     * Constructor tương thích nhánh feat/task-assignment (plannedStartDate, plannedEndDate)
+     */
+    public Task(
+            TaskId id,
+            ProjectId projectId,
+            TaskId parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            EmployeeId assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            LocalDate plannedStartDate,
+            LocalDate plannedEndDate,
+            UserId createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                plannedStartDate,
+                plannedEndDate,
+                plannedStartDate,
+                plannedEndDate,
+                null,
+                0,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version
+        );
+    }
+
+    /**
+     * Constructor tương thích nhánh develop (startDate, dueDate, actualEndDate, slackDays)
+     */
     public Task(
             TaskId id,
             ProjectId projectId,
@@ -56,34 +175,31 @@ public class Task {
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             Long version) {
-        validateProjectId(projectId);
-        validateName(name);
-        validateEstimatedHours(estimatedHours);
-        validateActualHours(actualHours);
-        validateBudgetHours(budgetHours);
-        validateTaskTypeAndAssignee(taskType, assigneeId);
-        validateSortOrder(sortOrder);
-        this.id = id;
-        this.projectId = projectId;
-        this.parentId = parentId;
-        this.taskCode = taskCode != null ? taskCode.trim() : null;
-        this.name = name.trim();
-        this.description = description != null ? description.trim() : null;
-        this.taskType = taskType != null ? taskType : TaskType.TASK;
-        this.assigneeId = assigneeId;
-        this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
-        this.actualHours = actualHours != null ? actualHours : BigDecimal.ZERO;
-        this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
-        this.status = status != null ? status : TaskStatus.TODO;
-        this.sortOrder = sortOrder != null ? sortOrder : 0;
-        this.startDate = startDate;
-        this.dueDate = dueDate;
-        this.actualEndDate = actualEndDate;
-        this.slackDays = slackDays != null ? slackDays : 0;
-        this.createdBy = createdBy;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-        this.version = version;
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                startDate,
+                dueDate,
+                startDate,
+                dueDate,
+                actualEndDate,
+                slackDays,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version
+        );
     }
 
     public Task(
@@ -118,6 +234,8 @@ public class Task {
                 budgetHours,
                 status,
                 sortOrder,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -433,6 +551,8 @@ public class Task {
         }
         this.startDate = startDate;
         this.dueDate = dueDate;
+        this.plannedStartDate = startDate;
+        this.plannedEndDate = dueDate;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -458,6 +578,29 @@ public class Task {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    private void validatePlannedDates(LocalDate start, LocalDate end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new InvalidTaskDataException("Ngày kết thúc mong muốn không được trước ngày bắt đầu mong muốn");
+        }
+    }
+
+    public void updatePlannedDates(LocalDate plannedStartDate, LocalDate plannedEndDate) {
+        validatePlannedDates(plannedStartDate, plannedEndDate);
+        this.plannedStartDate = plannedStartDate;
+        this.plannedEndDate = plannedEndDate;
+        this.startDate = plannedStartDate;
+        this.dueDate = plannedEndDate;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public LocalDate getPlannedStartDate() {
+        return plannedStartDate;
+    }
+
+    public LocalDate getPlannedEndDate() {
+        return plannedEndDate;
     }
 
     public Long getVersion() {

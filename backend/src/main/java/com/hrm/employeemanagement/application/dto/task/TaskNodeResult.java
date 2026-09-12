@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.dto.task;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +23,7 @@ public record TaskNodeResult(
         String description,
         TaskType taskType,
         Long assigneeId,
+        List<Long> assigneeIds,
         BigDecimal estimatedHours,
         BigDecimal actualHours,
         BigDecimal budgetHours,
@@ -30,9 +32,11 @@ public record TaskNodeResult(
         Boolean isOverBudget,
         TaskStatus status,
         Integer sortOrder,
-        java.time.LocalDate startDate,
-        java.time.LocalDate dueDate,
-        java.time.LocalDate actualEndDate,
+        LocalDate plannedStartDate,
+        LocalDate plannedEndDate,
+        LocalDate startDate,
+        LocalDate dueDate,
+        LocalDate actualEndDate,
         Integer slackDays,
         Long createdBy,
         LocalDateTime createdAt,
@@ -44,8 +48,29 @@ public record TaskNodeResult(
         if (children == null) {
             children = new ArrayList<>();
         }
+        if (assigneeIds == null) {
+            assigneeIds = assigneeId != null ? List.of(assigneeId) : List.of();
+        }
+        if (budgetHours == null) {
+            budgetHours = BigDecimal.ZERO;
+        }
+        if (burnedPercentage == null) {
+            burnedPercentage = BigDecimal.ZERO;
+        }
+        if (burnStatus == null) {
+            burnStatus = TaskBudgetBurnStatus.NOT_SET;
+        }
+        if (isOverBudget == null) {
+            isOverBudget = false;
+        }
+        if (slackDays == null) {
+            slackDays = 0;
+        }
     }
 
+    /**
+     * Constructor rút gọn không truyền startDate/dueDate/actualEndDate (giữ giá trị null độc lập với planned dates).
+     */
     public TaskNodeResult(
             Long id,
             Long projectId,
@@ -55,6 +80,7 @@ public record TaskNodeResult(
             String description,
             TaskType taskType,
             Long assigneeId,
+            List<Long> assigneeIds,
             BigDecimal estimatedHours,
             BigDecimal actualHours,
             BigDecimal budgetHours,
@@ -63,33 +89,8 @@ public record TaskNodeResult(
             Boolean isOverBudget,
             TaskStatus status,
             Integer sortOrder,
-            Long createdBy,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            Long version,
-            List<TaskNodeResult> children
-    ) {
-        this(
-                id, projectId, parentId, taskCode, name, description, taskType, assigneeId,
-                estimatedHours, actualHours, budgetHours, burnedPercentage, burnStatus, isOverBudget,
-                status, sortOrder, null, null, null, 0, createdBy, createdAt, updatedAt, version, children
-        );
-    }
-
-    public TaskNodeResult(
-            Long id,
-            Long projectId,
-            Long parentId,
-            String taskCode,
-            String name,
-            String description,
-            TaskType taskType,
-            Long assigneeId,
-            BigDecimal estimatedHours,
-            BigDecimal actualHours,
-            BigDecimal budgetHours,
-            TaskStatus status,
-            Integer sortOrder,
+            LocalDate plannedStartDate,
+            LocalDate plannedEndDate,
             Long createdBy,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
@@ -105,55 +106,21 @@ public record TaskNodeResult(
                 description,
                 taskType,
                 assigneeId,
+                assigneeIds,
                 estimatedHours,
                 actualHours,
-                budgetHours != null ? budgetHours : BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                TaskBudgetBurnStatus.NOT_SET,
-                false,
+                budgetHours,
+                burnedPercentage,
+                burnStatus,
+                isOverBudget,
                 status,
                 sortOrder,
-                createdBy,
-                createdAt,
-                updatedAt,
-                version,
-                children
-        );
-    }
-
-    public TaskNodeResult(
-            Long id,
-            Long projectId,
-            Long parentId,
-            String taskCode,
-            String name,
-            String description,
-            TaskType taskType,
-            Long assigneeId,
-            BigDecimal estimatedHours,
-            BigDecimal actualHours,
-            TaskStatus status,
-            Integer sortOrder,
-            Long createdBy,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            Long version,
-            List<TaskNodeResult> children
-    ) {
-        this(
-                id,
-                projectId,
-                parentId,
-                taskCode,
-                name,
-                description,
-                taskType,
-                assigneeId,
-                estimatedHours,
-                actualHours,
-                BigDecimal.ZERO,
-                status,
-                sortOrder,
+                plannedStartDate,
+                plannedEndDate,
+                null,
+                null,
+                null,
+                0,
                 createdBy,
                 createdAt,
                 updatedAt,
@@ -172,11 +139,21 @@ public record TaskNodeResult(
                 task.description(),
                 task.taskType(),
                 task.assigneeId(),
+                task.assigneeId() != null ? List.of(task.assigneeId()) : List.of(),
                 task.estimatedHours(),
                 task.actualHours(),
                 task.budgetHours(),
+                BigDecimal.ZERO,
+                TaskBudgetBurnStatus.NOT_SET,
+                false,
                 task.status(),
                 task.sortOrder(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                0,
                 task.createdBy(),
                 task.createdAt(),
                 task.updatedAt(),

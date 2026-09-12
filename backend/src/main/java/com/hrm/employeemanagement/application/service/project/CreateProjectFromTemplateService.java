@@ -264,7 +264,9 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
                 Long employeeOrgUnitId = loadEmployeePort.findByUserId(currentUser.getId())
                         .map(Employee::getOrgUnitId)
                         .orElse(null);
-                return employeeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, employeeOrgUnitId);
+                return employeeOrgUnitId != null
+                        && (loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, employeeOrgUnitId)
+                                || loadOrgUnitPort.existsInOrgUnitBranch(employeeOrgUnitId, orgUnitId));
             }
             case ORGANIZATION_BRANCH:
                 return loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, currentUser.getScopeOrgUnitId());

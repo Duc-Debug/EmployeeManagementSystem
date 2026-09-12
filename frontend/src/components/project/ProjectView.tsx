@@ -8,9 +8,11 @@ import {
     getProjectWbs,
     createTask,
     updateTask,
+    getAssignableEmployees,
     type ProjectResult,
     type TaskNodeResult,
     type BackendTaskStatus,
+    type TaskAssignmentResult,
 } from '@/lib/api/projects';
 import { setTaskBudget, type CloneProjectWbsResult } from '@/lib/api/tasks';
 import { getTaskDependencies, type TaskDependencyResult } from '@/lib/api/taskDependencies';
@@ -66,6 +68,7 @@ import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectBudgetModal } from './ProjectBudgetModal';
 import { ProjectCreateModal } from './ProjectCreateModal';
 import { CloneWbsModal } from './CloneWbsModal';
+import { AssignTaskModal } from './AssignTaskModal';
 import { ProjectDemandView } from './ProjectDemandView';
 import { EstimateDemandModal } from './EstimateDemandModal';
 import { DeleteDemandConfirmModal } from './DeleteDemandConfirmModal';
@@ -130,7 +133,6 @@ function mapBackendWbsToUiCategories(
         if (m.employeeId) memberMap.set(String(m.employeeId), m);
     });
 
-
     const categories: TaskCategoryGroup[] = [];
     const standaloneTasks: TaskItem[] = [];
 
@@ -146,12 +148,20 @@ function mapBackendWbsToUiCategories(
             const childTasks: TaskItem[] = (node.children || []).map((child) => {
                 const assigneeKey = child.assigneeId ? String(child.assigneeId) : '';
                 const member = memberMap.get(assigneeKey);
+                const rawAssigneeIds = child.assigneeIds && child.assigneeIds.length > 0
+                    ? child.assigneeIds
+                    : (child.assigneeId ? [child.assigneeId] : []);
+                const assigneeIds = rawAssigneeIds.map(id => {
+                    const m = memberMap.get(String(id));
+                    return m ? m.id : `u-${id}`;
+                });
 
                 return {
                     id: String(child.id),
                     code: child.taskCode,
                     name: child.name,
                     assigneeId: member ? member.id : (child.assigneeId ? `u-${child.assigneeId}` : ''),
+                    assigneeIds,
                     priority: 'Trung bình',
                     hours: Number(child.estimatedHours || 0),
                     budgetHours: child.budgetHours !== undefined ? Number(child.budgetHours) : undefined,
@@ -160,6 +170,8 @@ function mapBackendWbsToUiCategories(
                     burnStatus: child.burnStatus,
                     isOverBudget: child.isOverBudget,
                     status: statusMap[child.status] || 'Chưa làm',
+                    plannedStartDate: child.plannedStartDate,
+                    plannedEndDate: child.plannedEndDate,
                     startDate: child.startDate,
                     dueDate: child.dueDate,
                     actualEndDate: child.actualEndDate,
@@ -185,12 +197,20 @@ function mapBackendWbsToUiCategories(
             // Root task không nằm trong category
             const assigneeKey = node.assigneeId ? String(node.assigneeId) : '';
             const member = memberMap.get(assigneeKey);
+            const rawAssigneeIds = node.assigneeIds && node.assigneeIds.length > 0
+                ? node.assigneeIds
+                : (node.assigneeId ? [node.assigneeId] : []);
+            const assigneeIds = rawAssigneeIds.map(id => {
+                const m = memberMap.get(String(id));
+                return m ? m.id : `u-${id}`;
+            });
 
             standaloneTasks.push({
                 id: String(node.id),
                 code: node.taskCode,
                 name: node.name,
                 assigneeId: member ? member.id : (node.assigneeId ? `u-${node.assigneeId}` : ''),
+                assigneeIds,
                 priority: 'Trung bình',
                 hours: Number(node.estimatedHours || 0),
                 budgetHours: node.budgetHours !== undefined ? Number(node.budgetHours) : undefined,
@@ -199,6 +219,8 @@ function mapBackendWbsToUiCategories(
                 burnStatus: node.burnStatus,
                 isOverBudget: node.isOverBudget,
                 status: statusMap[node.status] || 'Chưa làm',
+                plannedStartDate: node.plannedStartDate,
+                plannedEndDate: node.plannedEndDate,
                 startDate: node.startDate,
                 dueDate: node.dueDate,
                 actualEndDate: node.actualEndDate,
@@ -242,6 +264,8 @@ export default function ProjectView() {
     const [members, setMembers] = useState<ProjectMember[]>([]);
     const [budgetModalOpen, setBudgetModalOpen] = useState(false);
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
+    const [assignModalOpen, setAssignModalOpen] = useState(false);
+    const [selectedAssignTask, setSelectedAssignTask] = useState<TaskItem | null>(null);
     const [dependencyModalOpen, setDependencyModalOpen] = useState<boolean>(false);
     const [taskDependenciesList, setTaskDependenciesList] = useState<TaskDependencyResult[]>([]);
 
@@ -297,6 +321,18 @@ export default function ProjectView() {
         showToast(`Nhân bản thành công ${result.totalClonedTasks} công việc sang dự án!`, 'success');
     };
 
+    const handleOpenAssignModal = (task: TaskItem) => {
+        setSelectedAssignTask(task);
+        setAssignModalOpen(true);
+    };
+
+    const handleAssignSuccess = async (result: TaskAssignmentResult) => {
+        if (selectedProjectId) {
+            await loadWbsForProject(selectedProjectId);
+        }
+        showToast(`Đã phân công thành công cho công việc ${result.taskCode}!`, 'success');
+    };
+
     // Danh sách task chưa hoàn thành trong WBS (để hiển thị cảnh báo trước khi đóng dự án)
     const unfinishedTasks = useMemo(() => {
         const list: { code?: string; name: string }[] = [];
@@ -310,47 +346,75 @@ export default function ProjectView() {
         return list;
     }, [categories]);
 
-    // 1. Tải danh sách nhân sự thật từ API (sử dụng getEmployees có quyền cho mọi vai trò)
+    // 1. Tải danh sách nhân sự thật từ API (ưu tiên getAssignableEmployees cho phép PM thấy mọi nhân sự active)
     useEffect(() => {
-        getEmployees(1, 100)
-            .then((res) => {
-                if (res?.content && res.content.length > 0) {
-                    const fetchedMembers: ProjectMember[] = res.content.map((emp) => ({
-                        id: `u-${emp.id}`,
-                        employeeId: emp.id,
+        getAssignableEmployees()
+            .then((members) => {
+                if (members && members.length > 0) {
+                    const fetchedMembers: ProjectMember[] = members.map((emp) => ({
+                        id: `u-${emp.employeeId}`,
+                        employeeId: emp.employeeId,
                         name: emp.fullName || emp.employeeCode,
-                        role: emp.professionalRole || 'Nhân viên',
+                        role: emp.orgUnitName || 'Nhân viên',
                         avatar: '',
-                        capacity: emp.standardHoursPerWeek || 40,
+                        capacity: 40,
                         weeklyHours: {},
+                        contractEndDate: emp.contractEndDate,
+                        status: emp.status,
                     }));
                     setAllEmployees(fetchedMembers);
+                } else {
+                    fallbackLoadEmployees();
                 }
             })
             .catch(() => {
-                getUsers(0, 100)
-                    .then((res) => {
-                        if (res?.content && res.content.length > 0) {
-                            const fetchedMembers: ProjectMember[] = res.content
-                              .filter((u) => u.employeeId !== null)
-                              .map((u) => ({
-                                id: `u-${u.employeeId}`,
-                                employeeId: u.employeeId ?? undefined,
-                                name: u.fullName || u.username,
-                                role: u.roleCode || 'Nhân viên',
-                                avatar: '',
-                                capacity: 40,
-                                weeklyHours: {},
-                            }));
-                            setAllEmployees(fetchedMembers);
-                        }
-                    })
-                    .catch((err) => {
-                        console.warn('Failed to load employees for the project view:', err);
-                    });
+                fallbackLoadEmployees();
             });
-    }, []);
 
+        function fallbackLoadEmployees() {
+            getEmployees(1, 100)
+                .then((res) => {
+                    if (res?.content && res.content.length > 0) {
+                        const fetchedMembers: ProjectMember[] = res.content
+                            .filter((emp) => emp.id !== 1 && !emp.fullName?.toLowerCase().includes('quản trị viên'))
+                            .map((emp) => ({
+                                id: `u-${emp.id}`,
+                                employeeId: emp.id,
+                                name: emp.fullName || emp.employeeCode,
+                                role: emp.professionalRole || 'Nhân viên',
+                                avatar: '',
+                                capacity: emp.standardHoursPerWeek || 40,
+                                weeklyHours: {},
+                                contractEndDate: emp.contractEndDate,
+                                status: (emp as any).status || 'ACTIVE',
+                            }));
+                        setAllEmployees(fetchedMembers);
+                    }
+                })
+                .catch(() => {
+                    getUsers(0, 100)
+                        .then((res) => {
+                            if (res?.content && res.content.length > 0) {
+                                const fetchedMembers: ProjectMember[] = res.content
+                                  .filter((u) => u.employeeId !== null && u.employeeId !== 1 && !String(u.roleCode).includes('06'))
+                                  .map((u) => ({
+                                    id: `u-${u.employeeId}`,
+                                    employeeId: u.employeeId ?? undefined,
+                                    name: u.fullName || u.username,
+                                    role: u.roleCode || 'Nhân viên',
+                                    avatar: '',
+                                    capacity: 40,
+                                    weeklyHours: {},
+                                }));
+                                setAllEmployees(fetchedMembers);
+                            }
+                        })
+                        .catch((err) => {
+                            console.warn('Failed to load employees for the project view:', err);
+                        });
+                });
+        }
+    }, []);
 
     // 2. Tải danh sách dự án thật từ Database
     const loadProjects = useCallback(async () => {
@@ -397,6 +461,9 @@ export default function ProjectView() {
             const assignedEmployeeIds = new Set<number>();
             const collectAssignees = (nodes: TaskNodeResult[]) => nodes.forEach((node) => {
                 if (node.assigneeId) assignedEmployeeIds.add(node.assigneeId);
+                if (node.assigneeIds && Array.isArray(node.assigneeIds)) {
+                    node.assigneeIds.forEach((id) => assignedEmployeeIds.add(id));
+                }
                 collectAssignees(node.children || []);
             });
             collectAssignees(wbsNodes);
@@ -541,7 +608,6 @@ export default function ProjectView() {
     const [adjustModalOpen, setAdjustModalOpen] = useState(false);
     const [selectedAdjustCell, setSelectedAdjustCell] = useState<{
         memberId: string;
-
         weekKey: string;
         weekLabel: string;
     } | null>(null);
@@ -585,38 +651,38 @@ export default function ProjectView() {
         }
 
         try {
-                let parentIdToUse: number | null = null;
+            let parentIdToUse: number | null = null;
 
-                // Nếu người dùng nhập tên hạng mục mới
-                if (newCategoryName) {
-                    const newCat = await createTask(selectedProjectId, {
-                        name: newCategoryName,
-                        taskType: 'CATEGORY',
-                        sortOrder: categories.length + 1,
-                    });
-                    parentIdToUse = newCat.id;
-                } else if (catId && catId !== '__NEW__' && catId !== 'root-general') {
-                    const numCat = parseInt(catId.replace(/\D/g, ''), 10);
-                    if (!isNaN(numCat) && numCat > 0) {
-                        parentIdToUse = numCat;
-                    }
-                }
-
-                // Tìm member tương ứng để lấy employeeId thật trong database
-                const targetMember = members.find((m) => m.id === assigneeId);
-                const employeeIdToAssign = targetMember?.employeeId || null;
-
-                await createTask(selectedProjectId, {
-                    parentId: parentIdToUse,
-                    name,
-                    taskType: 'TASK',
-                    assigneeId: employeeIdToAssign,
-                    estimatedHours: hours,
-                    sortOrder: 0,
+            // Nếu người dùng nhập tên hạng mục mới
+            if (newCategoryName) {
+                const newCat = await createTask(selectedProjectId, {
+                    name: newCategoryName,
+                    taskType: 'CATEGORY',
+                    sortOrder: categories.length + 1,
                 });
+                parentIdToUse = newCat.id;
+            } else if (catId && catId !== '__NEW__' && catId !== 'root-general') {
+                const numCat = parseInt(catId.replace(/\D/g, ''), 10);
+                if (!isNaN(numCat) && numCat > 0) {
+                    parentIdToUse = numCat;
+                }
+            }
 
-                await loadWbsForProject(selectedProjectId);
-                showToast(`Đã lưu công việc "${name}" vào cơ sở dữ liệu!`, 'success');
+            // Tìm member tương ứng để lấy employeeId thật trong database
+            const targetMember = members.find((m) => m.id === assigneeId);
+            const employeeIdToAssign = targetMember?.employeeId || null;
+
+            await createTask(selectedProjectId, {
+                parentId: parentIdToUse,
+                name,
+                taskType: 'TASK',
+                assigneeId: employeeIdToAssign,
+                estimatedHours: hours,
+                sortOrder: 0,
+            });
+
+            await loadWbsForProject(selectedProjectId);
+            showToast(`Đã lưu công việc "${name}" vào cơ sở dữ liệu!`, 'success');
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Có lỗi khi lưu công việc vào cơ sở dữ liệu';
             showToast(`Lỗi: ${msg}`, 'error');
@@ -699,7 +765,6 @@ export default function ProjectView() {
             throw error;
         }
     };
-
 
     const handleOpenBudgetModal = (task: TaskItem) => {
         if (!canManageProject) {
@@ -1296,7 +1361,7 @@ export default function ProjectView() {
                     <div className={viewMode === 'split' ? 'lg:col-span-5' : 'lg:col-span-12'}>
                         <ProjectWbsView
                             categories={categories}
-                            members={members}
+                            members={allEmployees.length > 0 ? allEmployees : members}
                             dependencies={taskDependenciesList}
                             searchTerm={search}
                             selectedRole={roleFilter}
@@ -1306,6 +1371,7 @@ export default function ProjectView() {
                             onToggleTaskStatus={handleToggleTaskStatus}
                             onOpenBudgetModal={handleOpenBudgetModal}
                             onOpenCloneModal={canManageWbs && !isProjectClosed ? () => setCloneModalOpen(true) : undefined}
+                            onOpenAssignModal={canManageWbs ? handleOpenAssignModal : undefined}
                             onRefreshData={() => selectedProjectId && loadWbsForProject(selectedProjectId)}
                         />
                     </div>
@@ -1390,6 +1456,17 @@ export default function ProjectView() {
                 projectsList={projectsList}
                 onSuccess={handleCloneSuccess}
             />
+
+            {canManageWbs && (
+                <AssignTaskModal
+                    open={assignModalOpen}
+                    task={selectedAssignTask}
+                    projectId={selectedProjectId}
+                    employees={allEmployees.length > 0 ? allEmployees : members}
+                    onClose={() => setAssignModalOpen(false)}
+                    onSuccess={handleAssignSuccess}
+                />
+            )}
 
             {canManageProject && <ProjectTaskModal
                 open={taskModalOpen}
@@ -1511,5 +1588,3 @@ export default function ProjectView() {
         </div>
     );
 }
-
-
