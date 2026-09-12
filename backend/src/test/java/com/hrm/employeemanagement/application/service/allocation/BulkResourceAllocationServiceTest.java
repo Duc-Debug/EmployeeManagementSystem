@@ -385,4 +385,59 @@ class BulkResourceAllocationServiceTest {
         assertEquals(BigDecimal.valueOf(40), blocked.netAvailableHours());
         assertEquals(BigDecimal.valueOf(20), blocked.requestedHours());
     }
+
+    @Test
+    @DisplayName("NCL-06-CN-007: Phân bổ hàng loạt theo tỷ lệ 50% tự động tính giờ theo từng tuần có độ rảnh khác nhau")
+    void shouldAllocateSuccessfullyWithPercentageAcrossWeeksWithVaryingAvailability() {
+        // Given
+        mockAuthAndUser();
+        Employee employee = createMockEmployee(EmployeeStatus.ACTIVE, null);
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+
+        // Tuần 1: 40h khả dụng; Tuần 2: 32h khả dụng (nghỉ lễ 8h)
+        YearWeek w1 = YearWeek.of(2026, 1);
+        YearWeek w2 = YearWeek.of(2026, 2);
+        WeeklyAvailability availW1 = new WeeklyAvailability(1L, employeeId, w1, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        WeeklyAvailability availW2 = new WeeklyAvailability(2L, employeeId, w2, 40, 0, BigDecimal.valueOf(8), BigDecimal.valueOf(32));
+
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of(availW1, availW2));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of());
+
+        // Phân bổ 50% mỗi tuần
+        BulkAllocateResourceCommand command = new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 2, null, BigDecimal.valueOf(50)
+        );
+
+        // When
+        BulkAllocationResult result = service.bulkAllocateResource(command);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(2, result.totalRequestedWeeks());
+        assertEquals(2, result.successCount());
+        assertEquals(0, result.blockedCount());
+
+        // Tuần 1: 50% của 40h = 20.00h; Tuần 2: 50% của 32h = 16.00h
+        assertEquals(0, new BigDecimal("20.00").compareTo(result.successWeeks().get(0).allocatedHours()));
+        assertEquals(0, new BigDecimal("20.00").compareTo(result.successWeeks().get(0).remainingHours()));
+
+        assertEquals(0, new BigDecimal("16.00").compareTo(result.successWeeks().get(1).allocatedHours()));
+        assertEquals(0, new BigDecimal("16.00").compareTo(result.successWeeks().get(1).remainingHours()));
+
+        org.mockito.ArgumentCaptor<WeeklyProjectAllocation> captor = org.mockito.ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
+        verify(saveAllocationPort, times(2)).save(captor.capture());
+
+        List<WeeklyProjectAllocation> saved = captor.getAllValues();
+        assertEquals(0, new BigDecimal("20.00").compareTo(saved.get(0).getAllocatedHours()));
+        assertEquals(0, BigDecimal.valueOf(50).compareTo(saved.get(0).getAllocationPercentage()));
+
+        assertEquals(0, new BigDecimal("16.00").compareTo(saved.get(1).getAllocatedHours()));
+        assertEquals(0, BigDecimal.valueOf(50).compareTo(saved.get(1).getAllocationPercentage()));
+    }
 }

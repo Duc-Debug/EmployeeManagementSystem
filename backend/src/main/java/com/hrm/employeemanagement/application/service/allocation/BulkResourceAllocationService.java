@@ -140,7 +140,32 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
         int standardHours = employee.getStandardHoursPerWeek() != null ? employee.getStandardHoursPerWeek() : 40;
 
         for (YearWeek yw : targetWeeks) {
-            // 1. QTN-05: Kiểm tra ngày kết thúc hợp đồng
+            // 1. Tính số giờ khả dụng (Net Available)
+            WeeklyAvailability avail = availabilityMap.get(yw);
+            BigDecimal netAvailable = avail != null ? avail.getNetAvailableHours() : BigDecimal.valueOf(standardHours);
+
+            // Tính toán effectiveHours và effectivePercentage cho tuần này
+            BigDecimal effectiveHours;
+            BigDecimal effectivePercentage;
+
+            if (command.allocatedHoursPerWeek() != null && command.allocationPercentagePerWeek() != null) {
+                effectiveHours = command.allocatedHoursPerWeek();
+                effectivePercentage = command.allocationPercentagePerWeek();
+            } else if (command.allocationPercentagePerWeek() != null) {
+                effectivePercentage = command.allocationPercentagePerWeek();
+                effectiveHours = netAvailable.multiply(effectivePercentage)
+                        .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+            } else {
+                effectiveHours = command.allocatedHoursPerWeek();
+                if (netAvailable.compareTo(BigDecimal.ZERO) > 0) {
+                    effectivePercentage = effectiveHours.multiply(BigDecimal.valueOf(100))
+                            .divide(netAvailable, 2, java.math.RoundingMode.HALF_UP);
+                } else {
+                    effectivePercentage = BigDecimal.ZERO;
+                }
+            }
+
+            // 2. QTN-05: Kiểm tra ngày kết thúc hợp đồng
             LocalDate weekStartDate = yw.getStartDate();
             if (employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(weekStartDate)) {
                 blockedWeeks.add(new BulkAllocationResult.BlockedWeekSummary(
@@ -150,13 +175,9 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                         "Nhân sự đã kết thúc hợp đồng lao động trước tuần " + yw.weekNumber() + "/" + yw.year(),
                         BigDecimal.ZERO,
                         BigDecimal.ZERO,
-                        command.allocatedHoursPerWeek()));
+                        effectiveHours));
                 continue;
             }
-
-            // 2. Tính số giờ khả dụng (Net Available)
-            WeeklyAvailability avail = availabilityMap.get(yw);
-            BigDecimal netAvailable = avail != null ? avail.getNetAvailableHours() : BigDecimal.valueOf(standardHours);
 
             // 3. Tính tổng giờ phân bổ cho các dự án KHÁC và tổng hiện tại của tất cả dự án
             List<WeeklyProjectAllocation> weekAllocs = allocationMap.getOrDefault(yw, List.of());
@@ -169,7 +190,7 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                     .map(WeeklyProjectAllocation::getAllocatedHours)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            BigDecimal totalRequested = otherProjectsSum.add(command.allocatedHoursPerWeek());
+            BigDecimal totalRequested = otherProjectsSum.add(effectiveHours);
 
             // 4. QTN-11: Kiểm tra giới hạn công suất tuần
             if (totalRequested.compareTo(netAvailable) > 0) {
@@ -181,7 +202,7 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                                 + netAvailable + "h) của nhân sự trong tuần " + yw.weekNumber() + "/" + yw.year(),
                         netAvailable,
                         currentTotalAllocated,
-                        command.allocatedHoursPerWeek()));
+                        effectiveHours));
                 continue;
             }
 
@@ -193,20 +214,21 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
             WeeklyProjectAllocation alloc;
             if (existingOpt.isPresent()) {
                 alloc = existingOpt.get();
-                alloc.updateAllocatedHours(command.allocatedHoursPerWeek());
+                alloc.updateAllocation(effectiveHours, effectivePercentage);
             } else {
                 alloc = WeeklyProjectAllocation.createNew(
                         employee.getIdValue(),
                         command.projectId(),
                         yw,
-                        command.allocatedHoursPerWeek());
+                        effectiveHours,
+                        effectivePercentage);
             }
             allocationsToSave.add(alloc);
             BigDecimal remaining = netAvailable.subtract(totalRequested);
             successWeeks.add(new BulkAllocationResult.AllocatedWeekSummary(
                     yw.year(),
                     yw.weekNumber(),
-                    command.allocatedHoursPerWeek(),
+                    effectiveHours,
                     remaining));
         }
 
@@ -217,6 +239,10 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
 
         // [TC-04] Ghi nhật ký kiểm toán (Audit Log)
         if (!successWeeks.isEmpty() || !blockedWeeks.isEmpty()) {
+            String allocationDetail = command.allocationPercentagePerWeek() != null
+                    ? command.allocationPercentagePerWeek() + "%/tuần"
+                    : command.allocatedHoursPerWeek() + "h/tuần";
+
             saveAuditLogPort.save(AuditLog.createChange(
                     currentUserId,
                     "RESOURCE_BULK_ALLOCATED",
@@ -224,8 +250,8 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                     null,
                     "Phân bổ hàng loạt: " + successWeeks.size() + " tuần thành công, " + blockedWeeks.size()
                             + " tuần bị chặn",
-                    "Nhân sự ID: " + employee.getIdValue() + ", Dự án ID: " + command.projectId() + ", Số giờ/tuần: "
-                            + command.allocatedHoursPerWeek() + "h"));
+                    "Nhân sự ID: " + employee.getIdValue() + ", Dự án ID: " + command.projectId() + ", Phân bổ: "
+                            + allocationDetail));
         }
 
         return new BulkAllocationResult(
