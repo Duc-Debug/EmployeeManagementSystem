@@ -30,29 +30,35 @@ public class ProjectAllocationForLeaveAdapter implements LoadProjectAllocationFo
             return Collections.emptyList();
         }
 
-        List<WeeklyProjectAllocationJpaEntity> allocations = allocationRepository
-                .findByEmployeeIdInAndYearAndWeekNumberIn(List.of(employeeId), year, weekNumbers);
+        try {
+            List<WeeklyProjectAllocationJpaEntity> allocations = allocationRepository
+                    .findByEmployeeIdInAndYearAndWeekNumberIn(List.of(employeeId), year, weekNumbers);
 
-        if (allocations.isEmpty()) {
+            if (allocations.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            // Lấy danh sách tên dự án
+            Set<Long> projectIds = allocations.stream()
+                    .map(WeeklyProjectAllocationJpaEntity::getProjectId)
+                    .collect(Collectors.toSet());
+
+            Map<Long, String> projectNameMap = projectRepository.findAllById(projectIds).stream()
+                    .collect(Collectors.toMap(ProjectJpaEntity::getId, ProjectJpaEntity::getProjectName, (a, b) -> a));
+
+            return allocations.stream()
+                    .map(alloc -> new ProjectAllocationInfo(
+                            alloc.getProjectId(),
+                            projectNameMap.getOrDefault(alloc.getProjectId(), "Dự án #" + alloc.getProjectId()),
+                            alloc.getYear(),
+                            alloc.getWeekNumber(),
+                            alloc.getAllocatedHours()
+                    ))
+                    .toList();
+        } catch (Exception ex) {
+            org.slf4j.LoggerFactory.getLogger(ProjectAllocationForLeaveAdapter.class)
+                    .warn("Không thể lấy danh sách phân bổ dự án cho đơn xin nghỉ phép của nhân sự #{}: {}", employeeId, ex.getMessage());
             return Collections.emptyList();
         }
-
-        // Lấy danh sách tên dự án
-        Set<Long> projectIds = allocations.stream()
-                .map(WeeklyProjectAllocationJpaEntity::getProjectId)
-                .collect(Collectors.toSet());
-
-        Map<Long, String> projectNameMap = projectRepository.findAllById(projectIds).stream()
-                .collect(Collectors.toMap(ProjectJpaEntity::getId, ProjectJpaEntity::getProjectName, (a, b) -> a));
-
-        return allocations.stream()
-                .map(alloc -> new ProjectAllocationInfo(
-                        alloc.getProjectId(),
-                        projectNameMap.getOrDefault(alloc.getProjectId(), "Dự án #" + alloc.getProjectId()),
-                        alloc.getYear(),
-                        alloc.getWeekNumber(),
-                        alloc.getAllocatedHours()
-                ))
-                .toList();
     }
 }
