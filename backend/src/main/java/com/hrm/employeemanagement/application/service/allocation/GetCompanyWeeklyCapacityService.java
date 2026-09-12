@@ -39,6 +39,9 @@ import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort;
+import com.hrm.employeemanagement.domain.reservation.ResourceReservation;
+
 public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacityUseCase {
 
     private final AuthorizationService authorizationService;
@@ -50,6 +53,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
     private final LoadHolidaysPort loadHolidaysPort;
     private final LoadApprovedLeavesPort loadApprovedLeavesPort;
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
+    private final LoadResourceReservationPort loadReservationPort;
 
     public GetCompanyWeeklyCapacityService(
             AuthorizationService authorizationService,
@@ -62,6 +66,32 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             LoadWorkingCalendarPort loadWorkingCalendarPort
     ) {
+        this(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort,
+                null
+        );
+    }
+
+    public GetCompanyWeeklyCapacityService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadResourceReservationPort loadReservationPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
@@ -71,6 +101,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "LoadHolidaysPort must not be null");
         this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "LoadApprovedLeavesPort must not be null");
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
+        this.loadReservationPort = loadReservationPort;
     }
 
     @Override
@@ -338,6 +369,17 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 loadOrgUnitPort.findAllByIdIn(orgUnitIds).stream()
                         .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (e1, e2) -> e1));
 
+        // 5. Batch load giữ chỗ nguồn lực ACTIVE cho danh sách nhân sự mục tiêu (QTN-13)
+        Map<String, BigDecimal> reservationMap = Map.of();
+        if (loadReservationPort != null) {
+            List<ResourceReservation> allReservations = loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(employeeIds, targetWeeks);
+            reservationMap = allReservations.stream()
+                    .collect(Collectors.groupingBy(
+                            r -> makeKey(r.getEmployeeId(), r.getYear(), r.getWeekNumber()),
+                            Collectors.reducing(BigDecimal.ZERO, ResourceReservation::getReservedHours, BigDecimal::add)
+                    ));
+        }
+
         List<EmployeeCapacityRowResult> rows = new ArrayList<>();
         int totalOverloadedCells = 0;
         int totalUnderutilizedCells = 0;
@@ -373,10 +415,11 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         weekWorkingDaysCount
                 );
 
-                // 3. Tính Allocated Hours
+                // 3. Tính Allocated Hours (cam kết chính thức) và Reserved Hours (giữ chỗ theo QTN-13)
                 BigDecimal allocatedHours = allocationMap.getOrDefault(key, BigDecimal.ZERO);
+                BigDecimal reservedHours = reservationMap.getOrDefault(key, BigDecimal.ZERO);
 
-                // 4. Áp dụng QTN-12
+                // 4. Áp dụng QTN-12: Giữ chỗ KHÔNG cộng vào allocatedHours (QTN-13)
                 boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(allocatedHours, availableHours);
                 BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(allocatedHours, availableHours);
                 BigDecimal remainingHours = WeeklyCapacityMatrixPolicy.calculateRemainingHours(availableHours, allocatedHours);
@@ -402,7 +445,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         utilizationPercentage,
                         isOverloaded,
                         excessHours,
-                        status
+                        status,
+                        reservedHours
                 ));
             }
 
