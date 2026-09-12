@@ -208,7 +208,7 @@ export interface CancelReservationPayload {
 export async function createResourceReservation(
   payload: CreateReservationPayload
 ): Promise<ResourceReservationResult> {
-  return apiRequest<ResourceReservationResult>("/reservations", {
+  return apiRequest<ResourceReservationResult>("/resource-reservations", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -218,7 +218,7 @@ export async function cancelResourceReservation(
   id: number,
   payload: CancelReservationPayload
 ): Promise<ResourceReservationResult> {
-  return apiRequest<ResourceReservationResult>(`/reservations/${id}/cancel`, {
+  return apiRequest<ResourceReservationResult>(`/resource-reservations/${id}/cancel`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
@@ -239,7 +239,7 @@ export async function getResourceReservations(params?: {
   if (params?.status != null) searchParams.append("status", params.status);
   const queryStr = searchParams.toString();
   return apiRequest<ResourceReservationResult[]>(
-    `/reservations${queryStr ? `?${queryStr}` : ""}`
+    `/resource-reservations${queryStr ? `?${queryStr}` : ""}`
   );
 }
 
@@ -248,7 +248,7 @@ export async function autoCancelProjectReservations(
   payload: { reason: string }
 ): Promise<{ cancelledCount: number }> {
   return apiRequest<{ cancelledCount: number }>(
-    `/reservations/projects/${projectId}/auto-cancel`,
+    `/resource-reservations/projects/${projectId}/auto-cancel`,
     {
       method: "POST",
       body: JSON.stringify(payload),
@@ -260,7 +260,7 @@ export async function autoConvertProjectReservations(
   projectId: number
 ): Promise<{ convertedCount: number }> {
   return apiRequest<{ convertedCount: number }>(
-    `/reservations/projects/${projectId}/auto-convert`,
+    `/resource-reservations/projects/${projectId}/auto-convert`,
     {
       method: "POST",
     }

@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Objects;
 
 @RestController
-@RequestMapping("/api/v1/resource-reservations")
+@RequestMapping({"/api/v1/resource-reservations", "/api/v1/reservations"})
 public class ResourceReservationController {
 
     private final CreateResourceReservationUseCase createUseCase;

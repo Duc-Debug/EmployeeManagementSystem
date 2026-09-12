@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   X,
   BookmarkCheck,
@@ -24,6 +24,7 @@ import {
   type ReservationStatus,
 } from "@/lib/api/allocations";
 import { getProjects, type ProjectResult } from "@/lib/api/projects";
+import { getEmployees, type EmployeeProfile } from "@/lib/api/employees";
 
 interface ResourceReservationModalProps {
   open: boolean;
@@ -53,6 +54,14 @@ export function ResourceReservationModal({
   const [weekNumber, setWeekNumber] = useState<number>(initialWeekNumber ?? 1);
   const [reservedHours, setReservedHours] = useState<string>("8.0");
   const [note, setNote] = useState<string>("");
+
+  // Employee autocomplete states
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState<string>(initialEmployeeName ?? "");
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
+  const employeeDropdownRef = useRef<HTMLDivElement>(null);
 
   // Projects list for dropdown
   const [projects, setProjects] = useState<ProjectResult[]>([]);
@@ -89,6 +98,56 @@ export function ResourceReservationModal({
     }
   };
 
+  const loadEmployeesList = async () => {
+    setIsLoadingEmployees(true);
+    try {
+      const res = await getEmployees(1, 100);
+      const list = res.content || [];
+      setEmployees(list);
+      if (initialEmployeeId) {
+        const found = list.find((e) => e.id === initialEmployeeId);
+        if (found) {
+          setSelectedEmployee(found);
+          setEmployeeSearchTerm(`${found.employeeCode} - ${found.fullName}`);
+        } else if (initialEmployeeName) {
+          setEmployeeSearchTerm(initialEmployeeName);
+        }
+      }
+    } catch (err: any) {
+      console.warn("Không thể tải danh sách nhân sự:", err);
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  };
+
+  const filteredEmployees = useMemo(() => {
+    if (!employeeSearchTerm.trim()) return employees;
+    const term = employeeSearchTerm.trim().toLowerCase();
+    return employees.filter(
+      (emp) =>
+        String(emp.id).includes(term) ||
+        (emp.employeeCode && emp.employeeCode.toLowerCase().includes(term)) ||
+        (emp.fullName && emp.fullName.toLowerCase().includes(term)) ||
+        (emp.orgUnitName && emp.orgUnitName.toLowerCase().includes(term))
+    );
+  }, [employees, employeeSearchTerm]);
+
+  // Click outside to close employee dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        employeeDropdownRef.current &&
+        !employeeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsEmployeeDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const loadReservationsList = async () => {
     setIsLoadingReservations(true);
     try {
@@ -107,15 +166,23 @@ export function ResourceReservationModal({
   // Reset form when modal opens or initial props change
   useEffect(() => {
     if (open) {
-      if (initialEmployeeId) setEmployeeId(initialEmployeeId);
+      if (initialEmployeeId) {
+        setEmployeeId(initialEmployeeId);
+      } else {
+        setEmployeeId("");
+        setSelectedEmployee(null);
+        setEmployeeSearchTerm("");
+      }
+      if (initialEmployeeName) setEmployeeSearchTerm(initialEmployeeName);
       if (initialYear) setYear(initialYear);
       if (initialWeekNumber) setWeekNumber(initialWeekNumber);
       setErrorMsg(null);
       setSuccessMsg(null);
       loadProjectsList();
+      loadEmployeesList();
       loadReservationsList();
     }
-  }, [open, initialEmployeeId, initialYear, initialWeekNumber]);
+  }, [open, initialEmployeeId, initialEmployeeName, initialYear, initialWeekNumber]);
 
   useEffect(() => {
     if (open && activeTab === "LIST") {
@@ -306,23 +373,131 @@ export function ResourceReservationModal({
                 )}
               </div>
 
-              {/* Nhân sự */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1">
-                  <User className="h-3.5 w-3.5 text-slate-500" />
-                  Nhân sự ID <span className="text-rose-500">*</span>
-                  {initialEmployeeName && (
-                    <span className="text-slate-500 font-normal">({initialEmployeeName})</span>
+              {/* Nhân sự (Autocomplete với gợi ý danh sách) */}
+              <div className="relative" ref={employeeDropdownRef}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1">
+                    <User className="h-3.5 w-3.5 text-slate-500" />
+                    Nhân sự <span className="text-rose-500">*</span>
+                  </label>
+                  {selectedEmployee ? (
+                    <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-amber-600" />
+                      [{selectedEmployee.employeeCode}] ID: {selectedEmployee.id}
+                    </span>
+                  ) : employeeId ? (
+                    <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-amber-600" />
+                      ID: {employeeId}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={employeeSearchTerm}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEmployeeSearchTerm(val);
+                      setIsEmployeeDropdownOpen(true);
+                      if (!val.trim()) {
+                        setEmployeeId("");
+                        setSelectedEmployee(null);
+                      } else {
+                        const numVal = Number(val.trim());
+                        if (!isNaN(numVal) && numVal > 0) {
+                          setEmployeeId(numVal);
+                          const match = employees.find((emp) => emp.id === numVal);
+                          setSelectedEmployee(match || null);
+                        } else {
+                          const match = employees.find(
+                            (emp) => emp.employeeCode?.toLowerCase() === val.trim().toLowerCase()
+                          );
+                          if (match) {
+                            setEmployeeId(match.id);
+                            setSelectedEmployee(match);
+                          }
+                        }
+                      }
+                    }}
+                    onFocus={() => setIsEmployeeDropdownOpen(true)}
+                    placeholder="Gõ mã ID (VD: 1), mã NV (VD: EMP01), hoặc họ tên..."
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-xs font-medium text-slate-800 focus:border-amber-500 focus:outline-none"
+                    required
+                  />
+                  {employeeSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmployeeId("");
+                        setSelectedEmployee(null);
+                        setEmployeeSearchTerm("");
+                        setIsEmployeeDropdownOpen(true);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   )}
-                </label>
-                <input
-                  type="number"
-                  value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : "")}
-                  placeholder="Nhập mã ID nhân sự..."
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-amber-500 focus:outline-none"
-                  required
-                />
+                </div>
+
+                {/* Dropdown gợi ý */}
+                {isEmployeeDropdownOpen && (
+                  <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl py-1 text-xs divide-y divide-slate-50 animate-in fade-in zoom-in-95 duration-100">
+                    {isLoadingEmployees ? (
+                      <div className="flex items-center justify-center gap-2 p-4 text-slate-400">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />
+                        Đang tải danh sách nhân sự...
+                      </div>
+                    ) : filteredEmployees.length === 0 ? (
+                      <div className="p-4 text-center text-slate-400 italic">
+                        Không tìm thấy nhân sự phù hợp với "{employeeSearchTerm}"
+                      </div>
+                    ) : (
+                      filteredEmployees.map((emp) => {
+                        const isSelected = employeeId === emp.id;
+                        return (
+                          <div
+                            key={emp.id}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setEmployeeId(emp.id);
+                              setSelectedEmployee(emp);
+                              setEmployeeSearchTerm(`[${emp.employeeCode}] ${emp.fullName}`);
+                              setIsEmployeeDropdownOpen(false);
+                            }}
+                            className={`flex items-center justify-between px-3 py-2 cursor-pointer transition hover:bg-amber-50/70 ${
+                              isSelected ? "bg-amber-50/90 font-semibold text-amber-900" : "text-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
+                                {emp.employeeCode || `ID:${emp.id}`}
+                              </span>
+                              <div>
+                                <div className="text-xs font-medium text-slate-800 flex items-center gap-1.5">
+                                  {emp.fullName}
+                                  {emp.professionalRole && (
+                                    <span className="text-[10px] text-slate-500 font-normal">
+                                      ({emp.professionalRole})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-400">
+                                  {emp.orgUnitName || "Chưa gắn đơn vị"}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[11px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                              ID: {emp.id}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Năm và Tuần */}
@@ -367,12 +542,12 @@ export function ResourceReservationModal({
                 </label>
                 <input
                   type="number"
-                  step="0.5"
-                  min="0.1"
+                  step="any"
+                  min="0.5"
                   max="168"
                   value={reservedHours}
                   onChange={(e) => setReservedHours(e.target.value)}
-                  placeholder="Ví dụ: 8.0"
+                  placeholder="Ví dụ: 8.0 hoặc 16"
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-amber-500 focus:outline-none"
                   required
                 />

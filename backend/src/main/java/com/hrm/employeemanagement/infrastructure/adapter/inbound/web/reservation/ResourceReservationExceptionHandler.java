@@ -53,4 +53,9 @@ public class ResourceReservationExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleInvalidReservationState(InvalidReservationStateException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmployeeInactive(com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+    }
 }
