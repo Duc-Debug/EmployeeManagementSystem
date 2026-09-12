@@ -21,7 +21,6 @@ import com.hrm.employeemanagement.domain.availability.Holiday;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
-import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
@@ -40,9 +39,6 @@ import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort;
-import com.hrm.employeemanagement.domain.reservation.ResourceReservation;
-
 public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacityUseCase {
 
     private final AuthorizationService authorizationService;
@@ -54,7 +50,6 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
     private final LoadHolidaysPort loadHolidaysPort;
     private final LoadApprovedLeavesPort loadApprovedLeavesPort;
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
-    private final LoadResourceReservationPort loadReservationPort;
 
     public GetCompanyWeeklyCapacityService(
             AuthorizationService authorizationService,
@@ -67,32 +62,6 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             LoadWorkingCalendarPort loadWorkingCalendarPort
     ) {
-        this(
-                authorizationService,
-                loadUserPort,
-                loadEmployeePort,
-                loadOrgUnitPort,
-                loadAllocationPort,
-                loadWeeklyAvailabilityPort,
-                loadHolidaysPort,
-                loadApprovedLeavesPort,
-                loadWorkingCalendarPort,
-                null
-        );
-    }
-
-    public GetCompanyWeeklyCapacityService(
-            AuthorizationService authorizationService,
-            LoadUserPort loadUserPort,
-            LoadEmployeePort loadEmployeePort,
-            LoadOrgUnitPort loadOrgUnitPort,
-            LoadWeeklyProjectAllocationPort loadAllocationPort,
-            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
-            LoadHolidaysPort loadHolidaysPort,
-            LoadApprovedLeavesPort loadApprovedLeavesPort,
-            LoadWorkingCalendarPort loadWorkingCalendarPort,
-            LoadResourceReservationPort loadReservationPort
-    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
@@ -102,7 +71,6 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "LoadHolidaysPort must not be null");
         this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "LoadApprovedLeavesPort must not be null");
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
-        this.loadReservationPort = loadReservationPort;
     }
 
     @Override
@@ -135,26 +103,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 }
             }
             case SELF -> {
-                if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
-                    // VT-02 (Quản lý dự án): Thẩm định phạm vi phòng ban quản lý của PM
-                    Long pmOrgUnitId = resolveEmployeeOrgUnitId(currentUser, currentUserId);
-                    if (pmOrgUnitId == null) {
-                        throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
-                    }
-                    if (query.orgUnitId() != null) {
-                        boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), pmOrgUnitId);
-                        if (!inScope) {
-                            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
-                        }
-                        effectiveOrgUnitId = query.orgUnitId();
-                    } else {
-                        // Không cho phép PM xem toàn công ty (orgUnitId = null); mặc định giới hạn trong phòng ban của PM
-                        effectiveOrgUnitId = pmOrgUnitId;
-                    }
-                } else {
-                    // Người dùng chỉ có quyền SELF (nhân viên chuyên môn VT-04) không được xem bảng năng lực
-                    throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
-                }
+                // Người dùng chỉ có quyền SELF không được xem bảng năng lực tổng thể công ty/bộ phận
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
             }
             default -> throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
         }
@@ -388,17 +338,6 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 loadOrgUnitPort.findAllByIdIn(orgUnitIds).stream()
                         .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (e1, e2) -> e1));
 
-        // 5. Batch load giữ chỗ nguồn lực ACTIVE cho danh sách nhân sự mục tiêu (QTN-13)
-        Map<String, BigDecimal> reservationMap = Map.of();
-        if (loadReservationPort != null) {
-            List<ResourceReservation> allReservations = loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(employeeIds, targetWeeks);
-            reservationMap = allReservations.stream()
-                    .collect(Collectors.groupingBy(
-                            r -> makeKey(r.getEmployeeId(), r.getYear(), r.getWeekNumber()),
-                            Collectors.reducing(BigDecimal.ZERO, ResourceReservation::getReservedHours, BigDecimal::add)
-                    ));
-        }
-
         List<EmployeeCapacityRowResult> rows = new ArrayList<>();
         int totalOverloadedCells = 0;
         int totalUnderutilizedCells = 0;
@@ -434,11 +373,10 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         weekWorkingDaysCount
                 );
 
-                // 3. Tính Allocated Hours (cam kết chính thức) và Reserved Hours (giữ chỗ theo QTN-13)
+                // 3. Tính Allocated Hours
                 BigDecimal allocatedHours = allocationMap.getOrDefault(key, BigDecimal.ZERO);
-                BigDecimal reservedHours = reservationMap.getOrDefault(key, BigDecimal.ZERO);
 
-                // 4. Áp dụng QTN-12: Giữ chỗ KHÔNG cộng vào allocatedHours (QTN-13)
+                // 4. Áp dụng QTN-12
                 boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(allocatedHours, availableHours);
                 BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(allocatedHours, availableHours);
                 BigDecimal remainingHours = WeeklyCapacityMatrixPolicy.calculateRemainingHours(availableHours, allocatedHours);
@@ -464,8 +402,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         utilizationPercentage,
                         isOverloaded,
                         excessHours,
-                        status,
-                        reservedHours
+                        status
                 ));
             }
 
@@ -569,17 +506,5 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             case UNDERUTILIZED -> row.cells().stream().anyMatch(c -> c.status() == CapacityStatus.UNDERUTILIZED);
             case OPTIMAL -> row.cells().stream().anyMatch(c -> c.status() == CapacityStatus.OPTIMAL);
         };
-    }
-
-    private Long resolveEmployeeOrgUnitId(User currentUser, Long currentUserId) {
-        if (currentUser.getEmployeeId() != null) {
-            Employee emp = loadEmployeePort.findById(currentUser.getEmployeeId()).orElse(null);
-            if (emp != null && emp.getOrgUnitId() != null) {
-                return emp.getOrgUnitId();
-            }
-        }
-        return loadEmployeePort.findByUserId(new UserId(currentUserId))
-                .map(Employee::getOrgUnitId)
-                .orElse(null);
     }
 }
