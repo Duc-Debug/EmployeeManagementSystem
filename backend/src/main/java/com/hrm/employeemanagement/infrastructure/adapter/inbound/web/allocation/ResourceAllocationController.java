@@ -30,14 +30,17 @@ import org.springframework.validation.annotation.Validated;
 public class ResourceAllocationController {
 
     private final AllocateResourceUseCase allocateResourceUseCase;
+    private final com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase bulkAllocateResourceUseCase;
     private final SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase;
     private final com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase;
 
     public ResourceAllocationController(
             AllocateResourceUseCase allocateResourceUseCase,
+            com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase bulkAllocateResourceUseCase,
             SearchResourceBySkillAndAvailabilityUseCase searchResourceUseCase,
             com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase) {
         this.allocateResourceUseCase = allocateResourceUseCase;
+        this.bulkAllocateResourceUseCase = bulkAllocateResourceUseCase;
         this.searchResourceUseCase = searchResourceUseCase;
         this.getCompanyWeeklyCapacityUseCase = getCompanyWeeklyCapacityUseCase;
     }
@@ -84,6 +87,34 @@ public class ResourceAllocationController {
 
         WeeklyCapacityResult result = allocateResourceUseCase.allocateResource(command);
         return ResponseEntity.ok(ApiResponse.success("Phân bổ nhân sự vào dự án theo tuần thành công", result));
+    }
+
+    /**
+     * NCL-06-CN-006: Phân bổ hàng loạt cho nhiều tuần trong một thao tác.
+     */
+    @PostMapping("/bulk")
+    public ResponseEntity<ApiResponse<com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult>> bulkAllocateResource(
+            @Valid @RequestBody com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.dto.BulkAllocateResourceRequest request) {
+
+        com.hrm.employeemanagement.application.dto.allocation.BulkAllocateResourceCommand command =
+                new com.hrm.employeemanagement.application.dto.allocation.BulkAllocateResourceCommand(
+                        request.employeeId(),
+                        request.projectId(),
+                        request.fromYear(),
+                        request.fromWeek(),
+                        request.toYear(),
+                        request.toWeek(),
+                        request.allocatedHoursPerWeek()
+                );
+
+        com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult result =
+                bulkAllocateResourceUseCase.bulkAllocateResource(command);
+
+        String message = result.blockedCount() == 0
+                ? "Phân bổ hàng loạt cho nhiều tuần thành công"
+                : "Phân bổ hàng loạt hoàn tất với " + result.blockedCount() + " tuần bị vướng ràng buộc";
+
+        return ResponseEntity.ok(ApiResponse.success(message, result));
     }
 
     /**
