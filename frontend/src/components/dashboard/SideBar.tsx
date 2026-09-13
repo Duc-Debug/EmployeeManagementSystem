@@ -133,6 +133,12 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                 name: isEmployeeOnly ? "Khai báo kỹ năng" : "Quản lý Năng lực & Kỹ năng",
             };
         }
+        if (item.id === "availability") {
+            return {
+                ...item,
+                name: (isEmployeeOnly || dataScope === "SELF") ? "Giờ khả dụng của tôi" : "Quản lý Giờ khả dụng",
+            };
+        }
         return item;
     });
     const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope));

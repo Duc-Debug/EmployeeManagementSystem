@@ -60,7 +60,7 @@ export default function HrProfilePage() {
                         employeeId: p.id,
                         employeeCode: empCode,
                         fullName: p.fullName || u?.fullName || "",
-                        email: u?.email || "",
+                        email: p.email || u?.email || (empCode ? `${empCode.toLowerCase().replace(/[^a-z0-9]/g, "")}@company.com` : ""),
                         username: u?.username || "",
                         orgUnitId: p.orgUnitId ? String(p.orgUnitId) : undefined,
                         department: deptName,

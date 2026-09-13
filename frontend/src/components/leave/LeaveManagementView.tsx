@@ -80,13 +80,17 @@ export default function LeaveManagementView() {
     const user = useAuthUser();
     const roleCode = user?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
 
-    const isEmployee = roleCode === "VT-04";
     const isRM = roleCode === "VT-03";
-    const isHR = roleCode === "VT-02" || roleCode === "VT-01";
+    const isHR = roleCode === "VT-05";
+    const isDirector = roleCode === "VT-01";
+    const isApprover = isRM || isHR || isDirector;
+    const isEmployee = !isApprover; // VT-04, VT-02 (PM)
 
-    const canViewDeptCalendar = isRM || isHR || roleCode === "VT-01" || roleCode === "VT-06";
+    // Quyền xem Lịch nghỉ bộ phận: Dành riêng cho VT-03 (RM), VT-05 (HR), VT-01 (BGĐ), VT-06 (Admin).
+    // PM (VT-02) và Nhân viên (VT-04) KHÔNG có quyền và tab "Lịch nghỉ bộ phận" sẽ bị ẩn.
+    const canViewDeptCalendar = isRM || isHR || isDirector || roleCode === "VT-06";
     const [viewMode, setViewMode] = useState<"list" | "dept-calendar" | "calendar">(
-        isRM ? "dept-calendar" : "list"
+        canViewDeptCalendar && isRM ? "dept-calendar" : "list"
     );
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [balance, setBalance] = useState<LeaveBalanceDto | null>(null);
@@ -141,7 +145,7 @@ export default function LeaveManagementView() {
                 if (balanceData.status === "fulfilled" && balanceData.value) {
                     setBalance(balanceData.value);
                 }
-            } else if (isRM || isHR) {
+            } else if (isApprover) {
                 const data = await getPendingLeaveRequests();
                 if (Array.isArray(data)) {
                     const mapped: LeaveRequest[] = data.map((item) => ({
@@ -541,7 +545,7 @@ export default function LeaveManagementView() {
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 {/* Thao tác Phê duyệt thuộc phạm vi UC NCL-05-CN-003 */}
-                                                {(isRM || isHR) && req.status === "PENDING" && (
+                                                {isApprover && req.status === "PENDING" && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setSelectedApprovalRequest(req)}

@@ -20,6 +20,8 @@ import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import AdminDashboardOverview from "./AdminDashboardOverview";
+import PmDashboardOverview from "./PmDashboardOverview";
+import RmDashboardOverview from "./RmDashboardOverview";
 import type { AttendanceRecord } from "@/lib/hr-data";
 import { useAuthUser } from "@/lib/auth-session";
 import { getUsers } from "@/lib/api/users";
@@ -234,12 +236,18 @@ export default function Dashboard() {
 
                                 {activeTab === "leave" && <LeaveManagementView />}
 
-                                {(activeTab === "overview" || activeTab === "reports") && (
-                                    (user?.roleCode?.toUpperCase().replace(/_/g, "-") === "VT-06" ||
-                                     user?.roleCode?.toUpperCase().replace(/_/g, "-") === "ROLE-ADMIN" ||
-                                     user?.roleCode?.toUpperCase().replace(/_/g, "-") === "ADMIN") ? (
-                                        <AdminDashboardOverview onNavigate={handleTabChange} />
-                                    ) : (
+                                {(activeTab === "overview" || activeTab === "reports") && (() => {
+                                    const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
+                                    if (role === "VT-06" || role === "ROLE-ADMIN" || role === "ADMIN") {
+                                        return <AdminDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    if (role === "VT-02" || role === "ROLE-PM" || role === "PM" || role === "PROJECT-MANAGER") {
+                                        return <PmDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    if (role === "VT-03" || role === "ROLE-RM" || role === "RM" || role === "RESOURCE-MANAGER") {
+                                        return <RmDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    return (
                                         <div>
                                             {/* Header Overview */}
                                             <DashboardHeader />
@@ -250,8 +258,8 @@ export default function Dashboard() {
                                             {/* Lịch Workspace */}
                                             <CalendarView />
                                         </div>
-                                    )
-                                )}
+                                    );
+                                })()}
                             </>
                         )}
                     </main>
