@@ -265,8 +265,6 @@ export default function ProjectView() {
     const canReadDemands = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
 
     // Quy định RBAC theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md:
-    // - Màn hình Điều phối & Phân bổ nguồn lực: VT-01 (Xem), VT-02 (Đề xuất/Xem), VT-03 (Quản lý nguồn lực bộ phận - Toàn quyền). VT-04 (Nhân viên), VT-05 (HR), VT-06 (Admin) bị CHẶN / ẨN (❌)
-    const canViewWeeklyAllocation = isExecutive || isPm || isRm;
     const canManageAllocations = isRm;
     const canManageProject = isPm;
     const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
@@ -300,9 +298,9 @@ export default function ProjectView() {
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
     const [closeModalOpen, setCloseModalOpen] = useState<boolean>(false);
     const [reopenModalOpen, setReopenModalOpen] = useState<boolean>(false);
-<<<<<<< HEAD
     const [moreActionsOpen, setMoreActionsOpen] = useState<boolean>(false);
     const moreActionsRef = useRef<HTMLDivElement>(null);
+    const [skillSearchModalOpen, setSkillSearchModalOpen] = useState<boolean>(false);
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
@@ -313,9 +311,6 @@ export default function ProjectView() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-=======
-    const [skillSearchModalOpen, setSkillSearchModalOpen] = useState<boolean>(false);
->>>>>>> origin/develop
 
     // Demand Estimation State (NCL-03-CN-007)
     const [demandSummary, setDemandSummary] = useState<ProjectResourceDemandSummaryResult | null>(null);
@@ -1395,11 +1390,7 @@ export default function ProjectView() {
             <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
                 <div className="inline-flex w-full max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
-<<<<<<< HEAD
                     {canReadAllocations && (
-=======
-                    {canViewWeeklyAllocation && (
->>>>>>> origin/develop
                         <button
                             type="button"
                             onClick={() => setViewMode('split')}
@@ -1425,11 +1416,7 @@ export default function ProjectView() {
                         <Layers className="h-3.5 w-3.5" />
                         <span>Hạng mục & Task</span>
                     </button>
-<<<<<<< HEAD
                     {canReadAllocations && (
-=======
-                    {canViewWeeklyAllocation && (
->>>>>>> origin/develop
                         <button
                             type="button"
                             onClick={() => setViewMode('workload')}
@@ -1443,7 +1430,6 @@ export default function ProjectView() {
                             <span>Phân bổ theo tuần</span>
                         </button>
                     )}
-<<<<<<< HEAD
                     {canReadDemands && (
                         <button
                             type="button"
@@ -1463,25 +1449,6 @@ export default function ProjectView() {
                             )}
                         </button>
                     )}
-=======
-                    <button
-                        type="button"
-                        onClick={() => setViewMode('demand')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
-                            viewMode === 'demand'
-                                ? 'bg-white text-indigo-700 shadow-xs'
-                                : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
-                    >
-                        <TrendingUp className="h-4 w-4" />
-                        <span>Ước lượng nhu cầu</span>
-                        {demandSummary && demandSummary.demandsByRole.length > 0 && (
-                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
-                                {demandSummary.demandsByRole.length}
-                            </span>
-                        )}
-                    </button>
->>>>>>> origin/develop
                     <button
                         type="button"
                         onClick={() => setViewMode('milestones')}
@@ -1557,13 +1524,8 @@ export default function ProjectView() {
                     </div>
                 )}
 
-<<<<<<< HEAD
                 {/* Section 2: Weekly Matrix */}
                 {canReadAllocations && (viewMode === 'split' || viewMode === 'workload') && (
-=======
-                {/* Section 2: Weekly Matrix (Chỉ dành cho Ban giám đốc VT-01, PM VT-02, Quản lý nguồn lực VT-03) */}
-                {canViewWeeklyAllocation && (viewMode === 'split' || viewMode === 'workload') && (
->>>>>>> origin/develop
                     <div className={viewMode === 'split' ? 'lg:col-span-7' : 'lg:col-span-12'}>
                         <ProjectWeeklyMatrix
                             month={selectedMonth}
