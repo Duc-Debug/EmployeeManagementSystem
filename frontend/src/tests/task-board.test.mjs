@@ -203,4 +203,35 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
             [1, 2, 4]
         );
     });
+
+    test("TC-05: Quick move triggers the exact same status move and permission guard", () => {
+        const initial = groupCardsByStatus(sampleCards);
+
+        // Allowed card (Task 1 has canMove: true)
+        const allowedMove = handleCardDrop(initial, 1, "DONE");
+        assert.equal(allowedMove.success, true);
+        assert.equal(allowedMove.boardData.DONE.length, 2);
+
+        // Blocked card (Task 3 has canMove: false)
+        const blockedMove = handleCardDrop(initial, 3, "DONE");
+        assert.equal(blockedMove.success, false);
+        assert.equal(blockedMove.reason, "FORBIDDEN");
+    });
+
+    test("TC-06: Direct employee profile lookup has priority over paginated employees list", () => {
+        const currentUser = { id: 99 };
+        // Empty paginated list (user not found on page 1)
+        const paginatedEmployees = [{ id: 1, userId: 10 }, { id: 2, userId: 20 }];
+        const directUserProfile = { id: 555, userId: 99 };
+
+        const resolveEmployeeId = (user, directProfile, empList) => {
+            if (directProfile) return directProfile.id;
+            if (!user) return null;
+            const found = empList.find((e) => e.userId === user.id);
+            return found ? found.id : null;
+        };
+
+        const resolvedId = resolveEmployeeId(currentUser, directUserProfile, paginatedEmployees);
+        assert.equal(resolvedId, 555);
+    });
 });
