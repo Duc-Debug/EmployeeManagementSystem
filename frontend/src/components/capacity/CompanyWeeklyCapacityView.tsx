@@ -16,6 +16,7 @@ import {
   TrendingUp,
   BookmarkCheck,
   Layers,
+  Lock,
 } from "lucide-react";
 import { useAuthUser } from "@/lib/auth-session";
 import { ResourceReservationModal } from "./ResourceReservationModal";
@@ -26,11 +27,16 @@ import {
   type CapacityMatrixCell,
   type BulkAllocationResult,
 } from "@/lib/api/allocations";
+import {
+  getAllocationPeriods,
+  type AllocationPeriodResult,
+} from "@/lib/api/allocation-periods";
 import { getOrgTree } from "@/lib/api/org-units";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 import { getCurrentIsoWeek } from "@/components/availability/availability.types";
 import { BulkAllocateResourceModal } from "@/components/capacity/BulkAllocateResourceModal";
 import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationResultModal";
+import { AllocationPeriodManagementModal } from "@/components/capacity/period/AllocationPeriodManagementModal";
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
@@ -38,6 +44,8 @@ export default function CompanyWeeklyCapacityView() {
   const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
   const canManageReservations = normalizedRole === "VT-02" || normalizedRole === "VT-03";
   const canManageAllocations = normalizedRole === "VT-02" || normalizedRole === "VT-03";
+  const canAccessPeriods =
+    normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03";
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -57,6 +65,38 @@ export default function CompanyWeeklyCapacityView() {
   const [orgUnits, setOrgUnits] = useState<{ id: number; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // NCL-06-CN-009: State cho Modal Quản lý kỳ kế hoạch phân bổ (QTN-18)
+  const [isPeriodModalOpen, setIsPeriodModalOpen] = useState<boolean>(false);
+  const [lockedPeriods, setLockedPeriods] = useState<AllocationPeriodResult[]>([]);
+
+  const loadLockedPeriods = useCallback(async () => {
+    try {
+      const data = await getAllocationPeriods({
+        year: selectedYear,
+        status: "LOCKED",
+      });
+      setLockedPeriods(data);
+    } catch (err) {
+      console.warn("Không thể tải danh sách kỳ kế hoạch đã khóa:", err);
+    }
+  }, [selectedYear]);
+
+  useEffect(() => {
+    loadLockedPeriods();
+  }, [loadLockedPeriods]);
+
+  const getLockedPeriodForWeek = useCallback(
+    (year: number, weekNumber: number) => {
+      return lockedPeriods.find(
+        (p) =>
+          p.year === year &&
+          weekNumber >= p.startWeek &&
+          weekNumber <= p.endWeek
+      );
+    },
+    [lockedPeriods]
+  );
 
   // NCL-06-CN-005: State cho Modal Giữ chỗ nguồn lực
   const [isReservationModalOpen, setIsReservationModalOpen] = useState<boolean>(false);
@@ -422,6 +462,19 @@ export default function CompanyWeeklyCapacityView() {
               <span>Phân bổ hàng loạt</span>
             </button>
           )}
+
+          {/* NCL-06-CN-009: Nút Quản lý & Khóa kỳ kế hoạch phân bổ (QTN-18) */}
+          {canAccessPeriods && (
+            <button
+              type="button"
+              onClick={() => setIsPeriodModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
+              title="Khóa & Quản lý kế hoạch phân bổ của kỳ (NCL-06-CN-009 / QTN-18)"
+            >
+              <Lock className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Kế hoạch kỳ (QTN-18)</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -600,17 +653,34 @@ export default function CompanyWeeklyCapacityView() {
                   <th className="sticky left-0 z-20 min-w-[200px] border-r border-slate-200 bg-slate-50/95 px-4 py-3 font-bold text-slate-700 backdrop-blur-xs">
                     Nhân sự
                   </th>
-                  {matrixData.weeks.map((w) => (
-                    <th
-                      key={`${w.year}-${w.weekNumber}`}
-                      className="min-w-[110px] px-3 py-3 font-bold text-slate-700 text-center border-r border-slate-200 last:border-r-0"
-                    >
-                      <div className="text-xs">{w.label}</div>
-                      <div className="text-[10px] font-normal text-slate-400 mt-0.5">
-                        Năm {w.year}
-                      </div>
-                    </th>
-                  ))}
+                  {matrixData.weeks.map((w) => {
+                    const lockedPeriod = getLockedPeriodForWeek(w.year, w.weekNumber);
+                    return (
+                      <th
+                        key={`${w.year}-${w.weekNumber}`}
+                        className={`min-w-[110px] px-3 py-3 font-bold text-center border-r border-slate-200 last:border-r-0 ${
+                          lockedPeriod ? "bg-rose-50/50 text-rose-900" : "text-slate-700"
+                        }`}
+                        title={
+                          lockedPeriod
+                            ? `QTN-18: Tuần ${w.weekNumber}/${w.year} thuộc kỳ "${lockedPeriod.name}" đã bị khóa. Không thể sửa phân bổ.`
+                            : undefined
+                        }
+                      >
+                        <div className="text-xs flex items-center justify-center gap-1">
+                          {lockedPeriod && <Lock className="h-3 w-3 text-rose-600 shrink-0" />}
+                          <span>{w.label}</span>
+                        </div>
+                        <div className="text-[10px] font-normal text-slate-400 mt-0.5">
+                          {lockedPeriod ? (
+                            <span className="font-semibold text-rose-600">Đã khóa</span>
+                          ) : (
+                            `Năm ${w.year}`
+                          )}
+                        </div>
+                      </th>
+                    );
+                  })}
                   <th className="min-w-[130px] px-4 py-3 font-bold text-slate-700 text-center bg-slate-50/95">
                     Tổng kết
                   </th>
@@ -771,6 +841,17 @@ export default function CompanyWeeklyCapacityView() {
         onClose={() => {
           setIsResultModalOpen(false);
           setBulkResult(null);
+        }}
+      />
+
+      {/* NCL-06-CN-009: Allocation Period Management Modal (QTN-18) */}
+      <AllocationPeriodManagementModal
+        open={isPeriodModalOpen}
+        currentYear={selectedYear}
+        onClose={() => setIsPeriodModalOpen(false)}
+        onPeriodChanged={() => {
+          loadLockedPeriods();
+          fetchMatrix();
         }}
       />
     </div>
