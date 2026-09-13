@@ -11,10 +11,11 @@ import {
   Building2,
   CheckCircle2,
   Clock,
-  Sparkles,
 } from "lucide-react";
 import { useAuthUser } from "@/lib/auth-session";
 import { getEmployees, type EmployeeProfile } from "@/lib/api/employees";
+import { getOrgTree } from "@/lib/api/org-units";
+import { flattenActiveOrgTree } from "@/lib/organization";
 import {
   getWeeklyCapacity,
   type WeeklyAvailabilityResult,
@@ -93,20 +94,37 @@ export default function WeeklyAvailabilityView() {
     setSelectedWeek(iso.weekNumber);
   };
 
-  // 1. Fetch employee list
+  // 1. Fetch employee list and org units
   useEffect(() => {
     let isMounted = true;
     async function loadEmployees() {
       setIsLoadingEmployees(true);
       try {
-        const res = await getEmployees(1, 100);
+        const [empRes, treeRes] = await Promise.allSettled([
+          getEmployees(1, 100),
+          getOrgTree(),
+        ]);
         if (!isMounted) return;
-        const list = res?.content || [];
-        setEmployees(list);
-        if (list.length > 0 && !selectedEmployeeId) {
-          // If self-only, select current user employee profile
-          const selfMatch = list.find((e) => e.userId === currentUser?.id || e.id === currentUser?.id);
-          setSelectedEmployeeId(selfMatch ? selfMatch.id : list[0].id);
+
+        const orgUnitMap = new Map<number, string>();
+        if (treeRes.status === "fulfilled" && treeRes.value) {
+          const flat = flattenActiveOrgTree(treeRes.value);
+          flat.forEach((unit) => {
+            orgUnitMap.set(unit.id, unit.unitName);
+          });
+        }
+
+        if (empRes.status === "fulfilled" && empRes.value?.content) {
+          const list: EmployeeProfile[] = empRes.value.content.map((e) => ({
+            ...e,
+            orgUnitName: (e.orgUnitId && orgUnitMap.get(e.orgUnitId)) || e.orgUnitName || "Chưa phân bổ",
+          }));
+          setEmployees(list);
+          if (list.length > 0 && !selectedEmployeeId) {
+            // If self-only, select current user employee profile
+            const selfMatch = list.find((e) => e.userId === currentUser?.id || e.id === currentUser?.id);
+            setSelectedEmployeeId(selfMatch ? selfMatch.id : list[0].id);
+          }
         }
       } catch (err) {
         console.warn("Lỗi tải danh sách nhân viên:", err);
@@ -204,14 +222,9 @@ export default function WeeklyAvailabilityView() {
       {/* Top Header */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-              Khai báo &amp; Năng lực khả dụng theo tuần
-            </h1>
-            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200/60">
-              <Sparkles className="size-3" /> NCL-02-CN-003 &amp; QTN-10
-            </span>
-          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+            Khai báo &amp; Năng lực khả dụng theo tuần
+          </h1>
           <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
             Quản lý giờ chuẩn tuần và tự động tính toán năng lực khả dụng: Giờ chuẩn − Giờ lễ − Nghỉ phép đã duyệt.
           </p>
