@@ -141,6 +141,11 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
     }
 
     @Override
+    public long countByIsActive(boolean isActive) {
+        return springDataUserRepository.countByIsActive(isActive);
+    }
+
+    @Override
     public long countActiveAdmins() {
         return springDataUserRepository.countActiveAdmins();
     }
@@ -166,5 +171,10 @@ public class UserRepositoryAdapter implements LoadUserPort, SaveUserPort {
     @Override
     public long countByOrgUnitBranch(Long scopeOrgUnitId) {
         return springDataUserRepository.countByOrgUnitBranch(scopeOrgUnitId);
+    }
+
+    @Override
+    public long countByOrgUnitBranchAndIsActive(Long scopeOrgUnitId, boolean isActive) {
+        return springDataUserRepository.countByOrgUnitBranchAndIsActive(scopeOrgUnitId, isActive);
     }
 }

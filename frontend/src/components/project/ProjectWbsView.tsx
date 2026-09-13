@@ -28,6 +28,7 @@ interface ProjectWbsViewProps {
     selectedRole: string;
     projectId?: number | null;
     isClosed?: boolean;
+    canManageWbs?: boolean;
     onQuickAddTask: (catId: string) => void;
     onToggleTaskStatus: (catId: string, taskId: string) => void;
     onOpenBudgetModal?: (task: TaskItem) => void;
@@ -44,6 +45,7 @@ export function ProjectWbsView({
     selectedRole,
     projectId = 1,
     isClosed = false,
+    canManageWbs = true,
     onQuickAddTask,
     onToggleTaskStatus,
     onOpenBudgetModal,
@@ -263,7 +265,7 @@ export function ProjectWbsView({
                                                 />
                                             </div>
                                         </div>
-                                        {!isClosed && (
+                                        {!isClosed && canManageWbs && (
                                             <button
                                                 type="button"
                                                 onClick={(e) => {
@@ -394,25 +396,34 @@ export function ProjectWbsView({
 
                                                                     {/* Ngân sách giờ công & So sánh thực tế */}
                                                                     <span className="text-slate-300">•</span>
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={isClosed}
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            if (!isClosed) onOpenBudgetModal?.(t);
-                                                                        }}
-                                                                        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold transition ${
-                                                                            isClosed
-                                                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                                                : 'bg-slate-100 text-slate-700 hover:bg-indigo-100 hover:text-indigo-700 cursor-pointer'
-                                                                        }`}
-                                                                        title={isClosed ? 'Dự án đã đóng, không thể điều chỉnh ngân sách' : 'Bấm để đặt/điều chỉnh ngân sách giờ'}
-                                                                    >
-                                                                        <Target className={`h-3 w-3 ${isClosed ? 'text-slate-400' : 'text-indigo-600'}`} />
-                                                                        NS: <strong>{t.budgetHours !== undefined ? `${t.budgetHours}h` : 'Chưa đặt'}</strong>
-                                                                        <span className="text-slate-300">|</span>
-                                                                        TT: <strong>{t.actualHours || 0}h</strong>
-                                                                    </button>
+                                                                    {canManageWbs ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={isClosed}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (!isClosed) onOpenBudgetModal?.(t);
+                                                                            }}
+                                                                            className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold transition ${
+                                                                                isClosed
+                                                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                                                    : 'bg-slate-100 text-slate-700 hover:bg-indigo-100 hover:text-indigo-700 cursor-pointer'
+                                                                            }`}
+                                                                            title={isClosed ? 'Dự án đã đóng, không thể điều chỉnh ngân sách' : 'Bấm để đặt/điều chỉnh ngân sách giờ'}
+                                                                        >
+                                                                            <Target className={`h-3 w-3 ${isClosed ? 'text-slate-400' : 'text-indigo-600'}`} />
+                                                                            NS: <strong>{t.budgetHours !== undefined ? `${t.budgetHours}h` : 'Chưa đặt'}</strong>
+                                                                            <span className="text-slate-300">|</span>
+                                                                            TT: <strong>{t.actualHours || 0}h</strong>
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700">
+                                                                            <Target className="h-3 w-3 text-slate-500" />
+                                                                            NS: <strong>{t.budgetHours !== undefined ? `${t.budgetHours}h` : 'Chưa đặt'}</strong>
+                                                                            <span className="text-slate-300">|</span>
+                                                                            TT: <strong>{t.actualHours || 0}h</strong>
+                                                                        </span>
+                                                                    )}
 
                                                                     {/* Badge phân tích tỷ lệ đã dùng & Cảnh báo ăn mòn lợi nhuận */}
                                                                     {t.budgetHours && t.budgetHours > 0 ? (
@@ -469,22 +480,24 @@ export function ProjectWbsView({
                                                         <div className="flex shrink-0 items-center gap-2">
                                                             {getPriorityBadge(t.priority)}
                                                             {getStatusBadge(t.status)}
-                                                            <button
-                                                                type="button"
-                                                                disabled={isClosed}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (!isClosed) onOpenAssignModal?.(t);
-                                                                }}
-                                                                className={`rounded-lg p-1 transition ${
-                                                                    isClosed
-                                                                        ? 'text-slate-300 cursor-not-allowed'
-                                                                        : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
-                                                                }`}
-                                                                title={isClosed ? 'Dự án đã đóng, không thể phân công' : 'Giao việc cho nhân sự'}
-                                                            >
-                                                                <UserPlus className="h-3.5 w-3.5" />
-                                                            </button>
+                                                            {canManageWbs && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isClosed}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (!isClosed) onOpenAssignModal?.(t);
+                                                                    }}
+                                                                    className={`rounded-lg p-1 transition ${
+                                                                        isClosed
+                                                                            ? 'text-slate-300 cursor-not-allowed'
+                                                                            : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
+                                                                    }`}
+                                                                    title={isClosed ? 'Dự án đã đóng, không thể phân công' : 'Giao việc cho nhân sự'}
+                                                                >
+                                                                    <UserPlus className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
@@ -501,22 +514,24 @@ export function ProjectWbsView({
                                                             >
                                                                 <AlertTriangle className="h-3.5 w-3.5" />
                                                             </button>
-                                                            <button
-                                                                type="button"
-                                                                disabled={isClosed}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (!isClosed) onOpenBudgetModal?.(t);
-                                                                }}
-                                                                className={`rounded-lg p-1 transition ${
-                                                                    isClosed
-                                                                        ? 'text-slate-300 cursor-not-allowed'
-                                                                        : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
-                                                                }`}
-                                                                title={isClosed ? 'Dự án đã đóng, không thể đặt ngân sách' : 'Đặt ngân sách giờ công'}
-                                                            >
-                                                                <Target className="h-3.5 w-3.5" />
-                                                            </button>
+                                                            {canManageWbs && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isClosed}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (!isClosed) onOpenBudgetModal?.(t);
+                                                                    }}
+                                                                    className={`rounded-lg p-1 transition ${
+                                                                        isClosed
+                                                                            ? 'text-slate-300 cursor-not-allowed'
+                                                                            : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
+                                                                    }`}
+                                                                    title={isClosed ? 'Dự án đã đóng, không thể đặt ngân sách' : 'Đặt ngân sách giờ công'}
+                                                                >
+                                                                    <Target className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
                                                             <div
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();

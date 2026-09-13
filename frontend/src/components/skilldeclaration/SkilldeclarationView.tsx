@@ -30,11 +30,11 @@ let toastSeq = 0;
 export type ModuleTab = 'declare' | 'matrix' | 'catalog' | 'approve' | 'search';
 
 const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon; allowedRoles: string[] }[] = [
-    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-04', 'VT-06'] },
+    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-04', 'VT-05', 'VT-06'] },
     { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'] },
     { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05', 'VT-06'] },
     { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03', 'VT-06'] },
-    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-02', 'VT-03', 'VT-06'] },
+    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'] },
 ];
 
 interface SkillCampaign {
@@ -345,20 +345,22 @@ export default function SkilldeclarationView({
 
     return (
         <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
-            <ToastList toasts={toasts} onDone={removeToast} />
-
             {/* ── Header ── */}
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Khai báo Kỹ năng</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                        {roleCode === 'VT-04' ? 'Khai báo Kỹ năng' : 'Quản lý Năng lực & Kỹ năng'}
+                    </h1>
                     <p className="text-sm text-slate-500">
-                        Quản lý hồ sơ năng lực, tra cứu nhân sự theo kỹ năng và mức độ rảnh để gán vào dự án.
+                        {roleCode === 'VT-04'
+                            ? 'Khai báo và cập nhật hồ sơ kỹ năng chuyên môn, kinh nghiệm thực tế của bạn.'
+                            : 'Quản lý danh mục kỹ năng chuẩn, theo dõi ma trận năng lực bộ phận và tra cứu nhân sự khả dụng để phân bổ vào dự án.'}
                     </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    {/* Nút thiết lập thời hạn định kỳ cho Quản lý nguồn lực VT-03 & Admin VT-06 (User Story 9) */}
-                    {(roleCode === 'VT-03' || roleCode === 'VT-06') && (
+                    {/* Nút thiết lập thời hạn định kỳ cho Quản lý nguồn lực VT-03, HR VT-05 & Admin VT-06 (User Story 9) */}
+                    {(roleCode === 'VT-03' || roleCode === 'VT-05' || roleCode === 'VT-06') && (
                         <button
                             type="button"
                             onClick={() => {
@@ -477,8 +479,8 @@ export default function SkilldeclarationView({
                     />
                 )}
 
-                {/* Tab Tra cứu nhân lực theo kỹ năng & độ rảnh (Dành cho VT-02, VT-03, VT-06 - User Story 15) */}
-                {activeTab === 'search' && ['VT-02', 'VT-03', 'VT-06'].includes(roleCode) && (
+                {/* Tab Tra cứu nhân lực theo kỹ năng & độ rảnh (Dành cho VT-01, VT-02, VT-03, VT-05, VT-06 - User Story 15) */}
+                {activeTab === 'search' && ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'].includes(roleCode) && (
                     <SkillresourceSearch
                         embedded
                         departments={departments}
@@ -625,6 +627,9 @@ export default function SkilldeclarationView({
                     </div>
                 </div>
             )}
+
+            {/* Toast Notifications */}
+            <ToastList toasts={toasts} onDone={removeToast} />
         </div>
     );
 }

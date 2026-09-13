@@ -25,6 +25,26 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     @Query("SELECT COUNT(u) FROM UserJpaEntity u WHERE u.role.code = 'VT-06' AND u.isActive = true")
     long countActiveAdmins();
 
+    long countByIsActive(Boolean isActive);
+
+    @Query(value = """
+        SELECT COUNT(DISTINCT u.id)
+        FROM users u
+        JOIN employees e
+            ON e.user_id = u.id
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+          AND u.is_active = :isActive
+        """,
+        nativeQuery = true)
+    long countByOrgUnitBranchAndIsActive(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("isActive") boolean isActive
+    );
+
     @Query(value = """
         SELECT DISTINCT u.*
         FROM users u

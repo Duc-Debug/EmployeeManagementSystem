@@ -12,6 +12,7 @@ export interface HrProfileData {
     contractEndDate?: string;
     standardHoursPerWeek: number;
     employeeId?: number;
+    version?: number;
 }
 
 export type HrProfileFormErrors = Partial<Record<keyof HrProfileData, string>>;

@@ -75,7 +75,8 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
                 userId, command.orgUnitId(), command.employeeCode(), command.fullName(),
                 command.professionalRole(), command.startDate(), command.contractEndDate(),
                 command.standardHoursPerWeek());
-        return EmployeeProfileResult.fromDomain(saveEmployeePort.save(employee));
+        String email = loadUserPort.findById(userId).map(User::getEmail).orElse(null);
+        return EmployeeProfileResult.fromDomain(saveEmployeePort.save(employee), email);
     }
 
     @Override
@@ -94,7 +95,10 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
         requireActiveOrgUnit(command.orgUnitId());
         employee.updateProfile(command.fullName(), command.orgUnitId(), command.professionalRole(),
                 command.startDate(), command.contractEndDate(), command.standardHoursPerWeek());
-        return EmployeeProfileResult.fromDomain(saveEmployeePort.save(employee));
+        String email = employee.getUserId() != null 
+                ? loadUserPort.findById(employee.getUserId()).map(User::getEmail).orElse(null)
+                : null;
+        return EmployeeProfileResult.fromDomain(saveEmployeePort.save(employee), email);
     }
 
     @Override
@@ -103,7 +107,10 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
         Employee employee = loadEmployeePort.findById(new EmployeeId(employeeId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự"));
         requireEmployeeInScope(currentUser, employee, PermissionCode.EMPLOYEE_READ);
-        return EmployeeProfileResult.fromDomain(employee);
+        String email = employee.getUserId() != null 
+                ? loadUserPort.findById(employee.getUserId()).map(User::getEmail).orElse(null)
+                : null;
+        return EmployeeProfileResult.fromDomain(employee, email);
     }
 
     @Override
@@ -113,7 +120,8 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
                 .orElseThrow(() -> new EmployeeNotFoundException(
                         "Tài khoản chưa được khởi tạo hồ sơ nhân sự"));
         requireEmployeeInScope(currentUser, employee, PermissionCode.EMPLOYEE_READ);
-        return EmployeeProfileResult.fromDomain(employee);
+        String email = loadUserPort.findById(new UserId(userId)).map(User::getEmail).orElse(null);
+        return EmployeeProfileResult.fromDomain(employee, email);
     }
 
     @Override
@@ -171,8 +179,18 @@ public class EmployeeProfileService implements CreateEmployeeProfileUseCase,
             }
         }
 
+        List<UserId> userIds = employees.stream()
+                .map(Employee::getUserId)
+                .filter(Objects::nonNull)
+                .toList();
+        java.util.Map<UserId, String> emailMap = userIds.isEmpty()
+                ? java.util.Map.of()
+                : loadUserPort.findAllByIdIn(userIds).stream()
+                        .filter(u -> u.getEmail() != null)
+                        .collect(java.util.stream.Collectors.toMap(User::getId, User::getEmail, (e1, e2) -> e1));
+
         List<EmployeeProfileResult> results = employees.stream()
-                .map(EmployeeProfileResult::fromDomain)
+                .map(emp -> EmployeeProfileResult.fromDomain(emp, emp.getUserId() != null ? emailMap.get(emp.getUserId()) : null))
                 .toList();
         return new PageResult<>(results, validPage, validSize, total);
     }

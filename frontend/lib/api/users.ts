@@ -40,8 +40,20 @@ export interface PageResult<T> {
   totalPages: number;
 }
 
+export interface UserStatsResult {
+  totalUsers: number;
+  activeUsers: number;
+  lockedUsers: number;
+}
+
 export async function getUsers(page = 0, size = 100): Promise<PageResult<User>> {
   return await apiRequest<PageResult<User>>(`/users?page=${page}&size=${size}`, {
+    method: "GET",
+  });
+}
+
+export async function getUserStats(): Promise<UserStatsResult> {
+  return await apiRequest<UserStatsResult>("/users/stats", {
     method: "GET",
   });
 }

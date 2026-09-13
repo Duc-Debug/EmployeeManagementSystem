@@ -97,7 +97,7 @@ export default function DeclareAvailabilityModal({
                 Khai báo giờ chuẩn tuần
               </h2>
               <p className="text-xs text-slate-500">
-                NCL-02-CN-003: Định mức giờ làm việc chuẩn cho từng tuần cụ thể
+                Định mức giờ làm việc chuẩn cho từng tuần cụ thể
               </p>
             </div>
           </div>

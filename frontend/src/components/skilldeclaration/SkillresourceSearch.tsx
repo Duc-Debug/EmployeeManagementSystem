@@ -178,11 +178,11 @@ function CustomSelect<T extends string | number>({
 /* ------------------------------------------------------------------ */
 
 const LEVEL_OPTIONS: SelectOption<number>[] = [
-    { value: 1, label: '≥ 1 sao (Mọi mức)' },
-    { value: 2, label: '≥ 2 sao (Cơ bản)' },
-    { value: 3, label: '≥ 3 sao (Khá)' },
-    { value: 4, label: '≥ 4 sao (Giỏi)' },
-    { value: 5, label: '≥ 5 sao (Chuyên gia)' },
+    { value: 1, label: '≥ Mức 1 (Sơ cấp)' },
+    { value: 2, label: '≥ Mức 2 (Trung cấp)' },
+    { value: 3, label: '≥ Mức 3 (Khá)' },
+    { value: 4, label: '≥ Mức 4 (Giỏi)' },
+    { value: 5, label: '≥ Mức 5 (Chuyên gia)' },
 ];
 
 const AVAILABILITY_LABEL: Record<AvailabilityStatus, string> = {
@@ -583,8 +583,18 @@ export default function SkillresourceSearch({
                             value={filters.keyword}
                             onChange={(e) => updateFilter('keyword', e.target.value)}
                             placeholder="Tên, mã NV, vị trí, kỹ năng..."
-                            className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#4338ca] focus:outline-none focus:ring-2 focus:ring-[#4338ca]/20"
+                            className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-8 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#4338ca] focus:outline-none focus:ring-2 focus:ring-[#4338ca]/20"
                         />
+                        {filters.keyword && (
+                            <button
+                                type="button"
+                                onClick={() => updateFilter('keyword', '')}
+                                className="absolute right-2.5 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                                title="Xóa tìm kiếm"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
                     </div>
 
                     {/* Kỹ năng & Mức sao */}

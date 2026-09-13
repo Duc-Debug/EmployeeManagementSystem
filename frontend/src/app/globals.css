@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+html {
+  font-size: 85%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 :root {
   color-scheme: light;
   --background: #ffffff;
@@ -44,3 +50,42 @@ input[type='number'] {
 ::-webkit-scrollbar-button {
   display: none;
 }
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-18px) scale(1.06);
+  }
+}
+
+@keyframes floatReverse {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(18px) scale(0.95);
+  }
+}
+
+@keyframes pulseSlow {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 7s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: floatReverse 9s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 4s ease-in-out infinite;
+}
