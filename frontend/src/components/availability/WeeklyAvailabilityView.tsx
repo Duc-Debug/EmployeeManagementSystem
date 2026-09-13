@@ -27,12 +27,16 @@ import {
 } from "./availability.types";
 import CapacitySummaryCard from "./CapacitySummaryCard";
 import DeclareAvailabilityModal from "./DeclareAvailabilityModal";
+import { ROLE_DEFAULT_PERMISSIONS } from "../access/access.constants";
 
 export default function WeeklyAvailabilityView() {
   const currentUser = useAuthUser();
   const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
-  const isHR = roleCode === "VT-05";
-  const canDeclare = isHR;
+  const canDeclare =
+    ["VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(roleCode) ||
+    ROLE_DEFAULT_PERMISSIONS[roleCode]?.availability?.actions?.create === true ||
+    currentUser?.roleName === "Nhân sự" ||
+    currentUser?.roleName === "Quản trị viên";
   const isSelfOnly = roleCode === "VT-04" || currentUser?.dataScope === "SELF";
 
   // Current ISO Week state
