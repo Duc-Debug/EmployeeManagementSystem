@@ -253,14 +253,20 @@ function mapBackendWbsToUiCategories(
 export default function ProjectView() {
     const currentUser = useAuthUser();
     const userRoleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
-    const isExecutive = userRoleCode === 'VT-01';
-    const isPm = userRoleCode === 'VT-02' || userRoleCode === 'VT-06' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
+    const isExecutive = userRoleCode === 'VT-01' || userRoleCode === 'ROLE-EXECUTIVE' || userRoleCode === 'EXECUTIVE' || userRoleCode === 'DIRECTOR';
+    const isPm = userRoleCode === 'VT-02' || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-PM' || userRoleCode === 'PM' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
+
+    // Quyền đọc phân bổ & nhu cầu: VT-01, VT-02, VT-03, VT-06
+    const canReadAllocations = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
+    const canReadDemands = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
 
     // PROJECT_CREATE: Chỉ VT-02 (PM) và VT-06 (Admin) mới có quyền tạo/quản lý dự án
     const canManageProject = isPm;
-    const canManageAllocations = userRoleCode === 'VT-03';
-    const canManageMilestones = isPm || userRoleCode === 'VT-06';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones'>('split');
+    const canManageAllocations = userRoleCode === 'VT-03' || userRoleCode === 'ROLE-RM' || userRoleCode === 'RM';
+    const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones'>(() => {
+        return canReadAllocations ? 'split' : 'wbs';
+    });
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -537,7 +543,7 @@ export default function ProjectView() {
     }, [months, selectedMonthIdx]);
 
     const loadProjectAllocations = useCallback(async () => {
-        if (!selectedProjectId) return;
+        if (!canReadAllocations || !selectedProjectId) return;
         const month = months[selectedMonthIdx];
         try {
             const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
@@ -559,14 +565,15 @@ export default function ProjectView() {
             setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
             setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
         }
-    }, [getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
+    }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
 
     useEffect(() => {
-        if (selectedProjectId && categories.length > 0) void loadProjectAllocations();
-    }, [selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
+        if (canReadAllocations && selectedProjectId && categories.length > 0) void loadProjectAllocations();
+    }, [canReadAllocations, selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
 
     // 4. Tải ước lượng nhu cầu nhân sự thật từ API Backend (NCL-03-CN-007)
     const loadProjectDemands = useCallback(async (projId: number) => {
+        if (!canReadDemands) return;
         setIsLoadingDemand(true);
         setDemandError(null);
         try {
@@ -579,15 +586,15 @@ export default function ProjectView() {
         } finally {
             setIsLoadingDemand(false);
         }
-    }, []);
+    }, [canReadDemands]);
 
     useEffect(() => {
-        if (selectedProjectId) {
+        if (canReadDemands && selectedProjectId) {
             loadProjectDemands(selectedProjectId);
         } else {
             setDemandSummary(null);
         }
-    }, [selectedProjectId, loadProjectDemands]);
+    }, [canReadDemands, selectedProjectId, loadProjectDemands]);
 
     const handleSaveDemand = async (roleId: number, hoursPerWeek: number) => {
         if (!selectedProjectId) return;
@@ -1281,21 +1288,39 @@ export default function ProjectView() {
                     <p className="mt-1 text-[10px] text-slate-400">Định mức: 40h/người/tuần</p>
                 </div>
 
-                <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                            Tải tuần này ({currentWeek?.label || 'Hiện tại'})
-                        </span>
-                        <span className="rounded-md bg-amber-50 p-1.5 text-amber-600">
-                            <BarChart3 className="h-3.5 w-3.5" />
-                        </span>
+                {canReadAllocations ? (
+                    <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Tải tuần này ({currentWeek?.label || 'Hiện tại'})
+                            </span>
+                            <span className="rounded-md bg-amber-50 p-1.5 text-amber-600">
+                                <BarChart3 className="h-3.5 w-3.5" />
+                            </span>
+                        </div>
+                        <div className="mt-1.5 flex items-baseline gap-1.5">
+                            <span className="text-lg font-black text-slate-800">{Math.round(currentWeekLoad)}h</span>
+                            <span className="rounded bg-amber-50 px-1 py-0.2 text-[10px] font-bold text-amber-700 border border-amber-200">Phân bổ</span>
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-400">{members.length * 40}h tổng định mức</p>
                     </div>
-                    <div className="mt-1.5 flex items-baseline gap-1.5">
-                        <span className="text-lg font-black text-slate-800">{Math.round(currentWeekLoad)}h</span>
-                        <span className="rounded bg-amber-50 px-1 py-0.2 text-[10px] font-bold text-amber-700 border border-amber-200">Phân bổ</span>
+                ) : (
+                    <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Mốc tiến độ
+                            </span>
+                            <span className="rounded-md bg-indigo-50 p-1.5 text-indigo-600">
+                                <Flag className="h-3.5 w-3.5" />
+                            </span>
+                        </div>
+                        <div className="mt-1.5 flex items-baseline gap-1.5">
+                            <span className="text-lg font-black text-slate-800">{milestones.filter(m => m.status === 'COMPLETED').length}/{milestones.length}</span>
+                            <span className="rounded bg-indigo-50 px-1 py-0.2 text-[10px] font-bold text-indigo-700 border border-indigo-200">Hoàn thành</span>
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-400">Các cột mốc quan trọng</p>
                     </div>
-                    <p className="mt-1 text-[10px] text-slate-400">{members.length * 40}h tổng định mức</p>
-                </div>
+                )}
 
                 <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
                     <div className="flex items-center justify-between">
@@ -1319,18 +1344,20 @@ export default function ProjectView() {
             <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
                 <div className="inline-flex w-full max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => setViewMode('split')}
-                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                            viewMode === 'split'
-                                ? 'bg-white text-indigo-700 shadow-xs'
-                                : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
-                    >
-                        <Columns className="h-3.5 w-3.5" />
-                        <span>Xem kết hợp (Split View)</span>
-                    </button>
+                    {canReadAllocations && (
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('split')}
+                            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                                viewMode === 'split'
+                                    ? 'bg-white text-indigo-700 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900 font-medium'
+                            }`}
+                        >
+                            <Columns className="h-3.5 w-3.5" />
+                            <span>Xem kết hợp (Split View)</span>
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setViewMode('wbs')}
@@ -1343,35 +1370,39 @@ export default function ProjectView() {
                         <Layers className="h-3.5 w-3.5" />
                         <span>Hạng mục & Task</span>
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => setViewMode('workload')}
-                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                            viewMode === 'workload'
-                                ? 'bg-white text-indigo-700 shadow-xs'
-                                : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
-                    >
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        <span>Phân bổ theo tuần</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setViewMode('demand')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
-                            viewMode === 'demand'
-                                ? 'bg-white text-indigo-700 shadow-xs'
-                                : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
-                    >
-                        <TrendingUp className="h-4 w-4" />
-                        <span>Ước lượng nhu cầu</span>
-                        {demandSummary && demandSummary.demandsByRole.length > 0 && (
-                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
-                                {demandSummary.demandsByRole.length}
-                            </span>
-                        )}
-                    </button>
+                    {canReadAllocations && (
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('workload')}
+                            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                                viewMode === 'workload'
+                                    ? 'bg-white text-indigo-700 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900 font-medium'
+                            }`}
+                        >
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            <span>Phân bổ theo tuần</span>
+                        </button>
+                    )}
+                    {canReadDemands && (
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('demand')}
+                            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                                viewMode === 'demand'
+                                    ? 'bg-white text-indigo-700 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900 font-medium'
+                            }`}
+                        >
+                            <TrendingUp className="h-4 w-4" />
+                            <span>Ước lượng nhu cầu</span>
+                            {demandSummary && demandSummary.demandsByRole.length > 0 && (
+                                <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
+                                    {demandSummary.demandsByRole.length}
+                                </span>
+                            )}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setViewMode('milestones')}
@@ -1383,6 +1414,11 @@ export default function ProjectView() {
                     >
                         <Flag className="h-3.5 w-3.5" />
                         <span>Mốc tiến độ</span>
+                        {milestones.length > 0 && (
+                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
+                                {milestones.length}
+                            </span>
+                        )}
                     </button>
                 </div>
 
@@ -1422,7 +1458,7 @@ export default function ProjectView() {
             <div className="grid grid-cols-1 gap-6 items-start transition-all duration-300 lg:grid-cols-12">
                 {/* Section 1: WBS Hierarchy */}
                 {(viewMode === 'split' || viewMode === 'wbs') && (
-                    <div className={viewMode === 'split' ? 'lg:col-span-5' : 'lg:col-span-12'}>
+                    <div className={(viewMode === 'split' && canReadAllocations) ? 'lg:col-span-5' : 'lg:col-span-12'}>
                         <ProjectWbsView
                             categories={categories}
                             members={allEmployees.length > 0 ? allEmployees : members}
@@ -1431,6 +1467,7 @@ export default function ProjectView() {
                             selectedRole={roleFilter}
                             projectId={selectedProjectId}
                             isClosed={isProjectClosed}
+                            canManageWbs={canManageWbs}
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
                             onOpenBudgetModal={handleOpenBudgetModal}
@@ -1442,7 +1479,7 @@ export default function ProjectView() {
                 )}
 
                 {/* Section 2: Weekly Matrix */}
-                {(viewMode === 'split' || viewMode === 'workload') && (
+                {canReadAllocations && (viewMode === 'split' || viewMode === 'workload') && (
                     <div className={viewMode === 'split' ? 'lg:col-span-7' : 'lg:col-span-12'}>
                         <ProjectWeeklyMatrix
                             month={selectedMonth}

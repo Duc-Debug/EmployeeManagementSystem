@@ -69,8 +69,9 @@ export function canAccessTab(
 
         case "hrprofile":
         case "employees":
-            // Hồ sơ nhân sự: VT-05 Toàn quyền; VT-01, VT-02, VT-03, VT-04, VT-06 được Xem theo Data Scope
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+            // Hồ sơ nhân sự (NCL-02): Dành riêng cho VT-05 (HR), VT-01 (Ban Giám Đốc), VT-06 (Admin).
+            // PM (VT-02), RM (VT-03), NV (VT-04) bị ẩn vì không thuộc nghiệp vụ hành chính nhân sự.
+            return ["VT-01", "VT-05", "VT-06", "ROLE-HR", "HR", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "availability":
         case "weekly-availability":

@@ -4,9 +4,6 @@ import { ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SideBar, { canAccessTab } from "./SideBar";
 import Header from "./Header";
-import DashboardHeader from "./DashboardHeader";
-import KpiStatsSection from "../kpi/KpiStatsSection";
-import CalendarView from "../calendar/CalendarView";
 import DepartmentsView from "../department/DepartmentsView";
 import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
 import HrProfilePage from "../hrprofile/HrProfilePage";
@@ -22,6 +19,9 @@ import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
 import RmDashboardOverview from "./RmDashboardOverview";
+import ExecutiveDashboardOverview from "./ExecutiveDashboardOverview";
+import EmployeeDashboardOverview from "./EmployeeDashboardOverview";
+import HrDashboardOverview from "./HrDashboardOverview";
 import type { AttendanceRecord } from "@/lib/hr-data";
 import { useAuthUser } from "@/lib/auth-session";
 import { getUsers } from "@/lib/api/users";
@@ -238,6 +238,9 @@ export default function Dashboard() {
 
                                 {(activeTab === "overview" || activeTab === "reports") && (() => {
                                     const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
+                                    if (role === "VT-01" || role === "ROLE-EXECUTIVE" || role === "EXECUTIVE" || role === "DIRECTOR") {
+                                        return <ExecutiveDashboardOverview onNavigate={handleTabChange} />;
+                                    }
                                     if (role === "VT-06" || role === "ROLE-ADMIN" || role === "ADMIN") {
                                         return <AdminDashboardOverview onNavigate={handleTabChange} />;
                                     }
@@ -247,18 +250,13 @@ export default function Dashboard() {
                                     if (role === "VT-03" || role === "ROLE-RM" || role === "RM" || role === "RESOURCE-MANAGER") {
                                         return <RmDashboardOverview onNavigate={handleTabChange} />;
                                     }
-                                    return (
-                                        <div>
-                                            {/* Header Overview */}
-                                            <DashboardHeader />
-
-                                            {/* Section KPI Cards */}
-                                            <KpiStatsSection />
-
-                                            {/* Lịch Workspace */}
-                                            <CalendarView />
-                                        </div>
-                                    );
+                                    if (role === "VT-05" || role === "ROLE-HR" || role === "HR" || role === "HR-MANAGER" || role === "HR-SPECIALIST") {
+                                        return <HrDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    if (role === "VT-04" || role === "ROLE-EMPLOYEE" || role === "EMPLOYEE" || role === "MEMBER" || role === "DEVELOPER") {
+                                        return <EmployeeDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    return <EmployeeDashboardOverview onNavigate={handleTabChange} />;
                                 })()}
                             </>
                         )}

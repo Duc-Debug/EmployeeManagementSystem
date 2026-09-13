@@ -152,7 +152,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                             <Users className="h-3.5 w-3.5" />
                         </div>
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 group-hover:translate-x-0.5 transition">
-                            Hồ sơ <ArrowUpRight className="h-2.5 w-2.5" />
+                            Nguồn lực <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
