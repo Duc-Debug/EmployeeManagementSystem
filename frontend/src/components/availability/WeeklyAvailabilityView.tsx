@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuthUser } from "@/lib/auth-session";
 import { getEmployees, type EmployeeProfile } from "@/lib/api/employees";
+import { getUsers } from "@/lib/api/users";
 import { getOrgTree } from "@/lib/api/org-units";
 import { flattenActiveOrgTree } from "@/lib/organization";
 import {
@@ -100,11 +101,20 @@ export default function WeeklyAvailabilityView() {
     async function loadEmployees() {
       setIsLoadingEmployees(true);
       try {
-        const [empRes, treeRes] = await Promise.allSettled([
+        const [empRes, treeRes, usersRes] = await Promise.allSettled([
           getEmployees(1, 100),
           getOrgTree(),
+          getUsers(0, 100),
         ]);
         if (!isMounted) return;
+
+        const userMap = new Map<number, any>();
+        if (usersRes.status === "fulfilled" && usersRes.value?.content) {
+          usersRes.value.content.forEach((u: any) => {
+            userMap.set(u.id, u);
+            if (u.employeeId) userMap.set(u.employeeId, u);
+          });
+        }
 
         const orgUnitMap = new Map<number, string>();
         if (treeRes.status === "fulfilled" && treeRes.value) {
@@ -115,7 +125,29 @@ export default function WeeklyAvailabilityView() {
         }
 
         if (empRes.status === "fulfilled" && empRes.value?.content) {
-          const list: EmployeeProfile[] = empRes.value.content.map((e) => ({
+          const nonAdminEmps = empRes.value.content.filter((e) => {
+            const u = (e.userId && userMap.get(e.userId)) || userMap.get(e.id);
+            const role = (u?.roleCode || "").toUpperCase().replace(/_/g, "-");
+            const roleName = (u?.roleName || e.professionalRole || "").toLowerCase();
+            const username = (u?.username || "").toLowerCase();
+            const fullName = (e.fullName || u?.fullName || "").toLowerCase();
+            if (
+              role === "VT-06" ||
+              role === "ROLE-ADMIN" ||
+              role === "ADMIN" ||
+              username === "admin" ||
+              username.includes("admin") ||
+              roleName.includes("quản trị") ||
+              roleName.includes("admin") ||
+              fullName === "administrator" ||
+              fullName.includes("quản trị viên")
+            ) {
+              return false;
+            }
+            return true;
+          });
+
+          const list: EmployeeProfile[] = nonAdminEmps.map((e) => ({
             ...e,
             orgUnitName: (e.orgUnitId && orgUnitMap.get(e.orgUnitId)) || e.orgUnitName || "Chưa phân bổ",
           }));

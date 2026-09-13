@@ -24,7 +24,6 @@ import {
     getMyLeaveBalance,
     type LeaveBalanceDto,
 } from "@/lib/api/leave";
-import CalendarView from "../calendar/CalendarView";
 import DepartmentLeaveCalendarView from "./DepartmentLeaveCalendarView";
 import LeaveApprovalModal from "./LeaveApprovalModal";
 
@@ -89,8 +88,8 @@ export default function LeaveManagementView() {
     // Quyền xem Lịch nghỉ bộ phận: Dành riêng cho VT-03 (RM), VT-05 (HR), VT-01 (BGĐ), VT-06 (Admin).
     // PM (VT-02) và Nhân viên (VT-04) KHÔNG có quyền và tab "Lịch nghỉ bộ phận" sẽ bị ẩn.
     const canViewDeptCalendar = isRM || isHR || isDirector || roleCode === "VT-06";
-    const [viewMode, setViewMode] = useState<"list" | "dept-calendar" | "calendar">(
-        canViewDeptCalendar && isRM ? "dept-calendar" : "list"
+    const [viewMode, setViewMode] = useState<"list" | "dept-calendar">(
+        canViewDeptCalendar && (isRM || isHR) ? "dept-calendar" : "list"
     );
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [balance, setBalance] = useState<LeaveBalanceDto | null>(null);
@@ -306,22 +305,22 @@ export default function LeaveManagementView() {
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                    {/* Switch chế độ xem: Danh sách / Lịch nghỉ bộ phận / Lịch Workspace */}
-                    <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
-                        <button
-                            type="button"
-                            onClick={() => setViewMode("list")}
-                            className={cn(
-                                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer",
-                                viewMode === "list"
-                                    ? "bg-indigo-600 text-white shadow-xs"
-                                    : "text-slate-600 hover:text-slate-900"
-                            )}
-                        >
-                            <FileText className="size-3.5" />
-                            <span>Danh sách đơn</span>
-                        </button>
-                        {canViewDeptCalendar && (
+                    {/* Switch chế độ xem: Danh sách / Lịch nghỉ bộ phận */}
+                    {canViewDeptCalendar && (
+                        <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
+                            <button
+                                type="button"
+                                onClick={() => setViewMode("list")}
+                                className={cn(
+                                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer",
+                                    viewMode === "list"
+                                        ? "bg-indigo-600 text-white shadow-xs"
+                                        : "text-slate-600 hover:text-slate-900"
+                                )}
+                            >
+                                <FileText className="size-3.5" />
+                                <span>Danh sách đơn</span>
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => setViewMode("dept-calendar")}
@@ -335,21 +334,8 @@ export default function LeaveManagementView() {
                                 <CalendarDays className="size-3.5" />
                                 <span>Lịch nghỉ bộ phận</span>
                             </button>
-                        )}
-                        <button
-                            type="button"
-                            onClick={() => setViewMode("calendar")}
-                            className={cn(
-                                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer",
-                                viewMode === "calendar"
-                                    ? "bg-indigo-600 text-white shadow-xs"
-                                    : "text-slate-600 hover:text-slate-900"
-                            )}
-                        >
-                            <CalendarDays className="size-3.5" />
-                            <span>Lịch Workspace</span>
-                        </button>
-                    </div>
+                        </div>
+                    )}
 
                     {/* Nút nộp đơn nghỉ phép: Chỉ hiển thị cho vai trò Nhân viên chuyên môn VT-04 */}
                     {isEmployee && (
@@ -579,13 +565,6 @@ export default function LeaveManagementView() {
             {/* Chế độ xem: Lịch nghỉ của bộ phận theo tháng (NCL-05-CN-006) */}
             {viewMode === "dept-calendar" && (
                 <DepartmentLeaveCalendarView />
-            )}
-
-            {/* Chế độ xem: Lịch Workspace */}
-            {viewMode === "calendar" && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-                    <CalendarView />
-                </div>
             )}
 
             {/* Modal Gửi đơn nghỉ phép */}
