@@ -1,8 +1,9 @@
 /**
  * NCL-06-CN-009: Modal mở lại kỳ kế hoạch phân bổ (TC-04)
  * Yêu cầu bắt buộc nhập lý do mở lại (tối thiểu 10 ký tự) để phục vụ kiểm toán (Audit Trail)
+ * Nâng cấp UX: Phím tắt Escape, Backdrop click, Auto-focus, Reset form.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, LockOpen, AlertTriangle, AlertCircle, Loader2 } from "lucide-react";
 import {
   unlockAllocationPeriod,
@@ -25,6 +26,26 @@ export function UnlockAllocationPeriodModal({
   const [reason, setReason] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Phím tắt Escape để đóng modal
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  // Reset form khi mở modal mới
+  useEffect(() => {
+    if (open) {
+      setReason("");
+      setErrorMessage(null);
+    }
+  }, [open]);
 
   if (!open || !period) return null;
 
@@ -55,7 +76,12 @@ export function UnlockAllocationPeriodModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50/70 p-4">
@@ -76,6 +102,7 @@ export function UnlockAllocationPeriodModal({
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+            title="Đóng (Esc)"
           >
             <X className="h-5 w-5" />
           </button>
@@ -109,6 +136,7 @@ export function UnlockAllocationPeriodModal({
             </label>
             <textarea
               required
+              autoFocus
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}

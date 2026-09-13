@@ -1,7 +1,8 @@
 /**
  * NCL-06-CN-009: Modal tạo kỳ kế hoạch phân bổ mới
+ * Nâng cấp UX: Phím tắt Escape, Backdrop click, Hỗ trợ năm 53 tuần (ISO-8601), Auto-focus.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, CalendarPlus, AlertCircle, Loader2 } from "lucide-react";
 import {
   createAllocationPeriod,
@@ -14,6 +15,15 @@ interface CreateAllocationPeriodModalProps {
   onClose: () => void;
   onCreated: (newPeriod: AllocationPeriodResult) => void;
   initialYear?: number;
+}
+
+// Tính số tuần tối đa theo chuẩn ISO-8601 (52 hoặc 53 tuần)
+export function getMaxIsoWeeks(year: number): number {
+  const dec28 = new Date(Date.UTC(year, 11, 28));
+  const day = dec28.getUTCDay() || 7;
+  dec28.setUTCDate(dec28.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(dec28.getUTCFullYear(), 0, 1));
+  return Math.ceil(((dec28.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
 export function CreateAllocationPeriodModal({
@@ -30,7 +40,29 @@ export function CreateAllocationPeriodModal({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!open) return null;
+  // Lắng nghe phím Escape để đóng modal
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  // Reset form khi mở modal
+  useEffect(() => {
+    if (open) {
+      setName(`Kế hoạch Quý 1/${initialYear}`);
+      setPeriodType("QUARTER");
+      setYear(initialYear);
+      setStartWeek(1);
+      setEndWeek(13);
+      setErrorMessage(null);
+    }
+  }, [open, initialYear]);
 
   const handleApplyQuarterPreset = (q: 1 | 2 | 3 | 4) => {
     setPeriodType("QUARTER");
@@ -47,9 +79,22 @@ export function CreateAllocationPeriodModal({
       setStartWeek(27);
       setEndWeek(39);
     } else {
+      const maxWeeks = getMaxIsoWeeks(year);
       setName(`Kế hoạch Quý 4/${year}`);
       setStartWeek(40);
-      setEndWeek(52);
+      setEndWeek(maxWeeks);
+    }
+  };
+
+  const handleYearChange = (newYear: number) => {
+    setYear(newYear);
+    // Nếu tên kỳ đang ở định dạng chuẩn theo quý, đồng bộ cập nhật năm
+    if (name.includes("Kế hoạch Quý")) {
+      setName((prev) => prev.replace(/\/\d{4}$/, `/${newYear}`));
+    }
+    // Nếu đang ở Quý 4, cập nhật lại endWeek theo số tuần ISO của năm mới
+    if (startWeek === 40) {
+      setEndWeek(getMaxIsoWeeks(newYear));
     }
   };
 
@@ -97,8 +142,15 @@ export function CreateAllocationPeriodModal({
     }
   };
 
+  if (!open) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4">
@@ -119,6 +171,7 @@ export function CreateAllocationPeriodModal({
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+            title="Đóng (Esc)"
           >
             <X className="h-5 w-5" />
           </button>
@@ -139,16 +192,28 @@ export function CreateAllocationPeriodModal({
               Chọn nhanh theo Quý:
             </label>
             <div className="grid grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => handleApplyQuarterPreset(q as 1 | 2 | 3 | 4)}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition"
-                >
-                  Quý {q}
-                </button>
-              ))}
+              {[1, 2, 3, 4].map((q) => {
+                const maxWeeks = getMaxIsoWeeks(year);
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => handleApplyQuarterPreset(q as 1 | 2 | 3 | 4)}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition text-center"
+                  >
+                    <div>Quý {q}</div>
+                    <div className="text-[10px] text-slate-400">
+                      {q === 1
+                        ? "T1-T13"
+                        : q === 2
+                        ? "T14-T26"
+                        : q === 3
+                        ? "T27-T39"
+                        : `T40-T${maxWeeks}`}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -160,6 +225,7 @@ export function CreateAllocationPeriodModal({
             <input
               type="text"
               required
+              autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="VD: Kế hoạch Quý 1/2026..."
@@ -192,7 +258,7 @@ export function CreateAllocationPeriodModal({
                 min={2020}
                 max={2050}
                 value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
+                onChange={(e) => handleYearChange(Number(e.target.value))}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>

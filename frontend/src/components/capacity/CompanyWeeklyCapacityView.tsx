@@ -275,6 +275,10 @@ export default function CompanyWeeklyCapacityView() {
   // Render 1 ô dữ liệu trong ma trận
   const renderCell = (cell: CapacityMatrixCell, row: EmployeeCapacityRow) => {
     const isZeroAvailability = cell.availableHours === 0;
+    const lockedPeriod = getLockedPeriodForWeek(cell.year, cell.weekNumber);
+    const lockSuffix = lockedPeriod
+      ? ` • [QTN-18: Tuần đã bị khóa theo "${lockedPeriod.name}" - Không thể chỉnh sửa phân bổ]`
+      : "";
 
     const reservationBadge = cell.reservedHours != null && cell.reservedHours > 0 ? (
       canManageReservations ? (
@@ -314,7 +318,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-xs min-h-[58px]"
-          title="Nhân viên không có giờ khả dụng trong tuần (Nghỉ phép cả tuần)"
+          title={`Nhân viên không có giờ khả dụng trong tuần (Nghỉ phép cả tuần)${lockSuffix}`}
         >
           <span className="font-semibold text-slate-500">Nghỉ phép</span>
           <span className="text-[10px] text-slate-400">0h / 0h</span>
@@ -328,7 +332,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs min-h-[58px] shadow-xs hover:ring-2 hover:ring-rose-400 transition"
-          title={`Quá tải: Tổng phân bổ ${cell.allocatedHours}h vượt quá ${cell.availableHours}h khả dụng!${cell.approvedLeaveHours ? ` (Đã trừ ${cell.approvedLeaveHours}h do đơn nghỉ phép được duyệt)` : ''}`}
+          title={`Quá tải: Tổng phân bổ ${cell.allocatedHours}h vượt quá ${cell.availableHours}h khả dụng!${cell.approvedLeaveHours ? ` (Đã trừ ${cell.approvedLeaveHours}h do đơn nghỉ phép được duyệt)` : ''}${lockSuffix}`}
         >
           <div className="flex items-center gap-1 font-bold text-rose-700">
             <AlertTriangle className="h-3.5 w-3.5 text-rose-600 animate-pulse" />
@@ -350,7 +354,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-800 text-xs min-h-[58px] hover:ring-2 hover:ring-amber-300 transition"
-          title={`Nhàn rỗi: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}%)`}
+          title={`Nhàn rỗi: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}%)${lockSuffix}`}
         >
           <span className="font-bold text-amber-700">
             {cell.utilizationPercentage != null ? `${cell.utilizationPercentage}%` : "0%"}
@@ -369,7 +373,7 @@ export default function CompanyWeeklyCapacityView() {
     return (
       <div
         className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs min-h-[58px] hover:ring-2 hover:ring-emerald-300 transition"
-        title={`Tối ưu: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}%)`}
+        title={`Tối ưu: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}%)${lockSuffix}`}
       >
         <div className="flex items-center gap-1 font-bold text-emerald-700">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />

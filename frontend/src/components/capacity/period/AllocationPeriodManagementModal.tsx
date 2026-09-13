@@ -1,8 +1,9 @@
 /**
  * NCL-06-CN-009: Modal Quản lý kỳ kế hoạch phân bổ (Allocation Planning Periods)
  * Thực thi quy tắc QTN-18: Khóa kế hoạch của kỳ, bảo vệ dải tuần và lưu bản chụp baseline.
+ * Nâng cấp: Phím tắt Escape, Backdrop click, Hộp thoại xác nhận khóa chuẩn UI (thay thế window.confirm), Auto-dismiss alert.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X,
   Lock,
@@ -69,6 +70,40 @@ export function AllocationPeriodManagementModal({
     id: number;
     name: string;
   } | null>(null);
+  const [lockConfirmTarget, setLockConfirmTarget] = useState<AllocationPeriodResult | null>(null);
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Phím tắt Escape để đóng modal chính (khi không có sub-modal nào mở)
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (!isCreateOpen && !unlockTargetPeriod && !snapshotTargetPeriod && !lockConfirmTarget) {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, isCreateOpen, unlockTargetPeriod, snapshotTargetPeriod, lockConfirmTarget, onClose]);
+
+  // Tự động tắt feedbackMessage sau 5 giây
+  const showFeedback = (type: "success" | "error", text: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setFeedbackMessage({ type, text });
+    if (type === "success") {
+      timerRef.current = setTimeout(() => {
+        setFeedbackMessage(null);
+      }, 5000);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const loadPeriods = useCallback(async () => {
     try {
@@ -80,13 +115,12 @@ export function AllocationPeriodManagementModal({
       });
       setPeriods(data);
     } catch (err: unknown) {
-      setFeedbackMessage({
-        type: "error",
-        text:
-          err instanceof Error
-            ? err.message
-            : "Không thể tải danh sách kỳ kế hoạch phân bổ.",
-      });
+      showFeedback(
+        "error",
+        err instanceof Error
+          ? err.message
+          : "Không thể tải danh sách kỳ kế hoạch phân bổ."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -98,10 +132,10 @@ export function AllocationPeriodManagementModal({
     }
   }, [open, loadPeriods]);
 
-  const handleLockPeriod = async (period: AllocationPeriodResult) => {
-    if (!canManagePeriods) return;
-    const confirmMsg = `Bạn có chắc chắn muốn KHÓA kế hoạch "${period.name}" (Tuần ${period.startWeek} - ${period.endWeek} / ${period.year})?\n\nSau khi khóa:\n- Hệ thống sẽ tự động chụp lại toàn bộ dữ liệu phân bổ hiện tại làm bản chuẩn (Baseline).\n- Ngăn chặn thêm/sửa mọi phân bổ vào các tuần thuộc kỳ này (QTN-18).`;
-    if (!window.confirm(confirmMsg)) return;
+  // Xác nhận khóa kỳ thực sự
+  const handleConfirmLockPeriod = async () => {
+    if (!lockConfirmTarget || !canManagePeriods) return;
+    const period = lockConfirmTarget;
 
     try {
       setActionLoadingId(period.id);
@@ -110,19 +144,19 @@ export function AllocationPeriodManagementModal({
       setPeriods((prev) =>
         prev.map((p) => (p.id === res.id ? res : p))
       );
-      setFeedbackMessage({
-        type: "success",
-        text: `Đã khóa kỳ "${period.name}" thành công và tạo bản chụp kế hoạch v${res.latestSnapshot?.snapshotVersion ?? 1} (${res.latestSnapshot?.totalAllocations ?? 0} lượt phân bổ, ${res.latestSnapshot?.totalAllocatedHours ?? 0}h).`,
-      });
+      showFeedback(
+        "success",
+        `Đã khóa kỳ "${period.name}" thành công và tạo bản chụp kế hoạch v${res.latestSnapshot?.snapshotVersion ?? 1} (${res.latestSnapshot?.totalAllocations ?? 0} lượt phân bổ, ${res.latestSnapshot?.totalAllocatedHours ?? 0}h).`
+      );
+      setLockConfirmTarget(null);
       if (onPeriodChanged) onPeriodChanged();
     } catch (err: unknown) {
-      setFeedbackMessage({
-        type: "error",
-        text:
-          err instanceof Error
-            ? err.message
-            : "Không thể khóa kỳ kế hoạch. Vui lòng thử lại.",
-      });
+      showFeedback(
+        "error",
+        err instanceof Error
+          ? err.message
+          : "Không thể khóa kỳ kế hoạch. Vui lòng thử lại."
+      );
     } finally {
       setActionLoadingId(null);
     }
@@ -130,10 +164,7 @@ export function AllocationPeriodManagementModal({
 
   const handlePeriodCreated = (newPeriod: AllocationPeriodResult) => {
     setPeriods((prev) => [newPeriod, ...prev]);
-    setFeedbackMessage({
-      type: "success",
-      text: `Đã tạo mới kỳ kế hoạch "${newPeriod.name}" thành công.`,
-    });
+    showFeedback("success", `Đã tạo mới kỳ kế hoạch "${newPeriod.name}" thành công.`);
     if (onPeriodChanged) onPeriodChanged();
   };
 
@@ -141,10 +172,10 @@ export function AllocationPeriodManagementModal({
     setPeriods((prev) =>
       prev.map((p) => (p.id === updated.id ? updated : p))
     );
-    setFeedbackMessage({
-      type: "success",
-      text: `Đã mở lại kỳ "${updated.name}" thành công. Lý do: "${updated.unlockReason}".`,
-    });
+    showFeedback(
+      "success",
+      `Đã mở lại kỳ "${updated.name}" thành công. Lý do: "${updated.unlockReason}".`
+    );
     if (onPeriodChanged) onPeriodChanged();
   };
 
@@ -156,7 +187,12 @@ export function AllocationPeriodManagementModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4 shrink-0">
@@ -182,6 +218,7 @@ export function AllocationPeriodManagementModal({
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+            title="Đóng (Esc)"
           >
             <X className="h-5 w-5" />
           </button>
@@ -446,7 +483,7 @@ export function AllocationPeriodManagementModal({
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() => handleLockPeriod(p)}
+                                    onClick={() => setLockConfirmTarget(p)}
                                     disabled={isActionLoading}
                                     className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition disabled:opacity-50"
                                   >
@@ -487,7 +524,7 @@ export function AllocationPeriodManagementModal({
         </div>
       </div>
 
-      {/* Sub-modals */}
+      {/* Sub-modal: Tạo kỳ mới */}
       <CreateAllocationPeriodModal
         open={isCreateOpen}
         initialYear={selectedYear}
@@ -495,6 +532,7 @@ export function AllocationPeriodManagementModal({
         onCreated={handlePeriodCreated}
       />
 
+      {/* Sub-modal: Mở lại kỳ */}
       <UnlockAllocationPeriodModal
         open={!!unlockTargetPeriod}
         period={unlockTargetPeriod}
@@ -502,12 +540,86 @@ export function AllocationPeriodManagementModal({
         onUnlocked={handlePeriodUnlocked}
       />
 
+      {/* Sub-modal: Xem bản chụp Baseline */}
       <AllocationPlanSnapshotModal
         open={!!snapshotTargetPeriod}
         periodId={snapshotTargetPeriod?.id ?? null}
         periodName={snapshotTargetPeriod?.name}
         onClose={() => setSnapshotTargetPeriod(null)}
       />
+
+      {/* Sub-modal: Hộp thoại xác nhận Khóa kỳ (Chuẩn UI Tailwind thay thế window.confirm) */}
+      {lockConfirmTarget && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLockConfirmTarget(null);
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-2xl transition-all">
+            <div className="flex items-center justify-between border-b border-rose-100 bg-rose-50/80 p-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
+                  <Lock className="h-5 w-5" />
+                </span>
+                <h3 className="text-sm font-bold text-rose-900">
+                  Xác Nhận Khóa Kế Hoạch Kỳ (QTN-18)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLockConfirmTarget(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3.5 text-xs text-slate-700">
+              <p className="leading-relaxed">
+                Bạn đang yêu cầu khóa kỳ:{" "}
+                <strong className="text-slate-900 font-bold">
+                  {lockConfirmTarget.name}
+                </strong>{" "}
+                (Tuần {lockConfirmTarget.startWeek} - {lockConfirmTarget.endWeek} / Năm {lockConfirmTarget.year}).
+              </p>
+
+              <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3 text-[11px] text-rose-800 space-y-1.5">
+                <div className="font-bold flex items-center gap-1 text-rose-900">
+                  <AlertTriangle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                  <span>Hệ quả nghiệp vụ sau khi khóa:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-rose-700">
+                  <li>Tự động lưu toàn bộ dữ liệu phân bổ hiện tại làm bản chụp chuẩn (Baseline).</li>
+                  <li>Ngăn chặn thêm/sửa mọi phân bổ vào các tuần thuộc kỳ này trên toàn hệ thống.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 border-t border-slate-200 bg-slate-50 px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setLockConfirmTarget(null)}
+                disabled={actionLoadingId === lockConfirmTarget.id}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLockPeriod}
+                disabled={actionLoadingId === lockConfirmTarget.id}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50 transition"
+              >
+                {actionLoadingId === lockConfirmTarget.id && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                )}
+                <span>Xác nhận khóa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
