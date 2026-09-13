@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.application.service.task;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -25,15 +26,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hrm.employeemanagement.application.dto.task.TaskBoardQuery;
 import com.hrm.employeemanagement.application.dto.task.TaskBoardResult;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
@@ -73,6 +78,12 @@ class GetTaskBoardServiceTest {
     @Mock
     private LoadProjectPort loadProjectPort;
 
+    @Mock
+    private LoadOrgUnitPort loadOrgUnitPort;
+
+    @Mock
+    private SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
+
     private GetTaskBoardService service;
 
     private User currentUser;
@@ -86,7 +97,9 @@ class GetTaskBoardServiceTest {
                 loadEmployeePort,
                 loadTaskAssignmentPort,
                 loadTaskPort,
-                loadProjectPort
+                loadProjectPort,
+                loadOrgUnitPort,
+                saveDeniedAuditLogPort
         );
 
         currentUser = new User(
@@ -193,6 +206,9 @@ class GetTaskBoardServiceTest {
         Task task = createTask(1L, "T1", TaskStatus.TODO, TaskType.TASK);
         Task category = createTask(2L, "CAT1", TaskStatus.TODO, TaskType.CATEGORY);
 
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadProjectPort.existsMember(PROJECT_ID, EMPLOYEE_ID)).thenReturn(true);
+
         when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID)))
                 .thenReturn(List.of(task, category));
 
@@ -221,6 +237,9 @@ class GetTaskBoardServiceTest {
 
         Task myTask = createTask(1L, "Việc của tôi", TaskStatus.IN_PROGRESS, TaskType.TASK);
         Task otherTask = createTask(2L, "Việc của người khác", TaskStatus.IN_PROGRESS, TaskType.TASK);
+
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadProjectPort.existsMember(PROJECT_ID, EMPLOYEE_ID)).thenReturn(true);
 
         when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID)))
                 .thenReturn(List.of(myTask, otherTask));
@@ -273,6 +292,9 @@ class GetTaskBoardServiceTest {
         TaskId t1 = new TaskId(1L);
         TaskId t2 = new TaskId(2L);
 
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadProjectPort.existsMember(PROJECT_ID, EMPLOYEE_ID)).thenReturn(true);
+
         when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID)))
                 .thenReturn(List.of(
                         createTask(1L, "T1", TaskStatus.DONE, TaskType.TASK),
@@ -288,6 +310,229 @@ class GetTaskBoardServiceTest {
         verify(loadTaskAssignmentPort, times(1)).findByTaskIdIn(List.of(t1, t2));
         verify(loadEmployeePort, times(1)).findAllByIdIn(Collections.emptyList());
         verify(loadProjectPort, times(1)).findAllById(List.of(new ProjectId(PROJECT_ID)));
+    }
+
+    @Test
+    @DisplayName("canMove là false đối với thẻ của người khác ngay cả khi user có DataScope.COMPANY")
+    void testGetTaskBoard_CardsOfOthers_CannotBeMoved_EvenWithCompanyScope() {
+        User companyUser = new User(
+                new UserId(99L),
+                "admin",
+                "hash",
+                new Role(new RoleId(1L), RoleCode.VT_01, "Admin"),
+                UserStatus.ACTIVE,
+                new EmployeeId(9999L),
+                DataScope.COMPANY,
+                null,
+                1L
+        );
+        Employee adminEmp = new Employee(
+                new EmployeeId(9999L),
+                new UserId(99L),
+                1L,
+                "ADM01",
+                "Admin",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(companyUser);
+        when(loadEmployeePort.findByUserId(companyUser.getId())).thenReturn(Optional.of(adminEmp));
+
+        TaskId otherTaskId = new TaskId(2L);
+        Task otherTask = createTask(2L, "Task of other", TaskStatus.IN_PROGRESS, TaskType.TASK);
+
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(otherTask));
+
+        TaskAssignment otherAssign = TaskAssignment.create(otherTaskId, new EmployeeId(OTHER_EMPLOYEE_ID), new UserId(88L), true);
+        when(loadTaskAssignmentPort.findByTaskIdIn(List.of(otherTaskId))).thenReturn(List.of(otherAssign));
+
+        Employee otherEmp = new Employee(
+                new EmployeeId(OTHER_EMPLOYEE_ID),
+                new UserId(88L),
+                1L,
+                "EMP02",
+                "Other",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(OTHER_EMPLOYEE_ID)))).thenReturn(List.of(otherEmp));
+        when(loadProjectPort.findAllById(List.of(new ProjectId(PROJECT_ID)))).thenReturn(List.of(project));
+
+        TaskBoardResult result = service.getTaskBoard(new TaskBoardQuery(PROJECT_ID, null));
+
+        assertFalse(result.inProgressTasks().get(0).canMove());
+    }
+
+    @Test
+    @DisplayName("User với SELF scope truy cập dự án không phải PM và không là member -> Bị chặn (403 PermissionDeniedException)")
+    void testGetTaskBoard_SelfScope_CannotAccessUnassignedProject_ThrowsForbidden() {
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUser);
+        when(loadEmployeePort.findByUserId(currentUser.getId())).thenReturn(Optional.of(currentEmployee));
+
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadProjectPort.existsMember(PROJECT_ID, EMPLOYEE_ID)).thenReturn(false);
+
+        assertThrows(PermissionDeniedException.class, () -> service.getTaskBoard(new TaskBoardQuery(PROJECT_ID, null)));
+        verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("User với ORGANIZATION_BRANCH scope truy cập dự án ngoài chi nhánh -> Bị chặn (403 PermissionDeniedException)")
+    void testGetTaskBoard_OrgBranchScope_CannotAccessProjectOutsideBranch_ThrowsForbidden() {
+        User branchUser = new User(
+                new UserId(50L),
+                "branch_user",
+                "hash",
+                new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị"),
+                UserStatus.ACTIVE,
+                new EmployeeId(500L),
+                DataScope.ORGANIZATION_BRANCH,
+                10L, // scopeOrgUnitId
+                1L
+        );
+        Employee branchEmp = new Employee(
+                new EmployeeId(500L),
+                new UserId(50L),
+                10L,
+                "BR01",
+                "Branch Employee",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(branchUser);
+        when(loadEmployeePort.findByUserId(branchUser.getId())).thenReturn(Optional.of(branchEmp));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadProjectPort.existsInOrgUnitBranch(PROJECT_ID, 10L)).thenReturn(false);
+
+        assertThrows(PermissionDeniedException.class, () -> service.getTaskBoard(new TaskBoardQuery(PROJECT_ID, null)));
+        verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("User với SELF scope truy vấn bảng công việc của nhân sự khác (projectId == null) -> Bị chặn (403 PermissionDeniedException)")
+    void testGetTaskBoard_SelfScope_CannotAccessOtherEmployeeBoard_ThrowsForbidden() {
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUser);
+        when(loadEmployeePort.findByUserId(currentUser.getId())).thenReturn(Optional.of(currentEmployee));
+
+        Employee otherEmp = new Employee(
+                new EmployeeId(OTHER_EMPLOYEE_ID),
+                new UserId(88L),
+                1L,
+                "EMP02",
+                "Other",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(OTHER_EMPLOYEE_ID))).thenReturn(Optional.of(otherEmp));
+
+        assertThrows(PermissionDeniedException.class, () -> service.getTaskBoard(new TaskBoardQuery(null, OTHER_EMPLOYEE_ID)));
+        verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("User với ORGANIZATION_BRANCH scope truy vấn nhân sự ngoài đơn vị -> Bị chặn (403 PermissionDeniedException)")
+    void testGetTaskBoard_OrgBranchScope_CannotAccessEmployeeOutsideBranch_ThrowsForbidden() {
+        User branchUser = new User(
+                new UserId(50L),
+                "branch_user",
+                "hash",
+                new Role(new RoleId(3L), RoleCode.VT_03, "Trưởng đơn vị"),
+                UserStatus.ACTIVE,
+                new EmployeeId(500L),
+                DataScope.ORGANIZATION_BRANCH,
+                10L,
+                1L
+        );
+        Employee branchEmp = new Employee(
+                new EmployeeId(500L),
+                new UserId(50L),
+                10L,
+                "BR01",
+                "Branch Employee",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        Employee outsideEmp = new Employee(
+                new EmployeeId(OTHER_EMPLOYEE_ID),
+                new UserId(88L),
+                20L, // Đơn vị khác (20L)
+                "OUT01",
+                "Outside Employee",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(branchUser);
+        when(loadEmployeePort.findByUserId(branchUser.getId())).thenReturn(Optional.of(branchEmp));
+        when(loadEmployeePort.findById(new EmployeeId(OTHER_EMPLOYEE_ID))).thenReturn(Optional.of(outsideEmp));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(20L, 10L)).thenReturn(false);
+
+        assertThrows(PermissionDeniedException.class, () -> service.getTaskBoard(new TaskBoardQuery(null, OTHER_EMPLOYEE_ID)));
+        verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("User với COMPANY scope có quyền truy cập bảng công việc của nhân sự bất kỳ")
+    void testGetTaskBoard_CompanyScope_CanAccessAnyEmployee() {
+        User companyUser = new User(
+                new UserId(99L),
+                "admin",
+                "hash",
+                new Role(new RoleId(1L), RoleCode.VT_01, "Admin"),
+                UserStatus.ACTIVE,
+                new EmployeeId(9999L),
+                DataScope.COMPANY,
+                null,
+                1L
+        );
+        Employee adminEmp = new Employee(
+                new EmployeeId(9999L),
+                new UserId(99L),
+                1L,
+                "ADM01",
+                "Admin",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        Employee targetEmp = new Employee(
+                new EmployeeId(OTHER_EMPLOYEE_ID),
+                new UserId(88L),
+                5L,
+                "EMP02",
+                "Target Employee",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(companyUser);
+        when(loadEmployeePort.findByUserId(companyUser.getId())).thenReturn(Optional.of(adminEmp));
+        when(loadEmployeePort.findById(new EmployeeId(OTHER_EMPLOYEE_ID))).thenReturn(Optional.of(targetEmp));
+
+        TaskId taskId = new TaskId(10L);
+        TaskAssignment assignment = TaskAssignment.create(taskId, new EmployeeId(OTHER_EMPLOYEE_ID), new UserId(88L), true);
+        when(loadTaskAssignmentPort.findByEmployeeId(new EmployeeId(OTHER_EMPLOYEE_ID))).thenReturn(List.of(assignment));
+
+        Task task = createTask(10L, "Task Target", TaskStatus.TODO, TaskType.TASK);
+        when(loadTaskPort.findAllById(List.of(taskId))).thenReturn(List.of(task));
+        when(loadTaskAssignmentPort.findByTaskIdIn(List.of(taskId))).thenReturn(List.of(assignment));
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(OTHER_EMPLOYEE_ID)))).thenReturn(List.of(targetEmp));
+        when(loadProjectPort.findAllById(List.of(new ProjectId(PROJECT_ID)))).thenReturn(List.of(project));
+
+        TaskBoardResult result = service.getTaskBoard(new TaskBoardQuery(null, OTHER_EMPLOYEE_ID));
+
+        assertEquals(1, result.totalTasks());
+        assertEquals(1, result.todoTasks().size());
     }
 
     private Task createTask(Long id, String name, TaskStatus status, TaskType taskType) {

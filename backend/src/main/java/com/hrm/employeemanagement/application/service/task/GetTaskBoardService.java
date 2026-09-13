@@ -14,14 +14,21 @@ import com.hrm.employeemanagement.application.dto.task.TaskBoardCardResult;
 import com.hrm.employeemanagement.application.dto.task.TaskBoardQuery;
 import com.hrm.employeemanagement.application.dto.task.TaskBoardResult;
 import com.hrm.employeemanagement.application.port.inbound.task.GetTaskBoardUseCase;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.Task;
@@ -38,6 +45,25 @@ public class GetTaskBoardService implements GetTaskBoardUseCase {
     private final LoadTaskAssignmentPort loadTaskAssignmentPort;
     private final LoadTaskPort loadTaskPort;
     private final LoadProjectPort loadProjectPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
+    private final SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
+
+    public GetTaskBoardService(
+            GetAuthenticatedUserPort authenticatedUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadTaskAssignmentPort loadTaskAssignmentPort,
+            LoadTaskPort loadTaskPort,
+            LoadProjectPort loadProjectPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort) {
+        this.authenticatedUserPort = Objects.requireNonNull(authenticatedUserPort, "GetAuthenticatedUserPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
+        this.loadTaskAssignmentPort = Objects.requireNonNull(loadTaskAssignmentPort, "LoadTaskAssignmentPort must not be null");
+        this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
+        this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
+        this.loadOrgUnitPort = loadOrgUnitPort;
+        this.saveDeniedAuditLogPort = saveDeniedAuditLogPort;
+    }
 
     public GetTaskBoardService(
             GetAuthenticatedUserPort authenticatedUserPort,
@@ -45,11 +71,7 @@ public class GetTaskBoardService implements GetTaskBoardUseCase {
             LoadTaskAssignmentPort loadTaskAssignmentPort,
             LoadTaskPort loadTaskPort,
             LoadProjectPort loadProjectPort) {
-        this.authenticatedUserPort = Objects.requireNonNull(authenticatedUserPort, "GetAuthenticatedUserPort must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
-        this.loadTaskAssignmentPort = Objects.requireNonNull(loadTaskAssignmentPort, "LoadTaskAssignmentPort must not be null");
-        this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
-        this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
+        this(authenticatedUserPort, loadEmployeePort, loadTaskAssignmentPort, loadTaskPort, loadProjectPort, null, null);
     }
 
     @Override
@@ -61,7 +83,7 @@ public class GetTaskBoardService implements GetTaskBoardUseCase {
 
         Employee currentEmployee = loadEmployeePort.findByUserId(currentUser.getId()).orElse(null);
 
-        List<Task> rawTasks = fetchRawTasks(query, currentEmployee);
+        List<Task> rawTasks = fetchRawTasks(query, currentUser, currentEmployee);
         if (rawTasks.isEmpty()) {
             return new TaskBoardResult(
                     Collections.emptyList(),
@@ -138,9 +160,7 @@ public class GetTaskBoardService implements GetTaskBoardUseCase {
             boolean isProjectManager = currentEmployee != null && project != null
                     && project.isManagedBy(currentEmployee.getId());
 
-            boolean isCompanyScope = currentUser.getDataScope() == DataScope.COMPANY;
-
-            boolean canMove = isAssignedToCurrentUser || isProjectManager || isCompanyScope;
+            boolean canMove = isAssignedToCurrentUser || isProjectManager;
 
             TaskBoardCardResult card = new TaskBoardCardResult(
                     task.getIdValue(),
@@ -193,10 +213,27 @@ public class GetTaskBoardService implements GetTaskBoardUseCase {
         );
     }
 
-    private List<Task> fetchRawTasks(TaskBoardQuery query, Employee currentEmployee) {
+    private List<Task> fetchRawTasks(TaskBoardQuery query, User currentUser, Employee currentEmployee) {
         if (query != null && query.projectId() != null) {
-            List<Task> projectTasks = loadTaskPort.findAllByProjectId(new ProjectId(query.projectId()));
+            Project project = loadProjectPort.findById(new ProjectId(query.projectId()))
+                    .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + query.projectId()));
+
+            if (!canAccessProject(currentUser, currentEmployee, project)) {
+                saveDeniedAudit(
+                        currentUser.getIdValue(),
+                        "PROJECT_ACCESS_DENIED",
+                        "projects",
+                        project.getIdValue(),
+                        "permission=PROJECT_READ;dataScope=" + currentUser.getDataScope() + ";reason=OUTSIDE_DATA_SCOPE_TASK_BOARD_READ"
+                );
+                throw new PermissionDeniedException(PermissionCode.PROJECT_READ);
+            }
+
+            List<Task> projectTasks = loadTaskPort.findAllByProjectId(project.getId());
             if (query.employeeId() != null) {
+                loadEmployeePort.findById(new EmployeeId(query.employeeId()))
+                        .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự với ID: " + query.employeeId()));
+
                 List<TaskAssignment> assignments = loadTaskAssignmentPort.findByEmployeeId(new EmployeeId(query.employeeId()));
                 Set<TaskId> assignedTaskIds = assignments.stream()
                         .map(TaskAssignment::getTaskId)
@@ -210,7 +247,21 @@ public class GetTaskBoardService implements GetTaskBoardUseCase {
         }
 
         if (query != null && query.employeeId() != null) {
-            List<TaskAssignment> assignments = loadTaskAssignmentPort.findByEmployeeId(new EmployeeId(query.employeeId()));
+            Employee targetEmployee = loadEmployeePort.findById(new EmployeeId(query.employeeId()))
+                    .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự với ID: " + query.employeeId()));
+
+            if (!canAccessEmployee(currentUser, currentEmployee, targetEmployee)) {
+                saveDeniedAudit(
+                        currentUser.getIdValue(),
+                        "EMPLOYEE_ACCESS_DENIED",
+                        "employees",
+                        targetEmployee.getIdValue(),
+                        "permission=EMPLOYEE_READ;dataScope=" + currentUser.getDataScope() + ";reason=OUTSIDE_DATA_SCOPE_TASK_BOARD_READ"
+                );
+                throw new PermissionDeniedException(PermissionCode.EMPLOYEE_READ);
+            }
+
+            List<TaskAssignment> assignments = loadTaskAssignmentPort.findByEmployeeId(targetEmployee.getId());
             if (assignments.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -237,5 +288,45 @@ public class GetTaskBoardService implements GetTaskBoardUseCase {
         }
 
         return Collections.emptyList();
+    }
+
+    private boolean canAccessProject(User currentUser, Employee currentEmployee, Project project) {
+        return switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case ORGANIZATION_BRANCH ->
+                currentUser.getScopeOrgUnitId() != null
+                        && loadProjectPort.existsInOrgUnitBranch(project.getIdValue(), currentUser.getScopeOrgUnitId());
+            case SELF -> {
+                Long employeeId = currentEmployee != null ? currentEmployee.getIdValue() : null;
+                yield employeeId != null && (project.isManagedBy(new EmployeeId(employeeId))
+                        || loadProjectPort.existsMember(project.getIdValue(), employeeId));
+            }
+        };
+    }
+
+    private boolean canAccessEmployee(User currentUser, Employee currentEmployee, Employee targetEmployee) {
+        return switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case ORGANIZATION_BRANCH ->
+                targetEmployee.getOrgUnitId() != null
+                        && currentUser.getScopeOrgUnitId() != null
+                        && loadOrgUnitPort != null
+                        && loadOrgUnitPort.existsInOrgUnitBranch(targetEmployee.getOrgUnitId(), currentUser.getScopeOrgUnitId());
+            case SELF ->
+                currentEmployee != null && Objects.equals(currentEmployee.getId(), targetEmployee.getId());
+        };
+    }
+
+    private void saveDeniedAudit(Long userId, String action, String tableName, Long recordId, String detail) {
+        if (saveDeniedAuditLogPort != null && userId != null) {
+            saveDeniedAuditLogPort.save(AuditLog.createChange(
+                    userId,
+                    action,
+                    tableName,
+                    recordId,
+                    null,
+                    detail
+            ));
+        }
     }
 }

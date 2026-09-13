@@ -368,4 +368,45 @@ class MoveTaskBoardStatusServiceTest {
         assertThrows(InvalidTaskDataException.class, () -> service.moveTaskStatus(new MoveTaskBoardStatusCommand(null, TaskStatus.IN_REVIEW)));
         assertThrows(InvalidTaskDataException.class, () -> service.moveTaskStatus(new MoveTaskBoardStatusCommand(TASK_ID, null)));
     }
+
+    @Test
+    @DisplayName("Người dùng có COMPANY scope nhưng không phải PM và không được giao việc -> Bị chặn (TaskNotAssignedToUserException)")
+    void testMoveStatus_Forbidden_CompanyScopeUser_NotPM_NotAssignee() {
+        User companyAdmin = new User(
+                new UserId(99L),
+                "admin",
+                "hash",
+                new Role(new RoleId(1L), RoleCode.VT_01, "Quản trị hệ thống"),
+                UserStatus.ACTIVE,
+                new EmployeeId(9999L),
+                DataScope.COMPANY,
+                null,
+                1L
+        );
+        Employee adminEmp = new Employee(
+                new EmployeeId(9999L),
+                new UserId(99L),
+                1L,
+                "ADMIN01",
+                "Admin User",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(companyAdmin);
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
+        when(loadEmployeePort.findByUserId(companyAdmin.getId())).thenReturn(Optional.of(adminEmp));
+
+        // Task giao cho B, PM là người khác (999L)
+        TaskAssignment assignmentB = TaskAssignment.create(new TaskId(TASK_ID), new EmployeeId(EMPLOYEE_ID_B), new UserId(88L), true);
+        when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(List.of(assignmentB));
+
+        MoveTaskBoardStatusCommand command = new MoveTaskBoardStatusCommand(TASK_ID, TaskStatus.DONE);
+
+        assertThrows(TaskNotAssignedToUserException.class, () -> service.moveTaskStatus(command));
+        verify(saveTaskPort, never()).save(any());
+        verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
+    }
 }

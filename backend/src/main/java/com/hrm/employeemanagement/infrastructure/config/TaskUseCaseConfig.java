@@ -210,14 +210,18 @@ public class TaskUseCaseConfig {
             LoadEmployeePort loadEmployeePort,
             LoadTaskAssignmentPort loadTaskAssignmentPort,
             LoadTaskPort loadTaskPort,
-            LoadProjectPort loadProjectPort) {
+            LoadProjectPort loadProjectPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort) {
         com.hrm.employeemanagement.application.service.task.GetTaskBoardService pureService =
                 new com.hrm.employeemanagement.application.service.task.GetTaskBoardService(
                         authenticatedUserPort,
                         loadEmployeePort,
                         loadTaskAssignmentPort,
                         loadTaskPort,
-                        loadProjectPort);
+                        loadProjectPort,
+                        loadOrgUnitPort,
+                        saveDeniedAuditLogPort);
         return new com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalGetTaskBoardUseCase(pureService);
     }
 

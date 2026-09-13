@@ -18,7 +18,6 @@ import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
-import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
@@ -93,10 +92,8 @@ public class MoveTaskBoardStatusService implements MoveTaskBoardStatusUseCase {
 
         boolean isProjectManager = currentEmployee != null && project.isManagedBy(currentEmployee.getId());
 
-        boolean isCompanyScope = currentUser.getDataScope() == DataScope.COMPANY;
-
         // TC-02: Thẻ thuộc công việc của người khác -> Chặn và giữ nguyên trạng thái
-        if (!isAssigned && !isProjectManager && !isCompanyScope) {
+        if (!isAssigned && !isProjectManager) {
             saveDeniedAuditLogPort.save(AuditLog.createChange(
                     currentUser.getIdValue(),
                     "TASK_ACCESS_DENIED",
