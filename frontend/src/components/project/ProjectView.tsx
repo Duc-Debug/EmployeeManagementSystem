@@ -6,6 +6,8 @@ import { allocateProjectHours, getProjectWeeklyAllocations } from '@/lib/api/all
 import {
     getProjects,
     getProjectWbs,
+    getProjectMembers,
+    addProjectMember,
     createTask,
     updateTask,
     getAssignableEmployees,
@@ -64,6 +66,7 @@ import {
 } from './projectData';
 import { ProjectWbsView } from './ProjectWbsView';
 import { ProjectWeeklyMatrix } from './ProjectWeeklyMatrix';
+import { ResourceSkillSearchModal } from './ResourceSkillSearchModal';
 import { ProjectTaskModal } from './ProjectTaskModal';
 import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectBudgetModal } from './ProjectBudgetModal';
@@ -255,14 +258,17 @@ export default function ProjectView() {
     const userRoleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
     const isExecutive = userRoleCode === 'VT-01' || userRoleCode === 'ROLE-EXECUTIVE' || userRoleCode === 'EXECUTIVE' || userRoleCode === 'DIRECTOR';
     const isPm = userRoleCode === 'VT-02' || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-PM' || userRoleCode === 'PM' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
+    const isRm = userRoleCode === 'VT-03' || userRoleCode === 'ROLE-RM' || userRoleCode === 'RM' || currentUser?.roleName === 'Quản lý nguồn lực';
 
     // Quyền đọc phân bổ & nhu cầu: VT-01, VT-02, VT-03, VT-06
     const canReadAllocations = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
     const canReadDemands = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
 
-    // PROJECT_CREATE: Chỉ VT-02 (PM) và VT-06 (Admin) mới có quyền tạo/quản lý dự án
+    // Quy định RBAC theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md:
+    // - Màn hình Điều phối & Phân bổ nguồn lực: VT-01 (Xem), VT-02 (Đề xuất/Xem), VT-03 (Quản lý nguồn lực bộ phận - Toàn quyền). VT-04 (Nhân viên), VT-05 (HR), VT-06 (Admin) bị CHẶN / ẨN (❌)
+    const canViewWeeklyAllocation = isExecutive || isPm || isRm;
+    const canManageAllocations = isRm;
     const canManageProject = isPm;
-    const canManageAllocations = userRoleCode === 'VT-03' || userRoleCode === 'ROLE-RM' || userRoleCode === 'RM';
     const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones'>(() => {
         return canReadAllocations ? 'split' : 'wbs';
@@ -294,6 +300,7 @@ export default function ProjectView() {
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
     const [closeModalOpen, setCloseModalOpen] = useState<boolean>(false);
     const [reopenModalOpen, setReopenModalOpen] = useState<boolean>(false);
+<<<<<<< HEAD
     const [moreActionsOpen, setMoreActionsOpen] = useState<boolean>(false);
     const moreActionsRef = useRef<HTMLDivElement>(null);
 
@@ -306,6 +313,9 @@ export default function ProjectView() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+=======
+    const [skillSearchModalOpen, setSkillSearchModalOpen] = useState<boolean>(false);
+>>>>>>> origin/develop
 
     // Demand Estimation State (NCL-03-CN-007)
     const [demandSummary, setDemandSummary] = useState<ProjectResourceDemandSummaryResult | null>(null);
@@ -470,25 +480,47 @@ export default function ProjectView() {
         loadProjects();
     }, [loadProjects]);
 
-    // 3. Tải cây WBS khi chọn một dự án thật
+    // 3. Tải cây WBS và danh sách thành viên dự án thật khi chọn một dự án
     const loadWbsForProject = useCallback(async (projId: number) => {
         setIsLoadingWbs(true);
         try {
-            const wbsNodes = await getProjectWbs(projId);
-            const assignedEmployeeIds = new Set<number>();
+            const [wbsNodes, backendMembersRes] = await Promise.all([
+                getProjectWbs(projId),
+                getProjectMembers(projId).catch(() => []),
+            ]);
+
+            const memberIdSet = new Set<number>();
+            const projectRoleMap = new Map<number, string>();
+            if (Array.isArray(backendMembersRes)) {
+                backendMembersRes.forEach((bm) => {
+                    memberIdSet.add(bm.employeeId);
+                    if (bm.roleInProject === 'PROJECT_MANAGER') {
+                        projectRoleMap.set(bm.employeeId, 'Quản lý dự án');
+                    }
+                });
+            }
+
             const collectAssignees = (nodes: TaskNodeResult[]) => nodes.forEach((node) => {
-                if (node.assigneeId) assignedEmployeeIds.add(node.assigneeId);
+                if (node.assigneeId) memberIdSet.add(node.assigneeId);
                 if (node.assigneeIds && Array.isArray(node.assigneeIds)) {
-                    node.assigneeIds.forEach((id) => assignedEmployeeIds.add(id));
+                    node.assigneeIds.forEach((id) => memberIdSet.add(id));
                 }
                 collectAssignees(node.children || []);
             });
             collectAssignees(wbsNodes);
-            const projectMembers = allEmployees.filter((member) =>
-                assignedEmployeeIds.has(Number(member.id.replace('u-', '')))
-            );
-            // Ưu tiên hiển thị tất cả nhân sự trong hệ thống để Quản lý nguồn lực có thể phân bổ trực tiếp; nếu chưa có WBS thì dùng allEmployees
-            setMembers(allEmployees.length > 0 ? allEmployees : projectMembers);
+
+            const projectMembers = allEmployees
+                .filter((emp) => {
+                    const empIdNum = emp.employeeId || Number(emp.id.replace('u-', ''));
+                    return memberIdSet.has(empIdNum);
+                })
+                .map((emp) => {
+                    const empIdNum = emp.employeeId || Number(emp.id.replace('u-', ''));
+                    const projectRole = projectRoleMap.get(empIdNum);
+                    return projectRole ? { ...emp, role: projectRole } : emp;
+                });
+
+            setMembers(projectMembers);
             const mapped = mapBackendWbsToUiCategories(wbsNodes, projectMembers);
             setCategories(mapped);
             getTaskDependencies(projId)
@@ -637,6 +669,25 @@ export default function ProjectView() {
             showToast(`Đang xem: ${months[newIdx].name}`, 'info');
         } else {
             showToast(direction > 0 ? 'Đã ở tháng kế hoạch mới nhất' : 'Đã ở tháng kế hoạch đầu tiên', 'info');
+        }
+    };
+
+    const handleAddMembersFromSkillSearch = async (newMembers: ProjectMember[]) => {
+        if (!selectedProjectId) {
+            showToast('Vui lòng chọn dự án trước khi thêm thành viên.', 'error');
+            throw new Error('No project selected');
+        }
+        const results = await Promise.allSettled(newMembers.map((member) => {
+            const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
+            return employeeId ? addProjectMember(selectedProjectId, employeeId) : Promise.reject(new Error('Invalid employee id'));
+        }));
+        const succeeded = results.filter((result) => result.status === 'fulfilled').length;
+        const failed = results.length - succeeded;
+        if (succeeded > 0) await loadWbsForProject(selectedProjectId);
+        if (failed > 0) {
+            showToast(`Đã thêm ${succeeded}/${results.length} nhân sự. ${failed} thao tác thất bại; danh sách đã được đồng bộ từ backend.`, 'error');
+        } else {
+            showToast(`Đã thêm ${succeeded} nhân sự và đồng bộ từ backend.`, 'success');
         }
     };
 
@@ -1344,7 +1395,11 @@ export default function ProjectView() {
             <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
                 <div className="inline-flex w-full max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
+<<<<<<< HEAD
                     {canReadAllocations && (
+=======
+                    {canViewWeeklyAllocation && (
+>>>>>>> origin/develop
                         <button
                             type="button"
                             onClick={() => setViewMode('split')}
@@ -1370,7 +1425,11 @@ export default function ProjectView() {
                         <Layers className="h-3.5 w-3.5" />
                         <span>Hạng mục & Task</span>
                     </button>
+<<<<<<< HEAD
                     {canReadAllocations && (
+=======
+                    {canViewWeeklyAllocation && (
+>>>>>>> origin/develop
                         <button
                             type="button"
                             onClick={() => setViewMode('workload')}
@@ -1384,6 +1443,7 @@ export default function ProjectView() {
                             <span>Phân bổ theo tuần</span>
                         </button>
                     )}
+<<<<<<< HEAD
                     {canReadDemands && (
                         <button
                             type="button"
@@ -1403,6 +1463,25 @@ export default function ProjectView() {
                             )}
                         </button>
                     )}
+=======
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('demand')}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                            viewMode === 'demand'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <TrendingUp className="h-4 w-4" />
+                        <span>Ước lượng nhu cầu</span>
+                        {demandSummary && demandSummary.demandsByRole.length > 0 && (
+                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
+                                {demandSummary.demandsByRole.length}
+                            </span>
+                        )}
+                    </button>
+>>>>>>> origin/develop
                     <button
                         type="button"
                         onClick={() => setViewMode('milestones')}
@@ -1478,8 +1557,13 @@ export default function ProjectView() {
                     </div>
                 )}
 
+<<<<<<< HEAD
                 {/* Section 2: Weekly Matrix */}
                 {canReadAllocations && (viewMode === 'split' || viewMode === 'workload') && (
+=======
+                {/* Section 2: Weekly Matrix (Chỉ dành cho Ban giám đốc VT-01, PM VT-02, Quản lý nguồn lực VT-03) */}
+                {canViewWeeklyAllocation && (viewMode === 'split' || viewMode === 'workload') && (
+>>>>>>> origin/develop
                     <div className={viewMode === 'split' ? 'lg:col-span-7' : 'lg:col-span-12'}>
                         <ProjectWeeklyMatrix
                             month={selectedMonth}
@@ -1489,6 +1573,7 @@ export default function ProjectView() {
                             isClosed={isProjectClosed}
                             onNavigateMonth={handleNavigateMonth}
                             onOpenAdjustModal={handleOpenAdjustModal}
+                            onOpenSkillSearchModal={canManageAllocations ? () => setSkillSearchModalOpen(true) : undefined}
                         />
                     </div>
                 )}
@@ -1678,6 +1763,16 @@ export default function ProjectView() {
                 isExecutive={isExecutive}
                 onClose={() => setReopenModalOpen(false)}
                 onSuccess={handleProjectReopened}
+            />
+
+            {/* Modal Lọc & Chọn Nhân Sự Theo Kỹ Năng */}
+            <ResourceSkillSearchModal
+                isOpen={skillSearchModalOpen}
+                onClose={() => setSkillSearchModalOpen(false)}
+                fromYear={selectedMonth ? Number(selectedMonth.id.split('-')[0]) : new Date().getFullYear()}
+                fromWeek={selectedMonth ? Number(selectedMonth.weeks[0]?.key.replace('W', '')) || 1 : 1}
+                existingMemberIds={members.map((m) => m.id)}
+                onAddMembers={handleAddMembersFromSkillSearch}
             />
 
             {/* Toast Notification */}

@@ -261,6 +261,15 @@ export default function CompanyWeeklyCapacityView() {
       )
     ) : null;
 
+    const leaveBadge = cell.approvedLeaveHours != null && cell.approvedLeaveHours > 0 ? (
+      <div
+        className="mt-1 flex items-center justify-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 w-full"
+        title={`Đơn nghỉ phép đã được phê duyệt: Trừ ${cell.approvedLeaveHours}h khỏi giờ khả dụng của tuần`}
+      >
+        <span>🌴 -{cell.approvedLeaveHours}h nghỉ phép</span>
+      </div>
+    ) : null;
+
     if (isZeroAvailability && cell.allocatedHours === 0) {
       return (
         <div
@@ -269,6 +278,7 @@ export default function CompanyWeeklyCapacityView() {
         >
           <span className="font-semibold text-slate-500">Nghỉ phép</span>
           <span className="text-[10px] text-slate-400">0h / 0h</span>
+          {leaveBadge}
           {reservationBadge}
         </div>
       );
@@ -278,7 +288,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs min-h-[58px] shadow-xs hover:ring-2 hover:ring-rose-400 transition"
-          title={`Quá tải: Tổng phân bổ ${cell.allocatedHours}h vượt quá ${cell.availableHours}h khả dụng!`}
+          title={`Quá tải: Tổng phân bổ ${cell.allocatedHours}h vượt quá ${cell.availableHours}h khả dụng!${cell.approvedLeaveHours ? ` (Đã trừ ${cell.approvedLeaveHours}h do đơn nghỉ phép được duyệt)` : ''}`}
         >
           <div className="flex items-center gap-1 font-bold text-rose-700">
             <AlertTriangle className="h-3.5 w-3.5 text-rose-600 animate-pulse" />
@@ -290,6 +300,7 @@ export default function CompanyWeeklyCapacityView() {
           <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded-full bg-rose-200/80 text-[10px] font-bold text-rose-900">
             + {cell.excessHours}h
           </span>
+          {leaveBadge}
           {reservationBadge}
         </div>
       );
@@ -308,6 +319,7 @@ export default function CompanyWeeklyCapacityView() {
             {cell.allocatedHours}h / {cell.availableHours}h
           </span>
           <span className="text-[10px] font-semibold text-amber-600/80">Nhàn rỗi</span>
+          {leaveBadge}
           {reservationBadge}
         </div>
       );
@@ -326,6 +338,7 @@ export default function CompanyWeeklyCapacityView() {
         <span className="text-[11px] text-emerald-600">
           {cell.allocatedHours}h / {cell.availableHours}h
         </span>
+        {leaveBadge}
         {reservationBadge}
       </div>
     );

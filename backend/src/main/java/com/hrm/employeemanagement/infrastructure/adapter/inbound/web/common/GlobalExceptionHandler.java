@@ -63,6 +63,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.leave.LeaveRequestNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleLeaveRequestNotFound(com.hrm.employeemanagement.domain.exception.leave.LeaveRequestNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "LEAVE_REQUEST_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleUserNotFound(UserNotFoundException ex) {
         ErrorResponse response = ErrorResponse.of(

@@ -14,6 +14,7 @@ import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
+import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import AdminDashboardOverview from "./AdminDashboardOverview";
@@ -58,6 +59,7 @@ export default function Dashboard() {
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
         if (path.includes("project") || path.includes("du-an")) return "project";
+        if (path.includes("recruitment") || path.includes("tuyen-dung")) return "recruitment-demand";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         return "overview";
     }, [location.pathname]);
@@ -235,6 +237,8 @@ export default function Dashboard() {
                                 {activeTab === "access" && <AccessControlView />}
 
                                 {activeTab === "leave" && <LeaveManagementView />}
+
+                                {activeTab === "recruitment-demand" && <RecruitmentDemandReportView />}
 
                                 {(activeTab === "overview" || activeTab === "reports") && (() => {
                                     const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");

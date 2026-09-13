@@ -65,7 +65,8 @@ public record CompanyWeeklyCapacityMatrixResult(
             boolean isOverloaded,
             BigDecimal excessHours,
             CapacityStatus status,
-            BigDecimal reservedHours
+            BigDecimal reservedHours,
+            BigDecimal approvedLeaveHours
     ) {
         public CapacityMatrixCellResult(
                 int year,
@@ -78,7 +79,22 @@ public record CompanyWeeklyCapacityMatrixResult(
                 BigDecimal excessHours,
                 CapacityStatus status
         ) {
-            this(year, weekNumber, allocatedHours, availableHours, remainingHours, utilizationPercentage, isOverloaded, excessHours, status, BigDecimal.ZERO);
+            this(year, weekNumber, allocatedHours, availableHours, remainingHours, utilizationPercentage, isOverloaded, excessHours, status, BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        public CapacityMatrixCellResult(
+                int year,
+                int weekNumber,
+                BigDecimal allocatedHours,
+                BigDecimal availableHours,
+                BigDecimal remainingHours,
+                BigDecimal utilizationPercentage,
+                boolean isOverloaded,
+                BigDecimal excessHours,
+                CapacityStatus status,
+                BigDecimal reservedHours
+        ) {
+            this(year, weekNumber, allocatedHours, availableHours, remainingHours, utilizationPercentage, isOverloaded, excessHours, status, reservedHours, BigDecimal.ZERO);
         }
     }
 

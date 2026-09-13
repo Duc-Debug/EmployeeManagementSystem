@@ -41,6 +41,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.reservation.ResourceReservation;
 
 public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacityUseCase {
@@ -55,6 +57,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
     private final LoadApprovedLeavesPort loadApprovedLeavesPort;
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final LoadResourceReservationPort loadReservationPort;
+    private final SaveAuditLogPort saveAuditLogPort;
 
     public GetCompanyWeeklyCapacityService(
             AuthorizationService authorizationService,
@@ -77,6 +80,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
                 loadWorkingCalendarPort,
+                null,
                 null
         );
     }
@@ -93,6 +97,34 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             LoadWorkingCalendarPort loadWorkingCalendarPort,
             LoadResourceReservationPort loadReservationPort
     ) {
+        this(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort,
+                loadReservationPort,
+                null
+        );
+    }
+
+    public GetCompanyWeeklyCapacityService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadResourceReservationPort loadReservationPort,
+            SaveAuditLogPort saveAuditLogPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
@@ -103,60 +135,91 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "LoadApprovedLeavesPort must not be null");
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
         this.loadReservationPort = loadReservationPort;
+        this.saveAuditLogPort = saveAuditLogPort;
     }
 
     @Override
     public CompanyWeeklyCapacityMatrixResult getWeeklyCapacityMatrix(CompanyWeeklyCapacityQuery query) {
         // [TC-03 & Security]: Bắt buộc quyền RESOURCE_ALLOCATION_READ
-        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
+        Long currentUserId;
+        try {
+            currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
+        } catch (PermissionDeniedException e) {
+            if (saveAuditLogPort != null) {
+                saveAuditLogPort.save(AuditLog.createChange(
+                        null,
+                        "ACCESS_DENIED_CAPACITY_VIEW",
+                        "weekly_capacity_matrix",
+                        null,
+                        null,
+                        "Từ chối truy cập chức năng xem ma trận năng lực khả dụng theo tuần"
+                ));
+            }
+            throw e;
+        }
+
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
         // Xác thực và áp dụng Data Scope chặt chẽ
         Long effectiveOrgUnitId;
-        switch (currentUser.getDataScope()) {
-            case COMPANY -> {
-                effectiveOrgUnitId = query.orgUnitId();
-            }
-            case ORGANIZATION_BRANCH -> {
-                if (currentUser.getScopeOrgUnitId() == null) {
-                    throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
-                }
-                if (query.orgUnitId() != null) {
-                    // [TC-03]: Kiểm tra xem orgUnitId được yêu cầu có thuộc branch của người dùng không
-                    boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), currentUser.getScopeOrgUnitId());
-                    if (!inScope) {
-                        throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
-                    }
+        try {
+            switch (currentUser.getDataScope()) {
+                case COMPANY -> {
                     effectiveOrgUnitId = query.orgUnitId();
-                } else {
-                    // Mặc định giới hạn trong branch của người dùng
-                    effectiveOrgUnitId = currentUser.getScopeOrgUnitId();
                 }
-            }
-            case SELF -> {
-                if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
-                    // VT-02 (Quản lý dự án): Thẩm định phạm vi phòng ban quản lý của PM
-                    Long pmOrgUnitId = resolveEmployeeOrgUnitId(currentUser, currentUserId);
-                    if (pmOrgUnitId == null) {
+                case ORGANIZATION_BRANCH -> {
+                    if (currentUser.getScopeOrgUnitId() == null) {
                         throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
                     }
                     if (query.orgUnitId() != null) {
-                        boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), pmOrgUnitId);
+                        // [TC-03]: Kiểm tra xem orgUnitId được yêu cầu có thuộc branch của người dùng không
+                        boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), currentUser.getScopeOrgUnitId());
                         if (!inScope) {
                             throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
                         }
                         effectiveOrgUnitId = query.orgUnitId();
                     } else {
-                        // Không cho phép PM xem toàn công ty (orgUnitId = null); mặc định giới hạn trong phòng ban của PM
-                        effectiveOrgUnitId = pmOrgUnitId;
+                        // Mặc định giới hạn trong branch của người dùng
+                        effectiveOrgUnitId = currentUser.getScopeOrgUnitId();
                     }
-                } else {
-                    // Người dùng chỉ có quyền SELF (nhân viên chuyên môn VT-04) không được xem bảng năng lực
-                    throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
                 }
+                case SELF -> {
+                    if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
+                        // VT-02 (Quản lý dự án): Thẩm định phạm vi phòng ban quản lý của PM
+                        Long pmOrgUnitId = resolveEmployeeOrgUnitId(currentUser, currentUserId);
+                        if (pmOrgUnitId == null) {
+                            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                        }
+                        if (query.orgUnitId() != null) {
+                            boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), pmOrgUnitId);
+                            if (!inScope) {
+                                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                            }
+                            effectiveOrgUnitId = query.orgUnitId();
+                        } else {
+                            // Không cho phép PM xem toàn công ty (orgUnitId = null); mặc định giới hạn trong phòng ban của PM
+                            effectiveOrgUnitId = pmOrgUnitId;
+                        }
+                    } else {
+                        // Người dùng chỉ có quyền SELF (nhân viên chuyên môn VT-04) không được xem bảng năng lực
+                        throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                    }
+                }
+                default -> throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
             }
-            default -> throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+        } catch (PermissionDeniedException e) {
+            if (saveAuditLogPort != null) {
+                saveAuditLogPort.save(AuditLog.createChange(
+                        currentUserId,
+                        "ACCESS_DENIED_CAPACITY_VIEW",
+                        "weekly_capacity_matrix",
+                        null,
+                        null,
+                        "user_id=" + currentUserId + ";role=" + (currentUser.getRole() != null ? currentUser.getRole().getCode().getCode() : "UNKNOWN")
+                ));
+            }
+            throw e;
         }
 
         String orgUnitName = "Toàn công ty";
@@ -465,7 +528,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         isOverloaded,
                         excessHours,
                         status,
-                        reservedHours
+                        reservedHours,
+                        leaveHours
                 ));
             }
 
