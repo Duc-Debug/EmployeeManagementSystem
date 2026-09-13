@@ -4,7 +4,6 @@ import {
     Clock,
     Calendar as CalendarIcon,
     Building2,
-    Settings,
     ChevronRight,
     ClipboardList,
     FolderKanban,
@@ -27,13 +26,12 @@ const SIDEBAR_WORKSPACE = [
     { name: "Chấm công", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
     { name: "Phòng ban", icon: Building2, id: "departments" },
-    { name: "Khai báo kỹ năng", icon: ClipboardList, id: "skills" },
+    { name: "Quản lý Năng lực & Kỹ năng", icon: ClipboardList, id: "skills" },
     { name: "Dự án", icon: FolderKanban, id: "project" },
 ];
 
 const SIDEBAR_SETTINGS = [
     { name: "Vai trò chuyên môn", icon: Briefcase, id: "roles" },
-    { name: "Thiết lập hệ thống", icon: Settings, id: "settings" },
 ];
 
 export function canAccessTab(
@@ -60,9 +58,8 @@ export function canAccessTab(
             return ["VT-01", "VT-02", "VT-03"].includes(normalized);
 
         case "access":
-        case "settings":
         case "users":
-            // Quản lý tài khoản, Phân quyền & Thiết lập hệ thống: Dành riêng cho Quản trị viên (VT-06)
+            // Quản lý tài khoản & Phân quyền: Dành riêng cho Quản trị viên (VT-06)
             return normalized === "VT-06";
 
         case "departments":
@@ -88,7 +85,7 @@ export function canAccessTab(
         case "project":
         case "projects":
             // Quản lý dự án & WBS: VT-01 (Xem), VT-02 (Dự án của mình), VT-03 (Xem), VT-04 (Dự án tham gia); HR (VT-05) & Admin (VT-06) bị ẩn (❌)
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+            return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalized);
 
         case "attendance":
         case "timesheets":
@@ -124,7 +121,20 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
     const roleCode = user?.roleCode;
     const dataScope = user?.dataScope;
 
-    const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) => canAccessTab(roleCode, item.id, dataScope));
+    const normalizedRole = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
+    const isEmployeeOnly = normalizedRole === "VT-04";
+
+    const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) =>
+        canAccessTab(roleCode, item.id, dataScope)
+    ).map((item) => {
+        if (item.id === "skills") {
+            return {
+                ...item,
+                name: isEmployeeOnly ? "Khai báo kỹ năng" : "Quản lý Năng lực & Kỹ năng",
+            };
+        }
+        return item;
+    });
     const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope));
 
     return (

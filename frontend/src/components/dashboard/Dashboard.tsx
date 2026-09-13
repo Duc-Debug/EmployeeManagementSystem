@@ -19,6 +19,7 @@ import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
+import AdminDashboardOverview from "./AdminDashboardOverview";
 import type { AttendanceRecord } from "@/lib/hr-data";
 import { useAuthUser } from "@/lib/auth-session";
 import { getUsers } from "@/lib/api/users";
@@ -56,7 +57,6 @@ export default function Dashboard() {
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
         if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
-        if (path.includes("setting")) return "settings";
         return "overview";
     }, [location.pathname]);
 
@@ -234,17 +234,23 @@ export default function Dashboard() {
 
                                 {activeTab === "leave" && <LeaveManagementView />}
 
-                                {(activeTab === "overview" || activeTab === "reports" || activeTab === "settings") && (
-                                    <div>
-                                        {/* Header Overview */}
-                                        <DashboardHeader />
+                                {(activeTab === "overview" || activeTab === "reports") && (
+                                    (user?.roleCode?.toUpperCase().replace(/_/g, "-") === "VT-06" ||
+                                     user?.roleCode?.toUpperCase().replace(/_/g, "-") === "ROLE-ADMIN" ||
+                                     user?.roleCode?.toUpperCase().replace(/_/g, "-") === "ADMIN") ? (
+                                        <AdminDashboardOverview onNavigate={handleTabChange} />
+                                    ) : (
+                                        <div>
+                                            {/* Header Overview */}
+                                            <DashboardHeader />
 
-                                        {/* Section KPI Cards */}
-                                        <KpiStatsSection />
+                                            {/* Section KPI Cards */}
+                                            <KpiStatsSection />
 
-                                        {/* Lịch Workspace */}
-                                        <CalendarView />
-                                    </div>
+                                            {/* Lịch Workspace */}
+                                            <CalendarView />
+                                        </div>
+                                    )
                                 )}
                             </>
                         )}
