@@ -49,6 +49,23 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
   });
 }
 
+export interface UpdateUserPayload {
+  dataScope?: DataScope;
+  email?: string;
+  employeeCode?: string;
+  fullName: string;
+  orgUnitId?: number | null;
+  roleCode: RoleCode;
+  scopeOrgUnitId?: number | null;
+}
+
+export async function updateUser(id: number, payload: UpdateUserPayload): Promise<User> {
+  return await apiRequest<User>(`/users/${id}`, {
+    body: JSON.stringify(payload),
+    method: "PUT",
+  });
+}
+
 export async function updateUserRole(id: number, payload: UpdateUserRolePayload): Promise<User> {
   return await apiRequest<User>(`/users/${id}/role`, {
     body: JSON.stringify(payload),

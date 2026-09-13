@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getUsers } from '@/lib/api/users';
 import { getEmployees } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
@@ -34,7 +34,6 @@ import {
     CheckCircle2,
     Info,
     AlertCircle,
-    Database,
     RefreshCw,
     FolderPlus,
     Calendar,
@@ -45,6 +44,8 @@ import {
     Lock,
     Unlock,
     Flag,
+    Edit3,
+    MoreHorizontal,
 } from 'lucide-react';
 import { TaskDependencyModal } from '../task/TaskDependencyModal';
 import {
@@ -70,6 +71,7 @@ import { ProjectTaskModal } from './ProjectTaskModal';
 import { ProjectAdjustHoursModal } from './ProjectAdjustHoursModal';
 import { ProjectBudgetModal } from './ProjectBudgetModal';
 import { ProjectCreateModal } from './ProjectCreateModal';
+import { ProjectEditModal } from './ProjectEditModal';
 import { CloneWbsModal } from './CloneWbsModal';
 import { AssignTaskModal } from './AssignTaskModal';
 import { ProjectDemandView } from './ProjectDemandView';
@@ -254,18 +256,20 @@ function mapBackendWbsToUiCategories(
 export default function ProjectView() {
     const currentUser = useAuthUser();
     const userRoleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
-    const isExecutive = userRoleCode === 'VT-01';
-    const isPm = userRoleCode === 'VT-02' || currentUser?.roleName === 'Quản lý dự án';
-    const isRm = userRoleCode === 'VT-03' || currentUser?.roleName === 'Quản lý nguồn lực';
+    const isExecutive = userRoleCode === 'VT-01' || userRoleCode === 'ROLE-EXECUTIVE' || userRoleCode === 'EXECUTIVE' || userRoleCode === 'DIRECTOR';
+    const isPm = userRoleCode === 'VT-02' || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-PM' || userRoleCode === 'PM' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
+    const isRm = userRoleCode === 'VT-03' || userRoleCode === 'ROLE-RM' || userRoleCode === 'RM' || currentUser?.roleName === 'Quản lý nguồn lực';
+
+    // Quyền đọc phân bổ & nhu cầu: VT-01, VT-02, VT-03, VT-06
+    const canReadAllocations = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
+    const canReadDemands = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
 
     // Quy định RBAC theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md:
-    // - Màn hình Điều phối & Phân bổ nguồn lực: VT-01 (Xem), VT-02 (Đề xuất/Xem), VT-03 (Quản lý nguồn lực bộ phận - Toàn quyền). VT-04 (Nhân viên), VT-05 (HR), VT-06 (Admin) bị CHẶN / ẨN (❌)
-    const canViewWeeklyAllocation = isExecutive || isPm || isRm;
     const canManageAllocations = isRm;
     const canManageProject = isPm;
-    const canManageMilestones = isPm;
+    const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones'>(() => {
-        return canViewWeeklyAllocation ? 'split' : 'wbs';
+        return canReadAllocations ? 'split' : 'wbs';
     });
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
@@ -285,16 +289,28 @@ export default function ProjectView() {
     const canManageWbs = isPm;
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-    const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
     const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(false);
     const [isLoadingWbs, setIsLoadingWbs] = useState<boolean>(false);
     const [projectError, setProjectError] = useState<string | null>(null);
     const [allocationError, setAllocationError] = useState<string | null>(null);
     const [projectCreateModalOpen, setProjectCreateModalOpen] = useState<boolean>(false);
+    const [projectEditModalOpen, setProjectEditModalOpen] = useState<boolean>(false);
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
     const [closeModalOpen, setCloseModalOpen] = useState<boolean>(false);
     const [reopenModalOpen, setReopenModalOpen] = useState<boolean>(false);
+    const [moreActionsOpen, setMoreActionsOpen] = useState<boolean>(false);
+    const moreActionsRef = useRef<HTMLDivElement>(null);
     const [skillSearchModalOpen, setSkillSearchModalOpen] = useState<boolean>(false);
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (moreActionsRef.current && !moreActionsRef.current.contains(e.target as Node)) {
+                setMoreActionsOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Demand Estimation State (NCL-03-CN-007)
     const [demandSummary, setDemandSummary] = useState<ProjectResourceDemandSummaryResult | null>(null);
@@ -432,7 +448,6 @@ export default function ProjectView() {
             const res = await getProjects(0, 50);
             if (res?.content && res.content.length > 0) {
                 setProjectsList(res.content);
-                setIsBackendConnected(true);
                 setProjectError(null);
                 setSelectedProjectId((prevId) => {
                     const exists = res.content.some((p) => p.id === prevId);
@@ -440,14 +455,12 @@ export default function ProjectView() {
                 });
             } else {
                 setProjectsList([]);
-                setIsBackendConnected(false);
                 setSelectedProjectId(null);
                 setCategories([]);
                 setMembers([]);
             }
         } catch (err) {
             console.warn('Failed to fetch projects from backend:', err);
-            setIsBackendConnected(false);
             setProjectsList([]);
             setSelectedProjectId(null);
             setCategories([]);
@@ -557,7 +570,7 @@ export default function ProjectView() {
     }, [months, selectedMonthIdx]);
 
     const loadProjectAllocations = useCallback(async () => {
-        if (!selectedProjectId) return;
+        if (!canReadAllocations || !selectedProjectId) return;
         const month = months[selectedMonthIdx];
         try {
             const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
@@ -579,14 +592,15 @@ export default function ProjectView() {
             setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
             setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
         }
-    }, [getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
+    }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
 
     useEffect(() => {
-        if (selectedProjectId && categories.length > 0) void loadProjectAllocations();
-    }, [selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
+        if (canReadAllocations && selectedProjectId && categories.length > 0) void loadProjectAllocations();
+    }, [canReadAllocations, selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
 
     // 4. Tải ước lượng nhu cầu nhân sự thật từ API Backend (NCL-03-CN-007)
     const loadProjectDemands = useCallback(async (projId: number) => {
+        if (!canReadDemands) return;
         setIsLoadingDemand(true);
         setDemandError(null);
         try {
@@ -599,15 +613,15 @@ export default function ProjectView() {
         } finally {
             setIsLoadingDemand(false);
         }
-    }, []);
+    }, [canReadDemands]);
 
     useEffect(() => {
-        if (selectedProjectId) {
+        if (canReadDemands && selectedProjectId) {
             loadProjectDemands(selectedProjectId);
         } else {
             setDemandSummary(null);
         }
-    }, [selectedProjectId, loadProjectDemands]);
+    }, [canReadDemands, selectedProjectId, loadProjectDemands]);
 
     const handleSaveDemand = async (roleId: number, hoursPerWeek: number) => {
         if (!selectedProjectId) return;
@@ -804,7 +818,7 @@ export default function ProjectView() {
                 projectId: selectedProjectId,
                 year: isoWeek.year,
                 weekNumber: isoWeek.week,
-                allocatedHours: newHours,
+                allocatedHours: percentage !== undefined ? undefined : newHours,
                 allocationPercentage: percentage,
                 overloadReason,
             });
@@ -871,6 +885,16 @@ export default function ProjectView() {
         await loadProjects();
         setSelectedProjectId(newProjectId);
         showToast('Dự án đã được tạo thành công trong Database!', 'success');
+    };
+
+    const handleProjectUpdated = async (updatedProject: ProjectResult) => {
+        setProjectsList((prev) => prev.map((p) => (p.id === updatedProject.id ? updatedProject : p)));
+        if (selectedProjectId === updatedProject.id) {
+            await loadWbsForProject(updatedProject.id);
+            await loadProjectDemands(updatedProject.id);
+            await loadMilestonesForProject(updatedProject.id);
+        }
+        showToast('Đã cập nhật thông tin dự án thành công!', 'success');
     };
 
     const handleProjectClosed = async (closedProj: ProjectResult) => {
@@ -981,53 +1005,42 @@ export default function ProjectView() {
         : null;
 
     return (
-        <div className="flex flex-col h-full min-h-0 space-y-6 flex-1">
+        <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
             {/* Top Navigation / Header Bar */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
                     {/* Logo & Identity */}
-                    <div className="flex items-center gap-4">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md shadow-indigo-100 font-bold text-lg shrink-0">
-                            <Boxes className="h-6 w-6" />
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md shadow-indigo-100 font-bold text-lg shrink-0">
+                            <Boxes className="h-5 w-5" />
                         </div>
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
-                                <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                                <h1 className="text-base font-bold text-slate-900 tracking-tight">
                                     Quản Trị Dự Án & Nguồn Lực
                                 </h1>
 
                                 {/* Status Badge của dự án đang chọn */}
                                 {selectedProject && (
                                     selectedProject.status === 'CLOSED' ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700 shadow-2xs">
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 shadow-2xs">
                                             <Lock className="h-3 w-3 text-rose-600" />
                                             <span>Đã đóng</span>
                                         </span>
                                     ) : selectedProject.status === 'ACTIVE' ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 shadow-2xs">
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 shadow-2xs">
                                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                                             <span>Đang thực hiện</span>
                                         </span>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 shadow-2xs">
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 shadow-2xs">
                                             <span>Tạm dừng</span>
                                         </span>
                                     )
                                 )}
-
-                                {isBackendConnected && selectedProject ? (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                                        <Database className="h-3 w-3 text-emerald-600" /> Đồng bộ DB
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                                        {isLoadingProjects ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
-                                        {isLoadingProjects ? 'Đang tải dữ liệu' : 'Chưa có dữ liệu hệ thống'}
-                                    </span>
-                                )}
                             </div>
 
-                            {/* Project Selector / Info */}
+                            {/* Project Selector / Info / Edit Trigger */}
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
                                 {projectsList.length > 0 ? (
                                     <div className="flex items-center gap-1.5">
@@ -1063,108 +1076,162 @@ export default function ProjectView() {
                                     )}
                                 </span>
 
+                                {!selectedProject?.endDate && selectedProject && (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200">
+                                        Chưa có ngày kết thúc
+                                    </span>
+                                )}
+
+                                {canManageProject && selectedProject && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setProjectEditModalOpen(true)}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50/70 px-2 py-0.5 text-[11px] font-bold text-indigo-700 transition hover:bg-indigo-100 hover:text-indigo-900 cursor-pointer shadow-2xs"
+                                        title="Chỉnh sửa thông tin dự án (ngày bắt đầu/kết thúc, tên, mô tả)"
+                                    >
+                                        <Edit3 className="h-3 w-3" />
+                                        <span>Sửa dự án</span>
+                                    </button>
+                                )}
+
                                 {isLoadingWbs && (
                                     <span className="inline-flex items-center gap-1 text-indigo-600">
-                                        <RefreshCw className="h-3 w-3 animate-spin" /> Đang đồng bộ...
+                                        <RefreshCw className="h-3 w-3 animate-spin" /> Đang tải...
                                     </span>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Top Actions */}
-                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                        {canManageProject && <button
-                            type="button"
-                            onClick={() => setProjectCreateModalOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
-                            title="Tạo dự án mới lưu vào database"
-                        >
-                            <FolderPlus className="h-4 w-4 stroke-[2.2]" />
-                            <span>+ Dự án mới</span>
-                        </button>}
-
-                        {/* Nút Đóng dự án (NCL-03-CN-004) */}
-                        {canCloseProject && (
-                            <button
-                                type="button"
-                                onClick={() => setCloseModalOpen(true)}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 shadow-2xs transition hover:bg-rose-100 active:scale-95 cursor-pointer"
-                                title="Đóng dự án và chốt giờ công / chi phí (QTN-08)"
-                            >
-                                <Lock className="h-3.5 w-3.5 text-rose-600" />
-                                <span>Đóng dự án</span>
-                            </button>
-                        )}
-
-                        {/* Nút Mở lại dự án (NCL-03-CN-004) */}
-                        {canReopenProject && (
-                            <button
-                                type="button"
-                                onClick={() => setReopenModalOpen(true)}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 shadow-2xs transition hover:bg-emerald-100 active:scale-95 cursor-pointer"
-                                title="Kích hoạt mở lại dự án đã đóng"
-                            >
-                                <Unlock className="h-3.5 w-3.5 text-emerald-600" />
-                                <span>Mở lại dự án</span>
-                            </button>
-                        )}
-
-                        {canManageWbs && (
+                    {/* Top Actions: Streamlined with More Actions Dropdown */}
+                    <div className="flex items-center gap-2 self-start lg:self-auto">
+                        {canManageProject && (
                             <button
                                 type="button"
                                 disabled={isProjectClosed}
-                                onClick={() => !isProjectClosed && setCloneModalOpen(true)}
-                                className={`inline-flex items-center gap-2 rounded-xl border border-indigo-600/30 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 shadow-2xs transition ${
+                                onClick={() => !isProjectClosed && handleQuickAddTask()}
+                                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition ${
                                     isProjectClosed
-                                        ? 'opacity-40 cursor-not-allowed'
-                                        : 'hover:bg-indigo-100 hover:border-indigo-600/60 active:scale-95 cursor-pointer'
+                                        ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
+                                        : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700 active:scale-95 cursor-pointer'
                                 }`}
-                                title={isProjectClosed ? 'Dự án đã đóng, không thể nhân bản WBS' : 'Nhân bản toàn bộ cây WBS sang dự án khác'}
+                                title={isProjectClosed ? 'Dự án đã đóng, không thể tạo thêm công việc mới' : 'Thêm công việc vào dự án'}
                             >
-                                <Copy className="h-3.5 w-3.5 text-indigo-600" />
-                                <span>Nhân bản WBS</span>
+                                <Plus className="h-4 w-4 stroke-[2.5]" />
+                                <span>Thêm công việc</span>
                             </button>
                         )}
 
                         {canManageProject && (
-                            <>
-                                <button
-                                    type="button"
-                                    disabled={isProjectClosed}
-                                    onClick={() => !isProjectClosed && handleQuickAddTask()}
-                                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition ${
-                                        isProjectClosed
-                                            ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
-                                            : 'bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700 active:scale-95 cursor-pointer'
-                                    }`}
-                                    title={isProjectClosed ? 'Dự án đã đóng, không thể tạo thêm công việc mới (QTN-08)' : 'Thêm công việc'}
-                                >
-                                    <Plus className="h-4 w-4 stroke-[2.5]" />
-                                    <span>Thêm công việc</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setDependencyModalOpen(true)}
-                                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95 cursor-pointer"
-                                    title="Khai báo phụ thuộc giữa các công việc (NCL-04-CN-004)"
-                                >
-                                    <GitCommit className="h-4 w-4 text-indigo-600" />
-                                    <span>Phụ thuộc công việc</span>
-                                </button>
-                            </>
+                            <button
+                                type="button"
+                                onClick={() => setProjectCreateModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-indigo-700 active:scale-95 cursor-pointer"
+                                title="Tạo dự án mới"
+                            >
+                                <FolderPlus className="h-3.5 w-3.5 text-indigo-600 stroke-[2.2]" />
+                                <span>+ Dự án mới</span>
+                            </button>
                         )}
 
-                        <button
-                            type="button"
-                            onClick={handleExportReport}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-100 active:scale-95 cursor-pointer"
-                        >
-                            <Download className="h-3.5 w-3.5 text-slate-500" />
-                            <span className="hidden sm:inline">Xuất báo cáo</span>
-                        </button>
+                        {/* Dropdown: Thao tác khác */}
+                        <div className="relative" ref={moreActionsRef}>
+                            <button
+                                type="button"
+                                onClick={() => setMoreActionsOpen((prev) => !prev)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-slate-900 active:scale-95 cursor-pointer"
+                                title="Các tính năng & thao tác khác"
+                            >
+                                <MoreHorizontal className="h-4 w-4 text-slate-500" />
+                                <span>Tùy chọn</span>
+                                <ChevronDown className="h-3 w-3 text-slate-400" />
+                            </button>
 
+                            {moreActionsOpen && (
+                                <div className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                                    {canManageProject && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMoreActionsOpen(false);
+                                                setDependencyModalOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition cursor-pointer"
+                                        >
+                                            <GitCommit className="h-4 w-4 text-slate-400" />
+                                            <span>Phụ thuộc công việc</span>
+                                        </button>
+                                    )}
+
+                                    {canManageWbs && (
+                                        <button
+                                            type="button"
+                                            disabled={isProjectClosed}
+                                            onClick={() => {
+                                                if (!isProjectClosed) {
+                                                    setMoreActionsOpen(false);
+                                                    setCloneModalOpen(true);
+                                                }
+                                            }}
+                                            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition ${
+                                                isProjectClosed
+                                                    ? 'opacity-40 cursor-not-allowed text-slate-400'
+                                                    : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer'
+                                            }`}
+                                        >
+                                            <Copy className="h-4 w-4 text-slate-400" />
+                                            <span>Nhân bản WBS</span>
+                                        </button>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMoreActionsOpen(false);
+                                            handleExportReport();
+                                        }}
+                                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition cursor-pointer"
+                                    >
+                                        <Download className="h-4 w-4 text-slate-400" />
+                                        <span>Xuất báo cáo Excel</span>
+                                    </button>
+
+                                    {(canCloseProject || canReopenProject) && (
+                                        <div className="my-1 border-t border-slate-100" />
+                                    )}
+
+                                    {canCloseProject && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMoreActionsOpen(false);
+                                                setCloseModalOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                        >
+                                            <Lock className="h-4 w-4 text-rose-500" />
+                                            <span>Đóng dự án</span>
+                                        </button>
+                                    )}
+
+                                    {canReopenProject && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMoreActionsOpen(false);
+                                                setReopenModalOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                                        >
+                                            <Unlock className="h-4 w-4 text-emerald-500" />
+                                            <span>Mở lại dự án</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Nút Làm mới */}
                         <button
                             type="button"
                             onClick={() => {
@@ -1176,7 +1243,7 @@ export default function ProjectView() {
                                 }
                                 showToast('Đã làm mới dữ liệu từ Database', 'info');
                             }}
-                            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 transition cursor-pointer"
+                            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition cursor-pointer shadow-2xs"
                             title="Làm mới dữ liệu từ máy chủ"
                         >
                             <RefreshCw className={`h-3.5 w-3.5 ${isLoadingProjects ? 'animate-spin' : ''}`} />
@@ -1193,25 +1260,25 @@ export default function ProjectView() {
 
             {/* Banner cảnh báo khi dự án đã đóng theo quy tắc QTN-08 */}
             {isProjectClosed && selectedProject && (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-xs text-rose-900 shadow-2xs flex flex-wrap items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-xl bg-rose-100 text-rose-700 shrink-0">
-                            <Lock className="h-5 w-5" />
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs text-rose-900 shadow-2xs flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-rose-100 text-rose-700 shrink-0">
+                            <Lock className="h-4 w-4" />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h3 className="font-bold text-rose-950 text-sm">
+                                <h3 className="font-bold text-rose-950 text-xs sm:text-sm">
                                     Dự án đã đóng ({selectedProject.projectCode})
                                 </h3>
                                 <span className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700">
                                     Khóa QTN-08
                                 </span>
                             </div>
-                            <p className="text-rose-700 mt-1 leading-relaxed text-[11px]">
+                            <p className="text-rose-700 mt-0.5 leading-relaxed text-[11px]">
                                 Theo quy tắc <strong>QTN-08</strong>, toàn bộ công việc và phân bổ nguồn lực đã được chốt. Hệ thống không cho phép tạo thêm công việc mới hoặc thay đổi giờ phân bổ.
                             </p>
                             {selectedProject.closureReason && (
-                                <p className="mt-1.5 text-[11px] text-rose-800 bg-white/70 p-2 rounded-lg border border-rose-200/60">
+                                <p className="mt-1 text-[11px] text-rose-800 bg-white/70 p-1.5 rounded-md border border-rose-200/60">
                                     <span className="font-semibold text-rose-900">Lý do đóng:</span> {selectedProject.closureReason}
                                 </p>
                             )}
@@ -1221,7 +1288,7 @@ export default function ProjectView() {
                         <button
                             type="button"
                             onClick={() => setReopenModalOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition shrink-0 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition shrink-0 cursor-pointer"
                         >
                             <Unlock className="h-3.5 w-3.5" />
                             <span>Mở lại dự án</span>
@@ -1230,73 +1297,91 @@ export default function ProjectView() {
                 </div>
             )}
 
-            {/* KPI Metric Cards */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-slate-300">
+            {/* KPI Metric Cards (Thu nhỏ gọn 50% & Hiện đại) */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Hạng mục & Task</span>
-                        <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
-                            <ListCheck className="h-4 w-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Hạng mục &amp; Task</span>
+                        <span className="rounded-md bg-indigo-50 p-1.5 text-indigo-600">
+                            <ListCheck className="h-3.5 w-3.5" />
                         </span>
                     </div>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-slate-800">{totalTasksCount}</span>
-                        <span className="text-xs text-slate-500">công việc ({categories.length} nhóm)</span>
+                    <div className="mt-1.5 flex items-baseline gap-1.5">
+                        <span className="text-lg font-black text-slate-800">{totalTasksCount}</span>
+                        <span className="text-[11px] font-medium text-slate-500">việc ({categories.length} nhóm)</span>
                     </div>
-                    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
-                        <span>Tổng NS: <strong className="text-indigo-600">{totalBudgetHours}h</strong></span>
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-slate-500">
+                        <span>NS: <strong className="text-indigo-600">{totalBudgetHours}h</strong></span>
                         <span className="text-slate-300">•</span>
                         <span>Duyệt: <strong className="text-slate-700">{totalActualHours}h</strong></span>
                     </div>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                        <div className="h-1.5 rounded-full bg-indigo-600" style={{ width: `${Math.min(totalTasksCount > 0 ? 64 : 0, 100)}%` }} />
+                    <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-1 rounded-full bg-indigo-600" style={{ width: `${Math.min(totalTasksCount > 0 ? 64 : 0, 100)}%` }} />
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-slate-300">
+                <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nhân sự tham gia</span>
-                        <span className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
-                            <Users className="h-4 w-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Nhân sự tham gia</span>
+                        <span className="rounded-md bg-emerald-50 p-1.5 text-emerald-600">
+                            <Users className="h-3.5 w-3.5" />
                         </span>
                     </div>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-slate-800">{members.length}</span>
-                        <span className="text-xs font-medium text-emerald-600">Nhân sự</span>
+                    <div className="mt-1.5 flex items-baseline gap-1.5">
+                        <span className="text-lg font-black text-slate-800">{members.length}</span>
+                        <span className="text-[11px] font-bold text-emerald-600">Nhân sự</span>
                     </div>
-                    <p className="mt-2 text-xs text-slate-400">Định mức: 40 giờ/người/tuần</p>
+                    <p className="mt-1 text-[10px] text-slate-400">Định mức: 40h/người/tuần</p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-slate-300">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            Tải tuần này ({currentWeek?.label || 'Hiện tại'})
-                        </span>
-                        <span className="rounded-lg bg-amber-50 p-2 text-amber-600">
-                            <BarChart3 className="h-4 w-4" />
-                        </span>
+                {canReadAllocations ? (
+                    <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Tải tuần này ({currentWeek?.label || 'Hiện tại'})
+                            </span>
+                            <span className="rounded-md bg-amber-50 p-1.5 text-amber-600">
+                                <BarChart3 className="h-3.5 w-3.5" />
+                            </span>
+                        </div>
+                        <div className="mt-1.5 flex items-baseline gap-1.5">
+                            <span className="text-lg font-black text-slate-800">{Math.round(currentWeekLoad)}h</span>
+                            <span className="rounded bg-amber-50 px-1 py-0.2 text-[10px] font-bold text-amber-700 border border-amber-200">Phân bổ</span>
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-400">{members.length * 40}h tổng định mức</p>
                     </div>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-slate-800">{Math.round(currentWeekLoad)}h</span>
-                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-600">Phân bổ</span>
+                ) : (
+                    <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Mốc tiến độ
+                            </span>
+                            <span className="rounded-md bg-indigo-50 p-1.5 text-indigo-600">
+                                <Flag className="h-3.5 w-3.5" />
+                            </span>
+                        </div>
+                        <div className="mt-1.5 flex items-baseline gap-1.5">
+                            <span className="text-lg font-black text-slate-800">{milestones.filter(m => m.status === 'COMPLETED').length}/{milestones.length}</span>
+                            <span className="rounded bg-indigo-50 px-1 py-0.2 text-[10px] font-bold text-indigo-700 border border-indigo-200">Hoàn thành</span>
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-400">Các cột mốc quan trọng</p>
                     </div>
-                    <p className="mt-2 text-xs text-slate-400">{members.length * 40}h tổng định mức đội ngũ</p>
-                </div>
+                )}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-slate-300">
+                <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cảnh báo rủi ro</span>
-                        <span className="rounded-lg bg-rose-50 p-2 text-rose-600">
-                            <AlertTriangle className="h-4 w-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cảnh báo rủi ro</span>
+                        <span className="rounded-md bg-rose-50 p-1.5 text-rose-600">
+                            <AlertTriangle className="h-3.5 w-3.5" />
                         </span>
                     </div>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-rose-600">{overBudgetTasks.length}</span>
-                        <span className="text-xs font-medium text-rose-600">Việc vượt ngân sách</span>
+                    <div className="mt-1.5 flex items-baseline gap-1.5">
+                        <span className="text-lg font-black text-rose-600">{overBudgetTasks.length}</span>
+                        <span className="text-[11px] font-bold text-rose-600">Vượt ngân sách</span>
                     </div>
-                    <p className="mt-2 flex items-center gap-1 text-xs font-medium text-rose-500">
+                    <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-rose-500">
                         <AlertTriangle className="h-3 w-3 text-rose-500 shrink-0" />
-                        {overBudgetTasks.length > 0 ? 'Nguy cơ ăn mòn lợi nhuận dự án' : 'Ngân sách các việc an toàn'}
+                        {overBudgetTasks.length > 0 ? 'Nguy cơ ăn mòn lợi nhuận' : 'Ngân sách an toàn'}
                     </p>
                 </div>
             </div>
@@ -1305,7 +1390,7 @@ export default function ProjectView() {
             <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
                 <div className="inline-flex w-full max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
-                    {canViewWeeklyAllocation && (
+                    {canReadAllocations && (
                         <button
                             type="button"
                             onClick={() => setViewMode('split')}
@@ -1331,7 +1416,7 @@ export default function ProjectView() {
                         <Layers className="h-3.5 w-3.5" />
                         <span>Hạng mục & Task</span>
                     </button>
-                    {canViewWeeklyAllocation && (
+                    {canReadAllocations && (
                         <button
                             type="button"
                             onClick={() => setViewMode('workload')}
@@ -1345,23 +1430,25 @@ export default function ProjectView() {
                             <span>Phân bổ theo tuần</span>
                         </button>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => setViewMode('demand')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
-                            viewMode === 'demand'
-                                ? 'bg-white text-indigo-700 shadow-xs'
-                                : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
-                    >
-                        <TrendingUp className="h-4 w-4" />
-                        <span>Ước lượng nhu cầu</span>
-                        {demandSummary && demandSummary.demandsByRole.length > 0 && (
-                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
-                                {demandSummary.demandsByRole.length}
-                            </span>
-                        )}
-                    </button>
+                    {canReadDemands && (
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('demand')}
+                            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none cursor-pointer ${
+                                viewMode === 'demand'
+                                    ? 'bg-white text-indigo-700 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900 font-medium'
+                            }`}
+                        >
+                            <TrendingUp className="h-4 w-4" />
+                            <span>Ước lượng nhu cầu</span>
+                            {demandSummary && demandSummary.demandsByRole.length > 0 && (
+                                <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
+                                    {demandSummary.demandsByRole.length}
+                                </span>
+                            )}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setViewMode('milestones')}
@@ -1373,6 +1460,11 @@ export default function ProjectView() {
                     >
                         <Flag className="h-3.5 w-3.5" />
                         <span>Mốc tiến độ</span>
+                        {milestones.length > 0 && (
+                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-bold text-indigo-700">
+                                {milestones.length}
+                            </span>
+                        )}
                     </button>
                 </div>
 
@@ -1412,7 +1504,7 @@ export default function ProjectView() {
             <div className="grid grid-cols-1 gap-6 items-start transition-all duration-300 lg:grid-cols-12">
                 {/* Section 1: WBS Hierarchy */}
                 {(viewMode === 'split' || viewMode === 'wbs') && (
-                    <div className={viewMode === 'split' ? 'lg:col-span-5' : 'lg:col-span-12'}>
+                    <div className={(viewMode === 'split' && canReadAllocations) ? 'lg:col-span-5' : 'lg:col-span-12'}>
                         <ProjectWbsView
                             categories={categories}
                             members={allEmployees.length > 0 ? allEmployees : members}
@@ -1421,6 +1513,7 @@ export default function ProjectView() {
                             selectedRole={roleFilter}
                             projectId={selectedProjectId}
                             isClosed={isProjectClosed}
+                            canManageWbs={canManageWbs}
                             onQuickAddTask={handleQuickAddTask}
                             onToggleTaskStatus={handleToggleTaskStatus}
                             onOpenBudgetModal={handleOpenBudgetModal}
@@ -1431,8 +1524,8 @@ export default function ProjectView() {
                     </div>
                 )}
 
-                {/* Section 2: Weekly Matrix (Chỉ dành cho Ban giám đốc VT-01, PM VT-02, Quản lý nguồn lực VT-03) */}
-                {canViewWeeklyAllocation && (viewMode === 'split' || viewMode === 'workload') && (
+                {/* Section 2: Weekly Matrix */}
+                {canReadAllocations && (viewMode === 'split' || viewMode === 'workload') && (
                     <div className={viewMode === 'split' ? 'lg:col-span-7' : 'lg:col-span-12'}>
                         <ProjectWeeklyMatrix
                             month={selectedMonth}
@@ -1558,6 +1651,13 @@ export default function ProjectView() {
                 currentUser={currentUser}
                 onClose={() => setProjectCreateModalOpen(false)}
                 onCreated={handleProjectCreated}
+            />}
+
+            {canManageProject && <ProjectEditModal
+                open={projectEditModalOpen}
+                project={selectedProject}
+                onClose={() => setProjectEditModalOpen(false)}
+                onUpdated={handleProjectUpdated}
             />}
 
             {canManageProject && <TaskDependencyModal
