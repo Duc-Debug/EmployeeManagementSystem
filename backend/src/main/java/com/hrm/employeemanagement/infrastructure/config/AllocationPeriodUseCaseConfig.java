@@ -8,10 +8,6 @@ import org.springframework.context.annotation.Primary;
 import com.hrm.employeemanagement.application.port.inbound.allocation.AllocateResourceUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.period.CheckAllocationPeriodLockUseCase;
-import com.hrm.employeemanagement.application.port.inbound.allocation.period.CreateAllocationPeriodUseCase;
-import com.hrm.employeemanagement.application.port.inbound.allocation.period.GetAllocationPeriodsUseCase;
-import com.hrm.employeemanagement.application.port.inbound.allocation.period.LockAllocationPeriodUseCase;
-import com.hrm.employeemanagement.application.port.inbound.allocation.period.UnlockAllocationPeriodUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.period.LoadAllocationPlanSnapshotPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.period.LoadAllocationPlanningPeriodPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.period.LoadAllocationsForPeriodPort;
@@ -28,7 +24,7 @@ import com.hrm.employeemanagement.infrastructure.transaction.allocation.period.T
 public class AllocationPeriodUseCaseConfig {
 
     @Bean
-    public AllocationPeriodService allocationPeriodPureService(
+    public TransactionalAllocationPeriodServiceDecorator allocationPeriodService(
             AuthorizationService authorizationService,
             SaveAllocationPlanningPeriodPort savePeriodPort,
             LoadAllocationPlanningPeriodPort loadPeriodPort,
@@ -37,7 +33,7 @@ public class AllocationPeriodUseCaseConfig {
             LoadAllocationsForPeriodPort loadAllocationsPort,
             SaveAuditLogInNewTransactionPort saveAuditLogPort
     ) {
-        return new AllocationPeriodService(
+        AllocationPeriodService service = new AllocationPeriodService(
                 authorizationService,
                 savePeriodPort,
                 loadPeriodPort,
@@ -46,48 +42,7 @@ public class AllocationPeriodUseCaseConfig {
                 loadAllocationsPort,
                 saveAuditLogPort
         );
-    }
-
-    @Bean
-    public TransactionalAllocationPeriodServiceDecorator transactionalAllocationPeriodServiceDecorator(
-            AllocationPeriodService allocationPeriodPureService
-    ) {
-        return new TransactionalAllocationPeriodServiceDecorator(allocationPeriodPureService);
-    }
-
-    @Bean
-    public CreateAllocationPeriodUseCase createAllocationPeriodUseCase(
-            TransactionalAllocationPeriodServiceDecorator transactionalDecorator
-    ) {
-        return transactionalDecorator;
-    }
-
-    @Bean
-    public LockAllocationPeriodUseCase lockAllocationPeriodUseCase(
-            TransactionalAllocationPeriodServiceDecorator transactionalDecorator
-    ) {
-        return transactionalDecorator;
-    }
-
-    @Bean
-    public UnlockAllocationPeriodUseCase unlockAllocationPeriodUseCase(
-            TransactionalAllocationPeriodServiceDecorator transactionalDecorator
-    ) {
-        return transactionalDecorator;
-    }
-
-    @Bean
-    public GetAllocationPeriodsUseCase getAllocationPeriodsUseCase(
-            TransactionalAllocationPeriodServiceDecorator transactionalDecorator
-    ) {
-        return transactionalDecorator;
-    }
-
-    @Bean
-    public CheckAllocationPeriodLockUseCase checkAllocationPeriodLockUseCase(
-            TransactionalAllocationPeriodServiceDecorator transactionalDecorator
-    ) {
-        return transactionalDecorator;
+        return new TransactionalAllocationPeriodServiceDecorator(service);
     }
 
     /**
