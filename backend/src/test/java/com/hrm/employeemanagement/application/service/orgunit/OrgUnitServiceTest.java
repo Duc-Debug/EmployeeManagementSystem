@@ -428,6 +428,7 @@ class OrgUnitServiceTest {
         );
 
         when(loadOrgUnitPort.findAll()).thenReturn(List.of(root, childA, childB));
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of());
 
         List<OrgUnitNodeResult> tree = orgUnitService.execute();
 
