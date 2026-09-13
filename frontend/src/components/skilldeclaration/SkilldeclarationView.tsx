@@ -341,14 +341,16 @@ export default function SkilldeclarationView({
 
     return (
         <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
-            <ToastList toasts={toasts} onDone={removeToast} />
-
             {/* ── Header ── */}
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Khai báo Kỹ năng</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                        {roleCode === 'VT-04' ? 'Khai báo Kỹ năng' : 'Quản lý Năng lực & Kỹ năng'}
+                    </h1>
                     <p className="text-sm text-slate-500">
-                        Quản lý hồ sơ năng lực, tra cứu nhân sự theo kỹ năng và mức độ rảnh để gán vào dự án.
+                        {roleCode === 'VT-04'
+                            ? 'Khai báo và cập nhật hồ sơ kỹ năng chuyên môn, kinh nghiệm thực tế của bạn.'
+                            : 'Quản lý danh mục kỹ năng chuẩn, theo dõi ma trận năng lực bộ phận và tra cứu nhân sự khả dụng để phân bổ vào dự án.'}
                     </p>
                 </div>
 
@@ -621,6 +623,9 @@ export default function SkilldeclarationView({
                     </div>
                 </div>
             )}
+
+            {/* Toast Notifications */}
+            <ToastList toasts={toasts} onDone={removeToast} />
         </div>
     );
 }
