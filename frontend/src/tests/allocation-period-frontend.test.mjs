@@ -16,7 +16,16 @@ function isWeekWithinPeriod(period, year, weekNumber) {
   );
 }
 
-// 2. Helper validation form tạo kỳ kế hoạch mới
+// 2. Helper tính số tuần ISO-8601 tối đa trong năm (52 hoặc 53 tuần)
+function getMaxIsoWeeks(year) {
+  const dec28 = new Date(Date.UTC(year, 11, 28));
+  const day = dec28.getUTCDay() || 7;
+  dec28.setUTCDate(dec28.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(dec28.getUTCFullYear(), 0, 1));
+  return Math.ceil(((dec28.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+// 3. Helper validation form tạo kỳ kế hoạch mới
 function validateCreatePeriodForm({ name, periodType, year, startWeek, endWeek }) {
   const errors = [];
   const trimmedName = name ? name.trim() : "";
@@ -43,7 +52,7 @@ function validateCreatePeriodForm({ name, periodType, year, startWeek, endWeek }
   };
 }
 
-// 3. Helper validation mở lại kỳ kế hoạch phân bổ (TC-04)
+// 4. Helper validation mở lại kỳ kế hoạch phân bổ (TC-04)
 function validateUnlockPeriodForm(reason) {
   const trimmed = reason ? reason.trim() : "";
   if (!trimmed) {
@@ -64,7 +73,7 @@ function validateUnlockPeriodForm(reason) {
   };
 }
 
-// 4. Helper kiểm tra phân quyền người dùng theo vai trò (RBAC)
+// 5. Helper kiểm tra phân quyền người dùng theo vai trò (RBAC)
 function checkPeriodPermissions(roleCode) {
   const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
   const canManage = normalized === "VT-03"; // Quản lý nguồn lực
@@ -73,6 +82,32 @@ function checkPeriodPermissions(roleCode) {
     canManage,
     canView,
   };
+}
+
+// 6. Helper chuyển đổi bản chụp snapshot sang CSV format
+function generateSnapshotCSV(snapshot, periodName) {
+  if (!snapshot || !snapshot.items) return "";
+  const headers = [
+    "Mã Nhân Viên",
+    "Họ Và Tên",
+    "Mã Dự Án",
+    "Tên Dự Án",
+    "Năm",
+    "Tuần Phân Bổ",
+    "Số Giờ Phân Bổ",
+  ];
+
+  const rows = snapshot.items.map((it) => [
+    `"${it.employeeCode}"`,
+    `"${it.employeeFullName}"`,
+    `"${it.projectCode}"`,
+    `"${it.projectName.replace(/"/g, '""')}"`,
+    it.year,
+    it.weekNumber,
+    it.allocatedHours,
+  ]);
+
+  return "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
 }
 
 test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-06-CN-009)", async (t) => {
@@ -183,5 +218,38 @@ test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-0
 
     const vt05 = checkPeriodPermissions("VT-05");
     assert.equal(vt05.canView, false);
+  });
+
+  await t.test("TC-06: Preset Quý 4 tự động phát hiện năm 53 tuần ISO-8601 (2026)", () => {
+    assert.equal(getMaxIsoWeeks(2025), 52);
+    assert.equal(getMaxIsoWeeks(2026), 53);
+    assert.equal(getMaxIsoWeeks(2020), 53);
+
+    const q4EndWeek2025 = getMaxIsoWeeks(2025);
+    const q4EndWeek2026 = getMaxIsoWeeks(2026);
+    assert.equal(q4EndWeek2025, 52);
+    assert.equal(q4EndWeek2026, 53);
+  });
+
+  await t.test("TC-07: Xuất dữ liệu bản chụp Baseline thành chuỗi CSV UTF-8 đúng định dạng", () => {
+    const mockSnapshot = {
+      snapshotVersion: 1,
+      items: [
+        {
+          employeeCode: "NV001",
+          employeeFullName: "Nguyễn Văn A",
+          projectCode: "PRJ01",
+          projectName: 'Dự án "Alpha"',
+          year: 2026,
+          weekNumber: 10,
+          allocatedHours: 40,
+        },
+      ],
+    };
+
+    const csv = generateSnapshotCSV(mockSnapshot, "Kế hoạch Quý 1/2026");
+    assert.ok(csv.startsWith("\uFEFF")); // Có BOM UTF-8 cho Excel
+    assert.ok(csv.includes("Mã Nhân Viên,Họ Và Tên,Mã Dự Án,Tên Dự Án,Năm,Tuần Phân Bổ,Số Giờ Phân Bổ"));
+    assert.ok(csv.includes('"NV001","Nguyễn Văn A","PRJ01","Dự án ""Alpha""",2026,10,40'));
   });
 });
