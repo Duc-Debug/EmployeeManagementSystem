@@ -14,7 +14,7 @@ import {
     RefreshCw,
     Activity,
 } from "lucide-react";
-import { getUsers } from "@/lib/api/users";
+import { getUsers, getUserStats } from "@/lib/api/users";
 import { getOrgTree } from "@/lib/api/org-units";
 import { getProjectRoles } from "@/lib/api/project-roles";
 import { getSkills } from "@/lib/api/skills";
@@ -46,19 +46,23 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
     const loadData = async () => {
         setLoading(true);
         try {
-            const [usersRes, orgTreeRes, pRolesRes, skillsRes] = await Promise.allSettled([
-                getUsers(0, 100),
+            const [userStatsRes, usersRes, orgTreeRes, pRolesRes, skillsRes] = await Promise.allSettled([
+                getUserStats(),
+                getUsers(0, 10),
                 getOrgTree(),
                 getProjectRoles(true),
                 getSkills(),
             ]);
 
+            if (userStatsRes.status === "fulfilled" && userStatsRes.value) {
+                setTotalUsers(userStatsRes.value.totalUsers);
+                setActiveUsersCount(userStatsRes.value.activeUsers);
+                setLockedUsersCount(userStatsRes.value.lockedUsers);
+            }
+
             if (usersRes.status === "fulfilled" && usersRes.value) {
                 const list = usersRes.value.content || [];
                 setUsers(list);
-                setTotalUsers(usersRes.value.totalElements || list.length);
-                setActiveUsersCount(list.filter((u) => u.status === "ACTIVE").length);
-                setLockedUsersCount(list.filter((u) => u.status !== "ACTIVE").length);
             }
 
             if (orgTreeRes.status === "fulfilled" && orgTreeRes.value) {

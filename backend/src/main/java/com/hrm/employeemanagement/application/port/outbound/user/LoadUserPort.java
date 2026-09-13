@@ -19,5 +19,7 @@ public interface LoadUserPort {
     List<User> findByOrgUnitBranch(Long scopeOrgUnitId, int page, int size);
     long count();
     long countByOrgUnitBranch(Long scopeOrgUnitId);
+    long countByIsActive(boolean isActive);
+    long countByOrgUnitBranchAndIsActive(Long scopeOrgUnitId, boolean isActive);
     long countActiveAdmins();
 }
