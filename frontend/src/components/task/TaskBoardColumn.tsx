@@ -66,6 +66,7 @@ interface TaskBoardColumnProps {
     cards: TaskBoardCardType[];
     onDropCard: (taskId: number, newStatus: TaskStatus) => void;
     onDragStartCard: (e: React.DragEvent<HTMLDivElement>, card: TaskBoardCardType) => void;
+    onQuickMove?: (taskId: number, newStatus: TaskStatus) => void;
 }
 
 export const TaskBoardColumn: React.FC<TaskBoardColumnProps> = ({
@@ -73,6 +74,7 @@ export const TaskBoardColumn: React.FC<TaskBoardColumnProps> = ({
     cards,
     onDropCard,
     onDragStartCard,
+    onQuickMove,
 }) => {
     const [isDragOver, setIsDragOver] = useState(false);
     const config = COLUMN_CONFIGS[status];
@@ -156,6 +158,7 @@ export const TaskBoardColumn: React.FC<TaskBoardColumnProps> = ({
                             key={card.taskId}
                             card={card}
                             onDragStart={onDragStartCard}
+                            onQuickMove={onQuickMove}
                         />
                     ))
                 )}

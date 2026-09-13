@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     Kanban,
     Search,
@@ -16,7 +16,7 @@ import {
     type TaskStatus,
 } from '@/lib/api/taskBoard';
 import { getProjects, type ProjectResult } from '@/lib/api/projects';
-import { getEmployees, type EmployeeProfile } from '@/lib/api/employees';
+import { getEmployees, getEmployeeProfileByUserId, type EmployeeProfile } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
 import TaskBoardColumn from './TaskBoardColumn';
 
@@ -58,23 +58,53 @@ export const TaskBoardView: React.FC<TaskBoardViewProps> = ({ defaultProjectId }
         message: string;
         type: 'success' | 'warning' | 'error';
     } | null>(null);
+    const toastTimerRef = useRef<number | null>(null);
 
     const showToast = useCallback(
         (message: string, type: 'success' | 'warning' | 'error' = 'success') => {
+            if (toastTimerRef.current) {
+                window.clearTimeout(toastTimerRef.current);
+            }
             setToast({ message, type });
-            window.setTimeout(() => {
+            toastTimerRef.current = window.setTimeout(() => {
                 setToast(null);
+                toastTimerRef.current = null;
             }, 3500);
         },
         []
     );
 
-    // Current employee ID of logged in user
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current) {
+                window.clearTimeout(toastTimerRef.current);
+            }
+        };
+    }, []);
+
+    // Current user's direct employee profile (ensures accurate employee ID even if >100 employees)
+    const [currentUserProfile, setCurrentUserProfile] = useState<EmployeeProfile | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        if (currentUser?.id) {
+            getEmployeeProfileByUserId(currentUser.id)
+                .then((profile) => {
+                    if (isMounted) setCurrentUserProfile(profile);
+                })
+                .catch(() => {});
+        }
+        return () => {
+            isMounted = false;
+        };
+    }, [currentUser?.id]);
+
     const currentEmployeeId = useMemo(() => {
+        if (currentUserProfile) return currentUserProfile.id;
         if (!currentUser) return null;
         const found = employees.find((e) => e.userId === currentUser.id);
         return found ? found.id : null;
-    }, [currentUser, employees]);
+    }, [currentUser, currentUserProfile, employees]);
 
     // Load projects and employees for filter dropdowns
     useEffect(() => {
@@ -421,6 +451,7 @@ export const TaskBoardView: React.FC<TaskBoardViewProps> = ({ defaultProjectId }
                             cards={filteredColumns[status]}
                             onDropCard={handleDropCard}
                             onDragStartCard={handleDragStartCard}
+                            onQuickMove={handleDropCard}
                         />
                     ))}
                 </div>
