@@ -16,8 +16,11 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.period.Sa
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.service.allocation.period.AllocationPeriodService;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.infrastructure.decorator.allocation.LockGuardedAllocateResourceUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.decorator.allocation.LockGuardedBulkAllocateResourceUseCaseDecorator;
+import com.hrm.employeemanagement.infrastructure.decorator.allocation.LockGuardedSaveWeeklyProjectAllocationPortDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.period.TransactionalAllocationPeriodServiceDecorator;
 
 @Configuration
@@ -73,6 +76,24 @@ public class AllocationPeriodUseCaseConfig {
     ) {
         return new LockGuardedBulkAllocateResourceUseCaseDecorator(
                 baseBulkAllocateResourceUseCase,
+                checkAllocationPeriodLockUseCase
+        );
+    }
+
+    /**
+     * [QTN-18 / TC-02]: Bọc SaveWeeklyProjectAllocationPort bằng Decorator để bảo vệ ở mức Persistence layer:
+     * Chặn mọi hành vi thêm mới, cập nhật hoặc gỡ/xóa phân bổ đối với các tuần nằm trong kỳ đã bị khóa (LOCKED).
+     */
+    @Bean
+    @Primary
+    public SaveWeeklyProjectAllocationPort lockGuardedSaveWeeklyProjectAllocationPort(
+            @Qualifier("weeklyProjectAllocationPersistenceAdapter") SaveWeeklyProjectAllocationPort baseSaveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            CheckAllocationPeriodLockUseCase checkAllocationPeriodLockUseCase
+    ) {
+        return new LockGuardedSaveWeeklyProjectAllocationPortDecorator(
+                baseSaveAllocationPort,
+                loadAllocationPort,
                 checkAllocationPeriodLockUseCase
         );
     }
