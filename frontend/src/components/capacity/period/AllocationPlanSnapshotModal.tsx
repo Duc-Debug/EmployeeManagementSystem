@@ -79,7 +79,17 @@ export function AllocationPlanSnapshotModal({
         if (list.length > 0) {
           // Mặc định chọn snapshot mới nhất
           const latest = list[list.length - 1];
-          handleSelectSnapshot(latest.id);
+          try {
+            setIsLoadingDetail(true);
+            const detail = await getSnapshotDetail(periodId!, latest.id);
+            if (!isMounted) return;
+            setSelectedSnapshot(detail);
+            setCurrentPage(1);
+          } catch (detailErr: unknown) {
+            console.error("Lỗi khi tải chi tiết bản chụp:", detailErr);
+          } finally {
+            if (isMounted) setIsLoadingDetail(false);
+          }
         } else {
           setSelectedSnapshot(null);
         }
@@ -142,8 +152,8 @@ export function AllocationPlanSnapshotModal({
     }
 
     return [...items].sort((a, b) => {
-      let valA = a[sortField];
-      let valB = b[sortField];
+      const valA = a[sortField];
+      const valB = b[sortField];
 
       if (typeof valA === "string") {
         const compare = valA.localeCompare(valB as string, "vi-VN");
