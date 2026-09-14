@@ -27,8 +27,11 @@ import com.hrm.employeemanagement.application.port.inbound.timesheet.CreateWorkL
 import com.hrm.employeemanagement.application.port.inbound.timesheet.DeleteWorkLogUseCase;
 import com.hrm.employeemanagement.application.port.inbound.timesheet.GetMyAssignedTasksForWorkLogUseCase;
 import com.hrm.employeemanagement.application.port.inbound.timesheet.GetWeeklyTimesheetUseCase;
+import com.hrm.employeemanagement.application.dto.timesheet.SubmitWeeklyTimesheetCommand;
+import com.hrm.employeemanagement.application.port.inbound.timesheet.SubmitWeeklyTimesheetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.timesheet.UpdateWorkLogUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.timesheet.dto.CreateWorkLogRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.timesheet.dto.SubmitTimesheetRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.timesheet.dto.UpdateWorkLogRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
@@ -43,18 +46,21 @@ public class WorkLogController {
     private final DeleteWorkLogUseCase deleteWorkLogUseCase;
     private final GetWeeklyTimesheetUseCase getWeeklyTimesheetUseCase;
     private final GetMyAssignedTasksForWorkLogUseCase getMyAssignedTasksForWorkLogUseCase;
+    private final SubmitWeeklyTimesheetUseCase submitWeeklyTimesheetUseCase;
 
     public WorkLogController(
             CreateWorkLogUseCase createWorkLogUseCase,
             UpdateWorkLogUseCase updateWorkLogUseCase,
             DeleteWorkLogUseCase deleteWorkLogUseCase,
             GetWeeklyTimesheetUseCase getWeeklyTimesheetUseCase,
-            GetMyAssignedTasksForWorkLogUseCase getMyAssignedTasksForWorkLogUseCase) {
+            GetMyAssignedTasksForWorkLogUseCase getMyAssignedTasksForWorkLogUseCase,
+            SubmitWeeklyTimesheetUseCase submitWeeklyTimesheetUseCase) {
         this.createWorkLogUseCase = Objects.requireNonNull(createWorkLogUseCase, "CreateWorkLogUseCase must not be null");
         this.updateWorkLogUseCase = Objects.requireNonNull(updateWorkLogUseCase, "UpdateWorkLogUseCase must not be null");
         this.deleteWorkLogUseCase = Objects.requireNonNull(deleteWorkLogUseCase, "DeleteWorkLogUseCase must not be null");
         this.getWeeklyTimesheetUseCase = Objects.requireNonNull(getWeeklyTimesheetUseCase, "GetWeeklyTimesheetUseCase must not be null");
         this.getMyAssignedTasksForWorkLogUseCase = Objects.requireNonNull(getMyAssignedTasksForWorkLogUseCase, "GetMyAssignedTasksForWorkLogUseCase must not be null");
+        this.submitWeeklyTimesheetUseCase = Objects.requireNonNull(submitWeeklyTimesheetUseCase, "SubmitWeeklyTimesheetUseCase must not be null");
     }
 
     @PostMapping
@@ -107,5 +113,16 @@ public class WorkLogController {
     public ResponseEntity<ApiResponse<List<AssignedTaskOptionResult>>> getMyAssignedTasks() {
         List<AssignedTaskOptionResult> results = getMyAssignedTasksForWorkLogUseCase.getMyAssignedTasksForWorkLog();
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách công việc được phân công thành công.", results));
+    }
+
+    @PostMapping("/my-week/submit")
+    public ResponseEntity<ApiResponse<WeeklyTimesheetResult>> submitWeeklyTimesheet(
+            @RequestBody(required = false) SubmitTimesheetRequest request) {
+        LocalDate dateInWeek = request != null && request.dateInWeek() != null ? request.dateInWeek() : LocalDate.now();
+        Long timesheetId = request != null ? request.timesheetId() : null;
+        WeeklyTimesheetResult result = submitWeeklyTimesheetUseCase.submitWeeklyTimesheet(
+                new SubmitWeeklyTimesheetCommand(dateInWeek, timesheetId)
+        );
+        return ResponseEntity.ok(ApiResponse.success("Nộp bảng chấm công tuần thành công.", result));
     }
 }
