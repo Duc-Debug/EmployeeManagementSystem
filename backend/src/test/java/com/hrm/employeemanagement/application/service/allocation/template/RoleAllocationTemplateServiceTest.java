@@ -55,9 +55,13 @@ import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.User;
 
+import org.mockito.ArgumentCaptor;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -346,7 +350,7 @@ class RoleAllocationTemplateServiceTest {
     }
 
     @Test
-    @DisplayName("Apply lặp lại đồng bộ số giờ, không cộng dồn allocation hoặc tạo demand trùng")
+    @DisplayName("Đảm bảo tính idempotent khi áp dụng lại mẫu nhiều lần")
     void applyTemplate_RepeatedRequest_ShouldRemainIdempotent() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
         ProjectRoleAllocationTemplate template = new ProjectRoleAllocationTemplate(
@@ -358,7 +362,8 @@ class RoleAllocationTemplateServiceTest {
         ProjectResourceDemand existingDemand = ProjectResourceDemand.createNew(
                 targetProject.getId(), devRole.getId(), week, BigDecimal.valueOf(10));
         WeeklyProjectAllocation existingAllocation = new WeeklyProjectAllocation(
-                1L, 101L, targetProject.getId().value(), week, BigDecimal.valueOf(15));
+                1L, 101L, targetProject.getId().value(), week, BigDecimal.valueOf(40));
+        existingAllocation.noteVariance("[ROLE_TEMPLATE:1:40.00]", 99L);
 
         when(loadTemplatePort.findById(1L)).thenReturn(Optional.of(template));
         when(loadProjectPort.findById(targetProject.getId())).thenReturn(Optional.of(targetProject));
@@ -377,6 +382,108 @@ class RoleAllocationTemplateServiceTest {
 
         assertThat(existingDemand.getRequiredHours()).isEqualByComparingTo("40");
         assertThat(existingAllocation.getAllocatedHours()).isEqualByComparingTo("40");
+    }
+
+    @Test
+    @DisplayName("Case A: Áp template bảo tồn allocation thủ công hiện hữu của nhân sự")
+    void applyTemplate_ExistingManualAllocation_ShouldPreserveManualHoursAndAddTemplateHours() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
+        ProjectRoleAllocationTemplate template = new ProjectRoleAllocationTemplate(
+                1L, "TPL_DEV", "Dev", null, null, 99L, null, null, 0L,
+                List.of(new ProjectRoleAllocationTemplateItem(10L, 1L, 1L, BigDecimal.valueOf(10))));
+        Employee employee = new Employee(new EmployeeId(101L), new UserId(1L), 1L,
+                "EMP01", "Dev Nguyen", "DEV", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        YearWeek week = YearWeek.from(targetProject.getStartDate());
+
+        WeeklyProjectAllocation manualAllocation = new WeeklyProjectAllocation(
+                1L, 101L, targetProject.getId().value(), week, BigDecimal.valueOf(30));
+
+        when(loadTemplatePort.findById(1L)).thenReturn(Optional.of(template));
+        when(loadProjectPort.findById(targetProject.getId())).thenReturn(Optional.of(targetProject));
+        when(loadRolePort.findAll()).thenReturn(List.of(devRole));
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(employee));
+        when(loadDemandPort.findByProjectIdAndRoleIdAndYearWeek(any(), any(), any())).thenReturn(Optional.empty());
+        when(loadAllocationPort.loadAllocation(eq(101L), any(), any())).thenReturn(Optional.of(manualAllocation));
+
+        ApplyRoleAllocationTemplateCommand command = new ApplyRoleAllocationTemplateCommand(1L, 200L,
+                List.of(new ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand(
+                        1L, 101L, BigDecimal.valueOf(10))));
+
+        service.applyTemplate(command);
+
+        assertThat(manualAllocation.getAllocatedHours()).isEqualByComparingTo("40");
+        assertThat(manualAllocation.getVarianceNote()).contains("[ROLE_TEMPLATE:1:10.00]");
+    }
+
+    @Test
+    @DisplayName("Case B: Đổi assignee khi apply lại template thì gỡ allocation mẫu của assignee cũ")
+    void applyTemplate_ReassignAssignee_ShouldReconcilePreviousAssigneeAllocation() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
+        ProjectRoleAllocationTemplate template = new ProjectRoleAllocationTemplate(
+                1L, "TPL_DEV", "Dev", null, null, 99L, null, null, 0L,
+                List.of(new ProjectRoleAllocationTemplateItem(10L, 1L, 1L, BigDecimal.valueOf(20))));
+        Employee employeeA = new Employee(new EmployeeId(101L), new UserId(1L), 1L,
+                "EMP01", "Dev A", "DEV", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee employeeB = new Employee(new EmployeeId(102L), new UserId(2L), 1L,
+                "EMP02", "Dev B", "DEV", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        YearWeek week = YearWeek.from(targetProject.getStartDate());
+
+        WeeklyProjectAllocation allocA = new WeeklyProjectAllocation(
+                1L, 101L, targetProject.getId().value(), week, BigDecimal.valueOf(20));
+        allocA.noteVariance("[ROLE_TEMPLATE:1:20.00]", 99L);
+
+        when(loadTemplatePort.findById(1L)).thenReturn(Optional.of(template));
+        when(loadProjectPort.findById(targetProject.getId())).thenReturn(Optional.of(targetProject));
+        when(loadRolePort.findAll()).thenReturn(List.of(devRole));
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(employeeA, employeeB));
+        when(loadDemandPort.findByProjectIdAndRoleIdAndYearWeek(any(), any(), any())).thenReturn(Optional.empty());
+
+        when(loadAllocationPort.loadAllocationsForProjectInWeekRange(any(), any(), any(), any()))
+                .thenReturn(List.of(allocA));
+        lenient().when(loadAllocationPort.loadAllocation(eq(101L), any(), any())).thenReturn(Optional.of(allocA));
+        lenient().when(loadAllocationPort.loadAllocation(eq(102L), any(), any())).thenReturn(Optional.empty());
+
+        ApplyRoleAllocationTemplateCommand command = new ApplyRoleAllocationTemplateCommand(1L, 200L,
+                List.of(new ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand(
+                        1L, 102L, BigDecimal.valueOf(20))));
+
+        service.applyTemplate(command);
+
+        assertThat(allocA.getAllocatedHours()).isEqualByComparingTo("0");
+
+        ArgumentCaptor<WeeklyProjectAllocation> captor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
+        verify(saveAllocationPort, atLeastOnce()).save(captor.capture());
+        List<WeeklyProjectAllocation> savedAllocs = captor.getAllValues();
+        WeeklyProjectAllocation allocB = savedAllocs.stream()
+                .filter(a -> Long.valueOf(102L).equals(a.getEmployeeId()))
+                .findFirst().orElseThrow();
+        assertThat(allocB.getAllocatedHours()).isEqualByComparingTo("20");
+    }
+
+    @Test
+    @DisplayName("MEDIUM-HIGH: Không throw NPE trong validateCapacity khi employee.standardHoursPerWeek = null và chưa có WeeklyAvailability")
+    void validateCapacity_NullStandardHoursAndMissingAvailability_ShouldNotThrowNPE() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
+        ProjectRoleAllocationTemplate template = new ProjectRoleAllocationTemplate(
+                1L, "TPL_DEV", "Dev", null, null, 99L, null, null, 0L,
+                List.of(new ProjectRoleAllocationTemplateItem(10L, 1L, 1L, BigDecimal.valueOf(20))));
+        Employee employee = new Employee(new EmployeeId(101L), new UserId(1L), 1L,
+                "EMP01", "Dev Nguyen", "DEV", LocalDate.now(), null, false, null, EmployeeStatus.ACTIVE);
+
+        when(loadTemplatePort.findById(1L)).thenReturn(Optional.of(template));
+        when(loadProjectPort.findById(targetProject.getId())).thenReturn(Optional.of(targetProject));
+        when(loadRolePort.findAll()).thenReturn(List.of(devRole));
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(employee));
+        when(loadDemandPort.findByProjectIdAndRoleIdAndYearWeek(any(), any(), any())).thenReturn(Optional.empty());
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(any(), any())).thenReturn(Optional.empty());
+        when(loadAllocationPort.loadAllocation(any(), any(), any())).thenReturn(Optional.empty());
+
+        ApplyRoleAllocationTemplateCommand command = new ApplyRoleAllocationTemplateCommand(1L, 200L,
+                List.of(new ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand(
+                        1L, 101L, BigDecimal.valueOf(20))));
+
+        ApplyRoleAllocationTemplateResult result = service.applyTemplate(command);
+        assertThat(result.allocatedEmployeesCount()).isEqualTo(1);
     }
 
     @Test
