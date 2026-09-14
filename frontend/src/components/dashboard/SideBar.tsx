@@ -97,10 +97,13 @@ export function canAccessTab(
             // Quản lý dự án & WBS: VT-01 (Xem), VT-02 (Dự án của mình), VT-03 (Xem), VT-04 (Dự án tham gia); HR (VT-05) & Admin (VT-06) bị ẩn (❌)
             return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalized);
 
+        case "work-logs":
+            // Ghi giờ công dự án theo task: Dành riêng cho VT-04 (Chuyên môn), VT-02 (Quản lý dự án), VT-06 (Admin)
+            return ["VT-02", "VT-04", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+
         case "attendance":
         case "timesheets":
-        case "work-logs":
-            // Bảng chấm công & Giờ làm việc theo dự án (NCL-09): VT-01 -> VT-06
+            // Bảng chấm công & Giờ làm việc: VT-01 -> VT-06 (Các vai trò không có quyền ghi giờ công sẽ sử dụng phần Chấm công vào/ra)
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "leave":
