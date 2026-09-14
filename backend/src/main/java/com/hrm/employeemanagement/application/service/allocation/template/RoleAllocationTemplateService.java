@@ -6,9 +6,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.allocation.template.ApplyRoleAllocationTemplateCommand;
@@ -278,8 +281,7 @@ public class RoleAllocationTemplateService implements
                 BigDecimal minRemaining = null;
                 for (YearWeek yw : targetWeeks) {
                     String key = candidate.getIdValue() + "_" + yw.year() + "_" + yw.weekNumber();
-                    BigDecimal netAvail = employeeWeekAvailabilityMap.getOrDefault(key,
-                            BigDecimal.valueOf(candidate.getStandardHoursPerWeek() != null ? candidate.getStandardHoursPerWeek() : 40));
+                    BigDecimal netAvail = employeeWeekAvailabilityMap.getOrDefault(key, resolveAvailableHours(candidate, yw));
                     BigDecimal allocated = employeeWeekAllocatedMap.getOrDefault(key, BigDecimal.ZERO);
                     BigDecimal suggested = employeeWeekSuggestedMap.getOrDefault(key, BigDecimal.ZERO);
                     BigDecimal remaining = netAvail.subtract(allocated).subtract(suggested);
@@ -377,7 +379,16 @@ public class RoleAllocationTemplateService implements
                 desiredHoursByEmployee.merge(item.employeeId(), item.hoursPerWeek(), BigDecimal::add);
             }
         }
-        validateCapacity(desiredHoursByEmployee, employees, targetProject, targetWeeks);
+        Map<String, WeeklyProjectAllocation> existingAllocMap = new HashMap<>();
+        for (YearWeek yw : targetWeeks) {
+            List<WeeklyProjectAllocation> weekAllocations = loadAllocationPort.loadAllocationsForProjectInWeekRange(
+                    targetProject.getId().value(), yw.year(), yw.weekNumber(), yw.weekNumber());
+            for (WeeklyProjectAllocation alloc : weekAllocations) {
+                existingAllocMap.put(alloc.getEmployeeId() + "_" + yw.year() + "_" + yw.weekNumber(), alloc);
+            }
+        }
+
+        validateCapacity(desiredHoursByEmployee, employees, targetProject, targetWeeks, existingAllocMap, template.getId());
 
         int appliedRolesCount = assignments.size();
         int allocatedEmployeesCount = desiredHoursByEmployee.size();
@@ -404,17 +415,48 @@ public class RoleAllocationTemplateService implements
             }
         }
 
-        for (Map.Entry<Long, BigDecimal> employeeHours : desiredHoursByEmployee.entrySet()) {
+        Set<Long> affectedEmployees = new HashSet<>(desiredHoursByEmployee.keySet());
+        for (WeeklyProjectAllocation existing : existingAllocMap.values()) {
+            if (extractTemplateHours(existing.getVarianceNote(), template.getId()).compareTo(BigDecimal.ZERO) > 0) {
+                affectedEmployees.add(existing.getEmployeeId());
+            }
+        }
+
+        for (Long employeeId : affectedEmployees) {
+            BigDecimal desiredTemplateHours = desiredHoursByEmployee.getOrDefault(employeeId, BigDecimal.ZERO);
+
             for (YearWeek yw : targetWeeks) {
-                WeeklyProjectAllocation allocation = loadAllocationPort
-                        .loadAllocation(employeeHours.getKey(), targetProject.getId().value(), yw)
-                        .map(existing -> {
-                            existing.updateAllocation(employeeHours.getValue(), null);
-                            return existing;
-                        })
-                        .orElseGet(() -> WeeklyProjectAllocation.createNew(
-                                employeeHours.getKey(), targetProject.getId().value(), yw, employeeHours.getValue()));
-                saveAllocationPort.save(allocation);
+                WeeklyProjectAllocation existingAlloc = getExistingAllocation(employeeId, targetProject, yw, existingAllocMap);
+
+                BigDecimal existingTotalHours = existingAlloc != null ? existingAlloc.getAllocatedHours() : BigDecimal.ZERO;
+                BigDecimal oldTemplateHours = existingAlloc != null ? extractTemplateHours(existingAlloc.getVarianceNote(), template.getId()) : BigDecimal.ZERO;
+
+                BigDecimal nonTemplateHours = existingTotalHours.subtract(oldTemplateHours);
+                if (nonTemplateHours.compareTo(BigDecimal.ZERO) < 0) {
+                    nonTemplateHours = BigDecimal.ZERO;
+                }
+
+                BigDecimal newTotalHours = nonTemplateHours.add(desiredTemplateHours);
+                String newVarianceNote = buildVarianceNoteWithTemplateTag(
+                        existingAlloc != null ? existingAlloc.getVarianceNote() : null,
+                        template.getId(),
+                        desiredTemplateHours
+                );
+
+                if (existingAlloc != null) {
+                    existingAlloc.updateAllocation(newTotalHours, null, currentUserId);
+                    existingAlloc.updateVarianceNote(newVarianceNote, currentUserId);
+                    saveAllocationPort.save(existingAlloc);
+                } else if (newTotalHours.compareTo(BigDecimal.ZERO) > 0) {
+                    WeeklyProjectAllocation newAlloc = WeeklyProjectAllocation.createNew(
+                            employeeId,
+                            targetProject.getId().value(),
+                            yw,
+                            newTotalHours
+                    );
+                    newAlloc.updateVarianceNote(newVarianceNote, currentUserId);
+                    saveAllocationPort.save(newAlloc);
+                }
             }
         }
 
@@ -474,24 +516,118 @@ public class RoleAllocationTemplateService implements
         requireOrgUnitInDataScope(currentUser, employee.getOrgUnitId());
     }
 
-    private void validateCapacity(Map<Long, BigDecimal> desiredHoursByEmployee, Map<Long, Employee> employees,
-            Project targetProject, List<YearWeek> targetWeeks) {
+    private void validateCapacity(
+            Map<Long, BigDecimal> desiredHoursByEmployee,
+            Map<Long, Employee> employees,
+            Project targetProject,
+            List<YearWeek> targetWeeks,
+            Map<String, WeeklyProjectAllocation> existingAllocMap,
+            Long templateId) {
         for (Map.Entry<Long, BigDecimal> desired : desiredHoursByEmployee.entrySet()) {
-            Employee employee = employees.get(desired.getKey());
+            Long employeeId = desired.getKey();
+            BigDecimal desiredTemplateHours = desired.getValue();
+            Employee employee = employees.get(employeeId);
+
             for (YearWeek yw : targetWeeks) {
-                BigDecimal available = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(desired.getKey(), yw)
-                        .map(WeeklyAvailability::getNetAvailableHours)
-                        .orElse(BigDecimal.valueOf(employee.getStandardHoursPerWeek()));
-                BigDecimal allocatedToOtherProjects = loadAllocationPort.loadAllocationsForEmployee(desired.getKey(), yw).stream()
+                BigDecimal available = resolveAvailableHours(employee, yw);
+                WeeklyProjectAllocation existingAlloc = getExistingAllocation(employeeId, targetProject, yw, existingAllocMap);
+                BigDecimal existingTotalOnTarget = existingAlloc != null ? existingAlloc.getAllocatedHours() : BigDecimal.ZERO;
+                BigDecimal oldTemplateHours = existingAlloc != null ? extractTemplateHours(existingAlloc.getVarianceNote(), templateId) : BigDecimal.ZERO;
+                BigDecimal nonTemplateHoursOnTarget = existingTotalOnTarget.subtract(oldTemplateHours);
+                if (nonTemplateHoursOnTarget.compareTo(BigDecimal.ZERO) < 0) {
+                    nonTemplateHoursOnTarget = BigDecimal.ZERO;
+                }
+
+                BigDecimal allocatedToOtherProjects = loadAllocationPort.loadAllocationsForEmployee(employeeId, yw).stream()
                         .filter(allocation -> !targetProject.getId().value().equals(allocation.getProjectId()))
                         .map(WeeklyProjectAllocation::getAllocatedHours)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
-                if (desired.getValue().compareTo(available.subtract(allocatedToOtherProjects)) > 0) {
+
+                BigDecimal totalProjectedHours = allocatedToOtherProjects.add(nonTemplateHoursOnTarget).add(desiredTemplateHours);
+                if (totalProjectedHours.compareTo(available) > 0) {
                     throw new InvalidRoleAllocationTemplateException(
-                            "Nhân viên " + desired.getKey() + " không đủ năng lực trong tuần " + yw.weekNumber());
+                            "Nhân viên " + employeeId + " không đủ năng lực trong tuần " + yw.weekNumber());
                 }
             }
         }
+    }
+
+    private WeeklyProjectAllocation getExistingAllocation(
+            Long employeeId,
+            Project targetProject,
+            YearWeek yw,
+            Map<String, WeeklyProjectAllocation> existingAllocMap) {
+        String key = employeeId + "_" + yw.year() + "_" + yw.weekNumber();
+        if (existingAllocMap.containsKey(key)) {
+            return existingAllocMap.get(key);
+        }
+        Optional<WeeklyProjectAllocation> allocOpt = loadAllocationPort.loadAllocation(
+                employeeId, targetProject.getId().value(), yw);
+        if (allocOpt.isPresent()) {
+            WeeklyProjectAllocation alloc = allocOpt.get();
+            existingAllocMap.put(key, alloc);
+            return alloc;
+        }
+        return null;
+    }
+
+    private static final Pattern TEMPLATE_TAG_PATTERN = Pattern.compile("\\[ROLE_TEMPLATE:(\\d+):([0-9]+(?:\\.[0-9]+)?)\\]");
+
+    private BigDecimal extractTemplateHours(String varianceNote, Long templateId) {
+        if (varianceNote == null || varianceNote.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        Matcher matcher = TEMPLATE_TAG_PATTERN.matcher(varianceNote);
+        while (matcher.find()) {
+            Long tid = Long.valueOf(matcher.group(1));
+            if (tid.equals(templateId)) {
+                return new BigDecimal(matcher.group(2));
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private String buildVarianceNoteWithTemplateTag(String existingNote, Long templateId, BigDecimal templateHours) {
+        String cleanNote = removeTemplateTag(existingNote, templateId);
+        if (templateHours == null || templateHours.compareTo(BigDecimal.ZERO) <= 0) {
+            return cleanNote.isEmpty() ? null : cleanNote;
+        }
+        String tag = String.format(Locale.ROOT, "[ROLE_TEMPLATE:%d:%.2f]", templateId, templateHours);
+        if (cleanNote.isEmpty()) {
+            return tag;
+        }
+        return cleanNote + " " + tag;
+    }
+
+    private String removeTemplateTag(String varianceNote, Long templateId) {
+        if (varianceNote == null || varianceNote.isEmpty()) {
+            return "";
+        }
+        Matcher matcher = TEMPLATE_TAG_PATTERN.matcher(varianceNote);
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            Long tid = Long.valueOf(matcher.group(1));
+            if (tid.equals(templateId)) {
+                matcher.appendReplacement(sb, "");
+            } else {
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matcher.group(0)));
+            }
+        }
+        matcher.appendTail(sb);
+        return sb.toString().replaceAll("\\s+", " ").trim();
+    }
+
+    private BigDecimal resolveAvailableHours(Employee employee, YearWeek yw) {
+        int standardHours = (employee != null && employee.getStandardHoursPerWeek() != null)
+                ? employee.getStandardHoursPerWeek()
+                : 40;
+        Long empId = employee != null ? employee.getIdValue() : null;
+        if (empId == null) {
+            return BigDecimal.valueOf(standardHours);
+        }
+        return loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(empId, yw)
+                .map(WeeklyAvailability::getNetAvailableHours)
+                .orElse(BigDecimal.valueOf(standardHours));
     }
 
     private User loadCurrentUser(Long currentUserId) {
