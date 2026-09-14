@@ -22,6 +22,8 @@ import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.user.UserId;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -107,5 +109,43 @@ class DatabaseAllocationNotificationAdapterTest {
         assertDoesNotThrow(() -> adapter.notifyAllocationChanged(
                 projectId, affectedEmployeeId, 1L, "Tiêu đề", "Nội dung"
         ));
+    }
+
+    @Test
+    @DisplayName("Transaction Isolation (HIGH #1 & #2): Khi transaction đang active, notification chỉ được persist sau khi afterCommit kích hoạt")
+    void notifyAllocationChanged_WhenTransactionActive_ExecutesAfterCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            Long projectId = 10L;
+            Long affectedEmployeeId = 100L;
+            Long actorUserId = 5L;
+
+            Employee pmEmp = new Employee(
+                    new EmployeeId(200L), new UserId(20L), 1L, "EMP002", "Trần PM",
+                    false, 40, EmployeeStatus.ACTIVE
+            );
+            Project project = new Project(
+                    new ProjectId(projectId), "PRJ-01", "Dự án HRM", 1L, new EmployeeId(200L),
+                    null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), null, null, 1L
+            );
+
+            when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+            when(loadEmployeePort.findById(new EmployeeId(200L))).thenReturn(Optional.of(pmEmp));
+            when(loadEmployeePort.findById(new EmployeeId(affectedEmployeeId))).thenReturn(Optional.empty());
+
+            // Gọi notify: khi transaction active, notification CHƯA được save ngay lập tức
+            adapter.notifyAllocationChanged(projectId, affectedEmployeeId, actorUserId, "Tiêu đề", "Nội dung");
+            verify(saveNotificationPort, times(0)).save(any());
+
+            // Kích hoạt afterCommit của transaction
+            for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
+                sync.afterCommit();
+            }
+
+            // Sau khi transaction commit thành công, notification mới được save
+            verify(saveNotificationPort, times(1)).save(any());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }

@@ -115,9 +115,7 @@ class GetAllocationNotificationsServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(10L);
         when(loadUserPort.findById(new UserId(10L))).thenReturn(Optional.of(rmUser));
 
-        Project p1 = new Project(new ProjectId(1L), "PRJ-01", "Dự án Alpha", 5L, new EmployeeId(200L),
-                null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), null, null, 1L);
-        when(loadProjectPort.findByOrgUnitBranch(5L, 0, 1000)).thenReturn(List.of(p1));
+        when(loadProjectPort.findAllProjectIdsByOrgUnitBranch(5L)).thenReturn(List.of(1L));
 
         Notification n = new Notification(
                 NotificationId.of(1L), new UserId(20L), new UserId(10L),
@@ -163,6 +161,33 @@ class GetAllocationNotificationsServiceTest {
         assertNotNull(result);
         assertEquals(1, result.totalElements());
         assertEquals(1, result.items().size());
+    }
+
+    @Test
+    @DisplayName("Happy: VT-02 (PM) xem tất cả thông báo của các dự án mình quản lý khi projectId = null")
+    void pmUser_ViewAllManagedProjects_Success() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(20L);
+        when(loadUserPort.findById(new UserId(20L))).thenReturn(Optional.of(pmUser));
+        when(loadProjectPort.findAllManagedProjectIds(200L)).thenReturn(List.of(1L, 2L));
+
+        Notification n = new Notification(
+                NotificationId.of(3L), new UserId(20L), new UserId(10L),
+                NotificationType.ALLOCATION_CHANGED, "PROJECT_ALLOCATION", 2L,
+                "Chuyển tuần", "Nội dung", false, LocalDateTime.now()
+        );
+        when(loadAllocationNotificationPort.findAllocationNotifications(eq(List.of(1L, 2L)), eq(0), eq(10)))
+                .thenReturn(List.of(n));
+        when(loadAllocationNotificationPort.countAllocationNotifications(eq(List.of(1L, 2L)))).thenReturn(1L);
+
+        when(loadUserPort.findAllByIdIn(anyList())).thenReturn(List.of(rmUser, pmUser));
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
+
+        AllocationNotificationPageResult result = service.getAllocationNotifications(null, 0, 10);
+
+        assertNotNull(result);
+        assertEquals(1, result.totalElements());
+        assertEquals(1, result.items().size());
+        assertEquals("Chuyển tuần", result.items().get(0).title());
     }
 
     @Test

@@ -116,10 +116,7 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
                 }
                 allowedProjectIds = List.of(projectId);
             } else {
-                List<Project> managedProjects = loadProjectPort.findManagedBy(pmEmployeeId, 0, 1000);
-                allowedProjectIds = managedProjects.stream()
-                        .map(p -> p.getId().value())
-                        .toList();
+                allowedProjectIds = loadProjectPort.findAllManagedProjectIds(pmEmployeeId);
                 if (allowedProjectIds.isEmpty()) {
                     return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page);
                 }
@@ -154,8 +151,7 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
                 if (currentUser.getDataScope() == com.hrm.employeemanagement.domain.authorization.DataScope.COMPANY) {
                     allowedProjectIds = Collections.emptyList(); // rỗng = không giới hạn projectId
                 } else if (currentUser.getScopeOrgUnitId() != null) {
-                    List<Project> branchProjects = loadProjectPort.findByOrgUnitBranch(currentUser.getScopeOrgUnitId(), 0, 1000);
-                    allowedProjectIds = branchProjects.stream().map(p -> p.getId().value()).toList();
+                    allowedProjectIds = loadProjectPort.findAllProjectIdsByOrgUnitBranch(currentUser.getScopeOrgUnitId());
                     if (allowedProjectIds.isEmpty()) {
                         return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page);
                     }
