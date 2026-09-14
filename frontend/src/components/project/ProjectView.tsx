@@ -592,7 +592,9 @@ export default function ProjectView() {
             setAllocationError(null);
         } catch (error) {
             setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
-            setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
+            if (canReadAllocations) {
+                setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
+            }
         }
     }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
 
