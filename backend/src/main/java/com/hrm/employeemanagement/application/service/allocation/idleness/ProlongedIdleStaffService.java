@@ -121,8 +121,18 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
         // 3. Tra cứu cấu hình ngưỡng nhàn rỗi theo QTN-23 (từ DB cấu hình của Ban giám đốc)
         BigDecimal idleThreshold = resolveEffectiveIdleThreshold(query.orgUnitId());
 
-        // 4. Lấy danh sách nhân sự thuộc phạm vi tìm kiếm
-        List<Employee> employees = loadEmployeesInScope(query.orgUnitId());
+        // 4. Lấy danh sách cấu trúc phòng ban một lần duy nhất
+        List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
+        Map<Long, String> orgUnitNameMap = allUnits.stream()
+                .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (u1, u2) -> u1));
+
+        String orgUnitName = "Toàn công ty";
+        if (query.orgUnitId() != null) {
+            orgUnitName = orgUnitNameMap.getOrDefault(query.orgUnitId(), "Bộ phận " + query.orgUnitId());
+        }
+
+        // 5. Lấy danh sách nhân sự thuộc phạm vi tìm kiếm (tái sử dụng allUnits)
+        List<Employee> employees = loadEmployeesInScope(query.orgUnitId(), allUnits);
         if (query.search() != null && !query.search().isBlank()) {
             String searchPattern = query.search().trim().toLowerCase();
             employees = employees.stream()
@@ -132,15 +142,8 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                     .toList();
         }
 
-        // Tạo map OrgUnit để hiển thị tên phòng ban
-        List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
-        Map<Long, String> orgUnitNameMap = allUnits.stream()
-                .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (u1, u2) -> u1));
-
-        String orgUnitName = "Toàn công ty";
-        if (query.orgUnitId() != null) {
-            orgUnitName = orgUnitNameMap.getOrDefault(query.orgUnitId(), "Bộ phận " + query.orgUnitId());
-        }
+        int page = query.page() != null && query.page() >= 0 ? query.page() : 0;
+        int size = query.size() != null && query.size() > 0 ? query.size() : 20;
 
         if (employees.isEmpty()) {
             return new ProlongedIdlenessReportResult(
@@ -151,6 +154,9 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                     durationWeeks,
                     idleThreshold,
                     consecutiveThreshold,
+                    0,
+                    page,
+                    size,
                     0,
                     Collections.emptyList()
             );
@@ -238,17 +244,16 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                         .map(WeeklyIdlenessDetail::emptyHours)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                // Tính % sử dụng trung bình trong các tuần có availableHours > 0
-                List<BigDecimal> validUtils = weeklyDetails.stream()
-                        .filter(d -> d.availableHours().compareTo(BigDecimal.ZERO) > 0)
-                        .map(WeeklyIdlenessDetail::utilizationPercentage)
-                        .toList();
+                // Tính % sử dụng trung bình có trọng số (Weighted Utilization)
+                BigDecimal totalAllocated = weeklyDetails.stream()
+                        .map(WeeklyIdlenessDetail::allocatedHours)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                BigDecimal avgUtil = BigDecimal.ZERO;
-                if (!validUtils.isEmpty()) {
-                    BigDecimal sumUtil = validUtils.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-                    avgUtil = sumUtil.divide(BigDecimal.valueOf(validUtils.size()), 1, RoundingMode.HALF_UP);
-                }
+                BigDecimal totalAvailable = weeklyDetails.stream()
+                        .map(WeeklyIdlenessDetail::availableHours)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                BigDecimal avgUtil = ProlongedIdlenessPolicy.calculateWeightedUtilization(totalAllocated, totalAvailable);
 
                 List<ProlongedIdlenessWeeklyDetailResult> detailResults = weeklyDetails.stream()
                         .map(d -> new ProlongedIdlenessWeeklyDetailResult(
@@ -286,6 +291,13 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
         idleItems.sort(Comparator.comparingInt(ProlongedIdleStaffItemResult::consecutiveIdleWeeks).reversed()
                 .thenComparing(ProlongedIdleStaffItemResult::totalEmptyHours, Comparator.reverseOrder()));
 
+        int totalItems = idleItems.size();
+        int totalPages = totalItems == 0 ? 0 : (int) Math.ceil((double) totalItems / size);
+
+        int fromIndex = Math.min(page * size, totalItems);
+        int toIndex = Math.min(fromIndex + size, totalItems);
+        List<ProlongedIdleStaffItemResult> pagedItems = idleItems.subList(fromIndex, toIndex);
+
         return new ProlongedIdlenessReportResult(
                 query.orgUnitId(),
                 orgUnitName,
@@ -294,8 +306,11 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                 durationWeeks,
                 idleThreshold,
                 consecutiveThreshold,
-                idleItems.size(),
-                idleItems
+                totalItems,
+                page,
+                size,
+                totalPages,
+                pagedItems
         );
     }
 
@@ -360,25 +375,25 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
         return CapacityThresholdPolicy.DEFAULT_IDLE_THRESHOLD;
     }
 
-    private List<Employee> loadEmployeesInScope(Long orgUnitId) {
+    private List<Employee> loadEmployeesInScope(Long orgUnitId, List<OrgUnit> allUnits) {
         if (orgUnitId != null) {
-            List<Long> branchIds = resolveScopeBranchOrgUnitIds(orgUnitId);
+            List<Long> branchIds = resolveScopeBranchOrgUnitIds(orgUnitId, allUnits);
             return loadEmployeePort.findActiveByOrgUnitIds(branchIds);
         }
         return loadEmployeePort.findAllActive();
     }
 
-    private List<Long> resolveScopeBranchOrgUnitIds(Long orgUnitId) {
+    private List<Long> resolveScopeBranchOrgUnitIds(Long orgUnitId, List<OrgUnit> allUnits) {
         if (orgUnitId == null) {
             return null;
         }
-        List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
+        List<OrgUnit> unitList = allUnits != null ? allUnits : loadOrgUnitPort.findAll();
         Set<Long> result = new java.util.HashSet<>();
         result.add(orgUnitId);
         boolean added = true;
         while (added) {
             added = false;
-            for (OrgUnit u : allUnits) {
+            for (OrgUnit u : unitList) {
                 if (u.getParentId() != null && result.contains(u.getParentId().getValue())) {
                     if (result.add(u.getId().getValue())) {
                         added = true;

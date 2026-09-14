@@ -51,6 +51,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -327,6 +328,57 @@ class ProlongedIdleStaffServiceTest {
                 eq("Xử lý cảnh báo nhân sự nhàn rỗi kéo dài"),
                 any()
         );
+    }
+
+    @Test
+    @DisplayName("Cải tiến — Phân trang danh sách cảnh báo nhàn rỗi và triệt tiêu query lặp lại OrgUnit")
+    void getProlongedIdleStaff_PaginationAndNoDuplicateOrgUnitQuery() {
+        Long userId = 200L;
+        when(authorizationService.requireAny(
+                PermissionCode.RESOURCE_ALLOCATION_READ,
+                PermissionCode.RESOURCE_ALLOCATION_MANAGE,
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ
+        )).thenReturn(userId);
+
+        when(loadCapacityThresholdPort.findByScope(any(), any()))
+                .thenReturn(Optional.empty());
+
+        Employee emp1 = new Employee(new EmployeeId(101L), null, 10L, "EMP0101", "User A", "Dev", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(102L), null, 10L, "EMP0102", "User B", "Dev", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+
+        OrgUnit unit = new OrgUnit(
+                new OrgUnitId(10L),
+                "TECH",
+                "Phòng Dev",
+                OrgUnitType.DEPARTMENT,
+                null,
+                "/10/",
+                1,
+                OrgUnitStatus.ACTIVE,
+                "Phòng Dev",
+                null,
+                null,
+                null
+        );
+        when(loadOrgUnitPort.findAll()).thenReturn(List.of(unit));
+        when(loadEmployeePort.findActiveByOrgUnitIds(any())).thenReturn(List.of(emp1, emp2));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyList());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyMap());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(Collections.emptyList());
+
+        // Query with page=0, size=1
+        ProlongedIdlenessQuery query = new ProlongedIdlenessQuery(10L, 2026, 38, 4, 3, null, 0, 1);
+        ProlongedIdlenessReportResult result = service.getProlongedIdleStaff(query);
+
+        assertNotNull(result);
+        assertEquals(2, result.totalIdleEmployees());
+        assertEquals(0, result.page());
+        assertEquals(1, result.size());
+        assertEquals(2, result.totalPages());
+        assertEquals(1, result.items().size()); // 1 item on page 0
+
+        // Xác nhận loadOrgUnitPort.findAll() CHỈ ĐƯỢC GỌI ĐÚNG 1 LẦN DUY NHẤT (không duplicate)
+        verify(loadOrgUnitPort, times(1)).findAll();
     }
 
     private WeeklyProjectAllocation createAllocation(Long empId, int year, int week, BigDecimal hours) {
