@@ -622,7 +622,7 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
                     title,
                     content
             );
-            return notificationPort.notifyAllocationAdjusted(project.getIdValue(), pmId, summaryMessage);
+            return pmId != null ? String.valueOf(pmId) : null;
         } catch (Exception e) {
             // Safe notification: log error without breaking the atomic business update
             return pmId != null ? String.valueOf(pmId) : null;

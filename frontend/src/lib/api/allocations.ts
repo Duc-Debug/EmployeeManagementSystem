@@ -459,9 +459,17 @@ export async function autoConvertProjectReservations(
 // NCL-07-CN-003: Thông báo phân bổ thay đổi
 export interface AllocationNotificationItemResult {
   id: number;
+  recipientId?: number;
+  recipientName?: string;
+  senderId?: number | null;
+  senderName?: string;
+  type?: string;
+  targetType?: string;
+  targetId?: number;
   title: string;
   content: string;
-  read: boolean;
+  isRead?: boolean;
+  read?: boolean;
   createdAt: string;
 }
 

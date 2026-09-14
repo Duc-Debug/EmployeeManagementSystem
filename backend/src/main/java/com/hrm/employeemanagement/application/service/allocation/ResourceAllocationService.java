@@ -484,7 +484,7 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                     title,
                     content
             );
-            return notificationPort.notifyAllocationAdjusted(project.getIdValue(), pmId, summaryMessage);
+            return pmId != null ? String.valueOf(pmId) : null;
         } catch (Exception e) {
             return pmId != null ? String.valueOf(pmId) : null;
         }

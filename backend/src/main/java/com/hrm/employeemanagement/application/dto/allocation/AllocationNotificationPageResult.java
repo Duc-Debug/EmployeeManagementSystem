@@ -3,9 +3,10 @@ package com.hrm.employeemanagement.application.dto.allocation;
 import java.util.List;
 
 public record AllocationNotificationPageResult(
-        List<AllocationNotificationItemResult> items,
+        List<AllocationNotificationItemResult> content,
         long totalElements,
         int totalPages,
-        int currentPage
+        int page,
+        int size
 ) {
 }

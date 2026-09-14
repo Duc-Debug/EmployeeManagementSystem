@@ -25,13 +25,4 @@ public class LoggingAllocationNotificationAdapter implements AllocationNotificat
         log.info("[NOTIFICATION_LOG_ONLY] Dự án: {}, Nhân sự: {}, Người thực hiện: {}, Tiêu đề: {}, Nội dung: {}",
                 projectId, affectedEmployeeId, actorUserId, title, content);
     }
-
-    @Override
-    public String notifyAllocationAdjusted(Long projectId, Long managerId, String message) {
-        log.info("[NOTIFICATION] Gửi thông báo đến QLDA (Employee ID: {}) của Dự án (ID: {}): {}",
-                managerId != null ? managerId : "CHƯA_GÁN_QLDA",
-                projectId,
-                message);
-        return managerId != null ? String.valueOf(managerId) : null;
-    }
 }

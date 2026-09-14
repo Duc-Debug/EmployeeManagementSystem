@@ -118,7 +118,7 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
             } else {
                 allowedProjectIds = loadProjectPort.findAllManagedProjectIds(pmEmployeeId);
                 if (allowedProjectIds.isEmpty()) {
-                    return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page);
+                    return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page, size);
                 }
             }
         } else {
@@ -153,7 +153,7 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
                 } else if (currentUser.getScopeOrgUnitId() != null) {
                     allowedProjectIds = loadProjectPort.findAllProjectIdsByOrgUnitBranch(currentUser.getScopeOrgUnitId());
                     if (allowedProjectIds.isEmpty()) {
-                        return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page);
+                        return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page, size);
                     }
                 } else {
                     allowedProjectIds = Collections.emptyList();
@@ -161,8 +161,9 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
             }
         }
 
-        List<Notification> notifications = loadAllocationNotificationPort.findAllocationNotifications(allowedProjectIds, page, size);
-        long totalElements = loadAllocationNotificationPort.countAllocationNotifications(allowedProjectIds);
+        Long recipientUserId = (roleCode == RoleCode.VT_02) ? currentUserId : null;
+        List<Notification> notifications = loadAllocationNotificationPort.findAllocationNotifications(recipientUserId, allowedProjectIds, page, size);
+        long totalElements = loadAllocationNotificationPort.countAllocationNotifications(recipientUserId, allowedProjectIds);
         int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 0;
 
         // Load sender and recipient user information for user-friendly display
@@ -204,7 +205,7 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
             );
         }).toList();
 
-        return new AllocationNotificationPageResult(items, totalElements, totalPages, page);
+        return new AllocationNotificationPageResult(items, totalElements, totalPages, page, size);
     }
 
     private String resolveDisplayName(UserId userId, Map<Long, User> usersMap, Map<Long, Employee> employeesMap) {

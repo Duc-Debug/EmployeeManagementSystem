@@ -53,7 +53,7 @@ class AllocationNotificationControllerTest {
                 "Thay đổi phân bổ", "Nội dung chi tiết", false, LocalDateTime.now()
         );
         AllocationNotificationPageResult pageResult = new AllocationNotificationPageResult(
-                List.of(item), 1L, 1, 0
+                List.of(item), 1L, 1, 0, 20
         );
 
         when(getAllocationNotificationsUseCase.getAllocationNotifications(eq(5L), eq(0), eq(20)))
@@ -67,8 +67,11 @@ class AllocationNotificationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.totalElements").value(1))
-                .andExpect(jsonPath("$.data.items[0].title").value("Thay đổi phân bổ"))
-                .andExpect(jsonPath("$.data.items[0].recipientName").value("Trần PM"));
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.content[0].title").value("Thay đổi phân bổ"))
+                .andExpect(jsonPath("$.data.content[0].recipientName").value("Trần PM"));
     }
 
     @Test

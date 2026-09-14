@@ -16,9 +16,4 @@ public interface AllocationNotificationPort {
             String title,
             String content
     );
-
-    /**
-     * Tương thích ngược: Gửi thông báo đơn giản cho PM.
-     */
-    String notifyAllocationAdjusted(Long projectId, Long managerId, String message);
 }

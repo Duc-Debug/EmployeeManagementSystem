@@ -153,7 +153,7 @@ export function AllocationNotificationsModal({
             </div>
           )}
 
-          {!loading && (!data || data.content.length === 0) && (
+          {!loading && (!data || !data.content || data.content.length === 0) && (
             <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-slate-400">
               <Bell className="h-10 w-10 text-slate-300" />
               <p className="text-sm font-semibold text-slate-600">
@@ -165,7 +165,7 @@ export function AllocationNotificationsModal({
             </div>
           )}
 
-          {data && data.content.length > 0 && (
+          {data && data.content && data.content.length > 0 && (
             <div className="space-y-3">
               {data.content.map((item: AllocationNotificationItemResult) => (
                 <div

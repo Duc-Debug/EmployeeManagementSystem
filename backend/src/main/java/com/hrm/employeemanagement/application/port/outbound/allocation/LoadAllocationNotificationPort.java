@@ -7,12 +7,12 @@ import com.hrm.employeemanagement.domain.notification.Notification;
 public interface LoadAllocationNotificationPort {
 
     /**
-     * Tìm danh sách thông báo phân bổ theo danh sách projectId (hoặc tất cả nếu rỗng).
+     * Tìm danh sách thông báo phân bổ theo người nhận (tùy chọn) và danh sách projectId (hoặc tất cả nếu rỗng).
      */
-    List<Notification> findAllocationNotifications(List<Long> projectIds, int page, int size);
+    List<Notification> findAllocationNotifications(Long recipientId, List<Long> projectIds, int page, int size);
 
     /**
-     * Đếm tổng số thông báo phân bổ theo danh sách projectId.
+     * Đếm tổng số thông báo phân bổ theo người nhận (tùy chọn) và danh sách projectId.
      */
-    long countAllocationNotifications(List<Long> projectIds);
+    long countAllocationNotifications(Long recipientId, List<Long> projectIds);
 }

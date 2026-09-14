@@ -29,5 +29,33 @@ public interface SpringDataNotificationRepository extends JpaRepository<Notifica
             @Param("projectIds") List<Long> projectIds,
             org.springframework.data.domain.Pageable pageable
     );
+
+    @Query("SELECT n FROM NotificationJpaEntity n WHERE n.type = 'ALLOCATION_CHANGED' AND n.recipientId = :recipientId AND n.targetId IN :projectIds ORDER BY n.createdAt DESC")
+    org.springframework.data.domain.Page<NotificationJpaEntity> findByRecipientIdAndProjectIds(
+            @Param("recipientId") Long recipientId,
+            @Param("projectIds") List<Long> projectIds,
+            org.springframework.data.domain.Pageable pageable
+    );
+
+    @Query("SELECT n FROM NotificationJpaEntity n WHERE n.type = 'ALLOCATION_CHANGED' AND n.recipientId = :recipientId ORDER BY n.createdAt DESC")
+    org.springframework.data.domain.Page<NotificationJpaEntity> findByRecipientId(
+            @Param("recipientId") Long recipientId,
+            org.springframework.data.domain.Pageable pageable
+    );
+
+    @Query("SELECT COUNT(n) FROM NotificationJpaEntity n WHERE n.type = 'ALLOCATION_CHANGED'")
+    long countAllAllocationNotifications();
+
+    @Query("SELECT COUNT(n) FROM NotificationJpaEntity n WHERE n.type = 'ALLOCATION_CHANGED' AND n.targetId IN :projectIds")
+    long countAllocationNotificationsByProjectIds(@Param("projectIds") List<Long> projectIds);
+
+    @Query("SELECT COUNT(n) FROM NotificationJpaEntity n WHERE n.type = 'ALLOCATION_CHANGED' AND n.recipientId = :recipientId AND n.targetId IN :projectIds")
+    long countByRecipientIdAndProjectIds(
+            @Param("recipientId") Long recipientId,
+            @Param("projectIds") List<Long> projectIds
+    );
+
+    @Query("SELECT COUNT(n) FROM NotificationJpaEntity n WHERE n.type = 'ALLOCATION_CHANGED' AND n.recipientId = :recipientId")
+    long countByRecipientId(@Param("recipientId") Long recipientId);
 }
 

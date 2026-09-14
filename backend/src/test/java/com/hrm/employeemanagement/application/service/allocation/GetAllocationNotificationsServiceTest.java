@@ -122,9 +122,9 @@ class GetAllocationNotificationsServiceTest {
                 NotificationType.ALLOCATION_CHANGED, "PROJECT_ALLOCATION", 1L,
                 "Thay đổi phân bổ", "Nội dung", false, LocalDateTime.now()
         );
-        when(loadAllocationNotificationPort.findAllocationNotifications(eq(List.of(1L)), eq(0), eq(10)))
+        when(loadAllocationNotificationPort.findAllocationNotifications(org.mockito.ArgumentMatchers.isNull(), eq(List.of(1L)), eq(0), eq(10)))
                 .thenReturn(List.of(n));
-        when(loadAllocationNotificationPort.countAllocationNotifications(eq(List.of(1L)))).thenReturn(1L);
+        when(loadAllocationNotificationPort.countAllocationNotifications(org.mockito.ArgumentMatchers.isNull(), eq(List.of(1L)))).thenReturn(1L);
 
         when(loadUserPort.findAllByIdIn(anyList())).thenReturn(List.of(rmUser, pmUser));
         when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
@@ -133,12 +133,14 @@ class GetAllocationNotificationsServiceTest {
 
         assertNotNull(result);
         assertEquals(1, result.totalElements());
-        assertEquals(1, result.items().size());
-        assertEquals("Thay đổi phân bổ", result.items().get(0).title());
+        assertEquals(1, result.content().size());
+        assertEquals(0, result.page());
+        assertEquals(10, result.size());
+        assertEquals("Thay đổi phân bổ", result.content().get(0).title());
     }
 
     @Test
-    @DisplayName("Happy: VT-02 (PM) xem danh sách thông báo phân bổ của dự án mình quản lý thành công")
+    @DisplayName("Happy: VT-02 (PM) xem danh sách thông báo phân bổ của dự án mình quản lý thành công (chỉ nhận thông báo của chính mình)")
     void pmUser_ViewNotifications_Success() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(20L);
         when(loadUserPort.findById(new UserId(20L))).thenReturn(Optional.of(pmUser));
@@ -149,9 +151,10 @@ class GetAllocationNotificationsServiceTest {
                 NotificationType.ALLOCATION_CHANGED, "PROJECT_ALLOCATION", 1L,
                 "Gỡ phân bổ", "Nội dung", false, LocalDateTime.now()
         );
-        when(loadAllocationNotificationPort.findAllocationNotifications(eq(List.of(1L)), eq(0), eq(10)))
+        // PM chỉ truy vấn notification có recipientId = 20L
+        when(loadAllocationNotificationPort.findAllocationNotifications(eq(20L), eq(List.of(1L)), eq(0), eq(10)))
                 .thenReturn(List.of(n));
-        when(loadAllocationNotificationPort.countAllocationNotifications(eq(List.of(1L)))).thenReturn(1L);
+        when(loadAllocationNotificationPort.countAllocationNotifications(eq(20L), eq(List.of(1L)))).thenReturn(1L);
 
         when(loadUserPort.findAllByIdIn(anyList())).thenReturn(List.of(rmUser, pmUser));
         when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
@@ -160,7 +163,9 @@ class GetAllocationNotificationsServiceTest {
 
         assertNotNull(result);
         assertEquals(1, result.totalElements());
-        assertEquals(1, result.items().size());
+        assertEquals(1, result.content().size());
+        assertEquals(0, result.page());
+        assertEquals(10, result.size());
     }
 
     @Test
@@ -175,9 +180,9 @@ class GetAllocationNotificationsServiceTest {
                 NotificationType.ALLOCATION_CHANGED, "PROJECT_ALLOCATION", 2L,
                 "Chuyển tuần", "Nội dung", false, LocalDateTime.now()
         );
-        when(loadAllocationNotificationPort.findAllocationNotifications(eq(List.of(1L, 2L)), eq(0), eq(10)))
+        when(loadAllocationNotificationPort.findAllocationNotifications(eq(20L), eq(List.of(1L, 2L)), eq(0), eq(10)))
                 .thenReturn(List.of(n));
-        when(loadAllocationNotificationPort.countAllocationNotifications(eq(List.of(1L, 2L)))).thenReturn(1L);
+        when(loadAllocationNotificationPort.countAllocationNotifications(eq(20L), eq(List.of(1L, 2L)))).thenReturn(1L);
 
         when(loadUserPort.findAllByIdIn(anyList())).thenReturn(List.of(rmUser, pmUser));
         when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
@@ -186,8 +191,10 @@ class GetAllocationNotificationsServiceTest {
 
         assertNotNull(result);
         assertEquals(1, result.totalElements());
-        assertEquals(1, result.items().size());
-        assertEquals("Chuyển tuần", result.items().get(0).title());
+        assertEquals(1, result.content().size());
+        assertEquals(0, result.page());
+        assertEquals(10, result.size());
+        assertEquals("Chuyển tuần", result.content().get(0).title());
     }
 
     @Test

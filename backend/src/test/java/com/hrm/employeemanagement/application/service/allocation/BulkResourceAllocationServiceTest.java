@@ -455,4 +455,30 @@ class BulkResourceAllocationServiceTest {
 
         assertTrue(ex.getMessage().contains("Không được cung cấp đồng thời"));
     }
+
+    @Test
+    @DisplayName("Verify allocation is saved exactly once per week (no duplicate save calls)")
+    void shouldPersistEachAllocationExactlyOnce() {
+        mockAuthAndUser();
+        Employee employee = createMockEmployee(EmployeeStatus.ACTIVE, null);
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of());
+
+        BulkAllocateResourceCommand command = new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 2,
+                BigDecimal.valueOf(10), null
+        );
+
+        BulkAllocationResult result = service.bulkAllocateResource(command);
+
+        assertEquals(2, result.successCount());
+        // 2 tuần thành công -> saveAllocationPort.save phải được gọi chính xác 2 lần (1 lần/tuần), không được trùng lặp
+        verify(saveAllocationPort, times(2)).save(any(WeeklyProjectAllocation.class));
+    }
 }

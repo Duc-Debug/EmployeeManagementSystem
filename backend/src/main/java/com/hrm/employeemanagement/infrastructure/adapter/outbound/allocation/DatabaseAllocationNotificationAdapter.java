@@ -158,10 +158,4 @@ public class DatabaseAllocationNotificationAdapter implements AllocationNotifica
             log.error("Lỗi hạ tầng khi lưu thông báo phân bổ vào DB cho dự án ID {} (Exception Isolation): {}", projectId, e.getMessage(), e);
         }
     }
-
-    @Override
-    public String notifyAllocationAdjusted(Long projectId, Long managerId, String message) {
-        log.info("[ALLOCATION_NOTIFICATION] Dự án: {}, QLDA: {}, Nội dung: {}", projectId, managerId, message);
-        return managerId != null ? String.valueOf(managerId) : null;
-    }
 }

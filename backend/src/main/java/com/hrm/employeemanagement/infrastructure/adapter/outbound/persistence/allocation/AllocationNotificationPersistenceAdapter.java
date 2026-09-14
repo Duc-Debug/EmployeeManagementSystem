@@ -29,14 +29,24 @@ public class AllocationNotificationPersistenceAdapter implements LoadAllocationN
     }
 
     @Override
-    public List<Notification> findAllocationNotifications(List<Long> projectIds, int page, int size) {
+    public List<Notification> findAllocationNotifications(Long recipientId, List<Long> projectIds, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
         Page<NotificationJpaEntity> pageResult;
 
-        if (projectIds == null || projectIds.isEmpty()) {
-            pageResult = repository.findAllAllocationNotifications(pageable);
+        boolean hasProjects = projectIds != null && !projectIds.isEmpty();
+
+        if (recipientId != null) {
+            if (hasProjects) {
+                pageResult = repository.findByRecipientIdAndProjectIds(recipientId, projectIds, pageable);
+            } else {
+                pageResult = repository.findByRecipientId(recipientId, pageable);
+            }
         } else {
-            pageResult = repository.findAllocationNotificationsByProjectIds(projectIds, pageable);
+            if (hasProjects) {
+                pageResult = repository.findAllocationNotificationsByProjectIds(projectIds, pageable);
+            } else {
+                pageResult = repository.findAllAllocationNotifications(pageable);
+            }
         }
 
         return pageResult.getContent().stream()
@@ -46,11 +56,21 @@ public class AllocationNotificationPersistenceAdapter implements LoadAllocationN
     }
 
     @Override
-    public long countAllocationNotifications(List<Long> projectIds) {
-        Pageable pageable = PageRequest.of(0, 1);
-        if (projectIds == null || projectIds.isEmpty()) {
-            return repository.findAllAllocationNotifications(pageable).getTotalElements();
+    public long countAllocationNotifications(Long recipientId, List<Long> projectIds) {
+        boolean hasProjects = projectIds != null && !projectIds.isEmpty();
+
+        if (recipientId != null) {
+            if (hasProjects) {
+                return repository.countByRecipientIdAndProjectIds(recipientId, projectIds);
+            } else {
+                return repository.countByRecipientId(recipientId);
+            }
+        } else {
+            if (hasProjects) {
+                return repository.countAllocationNotificationsByProjectIds(projectIds);
+            } else {
+                return repository.countAllAllocationNotifications();
+            }
         }
-        return repository.findAllocationNotificationsByProjectIds(projectIds, pageable).getTotalElements();
     }
 }
