@@ -16,6 +16,9 @@ import java.util.Optional;
 @Repository
 public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveRequestJpaEntity, Long> {
 
+    @Query("SELECT l.employeeId FROM LeaveRequestJpaEntity l WHERE l.id = :id")
+    Optional<Long> findEmployeeIdById(@Param("id") Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM LeaveRequestJpaEntity l WHERE l.id = :id")
     Optional<LeaveRequestJpaEntity> findByIdForUpdate(@Param("id") Long id);

@@ -11,6 +11,9 @@ import java.util.Optional;
 public interface LoadLeaveRequestPort {
     Optional<LeaveRequest> findById(Long id);
 
+    /** Loads only the owner key without materializing a LeaveRequest in the persistence context. */
+    Optional<Long> findEmployeeIdById(Long id);
+
     Optional<LeaveRequest> findByIdForUpdate(Long id);
 
     List<LeaveRequest> findByEmployeeId(Long employeeId);
