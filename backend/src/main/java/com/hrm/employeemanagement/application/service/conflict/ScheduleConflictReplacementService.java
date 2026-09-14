@@ -148,6 +148,17 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 if (minProficiencyLevel == null && bestSkill.getProficiencyLevel() != null) {
                     requiredLevel = bestSkill.getProficiencyLevel();
                 }
+            } else {
+                // FALLBACK: Nếu nhân sự chưa khai báo kỹ năng riêng, tự động lấy kỹ năng đã được duyệt phổ biến nhất trong hệ thống
+                List<EmployeeSkillJpaEntity> allApproved = employeeSkillRepository.findByStatus(com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED);
+                if (!allApproved.isEmpty()) {
+                    selectedSkillId = allApproved.stream()
+                            .collect(Collectors.groupingBy(EmployeeSkillJpaEntity::getSkillId, Collectors.counting()))
+                            .entrySet().stream()
+                            .max(Map.Entry.comparingByValue())
+                            .map(Map.Entry::getKey)
+                            .orElse(allApproved.get(0).getSkillId());
+                }
             }
         }
 

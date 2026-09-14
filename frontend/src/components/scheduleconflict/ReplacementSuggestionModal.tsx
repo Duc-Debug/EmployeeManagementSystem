@@ -10,6 +10,7 @@ import {
     RefreshCw,
     Briefcase,
     MessageSquareText,
+    Filter,
 } from "lucide-react";
 import {
     getReplacementSuggestions,
@@ -20,6 +21,8 @@ import type {
     ReplacementCandidate,
     ReplacementSuggestionResult,
 } from "@/lib/api/schedule-conflict";
+import { getSkills } from "@/lib/api/skills";
+import type { SkillResponse } from "@/lib/api/skills";
 
 interface ReplacementSuggestionModalProps {
     conflict: ScheduleConflict;
@@ -43,6 +46,23 @@ export default function ReplacementSuggestionModal({
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+    // Skill filter state
+    const [skillsList, setSkillsList] = useState<SkillResponse[]>([]);
+    const [filterSkillId, setFilterSkillId] = useState<number | undefined>(undefined);
+
+    // Load available skill catalog for filtering
+    useEffect(() => {
+        if (isOpen) {
+            getSkills().then((res) => {
+                if (Array.isArray(res)) {
+                    setSkillsList(res);
+                }
+            }).catch((err) => {
+                console.warn("Không thể tải danh mục kỹ năng:", err);
+            });
+        }
+    }, [isOpen]);
+
     const loadSuggestions = useCallback(async () => {
         if (!isOpen || !conflict) return;
         setLoading(true);
@@ -50,10 +70,12 @@ export default function ReplacementSuggestionModal({
         setIsForbidden(false);
         setSuccessMsg(null);
         try {
-            const res = await getReplacementSuggestions(conflict.id);
+            const res = await getReplacementSuggestions(conflict.id, filterSkillId);
             setData(res);
             if (res.candidates && res.candidates.length > 0) {
                 setSelectedEmpId(res.candidates[0].employeeId);
+            } else {
+                setSelectedEmpId(null);
             }
         } catch (err: any) {
             console.error("Lỗi khi tải gợi ý nhân sự thay thế:", err);
@@ -65,7 +87,7 @@ export default function ReplacementSuggestionModal({
         } finally {
             setLoading(false);
         }
-    }, [isOpen, conflict]);
+    }, [isOpen, conflict, filterSkillId]);
 
     useEffect(() => {
         loadSuggestions();
@@ -106,10 +128,6 @@ export default function ReplacementSuggestionModal({
                 {/* Modal Header */}
                 <div className="flex items-start justify-between border-b border-slate-100 pb-4">
                     <div>
-                        <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wider mb-1">
-                            <UserCheck className="h-4 w-4" />
-                            <span>NCL-07-CN-002 • Đề xuất Nhân sự Thay thế</span>
-                        </div>
                         <h2 className="text-xl font-extrabold text-slate-900">Gợi ý Người Thay thế cho Xung đột</h2>
                         <p className="text-xs text-slate-500 mt-0.5">
                             Tự động tìm kiếm nhân sự có cùng chuyên môn ở trình độ tương đương và còn đủ giờ rảnh trong tuần.
@@ -137,6 +155,26 @@ export default function ReplacementSuggestionModal({
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
+                        {/* Skill Selector Filter */}
+                        {skillsList.length > 0 && (
+                            <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 shadow-2xs">
+                                <Filter className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                                <span className="text-[11px] font-semibold text-slate-600 shrink-0">Kỹ năng:</span>
+                                <select
+                                    value={filterSkillId || ""}
+                                    onChange={(e) => setFilterSkillId(e.target.value ? Number(e.target.value) : undefined)}
+                                    className="bg-transparent text-xs font-bold text-indigo-700 focus:outline-none cursor-pointer"
+                                >
+                                    <option value="">Tự động chọn kỹ năng</option>
+                                    {skillsList.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <div className="text-right">
                             <p className="text-[11px] text-slate-500 font-medium">Giờ quá tải/vượt:</p>
                             <span className="font-extrabold text-rose-600 text-sm">+{conflict.excessHours}h</span>

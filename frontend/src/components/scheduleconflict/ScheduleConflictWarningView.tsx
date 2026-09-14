@@ -135,10 +135,6 @@ export default function ScheduleConflictWarningView() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
                 <div>
-                    <div className="flex items-center gap-2 text-indigo-600 font-semibold text-xs uppercase tracking-wider mb-1">
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
-                        <span>NCL-07-CN-001 • Quản lý & Theo dõi Phân bổ</span>
-                    </div>
                     <h1 className="text-xl font-bold text-slate-900">Cảnh báo Xung đột Lịch của Nhân sự</h1>
                     <p className="text-xs text-slate-500 mt-1">
                         Rà soát sớm các trường hợp nhân sự bị trùng phân bổ dự án hoặc bị xếp việc trùng đơn nghỉ phép đã duyệt.
