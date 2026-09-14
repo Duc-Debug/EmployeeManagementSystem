@@ -36,12 +36,13 @@ import type { OrgUnitTreeNode } from "@/types/hrm";
 import { getCurrentIsoWeek } from "@/components/availability/availability.types";
 import { BulkAllocateResourceModal } from "@/components/capacity/BulkAllocateResourceModal";
 import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationResultModal";
+import { AllocationAdjustmentModal, type AllocationItem } from "@/components/capacity/AllocationAdjustmentModal";
 import { AllocationPeriodManagementModal } from "@/components/capacity/period/AllocationPeriodManagementModal";
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
   const isCompanyScope = currentUser?.dataScope === "COMPANY";
-  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "") : "";
   const canManageReservations = normalizedRole === "VT-02";
   const canManageAllocations = normalizedRole === "VT-03";
   const canAccessPeriods =
@@ -123,6 +124,30 @@ export default function CompanyWeeklyCapacityView() {
   const [bulkResult, setBulkResult] = useState<BulkAllocationResult | null>(null);
   const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
   const [bulkInitialEmployeeId, setBulkInitialEmployeeId] = useState<number | undefined>(undefined);
+
+  // NCL-06-CN-004: Allocation Adjustment Modal State
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState<boolean>(false);
+  const [adjustmentAllocation, setAdjustmentAllocation] = useState<AllocationItem | null>(null);
+
+  const handleOpenAdjustmentModal = (
+    employeeId: number,
+    employeeName: string,
+    year: number,
+    weekNumber: number,
+    allocatedHours: number
+  ) => {
+    if (!canManageAllocations) return;
+    setAdjustmentAllocation({
+      id: 0,
+      employeeId,
+      employeeName,
+      projectId: 1,
+      year,
+      weekNumber,
+      allocatedHours,
+    });
+    setIsAdjustmentModalOpen(true);
+  };
 
   const candidateEmployees = useMemo(() => {
     return (matrixData?.rows || []).map((r) => ({
@@ -314,6 +339,21 @@ export default function CompanyWeeklyCapacityView() {
       </div>
     ) : null;
 
+    const adjustBadge = canManageAllocations && cell.allocatedHours > 0 ? (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleOpenAdjustmentModal(row.employeeId, row.fullName, cell.year, cell.weekNumber, cell.allocatedHours);
+        }}
+        className="mt-1 flex items-center justify-center gap-1 rounded-md border border-indigo-200 bg-indigo-50/80 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs w-full"
+        title="Điều chỉnh phân bổ nguồn lực (sửa giờ, chuyển tuần, gỡ phân bổ, ghi chú chênh lệch, xem lịch sử - NCL-06-CN-004)"
+      >
+        <SlidersHorizontal className="h-3 w-3 text-indigo-600 shrink-0" />
+        <span>Điều chỉnh</span>
+      </button>
+    ) : null;
+
     if (isZeroAvailability && cell.allocatedHours === 0) {
       return (
         <div
@@ -346,6 +386,7 @@ export default function CompanyWeeklyCapacityView() {
           </span>
           {leaveBadge}
           {reservationBadge}
+          {adjustBadge}
         </div>
       );
     }
@@ -365,6 +406,7 @@ export default function CompanyWeeklyCapacityView() {
           <span className="text-[10px] font-semibold text-amber-600/80">Nhàn rỗi</span>
           {leaveBadge}
           {reservationBadge}
+          {adjustBadge}
         </div>
       );
     }
@@ -384,6 +426,7 @@ export default function CompanyWeeklyCapacityView() {
         </span>
         {leaveBadge}
         {reservationBadge}
+        {adjustBadge}
       </div>
     );
   };
@@ -841,6 +884,17 @@ export default function CompanyWeeklyCapacityView() {
         onClose={() => {
           setIsResultModalOpen(false);
           setBulkResult(null);
+        }}
+      />
+
+      {/* NCL-06-CN-004: Allocation Adjustment Modal */}
+      <AllocationAdjustmentModal
+        open={isAdjustmentModalOpen}
+        allocation={adjustmentAllocation}
+        canManage={canManageAllocations}
+        onClose={() => setIsAdjustmentModalOpen(false)}
+        onSuccess={() => {
+          fetchMatrix();
         }}
       />
 

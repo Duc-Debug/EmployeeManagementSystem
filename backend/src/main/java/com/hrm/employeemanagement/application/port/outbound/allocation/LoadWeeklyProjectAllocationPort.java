@@ -8,6 +8,8 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 
 public interface LoadWeeklyProjectAllocationPort {
 
+    Optional<WeeklyProjectAllocation> findById(Long id);
+
     Optional<WeeklyProjectAllocation> loadAllocation(Long employeeId, Long projectId, YearWeek yearWeek);
 
     List<WeeklyProjectAllocation> loadAllocationsForEmployee(Long employeeId, YearWeek yearWeek);
