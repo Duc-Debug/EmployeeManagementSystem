@@ -53,6 +53,5 @@ public class CapacityThresholdPersistenceMapper {
         entity.setIdleThreshold(domain.getIdleThreshold());
         entity.setUpdatedBy(domain.getUpdatedBy());
         entity.setUpdatedAt(domain.getUpdatedAt());
-        entity.setVersion(domain.getVersion());
     }
 }

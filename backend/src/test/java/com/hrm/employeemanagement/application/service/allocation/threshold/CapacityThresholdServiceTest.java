@@ -144,6 +144,32 @@ class CapacityThresholdServiceTest {
     }
 
     @Test
+    @DisplayName("HIGH #1: Optimistic Locking - Ném InvalidCapacityThresholdException khi update cấu hình hiện có nhưng version bị null")
+    void testConfigureThreshold_NullVersionOnExistingConfig_ThrowsException() {
+        CapacityThresholdConfig existing = new CapacityThresholdConfig(
+                1L, CapacityThresholdScope.COMPANY, "COMPANY", null,
+                BigDecimal.valueOf(100.0), BigDecimal.valueOf(50.0),
+                5L, VT01_USER_ID, LocalDateTime.now(), VT01_USER_ID, LocalDateTime.now()
+        );
+        when(loadCapacityThresholdPort.findByScopeKey("COMPANY")).thenReturn(Optional.of(existing));
+
+        ConfigureCapacityThresholdCommand commandWithoutVersion = new ConfigureCapacityThresholdCommand(
+                CapacityThresholdScope.COMPANY,
+                null,
+                BigDecimal.valueOf(120.0),
+                BigDecimal.valueOf(40.0),
+                null
+        );
+
+        assertThatThrownBy(() -> service.configureThreshold(commandWithoutVersion))
+                .isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("Phiên bản cấu hình (version) là bắt buộc khi cập nhật");
+
+        verify(saveCapacityThresholdPort, never()).save(any());
+        verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
     @DisplayName("HIGH #1: Optimistic Locking - Thành công khi version gửi lên khớp với version DB")
     void testConfigureThreshold_MatchingVersion_Succeeds() {
         CapacityThresholdConfig existing = new CapacityThresholdConfig(
@@ -255,6 +281,20 @@ class CapacityThresholdServiceTest {
         when(loadOrgUnitPort.existsInOrgUnitBranch(999L, 10L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.getEffectiveThreshold(CapacityThresholdScope.ORG_UNIT, 999L))
+                .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("HIGH #2: DataScope SELF - Ném PermissionDeniedException vì user scope cá nhân không được truy cập cấu hình cấp đơn vị")
+    void testGetEffectiveThreshold_SelfDataScope_ThrowsPermissionDenied() {
+        Long selfUserId = 3L;
+        when(authorizationService.requireAny(any())).thenReturn(selfUserId);
+
+        User selfUser = mock(User.class);
+        when(selfUser.getDataScope()).thenReturn(DataScope.SELF);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(selfUser));
+
+        assertThatThrownBy(() -> service.getEffectiveThreshold(CapacityThresholdScope.ORG_UNIT, 10L))
                 .isInstanceOf(PermissionDeniedException.class);
     }
 

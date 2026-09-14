@@ -75,4 +75,34 @@ class CapacityThresholdPolicyTest {
                 .isInstanceOf(InvalidCapacityThresholdException.class)
                 .hasMessageContaining("orgUnitId là bắt buộc");
     }
+
+    @Test
+    @DisplayName("validateVersion: Hợp lệ khi version gửi lên khớp với version hiện tại")
+    void testValidateVersion_Matching_Success() {
+        CapacityThresholdPolicy.validateVersion(5L, 5L);
+        // Không ném ngoại lệ
+    }
+
+    @Test
+    @DisplayName("validateVersion: Hợp lệ khi tạo mới cấu hình (cả hai version đều null)")
+    void testValidateVersion_BothNull_Success() {
+        CapacityThresholdPolicy.validateVersion(null, null);
+        // Không ném ngoại lệ
+    }
+
+    @Test
+    @DisplayName("validateVersion: Ném InvalidCapacityThresholdException khi update bản ghi hiện có nhưng version bị null")
+    void testValidateVersion_NullExpectedVersionOnExisting_ThrowsInvalidCapacityThreshold() {
+        assertThatThrownBy(() -> CapacityThresholdPolicy.validateVersion(null, 5L))
+                .isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("Phiên bản cấu hình (version) là bắt buộc khi cập nhật");
+    }
+
+    @Test
+    @DisplayName("validateVersion: Ném CapacityThresholdVersionConflictException khi version không khớp")
+    void testValidateVersion_Mismatch_ThrowsConflict() {
+        assertThatThrownBy(() -> CapacityThresholdPolicy.validateVersion(4L, 5L))
+                .isInstanceOf(com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException.class)
+                .hasMessageContaining("Cấu hình ngưỡng đã được cập nhật bởi thao tác khác");
+    }
 }

@@ -243,17 +243,7 @@ public class CapacityThresholdService implements
                     throw new PermissionDeniedException(PermissionCode.CAPACITY_THRESHOLD_READ);
                 }
             }
-            case SELF -> {
-                Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-                if (userScopeOrgUnitId != null) {
-                    boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, userScopeOrgUnitId);
-                    if (!inScope) {
-                        throw new PermissionDeniedException(PermissionCode.CAPACITY_THRESHOLD_READ);
-                    }
-                } else {
-                    throw new PermissionDeniedException(PermissionCode.CAPACITY_THRESHOLD_READ);
-                }
-            }
+            case SELF -> throw new PermissionDeniedException(PermissionCode.CAPACITY_THRESHOLD_READ);
             default -> throw new PermissionDeniedException(PermissionCode.CAPACITY_THRESHOLD_READ);
         }
     }

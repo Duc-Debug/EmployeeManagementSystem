@@ -45,13 +45,18 @@ public class CapacityThresholdPolicy {
     }
 
     public static void validateVersion(Long expectedVersion, Long currentVersion) {
-        if (expectedVersion != null && currentVersion != null && !Objects.equals(expectedVersion, currentVersion)) {
-            throw new com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException(
-                    String.format(
-                            "Cấu hình ngưỡng đã được cập nhật bởi thao tác khác (phiên bản hiện tại: %d, phiên bản gửi lên: %d). Vui lòng tải lại dữ liệu mới nhất.",
-                            currentVersion, expectedVersion
-                    )
-            );
+        if (currentVersion != null) {
+            if (expectedVersion == null) {
+                throw new InvalidCapacityThresholdException("Phiên bản cấu hình (version) là bắt buộc khi cập nhật cấu hình đã tồn tại");
+            }
+            if (!Objects.equals(expectedVersion, currentVersion)) {
+                throw new com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException(
+                        String.format(
+                                "Cấu hình ngưỡng đã được cập nhật bởi thao tác khác (phiên bản hiện tại: %d, phiên bản gửi lên: %d). Vui lòng tải lại dữ liệu mới nhất.",
+                                currentVersion, expectedVersion
+                        )
+                );
+            }
         }
     }
 
