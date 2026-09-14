@@ -69,12 +69,19 @@ public class CapacityThresholdPolicy {
         }
     }
 
-    public static String computeScopeKey(CapacityThresholdScope scopeType, Long orgUnitId) {
+    public static void validateScope(CapacityThresholdScope scopeType, Long orgUnitId) {
         Objects.requireNonNull(scopeType, "scopeType không được null");
+        if (scopeType == CapacityThresholdScope.COMPANY && orgUnitId != null) {
+            throw new InvalidCapacityThresholdException("orgUnitId phải null khi scopeType là COMPANY");
+        }
+        if (scopeType == CapacityThresholdScope.ORG_UNIT && orgUnitId == null) {
+            throw new InvalidCapacityThresholdException("orgUnitId là bắt buộc khi scopeType là ORG_UNIT");
+        }
+    }
+
+    public static String computeScopeKey(CapacityThresholdScope scopeType, Long orgUnitId) {
+        validateScope(scopeType, orgUnitId);
         if (scopeType == CapacityThresholdScope.ORG_UNIT) {
-            if (orgUnitId == null) {
-                throw new InvalidCapacityThresholdException("orgUnitId là bắt buộc khi phạm vi là ORG_UNIT");
-            }
             return "ORG_UNIT_" + orgUnitId;
         }
         return "COMPANY";

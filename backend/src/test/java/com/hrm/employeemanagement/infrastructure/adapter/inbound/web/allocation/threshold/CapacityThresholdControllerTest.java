@@ -235,4 +235,26 @@ class CapacityThresholdControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].action").value("UPDATE_CAPACITY_THRESHOLD"));
     }
+
+    @Test
+    @DisplayName("Regression: PUT /api/v1/capacity-thresholds với COMPANY và orgUnitId != null trả về 400 Bad Request")
+    void testConfigureThreshold_CompanyScopeWithOrgUnitId_Returns400() throws Exception {
+        ConfigureCapacityThresholdRequest request = new ConfigureCapacityThresholdRequest(
+                CapacityThresholdScope.COMPANY,
+                123L,
+                BigDecimal.valueOf(120.0),
+                BigDecimal.valueOf(50.0),
+                null
+        );
+
+        when(configureUseCase.configureThreshold(any()))
+                .thenThrow(new InvalidCapacityThresholdException("orgUnitId phải null khi scopeType là COMPANY"));
+
+        mockMvc.perform(put("/api/v1/capacity-thresholds")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_CAPACITY_THRESHOLD"))
+                .andExpect(jsonPath("$.message").value("orgUnitId phải null khi scopeType là COMPANY"));
+    }
 }

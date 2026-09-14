@@ -73,6 +73,7 @@ public class CapacityThresholdService implements
         CapacityThresholdPolicy.validateThresholds(command.overloadThreshold(), command.idleThreshold());
 
         CapacityThresholdScope scopeType = command.scopeType() != null ? command.scopeType() : CapacityThresholdScope.COMPANY;
+        CapacityThresholdPolicy.validateScope(scopeType, command.orgUnitId());
         if (scopeType == CapacityThresholdScope.ORG_UNIT && command.orgUnitId() != null) {
             enforceOrgUnitDataScope(currentUserId, command.orgUnitId());
         }
@@ -115,9 +116,10 @@ public class CapacityThresholdService implements
             String newValue = String.format("{\"overloadThreshold\":%.1f,\"idleThreshold\":%.1f}",
                     command.overloadThreshold(), command.idleThreshold());
 
+            Long normalizedOrgUnitId = (scopeType == CapacityThresholdScope.ORG_UNIT) ? command.orgUnitId() : null;
             CapacityThresholdConfig newConfig = CapacityThresholdConfig.createNew(
                     scopeType,
-                    command.orgUnitId(),
+                    normalizedOrgUnitId,
                     command.overloadThreshold(),
                     command.idleThreshold(),
                     currentUserId

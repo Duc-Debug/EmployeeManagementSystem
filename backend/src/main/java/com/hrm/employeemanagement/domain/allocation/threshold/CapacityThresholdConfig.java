@@ -42,7 +42,7 @@ public class CapacityThresholdConfig {
         this.id = id;
         this.scopeType = Objects.requireNonNull(scopeType, "scopeType không được null");
         this.scopeKey = Objects.requireNonNull(scopeKey, "scopeKey không được null");
-        this.orgUnitId = orgUnitId;
+        this.orgUnitId = (scopeType == CapacityThresholdScope.ORG_UNIT) ? orgUnitId : null;
         this.overloadThreshold = Objects.requireNonNull(overloadThreshold, "overloadThreshold không được null");
         this.idleThreshold = Objects.requireNonNull(idleThreshold, "idleThreshold không được null");
         this.version = version != null ? version : 0L;
@@ -59,14 +59,16 @@ public class CapacityThresholdConfig {
             BigDecimal idleThreshold,
             Long actorUserId
     ) {
+        CapacityThresholdPolicy.validateScope(scopeType, orgUnitId);
         CapacityThresholdPolicy.validateThresholds(overloadThreshold, idleThreshold);
         String scopeKey = CapacityThresholdPolicy.computeScopeKey(scopeType, orgUnitId);
+        Long normalizedOrgUnitId = (scopeType == CapacityThresholdScope.ORG_UNIT) ? orgUnitId : null;
 
         return new CapacityThresholdConfig(
                 null,
                 scopeType,
                 scopeKey,
-                orgUnitId,
+                normalizedOrgUnitId,
                 overloadThreshold,
                 idleThreshold,
                 0L,

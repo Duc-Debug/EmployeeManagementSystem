@@ -91,7 +91,55 @@ class CapacityThresholdPolicyTest {
 
         assertThatThrownBy(() -> CapacityThresholdPolicy.computeScopeKey(CapacityThresholdScope.ORG_UNIT, null))
                 .isInstanceOf(InvalidCapacityThresholdException.class)
-                .hasMessageContaining("orgUnitId là bắt buộc");
+                .hasMessageContaining("orgUnitId là bắt buộc khi scopeType là ORG_UNIT");
+
+        assertThatThrownBy(() -> CapacityThresholdPolicy.computeScopeKey(CapacityThresholdScope.COMPANY, 123L))
+                .isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("orgUnitId phải null khi scopeType là COMPANY");
+    }
+
+    @Test
+    @DisplayName("validateScope: Ném lỗi khi scopeType là COMPANY nhưng orgUnitId khác null")
+    void testValidateScope_CompanyWithOrgUnitId_ThrowsException() {
+        assertThatThrownBy(() -> CapacityThresholdPolicy.validateScope(CapacityThresholdScope.COMPANY, 100L))
+                .isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("orgUnitId phải null khi scopeType là COMPANY");
+    }
+
+    @Test
+    @DisplayName("validateScope: Ném lỗi khi scopeType là ORG_UNIT nhưng orgUnitId null")
+    void testValidateScope_OrgUnitWithNullOrgUnitId_ThrowsException() {
+        assertThatThrownBy(() -> CapacityThresholdPolicy.validateScope(CapacityThresholdScope.ORG_UNIT, null))
+                .isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("orgUnitId là bắt buộc khi scopeType là ORG_UNIT");
+    }
+
+    @Test
+    @DisplayName("CapacityThresholdConfig: constructor và createNew chuẩn hóa orgUnitId thành null khi scopeType là COMPANY")
+    void testCapacityThresholdConfig_NormalizesCompanyOrgUnitId() {
+        CapacityThresholdConfig config = new CapacityThresholdConfig(
+                1L,
+                CapacityThresholdScope.COMPANY,
+                "COMPANY",
+                999L, // truyền orgUnitId nhưng là COMPANY
+                new BigDecimal("100.0"),
+                new BigDecimal("50.0"),
+                0L,
+                1L,
+                null,
+                1L,
+                null
+        );
+        assertThat(config.getOrgUnitId()).isNull();
+
+        assertThatThrownBy(() -> CapacityThresholdConfig.createNew(
+                CapacityThresholdScope.COMPANY,
+                123L,
+                new BigDecimal("100.0"),
+                new BigDecimal("50.0"),
+                1L
+        )).isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("orgUnitId phải null khi scopeType là COMPANY");
     }
 
     @Test

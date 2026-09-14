@@ -406,4 +406,37 @@ class CapacityThresholdServiceTest {
         assertThatThrownBy(() -> service.getEffectiveThreshold(CapacityThresholdScope.COMPANY, null))
                 .isInstanceOf(PermissionDeniedException.class);
     }
+
+    @Test
+    @DisplayName("Regression Consistency: configureThreshold ném InvalidCapacityThresholdException khi scopeType là COMPANY nhưng orgUnitId khác null")
+    void testConfigureThreshold_CompanyScopeWithOrgUnitId_ThrowsException() {
+        when(authorizationService.require(PermissionCode.CAPACITY_THRESHOLD_MANAGE)).thenReturn(VT01_USER_ID);
+
+        ConfigureCapacityThresholdCommand command = new ConfigureCapacityThresholdCommand(
+                CapacityThresholdScope.COMPANY,
+                123L, // Không hợp lệ cho COMPANY scope
+                new BigDecimal("120.0"),
+                new BigDecimal("50.0"),
+                null
+        );
+
+        assertThatThrownBy(() -> service.configureThreshold(command))
+                .isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("orgUnitId phải null khi scopeType là COMPANY");
+
+        verify(saveCapacityThresholdPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Regression Consistency: getEffectiveThreshold ném InvalidCapacityThresholdException khi scopeType là COMPANY nhưng orgUnitId khác null")
+    void testGetEffectiveThreshold_CompanyScopeWithOrgUnitId_ThrowsException() {
+        when(authorizationService.requireAny(
+                PermissionCode.CAPACITY_THRESHOLD_READ,
+                PermissionCode.CAPACITY_THRESHOLD_MANAGE
+        )).thenReturn(VT01_USER_ID);
+
+        assertThatThrownBy(() -> service.getEffectiveThreshold(CapacityThresholdScope.COMPANY, 123L))
+                .isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("orgUnitId phải null khi scopeType là COMPANY");
+    }
 }
