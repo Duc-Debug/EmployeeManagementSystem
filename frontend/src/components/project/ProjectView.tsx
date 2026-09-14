@@ -47,6 +47,7 @@ import {
     Kanban,
     Edit3,
     MoreHorizontal,
+    ClipboardCheck,
 } from 'lucide-react';
 import { TaskDependencyModal } from '../task/TaskDependencyModal';
 import {
@@ -89,6 +90,7 @@ import { ProjectCloseModal } from './ProjectCloseModal';
 import { ProjectReopenModal } from './ProjectReopenModal';
 import { MilestoneListView } from './milestone/MilestoneListView';
 import TaskBoardView from '../task/TaskBoardView';
+import { ProjectTaskTrackingView } from './ProjectTaskTrackingView';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
@@ -270,7 +272,7 @@ export default function ProjectView() {
     const canManageAllocations = isRm;
     const canManageProject = isPm;
     const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones' | 'board'>(() => {
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones' | 'board' | 'tracking'>(() => {
         return canReadAllocations ? 'split' : 'wbs';
     });
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
@@ -1532,10 +1534,22 @@ export default function ProjectView() {
                         <Kanban className="h-3.5 w-3.5" />
                         <span>Bảng Kanban</span>
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('tracking')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                            viewMode === 'tracking'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <ClipboardCheck className="h-3.5 w-3.5" />
+                        <span>Bảng theo dõi</span>
+                    </button>
                 </div>
 
-                {/* Filters (Ẩn khi ở tab Mốc tiến độ, Ước lượng nhu cầu hoặc Bảng Kanban) */}
-                {viewMode !== 'milestones' && viewMode !== 'demand' && viewMode !== 'board' && (
+                {/* Filters (Ẩn khi ở tab Mốc tiến độ, Ước lượng nhu cầu, Bảng Kanban hoặc Bảng theo dõi) */}
+                {viewMode !== 'milestones' && viewMode !== 'demand' && viewMode !== 'board' && viewMode !== 'tracking' && (
                     <div className="flex w-full flex-wrap items-center justify-end gap-2 xl:w-auto shrink-0">
                         {/* Search */}
                         <div className="relative flex-1 sm:w-56">
@@ -1667,6 +1681,25 @@ export default function ProjectView() {
                         <TaskBoardView
                             defaultProjectId={selectedProjectId ? selectedProjectId : undefined}
                         />
+                    </div>
+                )}
+
+                {/* Section 6: Task Tracking Board (NCL-04-CN-003) */}
+                {viewMode === 'tracking' && (
+                    <div className="lg:col-span-12">
+                        {selectedProjectId ? (
+                            <ProjectTaskTrackingView
+                                projectId={selectedProjectId}
+                                isProjectClosed={isProjectClosed}
+                                onNavigateToWbs={() => setViewMode('wbs')}
+                            />
+                        ) : (
+                            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">
+                                <ClipboardCheck className="mx-auto h-10 w-10 text-slate-300 mb-3" />
+                                <h3 className="text-sm font-bold text-slate-700">Chưa chọn dự án</h3>
+                                <p className="text-xs text-slate-400 mt-1">Vui lòng chọn một dự án ở thanh phía trên để xem bảng theo dõi công việc.</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
