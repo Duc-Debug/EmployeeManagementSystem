@@ -38,6 +38,7 @@ import { BulkAllocateResourceModal } from "@/components/capacity/BulkAllocateRes
 import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationResultModal";
 import { AllocationAdjustmentModal, type AllocationItem } from "@/components/capacity/AllocationAdjustmentModal";
 import { AllocationPeriodManagementModal } from "@/components/capacity/period/AllocationPeriodManagementModal";
+import { CapacityThresholdConfigModal } from "@/components/capacity/CapacityThresholdConfigModal";
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
@@ -47,6 +48,10 @@ export default function CompanyWeeklyCapacityView() {
   const canManageAllocations = normalizedRole === "VT-03";
   const canAccessPeriods =
     normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
+  const canConfigureThresholds = normalizedRole === "VT-01";
+
+  // NCL-07-CN-004: State cho Modal Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23)
+  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -518,6 +523,19 @@ export default function CompanyWeeklyCapacityView() {
               <span>Kế hoạch kỳ (QTN-18)</span>
             </button>
           )}
+
+          {/* NCL-07-CN-004: Nút Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23) */}
+          {canConfigureThresholds && (
+            <button
+              type="button"
+              onClick={() => setIsThresholdModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
+              title="Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (NCL-07-CN-004 / QTN-23)"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
+              <span>Cấu hình ngưỡng (QTN-23)</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -905,6 +923,15 @@ export default function CompanyWeeklyCapacityView() {
         onClose={() => setIsPeriodModalOpen(false)}
         onPeriodChanged={() => {
           loadLockedPeriods();
+          fetchMatrix();
+        }}
+      />
+
+      {/* NCL-07-CN-004: Capacity Threshold Config Modal (QTN-23) */}
+      <CapacityThresholdConfigModal
+        open={isThresholdModalOpen}
+        onClose={() => setIsThresholdModalOpen(false)}
+        onSuccess={() => {
           fetchMatrix();
         }}
       />

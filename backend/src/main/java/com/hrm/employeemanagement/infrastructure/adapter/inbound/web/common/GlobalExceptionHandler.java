@@ -260,6 +260,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.InvalidCapacityThresholdException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCapacityThreshold(com.hrm.employeemanagement.domain.exception.allocation.InvalidCapacityThresholdException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_CAPACITY_THRESHOLD",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCapacityThresholdNotFound(com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CAPACITY_THRESHOLD_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     // 7. Handle Generic DomainException (400 BAD REQUEST)
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleGenericDomainException(DomainException ex) {

@@ -42,6 +42,9 @@ import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.reservation.ResourceReservation;
 
@@ -58,6 +61,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final LoadResourceReservationPort loadReservationPort;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final LoadCapacityThresholdPort loadCapacityThresholdPort;
 
     public GetCompanyWeeklyCapacityService(
             AuthorizationService authorizationService,
@@ -125,6 +129,36 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             LoadResourceReservationPort loadReservationPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
+        this(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort,
+                loadReservationPort,
+                saveAuditLogPort,
+                null
+        );
+    }
+
+    public GetCompanyWeeklyCapacityService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadResourceReservationPort loadReservationPort,
+            SaveAuditLogPort saveAuditLogPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
@@ -136,6 +170,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
         this.loadReservationPort = loadReservationPort;
         this.saveAuditLogPort = saveAuditLogPort;
+        this.loadCapacityThresholdPort = loadCapacityThresholdPort;
     }
 
     @Override
@@ -267,6 +302,23 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         yw -> WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yw, holidays, workingDays)
                 ));
 
+        // Tra cứu cấu hình ngưỡng cảnh báo năng lực hiệu lực hiện hành theo QTN-23
+        BigDecimal overloadThreshold = WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD;
+        BigDecimal idleThreshold = WeeklyCapacityMatrixPolicy.UNDERUTILIZED_THRESHOLD;
+        if (loadCapacityThresholdPort != null) {
+            Optional<CapacityThresholdConfig> configOpt = Optional.empty();
+            if (effectiveOrgUnitId != null) {
+                configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.ORG_UNIT, effectiveOrgUnitId);
+            }
+            if (configOpt.isEmpty()) {
+                configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.COMPANY, null);
+            }
+            if (configOpt.isPresent()) {
+                overloadThreshold = configOpt.get().getOverloadThreshold();
+                idleThreshold = configOpt.get().getIdleThreshold();
+            }
+        }
+
         // [🔴 HIGH REVIEW FIX]: Phân trang Server-side thực thụ ở tầng Database
         // Khi không có bộ lọc trạng thái (status == null), truy vấn phân trang trực tiếp từ DB
         // CHỈ nạp đúng pageSize nhân sự và CHỈ batch-load DB cho các nhân sự trên trang đó
@@ -300,7 +352,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
 
             List<Employee> pageEmployees = loadEmployeePort.findActivePaged(branchIds, search, pageSize, offset);
 
-            ComputationResult computation = computeMatrixForEmployees(pageEmployees, targetWeeks, workingDays, holidayHoursByWeek);
+            ComputationResult computation = computeMatrixForEmployees(pageEmployees, targetWeeks, workingDays, holidayHoursByWeek, overloadThreshold, idleThreshold);
 
             return new CompanyWeeklyCapacityMatrixResult(
                     effectiveOrgUnitId,
@@ -370,7 +422,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     .toList();
         }
 
-        ComputationResult computation = computeMatrixForEmployees(candidatesToEvaluate, targetWeeks, workingDays, holidayHoursByWeek);
+        ComputationResult computation = computeMatrixForEmployees(candidatesToEvaluate, targetWeeks, workingDays, holidayHoursByWeek, overloadThreshold, idleThreshold);
         List<EmployeeCapacityRowResult> matchingRows = computation.rows().stream()
                 .filter(r -> matchesStatus(r, query.status()))
                 .toList();
@@ -410,14 +462,29 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
     }
 
     /**
-     * Tính toán ma trận năng lực tuần cho danh sách nhân sự mục tiêu.
-     * Chỉ batch-load dữ liệu phân bổ, khả dụng và nghỉ phép cho đúng danh sách này.
+     * Tính toán ma trận năng lực tuần cho danh sách nhân sự mục tiêu theo ngưỡng mặc định.
      */
     private ComputationResult computeMatrixForEmployees(
             List<Employee> targetEmployees,
             List<YearWeek> targetWeeks,
             Set<DayOfWeek> workingDays,
             Map<YearWeek, Integer> holidayHoursByWeek
+    ) {
+        return computeMatrixForEmployees(targetEmployees, targetWeeks, workingDays, holidayHoursByWeek,
+                WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD, WeeklyCapacityMatrixPolicy.UNDERUTILIZED_THRESHOLD);
+    }
+
+    /**
+     * Tính toán ma trận năng lực tuần cho danh sách nhân sự mục tiêu với ngưỡng cấu hình động (QTN-23).
+     * Chỉ batch-load dữ liệu phân bổ, khả dụng và nghỉ phép cho đúng danh sách này.
+     */
+    private ComputationResult computeMatrixForEmployees(
+            List<Employee> targetEmployees,
+            List<YearWeek> targetWeeks,
+            Set<DayOfWeek> workingDays,
+            Map<YearWeek, Integer> holidayHoursByWeek,
+            BigDecimal overloadThreshold,
+            BigDecimal idleThreshold
     ) {
         if (targetEmployees == null || targetEmployees.isEmpty()) {
             return new ComputationResult(List.of(), new CapacityMatrixSummaryResult(0, targetWeeks.size(), 0, 0, 0, BigDecimal.ZERO));
@@ -501,12 +568,12 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 BigDecimal allocatedHours = allocationMap.getOrDefault(key, BigDecimal.ZERO);
                 BigDecimal reservedHours = reservationMap.getOrDefault(key, BigDecimal.ZERO);
 
-                // 4. Áp dụng QTN-12: Giữ chỗ KHÔNG cộng vào allocatedHours (QTN-13)
-                boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(allocatedHours, availableHours);
+                // 4. Áp dụng QTN-12 & QTN-23: Giữ chỗ KHÔNG cộng vào allocatedHours (QTN-13)
+                CapacityStatus status = WeeklyCapacityMatrixPolicy.determineStatus(allocatedHours, availableHours, overloadThreshold, idleThreshold);
+                boolean isOverloaded = (status == CapacityStatus.OVERLOADED);
                 BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(allocatedHours, availableHours);
                 BigDecimal remainingHours = WeeklyCapacityMatrixPolicy.calculateRemainingHours(availableHours, allocatedHours);
                 BigDecimal utilizationPercentage = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(allocatedHours, availableHours);
-                CapacityStatus status = WeeklyCapacityMatrixPolicy.determineStatus(allocatedHours, availableHours);
 
                 if (isOverloaded) {
                     overloadedWeeksCount++;
