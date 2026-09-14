@@ -11,6 +11,7 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.template.
 import com.hrm.employeemanagement.application.port.outbound.allocation.template.SaveRoleAllocationTemplatePort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
@@ -33,6 +34,7 @@ public class RoleAllocationTemplateUseCaseConfig {
             LoadRoleAllocationTemplatePort loadTemplatePort,
             LoadProjectRoleAllocationStructurePort loadStructurePort,
             LoadProjectPort loadProjectPort,
+            LoadOrgUnitPort loadOrgUnitPort,
             LoadProjectRolePort loadRolePort,
             LoadEmployeePort loadEmployeePort,
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
@@ -49,6 +51,7 @@ public class RoleAllocationTemplateUseCaseConfig {
                 loadTemplatePort,
                 loadStructurePort,
                 loadProjectPort,
+                loadOrgUnitPort,
                 loadRolePort,
                 loadEmployeePort,
                 loadWeeklyAvailabilityPort,
@@ -61,4 +64,3 @@ public class RoleAllocationTemplateUseCaseConfig {
         return new TransactionalRoleAllocationTemplateServiceDecorator(pureJavaService);
     }
 }
-

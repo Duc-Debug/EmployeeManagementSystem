@@ -3,12 +3,12 @@ package com.hrm.employeemanagement.application.service.allocation.template;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.allocation.template.ApplyRoleAllocationTemplateCommand;
@@ -31,6 +31,7 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.template.
 import com.hrm.employeemanagement.application.port.outbound.allocation.template.SaveRoleAllocationTemplatePort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
@@ -50,15 +51,19 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.DuplicateRoleAllocationTemplateCodeException;
+import com.hrm.employeemanagement.domain.exception.allocation.InvalidRoleAllocationTemplateException;
+import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.RoleAllocationTemplateNotFoundException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.User;
 
 public class RoleAllocationTemplateService implements
         CreateRoleAllocationTemplateUseCase,
@@ -73,6 +78,7 @@ public class RoleAllocationTemplateService implements
     private final LoadRoleAllocationTemplatePort loadTemplatePort;
     private final LoadProjectRoleAllocationStructurePort loadStructurePort;
     private final LoadProjectPort loadProjectPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadProjectRolePort loadRolePort;
     private final LoadEmployeePort loadEmployeePort;
     private final LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
@@ -89,6 +95,7 @@ public class RoleAllocationTemplateService implements
             LoadRoleAllocationTemplatePort loadTemplatePort,
             LoadProjectRoleAllocationStructurePort loadStructurePort,
             LoadProjectPort loadProjectPort,
+            LoadOrgUnitPort loadOrgUnitPort,
             LoadProjectRolePort loadRolePort,
             LoadEmployeePort loadEmployeePort,
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
@@ -104,6 +111,7 @@ public class RoleAllocationTemplateService implements
         this.loadTemplatePort = loadTemplatePort;
         this.loadStructurePort = loadStructurePort;
         this.loadProjectPort = loadProjectPort;
+        this.loadOrgUnitPort = loadOrgUnitPort;
         this.loadRolePort = loadRolePort;
         this.loadEmployeePort = loadEmployeePort;
         this.loadWeeklyAvailabilityPort = loadWeeklyAvailabilityPort;
@@ -190,24 +198,31 @@ public class RoleAllocationTemplateService implements
 
     @Override
     public List<ProjectRoleStructureItem> getStructureFromProject(Long projectId) {
-        requirePermission();
-        loadProjectPort.findById(new ProjectId(projectId))
+        Long currentUserId = requirePermission();
+        User currentUser = loadCurrentUser(currentUserId);
+        Project project = loadProjectPort.findById(new ProjectId(projectId))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án: " + projectId));
+        requireProjectInDataScope(currentUser, project);
         return loadStructurePort.extractRoleStructureFromProject(projectId);
     }
 
     @Override
     public PreviewRoleAllocationResult previewSuggestion(Long templateId, Long targetProjectId) {
-        requirePermission();
+        Long currentUserId = requirePermission();
+        User currentUser = loadCurrentUser(currentUserId);
 
         ProjectRoleAllocationTemplate template = loadTemplatePort.findById(templateId)
                 .orElseThrow(() -> new RoleAllocationTemplateNotFoundException(templateId));
 
         Project targetProject = loadProjectPort.findById(new ProjectId(targetProjectId))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án: " + targetProjectId));
+        requireProjectInDataScope(currentUser, targetProject);
+        requireActiveProject(targetProject);
 
         List<YearWeek> targetWeeks = buildTargetWeeks(targetProject);
-        List<Employee> activeEmployees = loadEmployeePort.findAllActive();
+        List<Employee> activeEmployees = loadEmployeePort.findAllActive().stream()
+                .filter(employee -> isOrgUnitInDataScope(currentUser, employee.getOrgUnitId()))
+                .collect(Collectors.toList());
         List<Long> employeeIds = activeEmployees.stream().map(Employee::getIdValue).collect(Collectors.toList());
 
         // Batch load availability và allocations trong các tuần dự án
@@ -311,64 +326,75 @@ public class RoleAllocationTemplateService implements
     @Override
     public ApplyRoleAllocationTemplateResult applyTemplate(ApplyRoleAllocationTemplateCommand command) {
         Long currentUserId = requirePermission();
+        User currentUser = loadCurrentUser(currentUserId);
 
         ProjectRoleAllocationTemplate template = loadTemplatePort.findById(command.templateId())
                 .orElseThrow(() -> new RoleAllocationTemplateNotFoundException(command.templateId()));
 
         Project targetProject = loadProjectPort.findById(new ProjectId(command.targetProjectId()))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án: " + command.targetProjectId()));
+        requireProjectInDataScope(currentUser, targetProject);
+        requireActiveProject(targetProject);
 
         List<YearWeek> targetWeeks = buildTargetWeeks(targetProject);
         Map<Long, ProjectRole> roleMap = loadRolePort.findAll().stream()
                 .collect(Collectors.toMap(r -> r.getId().value(), r -> r, (r1, r2) -> r1));
 
-        int appliedRolesCount = 0;
-        int allocatedEmployeesCount = 0;
+        List<ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand> assignments =
+                command.assignments() != null ? command.assignments() : List.of();
+        Map<Long, ProjectRoleAllocationTemplateItem> templateItems = template.getItems().stream()
+                .collect(Collectors.toMap(ProjectRoleAllocationTemplateItem::getRoleId, item -> item));
+        validateAssignments(assignments, templateItems, roleMap);
+
+        Map<Long, Employee> employees = loadEmployeePort.findAllActive().stream()
+                .collect(Collectors.toMap(Employee::getIdValue, employee -> employee, (a, b) -> a));
+        Map<Long, BigDecimal> desiredHoursByEmployee = new HashMap<>();
+        for (ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand item : assignments) {
+            if (item.employeeId() != null) {
+                Employee employee = employees.get(item.employeeId());
+                ProjectRole role = roleMap.get(item.roleId());
+                validateEmployeeAssignment(currentUser, employee, role, item.employeeId());
+                desiredHoursByEmployee.merge(item.employeeId(), item.hoursPerWeek(), BigDecimal::add);
+            }
+        }
+        validateCapacity(desiredHoursByEmployee, employees, targetProject, targetWeeks);
+
+        int appliedRolesCount = assignments.size();
+        int allocatedEmployeesCount = desiredHoursByEmployee.size();
         int unassignedRolesCount = 0;
         List<String> warnings = new ArrayList<>();
 
-        if (command.assignments() != null) {
-            for (ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand item : command.assignments()) {
-                appliedRolesCount++;
-                Long roleId = item.roleId();
-                BigDecimal hoursPerWeek = item.hoursPerWeek();
-                ProjectRole role = roleMap.get(roleId);
-                String roleName = role != null ? role.getName() : "Vai trò " + roleId;
+        for (ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand item : assignments) {
+            ProjectRole role = roleMap.get(item.roleId());
+            for (YearWeek yw : targetWeeks) {
+                ProjectResourceDemand demand = loadDemandPort
+                        .findByProjectIdAndRoleIdAndYearWeek(
+                                targetProject.getId(), new ProjectRoleId(item.roleId()), yw)
+                        .map(existing -> {
+                            existing.updateRequiredHours(item.hoursPerWeek());
+                            return existing;
+                        })
+                        .orElseGet(() -> ProjectResourceDemand.createNew(
+                                targetProject.getId(), new ProjectRoleId(item.roleId()), yw, item.hoursPerWeek()));
+                saveDemandPort.save(demand);
+            }
+            if (item.employeeId() == null) {
+                unassignedRolesCount++;
+                warnings.add("Cần bổ sung nhân sự cho vai trò " + role.getName());
+            }
+        }
 
-                // 1. Tạo/cập nhật nhu cầu nhân sự (ProjectResourceDemand) cho từng tuần của dự án
-                for (YearWeek yw : targetWeeks) {
-                    ProjectResourceDemand demand = ProjectResourceDemand.createNew(
-                            targetProject.getId(),
-                            new ProjectRoleId(roleId),
-                            yw,
-                            hoursPerWeek
-                    );
-                    saveDemandPort.save(demand);
-                }
-
-                // 2. Nếu có gán nhân sự -> Tạo WeeklyProjectAllocation cho từng tuần
-                if (item.employeeId() != null) {
-                    allocatedEmployeesCount++;
-                    for (YearWeek yw : targetWeeks) {
-                        Optional<WeeklyProjectAllocation> existingAlloc = loadAllocationPort.loadAllocation(item.employeeId(), targetProject.getId().value(), yw);
-                        if (existingAlloc.isPresent()) {
-                            WeeklyProjectAllocation alloc = existingAlloc.get();
-                            alloc.updateAllocatedHours(alloc.getAllocatedHours().add(hoursPerWeek));
-                            saveAllocationPort.save(alloc);
-                        } else {
-                            WeeklyProjectAllocation newAlloc = WeeklyProjectAllocation.createNew(
-                                    item.employeeId(),
-                                    targetProject.getId().value(),
-                                    yw,
-                                    hoursPerWeek
-                            );
-                            saveAllocationPort.save(newAlloc);
-                        }
-                    }
-                } else {
-                    unassignedRolesCount++;
-                    warnings.add("Cần bổ sung nhân sự cho vai trò " + roleName);
-                }
+        for (Map.Entry<Long, BigDecimal> employeeHours : desiredHoursByEmployee.entrySet()) {
+            for (YearWeek yw : targetWeeks) {
+                WeeklyProjectAllocation allocation = loadAllocationPort
+                        .loadAllocation(employeeHours.getKey(), targetProject.getId().value(), yw)
+                        .map(existing -> {
+                            existing.updateAllocation(employeeHours.getValue(), null);
+                            return existing;
+                        })
+                        .orElseGet(() -> WeeklyProjectAllocation.createNew(
+                                employeeHours.getKey(), targetProject.getId().value(), yw, employeeHours.getValue()));
+                saveAllocationPort.save(allocation);
             }
         }
 
@@ -395,6 +421,95 @@ public class RoleAllocationTemplateService implements
                 warnings,
                 message
         );
+    }
+
+    private void validateAssignments(
+            List<ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand> assignments,
+            Map<Long, ProjectRoleAllocationTemplateItem> templateItems,
+            Map<Long, ProjectRole> roleMap) {
+        if (assignments.size() != templateItems.size()) {
+            throw new InvalidRoleAllocationTemplateException("Danh sách phân bổ phải chứa đúng các vai trò của mẫu");
+        }
+        Set<Long> seenRoles = new HashSet<>();
+        for (ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand item : assignments) {
+            ProjectRoleAllocationTemplateItem templateItem = templateItems.get(item.roleId());
+            if (templateItem == null || !seenRoles.add(item.roleId()) || !roleMap.containsKey(item.roleId())) {
+                throw new InvalidRoleAllocationTemplateException("Vai trò phân bổ không hợp lệ: " + item.roleId());
+            }
+            if (item.hoursPerWeek() == null || item.hoursPerWeek().compareTo(templateItem.getHoursPerWeek()) != 0) {
+                throw new InvalidRoleAllocationTemplateException("Số giờ của vai trò " + item.roleId() + " không khớp với mẫu");
+            }
+        }
+    }
+
+    private void validateEmployeeAssignment(User currentUser, Employee employee, ProjectRole role, Long employeeId) {
+        if (employee == null || employee.getStatus() != EmployeeStatus.ACTIVE) {
+            throw new InvalidRoleAllocationTemplateException("Nhân viên không tồn tại hoặc không hoạt động: " + employeeId);
+        }
+        String professionalRole = employee.getProfessionalRole();
+        if (professionalRole == null || (!professionalRole.equalsIgnoreCase(role.getCode())
+                && !professionalRole.equalsIgnoreCase(role.getName()))) {
+            throw new InvalidRoleAllocationTemplateException("Nhân viên " + employeeId + " không phù hợp với vai trò " + role.getName());
+        }
+        requireOrgUnitInDataScope(currentUser, employee.getOrgUnitId());
+    }
+
+    private void validateCapacity(Map<Long, BigDecimal> desiredHoursByEmployee, Map<Long, Employee> employees,
+            Project targetProject, List<YearWeek> targetWeeks) {
+        for (Map.Entry<Long, BigDecimal> desired : desiredHoursByEmployee.entrySet()) {
+            Employee employee = employees.get(desired.getKey());
+            for (YearWeek yw : targetWeeks) {
+                BigDecimal available = loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(desired.getKey(), yw)
+                        .map(WeeklyAvailability::getNetAvailableHours)
+                        .orElse(BigDecimal.valueOf(employee.getStandardHoursPerWeek()));
+                BigDecimal allocatedToOtherProjects = loadAllocationPort.loadAllocationsForEmployee(desired.getKey(), yw).stream()
+                        .filter(allocation -> !targetProject.getId().value().equals(allocation.getProjectId()))
+                        .map(WeeklyProjectAllocation::getAllocatedHours)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (desired.getValue().compareTo(available.subtract(allocatedToOtherProjects)) > 0) {
+                    throw new InvalidRoleAllocationTemplateException(
+                            "Nhân viên " + desired.getKey() + " không đủ năng lực trong tuần " + yw.weekNumber());
+                }
+            }
+        }
+    }
+
+    private User loadCurrentUser(Long currentUserId) {
+        return loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE));
+    }
+
+    private void requireProjectInDataScope(User currentUser, Project project) {
+        boolean allowed = switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case ORGANIZATION_BRANCH -> currentUser.getScopeOrgUnitId() != null
+                    && loadProjectPort.existsInOrgUnitBranch(project.getId().value(), currentUser.getScopeOrgUnitId());
+            case SELF -> false;
+        };
+        if (!allowed) {
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+        }
+    }
+
+    private void requireOrgUnitInDataScope(User currentUser, Long orgUnitId) {
+        if (!isOrgUnitInDataScope(currentUser, orgUnitId)) {
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+        }
+    }
+
+    private boolean isOrgUnitInDataScope(User currentUser, Long orgUnitId) {
+        return switch (currentUser.getDataScope()) {
+            case COMPANY -> true;
+            case ORGANIZATION_BRANCH -> orgUnitId != null && currentUser.getScopeOrgUnitId() != null
+                    && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, currentUser.getScopeOrgUnitId());
+            case SELF -> false;
+        };
+    }
+
+    private void requireActiveProject(Project project) {
+        if (project.getStatus() != ProjectStatus.ACTIVE) {
+            throw new ProjectInactiveException("Dự án không ở trạng thái hoạt động: " + project.getId().value());
+        }
     }
 
     private List<YearWeek> buildTargetWeeks(Project project) {

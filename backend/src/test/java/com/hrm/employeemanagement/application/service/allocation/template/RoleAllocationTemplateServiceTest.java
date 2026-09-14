@@ -25,6 +25,7 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.template.
 import com.hrm.employeemanagement.application.port.outbound.allocation.template.SaveRoleAllocationTemplatePort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
@@ -34,25 +35,32 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.template.ProjectRoleAllocationTemplate;
 import com.hrm.employeemanagement.domain.allocation.template.ProjectRoleAllocationTemplateItem;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.allocation.InvalidRoleAllocationTemplateException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
+import com.hrm.employeemanagement.domain.project.demand.ProjectResourceDemand;
 import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.User;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -72,6 +80,8 @@ class RoleAllocationTemplateServiceTest {
     private LoadProjectRoleAllocationStructurePort loadStructurePort;
     @Mock
     private LoadProjectPort loadProjectPort;
+    @Mock
+    private LoadOrgUnitPort loadOrgUnitPort;
     @Mock
     private LoadProjectRolePort loadRolePort;
     @Mock
@@ -105,6 +115,7 @@ class RoleAllocationTemplateServiceTest {
                 loadTemplatePort,
                 loadStructurePort,
                 loadProjectPort,
+                loadOrgUnitPort,
                 loadRolePort,
                 loadEmployeePort,
                 loadWeeklyAvailabilityPort,
@@ -114,6 +125,10 @@ class RoleAllocationTemplateServiceTest {
                 saveDemandPort,
                 saveAuditLogPort
         );
+
+        User currentUser = mock(User.class);
+        lenient().when(loadUserPort.findById(new UserId(99L))).thenReturn(Optional.of(currentUser));
+        lenient().when(currentUser.getDataScope()).thenReturn(DataScope.COMPANY);
 
         devRole = new ProjectRole(new ProjectRoleId(1L), "DEV", "Developer", "Dev role");
         testRole = new ProjectRole(new ProjectRoleId(2L), "TEST", "Tester", "Test role");
@@ -290,6 +305,9 @@ class RoleAllocationTemplateServiceTest {
         when(loadTemplatePort.findById(1L)).thenReturn(Optional.of(template));
         when(loadProjectPort.findById(new ProjectId(200L))).thenReturn(Optional.of(targetProject));
         when(loadRolePort.findAll()).thenReturn(List.of(devRole));
+        Employee empDev = new Employee(new EmployeeId(101L), new UserId(1L), 1L,
+                "EMP01", "Dev Nguyen", "DEV", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(empDev));
 
         ApplyRoleAllocationTemplateCommand command = new ApplyRoleAllocationTemplateCommand(
                 1L,
@@ -306,5 +324,60 @@ class RoleAllocationTemplateServiceTest {
         assertThat(logged.getAction()).isEqualTo("APPLY_ROLE_ALLOCATION_TEMPLATE");
         assertThat(logged.getTableName()).isEqualTo("ROLE_ALLOCATION_TEMPLATE");
         assertThat(logged.getRecordId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("Apply lặp lại đồng bộ số giờ, không cộng dồn allocation hoặc tạo demand trùng")
+    void applyTemplate_RepeatedRequest_ShouldRemainIdempotent() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
+        ProjectRoleAllocationTemplate template = new ProjectRoleAllocationTemplate(
+                1L, "TPL_DEV", "Dev", null, null, 99L, null, null, 0L,
+                List.of(new ProjectRoleAllocationTemplateItem(10L, 1L, 1L, BigDecimal.valueOf(40))));
+        Employee employee = new Employee(new EmployeeId(101L), new UserId(1L), 1L,
+                "EMP01", "Dev Nguyen", "DEV", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        YearWeek week = YearWeek.from(targetProject.getStartDate());
+        ProjectResourceDemand existingDemand = ProjectResourceDemand.createNew(
+                targetProject.getId(), devRole.getId(), week, BigDecimal.valueOf(10));
+        WeeklyProjectAllocation existingAllocation = new WeeklyProjectAllocation(
+                1L, 101L, targetProject.getId().value(), week, BigDecimal.valueOf(15));
+
+        when(loadTemplatePort.findById(1L)).thenReturn(Optional.of(template));
+        when(loadProjectPort.findById(targetProject.getId())).thenReturn(Optional.of(targetProject));
+        when(loadRolePort.findAll()).thenReturn(List.of(devRole));
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(employee));
+        when(loadDemandPort.findByProjectIdAndRoleIdAndYearWeek(any(), any(), any()))
+                .thenReturn(Optional.of(existingDemand));
+        when(loadAllocationPort.loadAllocation(any(), any(), any())).thenReturn(Optional.of(existingAllocation));
+
+        ApplyRoleAllocationTemplateCommand command = new ApplyRoleAllocationTemplateCommand(1L, 200L,
+                List.of(new ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand(
+                        1L, 101L, BigDecimal.valueOf(40))));
+
+        service.applyTemplate(command);
+        service.applyTemplate(command);
+
+        assertThat(existingDemand.getRequiredHours()).isEqualByComparingTo("40");
+        assertThat(existingAllocation.getAllocatedHours()).isEqualByComparingTo("40");
+    }
+
+    @Test
+    @DisplayName("Từ chối số giờ do client sửa khác với template trước khi ghi dữ liệu")
+    void applyTemplate_TamperedHours_ShouldBeRejectedBeforeWrite() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
+        ProjectRoleAllocationTemplate template = new ProjectRoleAllocationTemplate(
+                1L, "TPL_DEV", "Dev", null, null, 99L, null, null, 0L,
+                List.of(new ProjectRoleAllocationTemplateItem(10L, 1L, 1L, BigDecimal.valueOf(40))));
+        when(loadTemplatePort.findById(1L)).thenReturn(Optional.of(template));
+        when(loadProjectPort.findById(targetProject.getId())).thenReturn(Optional.of(targetProject));
+        when(loadRolePort.findAll()).thenReturn(List.of(devRole));
+
+        ApplyRoleAllocationTemplateCommand command = new ApplyRoleAllocationTemplateCommand(1L, 200L,
+                List.of(new ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand(
+                        1L, 101L, BigDecimal.valueOf(80))));
+
+        assertThatThrownBy(() -> service.applyTemplate(command))
+                .isInstanceOf(InvalidRoleAllocationTemplateException.class);
+        verify(saveDemandPort, never()).save(any());
+        verify(saveAllocationPort, never()).save(any());
     }
 }
