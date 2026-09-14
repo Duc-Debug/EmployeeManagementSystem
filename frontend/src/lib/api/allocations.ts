@@ -258,6 +258,8 @@ export interface CompanyWeeklyCapacityMatrixData {
   pageSize: number;
   totalEmployees: number;
   totalPages: number;
+  overloadThreshold?: number;
+  idleThreshold?: number;
 }
 
 export interface CompanyWeeklyCapacityMatrixParams {
