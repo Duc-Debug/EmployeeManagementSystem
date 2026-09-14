@@ -187,6 +187,29 @@ class CapacityThresholdControllerTest {
     }
 
     @Test
+    @DisplayName("HIGH #1: PUT /api/v1/capacity-thresholds ném CapacityThresholdVersionConflictException trả về 409 Conflict")
+    void testConfigureThreshold_VersionConflict_Returns409() throws Exception {
+        ConfigureCapacityThresholdRequest request = new ConfigureCapacityThresholdRequest(
+                CapacityThresholdScope.COMPANY,
+                null,
+                BigDecimal.valueOf(95.0),
+                BigDecimal.valueOf(25.0),
+                4L
+        );
+
+        when(configureUseCase.configureThreshold(any()))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException(
+                        "Cấu hình ngưỡng đã được cập nhật bởi thao tác khác (phiên bản hiện tại: 5, phiên bản gửi lên: 4)."
+                ));
+
+        mockMvc.perform(put("/api/v1/capacity-thresholds")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONCURRENT_MODIFICATION_CONFLICT"));
+    }
+
+    @Test
     @DisplayName("GET /api/v1/capacity-thresholds/history trả về 200 OK với danh sách lịch sử kiểm toán (TC-04)")
     void testGetHistory_Success() throws Exception {
         CapacityThresholdHistoryResult item = new CapacityThresholdHistoryResult(

@@ -11,6 +11,7 @@ export interface CapacityThresholdResult {
   overloadThreshold: number;
   idleThreshold: number;
   isDefault: boolean;
+  isInherited: boolean;
   version: number | null;
   updatedAt: string | null;
   updatedBy: number | null;

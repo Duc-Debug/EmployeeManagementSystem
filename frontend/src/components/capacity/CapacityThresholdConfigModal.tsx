@@ -160,9 +160,15 @@ export function CapacityThresholdConfigModal({
         setSuccessMessage(null);
       }, 3000);
     } catch (err) {
-      setErrorMessage(
-        err instanceof Error ? err.message : "Đã xảy ra lỗi khi lưu cấu hình."
-      );
+      if (err instanceof Error && (err.message.includes("409") || err.message.includes("thao tác khác") || err.message.includes("phiên bản") || err.message.includes("xung đột"))) {
+        setErrorMessage(
+          "Cấu hình đã được cập nhật bởi một người dùng khác cùng thời điểm (xung đột phiên bản). Vui lòng đóng cửa sổ hoặc tải lại để lấy dữ liệu mới nhất."
+        );
+      } else {
+        setErrorMessage(
+          err instanceof Error ? err.message : "Đã xảy ra lỗi khi lưu cấu hình."
+        );
+      }
     } finally {
       setIsSaving(false);
     }
@@ -290,6 +296,10 @@ export function CapacityThresholdConfigModal({
                   {currentConfig?.isDefault ? (
                     <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-950/50 dark:text-blue-300">
                       Mặc định hệ thống (100% / 50%)
+                    </span>
+                  ) : currentConfig?.isInherited ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-700/10 dark:bg-amber-950/50 dark:text-amber-300">
+                      Kế thừa từ cấu hình Công ty
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-700/10 dark:bg-emerald-950/50 dark:text-emerald-300">

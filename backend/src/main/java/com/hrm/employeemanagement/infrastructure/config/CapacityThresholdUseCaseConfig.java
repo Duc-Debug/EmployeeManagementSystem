@@ -22,7 +22,8 @@ public class CapacityThresholdUseCaseConfig {
             SaveCapacityThresholdPort saveCapacityThresholdPort,
             SaveAuditLogPort saveAuditLogPort,
             LoadCapacityThresholdHistoryPort historyPort,
-            LoadUserPort loadUserPort
+            LoadUserPort loadUserPort,
+            com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort loadOrgUnitPort
     ) {
         CapacityThresholdService pureService = new CapacityThresholdService(
                 authorizationService,
@@ -30,7 +31,8 @@ public class CapacityThresholdUseCaseConfig {
                 saveCapacityThresholdPort,
                 saveAuditLogPort,
                 historyPort,
-                loadUserPort
+                loadUserPort,
+                loadOrgUnitPort
         );
 
         return new TransactionalCapacityThresholdServiceDecorator(pureService, pureService, pureService);

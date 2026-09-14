@@ -278,6 +278,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException.class)
+    public ResponseEntity<ErrorResponse> handleCapacityThresholdVersionConflict(com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CONCURRENT_MODIFICATION_CONFLICT",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     // 7. Handle Generic DomainException (400 BAD REQUEST)
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleGenericDomainException(DomainException ex) {

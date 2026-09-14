@@ -44,6 +44,16 @@ public class CapacityThresholdPersistenceAdapter implements LoadCapacityThreshol
         if (config.getId() != null) {
             jpaEntity = repository.findById(config.getId())
                     .orElseGet(() -> mapper.toJpaEntity(config));
+
+            // [HIGH #1 FIX]: Thẩm tra phiên bản thực tế của JPA Entity trước khi ghi đè
+            if (config.getVersion() != null && jpaEntity.getVersion() != null
+                    && !Objects.equals(config.getVersion(), jpaEntity.getVersion())) {
+                throw new com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException(
+                        String.format("Xung đột phiên bản khi lưu cấu hình ngưỡng (phiên bản trong DB: %d, phiên bản gửi lên: %d)",
+                                jpaEntity.getVersion(), config.getVersion())
+                );
+            }
+
             mapper.updateJpaEntity(jpaEntity, config);
         } else {
             jpaEntity = mapper.toJpaEntity(config);

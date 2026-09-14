@@ -44,6 +44,17 @@ public class CapacityThresholdPolicy {
         }
     }
 
+    public static void validateVersion(Long expectedVersion, Long currentVersion) {
+        if (expectedVersion != null && currentVersion != null && !Objects.equals(expectedVersion, currentVersion)) {
+            throw new com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException(
+                    String.format(
+                            "Cấu hình ngưỡng đã được cập nhật bởi thao tác khác (phiên bản hiện tại: %d, phiên bản gửi lên: %d). Vui lòng tải lại dữ liệu mới nhất.",
+                            currentVersion, expectedVersion
+                    )
+            );
+        }
+    }
+
     public static String computeScopeKey(CapacityThresholdScope scopeType, Long orgUnitId) {
         Objects.requireNonNull(scopeType, "scopeType không được null");
         if (scopeType == CapacityThresholdScope.ORG_UNIT) {
