@@ -13,7 +13,6 @@ import {
   Loader2,
   DollarSign,
   Layers,
-  Sparkles,
   Info,
   Send,
   Lock,
