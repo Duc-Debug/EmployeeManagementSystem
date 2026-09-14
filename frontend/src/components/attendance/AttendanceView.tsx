@@ -16,6 +16,7 @@ import { ShiftRules } from "./ShiftRules"
 import { StatCard } from "./StatCard"
 import { TimesheetTable } from "./TimesheetTable"
 import { ShiftConfigModal, type ShiftRulesData } from "./ShiftConfigModal"
+import WorkLogView from "../timesheet/WorkLogView"
 
 import { useAuthUser } from "@/lib/auth-session"
 
@@ -79,6 +80,7 @@ export function AttendanceView({
     const myRecord = displayedRecords[0]
     const isPresent = myRecord && myRecord.status !== "Vắng mặt"
 
+    const [subTab, setSubTab] = useState<"work-logs" | "checkin">("work-logs")
     const [isConfigOpen, setIsConfigOpen] = useState(false)
     const [shiftRules, setShiftRules] = useState<ShiftRulesData>({
         startTime: "08:00 AM",
@@ -104,40 +106,75 @@ export function AttendanceView({
 
     return (
         <section className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 text-balance">
-                        Quản lý giờ làm việc &amp; Chấm công
-                    </h1>
-                    <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
-                        {isEmployee
-                            ? "Theo dõi thời gian vào/ra và kiểm tra số giờ làm việc của bạn."
-                            : "Theo dõi thời gian vào/ra, tổng số giờ làm, ca làm việc và tăng ca."}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2.5">
-                    {/* Nút bấm mở Modal Cấu hình ca làm: Chỉ VT-05 (HR) hoặc Quản trị viên */}
-                    {isHR && (
-                        <button
-                            type="button"
-                            onClick={() => setIsConfigOpen(true)}
-                            className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 active:scale-95 cursor-pointer"
-                        >
-                            <SlidersHorizontal className="size-4 text-slate-500" />
-                            <span>Cấu hình ca làm</span>
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        onClick={() => notify("Đang trích xuất dữ liệu bảng chấm công ra tệp Excel (.xlsx)...")}
-                        className="flex min-h-10 items-center gap-2 rounded-xl border border-emerald-600 bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
-                    >
-                        <FileSpreadsheet className="size-4 text-white" />
-                        <span>Xuất báo cáo</span>
-                    </button>
-                </div>
+            {/* Sub-tabs Navigation */}
+            <div className="flex border-b border-slate-200">
+                <button
+                    type="button"
+                    onClick={() => setSubTab("work-logs")}
+                    className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
+                        subTab === "work-logs"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                >
+                    <BriefcaseBusiness className="h-4 w-4" />
+                    <span>Ghi giờ công dự án (NCL-09)</span>
+                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-extrabold text-indigo-700">
+                        NCL-09-CN-001
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setSubTab("checkin")}
+                    className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
+                        subTab === "checkin"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                >
+                    <History className="h-4 w-4" />
+                    <span>Chấm công vào/ra (Hành chính)</span>
+                </button>
             </div>
+
+            {subTab === "work-logs" ? (
+                <WorkLogView />
+            ) : (
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                        <div>
+                            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 text-balance">
+                                Quản lý giờ làm việc &amp; Chấm công vào/ra
+                            </h1>
+                            <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
+                                {isEmployee
+                                    ? "Theo dõi thời gian vào/ra và kiểm tra số giờ làm việc của bạn."
+                                    : "Theo dõi thời gian vào/ra, tổng số giờ làm, ca làm việc và tăng ca."}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                            {/* Nút bấm mở Modal Cấu hình ca làm: Chỉ VT-05 (HR) hoặc Quản trị viên */}
+                            {isHR && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsConfigOpen(true)}
+                                    className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 active:scale-95 cursor-pointer"
+                                >
+                                    <SlidersHorizontal className="size-4 text-slate-500" />
+                                    <span>Cấu hình ca làm</span>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => notify("Đang trích xuất dữ liệu bảng chấm công ra tệp Excel (.xlsx)...")}
+                                className="flex min-h-10 items-center gap-2 rounded-xl border border-emerald-600 bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
+                            >
+                                <FileSpreadsheet className="size-4 text-white" />
+                                <span>Xuất báo cáo</span>
+                            </button>
+                        </div>
+                    </div>
 
             {/* Thẻ thống kê */}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -244,6 +281,8 @@ export function AttendanceView({
                     <span className="text-xs font-bold">{toast.message}</span>
                 </div>
             </div>
+                </div>
+            )}
         </section>
     )
 }

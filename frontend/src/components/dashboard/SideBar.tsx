@@ -24,7 +24,7 @@ const SIDEBAR_WORKSPACE = [
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
     { name: "Lịch & Ngày lễ", icon: CalendarDays, id: "working-calendar" },
-    { name: "Chấm công", icon: Clock, id: "attendance" },
+    { name: "Chấm công & Giờ làm", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
     { name: "Phòng ban", icon: Building2, id: "departments" },
     { name: "Quản lý Năng lực & Kỹ năng", icon: ClipboardList, id: "skills" },
@@ -92,8 +92,9 @@ export function canAccessTab(
 
         case "attendance":
         case "timesheets":
-            // Bảng chấm công: VT-01, VT-02, VT-03, VT-04, VT-05 có quyền; Admin (VT-06) bị ẩn (❌)
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
+        case "work-logs":
+            // Bảng chấm công & Giờ làm việc theo dự án (NCL-09): VT-01 -> VT-06
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "leave":
         case "leave-requests":
