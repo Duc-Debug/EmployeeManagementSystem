@@ -59,7 +59,8 @@ export interface TaskTrackingFilterParams {
  */
 export async function getProjectTaskTracking(
     projectId: number | string,
-    params?: TaskTrackingFilterParams
+    params?: TaskTrackingFilterParams,
+    signal?: AbortSignal
 ): Promise<ProjectTaskTrackingResult> {
     const query = new URLSearchParams();
     if (params?.employeeId) {
@@ -79,5 +80,6 @@ export async function getProjectTaskTracking(
     const endpoint = `/projects/${projectId}/task-tracking${queryString ? `?${queryString}` : ""}`;
     return await apiRequest<ProjectTaskTrackingResult>(endpoint, {
         method: "GET",
+        signal,
     });
 }

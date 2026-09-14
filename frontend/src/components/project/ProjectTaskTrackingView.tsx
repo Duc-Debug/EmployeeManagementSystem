@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     ClipboardList,
     AlertTriangle,
@@ -14,6 +14,8 @@ import {
     TrendingUp,
     ShieldAlert,
     X,
+    Download,
+    ArrowUpDown,
 } from 'lucide-react';
 import {
     getProjectTaskTracking,
@@ -21,16 +23,21 @@ import {
     type TaskTrackingItem,
     type TaskTrackingFilterParams,
 } from '@/lib/api/task-tracking';
+import type { ProjectMember } from './projectData';
 
 interface ProjectTaskTrackingViewProps {
     projectId: number;
     isProjectClosed?: boolean;
+    members?: ProjectMember[];
     onNavigateToWbs?: () => void;
 }
+
+type SortOption = 'default' | 'deadline' | 'burned_desc' | 'name_asc';
 
 export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = ({
     projectId,
     isProjectClosed = false,
+    members = [],
     onNavigateToWbs,
 }) => {
     const [data, setData] = useState<ProjectTaskTrackingResult | null>(null);
@@ -45,8 +52,51 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [overdueOnly, setOverdueOnly] = useState<boolean>(false);
     const [groupByCategory, setGroupByCategory] = useState<boolean>(false);
+    const [sortBy, setSortBy] = useState<SortOption>('default');
 
-    // Debounce keyword search
+    // Ref to track ongoing request and abort when needed (Race Condition Prevention)
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    // Persistent cache of all known assignees so dropdown never shrinks when filtering
+    const [cachedAssignees, setCachedAssignees] = useState<
+        Array<{ id: number; name: string; code: string }>
+    >([]);
+
+    // Reset state when project changes to prevent stale data display
+    useEffect(() => {
+        setData(null);
+        setKeyword('');
+        setDebouncedKeyword('');
+        setEmployeeId(undefined);
+        setStatusFilter('ALL');
+        setOverdueOnly(false);
+        setSortBy('default');
+    }, [projectId]);
+
+    // Update cached assignees from passed members prop
+    useEffect(() => {
+        if (members && members.length > 0) {
+            const list = members
+                .map((m) => {
+                    const numId = m.employeeId || Number(m.id.replace(/\D/g, ''));
+                    return {
+                        id: numId,
+                        name: m.name,
+                        code: m.id || String(numId),
+                    };
+                })
+                .filter((m) => m.id > 0);
+
+            setCachedAssignees((prev) => {
+                const map = new Map<number, { id: number; name: string; code: string }>();
+                prev.forEach((item) => map.set(item.id, item));
+                list.forEach((item) => map.set(item.id, item));
+                return Array.from(map.values());
+            });
+        }
+    }, [members]);
+
+    // Debounce keyword search (300ms)
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedKeyword(keyword);
@@ -54,9 +104,16 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
         return () => clearTimeout(timer);
     }, [keyword]);
 
-    // Load data from API
+    // Load data from API with cancellation support
     const loadTrackingData = useCallback(async (isRefresh = false) => {
         if (!projectId) return;
+
+        // Cancel previous pending request if any
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
         if (isRefresh) {
             setIsRefreshing(true);
@@ -73,9 +130,32 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                 keyword: debouncedKeyword.trim() || undefined,
             };
 
-            const result = await getProjectTaskTracking(projectId, params);
+            const result = await getProjectTaskTracking(projectId, params, controller.signal);
             setData(result);
+
+            // Populate cached assignees from tasks if not already populated
+            if (result.tasks) {
+                setCachedAssignees((prev) => {
+                    const map = new Map<number, { id: number; name: string; code: string }>();
+                    prev.forEach((item) => map.set(item.id, item));
+                    result.tasks.forEach((t) => {
+                        (t.assignees || []).forEach((a) => {
+                            if (a.employeeId && !map.has(a.employeeId)) {
+                                map.set(a.employeeId, {
+                                    id: a.employeeId,
+                                    name: a.fullName,
+                                    code: a.employeeCode,
+                                });
+                            }
+                        });
+                    });
+                    return Array.from(map.values());
+                });
+            }
         } catch (err: unknown) {
+            if (err instanceof Error && err.name === 'AbortError') {
+                return; // Silently ignore aborted requests
+            }
             const errorMsg = err instanceof Error ? err.message : 'Không thể tải bảng theo dõi công việc.';
             setError(errorMsg);
         } finally {
@@ -86,25 +166,12 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
 
     useEffect(() => {
         loadTrackingData();
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
     }, [loadTrackingData]);
-
-    // Distinct list of assignees for filter dropdown
-    const availableAssignees = useMemo(() => {
-        if (!data?.tasks) return [];
-        const map = new Map<number, { id: number; name: string; code: string }>();
-        data.tasks.forEach((t) => {
-            (t.assignees || []).forEach((a) => {
-                if (a.employeeId && !map.has(a.employeeId)) {
-                    map.set(a.employeeId, {
-                        id: a.employeeId,
-                        name: a.fullName,
-                        code: a.employeeCode,
-                    });
-                }
-            });
-        });
-        return Array.from(map.values());
-    }, [data?.tasks]);
 
     // Reset all filters
     const handleResetFilters = () => {
@@ -113,20 +180,53 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
         setEmployeeId(undefined);
         setStatusFilter('ALL');
         setOverdueOnly(false);
+        setSortBy('default');
     };
 
-    const hasActiveFilters = Boolean(keyword || employeeId || statusFilter !== 'ALL' || overdueOnly);
+    const hasActiveFilters = Boolean(
+        keyword || employeeId || statusFilter !== 'ALL' || overdueOnly || sortBy !== 'default'
+    );
+
+    // Apply secondary sort on tasks (TC-02: Overdue tasks ALWAYS stay at top)
+    const sortedTasks = useMemo(() => {
+        if (!data?.tasks) return [];
+        const tasks = [...data.tasks];
+
+        if (sortBy === 'default') {
+            return tasks; // Already sorted by backend (overdue first, then sortOrder)
+        }
+
+        return tasks.sort((a, b) => {
+            // Priority 1: Overdue tasks always on top (TC-02)
+            if (a.isOverdue && !b.isOverdue) return -1;
+            if (!a.isOverdue && b.isOverdue) return 1;
+
+            // Priority 2: Secondary sort criteria
+            if (sortBy === 'deadline') {
+                const dateA = a.plannedEndDate ? new Date(a.plannedEndDate).getTime() : Infinity;
+                const dateB = b.plannedEndDate ? new Date(b.plannedEndDate).getTime() : Infinity;
+                return dateA - dateB;
+            }
+            if (sortBy === 'burned_desc') {
+                return (b.burnedPercentage || 0) - (a.burnedPercentage || 0);
+            }
+            if (sortBy === 'name_asc') {
+                return a.name.localeCompare(b.name, 'vi');
+            }
+            return 0;
+        });
+    }, [data?.tasks, sortBy]);
 
     // Group tasks by category if enabled
     const groupedTasks = useMemo(() => {
-        if (!data?.tasks) return [];
+        if (!sortedTasks) return [];
         if (!groupByCategory) {
-            return [{ categoryName: 'Tất cả công việc', tasks: data.tasks }];
+            return [{ categoryName: 'Tất cả công việc', tasks: sortedTasks }];
         }
 
         const groups: Record<string, TaskTrackingItem[]> = {};
-        data.tasks.forEach((t) => {
-            const cat = t.categoryName || 'Chưa phân hạng mục';
+        sortedTasks.forEach((t) => {
+            const cat = t.categoryName || 'Hạng mục chung';
             if (!groups[cat]) groups[cat] = [];
             groups[cat].push(t);
         });
@@ -135,20 +235,53 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
             categoryName,
             tasks,
         }));
-    }, [data?.tasks, groupByCategory]);
+    }, [sortedTasks, groupByCategory]);
 
-    // Format date string safely
-    const formatDate = (dateStr: string | null) => {
-        if (!dateStr) return '---';
-        try {
-            const parts = dateStr.split('-');
-            if (parts.length === 3) {
-                return `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
-            return dateStr;
-        } catch {
-            return dateStr;
+    // Format timeline display safely
+    const formatTimeline = (start: string | null, end: string | null, isOverdue: boolean) => {
+        const formatSingleDate = (d: string | null) => {
+            if (!d) return '';
+            const parts = d.split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+        };
+
+        if (!start && !end) {
+            return <span className="italic text-slate-400 text-[11px]">Chưa đặt thời hạn</span>;
         }
+
+        const startFormatted = formatSingleDate(start);
+        const endFormatted = formatSingleDate(end);
+
+        if (start && end) {
+            return (
+                <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                    <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span>{startFormatted} - </span>
+                    <span className={isOverdue ? 'font-bold text-rose-600' : 'text-slate-700 font-medium'}>
+                        {endFormatted}
+                    </span>
+                </div>
+            );
+        }
+
+        if (end) {
+            return (
+                <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                    <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span>Hạn: </span>
+                    <span className={isOverdue ? 'font-bold text-rose-600' : 'text-slate-700 font-medium'}>
+                        {endFormatted}
+                    </span>
+                </div>
+            );
+        }
+
+        return (
+            <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
+                <span>Bắt đầu: {startFormatted}</span>
+            </div>
+        );
     };
 
     // Status badge helper
@@ -189,6 +322,8 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
     // Budget burn badge & bar
     const renderBudgetBurn = (item: TaskTrackingItem) => {
         const burned = Number(item.burnedPercentage || 0);
+        const actual = Number(item.actualHours || 0);
+        const budget = Number(item.budgetHours || 0);
         const isOver = item.isOverBudget || item.budgetBurnStatus === 'OVER_BUDGET' || burned > 100;
         const isWarning = item.budgetBurnStatus === 'WARNING' || (burned >= 80 && burned <= 100);
 
@@ -210,7 +345,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
             <div className="space-y-1 min-w-[120px]">
                 <div className="flex items-center justify-between text-[11px]">
                     <span className="font-semibold text-slate-700">
-                        {item.actualHours}h / {item.budgetHours}h
+                        {actual}h / {budget}h
                     </span>
                     <span className={`px-1.5 py-0.2 rounded text-[10px] border ${badgeColor}`}>
                         {burned.toFixed(1)}% ({label})
@@ -226,6 +361,57 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
         );
     };
 
+    // Export tracking list to CSV (UTF-8 with BOM for Excel compatibility)
+    const handleExportCsv = () => {
+        if (!data?.tasks || data.tasks.length === 0) return;
+
+        const headers = [
+            'Mã công việc',
+            'Tên công việc',
+            'Hạng mục',
+            'Người phụ trách',
+            'Trạng thái',
+            'Ngày bắt đầu',
+            'Ngày kết thúc',
+            'Quá hạn',
+            'Số ngày trễ',
+            'Ngân sách (giờ)',
+            'Thực tế (giờ)',
+            'Tiêu hao (%)',
+            'Cảnh báo ngân sách',
+        ];
+
+        const rows = data.tasks.map((t) => [
+            `"${t.taskCode}"`,
+            `"${t.name.replace(/"/g, '""')}"`,
+            `"${(t.categoryName || 'Chung').replace(/"/g, '""')}"`,
+            `"${(t.assignees || []).map((a) => a.fullName).join('; ')}"`,
+            `"${t.status}"`,
+            `"${t.plannedStartDate || ''}"`,
+            `"${t.plannedEndDate || ''}"`,
+            `"${t.isOverdue ? 'CÓ' : 'KHÔNG'}"`,
+            `"${t.isOverdue ? t.overdueDays : 0}"`,
+            `"${t.budgetHours}"`,
+            `"${t.actualHours}"`,
+            `"${t.burnedPercentage}%"`,
+            `"${t.budgetBurnStatus}"`,
+        ]);
+
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute(
+            'download',
+            `bang-theo-doi-cong-viec-${data.projectCode || projectId}-${new Date().toISOString().slice(0, 10)}.csv`
+        );
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="space-y-5">
             {/* Banner QTN-04: Dự án đã đóng */}
@@ -234,7 +420,9 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                     <div className="flex items-start gap-3">
                         <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                         <div>
-                            <h4 className="text-sm font-bold text-amber-900">Dự án đang ở trạng thái ĐÃ ĐÓNG (CLOSED)</h4>
+                            <h4 className="text-sm font-bold text-amber-900">
+                                Dự án đang ở trạng thái ĐÃ ĐÓNG (CLOSED)
+                            </h4>
                             <p className="text-xs text-amber-700 mt-0.5">
                                 Theo quy tắc QTN-04, bảng theo dõi công việc của dự án này đang ở chế độ xem lưu trữ lịch sử. Mọi chỉnh sửa công việc đã bị vô hiệu hóa.
                             </p>
@@ -243,7 +431,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                 </div>
             )}
 
-            {/* Error banner if any */}
+            {/* Error banner */}
             {error && (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-xs">
                     <div className="flex items-start gap-3">
@@ -282,32 +470,44 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                 </div>
 
                 {/* Quá hạn - Highlight Đỏ (TC-02) */}
-                <div className={`rounded-2xl border p-4 shadow-xs transition-hover ${
-                    (data?.overdueTasks ?? 0) > 0
-                        ? 'border-rose-300 bg-rose-50/40 hover:border-rose-400 ring-2 ring-rose-500/10'
-                        : 'border-slate-200/80 bg-white hover:border-slate-300'
-                }`}>
+                <div
+                    className={`rounded-2xl border p-4 shadow-xs transition-hover ${
+                        (data?.overdueTasks ?? 0) > 0
+                            ? 'border-rose-300 bg-rose-50/40 hover:border-rose-400 ring-2 ring-rose-500/10'
+                            : 'border-slate-200/80 bg-white hover:border-slate-300'
+                    }`}
+                >
                     <div className="flex items-center justify-between">
-                        <span className={`text-xs font-semibold ${
-                            (data?.overdueTasks ?? 0) > 0 ? 'text-rose-700 font-bold' : 'text-slate-500'
-                        }`}>
+                        <span
+                            className={`text-xs font-semibold ${
+                                (data?.overdueTasks ?? 0) > 0 ? 'text-rose-700 font-bold' : 'text-slate-500'
+                            }`}
+                        >
                             Trễ hạn / Quá hạn
                         </span>
-                        <div className={`rounded-xl p-2 ${
-                            (data?.overdueTasks ?? 0) > 0 ? 'bg-rose-100 text-rose-700 animate-pulse' : 'bg-slate-100 text-slate-500'
-                        }`}>
+                        <div
+                            className={`rounded-xl p-2 ${
+                                (data?.overdueTasks ?? 0) > 0
+                                    ? 'bg-rose-100 text-rose-700 animate-pulse'
+                                    : 'bg-slate-100 text-slate-500'
+                            }`}
+                        >
                             <AlertTriangle className="h-4 w-4" />
                         </div>
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
-                        <span className={`text-2xl font-black tracking-tight ${
-                            (data?.overdueTasks ?? 0) > 0 ? 'text-rose-600' : 'text-slate-800'
-                        }`}>
+                        <span
+                            className={`text-2xl font-black tracking-tight ${
+                                (data?.overdueTasks ?? 0) > 0 ? 'text-rose-600' : 'text-slate-800'
+                            }`}
+                        >
                             {data?.overdueTasks ?? 0}
                         </span>
-                        <span className={`text-[11px] font-medium ${
-                            (data?.overdueTasks ?? 0) > 0 ? 'text-rose-500 font-bold' : 'text-slate-400'
-                        }`}>
+                        <span
+                            className={`text-[11px] font-medium ${
+                                (data?.overdueTasks ?? 0) > 0 ? 'text-rose-500 font-bold' : 'text-slate-400'
+                            }`}
+                        >
                             cần xử lý gấp
                         </span>
                     </div>
@@ -373,7 +573,12 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                             style={{
                                 width: `${
                                     data?.totalBudgetHours && data.totalBudgetHours > 0
-                                        ? Math.min(Math.round(((data.totalActualHours || 0) / data.totalBudgetHours) * 100), 100)
+                                        ? Math.min(
+                                              Math.round(
+                                                  ((data.totalActualHours || 0) / data.totalBudgetHours) * 100
+                                              ),
+                                              100
+                                          )
                                         : 0
                                 }%`,
                             }}
@@ -386,7 +591,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs">
                 <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
                     {/* Search Input */}
-                    <div className="relative flex-1 sm:w-64 max-w-sm">
+                    <div className="relative flex-1 sm:w-60 max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                         <input
                             type="text"
@@ -400,20 +605,21 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                                 type="button"
                                 onClick={() => setKeyword('')}
                                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                aria-label="Xóa từ khóa"
                             >
                                 <X className="h-3.5 w-3.5" />
                             </button>
                         )}
                     </div>
 
-                    {/* Filter Assignee */}
+                    {/* Filter Assignee (Fix: Uses cachedAssignees so dropdown never shrinks) */}
                     <select
                         value={employeeId !== undefined ? String(employeeId) : ''}
                         onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : undefined)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white"
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
                     >
-                        <option value="">Tất cả người phụ trách</option>
-                        {availableAssignees.map((a) => (
+                        <option value="">Tất cả người phụ trách ({cachedAssignees.length})</option>
+                        {cachedAssignees.map((a) => (
                             <option key={a.id} value={a.id}>
                                 {a.name} ({a.code})
                             </option>
@@ -424,7 +630,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white"
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
                     >
                         <option value="ALL">Tất cả trạng thái</option>
                         <option value="TODO">Chờ thực hiện (TODO)</option>
@@ -432,6 +638,21 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                         <option value="DONE">Hoàn thành (DONE)</option>
                         <option value="CANCELLED">Đã hủy (CANCELLED)</option>
                     </select>
+
+                    {/* Secondary Sort Selector */}
+                    <div className="flex items-center gap-1.5">
+                        <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as SortOption)}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                        >
+                            <option value="default">Sắp xếp: Trễ hạn lên đầu (Mặc định)</option>
+                            <option value="deadline">Hạn chót gần nhất</option>
+                            <option value="burned_desc">% Tiêu hao ngân sách cao nhất</option>
+                            <option value="name_asc">Tên công việc (A - Z)</option>
+                        </select>
+                    </div>
 
                     {/* Overdue Only Filter */}
                     <button
@@ -470,9 +691,22 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
+                        title="Gom nhóm các công việc theo hạng mục WBS"
                     >
                         <Layers className="h-3.5 w-3.5" />
-                        <span>Gom nhóm theo hạng mục</span>
+                        <span className="hidden sm:inline">Gom nhóm hạng mục</span>
+                    </button>
+
+                    {/* Export CSV Button */}
+                    <button
+                        type="button"
+                        onClick={handleExportCsv}
+                        disabled={!data?.tasks || data.tasks.length === 0}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 hover:text-slate-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="Xuất danh sách công việc ra file CSV (Excel)"
+                    >
+                        <Download className="h-3.5 w-3.5 text-slate-500" />
+                        <span className="hidden sm:inline">Xuất CSV</span>
                     </button>
 
                     {/* Refresh Button */}
@@ -482,6 +716,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                         disabled={isLoading || isRefreshing}
                         className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-xs hover:bg-slate-50 hover:text-slate-900 cursor-pointer disabled:opacity-50"
                         title="Tải lại dữ liệu"
+                        aria-label="Tải lại dữ liệu"
                     >
                         <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`} />
                     </button>
@@ -493,7 +728,9 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                 <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
                     <RefreshCw className="mx-auto h-8 w-8 animate-spin text-indigo-600 mb-3" />
                     <h3 className="text-sm font-bold text-slate-700">Đang tải bảng theo dõi công việc...</h3>
-                    <p className="text-xs text-slate-400 mt-1">Hệ thống đang nạp thông tin tiến độ, ngân sách và trạng thái các công việc.</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                        Hệ thống đang nạp thông tin tiến độ, ngân sách và trạng thái các công việc.
+                    </p>
                 </div>
             ) : !data || data.totalTasks === 0 ? (
                 /* Empty State (TC-03) */
@@ -519,7 +756,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                         </div>
                     )}
                 </div>
-            ) : data.tasks.length === 0 ? (
+            ) : sortedTasks.length === 0 ? (
                 /* Filter result empty */
                 <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500 shadow-xs">
                     <Filter className="mx-auto h-8 w-8 text-slate-300 mb-2" />
@@ -628,7 +865,10 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                                                                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[9px] font-bold text-indigo-700">
                                                                             {assignee.fullName.charAt(0)}
                                                                         </div>
-                                                                        <span className="text-xs text-slate-700 font-medium truncate max-w-[140px]" title={assignee.fullName}>
+                                                                        <span
+                                                                            className="text-xs text-slate-700 font-medium truncate max-w-[140px]"
+                                                                            title={assignee.fullName}
+                                                                        >
                                                                             {assignee.fullName}
                                                                         </span>
                                                                     </div>
@@ -643,15 +883,11 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
 
                                                     {/* Thời hạn kế hoạch */}
                                                     <td className="py-3 px-3">
-                                                        <div className="flex flex-col text-[11px]">
-                                                            <div className="flex items-center gap-1 text-slate-500">
-                                                                <Calendar className="h-3 w-3 text-slate-400" />
-                                                                <span>{formatDate(task.plannedStartDate)} - </span>
-                                                                <span className={isTaskOverdue ? 'font-bold text-rose-600' : 'text-slate-700 font-medium'}>
-                                                                    {formatDate(task.plannedEndDate)}
-                                                                </span>
-                                                            </div>
-                                                        </div>
+                                                        {formatTimeline(
+                                                            task.plannedStartDate,
+                                                            task.plannedEndDate,
+                                                            isTaskOverdue
+                                                        )}
                                                     </td>
 
                                                     {/* Trạng thái */}

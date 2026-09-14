@@ -1691,6 +1691,7 @@ export default function ProjectView() {
                             <ProjectTaskTrackingView
                                 projectId={selectedProjectId}
                                 isProjectClosed={isProjectClosed}
+                                members={allEmployees.length > 0 ? allEmployees : members}
                                 onNavigateToWbs={() => setViewMode('wbs')}
                             />
                         ) : (
