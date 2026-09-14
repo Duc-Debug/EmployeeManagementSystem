@@ -72,7 +72,7 @@ class ProlongedIdlenessControllerTest {
         );
 
         ProlongedIdlenessReportResult report = new ProlongedIdlenessReportResult(
-                null, "Toàn công ty", 2026, 38, 4, BigDecimal.valueOf(30.0), 3, 1, List.of(item)
+                null, "Toàn công ty", 2026, 38, 4, BigDecimal.valueOf(30.0), 3, 1, 0, 20, 1, List.of(item)
         );
 
         when(getProlongedIdleStaffUseCase.getProlongedIdleStaff(any())).thenReturn(report);
@@ -82,12 +82,17 @@ class ProlongedIdlenessControllerTest {
                         .param("fromWeek", "38")
                         .param("durationWeeks", "4")
                         .param("consecutiveThreshold", "3")
+                        .param("page", "0")
+                        .param("size", "20")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.effectiveIdleThreshold").value(30.0))
                 .andExpect(jsonPath("$.data.consecutiveThreshold").value(3))
                 .andExpect(jsonPath("$.data.totalIdleEmployees").value(1))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
                 .andExpect(jsonPath("$.data.items[0].employeeCode").value("EMP0101"))
                 .andExpect(jsonPath("$.data.items[0].fullName").value("Nguyễn Văn A"))
                 .andExpect(jsonPath("$.data.items[0].consecutiveIdleWeeks").value(3));

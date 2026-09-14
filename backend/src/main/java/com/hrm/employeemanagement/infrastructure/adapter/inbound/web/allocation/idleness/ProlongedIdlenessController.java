@@ -47,7 +47,9 @@ public class ProlongedIdlenessController {
             @RequestParam(required = false) Integer fromWeek,
             @RequestParam(required = false, defaultValue = "4") Integer durationWeeks,
             @RequestParam(required = false, defaultValue = "3") Integer consecutiveThreshold,
-            @RequestParam(required = false) String search
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "0") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size
     ) {
         ProlongedIdlenessQuery query = new ProlongedIdlenessQuery(
                 orgUnitId,
@@ -55,7 +57,9 @@ public class ProlongedIdlenessController {
                 fromWeek,
                 durationWeeks,
                 consecutiveThreshold,
-                search
+                search,
+                page,
+                size
         );
         ProlongedIdlenessReportResult result = getProlongedIdleStaffUseCase.getProlongedIdleStaff(query);
         return ResponseEntity.ok(ApiResponse.success("Rà soát danh sách nhân sự nhàn rỗi kéo dài thành công", result));
