@@ -42,14 +42,6 @@ export interface ScheduleConflictQuery {
     status?: ScheduleConflictStatus;
 }
 
-export interface ApiResponse<T> {
-    success: boolean;
-    errorCode?: string;
-    message: string;
-    data: T;
-    timestamp: string;
-}
-
 export async function getScheduleConflicts(query?: ScheduleConflictQuery): Promise<ScheduleConflict[]> {
     const params = new URLSearchParams();
     if (query?.yearNumber) params.append("yearNumber", String(query.yearNumber));
@@ -62,8 +54,8 @@ export async function getScheduleConflicts(query?: ScheduleConflictQuery): Promi
 
     const queryString = params.toString();
     const url = `/schedule-conflicts${queryString ? `?${queryString}` : ""}`;
-    const res = await apiRequest<ApiResponse<ScheduleConflict[]>>(url);
-    return res.data || [];
+    // apiRequest already unwraps the backend ApiResponse and returns its data.
+    return apiRequest<ScheduleConflict[]>(url);
 }
 
 export async function scanScheduleConflicts(yearNumber?: number, startWeek?: number, endWeek?: number): Promise<ScheduleConflict[]> {
@@ -74,16 +66,13 @@ export async function scanScheduleConflicts(yearNumber?: number, startWeek?: num
 
     const queryString = params.toString();
     const url = `/schedule-conflicts/scan${queryString ? `?${queryString}` : ""}`;
-    const res = await apiRequest<ApiResponse<ScheduleConflict[]>>(url, { method: "POST" });
-    return res.data || [];
+    return apiRequest<ScheduleConflict[]>(url, { method: "POST" });
 }
 
 export async function notifyScheduleConflict(id: number): Promise<ScheduleConflict> {
-    const res = await apiRequest<ApiResponse<ScheduleConflict>>(`/schedule-conflicts/${id}/notify`, { method: "POST" });
-    return res.data;
+    return apiRequest<ScheduleConflict>(`/schedule-conflicts/${id}/notify`, { method: "POST" });
 }
 
 export async function resolveScheduleConflict(id: number): Promise<ScheduleConflict> {
-    const res = await apiRequest<ApiResponse<ScheduleConflict>>(`/schedule-conflicts/${id}/resolve`, { method: "POST" });
-    return res.data;
+    return apiRequest<ScheduleConflict>(`/schedule-conflicts/${id}/resolve`, { method: "POST" });
 }
