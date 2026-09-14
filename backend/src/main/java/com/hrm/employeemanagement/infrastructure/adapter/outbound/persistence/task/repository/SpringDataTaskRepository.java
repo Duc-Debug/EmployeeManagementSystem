@@ -20,5 +20,7 @@ public interface SpringDataTaskRepository extends JpaRepository<TaskJpaEntity, L
 
     long countByProjectId(Long projectId);
 
+    List<TaskJpaEntity> findByAssigneeId(Long assigneeId);
+
     boolean existsByProjectIdAndAssigneeIdAndStatusIn(Long projectId, Long assigneeId, Collection<TaskStatus> statuses);
 }

@@ -17,6 +17,7 @@ import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
+import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWarningView";
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
 import RmDashboardOverview from "./RmDashboardOverview";
@@ -55,11 +56,12 @@ export default function Dashboard() {
         if (path.includes("hrprofile") || path.includes("ho-so") || path.includes("employee")) return "hrprofile";
         if (path.includes("user") || path.includes("tai-khoan")) return "users";
         if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
-        if (path.includes("attendance") || path.includes("cham-cong")) return "attendance";
+        if (path.includes("attendance") || path.includes("cham-cong") || path.includes("timesheet") || path.includes("work-log") || path.includes("gio-lam")) return "attendance";
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
         if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("recruitment") || path.includes("tuyen-dung")) return "recruitment-demand";
+        if (path.includes("schedule-conflict") || path.includes("xung-dot-lich") || path.includes("conflict")) return "schedule-conflict";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         return "overview";
     }, [location.pathname]);
@@ -78,6 +80,27 @@ export default function Dashboard() {
 
     useEffect(() => {
         let isMounted = true;
+        const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
+        const canFetchAllUsers = ["VT-01", "VT-05", "VT-06", "ROLE-HR", "HR", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole);
+
+        if (!canFetchAllUsers) {
+            if (user) {
+                setAttendanceRecords([
+                    {
+                        id: user.employeeCode || String(user.id),
+                        name: user.fullName || user.username || "Nhân viên",
+                        dept: user.orgUnitName || "Phòng ban",
+                        inTime: "--:--",
+                        outTime: "--:--",
+                        hours: "0",
+                        ot: "0",
+                        status: "Đúng giờ",
+                    },
+                ]);
+            }
+            return;
+        }
+
         async function fetchRealUsers() {
             try {
                 const res = await getUsers(0, 50);
@@ -93,15 +116,15 @@ export default function Dashboard() {
                     status: u.status === "ACTIVE" ? "Đúng giờ" : "Vắng mặt",
                 }));
                 setAttendanceRecords(mapped);
-            } catch (err) {
-                console.warn("Không thể tải danh sách nhân sự cho bảng chấm công:", err);
+            } catch {
+                // User lacks permission or backend unavailable
             }
         }
         fetchRealUsers();
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [user]);
 
     const handleClockIn = () => {
         const time = new Date().toLocaleTimeString("en-US", {
@@ -239,6 +262,8 @@ export default function Dashboard() {
                                 {activeTab === "leave" && <LeaveManagementView />}
 
                                 {activeTab === "recruitment-demand" && <RecruitmentDemandReportView />}
+
+                                {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
 
                                 {(activeTab === "overview" || activeTab === "reports") && (() => {
                                     const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");

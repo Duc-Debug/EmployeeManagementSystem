@@ -99,13 +99,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    @ExceptionHandler({EmployeeVersionConflictException.class,
-            org.springframework.orm.ObjectOptimisticLockingFailureException.class,
-            jakarta.persistence.OptimisticLockException.class})
-    public ResponseEntity<ErrorResponse> handleOptimisticLocking(Exception ex) {
+    @ExceptionHandler(EmployeeVersionConflictException.class)
+    public ResponseEntity<ErrorResponse> handleEmployeeVersionConflict(EmployeeVersionConflictException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "EMPLOYEE_VERSION_CONFLICT",
-                "Hồ sơ nhân sự đã được cập nhật bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại.",
+                ex.getMessage() != null ? ex.getMessage() : "Hồ sơ nhân sự đã được cập nhật bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại.",
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler({
+            org.springframework.orm.ObjectOptimisticLockingFailureException.class,
+            jakarta.persistence.OptimisticLockException.class
+    })
+    public ResponseEntity<ErrorResponse> handleGenericOptimisticLocking(Exception ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CONCURRENT_MODIFICATION_CONFLICT",
+                "Dữ liệu đã được cập nhật bởi một thao tác khác cùng thời điểm. Vui lòng tải lại và thử lại.",
                 HttpStatus.CONFLICT.value());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
@@ -429,6 +439,85 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 14.7. Timesheet and Work Log Exceptions
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleDailyHoursLimitExceeded(com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExceededException ex) {
+        java.util.Map<String, Object> details = java.util.Map.of(
+                "workDate", ex.getWorkDate().toString(),
+                "currentHours", ex.getCurrentHours(),
+                "requestedHours", ex.getRequestedHours()
+        );
+        ErrorResponse response = ErrorResponse.of(
+                "DAILY_HOURS_LIMIT_EXCEEDED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value(),
+                details);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.WorkLogInvalidHoursException.class)
+    public ResponseEntity<ErrorResponse> handleWorkLogInvalidHours(com.hrm.employeemanagement.domain.exception.timesheet.WorkLogInvalidHoursException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "WORK_LOG_INVALID_HOURS",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.WorkLogDescriptionBlankException.class)
+    public ResponseEntity<ErrorResponse> handleWorkLogDescriptionBlank(com.hrm.employeemanagement.domain.exception.timesheet.WorkLogDescriptionBlankException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "WORK_LOG_DESCRIPTION_BLANK",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.WorkLogInClosedProjectException.class)
+    public ResponseEntity<ErrorResponse> handleWorkLogInClosedProject(com.hrm.employeemanagement.domain.exception.timesheet.WorkLogInClosedProjectException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "WORK_LOG_IN_CLOSED_PROJECT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.WorkLogTaskNotAssignedException.class)
+    public ResponseEntity<ErrorResponse> handleWorkLogTaskNotAssigned(com.hrm.employeemanagement.domain.exception.timesheet.WorkLogTaskNotAssignedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "WORK_LOG_TASK_NOT_ASSIGNED",
+                ex.getMessage(),
+                HttpStatus.FORBIDDEN.value());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetImmutableException.class)
+    public ResponseEntity<ErrorResponse> handleTimesheetImmutable(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetImmutableException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TIMESHEET_IMMUTABLE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTimesheetNotFound(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TIMESHEET_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTimesheetEntryNotFound(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TIMESHEET_ENTRY_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
