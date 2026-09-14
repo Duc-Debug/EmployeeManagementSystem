@@ -27,12 +27,14 @@ export async function getWeeklyCapacities(
 }
 
 export interface ProjectWeeklyAllocationResult {
+  id?: number;
   employeeId: number;
   projectId: number;
   year: number;
   weekNumber: number;
   allocatedHours: number;
   allocationPercentage?: number;
+  varianceNote?: string | null;
 }
 
 export async function getProjectWeeklyAllocations(
@@ -118,6 +120,81 @@ export async function bulkAllocateResource(
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+/**
+ * NCL-06-CN-004 / QTN-15: Các hành động điều chỉnh phân bổ nguồn lực
+ */
+export type AdjustmentAction = "EDIT_HOURS" | "MOVE_WEEK" | "REMOVE" | "NOTE_VARIANCE";
+
+export interface AdjustAllocationPayload {
+  action: AdjustmentAction;
+  newHours?: number;
+  allocationPercentage?: number;
+  targetYear?: number;
+  targetWeek?: number;
+  varianceReason?: string;
+  overloadReason?: string;
+}
+
+export interface VarianceNotePayload {
+  varianceReason: string;
+}
+
+export interface AllocationChangeLogResult {
+  id: number;
+  allocationId: number;
+  action: AdjustmentAction;
+  oldValue: string;
+  newValue: string;
+  changedBy: number;
+  changedByName: string;
+  changedAt: string;
+  notifiedPmIds?: string;
+}
+
+/**
+ * TC-01: Sửa giờ hoặc chuyển tuần cho dòng phân bổ nguồn lực
+ */
+export async function adjustAllocation(
+  id: number,
+  payload: AdjustAllocationPayload
+): Promise<WeeklyCapacityResult> {
+  return apiRequest<WeeklyCapacityResult>(`/allocations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * TC-02: Gỡ phân bổ nguồn lực (chặn nếu tuần đã kết thúc và có actual hours -> HTTP 409)
+ */
+export async function removeAllocation(id: number): Promise<{ success: boolean; message: string }> {
+  return apiRequest<{ success: boolean; message: string }>(`/allocations/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * TC-02: Ghi chú lý do chênh lệch thay thế khi bị chặn gỡ phân bổ
+ */
+export async function saveAllocationVarianceNote(
+  id: number,
+  payload: VarianceNotePayload
+): Promise<WeeklyCapacityResult> {
+  return apiRequest<WeeklyCapacityResult>(`/allocations/${id}/variance-note`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * TC-04: Xem lịch sử điều chỉnh phân bổ nguồn lực
+ */
+export async function getAllocationHistory(
+  id: number
+): Promise<AllocationChangeLogResult[]> {
+  return apiRequest<AllocationChangeLogResult[]>(`/allocations/${id}/history`);
 }
 
 export type CapacityStatus = "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED";
