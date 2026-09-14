@@ -47,15 +47,15 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.user.UserId;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.entity.WeeklyProjectAllocationJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.repository.SpringDataWeeklyProjectAllocationRepository;
 
 class ScheduleConflictServiceTest {
 
     private LoadScheduleConflictPort loadConflictPort;
     private SaveScheduleConflictPort saveConflictPort;
-    private SpringDataWeeklyProjectAllocationRepository allocationRepository;
+    private LoadWeeklyProjectAllocationPort loadAllocationPort;
     private LoadApprovedLeavesPort loadApprovedLeavesPort;
     private LoadEmployeePort loadEmployeePort;
     private LoadProjectPort loadProjectPort;
@@ -70,7 +70,7 @@ class ScheduleConflictServiceTest {
     void setUp() {
         loadConflictPort = Mockito.mock(LoadScheduleConflictPort.class);
         saveConflictPort = Mockito.mock(SaveScheduleConflictPort.class);
-        allocationRepository = Mockito.mock(SpringDataWeeklyProjectAllocationRepository.class);
+        loadAllocationPort = Mockito.mock(LoadWeeklyProjectAllocationPort.class);
         loadApprovedLeavesPort = Mockito.mock(LoadApprovedLeavesPort.class);
         loadEmployeePort = Mockito.mock(LoadEmployeePort.class);
         loadProjectPort = Mockito.mock(LoadProjectPort.class);
@@ -82,7 +82,7 @@ class ScheduleConflictServiceTest {
         service = new ScheduleConflictService(
                 loadConflictPort,
                 saveConflictPort,
-                allocationRepository,
+                loadAllocationPort,
                 loadApprovedLeavesPort,
                 loadEmployeePort,
                 loadProjectPort,
@@ -120,23 +120,10 @@ class ScheduleConflictServiceTest {
         OrgUnit orgUnit = new OrgUnit(new OrgUnitId(1L), "DEV", "Phòng Lập Trình", OrgUnitType.DEPARTMENT, null, "/1", 1, OrgUnitStatus.ACTIVE, "Dev Dept", 1L, LocalDateTime.now(), LocalDateTime.now());
         when(loadOrgUnitPort.findById(new OrgUnitId(1L))).thenReturn(Optional.of(orgUnit));
 
-        WeeklyProjectAllocationJpaEntity alloc1 = new WeeklyProjectAllocationJpaEntity();
-        alloc1.setId(1L);
-        alloc1.setEmployeeId(10L);
-        alloc1.setProjectId(1L);
-        alloc1.setYear(2026);
-        alloc1.setWeekNumber(37);
-        alloc1.setAllocatedHours(BigDecimal.valueOf(40.0));
+        WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(1L, 10L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
+        WeeklyProjectAllocation alloc2 = new WeeklyProjectAllocation(2L, 10L, 2L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
 
-        WeeklyProjectAllocationJpaEntity alloc2 = new WeeklyProjectAllocationJpaEntity();
-        alloc2.setId(2L);
-        alloc2.setEmployeeId(10L);
-        alloc2.setProjectId(2L);
-        alloc2.setYear(2026);
-        alloc2.setWeekNumber(37);
-        alloc2.setAllocatedHours(BigDecimal.valueOf(40.0));
-
-        when(allocationRepository.findByEmployeeIdInAndYearAndWeekNumberBetween(List.of(10L), 2026, 37, 37))
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(List.of(10L), 2026, 37, 37))
                 .thenReturn(List.of(alloc1, alloc2));
 
         when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any()))
@@ -192,15 +179,9 @@ class ScheduleConflictServiceTest {
         Project p1 = new Project(new ProjectId(1L), "PROJ-A", "Dự án Alpha", 1L, new EmployeeId(1L), null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
         when(loadProjectPort.findAllById(any())).thenReturn(List.of(p1));
 
-        WeeklyProjectAllocationJpaEntity alloc1 = new WeeklyProjectAllocationJpaEntity();
-        alloc1.setId(3L);
-        alloc1.setEmployeeId(11L);
-        alloc1.setProjectId(1L);
-        alloc1.setYear(2026);
-        alloc1.setWeekNumber(37);
-        alloc1.setAllocatedHours(BigDecimal.valueOf(40.0));
+        WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(3L, 11L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
 
-        when(allocationRepository.findByEmployeeIdInAndYearAndWeekNumberBetween(List.of(11L), 2026, 37, 37))
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(List.of(11L), 2026, 37, 37))
                 .thenReturn(List.of(alloc1));
 
         YearWeek yw = new YearWeek(2026, 37);

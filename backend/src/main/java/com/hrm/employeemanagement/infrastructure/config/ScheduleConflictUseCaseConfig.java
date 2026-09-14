@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.infrastructure.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.LoadScheduleConflictPort;
@@ -13,7 +14,6 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.conflict.ScheduleConflictService;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.repository.SpringDataWeeklyProjectAllocationRepository;
 
 @Configuration
 public class ScheduleConflictUseCaseConfig {
@@ -22,7 +22,7 @@ public class ScheduleConflictUseCaseConfig {
     public ScheduleConflictService scheduleConflictService(
             LoadScheduleConflictPort loadConflictPort,
             SaveScheduleConflictPort saveConflictPort,
-            SpringDataWeeklyProjectAllocationRepository allocationRepository,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             LoadEmployeePort loadEmployeePort,
             LoadProjectPort loadProjectPort,
@@ -34,7 +34,7 @@ public class ScheduleConflictUseCaseConfig {
         return new ScheduleConflictService(
                 loadConflictPort,
                 saveConflictPort,
-                allocationRepository,
+                loadAllocationPort,
                 loadApprovedLeavesPort,
                 loadEmployeePort,
                 loadProjectPort,

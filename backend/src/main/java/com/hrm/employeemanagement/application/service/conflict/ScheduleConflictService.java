@@ -21,6 +21,7 @@ import com.hrm.employeemanagement.application.port.inbound.conflict.GetScheduleC
 import com.hrm.employeemanagement.application.port.inbound.conflict.NotifyScheduleConflictUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ScanScheduleConflictsUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.LoadScheduleConflictPort;
@@ -30,6 +31,7 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
@@ -41,8 +43,6 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.entity.WeeklyProjectAllocationJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.repository.SpringDataWeeklyProjectAllocationRepository;
 
 public class ScheduleConflictService implements
         GetScheduleConflictsUseCase,
@@ -52,7 +52,7 @@ public class ScheduleConflictService implements
 
     private final LoadScheduleConflictPort loadConflictPort;
     private final SaveScheduleConflictPort saveConflictPort;
-    private final SpringDataWeeklyProjectAllocationRepository allocationRepository;
+    private final LoadWeeklyProjectAllocationPort loadAllocationPort;
     private final LoadApprovedLeavesPort loadApprovedLeavesPort;
     private final LoadEmployeePort loadEmployeePort;
     private final LoadProjectPort loadProjectPort;
@@ -64,7 +64,7 @@ public class ScheduleConflictService implements
     public ScheduleConflictService(
             LoadScheduleConflictPort loadConflictPort,
             SaveScheduleConflictPort saveConflictPort,
-            SpringDataWeeklyProjectAllocationRepository allocationRepository,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             LoadEmployeePort loadEmployeePort,
             LoadProjectPort loadProjectPort,
@@ -75,7 +75,7 @@ public class ScheduleConflictService implements
     ) {
         this.loadConflictPort = Objects.requireNonNull(loadConflictPort, "loadConflictPort must not be null");
         this.saveConflictPort = Objects.requireNonNull(saveConflictPort, "saveConflictPort must not be null");
-        this.allocationRepository = Objects.requireNonNull(allocationRepository, "allocationRepository must not be null");
+        this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "loadAllocationPort must not be null");
         this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "loadApprovedLeavesPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "loadProjectPort must not be null");
@@ -217,11 +217,11 @@ public class ScheduleConflictService implements
             final int currentWeekNum = week;
 
             // Load allocations for target week
-            List<WeeklyProjectAllocationJpaEntity> allocations = allocationRepository
-                    .findByEmployeeIdInAndYearAndWeekNumberBetween(employeeIds, year, currentWeekNum, currentWeekNum);
+            List<WeeklyProjectAllocation> allocations = loadAllocationPort
+                    .loadAllocationsForEmployeesInWeekRange(employeeIds, year, currentWeekNum, currentWeekNum);
 
-            Map<Long, List<WeeklyProjectAllocationJpaEntity>> allocationsByEmp = allocations.stream()
-                    .collect(Collectors.groupingBy(WeeklyProjectAllocationJpaEntity::getEmployeeId));
+            Map<Long, List<WeeklyProjectAllocation>> allocationsByEmp = allocations.stream()
+                    .collect(Collectors.groupingBy(WeeklyProjectAllocation::getEmployeeId));
 
             // Load approved leaves for target week
             YearWeek yw = new YearWeek(year, currentWeekNum);
@@ -230,15 +230,15 @@ public class ScheduleConflictService implements
 
             for (Employee emp : activeEmployees) {
                 Long empId = emp.getIdValue();
-                List<WeeklyProjectAllocationJpaEntity> empAllocations = allocationsByEmp.getOrDefault(empId, Collections.emptyList());
+                List<WeeklyProjectAllocation> empAllocations = allocationsByEmp.getOrDefault(empId, Collections.emptyList());
 
                 BigDecimal totalAllocatedHours = empAllocations.stream()
-                        .map(WeeklyProjectAllocationJpaEntity::getAllocatedHours)
+                        .map(WeeklyProjectAllocation::getAllocatedHours)
                         .filter(Objects::nonNull)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                 Set<Long> projectIdsSet = empAllocations.stream()
-                        .map(WeeklyProjectAllocationJpaEntity::getProjectId)
+                        .map(WeeklyProjectAllocation::getProjectId)
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
 
