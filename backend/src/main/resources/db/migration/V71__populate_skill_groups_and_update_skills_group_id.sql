@@ -36,9 +36,18 @@ WHERE NOT EXISTS (SELECT 1 FROM skill_groups WHERE name = 'UI/UX Design');
 
 -- =========================================================================
 -- 2. Cập nhật lại khóa ngoại group_id cho các skill hiện có dựa theo category cũ
+-- (Dùng cú pháp ANSI Standard SQL tương thích cả MySQL và H2 Database trên GitHub CI)
 -- =========================================================================
 
-UPDATE skills s
-JOIN skill_groups g ON g.name = s.category
-SET s.group_id = g.id
-WHERE s.category IS NOT NULL;
+UPDATE skills
+SET group_id = (
+    SELECT g.id
+    FROM skill_groups g
+    WHERE g.name = skills.category
+)
+WHERE category IS NOT NULL
+  AND EXISTS (
+    SELECT 1
+    FROM skill_groups g
+    WHERE g.name = skills.category
+);
