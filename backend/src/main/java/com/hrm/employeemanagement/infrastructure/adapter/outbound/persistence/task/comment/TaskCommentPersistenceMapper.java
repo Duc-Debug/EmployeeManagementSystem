@@ -28,16 +28,6 @@ public class TaskCommentPersistenceMapper {
         List<TaskAttachment> attachments = new ArrayList<>();
         if (entity.getAttachments() != null) {
             for (TaskAttachmentJpaEntity att : entity.getAttachments()) {
-                attachments.add(new TaskAttachment(
-                        TaskAttachmentId.of(att.getId()),
-                        TaskCommentId.of(att.getComment() != null ? att.getComment().getId() : null),
-                        TaskId.of(att.getTaskId()),
-                        att.getFileName(),
-                        att.getFilePath(),
-                        att.getFileSize(),
-                        att.getFileType(),
-                        new UserId(att.getUploadedBy()),
-                        att.getUploadedAt()));
                 TaskAttachment mapped = toDomain(att);
                 if (mapped != null) {
                     attachments.add(mapped);
