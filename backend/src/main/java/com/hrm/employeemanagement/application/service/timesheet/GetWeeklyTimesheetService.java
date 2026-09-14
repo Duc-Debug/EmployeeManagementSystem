@@ -73,20 +73,33 @@ public class GetWeeklyTimesheetService implements GetWeeklyTimesheetUseCase {
 
         List<TimesheetEntry> entries = loadTimesheetEntryPort.findByEmployeeAndDateRange(employee.getId(), weekMonday, weekSunday);
 
-        // Fetch project and task names cache
-        Map<Long, String[]> projectCache = new HashMap<>();
-        Map<Long, String[]> taskCache = new HashMap<>();
+        // Batch fetch all distinct project and task metadata in single queries (eliminates N+1 queries)
+        List<ProjectId> distinctProjIds = entries.stream()
+                .map(e -> new ProjectId(e.getProjectIdValue()))
+                .distinct()
+                .toList();
+        Map<Long, com.hrm.employeemanagement.domain.project.Project> projectMap = distinctProjIds.isEmpty()
+                ? Map.of()
+                : loadProjectPort.findAllById(distinctProjIds).stream()
+                        .collect(Collectors.toMap(p -> p.getId().value(), p -> p, (a, b) -> a));
+
+        List<TaskId> distinctTaskIds = entries.stream()
+                .map(e -> new TaskId(e.getTaskIdValue()))
+                .distinct()
+                .toList();
+        Map<Long, com.hrm.employeemanagement.domain.task.Task> taskMap = distinctTaskIds.isEmpty()
+                ? Map.of()
+                : loadTaskPort.findAllById(distinctTaskIds).stream()
+                        .collect(Collectors.toMap(t -> t.getId().value(), t -> t, (a, b) -> a));
 
         List<WorkLogResult> resultEntries = entries.stream().map(e -> {
-            String[] projInfo = projectCache.computeIfAbsent(e.getProjectIdValue(), pId ->
-                    loadProjectPort.findById(new ProjectId(pId))
-                            .map(p -> new String[]{p.getProjectCode(), p.getProjectName()})
-                            .orElse(new String[]{"-", "-"}));
+            var project = projectMap.get(e.getProjectIdValue());
+            String projectCode = project != null ? project.getProjectCode() : "-";
+            String projectName = project != null ? project.getProjectName() : "-";
 
-            String[] taskInfo = taskCache.computeIfAbsent(e.getTaskIdValue(), tId ->
-                    loadTaskPort.findById(new TaskId(tId))
-                            .map(t -> new String[]{t.getTaskCode(), t.getName()})
-                            .orElse(new String[]{"-", "-"}));
+            var task = taskMap.get(e.getTaskIdValue());
+            String taskCode = task != null ? task.getTaskCode() : "-";
+            String taskName = task != null ? task.getName() : "-";
 
             return new WorkLogResult(
                     e.getIdValue(),
@@ -94,11 +107,11 @@ public class GetWeeklyTimesheetService implements GetWeeklyTimesheetUseCase {
                     employee.getIdValue(),
                     employee.getFullName(),
                     e.getProjectIdValue(),
-                    projInfo[0],
-                    projInfo[1],
+                    projectCode,
+                    projectName,
                     e.getTaskIdValue(),
-                    taskInfo[0],
-                    taskInfo[1],
+                    taskCode,
+                    taskName,
                     e.getWorkDate(),
                     e.getHours(),
                     e.isBillable(),

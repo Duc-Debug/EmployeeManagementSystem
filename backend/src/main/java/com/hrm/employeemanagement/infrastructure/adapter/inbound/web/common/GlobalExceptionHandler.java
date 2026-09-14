@@ -99,13 +99,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    @ExceptionHandler({EmployeeVersionConflictException.class,
-            org.springframework.orm.ObjectOptimisticLockingFailureException.class,
-            jakarta.persistence.OptimisticLockException.class})
-    public ResponseEntity<ErrorResponse> handleOptimisticLocking(Exception ex) {
+    @ExceptionHandler(EmployeeVersionConflictException.class)
+    public ResponseEntity<ErrorResponse> handleEmployeeVersionConflict(EmployeeVersionConflictException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "EMPLOYEE_VERSION_CONFLICT",
-                "Hồ sơ nhân sự đã được cập nhật bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại.",
+                ex.getMessage() != null ? ex.getMessage() : "Hồ sơ nhân sự đã được cập nhật bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại.",
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler({
+            org.springframework.orm.ObjectOptimisticLockingFailureException.class,
+            jakarta.persistence.OptimisticLockException.class
+    })
+    public ResponseEntity<ErrorResponse> handleGenericOptimisticLocking(Exception ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CONCURRENT_MODIFICATION_CONFLICT",
+                "Dữ liệu đã được cập nhật bởi một thao tác khác cùng thời điểm. Vui lòng tải lại và thử lại.",
                 HttpStatus.CONFLICT.value());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }

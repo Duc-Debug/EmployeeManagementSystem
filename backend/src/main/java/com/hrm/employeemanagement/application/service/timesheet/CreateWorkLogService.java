@@ -80,8 +80,12 @@ public class CreateWorkLogService implements CreateWorkLogUseCase {
     public WorkLogResult createWorkLog(CreateWorkLogCommand command) {
         Long currentUserId = authorizationService.require(PermissionCode.WORK_LOG_CREATE);
 
-        Employee employee = loadEmployeePort.findByUserId(new UserId(currentUserId))
+        Employee baseEmployee = loadEmployeePort.findByUserId(new UserId(currentUserId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy thông tin nhân sự của người dùng hiện tại"));
+
+        // Concurrency-safe serialization: Lock employee row to prevent race condition on QTN-09 daily hours limit
+        Employee employee = loadEmployeePort.findByIdForUpdate(baseEmployee.getId())
+                .orElse(baseEmployee);
 
         if (employee.getStatus() != null && employee.getStatus() != EmployeeStatus.ACTIVE) {
             throw new WorkLogTaskNotAssignedException("Tài khoản nhân sự không ở trạng thái hoạt động (ACTIVE).");

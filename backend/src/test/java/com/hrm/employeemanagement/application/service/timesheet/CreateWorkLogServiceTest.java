@@ -392,4 +392,38 @@ class CreateWorkLogServiceTest {
 
         assertThrows(TimesheetImmutableException.class, () -> service.createWorkLog(command));
     }
+
+    @Test
+    @DisplayName("Concurrency safety: Phải gọi findByIdForUpdate để serialize các thao tác ghi giờ chống race condition vỡ 12h/ngày")
+    void testCreateWorkLog_AcquiresPessimisticLockForConcurrencySafety() {
+        Employee employee = createMockEmployee();
+        when(authorizationService.require(PermissionCode.WORK_LOG_CREATE)).thenReturn(userId);
+        when(loadEmployeePort.findByUserId(new UserId(userId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(employeeId)).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(createMockProject(ProjectStatus.ACTIVE)));
+        when(loadTaskPort.findById(taskId)).thenReturn(Optional.of(createMockTask(TaskType.TASK)));
+        when(loadTimesheetEntryPort.sumHoursByEmployeeAndDate(employeeId, workDate, null)).thenReturn(BigDecimal.valueOf(8.0));
+
+        Timesheet draftTimesheet = Timesheet.create(employeeId, workDate);
+        when(loadTimesheetPort.findByEmployeeAndWeekStart(employeeId, workDate)).thenReturn(Optional.of(draftTimesheet));
+        when(saveTimesheetEntryPort.save(any(TimesheetEntry.class))).thenAnswer(inv -> {
+            TimesheetEntry e = inv.getArgument(0);
+            return new TimesheetEntry(new TimesheetEntryId(999L), e.getTimesheetId(), e.getEmployeeId(), e.getProjectId(), e.getTaskId(), e.getWorkDate(), e.getHours(), e.isBillable(), e.getDescription(), e.getStatus(), e.getCreatedAt(), e.getUpdatedAt(), 0L);
+        });
+
+        CreateWorkLogCommand command = new CreateWorkLogCommand(
+                projectId.value(),
+                taskId.value(),
+                workDate,
+                BigDecimal.valueOf(4.0),
+                true,
+                "Ghi nốt 4h để đạt đúng 12h"
+        );
+
+        WorkLogResult result = service.createWorkLog(command);
+
+        assertNotNull(result);
+        assertEquals(BigDecimal.valueOf(4.0), result.hours());
+        verify(loadEmployeePort).findByIdForUpdate(employeeId);
+    }
 }

@@ -56,8 +56,12 @@ public class DeleteWorkLogService implements DeleteWorkLogUseCase {
     public void deleteWorkLog(DeleteWorkLogCommand command) {
         Long currentUserId = authorizationService.require(PermissionCode.WORK_LOG_DELETE);
 
-        Employee employee = loadEmployeePort.findByUserId(new UserId(currentUserId))
+        Employee baseEmployee = loadEmployeePort.findByUserId(new UserId(currentUserId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy thông tin nhân sự của người dùng hiện tại"));
+
+        // Concurrency-safe serialization: Lock employee row to serialize timesheet mutations
+        Employee employee = loadEmployeePort.findByIdForUpdate(baseEmployee.getId())
+                .orElse(baseEmployee);
 
         if (command.entryId() == null) {
             throw new TimesheetEntryNotFoundException("ID dòng ghi giờ không được để trống.");

@@ -82,8 +82,12 @@ public class UpdateWorkLogService implements UpdateWorkLogUseCase {
     public WorkLogResult updateWorkLog(UpdateWorkLogCommand command) {
         Long currentUserId = authorizationService.require(PermissionCode.WORK_LOG_UPDATE);
 
-        Employee employee = loadEmployeePort.findByUserId(new UserId(currentUserId))
+        Employee baseEmployee = loadEmployeePort.findByUserId(new UserId(currentUserId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy thông tin nhân sự của người dùng hiện tại"));
+
+        // Concurrency-safe serialization: Lock employee row to prevent race condition on QTN-09 daily hours limit
+        Employee employee = loadEmployeePort.findByIdForUpdate(baseEmployee.getId())
+                .orElse(baseEmployee);
 
         if (command.entryId() == null) {
             throw new TimesheetEntryNotFoundException("ID dòng ghi giờ không được để trống.");
