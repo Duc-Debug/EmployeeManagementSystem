@@ -17,6 +17,7 @@ import {
   type SpecialistTaskProgressStatus,
   type TaskProgressResult,
 } from "@/lib/api/taskProgress";
+import { ApiError } from "@/lib/api-client";
 import { TaskProgressBadge } from "./TaskProgressBadge";
 import { cn } from "@/lib/utils";
 
@@ -58,16 +59,33 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
     }
   }, [task]);
 
-  // Handle ESC key to close
+  // Handle keyboard navigation: ESC to close, ArrowUp/ArrowDown to change selection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !isSubmitting) {
+      if (!isOpen || isSubmitting) return;
+
+      if (e.key === "Escape") {
         onClose();
+        return;
+      }
+
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const currentIndex = SPECIALIST_TASK_STATUSES.indexOf(selectedStatus);
+        if (currentIndex === -1) return;
+
+        if (e.key === "ArrowDown") {
+          const nextIndex = (currentIndex + 1) % SPECIALIST_TASK_STATUSES.length;
+          setSelectedStatus(SPECIALIST_TASK_STATUSES[nextIndex]);
+        } else {
+          const prevIndex = (currentIndex - 1 + SPECIALIST_TASK_STATUSES.length) % SPECIALIST_TASK_STATUSES.length;
+          setSelectedStatus(SPECIALIST_TASK_STATUSES[prevIndex]);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
+  }, [isOpen, isSubmitting, onClose, selectedStatus]);
 
   if (!isOpen || !task) return null;
 
@@ -86,17 +104,21 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
       onSuccess(result);
       onClose();
     } catch (err: unknown) {
-      const errObj = err as { status?: number; message?: string };
-      if (errObj?.status === 403) {
-        setErrorMessage("Bạn không được phân công thực hiện công việc này. Vui lòng liên hệ PM để kiểm tra.");
-      } else if (errObj?.status === 400) {
-        setErrorMessage(
-          errObj.message || "Dự án đã đóng hoặc kết thúc, không được phép cập nhật tiến độ công việc."
-        );
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          setErrorMessage("Bạn không được phân công thực hiện công việc này. Vui lòng liên hệ PM để kiểm tra.");
+        } else if (err.status === 400) {
+          setErrorMessage(
+            err.message || "Dự án đã đóng hoặc kết thúc, không được phép cập nhật tiến độ công việc."
+          );
+        } else {
+          setErrorMessage(
+            err.message || "Không thể cập nhật tiến độ công việc. Vui lòng kiểm tra kết nối và thử lại."
+          );
+        }
       } else {
-        setErrorMessage(
-          errObj?.message || "Không thể cập nhật tiến độ công việc. Vui lòng kiểm tra kết nối và thử lại."
-        );
+        const fallbackMsg = err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định.";
+        setErrorMessage(fallbackMsg);
       }
     } finally {
       setIsSubmitting(false);
@@ -121,6 +143,12 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200"
       aria-modal="true"
       role="dialog"
+      aria-labelledby="task-progress-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) {
+          onClose();
+        }
+      }}
     >
       <div
         className="relative w-full max-w-lg overflow-hidden bg-white rounded-2xl shadow-xl border border-slate-200 animate-in zoom-in-95 duration-200"
@@ -129,7 +157,7 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div>
-            <h2 className="text-base font-semibold text-slate-800">Cập nhật tiến độ công việc</h2>
+            <h2 id="task-progress-modal-title" className="text-base font-semibold text-slate-800">Cập nhật tiến độ công việc</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               NCL-04-CN-002 • Dành cho chuyên viên được phân công
             </p>
@@ -138,6 +166,7 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
+
             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
             title="Đóng (Esc)"
           >
