@@ -36,6 +36,10 @@ export function AttendanceView({
     const isHR = roleCode === "VT-05" || roleCode === "VT-06"
     const isEmployee = roleCode === "VT-04"
     const isDirector = roleCode === "VT-01"
+    const isPM = roleCode === "VT-02"
+
+    // Chỉ hiển thị tab Ghi giờ công dự án cho vai trò có quyền (VT-04 Chuyên môn, VT-02 PM, VT-06 Admin)
+    const canAccessWorkLog = isEmployee || roleCode === "VT-06" || isPM || (user?.permissions && user.permissions.includes("WORK_LOG_READ"))
 
     // Lọc danh sách bản ghi chấm công: Nếu là VT-04 thì chỉ xem bản ghi của chính mình
     const currentUserIdStr = user?.id != null ? String(user.id) : ""
@@ -80,7 +84,7 @@ export function AttendanceView({
     const myRecord = displayedRecords[0]
     const isPresent = myRecord && myRecord.status !== "Vắng mặt"
 
-    const [subTab, setSubTab] = useState<"work-logs" | "checkin">("work-logs")
+    const [subTab, setSubTab] = useState<"work-logs" | "checkin">(() => canAccessWorkLog ? "work-logs" : "checkin")
     const [isConfigOpen, setIsConfigOpen] = useState(false)
     const [shiftRules, setShiftRules] = useState<ShiftRulesData>({
         startTime: "08:00 AM",
@@ -107,37 +111,39 @@ export function AttendanceView({
     return (
         <section className="space-y-6">
             {/* Sub-tabs Navigation */}
-            <div className="flex border-b border-slate-200">
-                <button
-                    type="button"
-                    onClick={() => setSubTab("work-logs")}
-                    className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
-                        subTab === "work-logs"
-                            ? "border-indigo-600 text-indigo-600"
-                            : "border-transparent text-slate-500 hover:text-slate-800"
-                    }`}
-                >
-                    <BriefcaseBusiness className="h-4 w-4" />
-                    <span>Ghi giờ công dự án (NCL-09)</span>
-                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-extrabold text-indigo-700">
-                        NCL-09-CN-001
-                    </span>
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setSubTab("checkin")}
-                    className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
-                        subTab === "checkin"
-                            ? "border-indigo-600 text-indigo-600"
-                            : "border-transparent text-slate-500 hover:text-slate-800"
-                    }`}
-                >
-                    <History className="h-4 w-4" />
-                    <span>Chấm công vào/ra (Hành chính)</span>
-                </button>
-            </div>
+            {canAccessWorkLog && (
+                <div className="flex border-b border-slate-200">
+                    <button
+                        type="button"
+                        onClick={() => setSubTab("work-logs")}
+                        className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
+                            subTab === "work-logs"
+                                ? "border-indigo-600 text-indigo-600"
+                                : "border-transparent text-slate-500 hover:text-slate-800"
+                        }`}
+                    >
+                        <BriefcaseBusiness className="h-4 w-4" />
+                        <span>Ghi giờ công dự án (NCL-09)</span>
+                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-extrabold text-indigo-700">
+                            NCL-09-CN-001
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setSubTab("checkin")}
+                        className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
+                            subTab === "checkin"
+                                ? "border-indigo-600 text-indigo-600"
+                                : "border-transparent text-slate-500 hover:text-slate-800"
+                        }`}
+                    >
+                        <History className="h-4 w-4" />
+                        <span>Chấm công vào/ra (Hành chính)</span>
+                    </button>
+                </div>
+            )}
 
-            {subTab === "work-logs" ? (
+            {canAccessWorkLog && subTab === "work-logs" ? (
                 <WorkLogView />
             ) : (
                 <div className="space-y-6">

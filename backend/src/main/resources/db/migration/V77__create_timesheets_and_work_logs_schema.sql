@@ -109,12 +109,12 @@ INSERT INTO permissions (code, name, description)
 SELECT 'WORK_LOG_DELETE', 'Xóa giờ công', 'Cho phép xóa dòng giờ công ở trạng thái nháp'
 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'WORK_LOG_DELETE');
 
--- 4. Gán quyền cho vai trò VT-04 (Nhân viên chuyên môn) và VT-06 (Quản trị viên)
+-- 4. Gán quyền cho vai trò VT-04 (Nhân viên chuyên môn), VT-02 (Quản trị dự án) và VT-06 (Quản trị viên)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.code IN ('VT-04', 'VT-06')
+WHERE r.code IN ('VT-04', 'VT-06', 'VT-02')
   AND p.code IN ('WORK_LOG_CREATE', 'WORK_LOG_READ', 'WORK_LOG_UPDATE', 'WORK_LOG_DELETE')
   AND NOT EXISTS (
       SELECT 1 FROM role_permissions rp 

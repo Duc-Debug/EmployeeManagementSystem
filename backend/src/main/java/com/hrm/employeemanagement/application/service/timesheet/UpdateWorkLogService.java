@@ -124,6 +124,12 @@ public class UpdateWorkLogService implements UpdateWorkLogUseCase {
         if (command.description() == null || command.description().trim().isEmpty()) {
             throw new WorkLogDescriptionBlankException("Mô tả nội dung công việc không được để trống.");
         }
+        if (command.projectId() == null) {
+            throw new ProjectNotFoundException("Dự án không được để trống.");
+        }
+        if (command.taskId() == null) {
+            throw new TaskNotFoundException("Công việc không được để trống.");
+        }
 
         if (employee.getContractEndDate() != null && command.workDate().isAfter(employee.getContractEndDate())) {
             throw new WorkLogTaskNotAssignedException("Ngày làm việc " + command.workDate() + " vượt quá ngày kết thúc hợp đồng (" + employee.getContractEndDate() + ").");
