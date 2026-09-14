@@ -244,6 +244,17 @@ class ScheduleConflictReplacementServiceTest {
         when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(origEmp));
         when(loadEmployeePort.findById(new EmployeeId(replacementEmpId))).thenReturn(Optional.of(replEmp));
 
+        // Skill approved for candidate
+        EmployeeSkill candSkill = new EmployeeSkill(
+                2L, replacementEmpId, skillId, 4, new BigDecimal("5.0"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(employeeSkillRepository.findByEmployeeIdAndSkillId(replacementEmpId, skillId)).thenReturn(Optional.of(candSkill));
+
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyMap());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyList());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyList());
+
         Skill skill = new Skill(skillId, "SKILL-JAVA", "Java Backend", "Backend", "Descr", LocalDateTime.now());
         when(loadSkillPort.findById(new SkillId(skillId))).thenReturn(Optional.of(skill));
 
@@ -253,7 +264,7 @@ class ScheduleConflictReplacementServiceTest {
 
         ScheduleConflictReplacement savedDomain = new ScheduleConflictReplacement(
                 99L, conflictId, conflictedEmpId, replacementEmpId, skillId, 4,
-                new BigDecimal("8.0"), "PROPOSED", "Thay thế do NV010 bị trùng dự án Alpha",
+                new BigDecimal("40.0"), "PROPOSED", "Thay thế do NV010 bị trùng dự án Alpha",
                 rmUserId, LocalDateTime.now()
         );
         when(replacementPort.save(any())).thenReturn(savedDomain);
@@ -271,5 +282,100 @@ class ScheduleConflictReplacementServiceTest {
 
         verify(notificationPort).sendReplacementSuggestionNotification(any(), any(), any(), any(), any());
         verify(auditLogPort).save(any());
+    }
+
+    @Test
+    void testConfirmProposal_InactiveCandidate_ThrowsIllegalArgumentException() {
+        Long rmUserId = 100L;
+        Long conflictId = 5L;
+        Long conflictedEmpId = 10L;
+        Long replacementEmpId = 20L;
+
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST)).thenReturn(rmUserId);
+
+        ScheduleConflict conflict = ScheduleConflict.create(
+                conflictedEmpId, 2026, 38, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1", "Dự án Alpha", null, null,
+                new BigDecimal("48.0"), new BigDecimal("40.0"), new BigDecimal("8.0"), "Overload"
+        );
+        when(loadConflictPort.findById(conflictId)).thenReturn(Optional.of(conflict));
+
+        Employee origEmp = new Employee(new EmployeeId(conflictedEmpId), new UserId(1000L), 1L, "NV010", "Nguyễn Văn A", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee inactiveReplEmp = new Employee(new EmployeeId(replacementEmpId), new UserId(2000L), 1L, "NV020", "Trần Văn B", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.TERMINATED);
+
+        when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(origEmp));
+        when(loadEmployeePort.findById(new EmployeeId(replacementEmpId))).thenReturn(Optional.of(inactiveReplEmp));
+
+        ConfirmReplacementProposalCommand command = new ConfirmReplacementProposalCommand(
+                conflictId, replacementEmpId, 50L, 3, "Notes"
+        );
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.confirmReplacementProposal(command));
+        assertTrue(ex.getMessage().contains("ACTIVE"));
+    }
+
+    @Test
+    void testConfirmProposal_SameConflictedEmployee_ThrowsIllegalArgumentException() {
+        Long rmUserId = 100L;
+        Long conflictId = 6L;
+        Long conflictedEmpId = 10L;
+
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST)).thenReturn(rmUserId);
+
+        ScheduleConflict conflict = ScheduleConflict.create(
+                conflictedEmpId, 2026, 38, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1", "Dự án Alpha", null, null,
+                new BigDecimal("48.0"), new BigDecimal("40.0"), new BigDecimal("8.0"), "Overload"
+        );
+        when(loadConflictPort.findById(conflictId)).thenReturn(Optional.of(conflict));
+
+        Employee origEmp = new Employee(new EmployeeId(conflictedEmpId), new UserId(1000L), 1L, "NV010", "Nguyễn Văn A", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(origEmp));
+
+        ConfirmReplacementProposalCommand command = new ConfirmReplacementProposalCommand(
+                conflictId, conflictedEmpId, 50L, 3, "Notes"
+        );
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.confirmReplacementProposal(command));
+        assertTrue(ex.getMessage().contains("không được trùng"));
+    }
+
+    @Test
+    void testConfirmProposal_UnapprovedOrInsufficientSkill_ThrowsIllegalArgumentException() {
+        Long rmUserId = 100L;
+        Long conflictId = 7L;
+        Long conflictedEmpId = 10L;
+        Long replacementEmpId = 20L;
+        Long skillId = 50L;
+
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST)).thenReturn(rmUserId);
+
+        ScheduleConflict conflict = ScheduleConflict.create(
+                conflictedEmpId, 2026, 38, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1", "Dự án Alpha", null, null,
+                new BigDecimal("48.0"), new BigDecimal("40.0"), new BigDecimal("8.0"), "Overload"
+        );
+        when(loadConflictPort.findById(conflictId)).thenReturn(Optional.of(conflict));
+
+        Employee origEmp = new Employee(new EmployeeId(conflictedEmpId), new UserId(1000L), 1L, "NV010", "Nguyễn Văn A", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee replEmp = new Employee(new EmployeeId(replacementEmpId), new UserId(2000L), 1L, "NV020", "Trần Văn B", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(origEmp));
+        when(loadEmployeePort.findById(new EmployeeId(replacementEmpId))).thenReturn(Optional.of(replEmp));
+
+        // Low proficiency level (2 < 4)
+        EmployeeSkill lowSkill = new EmployeeSkill(
+                2L, replacementEmpId, skillId, 2, new BigDecimal("1.0"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(employeeSkillRepository.findByEmployeeIdAndSkillId(replacementEmpId, skillId)).thenReturn(Optional.of(lowSkill));
+
+        ConfirmReplacementProposalCommand command = new ConfirmReplacementProposalCommand(
+                conflictId, replacementEmpId, skillId, 4, "Notes"
+        );
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.confirmReplacementProposal(command));
+        assertTrue(ex.getMessage().contains("thấp hơn mức yêu cầu"));
     }
 }

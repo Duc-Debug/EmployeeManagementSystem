@@ -371,6 +371,60 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
         Employee replacementEmp = loadEmployeePort.findById(new EmployeeId(command.replacementEmployeeId()))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân sự thay thế: " + command.replacementEmployeeId()));
 
+        // 1. Re-validate: Trạng thái nhân sự thay thế phải là ACTIVE
+        if (replacementEmp.getStatus() == null || !"ACTIVE".equalsIgnoreCase(replacementEmp.getStatus().name())) {
+            throw new IllegalArgumentException("Nhân sự thay thế không ở trạng thái đang hoạt động (ACTIVE)");
+        }
+
+        // 2. Re-validate: Không được tự thay thế chính nhân sự đang bị xung đột
+        if (replacementEmp.getIdValue().equals(originalEmp.getIdValue())) {
+            throw new IllegalArgumentException("Nhân sự thay thế không được trùng với nhân sự đang bị xung đột lịch");
+        }
+
+        // 3. Re-validate: Kỹ năng và mức thành thạo của candidate tại thời điểm confirm
+        int reqLevel = command.proficiencyLevel() != null ? command.proficiencyLevel() : 1;
+        if (command.skillId() != null) {
+            Optional<EmployeeSkill> empSkillOpt = employeeSkillRepository
+                    .findByEmployeeIdAndSkillId(replacementEmp.getIdValue(), command.skillId());
+            if (empSkillOpt.isEmpty() || empSkillOpt.get().getStatus() != SkillStatus.APPROVED) {
+                throw new IllegalArgumentException("Nhân sự thay thế chưa có kỹ năng được phê duyệt cho kỹ năng yêu cầu (ID: " + command.skillId() + ")");
+            }
+            if (empSkillOpt.get().getProficiencyLevelValue() < reqLevel) {
+                throw new IllegalArgumentException(String.format(
+                        "Mức thành thạo kỹ năng của nhân sự thay thế (%d) thấp hơn mức yêu cầu (%d)",
+                        empSkillOpt.get().getProficiencyLevelValue(), reqLevel
+                ));
+            }
+        }
+
+        // 4. Re-validate: Số giờ rảnh của candidate trong đúng tuần xảy ra xung đột
+        YearWeek targetWeek = new YearWeek(conflict.getYearNumber(), conflict.getWeekNumber());
+
+        Map<Long, Map<YearWeek, BigDecimal>> approvedLeavesMap = loadApprovedLeavesPort
+                .loadApprovedLeaveHoursForEmployeesAndWeeks(List.of(replacementEmp.getIdValue()), List.of(targetWeek));
+
+        List<WeeklyAvailability> availabilities = loadWeeklyAvailabilityPort
+                .loadAvailabilityForEmployeesAndWeeks(List.of(replacementEmp.getIdValue()), List.of(targetWeek));
+        WeeklyAvailability avail = availabilities.stream().findFirst().orElse(null);
+
+        List<WeeklyProjectAllocation> allocations = loadAllocationPort
+                .loadAllocationsForEmployeesAndWeeks(List.of(replacementEmp.getIdValue()), List.of(targetWeek));
+
+        int stdHours = replacementEmp.getStandardHoursPerWeek() != null ? replacementEmp.getStandardHoursPerWeek() : 40;
+        BigDecimal leaveHours = approvedLeavesMap.getOrDefault(replacementEmp.getIdValue(), Collections.emptyMap())
+                .getOrDefault(targetWeek, BigDecimal.ZERO);
+        BigDecimal netAvail = avail != null ? avail.getNetAvailableHours() : BigDecimal.valueOf(stdHours).subtract(leaveHours).max(BigDecimal.ZERO);
+
+        BigDecimal allocated = allocations.stream()
+                .map(WeeklyProjectAllocation::getAllocatedHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal freeHours = netAvail.subtract(allocated);
+
+        if (freeHours.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Nhân sự thay thế không còn giờ rảnh trong tuần " + conflict.getWeekNumber() + "/" + conflict.getYearNumber());
+        }
+
         // Tải skill name
         String skillName = "Chuyên môn";
         if (command.skillId() != null) {
@@ -386,7 +440,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 replacementEmp.getIdValue(),
                 command.skillId(),
                 command.proficiencyLevel() != null ? command.proficiencyLevel() : 3,
-                conflict.getExcessHours(),
+                freeHours,
                 "PROPOSED",
                 command.notes(),
                 currentUserId,
