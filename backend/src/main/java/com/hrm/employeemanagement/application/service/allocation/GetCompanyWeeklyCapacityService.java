@@ -346,7 +346,9 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         page,
                         pageSize,
                         0,
-                        0
+                        0,
+                        overloadThreshold,
+                        idleThreshold
                 );
             }
 
@@ -366,7 +368,9 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     page,
                     pageSize,
                     (int) totalEmployees,
-                    totalPages
+                    totalPages,
+                    overloadThreshold,
+                    idleThreshold
             );
         }
 
@@ -402,7 +406,9 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     query.page(),
                     query.size(),
                     0,
-                    0
+                    0,
+                    overloadThreshold,
+                    idleThreshold
             );
         }
 
@@ -457,7 +463,9 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 page,
                 pageSize,
                 totalMatching,
-                totalPages
+                totalPages,
+                overloadThreshold,
+                idleThreshold
         );
     }
 
