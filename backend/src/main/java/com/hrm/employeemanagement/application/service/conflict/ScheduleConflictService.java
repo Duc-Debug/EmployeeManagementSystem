@@ -93,13 +93,7 @@ public class ScheduleConflictService implements
                 PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
         );
 
-        Integer currentYear = query.yearNumber() != null ? query.yearNumber() : LocalDate.now().getYear();
-        Integer startW = query.startWeek() != null ? query.startWeek() : LocalDate.now().get(WeekFields.of(Locale.getDefault()).weekOfWeekBasedYear());
-        Integer endW = query.endWeek() != null ? query.endWeek() : Math.min(startW + 4, 52);
-
-        // Run scan to refresh active conflicts in target week range
-        scanInternal(currentYear, startW, endW);
-
+        // GET endpoint is strictly read-only (HIGH 1: zero DB side-effects)
         List<ScheduleConflict> conflicts = loadConflictPort.findConflicts(
                 query.yearNumber(),
                 query.startWeek(),
@@ -136,10 +130,9 @@ public class ScheduleConflictService implements
 
     @Override
     public ScheduleConflictResult notifyScheduleConflict(Long conflictId) {
-        // Require permission RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+        // BLOCKER 1: Require strictly RESOURCE_SCHEDULE_CONFLICT_NOTIFY (READ permission is not allowed to mutate data)
         Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
         );
 
         ScheduleConflict conflict = loadConflictPort.findById(conflictId)
@@ -181,9 +174,9 @@ public class ScheduleConflictService implements
 
     @Override
     public ScheduleConflictResult resolveScheduleConflict(Long conflictId) {
+        // BLOCKER 1: Require strictly RESOURCE_SCHEDULE_CONFLICT_NOTIFY (READ permission is not allowed to mutate data)
         Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
         );
 
         ScheduleConflict conflict = loadConflictPort.findById(conflictId)
@@ -259,12 +252,11 @@ public class ScheduleConflictService implements
 
                 BigDecimal netAvailableHours = standardCapacity.subtract(approvedLeaveHours).max(BigDecimal.ZERO);
 
-                // Scenario 1: Multi-project allocation conflict (TC-01)
-                if (projectIdsSet.size() >= 2 || totalAllocatedHours.compareTo(standardCapacity) > 0) {
-                    BigDecimal excessHours = totalAllocatedHours.subtract(standardCapacity).max(BigDecimal.ZERO);
-                    if (projectIdsSet.size() >= 2 && excessHours.compareTo(BigDecimal.ZERO) == 0) {
-                        // Allocated to multiple projects full-time or overlapping
-                        excessHours = totalAllocatedHours.subtract(netAvailableHours).max(BigDecimal.ZERO);
+                // Scenario 1: Multi-project / Overload allocation conflict (HIGH 2: only flag if total hours exceed capacity)
+                if (totalAllocatedHours.compareTo(standardCapacity) > 0 || (projectIdsSet.size() >= 2 && totalAllocatedHours.compareTo(netAvailableHours) > 0)) {
+                    BigDecimal excessHours = totalAllocatedHours.subtract(netAvailableHours).max(BigDecimal.ZERO);
+                    if (excessHours.compareTo(BigDecimal.ZERO) == 0 && totalAllocatedHours.compareTo(standardCapacity) > 0) {
+                        excessHours = totalAllocatedHours.subtract(standardCapacity).max(BigDecimal.ZERO);
                     }
 
                     String projectIdsStr = projectIdsSet.stream().map(String::valueOf).collect(Collectors.joining(","));

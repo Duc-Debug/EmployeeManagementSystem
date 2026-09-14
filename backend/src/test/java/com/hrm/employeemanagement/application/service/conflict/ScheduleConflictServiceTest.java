@@ -247,7 +247,7 @@ class ScheduleConflictServiceTest {
     @DisplayName("NCL-07-CN-001-TC-05: Lưu lịch sử - Gửi thông báo mô phỏng và cập nhật status + ghi audit log")
     void testTC05_NotifyScheduleConflictAuditHistory() {
         // Arrange
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ))
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
                 .thenReturn(1L);
 
         ScheduleConflict conflict = ScheduleConflict.create(
@@ -269,5 +269,67 @@ class ScheduleConflictServiceTest {
         assertEquals(ScheduleConflictStatus.NOTIFIED, result.status());
         verify(notificationPort).sendScheduleConflictWarningNotification(any(), any(), any(), any(), any());
         verify(auditLogPort).save(any());
+    }
+
+    @Test
+    @DisplayName("BLOCKER 1 Regression: Chỉ có quyền READ không thể gọi notifyScheduleConflict")
+    void testNotifyScheduleConflict_ReadPermissionOnly_ThrowsPermissionDeniedException() {
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
+
+        assertThrows(PermissionDeniedException.class, () -> service.notifyScheduleConflict(1001L));
+    }
+
+    @Test
+    @DisplayName("BLOCKER 1 Regression: Chỉ có quyền READ không thể gọi resolveScheduleConflict")
+    void testResolveScheduleConflict_ReadPermissionOnly_ThrowsPermissionDeniedException() {
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
+
+        assertThrows(PermissionDeniedException.class, () -> service.resolveScheduleConflict(1001L));
+    }
+
+    @Test
+    @DisplayName("HIGH 1 Regression: GET getScheduleConflicts chỉ đọc dữ liệu, không ghi DB")
+    void testGetScheduleConflicts_IsReadOnly_DoesNotScanOrPersist() {
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+                .thenReturn(1L);
+
+        ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);
+        service.getScheduleConflicts(query);
+
+        Mockito.verify(saveConflictPort, Mockito.never()).save(any());
+    }
+
+    @Test
+    @DisplayName("HIGH 2 Regression: Phân bổ 2 dự án nhưng tổng giờ <= 40h capacity không tạo cảnh báo xung đột")
+    void testMultiProjectAllocationWithinCapacity_NoConflict() {
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+                .thenReturn(1L);
+
+        Employee emp = new Employee(
+                new EmployeeId(12L),
+                new UserId(102L),
+                1L,
+                "NV012",
+                "Lê Văn C",
+                false,
+                40,
+                com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
+
+        WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(10L, 12L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(20.0));
+        WeeklyProjectAllocation alloc2 = new WeeklyProjectAllocation(11L, 12L, 2L, new YearWeek(2026, 37), BigDecimal.valueOf(20.0));
+
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(any(), eq(2026), eq(37), eq(37)))
+                .thenReturn(List.of(alloc1, alloc2));
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any()))
+                .thenReturn(Collections.emptyMap());
+
+        List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
+
+        assertTrue(scanned.isEmpty());
+        Mockito.verify(saveConflictPort, Mockito.never()).save(any());
     }
 }

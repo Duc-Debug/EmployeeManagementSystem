@@ -30,9 +30,7 @@ WHERE r.code IN ('VT-02', 'VT-03', 'VT-06')
   );
 
 -- 3. Tạo bảng schedule_conflict_warnings
-DROP TABLE IF EXISTS schedule_conflict_warnings;
-
-CREATE TABLE schedule_conflict_warnings (
+CREATE TABLE IF NOT EXISTS schedule_conflict_warnings (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     employee_id BIGINT NOT NULL,
     year_number INT NOT NULL,
