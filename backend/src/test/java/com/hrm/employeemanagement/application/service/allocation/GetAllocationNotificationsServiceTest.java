@@ -141,6 +141,41 @@ class GetAllocationNotificationsServiceTest {
     }
 
     @Test
+    @DisplayName("Happy: VT-03 (RM) có DataScope.COMPANY xem tất cả thông báo phân bổ toàn công ty thành công")
+    void rmUser_CompanyScope_ViewAllNotifications_Success() {
+        User rmCompanyUser = org.mockito.Mockito.mock(User.class);
+        when(rmCompanyUser.getId()).thenReturn(new UserId(15L));
+        when(rmCompanyUser.getUsername()).thenReturn("rm_company");
+        when(rmCompanyUser.getRole()).thenReturn(new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực"));
+        when(rmCompanyUser.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(15L);
+        when(loadUserPort.findById(new UserId(15L))).thenReturn(Optional.of(rmCompanyUser));
+
+        Notification n = new Notification(
+                NotificationId.of(5L), new UserId(20L), new UserId(15L),
+                NotificationType.ALLOCATION_CHANGED, "PROJECT_ALLOCATION", 10L,
+                "Thông báo toàn công ty", "Nội dung", false, LocalDateTime.now()
+        );
+        when(loadAllocationNotificationPort.findAllCompanyAllocationNotifications(0, 10))
+                .thenReturn(List.of(n));
+        when(loadAllocationNotificationPort.countAllCompanyAllocationNotifications()).thenReturn(1L);
+
+        when(loadUserPort.findAllByIdIn(anyList())).thenReturn(List.of(rmCompanyUser, pmUser));
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(Collections.emptyList());
+
+        AllocationNotificationPageResult result = service.getAllocationNotifications(null, 0, 10);
+
+        assertNotNull(result);
+        assertEquals(1, result.totalElements());
+        assertEquals(1, result.content().size());
+        assertEquals(0, result.page());
+        assertEquals(10, result.size());
+        assertEquals("Thông báo toàn công ty", result.content().get(0).title());
+        verify(loadAllocationNotificationPort).findAllCompanyAllocationNotifications(0, 10);
+        verify(loadAllocationNotificationPort).countAllCompanyAllocationNotifications();
+    }
+
+    @Test
     @DisplayName("Happy: VT-02 (PM) xem danh sách thông báo phân bổ của dự án mình quản lý thành công (chỉ nhận thông báo của chính mình)")
     void pmUser_ViewNotifications_Success() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(20L);

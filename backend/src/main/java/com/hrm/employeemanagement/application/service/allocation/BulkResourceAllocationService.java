@@ -162,7 +162,7 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
 
         List<BulkAllocationResult.AllocatedWeekSummary> successWeeks = new ArrayList<>();
         List<BulkAllocationResult.BlockedWeekSummary> blockedWeeks = new ArrayList<>();
-        List<WeeklyProjectAllocation> allocationsToSave = new ArrayList<>();
+        List<WeekAllocationPlan> plansToExecute = new ArrayList<>();
 
         if (command.allocatedHoursPerWeek() != null && command.allocationPercentagePerWeek() != null) {
             throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ mỗi tuần");
@@ -240,8 +240,12 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                     .findFirst();
 
             WeeklyProjectAllocation alloc;
-            if (existingOpt.isPresent()) {
+            boolean isNew = existingOpt.isEmpty();
+            String safeOldVal;
+            if (!isNew) {
                 alloc = existingOpt.get();
+                safeOldVal = alloc.getAllocatedHours() + "h"
+                        + (alloc.getAllocationPercentage() != null ? " (" + alloc.getAllocationPercentage() + "%)" : "");
                 alloc.updateAllocation(effectiveHours, effectivePercentage);
             } else {
                 alloc = WeeklyProjectAllocation.createNew(
@@ -250,8 +254,14 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                         yw,
                         effectiveHours,
                         effectivePercentage);
+                safeOldVal = "(Chưa phân bổ)";
             }
-            allocationsToSave.add(alloc);
+
+            String safeNewVal = alloc.getAllocatedHours() + "h"
+                    + (alloc.getAllocationPercentage() != null ? " (" + alloc.getAllocationPercentage() + "%)" : "");
+
+            plansToExecute.add(new WeekAllocationPlan(alloc, isNew, safeOldVal, safeNewVal));
+
             BigDecimal remaining = netAvailable.subtract(totalRequested);
             successWeeks.add(new BulkAllocationResult.AllocatedWeekSummary(
                     yw.year(),
@@ -261,44 +271,73 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
         }
 
         // Lưu các dòng phân bổ hợp lệ vào CSDL
-        List<YearWeek> successfullyAllocatedWeeks = new ArrayList<>();
-        for (WeeklyProjectAllocation alloc : allocationsToSave) {
+        List<YearWeek> newlyAllocatedWeeks = new ArrayList<>();
+        List<YearWeek> updatedAllocatedWeeks = new ArrayList<>();
+
+        for (WeekAllocationPlan plan : plansToExecute) {
+            WeeklyProjectAllocation alloc = plan.allocation();
             WeeklyProjectAllocation saved = saveAllocationPort.save(alloc);
-            successfullyAllocatedWeeks.add(alloc.getYearWeek());
+
+            if (plan.isNew()) {
+                newlyAllocatedWeeks.add(alloc.getYearWeek());
+            } else {
+                updatedAllocatedWeeks.add(alloc.getYearWeek());
+            }
 
             if (saveChangeLogPort != null) {
                 Long allocationId = (saved != null && saved.getId() != null) ? saved.getId() : alloc.getId();
-                String safeNewVal = alloc.getAllocatedHours() + "h"
-                        + (alloc.getAllocationPercentage() != null ? " (" + alloc.getAllocationPercentage() + "%)" : "");
-                saveChangeLogPort.save(AllocationChangeLog.create(
-                        allocationId,
-                        AdjustmentAction.ADD,
-                        "(Chưa phân bổ)",
-                        safeNewVal,
-                        currentUserId,
-                        null
-                ));
+                if (allocationId != null) {
+                    AdjustmentAction action = plan.isNew() ? AdjustmentAction.ADD : AdjustmentAction.EDIT_HOURS;
+                    saveChangeLogPort.save(AllocationChangeLog.create(
+                            allocationId,
+                            action,
+                            plan.oldValue(),
+                            plan.newValue(),
+                            currentUserId,
+                            null
+                    ));
+                }
             }
         }
 
-        // [TC-02, BR-04] Gộp các tuần liên tiếp thành một thông báo duy nhất
-        if (!successfullyAllocatedWeeks.isEmpty() && notificationPort != null) {
-            List<AllocationNotificationPolicy.YearWeekRange> ranges =
-                    AllocationNotificationPolicy.mergeConsecutiveWeeks(successfullyAllocatedWeeks);
-
+        // [TC-02, BR-04] Gộp các tuần liên tiếp thành thông báo độc lập theo từng loại hành động
+        if (notificationPort != null) {
             String detailStr = command.allocationPercentagePerWeek() != null
                     ? command.allocationPercentagePerWeek() + "%/tuần"
                     : command.allocatedHoursPerWeek() + "h/tuần";
 
-            for (AllocationNotificationPolicy.YearWeekRange range : ranges) {
-                notifyStakeholders(
-                        project, employee, currentUser, "ADD",
-                        range,
-                        "(Chưa phân bổ)",
-                        detailStr,
-                        "Phân bổ nhân sự '" + employee.getFullName() + "' vào dự án '" + project.getProjectName() + "' "
-                                + range.toDisplayString() + ": " + detailStr
-                );
+            // 1. Thông báo cho các tuần thêm mới (ADD)
+            if (!newlyAllocatedWeeks.isEmpty()) {
+                List<AllocationNotificationPolicy.YearWeekRange> addRanges =
+                        AllocationNotificationPolicy.mergeConsecutiveWeeks(newlyAllocatedWeeks);
+
+                for (AllocationNotificationPolicy.YearWeekRange range : addRanges) {
+                    notifyStakeholders(
+                            project, employee, currentUser, "ADD",
+                            range,
+                            "(Chưa phân bổ)",
+                            detailStr,
+                            "Phân bổ nhân sự '" + employee.getFullName() + "' vào dự án '" + project.getProjectName() + "' "
+                                    + range.toDisplayString() + ": " + detailStr
+                    );
+                }
+            }
+
+            // 2. Thông báo cho các tuần cập nhật / điều chỉnh (EDIT_HOURS)
+            if (!updatedAllocatedWeeks.isEmpty()) {
+                List<AllocationNotificationPolicy.YearWeekRange> editRanges =
+                        AllocationNotificationPolicy.mergeConsecutiveWeeks(updatedAllocatedWeeks);
+
+                for (AllocationNotificationPolicy.YearWeekRange range : editRanges) {
+                    notifyStakeholders(
+                            project, employee, currentUser, "EDIT_HOURS",
+                            range,
+                            "Phân bổ cũ",
+                            detailStr,
+                            "Điều chỉnh phân bổ nhân sự '" + employee.getFullName() + "' trong dự án '" + project.getProjectName() + "' "
+                                    + range.toDisplayString() + ": " + detailStr
+                    );
+                }
             }
         }
 
@@ -411,4 +450,11 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
             return pmId != null ? String.valueOf(pmId) : null;
         }
     }
+
+    private record WeekAllocationPlan(
+            WeeklyProjectAllocation allocation,
+            boolean isNew,
+            String oldValue,
+            String newValue
+    ) {}
 }

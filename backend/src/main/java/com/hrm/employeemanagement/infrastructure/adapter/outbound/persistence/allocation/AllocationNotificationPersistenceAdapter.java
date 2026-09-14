@@ -45,7 +45,8 @@ public class AllocationNotificationPersistenceAdapter implements LoadAllocationN
             if (hasProjects) {
                 pageResult = repository.findAllocationNotificationsByProjectIds(projectIds, pageable);
             } else {
-                pageResult = repository.findAllAllocationNotifications(pageable);
+                // An toàn mặc định: nếu không chỉ định recipientId và không có projectId, không trả về dữ liệu toàn công ty
+                return java.util.Collections.emptyList();
             }
         }
 
@@ -69,8 +70,24 @@ public class AllocationNotificationPersistenceAdapter implements LoadAllocationN
             if (hasProjects) {
                 return repository.countAllocationNotificationsByProjectIds(projectIds);
             } else {
-                return repository.countAllAllocationNotifications();
+                // An toàn mặc định
+                return 0L;
             }
         }
+    }
+
+    @Override
+    public List<Notification> findAllCompanyAllocationNotifications(int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
+        Page<NotificationJpaEntity> pageResult = repository.findAllAllocationNotifications(pageable);
+        return pageResult.getContent().stream()
+                .map(mapper::toDomain)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Override
+    public long countAllCompanyAllocationNotifications() {
+        return repository.countAllAllocationNotifications();
     }
 }

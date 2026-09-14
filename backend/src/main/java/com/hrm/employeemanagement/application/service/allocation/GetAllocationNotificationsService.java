@@ -17,6 +17,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
@@ -174,9 +175,18 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
             }
         }
 
-        Long recipientUserId = (roleCode == RoleCode.VT_02) ? currentUserId : null;
-        List<Notification> notifications = loadAllocationNotificationPort.findAllocationNotifications(recipientUserId, allowedProjectIds, page, size);
-        long totalElements = loadAllocationNotificationPort.countAllocationNotifications(recipientUserId, allowedProjectIds);
+        boolean isCompanyWide = (roleCode == RoleCode.VT_03 && projectId == null && currentUser.getDataScope() == DataScope.COMPANY);
+        List<Notification> notifications;
+        long totalElements;
+
+        if (isCompanyWide) {
+            notifications = loadAllocationNotificationPort.findAllCompanyAllocationNotifications(page, size);
+            totalElements = loadAllocationNotificationPort.countAllCompanyAllocationNotifications();
+        } else {
+            Long recipientUserId = (roleCode == RoleCode.VT_02) ? currentUserId : null;
+            notifications = loadAllocationNotificationPort.findAllocationNotifications(recipientUserId, allowedProjectIds, page, size);
+            totalElements = loadAllocationNotificationPort.countAllocationNotifications(recipientUserId, allowedProjectIds);
+        }
         int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 0;
 
         // Load sender and recipient user information for user-friendly display
