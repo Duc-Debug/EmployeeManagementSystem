@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Search,
   RefreshCw,
@@ -13,19 +13,28 @@ import {
   Calendar,
   X,
   Sparkles,
+  Zap,
+  ArrowDownUp,
+  Loader2,
 } from "lucide-react";
 import {
   getMyAssignedTasks,
+  updateTaskProgress,
+  getNextSuggestedStatus,
+  QUICK_ADVANCE_LABELS,
+  sortTasksByDeadline,
   type MyAssignedTaskItem,
   type TaskProgressResult,
   PROGRESS_STATUS_METADATA,
   type SpecialistTaskProgressStatus,
 } from "@/lib/api/taskProgress";
+import { ApiError } from "@/lib/api-client";
 import { TaskProgressBadge } from "./TaskProgressBadge";
 import { UpdateTaskProgressModal, type TaskProgressModalTarget } from "./UpdateTaskProgressModal";
 import { cn } from "@/lib/utils";
 
 type StatusFilterOption = "ALL" | SpecialistTaskProgressStatus;
+type SortOption = "DEFAULT" | "DEADLINE_ASC" | "DEADLINE_DESC" | "CODE_ASC" | "NAME_ASC";
 
 export const MyTaskProgressView: React.FC = () => {
   const [tasks, setTasks] = useState<MyAssignedTaskItem[]>([]);
@@ -33,9 +42,13 @@ export const MyTaskProgressView: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters & Search
+  // Filters, Search & Sorting
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedStatusTab, setSelectedStatusTab] = useState<StatusFilterOption>("ALL");
+  const [sortBy, setSortBy] = useState<SortOption>("DEFAULT");
+
+  // Inline action loading state for quick advance
+  const [advancingTaskId, setAdvancingTaskId] = useState<number | null>(null);
 
   // Modal target
   const [modalTarget, setModalTarget] = useState<TaskProgressModalTarget | null>(null);
@@ -47,11 +60,34 @@ export const MyTaskProgressView: React.FC = () => {
     type: "success" | "error" | "info";
   } | null>(null);
 
+  // Timer ref to prevent memory leak and overlapping toast issues
+  const toastTimerRef = useRef<number | null>(null);
+
+  // Mounted ref to avoid setting state after unmount
+  const isMountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   const showToast = useCallback(
     (message: string, type: "success" | "error" | "info" = "success") => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
       setToast({ message, type });
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
+      toastTimerRef.current = window.setTimeout(() => {
+        if (isMountedRef.current) {
+          setToast(null);
+          toastTimerRef.current = null;
+        }
+      }, 3500);
     },
     []
   );
@@ -63,13 +99,17 @@ export const MyTaskProgressView: React.FC = () => {
 
     try {
       const data = await getMyAssignedTasks();
+      if (!isMountedRef.current) return;
       setTasks(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
+      if (!isMountedRef.current) return;
       const errObj = err as { message?: string };
       setError(errObj?.message || "Không thể tải danh sách công việc. Vui lòng thử lại.");
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, []);
 
@@ -77,9 +117,8 @@ export const MyTaskProgressView: React.FC = () => {
     fetchTasks();
   }, [fetchTasks]);
 
-  // Handle task status update success from modal
+  // Handle task status update success (from Modal or Quick Advance)
   const handleUpdateSuccess = (result: TaskProgressResult) => {
-    // Optimistically update the task in state
     setTasks((prev) =>
       prev.map((t) =>
         t.taskId === result.taskId ? { ...t, status: result.currentStatus } : t
@@ -94,6 +133,35 @@ export const MyTaskProgressView: React.FC = () => {
     );
   };
 
+  // Quick 1-click status advance handler
+  const handleQuickAdvance = async (task: MyAssignedTaskItem) => {
+    const nextStatus = getNextSuggestedStatus(task.status);
+    if (!nextStatus || advancingTaskId !== null) return;
+
+    setAdvancingTaskId(task.taskId);
+    try {
+      const result = await updateTaskProgress(task.taskId, nextStatus);
+      handleUpdateSuccess(result);
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          showToast("Bạn không được phân công thực hiện công việc này.", "error");
+        } else if (err.status === 400) {
+          showToast(err.message || "Dự án đã đóng hoặc kết thúc.", "error");
+        } else {
+          showToast(err.message || "Không thể cập nhật tiến độ công việc.", "error");
+        }
+      } else {
+        const msg = err instanceof Error ? err.message : "Lỗi mạng khi cập nhật tiến độ.";
+        showToast(msg, "error");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setAdvancingTaskId(null);
+      }
+    }
+  };
+
   // KPI Statistics
   const stats = useMemo(() => {
     const total = tasks.length;
@@ -104,9 +172,9 @@ export const MyTaskProgressView: React.FC = () => {
     return { total, todo, inProgress, inReview, done };
   }, [tasks]);
 
-  // Filtered tasks
-  const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
+  // Filtered and Sorted tasks
+  const displayedTasks = useMemo(() => {
+    const filtered = tasks.filter((task) => {
       // Status filter
       if (selectedStatusTab !== "ALL" && task.status !== selectedStatusTab) {
         return false;
@@ -125,7 +193,20 @@ export const MyTaskProgressView: React.FC = () => {
 
       return true;
     });
-  }, [tasks, selectedStatusTab, searchQuery]);
+
+    switch (sortBy) {
+      case "DEADLINE_ASC":
+        return sortTasksByDeadline(filtered, "asc");
+      case "DEADLINE_DESC":
+        return sortTasksByDeadline(filtered, "desc");
+      case "CODE_ASC":
+        return [...filtered].sort((a, b) => a.taskCode.localeCompare(b.taskCode));
+      case "NAME_ASC":
+        return [...filtered].sort((a, b) => a.taskName.localeCompare(b.taskName));
+      default:
+        return filtered;
+    }
+  }, [tasks, selectedStatusTab, searchQuery, sortBy]);
 
   const openUpdateModal = (task: MyAssignedTaskItem) => {
     setModalTarget({
@@ -155,6 +236,7 @@ export const MyTaskProgressView: React.FC = () => {
             {toast.type === "error" && <AlertCircle className="w-4 h-4 text-rose-600" />}
             <span>{toast.message}</span>
             <button
+              type="button"
               onClick={() => setToast(null)}
               className="p-1 ml-2 text-slate-400 hover:text-slate-600 rounded-md"
             >
@@ -279,29 +361,48 @@ export const MyTaskProgressView: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo mã việc, tên công việc hoặc tên dự án..."
-            className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+      {/* Filter, Search and Sorting Bar */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center gap-2 flex-1 max-w-lg">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo mã việc, tên công việc hoặc tên dự án..."
+              className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ArrowDownUp className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium"
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+              <option value="DEFAULT">Thứ tự mặc định</option>
+              <option value="DEADLINE_ASC">Hạn chót gần nhất</option>
+              <option value="DEADLINE_DESC">Hạn chót xa nhất</option>
+              <option value="CODE_ASC">Mã công việc (A-Z)</option>
+              <option value="NAME_ASC">Tên công việc (A-Z)</option>
+            </select>
+          </div>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 lg:pb-0">
           <span className="text-xs text-slate-400 font-medium px-2 shrink-0 flex items-center gap-1">
             <Filter className="w-3.5 h-3.5" /> Lọc:
           </span>
@@ -316,6 +417,7 @@ export const MyTaskProgressView: React.FC = () => {
           ).map((tab) => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => setSelectedStatusTab(tab.key)}
               className={cn(
                 "px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition",
@@ -343,13 +445,14 @@ export const MyTaskProgressView: React.FC = () => {
             <h3 className="text-sm font-semibold text-slate-900">Không thể tải dữ liệu</h3>
             <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4">{error}</p>
             <button
+              type="button"
               onClick={() => fetchTasks()}
               className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition"
             >
               Thử lại
             </button>
           </div>
-        ) : filteredTasks.length === 0 ? (
+        ) : displayedTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
             <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 mb-3 border border-slate-100">
               <Sparkles className="w-6 h-6" />
@@ -371,71 +474,103 @@ export const MyTaskProgressView: React.FC = () => {
                   <th className="py-3 px-4 min-w-[160px]">Dự án</th>
                   <th className="py-3 px-4 w-44">Kế hoạch</th>
                   <th className="py-3 px-4 w-36">Trạng thái</th>
-                  <th className="py-3 px-4 w-36 text-right">Thao tác</th>
+                  <th className="py-3 px-4 min-w-[180px] text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
-                {filteredTasks.map((task) => (
-                  <tr
-                    key={task.taskId}
-                    className="hover:bg-slate-50/70 transition-colors group"
-                  >
-                    <td className="py-3.5 px-4 font-mono font-semibold text-indigo-600">
-                      {task.taskCode}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-slate-900 leading-snug">
-                        {task.taskName}
-                      </div>
-                      {task.isPrimary && (
-                        <span className="inline-block mt-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.2 rounded">
-                          Phụ trách chính
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      <span className="font-medium text-slate-800">{task.projectName}</span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-500 text-[11px]">
-                      {task.plannedStartDate || task.plannedEndDate ? (
-                        <div className="flex items-center gap-1 text-slate-600">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>
-                            {task.plannedStartDate || "--"} → {task.plannedEndDate || "--"}
-                          </span>
+                {displayedTasks.map((task) => {
+                  const nextStatus = getNextSuggestedStatus(task.status);
+                  const isAdvancing = advancingTaskId === task.taskId;
+                  const isCancelled = task.status === "CANCELLED";
+
+                  return (
+                    <tr
+                      key={task.taskId}
+                      className="hover:bg-slate-50/70 transition-colors group"
+                    >
+                      <td className="py-3.5 px-4 font-mono font-semibold text-indigo-600">
+                        {task.taskCode}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-semibold text-slate-900 leading-snug">
+                          {task.taskName}
                         </div>
-                      ) : (
-                        <span className="text-slate-400 italic">Chưa đặt hạn</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <TaskProgressBadge status={task.status} />
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openUpdateModal(task)}
-                        disabled={task.status === "CANCELLED"}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition shadow-2xs",
-                          task.status === "CANCELLED"
-                            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                            : "bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-200/80 hover:border-indigo-600"
+                        {task.isPrimary && (
+                          <span className="inline-block mt-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.2 rounded">
+                            Phụ trách chính
+                          </span>
                         )}
-                      >
-                        <ArrowUpDown className="w-3 h-3" />
-                        <span>Cập nhật</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600">
+                        <span className="font-medium text-slate-800">{task.projectName}</span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-500 text-[11px]">
+                        {task.plannedStartDate || task.plannedEndDate ? (
+                          <div className="flex items-center gap-1 text-slate-600">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>
+                              {task.plannedStartDate || "--"} → {task.plannedEndDate || "--"}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Chưa đặt hạn</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <TaskProgressBadge status={task.status} />
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          {/* Quick 1-click status advance button */}
+                          {nextStatus && !isCancelled && (
+                            <button
+                              type="button"
+                              onClick={() => handleQuickAdvance(task)}
+                              disabled={isAdvancing}
+                              title={`Chuyển nhanh sang "${PROGRESS_STATUS_METADATA[nextStatus]?.label}"`}
+                              className={cn(
+                                "inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl transition shadow-2xs",
+                                nextStatus === "IN_PROGRESS" && "bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white border border-sky-200 hover:border-sky-600",
+                                nextStatus === "IN_REVIEW" && "bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white border border-amber-200 hover:border-amber-600",
+                                nextStatus === "DONE" && "bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200 hover:border-emerald-600"
+                              )}
+                            >
+                              {isAdvancing ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Zap className="w-3 h-3" />
+                              )}
+                              <span>{QUICK_ADVANCE_LABELS[task.status as SpecialistTaskProgressStatus] || "Tiếp theo"}</span>
+                            </button>
+                          )}
+
+                          {/* Detailed Modal Button */}
+                          <button
+                            type="button"
+                            onClick={() => openUpdateModal(task)}
+                            disabled={isCancelled}
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl transition shadow-2xs",
+                              isCancelled
+                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-800 hover:text-white border border-slate-200 hover:border-slate-800"
+                            )}
+                          >
+                            <ArrowUpDown className="w-3 h-3" />
+                            <span>Chi tiết</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Modal cập nhật tiến độ */}
+      {/* Modal cập nhật tiến độ chi tiết */}
       <UpdateTaskProgressModal
         isOpen={isModalOpen}
         task={modalTarget}
