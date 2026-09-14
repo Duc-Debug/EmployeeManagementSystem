@@ -279,11 +279,8 @@ public class LeaveUseCaseConfig {
             SaveWeeklyAvailabilityPort saveWeeklyAvailabilityPort,
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
-            @org.springframework.beans.factory.annotation.Autowired(required = false)
             LoadWorkingCalendarPort loadWorkingCalendarPort,
-            @org.springframework.beans.factory.annotation.Autowired(required = false)
             LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort,
-            @org.springframework.beans.factory.annotation.Autowired(required = false)
             SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort,
             Clock businessClock
     ) {

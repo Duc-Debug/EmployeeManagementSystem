@@ -124,22 +124,10 @@ class LeaveCancellationApplicationServiceTest {
                 BUSINESS_CLOCK
         );
 
-        approveCancelService = new ApproveCancelLeaveRequestService(
-                loadLeaveRequestPort,
-                saveLeaveRequestPort,
-                saveLeaveAuditLogPort,
-                authorizationService,
-                loadUserPort,
-                loadOrgUnitPort,
-                loadEmployeePort,
-                loadWeeklyAvailabilityPort,
-                saveWeeklyAvailabilityPort,
-                loadHolidaysPort,
-                loadApprovedLeavesPort,
+        approveCancelService = createApproveCancelService(
                 loadWorkingCalendarPort,
                 loadWeeklyProjectAllocationPort,
-                saveWeeklyProjectAllocationPort,
-                BUSINESS_CLOCK
+                saveWeeklyProjectAllocationPort
         );
 
         rejectCancelService = new RejectCancelLeaveRequestService(
@@ -151,6 +139,56 @@ class LeaveCancellationApplicationServiceTest {
                 loadOrgUnitPort,
                 loadEmployeePort
         );
+    }
+
+    private ApproveCancelLeaveRequestService createApproveCancelService(
+            LoadWorkingCalendarPort workingCalendarPort,
+            LoadWeeklyProjectAllocationPort weeklyProjectAllocationPort,
+            SaveWeeklyProjectAllocationPort weeklyProjectAllocationSavePort) {
+        return new ApproveCancelLeaveRequestService(
+                loadLeaveRequestPort,
+                saveLeaveRequestPort,
+                saveLeaveAuditLogPort,
+                authorizationService,
+                loadUserPort,
+                loadOrgUnitPort,
+                loadEmployeePort,
+                loadWeeklyAvailabilityPort,
+                saveWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                workingCalendarPort,
+                weeklyProjectAllocationPort,
+                weeklyProjectAllocationSavePort,
+                BUSINESS_CLOCK
+        );
+    }
+
+    @Test
+    @DisplayName("Fail-fast khi thiếu working calendar integration")
+    void approveCancelLeaveRequest_MissingWorkingCalendarPort_FailsFast() {
+        assertThatThrownBy(() -> createApproveCancelService(
+                null, loadWeeklyProjectAllocationPort, saveWeeklyProjectAllocationPort))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("loadWorkingCalendarPort must not be null");
+    }
+
+    @Test
+    @DisplayName("Fail-fast khi thiếu allocation loading integration")
+    void approveCancelLeaveRequest_MissingAllocationLoadPort_FailsFast() {
+        assertThatThrownBy(() -> createApproveCancelService(
+                loadWorkingCalendarPort, null, saveWeeklyProjectAllocationPort))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("loadWeeklyProjectAllocationPort must not be null");
+    }
+
+    @Test
+    @DisplayName("Fail-fast khi thiếu allocation saving integration")
+    void approveCancelLeaveRequest_MissingAllocationSavePort_FailsFast() {
+        assertThatThrownBy(() -> createApproveCancelService(
+                loadWorkingCalendarPort, loadWeeklyProjectAllocationPort, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("saveWeeklyProjectAllocationPort must not be null");
     }
 
     private LeaveRequest createApprovedLeave(LocalDate startDate, LocalDate endDate) {

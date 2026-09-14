@@ -117,9 +117,9 @@ public class ApproveCancelLeaveRequestService implements ApproveCancelLeaveReque
         this.saveWeeklyAvailabilityPort = saveWeeklyAvailabilityPort;
         this.loadHolidaysPort = loadHolidaysPort;
         this.loadApprovedLeavesPort = loadApprovedLeavesPort;
-        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
-        this.loadWeeklyProjectAllocationPort = loadWeeklyProjectAllocationPort;
-        this.saveWeeklyProjectAllocationPort = saveWeeklyProjectAllocationPort;
+        this.loadWorkingCalendarPort = Objects.requireNonNull(loadWorkingCalendarPort, "loadWorkingCalendarPort must not be null");
+        this.loadWeeklyProjectAllocationPort = Objects.requireNonNull(loadWeeklyProjectAllocationPort, "loadWeeklyProjectAllocationPort must not be null");
+        this.saveWeeklyProjectAllocationPort = Objects.requireNonNull(saveWeeklyProjectAllocationPort, "saveWeeklyProjectAllocationPort must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -172,9 +172,7 @@ public class ApproveCancelLeaveRequestService implements ApproveCancelLeaveReque
             return;
         }
 
-        Set<DayOfWeek> workingDays = (loadWorkingCalendarPort != null)
-                ? loadWorkingCalendarPort.loadCompanyCalendar().getWorkingDays()
-                : Set.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY);
+        Set<DayOfWeek> workingDays = loadWorkingCalendarPort.loadCompanyCalendar().getWorkingDays();
 
         int standardHoursPerWeek = (employee.getStandardHoursPerWeek() != null)
                 ? employee.getStandardHoursPerWeek()
@@ -220,10 +218,6 @@ public class ApproveCancelLeaveRequestService implements ApproveCancelLeaveReque
     }
 
     private void recalculateAllocationOverloadForWeek(Long employeeId, YearWeek yearWeek, BigDecimal netAvailableHours, Long currentUserId) {
-        if (loadWeeklyProjectAllocationPort == null || saveWeeklyProjectAllocationPort == null) {
-            return;
-        }
-
         List<WeeklyProjectAllocation> allocations = loadWeeklyProjectAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek);
         if (allocations == null || allocations.isEmpty()) {
             return;
