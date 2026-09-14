@@ -140,6 +140,13 @@ public class RoleAllocationTemplateService implements
     @Override
     public RoleAllocationTemplateDetailResult createTemplate(CreateRoleAllocationTemplateCommand command) {
         Long currentUserId = requirePermission();
+        User currentUser = loadCurrentUser(currentUserId);
+
+        if (command.sourceProjectId() != null) {
+            Project sourceProject = loadProjectPort.findById(new ProjectId(command.sourceProjectId()))
+                    .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án nguồn: " + command.sourceProjectId()));
+            requireProjectInDataScope(currentUser, sourceProject);
+        }
 
         if (loadTemplatePort.existsByCode(command.templateCode())) {
             throw new DuplicateRoleAllocationTemplateCodeException(command.templateCode());

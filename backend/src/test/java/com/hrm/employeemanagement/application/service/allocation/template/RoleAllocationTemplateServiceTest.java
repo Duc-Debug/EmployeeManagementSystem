@@ -105,6 +105,7 @@ class RoleAllocationTemplateServiceTest {
     private ProjectRole testRole;
     private ProjectRole baRole;
     private Project targetProject;
+    private Project sourceProject;
 
     @BeforeEach
     void setUp() {
@@ -150,6 +151,23 @@ class RoleAllocationTemplateServiceTest {
                 null,
                 0L
         );
+
+        sourceProject = new Project(
+                new ProjectId(100L),
+                "PRJ-SRC",
+                "Dự án nguồn",
+                1L,
+                new EmployeeId(1L),
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 12, 31),
+                BigDecimal.valueOf(160.0),
+                "Dự án nguồn",
+                ProjectStatus.ACTIVE,
+                new UserId(1L),
+                null,
+                null,
+                0L
+        );
     }
 
     @Test
@@ -177,6 +195,7 @@ class RoleAllocationTemplateServiceTest {
                 templateItems
         );
 
+        when(loadProjectPort.findById(new ProjectId(100L))).thenReturn(Optional.of(sourceProject));
         when(saveTemplatePort.save(any())).thenReturn(savedTemplate);
         when(loadRolePort.findAll()).thenReturn(List.of(devRole, testRole, baRole));
 
@@ -416,5 +435,20 @@ class RoleAllocationTemplateServiceTest {
                 .map(suggestion -> suggestion.suggestedEmployeeId()))
                 .containsExactlyInAnyOrder(101L, 102L);
         assertThat(preview.hasUnassignedRoles()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Chặn truy cập khi dự án nằm ngoài phạm vi dữ liệu (ORGANIZATION_BRANCH)")
+    void whenProjectOutOfDataScope_ShouldThrowPermissionDeniedException() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
+        User branchUser = mock(User.class);
+        when(loadUserPort.findById(new UserId(99L))).thenReturn(Optional.of(branchUser));
+        when(branchUser.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(branchUser.getScopeOrgUnitId()).thenReturn(10L);
+        when(loadProjectPort.findById(new ProjectId(200L))).thenReturn(Optional.of(targetProject));
+        when(loadProjectPort.existsInOrgUnitBranch(200L, 10L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getStructureFromProject(200L))
+                .isInstanceOf(PermissionDeniedException.class);
     }
 }
