@@ -378,4 +378,123 @@ class ScheduleConflictReplacementServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.confirmReplacementProposal(command));
         assertTrue(ex.getMessage().contains("thấp hơn mức yêu cầu"));
     }
+
+    @Test
+    void testFilterCandidates_OnlySuggestsCandidatesMeetingExcessHoursRequirement() {
+        // Validation: excessHours = 8h. Candidate A = 2h (filtered out), Candidate B = 8h (suggested), Candidate C = 12h (suggested)
+        Long rmUserId = 100L;
+        Long conflictId = 10L;
+        Long conflictedEmpId = 10L;
+        Long skillId = 50L;
+
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST)).thenReturn(rmUserId);
+
+        ScheduleConflict conflict = ScheduleConflict.create(
+                conflictedEmpId, 2026, 38, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án A, Dự án B", null, null,
+                new BigDecimal("48.0"), new BigDecimal("40.0"), new BigDecimal("8.0"), "Overload"
+        );
+        when(loadConflictPort.findById(conflictId)).thenReturn(Optional.of(conflict));
+
+        Employee conflictedEmp = new Employee(
+                new EmployeeId(conflictedEmpId), new UserId(1000L), 1L, "NV010", "Nguyễn Văn A",
+                "Developer", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(conflictedEmp));
+
+        Skill skill = new Skill(skillId, "SKILL-JAVA", "Java Backend", "Backend", "Descr", LocalDateTime.now());
+        when(loadSkillPort.findById(new SkillId(skillId))).thenReturn(Optional.of(skill));
+
+        EmployeeSkill origSkill = new EmployeeSkill(
+                1L, conflictedEmpId, skillId, 3, new BigDecimal("3.5"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(employeeSkillRepository.findByEmployeeId(conflictedEmpId)).thenReturn(List.of(origSkill));
+
+        // Candidates skills
+        EmployeeSkill candASkill = new EmployeeSkill(2L, 20L, skillId, 3, new BigDecimal("3.0"), SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now());
+        EmployeeSkill candBSkill = new EmployeeSkill(3L, 30L, skillId, 3, new BigDecimal("3.0"), SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now());
+        EmployeeSkill candCSkill = new EmployeeSkill(4L, 40L, skillId, 3, new BigDecimal("3.0"), SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now());
+
+        when(employeeSkillRepository.findApprovedBySkillAndMinLevel(eq(skillId), eq(3)))
+                .thenReturn(List.of(candASkill, candBSkill, candCSkill));
+
+        Employee candA = new Employee(new EmployeeId(20L), new UserId(2000L), 1L, "NV020", "Anh A (2h free)", "Developer", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee candB = new Employee(new EmployeeId(30L), new UserId(3000L), 1L, "NV030", "Anh B (8h free)", "Developer", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee candC = new Employee(new EmployeeId(40L), new UserId(4000L), 1L, "NV040", "Anh C (12h free)", "Developer", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(candA, candB, candC));
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyMap());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyList());
+
+        // Allocation: A has 38h allocated -> 2h free (< 8h required)
+        // B has 32h allocated -> 8h free (== 8h required)
+        // C has 28h allocated -> 12h free (> 8h required)
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation allocA = new com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation(
+                1L, 20L, 100L, new com.hrm.employeemanagement.domain.availability.YearWeek(2026, 38), new BigDecimal("38.0"), 0L
+        );
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation allocB = new com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation(
+                2L, 30L, 100L, new com.hrm.employeemanagement.domain.availability.YearWeek(2026, 38), new BigDecimal("32.0"), 0L
+        );
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation allocC = new com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation(
+                3L, 40L, 100L, new com.hrm.employeemanagement.domain.availability.YearWeek(2026, 38), new BigDecimal("28.0"), 0L
+        );
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(allocA, allocB, allocC));
+
+        ReplacementSuggestionResult result = service.getReplacementSuggestions(conflictId, skillId, 3);
+
+        assertNotNull(result);
+        assertTrue(result.hasAvailableReplacements());
+        // Only B (8h) and C (12h) meet excessHours (8h) requirement
+        assertEquals(2, result.candidates().size());
+        assertEquals("Anh C (12h free)", result.candidates().get(0).fullName());
+        assertEquals("Anh B (8h free)", result.candidates().get(1).fullName());
+    }
+
+    @Test
+    void testConfirmProposal_InsufficientFreeHours_ThrowsIllegalArgumentException() {
+        Long rmUserId = 100L;
+        Long conflictId = 11L;
+        Long conflictedEmpId = 10L;
+        Long replacementEmpId = 20L;
+        Long skillId = 50L;
+
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST)).thenReturn(rmUserId);
+
+        ScheduleConflict conflict = ScheduleConflict.create(
+                conflictedEmpId, 2026, 38, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1", "Dự án Alpha", null, null,
+                new BigDecimal("48.0"), new BigDecimal("40.0"), new BigDecimal("8.0"), "Overload"
+        );
+        when(loadConflictPort.findById(conflictId)).thenReturn(Optional.of(conflict));
+
+        Employee origEmp = new Employee(new EmployeeId(conflictedEmpId), new UserId(1000L), 1L, "NV010", "Nguyễn Văn A", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee replEmp = new Employee(new EmployeeId(replacementEmpId), new UserId(2000L), 1L, "NV020", "Trần Văn B", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(origEmp));
+        when(loadEmployeePort.findById(new EmployeeId(replacementEmpId))).thenReturn(Optional.of(replEmp));
+
+        EmployeeSkill candSkill = new EmployeeSkill(
+                2L, replacementEmpId, skillId, 4, new BigDecimal("5.0"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(employeeSkillRepository.findByEmployeeIdAndSkillId(replacementEmpId, skillId)).thenReturn(Optional.of(candSkill));
+
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyMap());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyList());
+
+        // Allocated 38h -> free hours = 2h < 8h excessHours required!
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation alloc = new com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation(
+                1L, replacementEmpId, 100L, new com.hrm.employeemanagement.domain.availability.YearWeek(2026, 38), new BigDecimal("38.0"), 0L
+        );
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(alloc));
+
+        ConfirmReplacementProposalCommand command = new ConfirmReplacementProposalCommand(
+                conflictId, replacementEmpId, skillId, 4, "Notes"
+        );
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.confirmReplacementProposal(command));
+        assertTrue(ex.getMessage().contains("không đủ giờ rảnh"));
+    }
 }
+

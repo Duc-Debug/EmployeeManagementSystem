@@ -132,24 +132,13 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
 
         if (selectedSkillId == null) {
             if (!conflictedEmpSkills.isEmpty()) {
-                // Ưu tiên chọn kỹ năng có mức thành thạo cao nhất
+                // Ưu tiên chọn kỹ năng có mức thành thạo cao nhất của nhân sự bị xung đột
                 EmployeeSkill bestSkill = conflictedEmpSkills.stream()
                         .max(Comparator.comparingInt(EmployeeSkill::getProficiencyLevelValue))
                         .orElse(conflictedEmpSkills.get(0));
                 selectedSkillId = bestSkill.getSkillId();
                 if (minProficiencyLevel == null) {
                     requiredLevel = bestSkill.getProficiencyLevelValue();
-                }
-            } else {
-                // FALLBACK: Nếu nhân sự chưa khai báo kỹ năng riêng, tự động lấy kỹ năng đã được duyệt phổ biến nhất trong hệ thống
-                List<EmployeeSkill> allApproved = employeeSkillRepository.findByStatus(SkillStatus.APPROVED);
-                if (!allApproved.isEmpty()) {
-                    selectedSkillId = allApproved.stream()
-                            .collect(Collectors.groupingBy(EmployeeSkill::getSkillId, Collectors.counting()))
-                            .entrySet().stream()
-                            .max(Map.Entry.comparingByValue())
-                            .map(Map.Entry::getKey)
-                            .orElse(allApproved.get(0).getSkillId());
                 }
             }
         }
@@ -162,7 +151,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
             }
         }
 
-        // Nếu không có kỹ năng nào để tìm kiếm
+        // Nếu nhân sự bị xung đột chưa khai báo kỹ năng và không truyền skillId lọc
         if (selectedSkillId == null) {
             return new ReplacementSuggestionResult(
                     conflict.getId(),
@@ -179,7 +168,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                     conflict.getExcessHours(),
                     Collections.emptyList(),
                     false,
-                    "Nhân sự bị xung đột chưa khai báo kỹ năng. Gợi ý: Yêu cầu khai báo kỹ năng hoặc dời lịch phân bổ."
+                    "Nhân sự bị xung đột chưa khai báo kỹ năng. Gợi ý: Quản lý nguồn lực vui lòng chọn kỹ năng lọc hoặc yêu cầu nhân sự cập nhật hồ sơ kỹ năng."
             );
         }
 
@@ -259,6 +248,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 .collect(Collectors.toMap(EmployeeSkill::getEmployeeId, s -> s, (s1, s2) -> s1));
 
         List<ReplacementCandidateResult> candidates = new ArrayList<>();
+        BigDecimal requiredHours = conflict.getExcessHours() != null ? conflict.getExcessHours() : BigDecimal.ZERO;
 
         for (Long empId : candidateEmpIds) {
             Employee emp = candidateEmpMap.get(empId);
@@ -274,8 +264,9 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
             BigDecimal allocated = totalAllocatedMap.getOrDefault(empId, BigDecimal.ZERO);
             BigDecimal freeHours = netAvail.subtract(allocated);
 
-            if (freeHours.compareTo(BigDecimal.ZERO) <= 0) {
-                continue; // Bỏ qua nếu không còn giờ rảnh
+            // Bắt buộc ứng viên phải có số giờ rảnh >= số giờ quá tải (excessHours) để bù đắp phần xung đột
+            if (freeHours.compareTo(requiredHours) < 0) {
+                continue;
             }
 
             EmployeeSkill es = empSkillMap.get(empId);
@@ -308,7 +299,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 .reversed());
 
         if (candidates.isEmpty()) {
-            // [NCL-07-CN-002-TC-02] Không ai cùng kỹ năng rảnh trong tuần -> Gợi ý dời lịch
+            // [NCL-07-CN-002-TC-02] Không ai cùng kỹ năng đủ giờ rảnh trong tuần -> Gợi ý dời lịch
             return new ReplacementSuggestionResult(
                     conflict.getId(),
                     conflictedEmployee.getIdValue(),
@@ -324,7 +315,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                     conflict.getExcessHours(),
                     Collections.emptyList(),
                     false,
-                    "Không có nhân sự cùng kỹ năng còn giờ rảnh trong tuần này. Gợi ý: Dời lịch phân bổ công việc sang tuần khác hoặc điều chỉnh tiến độ."
+                    "Không có nhân sự cùng kỹ năng còn đủ giờ rảnh (" + requiredHours + "h) trong tuần này. Gợi ý: Dời lịch phân bổ công việc sang tuần khác hoặc điều chỉnh tiến độ."
             );
         }
 
@@ -420,9 +411,13 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal freeHours = netAvail.subtract(allocated);
+        BigDecimal requiredHours = conflict.getExcessHours() != null ? conflict.getExcessHours() : BigDecimal.ZERO;
 
-        if (freeHours.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Nhân sự thay thế không còn giờ rảnh trong tuần " + conflict.getWeekNumber() + "/" + conflict.getYearNumber());
+        if (freeHours.compareTo(requiredHours) < 0) {
+            throw new IllegalArgumentException(String.format(
+                    "Nhân sự thay thế không đủ giờ rảnh (hiện có %.1fh) để bù phần quá tải (cần %.1fh) của xung đột",
+                    freeHours, requiredHours
+            ));
         }
 
         // Tải skill name
