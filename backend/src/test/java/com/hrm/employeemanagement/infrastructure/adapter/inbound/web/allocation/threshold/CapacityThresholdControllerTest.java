@@ -74,6 +74,7 @@ class CapacityThresholdControllerTest {
                 BigDecimal.valueOf(90.0),
                 BigDecimal.valueOf(20.0),
                 false,
+                false,
                 1L,
                 LocalDateTime.now(),
                 1L,
@@ -88,7 +89,8 @@ class CapacityThresholdControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.overloadThreshold").value(90.0))
-                .andExpect(jsonPath("$.data.idleThreshold").value(20.0));
+                .andExpect(jsonPath("$.data.idleThreshold").value(20.0))
+                .andExpect(jsonPath("$.data.updaterName").value("Giám Đốc"));
     }
 
     @Test
@@ -109,6 +111,7 @@ class CapacityThresholdControllerTest {
                 BigDecimal.valueOf(90.0),
                 BigDecimal.valueOf(20.0),
                 false,
+                false,
                 2L,
                 LocalDateTime.now(),
                 1L,
@@ -123,7 +126,8 @@ class CapacityThresholdControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.overloadThreshold").value(90.0))
-                .andExpect(jsonPath("$.data.idleThreshold").value(20.0));
+                .andExpect(jsonPath("$.data.idleThreshold").value(20.0))
+                .andExpect(jsonPath("$.data.updaterName").value("Giám Đốc"));
     }
 
     @Test

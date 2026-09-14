@@ -21,32 +21,6 @@ public record CapacityThresholdResult(
         Long version,
         LocalDateTime updatedAt,
         Long updatedBy,
-        String updatedByName
+        String updaterName
 ) {
-    public CapacityThresholdResult(
-            Long id,
-            CapacityThresholdScope scopeType,
-            Long orgUnitId,
-            BigDecimal overloadThreshold,
-            BigDecimal idleThreshold,
-            boolean isDefault,
-            Long version,
-            LocalDateTime updatedAt,
-            Long updatedBy,
-            String updatedByName
-    ) {
-        this(
-                id,
-                scopeType,
-                orgUnitId,
-                overloadThreshold,
-                idleThreshold,
-                isDefault,
-                false,
-                version,
-                updatedAt,
-                updatedBy,
-                updatedByName
-        );
-    }
 }

@@ -59,7 +59,7 @@ public class CapacityThresholdPersistenceAdapter implements LoadCapacityThreshol
             jpaEntity = mapper.toJpaEntity(config);
         }
 
-        CapacityThresholdConfigJpaEntity saved = repository.save(jpaEntity);
+        CapacityThresholdConfigJpaEntity saved = repository.saveAndFlush(jpaEntity);
         return mapper.toDomain(saved);
     }
 }

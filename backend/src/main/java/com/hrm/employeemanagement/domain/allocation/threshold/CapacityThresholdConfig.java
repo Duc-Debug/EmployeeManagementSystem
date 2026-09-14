@@ -16,6 +16,10 @@ public class CapacityThresholdConfig {
     private final Long orgUnitId;
     private BigDecimal overloadThreshold;
     private BigDecimal idleThreshold;
+    /**
+     * Concurrency token / snapshot version for optimistic locking.
+     * Managed by persistence layer (JPA @Version); represents the snapshot version at which the aggregate was loaded.
+     */
     private Long version;
     private final Long createdBy;
     private final LocalDateTime createdAt;
