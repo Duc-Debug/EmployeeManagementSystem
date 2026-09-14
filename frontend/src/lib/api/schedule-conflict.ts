@@ -87,6 +87,7 @@ export interface ReplacementCandidate {
     skillName: string;
     proficiencyLevel: number;
     proficiencyLevelName: string;
+    yearsOfExperience?: number;
     freeHours: number;
     standardHoursPerWeek: number;
     totalAllocatedHours: number;

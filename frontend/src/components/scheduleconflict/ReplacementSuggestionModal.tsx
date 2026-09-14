@@ -289,6 +289,9 @@ export default function ReplacementSuggestionModal({
                                                 <span className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-700 border border-sky-200">
                                                     <Award className="h-3 w-3" />
                                                     <span>{cand.proficiencyLevelName}</span>
+                                                    {cand.yearsOfExperience != null && (
+                                                        <span className="text-[10px] text-sky-600 font-normal">({cand.yearsOfExperience} năm kn)</span>
+                                                    )}
                                                 </span>
 
                                                 {/* Free Hours */}

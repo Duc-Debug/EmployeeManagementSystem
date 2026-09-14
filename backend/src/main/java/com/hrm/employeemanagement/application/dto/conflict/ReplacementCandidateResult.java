@@ -12,6 +12,7 @@ public record ReplacementCandidateResult(
         String skillName,
         Integer proficiencyLevel,
         String proficiencyLevelName,
+        BigDecimal yearsOfExperience,
         BigDecimal freeHours,
         Integer standardHoursPerWeek,
         BigDecimal totalAllocatedHours,

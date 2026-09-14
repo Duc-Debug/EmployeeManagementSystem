@@ -496,5 +496,76 @@ class ScheduleConflictReplacementServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.confirmReplacementProposal(command));
         assertTrue(ex.getMessage().contains("không đủ giờ rảnh"));
     }
+
+    @Test
+    void testCandidateRanking_FreeHours_ThenProficiency_ThenYearsOfExperience() {
+        Long rmUserId = 100L;
+        Long conflictId = 12L;
+        Long conflictedEmpId = 10L;
+        Long skillId = 50L;
+
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST)).thenReturn(rmUserId);
+
+        ScheduleConflict conflict = ScheduleConflict.create(
+                conflictedEmpId, 2026, 38, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1", "Dự án Alpha", null, null,
+                new BigDecimal("48.0"), new BigDecimal("40.0"), new BigDecimal("8.0"), "Overload"
+        );
+        when(loadConflictPort.findById(conflictId)).thenReturn(Optional.of(conflict));
+
+        Employee conflictedEmp = new Employee(
+                new EmployeeId(conflictedEmpId), new UserId(1000L), 1L, "NV010", "Nguyễn Văn A",
+                "Developer", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(conflictedEmp));
+
+        Skill skill = new Skill(skillId, "SKILL-JAVA", "Java Backend", "Backend", "Descr", LocalDateTime.now());
+        when(loadSkillPort.findById(new SkillId(skillId))).thenReturn(Optional.of(skill));
+
+        EmployeeSkill origSkill = new EmployeeSkill(
+                1L, conflictedEmpId, skillId, 3, new BigDecimal("3.5"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(employeeSkillRepository.findByEmployeeId(conflictedEmpId)).thenReturn(List.of(origSkill));
+
+        // Candidates:
+        // C1: 10h free, Level 3, Exp 2.0
+        // C2: 10h free, Level 4, Exp 1.0
+        // C3: 10h free, Level 4, Exp 5.0
+        // C4: 20h free, Level 3, Exp 1.0
+        EmployeeSkill cand1Skill = new EmployeeSkill(2L, 21L, skillId, 3, new BigDecimal("2.0"), SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now());
+        EmployeeSkill cand2Skill = new EmployeeSkill(3L, 22L, skillId, 4, new BigDecimal("1.0"), SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now());
+        EmployeeSkill cand3Skill = new EmployeeSkill(4L, 23L, skillId, 4, new BigDecimal("5.0"), SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now());
+        EmployeeSkill cand4Skill = new EmployeeSkill(5L, 24L, skillId, 3, new BigDecimal("1.0"), SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now());
+
+        when(employeeSkillRepository.findApprovedBySkillAndMinLevel(eq(skillId), eq(3)))
+                .thenReturn(List.of(cand1Skill, cand2Skill, cand3Skill, cand4Skill));
+
+        Employee c1 = new Employee(new EmployeeId(21L), new UserId(2100L), 1L, "NV021", "C1 (10h, L3, 2.0y)", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee c2 = new Employee(new EmployeeId(22L), new UserId(2200L), 1L, "NV022", "C2 (10h, L4, 1.0y)", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee c3 = new Employee(new EmployeeId(23L), new UserId(2300L), 1L, "NV023", "C3 (10h, L4, 5.0y)", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee c4 = new Employee(new EmployeeId(24L), new UserId(2400L), 1L, "NV024", "C4 (20h, L3, 1.0y)", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(c1, c2, c3, c4));
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyMap());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyList());
+
+        // Allocations: C1=30h (10h free), C2=30h (10h free), C3=30h (10h free), C4=20h (20h free)
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation a1 = new com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation(1L, 21L, 100L, new com.hrm.employeemanagement.domain.availability.YearWeek(2026, 38), new BigDecimal("30.0"), 0L);
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation a2 = new com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation(2L, 22L, 100L, new com.hrm.employeemanagement.domain.availability.YearWeek(2026, 38), new BigDecimal("30.0"), 0L);
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation a3 = new com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation(3L, 23L, 100L, new com.hrm.employeemanagement.domain.availability.YearWeek(2026, 38), new BigDecimal("30.0"), 0L);
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation a4 = new com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation(4L, 24L, 100L, new com.hrm.employeemanagement.domain.availability.YearWeek(2026, 38), new BigDecimal("20.0"), 0L);
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(a1, a2, a3, a4));
+
+        ReplacementSuggestionResult result = service.getReplacementSuggestions(conflictId, skillId, 3);
+
+        assertNotNull(result);
+        assertEquals(4, result.candidates().size());
+        // Expected order: C4 (20h free), C3 (10h free, L4, 5y), C2 (10h free, L4, 1y), C1 (10h free, L3, 2y)
+        assertEquals("NV024", result.candidates().get(0).employeeCode());
+        assertEquals("NV023", result.candidates().get(1).employeeCode());
+        assertEquals("NV022", result.candidates().get(2).employeeCode());
+        assertEquals("NV021", result.candidates().get(3).employeeCode());
+    }
 }
 

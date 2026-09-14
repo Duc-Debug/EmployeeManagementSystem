@@ -271,6 +271,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
 
             EmployeeSkill es = empSkillMap.get(empId);
             int profLevel = es != null ? es.getProficiencyLevelValue() : requiredLevel;
+            BigDecimal yearsOfExp = (es != null && es.getYearsOfExperience() != null) ? es.getYearsOfExperience() : BigDecimal.ZERO;
 
             String candidateDept = emp.getOrgUnitId() != null
                     ? orgUnitMap.getOrDefault(emp.getOrgUnitId(), "Chưa phân bổ phòng")
@@ -286,6 +287,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                     skillName,
                     profLevel,
                     formatProficiencyLevel(profLevel),
+                    yearsOfExp,
                     freeHours,
                     stdHours,
                     allocated,
@@ -293,10 +295,12 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
             ));
         }
 
-        // [NCL-07-CN-002-TC-01] Sắp xếp danh sách người thay thế theo giờ còn rảnh giảm dần, sau đó đến mức thành thạo
-        candidates.sort(Comparator.comparing(ReplacementCandidateResult::freeHours)
-                .thenComparing(ReplacementCandidateResult::proficiencyLevel)
-                .reversed());
+        // [NCL-07-CN-002-TC-01] Sắp xếp ưu tiên: 1. freeHours DESC -> 2. proficiencyLevel DESC -> 3. yearsOfExperience DESC
+        candidates.sort(
+                Comparator.comparing(ReplacementCandidateResult::freeHours).reversed()
+                        .thenComparing(Comparator.comparing(ReplacementCandidateResult::proficiencyLevel).reversed())
+                        .thenComparing(Comparator.comparing((ReplacementCandidateResult c) -> c.yearsOfExperience() != null ? c.yearsOfExperience() : BigDecimal.ZERO).reversed())
+        );
 
         if (candidates.isEmpty()) {
             // [NCL-07-CN-002-TC-02] Không ai cùng kỹ năng đủ giờ rảnh trong tuần -> Gợi ý dời lịch
