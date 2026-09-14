@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.service.task.comment;
 
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -13,21 +14,27 @@ import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.task.comment.CreateTaskCommentCommand;
 import com.hrm.employeemanagement.application.dto.task.comment.MentionedUserDto;
+import com.hrm.employeemanagement.application.dto.task.comment.TaskAttachmentDownloadResult;
 import com.hrm.employeemanagement.application.dto.task.comment.TaskAttachmentResult;
 import com.hrm.employeemanagement.application.dto.task.comment.TaskCommentResult;
 import com.hrm.employeemanagement.application.dto.task.comment.UploadedAttachmentDto;
 import com.hrm.employeemanagement.application.port.inbound.task.comment.CreateTaskCommentUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.comment.DeleteTaskCommentUseCase;
+import com.hrm.employeemanagement.application.port.inbound.task.comment.DownloadTaskAttachmentUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.comment.GetTaskCommentsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.DeleteTaskCommentPort;
+import com.hrm.employeemanagement.application.port.outbound.task.comment.LoadTaskAttachmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.LoadTaskCommentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.SaveTaskCommentPort;
+import com.hrm.employeemanagement.application.port.outbound.task.comment.TaskAttachmentStoragePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.task.InvalidCommentDataException;
+import com.hrm.employeemanagement.domain.exception.task.TaskAttachmentNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.TaskCommentNotFoundException;
 import com.hrm.employeemanagement.domain.notification.Notification;
 import com.hrm.employeemanagement.domain.notification.NotificationType;
@@ -36,6 +43,7 @@ import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.task.comment.MentionParserService;
 import com.hrm.employeemanagement.domain.task.comment.TaskAttachment;
+import com.hrm.employeemanagement.domain.task.comment.TaskAttachmentId;
 import com.hrm.employeemanagement.domain.task.comment.TaskComment;
 import com.hrm.employeemanagement.domain.task.comment.TaskCommentId;
 import com.hrm.employeemanagement.domain.user.User;
@@ -43,30 +51,37 @@ import com.hrm.employeemanagement.domain.user.UserId;
 
 public class TaskCommentApplicationService
         implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase {
+        implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase, DownloadTaskAttachmentUseCase {
 
     private final LoadTaskCommentPort loadTaskCommentPort;
+    private final LoadTaskAttachmentPort loadTaskAttachmentPort;
     private final SaveTaskCommentPort saveTaskCommentPort;
     private final DeleteTaskCommentPort deleteTaskCommentPort;
     private final LoadUserPort loadUserPort;
     private final LoadEmployeePort loadEmployeePort;
     private final SaveNotificationPort saveNotificationPort;
+    private final TaskAttachmentStoragePort taskAttachmentStoragePort;
     private final MentionParserService mentionParserService;
     private final TaskDiscussionAccessService accessService;
 
     public TaskCommentApplicationService(
             LoadTaskCommentPort loadTaskCommentPort,
+            LoadTaskAttachmentPort loadTaskAttachmentPort,
             SaveTaskCommentPort saveTaskCommentPort,
             DeleteTaskCommentPort deleteTaskCommentPort,
             LoadUserPort loadUserPort,
             LoadEmployeePort loadEmployeePort,
             SaveNotificationPort saveNotificationPort,
+            TaskAttachmentStoragePort taskAttachmentStoragePort,
             TaskDiscussionAccessService accessService) {
         this.loadTaskCommentPort = Objects.requireNonNull(loadTaskCommentPort, "LoadTaskCommentPort must not be null");
+        this.loadTaskAttachmentPort = Objects.requireNonNull(loadTaskAttachmentPort, "LoadTaskAttachmentPort must not be null");
         this.saveTaskCommentPort = Objects.requireNonNull(saveTaskCommentPort, "SaveTaskCommentPort must not be null");
         this.deleteTaskCommentPort = Objects.requireNonNull(deleteTaskCommentPort, "DeleteTaskCommentPort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.saveNotificationPort = Objects.requireNonNull(saveNotificationPort, "SaveNotificationPort must not be null");
+        this.taskAttachmentStoragePort = Objects.requireNonNull(taskAttachmentStoragePort, "TaskAttachmentStoragePort must not be null");
         this.accessService = Objects.requireNonNull(accessService, "TaskDiscussionAccessService must not be null");
         this.mentionParserService = new MentionParserService();
     }
@@ -83,10 +98,13 @@ public class TaskCommentApplicationService
 
         // Phân tích danh sách người được nhắc tên
         Set<UserId> targetMentions = new HashSet<>();
+        // Phân tích danh sách người được nhắc tên và xác thực quyền truy cập dự án/task
+        Set<UserId> candidateMentionIds = new HashSet<>();
         if (command.mentionedUserIds() != null) {
             for (Long uid : command.mentionedUserIds()) {
                 if (uid != null && !uid.equals(command.authorId())) {
                     targetMentions.add(new UserId(uid));
+                    candidateMentionIds.add(new UserId(uid));
                 }
             }
         }
@@ -96,8 +114,19 @@ public class TaskCommentApplicationService
             loadUserPort.findByUsername(uname).ifPresent(u -> {
                 if (!u.getId().equals(authorId)) {
                     targetMentions.add(u.getId());
+                    candidateMentionIds.add(u.getId());
                 }
             });
+        }
+
+        Set<UserId> targetMentions = new HashSet<>();
+        if (!candidateMentionIds.isEmpty()) {
+            List<User> candidateUsers = loadUserPort.findAllByIdIn(List.copyOf(candidateMentionIds));
+            for (User candidate : candidateUsers) {
+                if (accessService.canUserAccess(candidate, task)) {
+                    targetMentions.add(candidate.getId());
+                }
+            }
         }
 
         List<TaskAttachment> attachments = new ArrayList<>();
@@ -197,8 +226,25 @@ public class TaskCommentApplicationService
                 throw new InvalidCommentDataException("Bạn không có quyền xóa trao đổi này");
             }
         }
+        accessService.requireDeleteAccess(taskId, comment.getAuthorId().value(), requestingUserId);
 
         deleteTaskCommentPort.deleteById(id);
+    }
+
+    @Override
+    public TaskAttachmentDownloadResult downloadAttachment(Long attachmentId) {
+        Objects.requireNonNull(attachmentId, "Mã tệp đính kèm không được null");
+        TaskAttachment attachment = loadTaskAttachmentPort.findById(TaskAttachmentId.of(attachmentId))
+                .orElseThrow(() -> new TaskAttachmentNotFoundException(attachmentId));
+
+        accessService.requireAccess(attachment.getTaskId().value(), PermissionCode.TASK_DISCUSSION_READ);
+
+        InputStream is = taskAttachmentStoragePort.loadFile(attachment.getFilePath());
+        return new TaskAttachmentDownloadResult(
+                attachment.getFileName(),
+                attachment.getFileType(),
+                attachment.getFileSize(),
+                is);
     }
 
     private TaskCommentResult mapToResult(TaskComment comment) {

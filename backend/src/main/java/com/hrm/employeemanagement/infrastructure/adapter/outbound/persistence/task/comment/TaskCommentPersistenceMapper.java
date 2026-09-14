@@ -38,6 +38,10 @@ public class TaskCommentPersistenceMapper {
                         att.getFileType(),
                         new UserId(att.getUploadedBy()),
                         att.getUploadedAt()));
+                TaskAttachment mapped = toDomain(att);
+                if (mapped != null) {
+                    attachments.add(mapped);
+                }
             }
         }
 
@@ -99,5 +103,22 @@ public class TaskCommentPersistenceMapper {
 
         return entity;
     }
+
+    public TaskAttachment toDomain(TaskAttachmentJpaEntity att) {
+        if (att == null) {
+            return null;
+        }
+        return new TaskAttachment(
+                TaskAttachmentId.of(att.getId()),
+                TaskCommentId.of(att.getComment() != null ? att.getComment().getId() : null),
+                TaskId.of(att.getTaskId()),
+                att.getFileName(),
+                att.getFilePath(),
+                att.getFileSize(),
+                att.getFileType(),
+                new UserId(att.getUploadedBy()),
+                att.getUploadedAt());
+    }
 }
+
 

@@ -8,13 +8,14 @@ import com.hrm.employeemanagement.application.port.outbound.notification.SaveNot
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.DeleteTaskCommentPort;
+import com.hrm.employeemanagement.application.port.outbound.task.comment.LoadTaskAttachmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.LoadTaskCommentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.SaveTaskCommentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.TaskAttachmentStoragePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
-import com.hrm.employeemanagement.application.service.notification.NotificationApplicationService;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.service.notification.NotificationApplicationService;
 import com.hrm.employeemanagement.application.service.task.comment.TaskCommentApplicationService;
 import com.hrm.employeemanagement.application.service.task.comment.TaskDiscussionAccessService;
 import com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalTaskCommentServiceDecorator;
@@ -33,6 +34,7 @@ public class TaskDiscussionUseCaseConfig {
     @Bean
     public TransactionalTaskCommentServiceDecorator taskCommentApplicationService(
             LoadTaskCommentPort loadTaskCommentPort,
+            LoadTaskAttachmentPort loadTaskAttachmentPort,
             SaveTaskCommentPort saveTaskCommentPort,
             DeleteTaskCommentPort deleteTaskCommentPort,
             LoadUserPort loadUserPort,
@@ -42,11 +44,13 @@ public class TaskDiscussionUseCaseConfig {
             TaskDiscussionAccessService accessService) {
         TaskCommentApplicationService service = new TaskCommentApplicationService(
                 loadTaskCommentPort,
+                loadTaskAttachmentPort,
                 saveTaskCommentPort,
                 deleteTaskCommentPort,
                 loadUserPort,
                 loadEmployeePort,
                 saveNotificationPort,
+                taskAttachmentStoragePort,
                 accessService);
         return new TransactionalTaskCommentServiceDecorator(service, loadTaskCommentPort, taskAttachmentStoragePort);
     }

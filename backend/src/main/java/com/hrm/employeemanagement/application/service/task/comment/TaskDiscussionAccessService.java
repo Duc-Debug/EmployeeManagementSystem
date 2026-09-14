@@ -51,6 +51,38 @@ public class TaskDiscussionAccessService {
         return task;
     }
 
+    public Task requireDeleteAccess(Long taskId, Long authorId, Long requestingUserId) {
+        Task task = requireAccess(taskId, PermissionCode.TASK_DISCUSSION_DELETE);
+        if (!Objects.equals(authorId, requestingUserId)) {
+            if (!authorizationService.hasPermission(PermissionCode.TASK_DISCUSSION_MANAGE)) {
+                throw new PermissionDeniedException(PermissionCode.TASK_DISCUSSION_MANAGE);
+            }
+        }
+        return task;
+    }
+
+    public boolean canUserAccess(User user, Task task) {
+        if (user == null || task == null || task.getProjectId() == null) {
+            return false;
+        }
+        Project project = loadProjectPort.findById(new ProjectId(task.getProjectId().value())).orElse(null);
+        if (project == null) {
+            return false;
+        }
+        return canAccess(user, user.getIdValue(), project);
+    }
+
+    public boolean canUserAccess(User user, Long taskId) {
+        if (user == null || taskId == null) {
+            return false;
+        }
+        Task task = loadTaskPort.findById(TaskId.of(taskId)).orElse(null);
+        if (task == null) {
+            return false;
+        }
+        return canUserAccess(user, task);
+    }
+
     private boolean canAccess(User user, Long userId, Project project) {
         return switch (user.getDataScope()) {
             case COMPANY -> true;
@@ -65,3 +97,4 @@ public class TaskDiscussionAccessService {
         };
     }
 }
+

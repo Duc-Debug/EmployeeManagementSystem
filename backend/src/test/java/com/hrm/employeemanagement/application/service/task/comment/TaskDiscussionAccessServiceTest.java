@@ -1,14 +1,14 @@
 package com.hrm.employeemanagement.application.service.task.comment;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
@@ -50,6 +50,7 @@ class TaskDiscussionAccessServiceTest {
         user = mock(User.class);
         when(authorization.require(PermissionCode.TASK_DISCUSSION_READ)).thenReturn(7L);
         when(authorization.require(PermissionCode.TASK_DISCUSSION_CREATE)).thenReturn(7L);
+        when(authorization.require(PermissionCode.TASK_DISCUSSION_DELETE)).thenReturn(7L);
         when(tasks.findById(TaskId.of(10L))).thenReturn(Optional.of(task));
         when(task.getProjectId()).thenReturn(new ProjectId(20L));
         when(projects.findById(new ProjectId(20L))).thenReturn(Optional.of(project));
@@ -86,4 +87,70 @@ class TaskDiscussionAccessServiceTest {
                 () -> service.requireAccess(10L, PermissionCode.TASK_DISCUSSION_CREATE));
         verify(projects).existsInOrgUnitBranch(20L, 30L);
     }
+
+    @Test
+    void requireDeleteAccess_AllowsAuthor() {
+        Employee employee = mock(Employee.class);
+        when(user.getDataScope()).thenReturn(DataScope.SELF);
+        when(employees.findByUserId(new UserId(7L))).thenReturn(Optional.of(employee));
+        when(employee.getIdValue()).thenReturn(8L);
+        when(projects.existsMember(20L, 8L)).thenReturn(true);
+
+        assertSame(task, service.requireDeleteAccess(10L, 7L, 7L));
+        verify(authorization).require(PermissionCode.TASK_DISCUSSION_DELETE);
+    }
+
+    @Test
+    void requireDeleteAccess_AllowsPrivilegedManager() {
+        Employee employee = mock(Employee.class);
+        when(user.getDataScope()).thenReturn(DataScope.SELF);
+        when(employees.findByUserId(new UserId(7L))).thenReturn(Optional.of(employee));
+        when(employee.getIdValue()).thenReturn(8L);
+        when(projects.existsMember(20L, 8L)).thenReturn(true);
+        when(authorization.hasPermission(PermissionCode.TASK_DISCUSSION_MANAGE)).thenReturn(true);
+
+        assertSame(task, service.requireDeleteAccess(10L, 99L, 7L));
+        verify(authorization).require(PermissionCode.TASK_DISCUSSION_DELETE);
+        verify(authorization).hasPermission(PermissionCode.TASK_DISCUSSION_MANAGE);
+    }
+
+    @Test
+    void requireDeleteAccess_DeniesNonAuthorWithoutManagePermission() {
+        Employee employee = mock(Employee.class);
+        when(user.getDataScope()).thenReturn(DataScope.SELF);
+        when(employees.findByUserId(new UserId(7L))).thenReturn(Optional.of(employee));
+        when(employee.getIdValue()).thenReturn(8L);
+        when(projects.existsMember(20L, 8L)).thenReturn(true);
+        when(authorization.hasPermission(PermissionCode.TASK_DISCUSSION_MANAGE)).thenReturn(false);
+
+        assertThrows(PermissionDeniedException.class,
+                () -> service.requireDeleteAccess(10L, 99L, 7L));
+    }
+
+    @Test
+    void canUserAccess_ReturnsTrueForProjectMember() {
+        User otherUser = mock(User.class);
+        Employee otherEmployee = mock(Employee.class);
+        when(otherUser.getDataScope()).thenReturn(DataScope.SELF);
+        when(otherUser.getIdValue()).thenReturn(15L);
+        when(employees.findByUserId(new UserId(15L))).thenReturn(Optional.of(otherEmployee));
+        when(otherEmployee.getIdValue()).thenReturn(16L);
+        when(projects.existsMember(20L, 16L)).thenReturn(true);
+
+        org.junit.jupiter.api.Assertions.assertTrue(service.canUserAccess(otherUser, task));
+    }
+
+    @Test
+    void canUserAccess_ReturnsFalseForUserOutsideProject() {
+        User otherUser = mock(User.class);
+        Employee otherEmployee = mock(Employee.class);
+        when(otherUser.getDataScope()).thenReturn(DataScope.SELF);
+        when(otherUser.getIdValue()).thenReturn(15L);
+        when(employees.findByUserId(new UserId(15L))).thenReturn(Optional.of(otherEmployee));
+        when(otherEmployee.getIdValue()).thenReturn(16L);
+        when(projects.existsMember(20L, 16L)).thenReturn(false);
+
+        org.junit.jupiter.api.Assertions.assertFalse(service.canUserAccess(otherUser, task));
+    }
 }
+

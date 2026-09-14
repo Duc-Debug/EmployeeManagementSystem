@@ -8,9 +8,11 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.hrm.employeemanagement.application.dto.task.comment.CreateTaskCommentCommand;
+import com.hrm.employeemanagement.application.dto.task.comment.TaskAttachmentDownloadResult;
 import com.hrm.employeemanagement.application.dto.task.comment.TaskCommentResult;
 import com.hrm.employeemanagement.application.port.inbound.task.comment.CreateTaskCommentUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.comment.DeleteTaskCommentUseCase;
+import com.hrm.employeemanagement.application.port.inbound.task.comment.DownloadTaskAttachmentUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.comment.GetTaskCommentsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.LoadTaskCommentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.TaskAttachmentStoragePort;
@@ -20,6 +22,7 @@ import com.hrm.employeemanagement.domain.task.comment.TaskCommentId;
 /** Transaction boundary for comment, attachment metadata, and mention notifications. */
 public class TransactionalTaskCommentServiceDecorator
         implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase {
+        implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase, DownloadTaskAttachmentUseCase {
 
     private final TaskCommentApplicationService delegate;
     private final LoadTaskCommentPort loadTaskCommentPort;
@@ -42,6 +45,12 @@ public class TransactionalTaskCommentServiceDecorator
     @Transactional(readOnly = true)
     public List<TaskCommentResult> execute(Long taskId) {
         return delegate.execute(taskId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TaskAttachmentDownloadResult downloadAttachment(Long attachmentId) {
+        return delegate.downloadAttachment(attachmentId);
     }
 
     @Override

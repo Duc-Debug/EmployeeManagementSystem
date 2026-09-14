@@ -117,14 +117,42 @@ WHERE NOT EXISTS (
 );
 
 -- Gán quyền cho các vai trò: Ban giám đốc (VT-01), Quản lý dự án (VT-02), Quản lý nguồn lực (VT-03), Nhân viên chuyên môn (VT-04)
+INSERT INTO permissions (code, name, description)
+SELECT 'TASK_DISCUSSION_DELETE', 'Xóa trao đổi công việc', 'Cho phép xóa trao đổi do mình tạo trên công việc'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permissions WHERE code = 'TASK_DISCUSSION_DELETE'
+);
+
+INSERT INTO permissions (code, name, description)
+SELECT 'TASK_DISCUSSION_MANAGE', 'Quản lý trao đổi công việc', 'Cho phép quản lý và xóa bất kỳ trao đổi nào trên công việc'
+WHERE NOT EXISTS (
+    SELECT 1 FROM permissions WHERE code = 'TASK_DISCUSSION_MANAGE'
+);
+
+-- Gán quyền xem, tạo, xóa trao đổi cơ bản cho các vai trò tham gia dự án & quản trị hệ thống
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
 WHERE r.code IN ('VT-01', 'VT-02', 'VT-03', 'VT-04')
   AND p.code IN ('TASK_DISCUSSION_READ', 'TASK_DISCUSSION_CREATE')
+WHERE r.code IN ('VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-06')
+  AND p.code IN ('TASK_DISCUSSION_READ', 'TASK_DISCUSSION_CREATE', 'TASK_DISCUSSION_DELETE')
   AND NOT EXISTS (
       SELECT 1 FROM role_permissions rp 
       WHERE rp.role_id = r.id AND rp.permission_id = p.id
   );
+
+-- Gán quyền quản lý và kiểm duyệt trao đổi cho: Ban giám đốc (VT-01), Quản lý dự án (VT-02), Quản trị viên (VT-06)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code IN ('VT-01', 'VT-02', 'VT-06')
+  AND p.code = 'TASK_DISCUSSION_MANAGE'
+  AND NOT EXISTS (
+      SELECT 1 FROM role_permissions rp 
+      WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
+
 
