@@ -598,35 +598,30 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
             String summaryMessage
     ) {
         Long pmId = project.getManagerId() != null ? project.getManagerId().value() : null;
-        try {
-            String actorName = "Người quản lý nguồn lực";
-            if (actorUserId != null) {
-                actorName = loadUserPort.findById(new UserId(actorUserId))
-                        .map(User::getUsername)
-                        .orElse("ID:" + actorUserId);
-            }
-            String title = AllocationNotificationPolicy.formatTitle(project.getProjectName(), actionType);
-            String content = AllocationNotificationPolicy.formatContent(
-                    actorName,
-                    actionType,
-                    employee != null ? employee.getFullName() : "Nhân sự",
-                    project.getProjectName(),
-                    weekRange,
-                    oldValue,
-                    newValue
-            );
-            notificationPort.notifyAllocationChanged(
-                    project.getIdValue(),
-                    employee != null ? employee.getIdValue() : null,
-                    actorUserId,
-                    title,
-                    content
-            );
-            return pmId != null ? String.valueOf(pmId) : null;
-        } catch (Exception e) {
-            // Safe notification: log error without breaking the atomic business update
-            return pmId != null ? String.valueOf(pmId) : null;
+        String actorName = "Người quản lý nguồn lực";
+        if (actorUserId != null) {
+            actorName = loadUserPort.findById(new UserId(actorUserId))
+                    .map(User::getUsername)
+                    .orElse("ID:" + actorUserId);
         }
+        String title = AllocationNotificationPolicy.formatTitle(project.getProjectName(), actionType);
+        String content = AllocationNotificationPolicy.formatContent(
+                actorName,
+                actionType,
+                employee != null ? employee.getFullName() : "Nhân sự",
+                project.getProjectName(),
+                weekRange,
+                oldValue,
+                newValue
+        );
+        notificationPort.notifyAllocationChanged(
+                project.getIdValue(),
+                employee != null ? employee.getIdValue() : null,
+                actorUserId,
+                title,
+                content
+        );
+        return pmId != null ? String.valueOf(pmId) : null;
     }
 
     private void requireOrgUnitInDataScope(User currentUser, Long orgUnitId, Long currentUserId, Long allocationId) {

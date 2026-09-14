@@ -23,8 +23,8 @@ import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.user.UserId;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -124,21 +124,21 @@ class DatabaseAllocationNotificationAdapterTest {
     }
 
     @Test
-    @DisplayName("Assumption Gate #5: Lỗi hạ tầng khi lưu notification KHÔNG ném ngoại lệ (Exception Isolation)")
-    void notifyAllocationChanged_DatabaseFailure_DoesNotThrow() {
+    @DisplayName("Same transaction: Lỗi hạ tầng khi chuẩn bị notification phải được ném ra ngoài để rollback")
+    void notifyAllocationChanged_DatabaseFailure_PropagatesException() {
         Long projectId = 10L;
         Long affectedEmployeeId = 100L;
 
         when(loadProjectPort.findById(any())).thenThrow(new RuntimeException("Database connection timeout"));
 
-        assertDoesNotThrow(() -> adapter.notifyAllocationChanged(
+        assertThrows(RuntimeException.class, () -> adapter.notifyAllocationChanged(
                 projectId, affectedEmployeeId, 1L, "Tiêu đề", "Nội dung"
         ));
     }
 
     @Test
-    @DisplayName("Recipient Isolation: Lỗi lưu notification của PM không làm gián đoạn việc lưu notification của Nhân sự")
-    void notifyAllocationChanged_WhenPmSaveFails_StillPersistsEmployeeNotification() {
+    @DisplayName("Same transaction: Lỗi lưu notification của PM phải fail-fast để rollback toàn bộ allocation")
+    void notifyAllocationChanged_WhenPmSaveFails_PropagatesAndSkipsEmployeeNotification() {
         Long projectId = 10L;
         Long affectedEmployeeId = 100L;
         Long actorUserId = 5L;
@@ -160,16 +160,13 @@ class DatabaseAllocationNotificationAdapterTest {
         when(loadEmployeePort.findById(new EmployeeId(200L))).thenReturn(Optional.of(pmEmp));
         when(loadEmployeePort.findById(new EmployeeId(affectedEmployeeId))).thenReturn(Optional.of(affectedEmp));
 
-        // Lần gọi save đầu tiên (cho PM) ném lỗi DB; lần gọi thứ hai (cho Nhân sự) thành công
         when(saveNotificationPort.save(any()))
-                .thenThrow(new RuntimeException("DB deadlock on PM notification"))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenThrow(new RuntimeException("DB deadlock on PM notification"));
 
-        assertDoesNotThrow(() -> adapter.notifyAllocationChanged(
+        assertThrows(RuntimeException.class, () -> adapter.notifyAllocationChanged(
                 projectId, affectedEmployeeId, actorUserId, "Tiêu đề", "Nội dung"
         ));
 
-        // Khẳng định saveNotificationPort được gọi đủ 2 lần: thất bại của PM không ngăn cản Employee
-        verify(saveNotificationPort, times(2)).save(any(Notification.class));
+        verify(saveNotificationPort, times(1)).save(any(Notification.class));
     }
 }
