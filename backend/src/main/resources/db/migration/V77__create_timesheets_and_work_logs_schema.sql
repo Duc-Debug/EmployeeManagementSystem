@@ -37,12 +37,12 @@ CREATE TABLE IF NOT EXISTS timesheets (
         CHECK (status IN ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED')),
 
     CONSTRAINT chk_timesheets_total_hours
-        CHECK (total_hours >= 0)
-);
+        CHECK (total_hours >= 0),
 
-CREATE INDEX idx_timesheets_employee ON timesheets(employee_id);
-CREATE INDEX idx_timesheets_week_range ON timesheets(week_start_date, week_end_date);
-CREATE INDEX idx_timesheets_status ON timesheets(status);
+    INDEX idx_timesheets_employee (employee_id),
+    INDEX idx_timesheets_week_range (week_start_date, week_end_date),
+    INDEX idx_timesheets_status (status)
+);
 
 -- 2. Tạo bảng timesheet_entries (Dòng ghi giờ công chi tiết)
 CREATE TABLE IF NOT EXISTS timesheet_entries (
@@ -84,13 +84,13 @@ CREATE TABLE IF NOT EXISTS timesheet_entries (
         CHECK (hours > 0 AND hours <= 24),
 
     CONSTRAINT chk_timesheet_entries_status
-        CHECK (status IN ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'))
-);
+        CHECK (status IN ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED')),
 
-CREATE INDEX idx_timesheet_entries_timesheet ON timesheet_entries(timesheet_id);
-CREATE INDEX idx_timesheet_entries_emp_date ON timesheet_entries(employee_id, work_date);
-CREATE INDEX idx_timesheet_entries_project ON timesheet_entries(project_id);
-CREATE INDEX idx_timesheet_entries_task ON timesheet_entries(task_id);
+    INDEX idx_timesheet_entries_timesheet (timesheet_id),
+    INDEX idx_timesheet_entries_emp_date (employee_id, work_date),
+    INDEX idx_timesheet_entries_project (project_id),
+    INDEX idx_timesheet_entries_task (task_id)
+);
 
 -- 3. Tạo các quyền ghi nhận giờ làm việc (Work Log / Timesheet Permissions)
 INSERT INTO permissions (code, name, description)

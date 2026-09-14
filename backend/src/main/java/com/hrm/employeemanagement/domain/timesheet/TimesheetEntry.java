@@ -138,6 +138,11 @@ public class TimesheetEntry {
         }
     }
 
+    public void markSubmitted() {
+        this.status = TimesheetStatus.SUBMITTED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getters
     public TimesheetEntryId getId() { return id; }
     public Long getIdValue() { return id != null ? id.value() : null; }
