@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V79: CREATE CAPACITY THRESHOLD CONFIGS SCHEMA
+-- FLYWAY MIGRATION V82: CREATE CAPACITY THRESHOLD CONFIGS SCHEMA
 -- Epic: NCL-07 (Cảnh báo xung đột lịch và đề xuất thay thế)
 -- Story: NCL-07-CN-004 (Cấu hình ngưỡng cảnh báo quá tải và nhàn rỗi - QTN-23)
 -- ============================================================

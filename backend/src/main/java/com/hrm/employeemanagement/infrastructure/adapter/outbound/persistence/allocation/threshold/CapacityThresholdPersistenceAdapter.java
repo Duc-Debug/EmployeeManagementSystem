@@ -59,7 +59,15 @@ public class CapacityThresholdPersistenceAdapter implements LoadCapacityThreshol
             jpaEntity = mapper.toJpaEntity(config);
         }
 
-        CapacityThresholdConfigJpaEntity saved = repository.saveAndFlush(jpaEntity);
-        return mapper.toDomain(saved);
+        try {
+            CapacityThresholdConfigJpaEntity saved = repository.saveAndFlush(jpaEntity);
+            return mapper.toDomain(saved);
+        } catch (org.springframework.dao.OptimisticLockingFailureException | jakarta.persistence.OptimisticLockException ex) {
+            throw new com.hrm.employeemanagement.domain.exception.allocation.CapacityThresholdVersionConflictException(
+                    String.format("Xung đột phiên bản dữ liệu khi cập nhật cấu hình ngưỡng (phiên bản gửi lên: %s). Dữ liệu đã bị thay đổi bởi thao tác khác.",
+                            config.getVersion()),
+                    ex
+            );
+        }
     }
 }

@@ -11,4 +11,8 @@ public class CapacityThresholdVersionConflictException extends DomainException {
     public CapacityThresholdVersionConflictException(String message) {
         super(message);
     }
+
+    public CapacityThresholdVersionConflictException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

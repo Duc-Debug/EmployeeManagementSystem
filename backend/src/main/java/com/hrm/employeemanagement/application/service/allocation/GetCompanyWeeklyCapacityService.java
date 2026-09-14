@@ -72,7 +72,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
-            LoadWorkingCalendarPort loadWorkingCalendarPort
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
     ) {
         this(
                 authorizationService,
@@ -85,63 +86,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 loadApprovedLeavesPort,
                 loadWorkingCalendarPort,
                 null,
-                null
-        );
-    }
-
-    public GetCompanyWeeklyCapacityService(
-            AuthorizationService authorizationService,
-            LoadUserPort loadUserPort,
-            LoadEmployeePort loadEmployeePort,
-            LoadOrgUnitPort loadOrgUnitPort,
-            LoadWeeklyProjectAllocationPort loadAllocationPort,
-            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
-            LoadHolidaysPort loadHolidaysPort,
-            LoadApprovedLeavesPort loadApprovedLeavesPort,
-            LoadWorkingCalendarPort loadWorkingCalendarPort,
-            LoadResourceReservationPort loadReservationPort
-    ) {
-        this(
-                authorizationService,
-                loadUserPort,
-                loadEmployeePort,
-                loadOrgUnitPort,
-                loadAllocationPort,
-                loadWeeklyAvailabilityPort,
-                loadHolidaysPort,
-                loadApprovedLeavesPort,
-                loadWorkingCalendarPort,
-                loadReservationPort,
-                null
-        );
-    }
-
-    public GetCompanyWeeklyCapacityService(
-            AuthorizationService authorizationService,
-            LoadUserPort loadUserPort,
-            LoadEmployeePort loadEmployeePort,
-            LoadOrgUnitPort loadOrgUnitPort,
-            LoadWeeklyProjectAllocationPort loadAllocationPort,
-            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
-            LoadHolidaysPort loadHolidaysPort,
-            LoadApprovedLeavesPort loadApprovedLeavesPort,
-            LoadWorkingCalendarPort loadWorkingCalendarPort,
-            LoadResourceReservationPort loadReservationPort,
-            SaveAuditLogPort saveAuditLogPort
-    ) {
-        this(
-                authorizationService,
-                loadUserPort,
-                loadEmployeePort,
-                loadOrgUnitPort,
-                loadAllocationPort,
-                loadWeeklyAvailabilityPort,
-                loadHolidaysPort,
-                loadApprovedLeavesPort,
-                loadWorkingCalendarPort,
-                loadReservationPort,
-                saveAuditLogPort,
-                null
+                null,
+                loadCapacityThresholdPort
         );
     }
 
@@ -170,7 +116,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
         this.loadReservationPort = loadReservationPort;
         this.saveAuditLogPort = saveAuditLogPort;
-        this.loadCapacityThresholdPort = loadCapacityThresholdPort;
+        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
     }
 
     @Override
@@ -305,18 +251,16 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         // Tra cứu cấu hình ngưỡng cảnh báo năng lực hiệu lực hiện hành theo QTN-23
         BigDecimal overloadThreshold = WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD;
         BigDecimal idleThreshold = WeeklyCapacityMatrixPolicy.UNDERUTILIZED_THRESHOLD;
-        if (loadCapacityThresholdPort != null) {
-            Optional<CapacityThresholdConfig> configOpt = Optional.empty();
-            if (effectiveOrgUnitId != null) {
-                configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.ORG_UNIT, effectiveOrgUnitId);
-            }
-            if (configOpt.isEmpty()) {
-                configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.COMPANY, null);
-            }
-            if (configOpt.isPresent()) {
-                overloadThreshold = configOpt.get().getOverloadThreshold();
-                idleThreshold = configOpt.get().getIdleThreshold();
-            }
+        Optional<CapacityThresholdConfig> configOpt = Optional.empty();
+        if (effectiveOrgUnitId != null) {
+            configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.ORG_UNIT, effectiveOrgUnitId);
+        }
+        if (configOpt.isEmpty()) {
+            configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.COMPANY, null);
+        }
+        if (configOpt.isPresent()) {
+            overloadThreshold = configOpt.get().getOverloadThreshold();
+            idleThreshold = configOpt.get().getIdleThreshold();
         }
 
         // [🔴 HIGH REVIEW FIX]: Phân trang Server-side thực thụ ở tầng Database

@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapaci
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -66,6 +67,8 @@ class GetCompanyWeeklyCapacityServiceTest {
     private LoadApprovedLeavesPort loadApprovedLeavesPort;
     @Mock
     private LoadWorkingCalendarPort loadWorkingCalendarPort;
+    @Mock
+    private LoadCapacityThresholdPort loadCapacityThresholdPort;
 
     @Mock
     private User rmUser;
@@ -89,7 +92,8 @@ class GetCompanyWeeklyCapacityServiceTest {
                 loadWeeklyAvailabilityPort,
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
-                loadWorkingCalendarPort
+                loadWorkingCalendarPort,
+                loadCapacityThresholdPort
         );
 
         lenient().when(itDept.getId()).thenReturn(new OrgUnitId(10L));
