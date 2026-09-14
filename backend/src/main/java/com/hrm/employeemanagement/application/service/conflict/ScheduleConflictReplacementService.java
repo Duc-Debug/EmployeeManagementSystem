@@ -376,20 +376,40 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
             throw new IllegalArgumentException("Nhân sự thay thế không được trùng với nhân sự đang bị xung đột lịch");
         }
 
-        // 3. Re-validate: Kỹ năng và mức thành thạo của candidate tại thời điểm confirm
+        // 3. Re-validate: Kỹ năng và mức thành thạo của candidate tại thời điểm confirm (BẮT BUỘC, không thể bypass)
+        Long targetSkillId = command.skillId();
         int reqLevel = command.proficiencyLevel() != null ? command.proficiencyLevel() : 1;
-        if (command.skillId() != null) {
-            Optional<EmployeeSkill> empSkillOpt = employeeSkillRepository
-                    .findByEmployeeIdAndSkillId(replacementEmp.getIdValue(), command.skillId());
-            if (empSkillOpt.isEmpty() || empSkillOpt.get().getStatus() != SkillStatus.APPROVED) {
-                throw new IllegalArgumentException("Nhân sự thay thế chưa có kỹ năng được phê duyệt cho kỹ năng yêu cầu (ID: " + command.skillId() + ")");
+
+        if (targetSkillId == null) {
+            List<EmployeeSkill> origSkills = employeeSkillRepository.findByEmployeeId(originalEmp.getIdValue());
+            if (!origSkills.isEmpty()) {
+                EmployeeSkill primarySkill = origSkills.stream()
+                        .filter(s -> s.getStatus() == SkillStatus.APPROVED)
+                        .max(Comparator.comparing(EmployeeSkill::getProficiencyLevelValue))
+                        .orElse(null);
+                if (primarySkill != null) {
+                    targetSkillId = primarySkill.getSkillId();
+                    if (command.proficiencyLevel() == null) {
+                        reqLevel = primarySkill.getProficiencyLevelValue();
+                    }
+                }
             }
-            if (empSkillOpt.get().getProficiencyLevelValue() < reqLevel) {
-                throw new IllegalArgumentException(String.format(
-                        "Mức thành thạo kỹ năng của nhân sự thay thế (%d) thấp hơn mức yêu cầu (%d)",
-                        empSkillOpt.get().getProficiencyLevelValue(), reqLevel
-                ));
-            }
+        }
+
+        if (targetSkillId == null) {
+            throw new IllegalArgumentException("Không thể xác định kỹ năng yêu cầu để kiểm tra nhân sự thay thế. Vui lòng truyền skillId trong yêu cầu.");
+        }
+
+        Optional<EmployeeSkill> empSkillOpt = employeeSkillRepository
+                .findByEmployeeIdAndSkillId(replacementEmp.getIdValue(), targetSkillId);
+        if (empSkillOpt.isEmpty() || empSkillOpt.get().getStatus() != SkillStatus.APPROVED) {
+            throw new IllegalArgumentException("Nhân sự thay thế chưa có kỹ năng được phê duyệt cho kỹ năng yêu cầu (ID: " + targetSkillId + ")");
+        }
+        if (empSkillOpt.get().getProficiencyLevelValue() < reqLevel) {
+            throw new IllegalArgumentException(String.format(
+                    "Mức thành thạo kỹ năng của nhân sự thay thế (%d) thấp hơn mức yêu cầu (%d)",
+                    empSkillOpt.get().getProficiencyLevelValue(), reqLevel
+            ));
         }
 
         // 4. Re-validate: Số giờ rảnh của candidate trong đúng tuần xảy ra xung đột

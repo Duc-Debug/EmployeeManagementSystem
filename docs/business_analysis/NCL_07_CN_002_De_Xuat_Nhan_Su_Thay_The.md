@@ -36,9 +36,9 @@ Khi mở đề xuất nhân sự thay thế cho 1 xung đột lịch (của nhâ
    - Loại trừ chính nhân sự bị xung đột ($E_{candidate} \neq E_{conflict}$).
    - Chỉ chọn nhân sự có trạng thái `ACTIVE`.
    - Nhân sự phải có kỹ năng $Skill_{req}$ với mức thành thạo $Level_{candidate} \ge Level_{req}$.
-3. **Tính toán số giờ rảnh khả dụng trong tuần ($NetAvailableHours$)**:
-   $$\text{NetAvailableHours} = \text{StandardHours} - \text{ApprovedLeaveHours} - \text{AllocatedHours}$$
-   - Chỉ giữ lại các ứng viên có $\text{NetAvailableHours} > 0$.
+3. **Tính toán số giờ rảnh khả dụng trong tuần ($\text{FreeHours}$)**:
+   $$\text{FreeHours} = \text{StandardHours} - \text{ApprovedLeaveHours} - \text{AllocatedHours}$$
+   - Chỉ giữ lại các ứng viên có số giờ rảnh $\text{FreeHours} \ge \text{ExcessHours}$ (đảm bảo còn đủ số giờ rảnh để bù đắp toàn bộ phần quá tải của ca xung đột).
 4. **Sắp xếp thứ tự ưu tiên (Ranking)**:
    - Ưu tiên 1: Số giờ rảnh còn lại trong tuần ($\text{NetAvailableHours}$) giảm dần.
    - Ưu tiên 2: Mức độ thành thạo kỹ năng ($Level_{candidate}$) giảm dần.

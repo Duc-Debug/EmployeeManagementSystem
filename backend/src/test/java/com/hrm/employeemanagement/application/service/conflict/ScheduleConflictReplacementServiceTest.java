@@ -567,5 +567,47 @@ class ScheduleConflictReplacementServiceTest {
         assertEquals("NV022", result.candidates().get(2).employeeCode());
         assertEquals("NV021", result.candidates().get(3).employeeCode());
     }
+
+    @Test
+    void testConfirmProposal_NullSkillId_StillValidatesSkillAndThrowsIfCandidateLacksSkill() {
+        Long rmUserId = 100L;
+        Long conflictId = 13L;
+        Long conflictedEmpId = 10L;
+        Long replacementEmpId = 20L;
+        Long skillId = 50L;
+
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST)).thenReturn(rmUserId);
+
+        ScheduleConflict conflict = ScheduleConflict.create(
+                conflictedEmpId, 2026, 38, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1", "Dự án Alpha", null, null,
+                new BigDecimal("48.0"), new BigDecimal("40.0"), new BigDecimal("8.0"), "Overload"
+        );
+        when(loadConflictPort.findById(conflictId)).thenReturn(Optional.of(conflict));
+
+        Employee origEmp = new Employee(new EmployeeId(conflictedEmpId), new UserId(1000L), 1L, "NV010", "Nguyễn Văn A", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee replEmp = new Employee(new EmployeeId(replacementEmpId), new UserId(2000L), 1L, "NV020", "Trần Văn B", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(origEmp));
+        when(loadEmployeePort.findById(new EmployeeId(replacementEmpId))).thenReturn(Optional.of(replEmp));
+
+        // Conflicted emp has skillId 50L
+        EmployeeSkill origSkill = new EmployeeSkill(
+                1L, conflictedEmpId, skillId, 3, new BigDecimal("3.5"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(employeeSkillRepository.findByEmployeeId(conflictedEmpId)).thenReturn(List.of(origSkill));
+
+        // Candidate has NO skills at all
+        when(employeeSkillRepository.findByEmployeeIdAndSkillId(replacementEmpId, skillId)).thenReturn(Optional.empty());
+
+        // Command passes skillId = null and proficiencyLevel = null to attempt bypass
+        ConfirmReplacementProposalCommand command = new ConfirmReplacementProposalCommand(
+                conflictId, replacementEmpId, null, null, "Attempt bypass"
+        );
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.confirmReplacementProposal(command));
+        assertTrue(ex.getMessage().contains("chưa có kỹ năng được phê duyệt"));
+    }
 }
 
