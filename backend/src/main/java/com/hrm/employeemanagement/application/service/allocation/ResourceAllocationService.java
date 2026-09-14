@@ -42,6 +42,12 @@ import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
+import com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort;
+import com.hrm.employeemanagement.domain.allocation.AdjustmentAction;
+import com.hrm.employeemanagement.domain.allocation.AllocationChangeLog;
+import com.hrm.employeemanagement.domain.allocation.AllocationNotificationPolicy;
+
 public class ResourceAllocationService implements AllocateResourceUseCase {
 
     private final AuthorizationService authorizationService;
@@ -53,6 +59,8 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
     private final SaveAuditLogInNewTransactionPort saveAuditLogPort;
     private final LoadUserPort loadUserPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
+    private final SaveAllocationChangeLogPort saveChangeLogPort;
+    private final AllocationNotificationPort notificationPort;
 
     public ResourceAllocationService(
             AuthorizationService authorizationService,
@@ -65,6 +73,24 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort
     ) {
+        this(authorizationService, loadEmployeePort, loadProjectPort, loadWeeklyAvailabilityPort,
+                saveAllocationPort, loadAllocationPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort,
+                null, null);
+    }
+
+    public ResourceAllocationService(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAllocationChangeLogPort saveChangeLogPort,
+            AllocationNotificationPort notificationPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
@@ -74,6 +100,8 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
+        this.saveChangeLogPort = saveChangeLogPort;
+        this.notificationPort = notificationPort;
     }
 
     @Override
@@ -243,6 +271,33 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         // Lưu bản ghi (Concurrency retry được xử lý tại RetryableAllocateResourceUseCaseDecorator)
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
+        String actionType = existingOpt.isPresent() ? "EDIT" : "ADD";
+        AdjustmentAction changeAction = existingOpt.isPresent() ? AdjustmentAction.EDIT_HOURS : AdjustmentAction.ADD;
+        String safeOldValue = existingOpt.isPresent() ? oldValue : "(Chưa phân bổ)";
+        String safeNewValue = newValue;
+
+        String summaryMessage = actionType.equals("ADD")
+                ? "Phân bổ mới nhân sự '" + employee.getFullName() + "' vào dự án '" + project.getProjectName() + "' tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ": " + safeNewValue
+                : "Cập nhật phân bổ nhân sự '" + employee.getFullName() + "' trong dự án '" + project.getProjectName() + "' tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ": " + safeOldValue + " -> " + safeNewValue;
+
+        String notifiedPmIds = notifyStakeholders(
+                project, employee, currentUser, actionType,
+                AllocationNotificationPolicy.YearWeekRange.ofSingle(yearWeek),
+                safeOldValue, safeNewValue, summaryMessage
+        );
+
+        if (saveChangeLogPort != null) {
+            Long allocationId = (saved != null && saved.getId() != null) ? saved.getId() : allocation.getId();
+            saveChangeLogPort.save(AllocationChangeLog.create(
+                    allocationId,
+                    changeAction,
+                    safeOldValue,
+                    safeNewValue,
+                    currentUserId,
+                    notifiedPmIds
+            ));
+        }
+
         // [TC-04, TC-05] Ghi nhật ký kiểm toán (Audit Log)
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
@@ -395,5 +450,43 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 isOverAllocated,
                 warningMessage
         );
+    }
+
+    private String notifyStakeholders(
+            Project project,
+            Employee employee,
+            User actor,
+            String actionType,
+            AllocationNotificationPolicy.YearWeekRange weekRange,
+            String oldValue,
+            String newValue,
+            String summaryMessage
+    ) {
+        if (notificationPort == null) {
+            return null;
+        }
+        Long pmId = project.getManagerId() != null ? project.getManagerId().value() : null;
+        try {
+            String title = AllocationNotificationPolicy.formatTitle(project.getProjectName(), actionType);
+            String content = AllocationNotificationPolicy.formatContent(
+                    actor != null ? actor.getUsername() : "Người quản lý nguồn lực",
+                    actionType,
+                    employee != null ? employee.getFullName() : "Nhân sự",
+                    project.getProjectName(),
+                    weekRange,
+                    oldValue,
+                    newValue
+            );
+            notificationPort.notifyAllocationChanged(
+                    project.getIdValue(),
+                    employee != null ? employee.getIdValue() : null,
+                    actor != null ? actor.getId().value() : null,
+                    title,
+                    content
+            );
+            return pmId != null ? String.valueOf(pmId) : null;
+        } catch (Exception e) {
+            return pmId != null ? String.valueOf(pmId) : null;
+        }
     }
 }
