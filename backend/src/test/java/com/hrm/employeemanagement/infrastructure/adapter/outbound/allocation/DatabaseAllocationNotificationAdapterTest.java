@@ -148,4 +148,41 @@ class DatabaseAllocationNotificationAdapterTest {
             TransactionSynchronizationManager.clearSynchronization();
         }
     }
+
+    @Test
+    @DisplayName("Recipient Isolation: Lỗi lưu notification của PM không làm gián đoạn việc lưu notification của Nhân sự")
+    void notifyAllocationChanged_WhenPmSaveFails_StillPersistsEmployeeNotification() {
+        Long projectId = 10L;
+        Long affectedEmployeeId = 100L;
+        Long actorUserId = 5L;
+
+        Employee pmEmp = new Employee(
+                new EmployeeId(200L), new UserId(20L), 1L, "EMP002", "Trần PM",
+                false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee affectedEmp = new Employee(
+                new EmployeeId(100L), new UserId(30L), 1L, "EMP001", "Nguyễn Nhân Sự",
+                false, 40, EmployeeStatus.ACTIVE
+        );
+        Project project = new Project(
+                new ProjectId(projectId), "PRJ-01", "Dự án HRM", 1L, new EmployeeId(200L),
+                null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), null, null, 1L
+        );
+
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+        when(loadEmployeePort.findById(new EmployeeId(200L))).thenReturn(Optional.of(pmEmp));
+        when(loadEmployeePort.findById(new EmployeeId(affectedEmployeeId))).thenReturn(Optional.of(affectedEmp));
+
+        // Lần gọi save đầu tiên (cho PM) ném lỗi DB; lần gọi thứ hai (cho Nhân sự) thành công
+        when(saveNotificationPort.save(any()))
+                .thenThrow(new RuntimeException("DB deadlock on PM notification"))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertDoesNotThrow(() -> adapter.notifyAllocationChanged(
+                projectId, affectedEmployeeId, actorUserId, "Tiêu đề", "Nội dung"
+        ));
+
+        // Khẳng định saveNotificationPort được gọi đủ 2 lần: thất bại của PM không ngăn cản Employee
+        verify(saveNotificationPort, times(2)).save(any(Notification.class));
+    }
 }

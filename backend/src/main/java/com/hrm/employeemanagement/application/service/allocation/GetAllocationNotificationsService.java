@@ -83,7 +83,7 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
             throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
         }
 
-        List<Long> allowedProjectIds;
+        List<Long> allowedProjectIds = Collections.emptyList();
 
         if (roleCode == RoleCode.VT_02) {
             // PM: Chỉ được xem dự án mình quản lý (SELF)
@@ -148,15 +148,28 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
                 allowedProjectIds = List.of(projectId);
             } else {
                 // Toàn bộ dự án trong scope
-                if (currentUser.getDataScope() == com.hrm.employeemanagement.domain.authorization.DataScope.COMPANY) {
-                    allowedProjectIds = Collections.emptyList(); // rỗng = không giới hạn projectId
-                } else if (currentUser.getScopeOrgUnitId() != null) {
-                    allowedProjectIds = loadProjectPort.findAllProjectIdsByOrgUnitBranch(currentUser.getScopeOrgUnitId());
-                    if (allowedProjectIds.isEmpty()) {
-                        return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page, size);
+                switch (currentUser.getDataScope()) {
+                    case COMPANY -> allowedProjectIds = Collections.emptyList(); // rỗng = không giới hạn projectId
+                    case ORGANIZATION_BRANCH -> {
+                        if (currentUser.getScopeOrgUnitId() == null) {
+                            return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page, size);
+                        }
+                        allowedProjectIds = loadProjectPort.findAllProjectIdsByOrgUnitBranch(currentUser.getScopeOrgUnitId());
+                        if (allowedProjectIds.isEmpty()) {
+                            return new AllocationNotificationPageResult(Collections.emptyList(), 0, 0, page, size);
+                        }
                     }
-                } else {
-                    allowedProjectIds = Collections.emptyList();
+                    case SELF -> {
+                        deniedAuditLogPort.save(AuditLog.createChange(
+                                currentUserId,
+                                "ACCESS_DENIED_ALLOCATION_NOTIFICATIONS",
+                                "notifications",
+                                null,
+                                null,
+                                "user_id=" + currentUserId + ";role=VT-03;denied_reason=INVALID_DATA_SCOPE_SELF"
+                        ));
+                        throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                    }
                 }
             }
         }

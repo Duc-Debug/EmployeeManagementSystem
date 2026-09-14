@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -235,5 +236,23 @@ class GetAllocationNotificationsServiceTest {
         assertThrows(PermissionDeniedException.class, () -> service.getAllocationNotifications(null, 0, 10));
 
         verify(deniedAuditLogPort).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Security: VT-03 (RM) có DataScope.SELF khi projectId = null không được rơi vào truy vấn toàn công ty -> 403 Forbidden")
+    void rmUser_SelfScope_WithoutProjectId_ThrowsForbiddenAndAudits() {
+        User rmUserSelf = org.mockito.Mockito.mock(User.class);
+        when(rmUserSelf.getRole()).thenReturn(new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực"));
+        when(rmUserSelf.getDataScope()).thenReturn(DataScope.SELF);
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(11L);
+        when(loadUserPort.findById(new UserId(11L))).thenReturn(Optional.of(rmUserSelf));
+
+        assertThrows(PermissionDeniedException.class, () -> service.getAllocationNotifications(null, 0, 10));
+
+        verify(deniedAuditLogPort).save(argThat(log ->
+                "ACCESS_DENIED_ALLOCATION_NOTIFICATIONS".equals(log.getAction())
+                        && log.getNewValue() != null
+                        && log.getNewValue().contains("denied_reason=INVALID_DATA_SCOPE_SELF")
+        ));
     }
 }

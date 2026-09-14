@@ -144,18 +144,22 @@ public class DatabaseAllocationNotificationAdapter implements AllocationNotifica
     }
 
     private void persistNotificationsSafely(Notification pmNotification, Notification empNotification, Long projectId) {
+        persistSingleNotificationSafely(pmNotification, "PM", projectId);
+        persistSingleNotificationSafely(empNotification, "Nhân sự", projectId);
+    }
+
+    private void persistSingleNotificationSafely(Notification notification, String recipientRole, Long projectId) {
+        if (notification == null) {
+            return;
+        }
         try {
-            if (pmNotification != null) {
-                notificationPersister.saveInNewTransaction(pmNotification);
-                log.info("Đã tạo thông báo phân bổ cho PM (UserId: {}) của dự án ID: {}", pmNotification.getRecipientId().value(), projectId);
-            }
-            if (empNotification != null) {
-                notificationPersister.saveInNewTransaction(empNotification);
-                log.info("Đã tạo thông báo phân bổ cho Nhân sự (UserId: {}) trong dự án ID: {}", empNotification.getRecipientId().value(), projectId);
-            }
+            notificationPersister.saveInNewTransaction(notification);
+            log.info("Đã tạo thông báo phân bổ cho {} (UserId: {}) của dự án ID: {}",
+                    recipientRole, notification.getRecipientId().value(), projectId);
         } catch (Exception e) {
-            // Safe notification: lỗi tầng persistence notification được cô lập hoàn toàn, không bao giờ ảnh hưởng đến allocation đã commit
-            log.error("Lỗi hạ tầng khi lưu thông báo phân bổ vào DB cho dự án ID {} (Exception Isolation): {}", projectId, e.getMessage(), e);
+            // Recipient Isolation: lỗi lưu thông báo của người nhận này không ảnh hưởng đến người nhận khác
+            log.error("Lỗi hạ tầng khi lưu thông báo phân bổ cho {} (UserId: {}) trong dự án ID {} (Recipient Isolation): {}",
+                    recipientRole, notification.getRecipientId().value(), projectId, e.getMessage(), e);
         }
     }
 }
