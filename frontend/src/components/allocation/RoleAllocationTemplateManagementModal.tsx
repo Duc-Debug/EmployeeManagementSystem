@@ -61,23 +61,6 @@ export function RoleAllocationTemplateManagementModal({
   // Apply modal states
   const [applyingTemplateId, setApplyingTemplateId] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      loadTemplates();
-      loadProjectList();
-      loadCatalogRoles();
-      if (initialSourceProjectId) {
-        setSourceProjectId(initialSourceProjectId);
-        setActiveTab("create");
-        handleSelectSourceProject(initialSourceProjectId);
-      }
-    } else {
-      setSelectedTemplate(null);
-      setError(null);
-      setSuccessMsg(null);
-    }
-  }, [open, initialSourceProjectId]);
-
   const loadCatalogRoles = async () => {
     try {
       const data = await getProjectRoles(false);
@@ -164,6 +147,23 @@ export function RoleAllocationTemplateManagementModal({
       setLoadingExtraction(false);
     }
   };
+
+  useEffect(() => {
+    if (open) {
+      loadTemplates();
+      loadProjectList();
+      loadCatalogRoles();
+      if (initialSourceProjectId) {
+        setSourceProjectId(initialSourceProjectId);
+        setActiveTab("create");
+        handleSelectSourceProject(initialSourceProjectId);
+      }
+    } else {
+      setSelectedTemplate(null);
+      setError(null);
+      setSuccessMsg(null);
+    }
+  }, [open, initialSourceProjectId]);
 
   const handleUpdateRoleHours = (roleId: number, newHours: number) => {
     setExtractedRoles((prev) =>

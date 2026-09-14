@@ -42,19 +42,6 @@ export function ApplyRoleAllocationTemplateModal({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      loadProjects();
-      if (targetProjectId) {
-        handleLoadPreview(Number(targetProjectId));
-      }
-    } else {
-      setPreview(null);
-      setError(null);
-      setSuccessMsg(null);
-    }
-  }, [open, templateId]);
-
   const loadProjects = async () => {
     try {
       const res = await getProjects(0, 100);
@@ -81,6 +68,19 @@ export function ApplyRoleAllocationTemplateModal({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (open) {
+      loadProjects();
+      if (targetProjectId) {
+        handleLoadPreview(Number(targetProjectId));
+      }
+    } else {
+      setPreview(null);
+      setError(null);
+      setSuccessMsg(null);
+    }
+  }, [open, templateId]);
 
   const handleConfirmApply = async () => {
     if (!preview || !targetProjectId) return;
