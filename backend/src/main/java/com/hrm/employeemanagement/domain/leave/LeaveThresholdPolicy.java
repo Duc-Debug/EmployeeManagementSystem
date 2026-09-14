@@ -67,9 +67,9 @@ public final class LeaveThresholdPolicy {
                 "Cảnh báo: Có %d/%d nhân sự (%s) nghỉ ngày %s, đạt hoặc vượt ngưỡng quy định (%s)",
                 onLeaveCount,
                 totalEmployeesInDept,
-                String.format("%.1f%%", currentPercentage),
+                String.format(java.util.Locale.US, "%.1f%%", currentPercentage),
                 date.toString(),
-                String.format("%.1f%%", thresholdPercentage)
+                String.format(java.util.Locale.US, "%.1f%%", thresholdPercentage)
         );
     }
 }
