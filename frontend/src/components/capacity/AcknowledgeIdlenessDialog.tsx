@@ -49,6 +49,14 @@ export function AcknowledgeIdlenessDialog({
       setErrorMessage("Vui lòng nhập hoặc chọn hành động xử lý.");
       return;
     }
+    if (trimmedAction.length < 5) {
+      setErrorMessage("Hành động xử lý phải có ít nhất 5 ký tự để đảm bảo tính rõ ràng.");
+      return;
+    }
+    if (notes.length > 500) {
+      setErrorMessage("Ghi chú không được vượt quá 500 ký tự.");
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMessage(null);

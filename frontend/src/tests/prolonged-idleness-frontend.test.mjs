@@ -80,6 +80,31 @@ function calculateIdlenessMetrics(items) {
   return { totalIdle, totalEmptyHours, averageUtil };
 }
 
+// 6. Helper sinh nội dung CSV xuất báo cáo cảnh báo UTF-8 BOM
+function generateIdlenessCsvContent(items) {
+  const headers = [
+    "Mã nhân viên",
+    "Họ và tên",
+    "Phòng ban",
+    "Vị trí chuyên môn",
+    "Số tuần nhàn rỗi liên tiếp",
+    "Tỷ lệ sử dụng trung bình (%)",
+    "Tổng giờ trống (h)",
+  ];
+
+  const rows = items.map((item) => [
+    `"${item.employeeCode}"`,
+    `"${(item.fullName || "").replace(/"/g, '""')}"`,
+    `"${(item.departmentName || "").replace(/"/g, '""')}"`,
+    `"${(item.positionTitle || "").replace(/"/g, '""')}"`,
+    item.consecutiveIdleWeeks,
+    item.averageUtilization,
+    item.totalEmptyHours,
+  ]);
+
+  return "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+}
+
 test("Prolonged Idleness Warning Frontend Logic & QTN-23 Tests (NCL-07-CN-006)", async (t) => {
   await t.test("TC-01: Phân quyền RBAC — Chỉ VT-01 (BGĐ), VT-03 (RM), VT-06 (Admin) được truy cập", () => {
     // Allowed
@@ -182,5 +207,26 @@ test("Prolonged Idleness Warning Frontend Logic & QTN-23 Tests (NCL-07-CN-006)",
     assert.strictEqual(emptyMetrics.totalIdle, 0);
     assert.strictEqual(emptyMetrics.totalEmptyHours, 0);
     assert.strictEqual(emptyMetrics.averageUtil, 0);
+  });
+
+  await t.test("TC-06: Xuất file CSV báo cáo cảnh báo nhàn rỗi chuẩn định dạng UTF-8 BOM", () => {
+    const mockStaff = [
+      {
+        employeeCode: "EMP0101",
+        fullName: 'Nguyễn Văn "Pro" A',
+        departmentName: "Khối Kỹ Thuật",
+        positionTitle: "Backend Dev",
+        consecutiveIdleWeeks: 3,
+        averageUtilization: 25.0,
+        totalEmptyHours: 90.0,
+      },
+    ];
+
+    const csv = generateIdlenessCsvContent(mockStaff);
+    assert.ok(csv.startsWith("\uFEFF"));
+    assert.ok(csv.includes("Mã nhân viên,Họ và tên,Phòng ban"));
+    assert.ok(csv.includes('"EMP0101"'));
+    assert.ok(csv.includes('"Nguyễn Văn ""Pro"" A"'));
+    assert.ok(csv.includes("90"));
   });
 });

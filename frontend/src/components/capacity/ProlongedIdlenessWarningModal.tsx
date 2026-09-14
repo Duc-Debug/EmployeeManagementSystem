@@ -14,6 +14,7 @@ import {
   Loader2,
   CheckCircle2,
   TrendingDown,
+  Download,
 } from "lucide-react";
 import {
   getProlongedIdleStaff,
@@ -55,8 +56,17 @@ export function ProlongedIdlenessWarningModal({
   const [consecutiveThreshold, setConsecutiveThreshold] = useState<number>(3);
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(initialOrgUnitId);
   const [search, setSearch] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [page, setPage] = useState<number>(0);
   const [pageSize] = useState<number>(10);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Data states
   const [report, setReport] = useState<ProlongedIdlenessReportResult | null>(null);
@@ -110,7 +120,7 @@ export function ProlongedIdlenessWarningModal({
         fromWeek,
         durationWeeks,
         consecutiveThreshold,
-        search: search.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
         page,
         size: pageSize,
       });
@@ -121,7 +131,7 @@ export function ProlongedIdlenessWarningModal({
     } finally {
       setIsLoading(false);
     }
-  }, [open, selectedOrgUnitId, fromYear, fromWeek, durationWeeks, consecutiveThreshold, search, page, pageSize]);
+  }, [open, selectedOrgUnitId, fromYear, fromWeek, durationWeeks, consecutiveThreshold, debouncedSearch, page, pageSize]);
 
   useEffect(() => {
     fetchData();
@@ -135,6 +145,43 @@ export function ProlongedIdlenessWarningModal({
     setTimeout(() => {
       setSuccessToast(null);
     }, 4000);
+  };
+
+  const handleExportCsv = () => {
+    if (!report || report.items.length === 0) return;
+    const headers = [
+      "Mã nhân viên",
+      "Họ và tên",
+      "Phòng ban",
+      "Vị trí chuyên môn",
+      "Số tuần nhàn rỗi liên tiếp",
+      "Tỷ lệ sử dụng trung bình (%)",
+      "Tổng giờ trống (h)",
+    ];
+
+    const rows = report.items.map((item) => [
+      `"${item.employeeCode}"`,
+      `"${item.fullName.replace(/"/g, '""')}"`,
+      `"${item.departmentName.replace(/"/g, '""')}"`,
+      `"${item.positionTitle.replace(/"/g, '""')}"`,
+      item.consecutiveIdleWeeks,
+      item.averageUtilization,
+      item.totalEmptyHours,
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `Bao_cao_nhan_su_nhan_roi_${report.fromYear}_W${report.fromWeek}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const totalEmptyHoursInReport =
@@ -342,6 +389,17 @@ export function ProlongedIdlenessWarningModal({
               >
                 <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
                 <span>Rà soát</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={!report || report.items.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Xuất danh sách nhân sự nhàn rỗi ra file CSV"
+              >
+                <Download className="h-3.5 w-3.5 text-slate-500" />
+                <span>Xuất CSV</span>
               </button>
             </div>
           </div>
