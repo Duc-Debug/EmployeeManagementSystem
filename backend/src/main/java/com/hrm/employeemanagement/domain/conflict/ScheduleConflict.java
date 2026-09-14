@@ -1,0 +1,263 @@
+package com.hrm.employeemanagement.domain.conflict;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+public class ScheduleConflict {
+
+    private Long id;
+    private Long employeeId;
+    private Integer yearNumber;
+    private Integer weekNumber;
+    private ConflictType conflictType;
+    private String projectIds;
+    private String projectNames;
+    private Long leaveRequestId;
+    private String leaveInfo;
+    private BigDecimal totalAllocatedHours;
+    private BigDecimal netAvailableHours;
+    private BigDecimal excessHours;
+    private ScheduleConflictStatus status;
+    private String details;
+    private LocalDateTime notifiedAt;
+    private Long notifiedBy;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public ScheduleConflict() {
+    }
+
+    public ScheduleConflict(
+            Long id,
+            Long employeeId,
+            Integer yearNumber,
+            Integer weekNumber,
+            ConflictType conflictType,
+            String projectIds,
+            String projectNames,
+            Long leaveRequestId,
+            String leaveInfo,
+            BigDecimal totalAllocatedHours,
+            BigDecimal netAvailableHours,
+            BigDecimal excessHours,
+            ScheduleConflictStatus status,
+            String details,
+            LocalDateTime notifiedAt,
+            Long notifiedBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {
+        this.id = id;
+        this.employeeId = Objects.requireNonNull(employeeId, "employeeId must not be null");
+        this.yearNumber = Objects.requireNonNull(yearNumber, "yearNumber must not be null");
+        this.weekNumber = Objects.requireNonNull(weekNumber, "weekNumber must not be null");
+        this.conflictType = Objects.requireNonNull(conflictType, "conflictType must not be null");
+        this.projectIds = projectIds;
+        this.projectNames = projectNames;
+        this.leaveRequestId = leaveRequestId;
+        this.leaveInfo = leaveInfo;
+        this.totalAllocatedHours = totalAllocatedHours != null ? totalAllocatedHours : BigDecimal.ZERO;
+        this.netAvailableHours = netAvailableHours != null ? netAvailableHours : BigDecimal.ZERO;
+        this.excessHours = excessHours != null ? excessHours : BigDecimal.ZERO;
+        this.status = status != null ? status : ScheduleConflictStatus.OPEN;
+        this.details = details;
+        this.notifiedAt = notifiedAt;
+        this.notifiedBy = notifiedBy;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+
+    public static ScheduleConflict create(
+            Long employeeId,
+            Integer yearNumber,
+            Integer weekNumber,
+            ConflictType conflictType,
+            String projectIds,
+            String projectNames,
+            Long leaveRequestId,
+            String leaveInfo,
+            BigDecimal totalAllocatedHours,
+            BigDecimal netAvailableHours,
+            BigDecimal excessHours,
+            String details
+    ) {
+        return new ScheduleConflict(
+                null,
+                employeeId,
+                yearNumber,
+                weekNumber,
+                conflictType,
+                projectIds,
+                projectNames,
+                leaveRequestId,
+                leaveInfo,
+                totalAllocatedHours,
+                netAvailableHours,
+                excessHours,
+                ScheduleConflictStatus.OPEN,
+                details,
+                null,
+                null,
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
+    }
+
+    public void markAsNotified(Long userId) {
+        this.status = ScheduleConflictStatus.NOTIFIED;
+        this.notifiedBy = userId;
+        this.notifiedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void markAsResolved() {
+        this.status = ScheduleConflictStatus.RESOLVED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(Long employeeId) {
+        this.employeeId = employeeId;
+    }
+
+    public Integer getYearNumber() {
+        return yearNumber;
+    }
+
+    public void setYearNumber(Integer yearNumber) {
+        this.yearNumber = yearNumber;
+    }
+
+    public Integer getWeekNumber() {
+        return weekNumber;
+    }
+
+    public void setWeekNumber(Integer weekNumber) {
+        this.weekNumber = weekNumber;
+    }
+
+    public ConflictType getConflictType() {
+        return conflictType;
+    }
+
+    public void setConflictType(ConflictType conflictType) {
+        this.conflictType = conflictType;
+    }
+
+    public String getProjectIds() {
+        return projectIds;
+    }
+
+    public void setProjectIds(String projectIds) {
+        this.projectIds = projectIds;
+    }
+
+    public String getProjectNames() {
+        return projectNames;
+    }
+
+    public void setProjectNames(String projectNames) {
+        this.projectNames = projectNames;
+    }
+
+    public Long getLeaveRequestId() {
+        return leaveRequestId;
+    }
+
+    public void setLeaveRequestId(Long leaveRequestId) {
+        this.leaveRequestId = leaveRequestId;
+    }
+
+    public String getLeaveInfo() {
+        return leaveInfo;
+    }
+
+    public void setLeaveInfo(String leaveInfo) {
+        this.leaveInfo = leaveInfo;
+    }
+
+    public BigDecimal getTotalAllocatedHours() {
+        return totalAllocatedHours;
+    }
+
+    public void setTotalAllocatedHours(BigDecimal totalAllocatedHours) {
+        this.totalAllocatedHours = totalAllocatedHours;
+    }
+
+    public BigDecimal getNetAvailableHours() {
+        return netAvailableHours;
+    }
+
+    public void setNetAvailableHours(BigDecimal netAvailableHours) {
+        this.netAvailableHours = netAvailableHours;
+    }
+
+    public BigDecimal getExcessHours() {
+        return excessHours;
+    }
+
+    public void setExcessHours(BigDecimal excessHours) {
+        this.excessHours = excessHours;
+    }
+
+    public ScheduleConflictStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ScheduleConflictStatus status) {
+        this.status = status;
+    }
+
+    public String getDetails() {
+        return details;
+    }
+
+    public void setDetails(String details) {
+        this.details = details;
+    }
+
+    public LocalDateTime getNotifiedAt() {
+        return notifiedAt;
+    }
+
+    public void setNotifiedAt(LocalDateTime notifiedAt) {
+        this.notifiedAt = notifiedAt;
+    }
+
+    public Long getNotifiedBy() {
+        return notifiedBy;
+    }
+
+    public void setNotifiedBy(Long notifiedBy) {
+        this.notifiedBy = notifiedBy;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+}

@@ -142,13 +142,14 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         UPDATE users
-        SET data_scope = 'ORGANIZATION_BRANCH'
+        SET scope_org_unit_id = COALESCE(scope_org_unit_id, (SELECT id FROM org_units ORDER BY id LIMIT 1)),
+            data_scope = 'ORGANIZATION_BRANCH'
         WHERE role_id IN (
             SELECT id
             FROM roles
             WHERE code = 'VT-03'
         )
-          AND data_scope <> 'ORGANIZATION_BRANCH'
+          AND (data_scope <> 'ORGANIZATION_BRANCH' OR scope_org_unit_id IS NULL)
         """,
         nativeQuery = true)
     int normalizeOrgBranchScopeUsers();
