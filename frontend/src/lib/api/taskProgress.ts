@@ -107,6 +107,53 @@ export function isValidSpecialistStatus(status: unknown): status is SpecialistTa
 }
 
 /**
+ * Xác định trạng thái tiến độ gợi ý kế tiếp cho Chuyên viên theo quy trình:
+ * TODO -> IN_PROGRESS -> IN_REVIEW -> DONE
+ */
+export function getNextSuggestedStatus(currentStatus: string): SpecialistTaskProgressStatus | null {
+  switch (currentStatus) {
+    case "TODO":
+      return "IN_PROGRESS";
+    case "IN_PROGRESS":
+      return "IN_REVIEW";
+    case "IN_REVIEW":
+      return "DONE";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Nhãn hành động nhanh cho việc nâng tiến độ 1-click
+ */
+export const QUICK_ADVANCE_LABELS: Record<SpecialistTaskProgressStatus, string> = {
+  TODO: "Bắt đầu làm",
+  IN_PROGRESS: "Gửi nghiệm thu",
+  IN_REVIEW: "Hoàn thành",
+  DONE: "Đã hoàn tất",
+};
+
+/**
+ * Sắp xếp danh sách công việc theo hạn chót (plannedEndDate)
+ * Các công việc chưa có hạn chót được xếp về cuối danh sách
+ */
+export function sortTasksByDeadline(
+  tasks: MyAssignedTaskItem[],
+  direction: "asc" | "desc" = "asc"
+): MyAssignedTaskItem[] {
+  return [...tasks].sort((a, b) => {
+    const dateA = a.plannedEndDate ? new Date(a.plannedEndDate).getTime() : null;
+    const dateB = b.plannedEndDate ? new Date(b.plannedEndDate).getTime() : null;
+
+    if (dateA === null && dateB === null) return 0;
+    if (dateA === null) return 1;
+    if (dateB === null) return -1;
+
+    return direction === "asc" ? dateA - dateB : dateB - dateA;
+  });
+}
+
+/**
  * Cập nhật tiến độ công việc dành cho chuyên viên được phân công
  * Endpoint: PATCH /api/v1/tasks/{taskId}/progress
  */
@@ -139,3 +186,4 @@ export async function updateTaskProgress(
 export async function getMyAssignedTasks(): Promise<MyAssignedTaskItem[]> {
   return await apiRequest<MyAssignedTaskItem[]>("/tasks/me");
 }
+
