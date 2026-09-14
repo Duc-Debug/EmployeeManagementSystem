@@ -263,16 +263,13 @@ public class ScheduleConflictService implements
 
                 BigDecimal netAvailableHours = standardCapacity.subtract(approvedLeaveHours).max(BigDecimal.ZERO);
 
-                // Scenario 1: Multi-project / Overload allocation conflict
-                // Must require projectIdsSet.size() >= 2 for MULTI_PROJECT_ALLOCATION conflict type
+                // Scenario 1: Multi-project overload allocation conflict
+                // Strictly requires >= 2 projects AND total allocated hours > standard capacity
                 boolean isMultiProjectConflict = projectIdsSet.size() >= 2 &&
-                        (totalAllocatedHours.compareTo(standardCapacity) > 0 || totalAllocatedHours.compareTo(netAvailableHours) > 0);
+                        totalAllocatedHours.compareTo(standardCapacity) > 0;
 
                 if (isMultiProjectConflict) {
-                    BigDecimal excessHours = totalAllocatedHours.subtract(netAvailableHours).max(BigDecimal.ZERO);
-                    if (excessHours.compareTo(BigDecimal.ZERO) == 0 && totalAllocatedHours.compareTo(standardCapacity) > 0) {
-                        excessHours = totalAllocatedHours.subtract(standardCapacity).max(BigDecimal.ZERO);
-                    }
+                    BigDecimal excessHours = totalAllocatedHours.subtract(standardCapacity).max(BigDecimal.ZERO);
 
                     String projectIdsStr = projectIdsSet.stream().map(String::valueOf).collect(Collectors.joining(","));
                     List<String> pNames = projectIdsSet.stream()

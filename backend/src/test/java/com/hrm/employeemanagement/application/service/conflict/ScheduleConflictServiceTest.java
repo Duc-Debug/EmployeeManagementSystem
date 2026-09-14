@@ -335,4 +335,81 @@ class ScheduleConflictServiceTest {
         assertTrue(scanned.isEmpty());
         Mockito.verify(saveConflictPort, Mockito.never()).save(any());
     }
+
+    @Test
+    @DisplayName("Regression: 1 project vượt capacity (50h/40h) KHÔNG tạo MULTI_PROJECT_ALLOCATION")
+    void testSingleProjectOverload_DoesNotCreateMultiProjectConflict() {
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+                .thenReturn(1L);
+
+        Employee emp = new Employee(
+                new EmployeeId(13L),
+                new UserId(103L),
+                1L,
+                "NV013",
+                "Phạm Văn D",
+                false,
+                40,
+                com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
+
+        WeeklyProjectAllocation singleAlloc = new WeeklyProjectAllocation(12L, 13L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(50.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(any(), eq(2026), eq(37), eq(37)))
+                .thenReturn(List.of(singleAlloc));
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any()))
+                .thenReturn(Collections.emptyMap());
+
+        List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
+
+        assertTrue(scanned.isEmpty());
+        Mockito.verify(saveConflictPort, Mockito.never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Regression: Phân bổ 2 dự án tổng 40h + nghỉ phép 8h chỉ tạo LEAVE_ALLOCATION_CONFLICT, không tạo MULTI_PROJECT_ALLOCATION")
+    void testTwoProjectsWithinCapacityWithLeave_CreatesOnlyLeaveConflictNotMultiProject() {
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+                .thenReturn(1L);
+
+        Employee emp = new Employee(
+                new EmployeeId(14L),
+                new UserId(104L),
+                1L,
+                "NV014",
+                "Hoàng Thị E",
+                false,
+                40,
+                com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp));
+
+        Project p1 = new Project(new ProjectId(1L), "PROJ-A", "Dự án Alpha", 1L, new EmployeeId(1L), null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
+        Project p2 = new Project(new ProjectId(2L), "PROJ-B", "Dự án Beta", 1L, new EmployeeId(1L), null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
+        when(loadProjectPort.findAllById(any())).thenReturn(List.of(p1, p2));
+
+        WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(13L, 14L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(20.0));
+        WeeklyProjectAllocation alloc2 = new WeeklyProjectAllocation(14L, 14L, 2L, new YearWeek(2026, 37), BigDecimal.valueOf(20.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(any(), eq(2026), eq(37), eq(37)))
+                .thenReturn(List.of(alloc1, alloc2));
+
+        YearWeek yw = new YearWeek(2026, 37);
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), eq(List.of(yw))))
+                .thenReturn(Map.of(14L, Map.of(yw, BigDecimal.valueOf(8.0))));
+
+        ScheduleConflict createdLeaveConflict = ScheduleConflict.create(
+                14L, 2026, 37, ConflictType.LEAVE_ALLOCATION_CONFLICT,
+                "1,2", "Dự án Alpha, Dự án Beta", null, "Đơn nghỉ phép đã duyệt (8.0h)",
+                BigDecimal.valueOf(40.0), BigDecimal.valueOf(32.0), BigDecimal.valueOf(8.0),
+                "Có đơn nghỉ phép trùng tuần được phân bổ"
+        );
+        createdLeaveConflict.setId(1005L);
+        when(saveConflictPort.save(any(ScheduleConflict.class))).thenReturn(createdLeaveConflict);
+
+        List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
+
+        assertEquals(1, scanned.size());
+        assertEquals(ConflictType.LEAVE_ALLOCATION_CONFLICT, scanned.get(0).conflictType());
+    }
 }
