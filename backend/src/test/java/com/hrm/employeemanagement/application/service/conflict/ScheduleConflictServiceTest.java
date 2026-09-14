@@ -138,7 +138,7 @@ class ScheduleConflictServiceTest {
         createdConflict.setId(1001L);
 
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenReturn(createdConflict);
-        when(loadConflictPort.findConflicts(2026, 37, null, null, null)).thenReturn(List.of(createdConflict));
+        when(loadConflictPort.findConflicts(2026, 37, 37, null, null, null)).thenReturn(List.of(createdConflict));
 
         // Act
         ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);
@@ -181,11 +181,11 @@ class ScheduleConflictServiceTest {
 
         WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(3L, 11L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
 
-        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(List.of(11L), 2026, 37, 37))
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(any(), eq(2026), eq(37), eq(37)))
                 .thenReturn(List.of(alloc1));
 
         YearWeek yw = new YearWeek(2026, 37);
-        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(List.of(11L), List.of(yw)))
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), eq(List.of(yw))))
                 .thenReturn(Map.of(11L, Map.of(yw, BigDecimal.valueOf(16.0))));
 
         ScheduleConflict createdLeaveConflict = ScheduleConflict.create(
@@ -197,7 +197,7 @@ class ScheduleConflictServiceTest {
         createdLeaveConflict.setId(1002L);
 
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenReturn(createdLeaveConflict);
-        when(loadConflictPort.findConflicts(2026, 37, null, null, null)).thenReturn(List.of(createdLeaveConflict));
+        when(loadConflictPort.findConflicts(2026, 37, 37, null, null, null)).thenReturn(List.of(createdLeaveConflict));
 
         // Act
         ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);
@@ -220,7 +220,7 @@ class ScheduleConflictServiceTest {
                 .thenReturn(1L);
 
         when(loadEmployeePort.findAllActive()).thenReturn(Collections.emptyList());
-        when(loadConflictPort.findConflicts(2026, 37, null, null, null)).thenReturn(Collections.emptyList());
+        when(loadConflictPort.findConflicts(2026, 37, 37, null, null, null)).thenReturn(Collections.emptyList());
 
         // Act
         ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);

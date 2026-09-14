@@ -31,12 +31,13 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
     @Override
     public List<ScheduleConflict> findConflicts(
             Integer yearNumber,
-            Integer weekNumber,
+            Integer startWeek,
+            Integer endWeek,
             Long employeeId,
             ConflictType conflictType,
             ScheduleConflictStatus status
     ) {
-        return repository.findConflicts(yearNumber, weekNumber, employeeId, conflictType, status)
+        return repository.findConflicts(yearNumber, startWeek, endWeek, employeeId, conflictType, status)
                 .stream()
                 .map(this::toDomain)
                 .collect(Collectors.toList());

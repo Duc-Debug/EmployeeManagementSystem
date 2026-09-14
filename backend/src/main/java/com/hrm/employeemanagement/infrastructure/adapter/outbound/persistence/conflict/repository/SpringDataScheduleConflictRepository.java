@@ -16,7 +16,8 @@ public interface SpringDataScheduleConflictRepository extends JpaRepository<Sche
     @Query("""
         SELECT c FROM ScheduleConflictJpaEntity c
         WHERE (:yearNumber IS NULL OR c.yearNumber = :yearNumber)
-          AND (:weekNumber IS NULL OR c.weekNumber = :weekNumber)
+          AND (:startWeek IS NULL OR c.weekNumber >= :startWeek)
+          AND (:endWeek IS NULL OR c.weekNumber <= :endWeek)
           AND (:employeeId IS NULL OR c.employeeId = :employeeId)
           AND (:conflictType IS NULL OR c.conflictType = :conflictType)
           AND (:status IS NULL OR c.status = :status)
@@ -24,7 +25,8 @@ public interface SpringDataScheduleConflictRepository extends JpaRepository<Sche
     """)
     List<ScheduleConflictJpaEntity> findConflicts(
             @Param("yearNumber") Integer yearNumber,
-            @Param("weekNumber") Integer weekNumber,
+            @Param("startWeek") Integer startWeek,
+            @Param("endWeek") Integer endWeek,
             @Param("employeeId") Long employeeId,
             @Param("conflictType") ConflictType conflictType,
             @Param("status") ScheduleConflictStatus status

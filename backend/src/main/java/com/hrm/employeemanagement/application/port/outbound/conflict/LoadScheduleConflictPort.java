@@ -13,7 +13,8 @@ public interface LoadScheduleConflictPort {
 
     List<ScheduleConflict> findConflicts(
             Integer yearNumber,
-            Integer weekNumber,
+            Integer startWeek,
+            Integer endWeek,
             Long employeeId,
             ConflictType conflictType,
             ScheduleConflictStatus status

@@ -103,6 +103,7 @@ public class ScheduleConflictService implements
         List<ScheduleConflict> conflicts = loadConflictPort.findConflicts(
                 query.yearNumber(),
                 query.startWeek(),
+                query.endWeek(),
                 query.employeeId(),
                 query.conflictType(),
                 query.status()
@@ -206,30 +207,37 @@ public class ScheduleConflictService implements
 
     private List<ScheduleConflict> scanInternal(Integer year, Integer startWeek, Integer endWeek) {
         List<Employee> activeEmployees = loadEmployeePort.findAllActive();
-        if (activeEmployees.isEmpty()) {
-            return Collections.emptyList();
-        }
+        Map<Long, Employee> activeEmpMap = activeEmployees.stream()
+                .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
 
-        List<Long> employeeIds = activeEmployees.stream().map(Employee::getIdValue).collect(Collectors.toList());
         List<ScheduleConflict> resultConflicts = new ArrayList<>();
 
         for (int week = startWeek; week <= endWeek; week++) {
             final int currentWeekNum = week;
 
-            // Load allocations for target week
+            // Load ALL allocations for target week (pass null employeeIds to search all allocations)
             List<WeeklyProjectAllocation> allocations = loadAllocationPort
-                    .loadAllocationsForEmployeesInWeekRange(employeeIds, year, currentWeekNum, currentWeekNum);
+                    .loadAllocationsForEmployeesInWeekRange(null, year, currentWeekNum, currentWeekNum);
 
             Map<Long, List<WeeklyProjectAllocation>> allocationsByEmp = allocations.stream()
                     .collect(Collectors.groupingBy(WeeklyProjectAllocation::getEmployeeId));
 
-            // Load approved leaves for target week
+            Set<Long> candidateEmpIds = new HashSet<>(activeEmpMap.keySet());
+            candidateEmpIds.addAll(allocationsByEmp.keySet());
+
+            if (candidateEmpIds.isEmpty()) {
+                continue;
+            }
+
+            List<Long> candidateList = new ArrayList<>(candidateEmpIds);
+
+            // Load approved leaves for candidate employee IDs in target week
             YearWeek yw = new YearWeek(year, currentWeekNum);
             Map<Long, Map<YearWeek, BigDecimal>> approvedLeavesMap = loadApprovedLeavesPort
-                    .loadApprovedLeaveHoursForEmployeesAndWeeks(employeeIds, List.of(yw));
+                    .loadApprovedLeaveHoursForEmployeesAndWeeks(candidateList, List.of(yw));
 
-            for (Employee emp : activeEmployees) {
-                Long empId = emp.getIdValue();
+            for (Long empId : candidateEmpIds) {
+                Employee emp = activeEmpMap.get(empId);
                 List<WeeklyProjectAllocation> empAllocations = allocationsByEmp.getOrDefault(empId, Collections.emptyList());
 
                 BigDecimal totalAllocatedHours = empAllocations.stream()
@@ -245,7 +253,7 @@ public class ScheduleConflictService implements
                 BigDecimal approvedLeaveHours = approvedLeavesMap.getOrDefault(empId, Collections.emptyMap())
                         .getOrDefault(yw, BigDecimal.ZERO);
 
-                BigDecimal standardCapacity = emp.getStandardHoursPerWeek() != null
+                BigDecimal standardCapacity = (emp != null && emp.getStandardHoursPerWeek() != null)
                         ? BigDecimal.valueOf(emp.getStandardHoursPerWeek())
                         : BigDecimal.valueOf(40.0);
 
