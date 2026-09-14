@@ -52,6 +52,8 @@ import com.hrm.employeemanagement.infrastructure.transaction.leave.Transactional
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
+
 @Configuration
 public class LeaveUseCaseConfig {
 
@@ -250,14 +252,16 @@ public class LeaveUseCaseConfig {
             SaveLeaveRequestPort saveLeaveRequestPort,
             LoadEmployeePort loadEmployeePort,
             SaveLeaveAuditLogPort saveLeaveAuditLogPort,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            Clock businessClock
     ) {
         RequestCancelApprovedLeaveService service = new RequestCancelApprovedLeaveService(
                 loadLeaveRequestPort,
                 saveLeaveRequestPort,
                 loadEmployeePort,
                 saveLeaveAuditLogPort,
-                authorizationService
+                authorizationService,
+                businessClock
         );
         return new TransactionalRequestCancelApprovedLeaveService(service);
     }
@@ -280,7 +284,8 @@ public class LeaveUseCaseConfig {
             @org.springframework.beans.factory.annotation.Autowired(required = false)
             LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort,
             @org.springframework.beans.factory.annotation.Autowired(required = false)
-            SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort
+            SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort,
+            Clock businessClock
     ) {
         ApproveCancelLeaveRequestService service = new ApproveCancelLeaveRequestService(
                 loadLeaveRequestPort,
@@ -296,7 +301,8 @@ public class LeaveUseCaseConfig {
                 loadApprovedLeavesPort,
                 loadWorkingCalendarPort,
                 loadWeeklyProjectAllocationPort,
-                saveWeeklyProjectAllocationPort
+                saveWeeklyProjectAllocationPort,
+                businessClock
         );
         return new TransactionalApproveCancelLeaveRequestService(service);
     }

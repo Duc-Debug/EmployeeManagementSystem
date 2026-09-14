@@ -15,6 +15,7 @@ import com.hrm.employeemanagement.domain.exception.leave.LeaveRequestNotFoundExc
 import com.hrm.employeemanagement.domain.leave.LeaveRequest;
 import com.hrm.employeemanagement.domain.user.UserId;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Objects;
 
@@ -28,6 +29,7 @@ public class RequestCancelApprovedLeaveService implements RequestCancelApprovedL
     private final LoadEmployeePort loadEmployeePort;
     private final SaveLeaveAuditLogPort saveLeaveAuditLogPort;
     private final AuthorizationService authorizationService;
+    private final Clock clock;
 
     public RequestCancelApprovedLeaveService(
             LoadLeaveRequestPort loadLeaveRequestPort,
@@ -36,11 +38,23 @@ public class RequestCancelApprovedLeaveService implements RequestCancelApprovedL
             SaveLeaveAuditLogPort saveLeaveAuditLogPort,
             AuthorizationService authorizationService
     ) {
+        this(loadLeaveRequestPort, saveLeaveRequestPort, loadEmployeePort, saveLeaveAuditLogPort, authorizationService, Clock.systemDefaultZone());
+    }
+
+    public RequestCancelApprovedLeaveService(
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            LoadEmployeePort loadEmployeePort,
+            SaveLeaveAuditLogPort saveLeaveAuditLogPort,
+            AuthorizationService authorizationService,
+            Clock clock
+    ) {
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
         this.saveLeaveAuditLogPort = Objects.requireNonNull(saveLeaveAuditLogPort, "saveLeaveAuditLogPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
     @Override
@@ -59,7 +73,7 @@ public class RequestCancelApprovedLeaveService implements RequestCancelApprovedL
         }
 
         // Domain method: kiểm tra status == APPROVED và startDate > today
-        leaveRequest.requestCancellation(reason, LocalDate.now());
+        leaveRequest.requestCancellation(reason, LocalDate.now(clock));
         LeaveRequest savedRequest = saveLeaveRequestPort.save(leaveRequest);
 
         // Ghi Audit Log

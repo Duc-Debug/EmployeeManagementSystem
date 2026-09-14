@@ -34,6 +34,7 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -63,6 +64,7 @@ public class ApproveCancelLeaveRequestService implements ApproveCancelLeaveReque
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort;
     private final SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort;
+    private final Clock clock;
 
     public ApproveCancelLeaveRequestService(
             LoadLeaveRequestPort loadLeaveRequestPort,
@@ -80,6 +82,30 @@ public class ApproveCancelLeaveRequestService implements ApproveCancelLeaveReque
             LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort,
             SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort
     ) {
+        this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
+                loadUserPort, loadOrgUnitPort, loadEmployeePort, loadWeeklyAvailabilityPort,
+                saveWeeklyAvailabilityPort, loadHolidaysPort, loadApprovedLeavesPort,
+                loadWorkingCalendarPort, loadWeeklyProjectAllocationPort, saveWeeklyProjectAllocationPort,
+                Clock.systemDefaultZone());
+    }
+
+    public ApproveCancelLeaveRequestService(
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            SaveLeaveAuditLogPort saveLeaveAuditLogPort,
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyAvailabilityPort saveWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort,
+            SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort,
+            Clock clock
+    ) {
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
         this.saveLeaveAuditLogPort = Objects.requireNonNull(saveLeaveAuditLogPort, "saveLeaveAuditLogPort must not be null");
@@ -94,6 +120,7 @@ public class ApproveCancelLeaveRequestService implements ApproveCancelLeaveReque
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
         this.loadWeeklyProjectAllocationPort = loadWeeklyProjectAllocationPort;
         this.saveWeeklyProjectAllocationPort = saveWeeklyProjectAllocationPort;
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
     @Override
@@ -101,19 +128,28 @@ public class ApproveCancelLeaveRequestService implements ApproveCancelLeaveReque
         // 1. Kiểm tra quyền phê duyệt
         Long currentUserId = authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE);
 
-        // 2. Tìm đơn nghỉ phép kèm khóa pessimistic lock
-        LeaveRequest leaveRequest = loadLeaveRequestPort.findByIdForUpdate(leaveRequestId)
+        // Đọc sơ bộ để xác định serialization key chung là employee.
+        Long employeeId = loadLeaveRequestPort.findEmployeeIdById(leaveRequestId)
                 .orElseThrow(() -> new LeaveRequestNotFoundException("Không tìm thấy đơn xin nghỉ phép với mã: " + leaveRequestId));
 
-        // 3. Kiểm tra Data Scope
-        Employee employee = loadEmployeePort.findById(new EmployeeId(leaveRequest.getEmployeeId()))
+        // Luôn khóa Employee trước LeaveRequest. Allocation cũng dùng cùng khóa này,
+        // nhờ đó capacity và overload của một nhân viên không bị tính đồng thời.
+        Employee employee = loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự của đơn nghỉ phép"));
+
+        LeaveRequest leaveRequest = loadLeaveRequestPort.findByIdForUpdate(leaveRequestId)
+                .orElseThrow(() -> new LeaveRequestNotFoundException("Không tìm thấy đơn xin nghỉ phép với mã: " + leaveRequestId));
+        if (!Objects.equals(leaveRequest.getEmployeeId(), employee.getIdValue())) {
+            throw new IllegalStateException("Nhân sự của đơn nghỉ phép đã thay đổi trong khi xử lý");
+        }
+
+        // 3. Kiểm tra Data Scope
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
         requireEmployeeInScope(currentUser, employee, PermissionCode.LEAVE_REQUEST_APPROVE);
 
         // 4. Thực thi domain: chuyển trạng thái sang CANCELLED, kiểm tra startDate > today
-        leaveRequest.approveCancellation(currentUserId, approverComment, LocalDate.now());
+        leaveRequest.approveCancellation(currentUserId, approverComment, LocalDate.now(clock));
         LeaveRequest savedRequest = saveLeaveRequestPort.save(leaveRequest);
 
         // 5. Ghi Audit Log
@@ -206,7 +242,7 @@ public class ApproveCancelLeaveRequestService implements ApproveCancelLeaveReque
                 alloc.markOverloaded(
                         "Phát sinh quá tải sau khi cập nhật lại đơn nghỉ phép",
                         currentUserId,
-                        LocalDateTime.now()
+                        LocalDateTime.now(clock)
                 );
                 statusChanged = true;
             } else if (!isOverloaded && alloc.isOverloaded()) {

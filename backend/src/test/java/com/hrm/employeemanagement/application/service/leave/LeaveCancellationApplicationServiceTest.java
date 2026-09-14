@@ -32,13 +32,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
@@ -52,6 +56,10 @@ import static org.mockito.Mockito.*;
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Use Case: Cancel Approved Leave Request - Application Service Tests")
 class LeaveCancellationApplicationServiceTest {
+
+    private static final Clock BUSINESS_CLOCK = Clock.fixed(
+            Instant.parse("2026-09-14T05:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+    private static final LocalDate TODAY = LocalDate.now(BUSINESS_CLOCK);
 
     @Mock
     private LoadLeaveRequestPort loadLeaveRequestPort;
@@ -102,8 +110,8 @@ class LeaveCancellationApplicationServiceTest {
     private final Long userId = 1L;
     private final Long employeeId = 10L;
     private final Long approverUserId = 99L;
-    private final LocalDate futureStartDate = LocalDate.now().plusDays(5);
-    private final LocalDate futureEndDate = LocalDate.now().plusDays(6);
+    private final LocalDate futureStartDate = TODAY.plusDays(5);
+    private final LocalDate futureEndDate = TODAY.plusDays(6);
 
     @BeforeEach
     void setUp() {
@@ -112,7 +120,8 @@ class LeaveCancellationApplicationServiceTest {
                 saveLeaveRequestPort,
                 loadEmployeePort,
                 saveLeaveAuditLogPort,
-                authorizationService
+                authorizationService,
+                BUSINESS_CLOCK
         );
 
         approveCancelService = new ApproveCancelLeaveRequestService(
@@ -129,7 +138,8 @@ class LeaveCancellationApplicationServiceTest {
                 loadApprovedLeavesPort,
                 loadWorkingCalendarPort,
                 loadWeeklyProjectAllocationPort,
-                saveWeeklyProjectAllocationPort
+                saveWeeklyProjectAllocationPort,
+                BUSINESS_CLOCK
         );
 
         rejectCancelService = new RejectCancelLeaveRequestService(
@@ -205,7 +215,7 @@ class LeaveCancellationApplicationServiceTest {
         when(loadEmployeePort.findByUserId(new UserId(userId))).thenReturn(Optional.of(employee));
 
         // Leave starts today
-        LeaveRequest approvedLeave = createApprovedLeave(LocalDate.now(), LocalDate.now().plusDays(1));
+        LeaveRequest approvedLeave = createApprovedLeave(TODAY, TODAY.plusDays(1));
         when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(approvedLeave));
 
         assertThatThrownBy(() -> requestCancelService.requestCancelApprovedLeave(1L, "Muốn hủy hôm nay"))
@@ -239,12 +249,13 @@ class LeaveCancellationApplicationServiceTest {
     void approveCancelLeaveRequest_Success() {
         when(authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE)).thenReturn(approverUserId);
         Employee employee = createMockEmployee(employeeId, userId);
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         User approver = createMockApproverUser(approverUserId);
         when(loadUserPort.findById(new UserId(approverUserId))).thenReturn(Optional.of(approver));
 
         LeaveRequest req = createApprovedLeave(futureStartDate, futureEndDate);
-        req.requestCancellation("Bận việc đột xuất", LocalDate.now());
+        req.requestCancellation("Bận việc đột xuất", TODAY);
+        when(loadLeaveRequestPort.findEmployeeIdById(1L)).thenReturn(Optional.of(employeeId));
         when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(req));
         when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -259,6 +270,9 @@ class LeaveCancellationApplicationServiceTest {
         LeaveRequestResult result = approveCancelService.approveCancelLeaveRequest(1L, "Đồng ý cho hủy đơn");
 
         assertThat(result.status()).isEqualTo(LeaveStatus.CANCELLED);
+        InOrder lockOrder = inOrder(loadEmployeePort, loadLeaveRequestPort);
+        lockOrder.verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(employeeId));
+        lockOrder.verify(loadLeaveRequestPort).findByIdForUpdate(1L);
         verify(saveWeeklyAvailabilityPort, atLeastOnce()).save(any());
         verify(saveLeaveRequestPort).save(req);
         verify(saveLeaveAuditLogPort).recordAudit(eq(approverUserId), eq("APPROVE_CANCEL_LEAVE_REQUEST"), contains("Duyệt hủy đơn nghỉ phép"));
@@ -269,14 +283,15 @@ class LeaveCancellationApplicationServiceTest {
     void approveCancelLeaveRequest_PastDate_ThrowsException() {
         when(authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE)).thenReturn(approverUserId);
         Employee employee = createMockEmployee(employeeId, userId);
-        when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
         User approver = createMockApproverUser(approverUserId);
         when(loadUserPort.findById(new UserId(approverUserId))).thenReturn(Optional.of(approver));
 
         // Created as future, but now simulated as starting today
-        LeaveRequest req = createApprovedLeave(LocalDate.now(), LocalDate.now().plusDays(1));
+        LeaveRequest req = createApprovedLeave(TODAY, TODAY.plusDays(1));
         // Force status to CANCEL_REQUESTED using reflection or earlier date request
-        req.requestCancellation("Hủy", LocalDate.now().minusDays(1));
+        req.requestCancellation("Hủy", TODAY.minusDays(1));
+        when(loadLeaveRequestPort.findEmployeeIdById(1L)).thenReturn(Optional.of(employeeId));
         when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(req));
 
         assertThatThrownBy(() -> approveCancelService.approveCancelLeaveRequest(1L, "Duyệt"))
@@ -300,7 +315,7 @@ class LeaveCancellationApplicationServiceTest {
         when(loadUserPort.findById(new UserId(approverUserId))).thenReturn(Optional.of(approver));
 
         LeaveRequest req = createApprovedLeave(futureStartDate, futureEndDate);
-        req.requestCancellation("Lý do cá nhân", LocalDate.now());
+        req.requestCancellation("Lý do cá nhân", TODAY);
         when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(req));
         when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(i -> i.getArgument(0));
 
