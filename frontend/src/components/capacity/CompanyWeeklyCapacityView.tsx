@@ -42,10 +42,10 @@ export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
   const isCompanyScope = currentUser?.dataScope === "COMPANY";
   const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const canManageReservations = normalizedRole === "VT-02" || normalizedRole === "VT-03";
-  const canManageAllocations = normalizedRole === "VT-02" || normalizedRole === "VT-03";
+  const canManageReservations = normalizedRole === "VT-02";
+  const canManageAllocations = normalizedRole === "VT-03";
   const canAccessPeriods =
-    normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03";
+    normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -401,10 +401,6 @@ export default function CompanyWeeklyCapacityView() {
               Bảng Năng Lực Theo Tuần
             </h1>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Theo dõi tổng quan công suất phân bổ theo tuần của nhân sự thay vì phải mở từng dự án
-            thủ công (NCL-06-CN-002)
-          </p>
         </div>
 
         {/* Bộ điều hướng tuần */}
@@ -711,75 +707,75 @@ export default function CompanyWeeklyCapacityView() {
                       <td
                         key={`${cell.year}-${cell.weekNumber}`}
                         className="p-2 border-r border-slate-200 align-middle text-center last:border-r-0"
-                      >
-                        {renderCell(cell, row)}
-                      </td>
-                    ))}
+                        >
+                          {renderCell(cell, row)}
+                        </td>
+                      ))}
 
-                    {/* Cột Tổng kết của nhân sự */}
-                    <td className="px-4 py-3 text-center align-middle bg-slate-50/30">
-                      <div className="font-bold text-slate-900">
-                        {row.averageUtilization != null ? (
-                          `${row.averageUtilization}%`
-                        ) : row.totalAllocatedHours > 0 ? (
-                          <span className="text-rose-600 font-bold">Quá tải (∞)</span>
+                      {/* Cột Tổng kết của nhân sự */}
+                      <td className="px-4 py-3 text-center align-middle bg-slate-50/30">
+                        <div className="font-bold text-slate-900">
+                          {row.averageUtilization != null ? (
+                            `${row.averageUtilization}%`
+                          ) : row.totalAllocatedHours > 0 ? (
+                            <span className="text-rose-600 font-bold">Quá tải (∞)</span>
+                          ) : (
+                            "0%"
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {row.totalAllocatedHours}h / {row.totalAvailableHours}h
+                        </div>
+                        {row.overloadedWeeksCount > 0 ? (
+                          <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full bg-rose-100 text-[10px] font-bold text-rose-700">
+                            {row.overloadedWeeksCount} tuần quá tải
+                          </span>
                         ) : (
-                          "0%"
+                          <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-[10px] font-semibold text-emerald-700">
+                            Cân bằng
+                          </span>
                         )}
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        {row.totalAllocatedHours}h / {row.totalAvailableHours}h
-                      </div>
-                      {row.overloadedWeeksCount > 0 ? (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full bg-rose-100 text-[10px] font-bold text-rose-700">
-                          {row.overloadedWeeksCount} tuần quá tải
-                        </span>
-                      ) : (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-[10px] font-semibold text-emerald-700">
-                          Cân bằng
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Thanh phân trang Server-side */}
-          {totalEmployees > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 bg-white">
-              <div className="text-xs text-slate-500">
-                Hiển thị <span className="font-semibold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> -{" "}
-                <span className="font-semibold text-slate-700">
-                  {Math.min(currentPage * pageSize, totalEmployees)}
-                </span>{" "}
-                trong tổng số <span className="font-semibold text-slate-700">{totalEmployees}</span> nhân sự
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition shadow-xs"
-                >
-                  Trang trước
-                </button>
-                <span className="px-2 text-xs font-medium text-slate-600">
-                  Trang {currentPage} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition shadow-xs"
-                >
-                  Trang sau
-                </button>
-              </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </>
+
+            {/* Thanh phân trang Server-side */}
+            {totalEmployees > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 bg-white">
+                <div className="text-xs text-slate-500">
+                  Hiển thị <span className="font-semibold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> -{" "}
+                  <span className="font-semibold text-slate-700">
+                    {Math.min(currentPage * pageSize, totalEmployees)}
+                  </span>{" "}
+                  trong tổng số <span className="font-semibold text-slate-700">{totalEmployees}</span> nhân sự
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition shadow-xs"
+                  >
+                    Trang trước
+                  </button>
+                  <span className="px-2 text-xs font-medium text-slate-600">
+                    Trang {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition shadow-xs"
+                  >
+                    Trang sau
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

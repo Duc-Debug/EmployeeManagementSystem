@@ -11,10 +11,12 @@ import com.hrm.employeemanagement.application.dto.user.RoleResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
+import com.hrm.employeemanagement.application.dto.user.UserStatsResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetUserStatsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserUseCase;
@@ -57,6 +59,7 @@ public class UserService implements
         UpdateUserRoleUseCase,
         UpdateUserUseCase,
         GetUserListUseCase,
+        GetUserStatsUseCase,
         GetRoleListUseCase,
         GetCurrentUserProfileUseCase {
 
@@ -681,6 +684,52 @@ public UserResult updateUserRole(
                 safeSize,
                 totalElements
         );
+    }
+
+    @Override
+    public UserStatsResult getUserStats() {
+        Long currentUserId = authorizationService.require(
+                PermissionCode.USER_READ
+        );
+
+        User currentUser = loadUserPort
+                .findById(new UserId(currentUserId))
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Không tìm thấy người dùng hiện tại với ID: "
+                                        + currentUserId
+                        )
+                );
+
+        long totalUsers;
+        long activeUsers;
+        long lockedUsers;
+
+        switch (currentUser.getDataScope()) {
+            case COMPANY -> {
+                totalUsers = loadUserPort.count();
+                activeUsers = loadUserPort.countByIsActive(true);
+                lockedUsers = loadUserPort.countByIsActive(false);
+            }
+            case ORGANIZATION_BRANCH -> {
+                Long scopeOrgUnitId = currentUser.getScopeOrgUnitId();
+                totalUsers = loadUserPort.countByOrgUnitBranch(scopeOrgUnitId);
+                activeUsers = loadUserPort.countByOrgUnitBranchAndIsActive(scopeOrgUnitId, true);
+                lockedUsers = loadUserPort.countByOrgUnitBranchAndIsActive(scopeOrgUnitId, false);
+            }
+            case SELF -> {
+                totalUsers = 1L;
+                activeUsers = currentUser.isActive() ? 1L : 0L;
+                lockedUsers = currentUser.isActive() ? 0L : 1L;
+            }
+            default -> {
+                totalUsers = 0L;
+                activeUsers = 0L;
+                lockedUsers = 0L;
+            }
+        }
+
+        return new UserStatsResult(totalUsers, activeUsers, lockedUsers);
     }
 
     @Override

@@ -10,10 +10,12 @@ import com.hrm.employeemanagement.application.dto.user.RoleResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
+import com.hrm.employeemanagement.application.dto.user.UserStatsResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetCurrentUserProfileUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetRoleListUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetUserStatsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserUseCase;
@@ -27,7 +29,7 @@ import java.util.List;
  * Manages database transaction boundaries and post-commit cache invalidation for Use Cases
  * while keeping the underlying Application Service (UserService) 100% Pure Java.
  */
-public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, UpdateUserUseCase, GetUserListUseCase, GetRoleListUseCase, GetCurrentUserProfileUseCase {
+public class TransactionalUserServiceDecorator implements CreateUserUseCase, ToggleUserStatusUseCase, UpdateUserRoleUseCase, UpdateUserUseCase, GetUserListUseCase, GetUserStatsUseCase, GetRoleListUseCase, GetCurrentUserProfileUseCase {
 
     private final UserService delegate;
     private final UserStatusCache userStatusCache;
@@ -74,6 +76,12 @@ public class TransactionalUserServiceDecorator implements CreateUserUseCase, Tog
     @Transactional(readOnly = true)
     public PageResult<UserResult> getUsers(int page, int size) {
         return delegate.getUsers(page, size);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserStatsResult getUserStats() {
+        return delegate.getUserStats();
     }
 
     @Override

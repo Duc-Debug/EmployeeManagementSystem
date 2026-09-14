@@ -9,6 +9,7 @@ export interface EmployeeProfile {
   orgUnitName: string;
   employeeCode: string;
   fullName: string;
+  email?: string;
   professionalRole?: string;
   startDate?: string;
   contractEndDate?: string;

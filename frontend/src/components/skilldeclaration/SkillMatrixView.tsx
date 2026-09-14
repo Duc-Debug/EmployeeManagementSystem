@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, Check, BookOpen, AlertTriangle, Users, Award, ShieldAlert } from 'lucide-react';
+import { Search, ChevronDown, Check, BookOpen, AlertTriangle, Users, Award, ShieldAlert, X } from 'lucide-react';
 import type { DepartmentItem } from './SkillresourceSearch.tsx';
 import { getDepartmentSkillMatrix, type DepartmentSkillMatrixResponse } from '@/lib/api/skills';
 import { getOrgTree } from '@/lib/api/org-units';
@@ -289,25 +289,34 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
                 {/* Tìm nhân sự */}
                 <div className="flex flex-col gap-1 ml-auto">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tìm nhân sự</span>
-                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100">
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 shadow-2xs focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
                         <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                         <input
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Tên hoặc mã NV..."
-                            className="w-40 bg-transparent text-xs text-slate-700 placeholder:text-slate-400 outline-none"
+                            placeholder="Tìm theo tên hoặc mã NV..."
+                            className="w-48 sm:w-64 bg-transparent text-xs text-slate-700 placeholder:text-slate-400 outline-hidden font-medium"
                         />
+                        {search && (
+                            <button
+                                type="button"
+                                onClick={() => setSearch('')}
+                                className="text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* ── Level legend ── */}
-            <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-semibold text-slate-400">Chú thích level:</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-medium text-slate-400">Chú thích level:</span>
                 {[1, 2, 3, 4, 5].map((lv) => (
                     <span
                         key={lv}
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${LEVEL_LEGEND_COLORS[lv - 1]}`}
+                        className={`rounded-full px-2 py-0.2 text-[9.5px] font-semibold leading-tight ${LEVEL_LEGEND_COLORS[lv - 1]}`}
                     >
                         {lv}-{LEVEL_LABELS[lv]}
                     </span>
@@ -390,53 +399,53 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
             </div>
 
             {/* ── Footer stats ── */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 pt-1">
                 {/* Tổng nhân lực */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
                     <div className="flex items-center gap-1.5 text-slate-400">
-                        <Users className="h-3.5 w-3.5" />
-                        <p className="text-[11px] font-semibold uppercase tracking-wider">Tổng nhân sự</p>
+                        <Users className="h-3 w-3" />
+                        <p className="text-[10px] font-bold uppercase tracking-wider">Tổng nhân sự</p>
                     </div>
-                    <p className="mt-1 text-3xl font-black text-slate-800">
-                        {matrixData?.summary?.totalEmployees ?? 0} <span className="text-base font-semibold">Nhân sự</span>
+                    <p className="mt-0.5 text-lg sm:text-xl font-extrabold text-slate-800">
+                        {matrixData?.summary?.totalEmployees ?? 0} <span className="text-xs font-semibold text-slate-500">Nhân sự</span>
                     </p>
-                    <p className="mt-0.5 text-[11px] text-emerald-600">Đã kích hoạt trong bộ phận</p>
+                    <p className="text-[10px] text-emerald-600 font-medium truncate">Đã kích hoạt trong bộ phận</p>
                 </div>
 
                 {/* Tổng số kỹ năng */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
                     <div className="flex items-center gap-1.5 text-slate-400">
-                        <Award className="h-3.5 w-3.5" />
-                        <p className="text-[11px] font-semibold uppercase tracking-wider">Tổng số kỹ năng</p>
+                        <Award className="h-3 w-3" />
+                        <p className="text-[10px] font-bold uppercase tracking-wider">Tổng số kỹ năng</p>
                     </div>
-                    <p className="mt-1 text-3xl font-black text-slate-800">
-                        {matrixData?.summary?.totalSkills ?? 0} <span className="text-base font-semibold">Kỹ năng</span>
+                    <p className="mt-0.5 text-lg sm:text-xl font-extrabold text-slate-800">
+                        {matrixData?.summary?.totalSkills ?? 0} <span className="text-xs font-semibold text-slate-500">Kỹ năng</span>
                     </p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">Trong danh mục hệ thống</p>
+                    <p className="text-[10px] text-slate-400 font-medium truncate">Trong danh mục hệ thống</p>
                 </div>
 
                 {/* Rủi ro phụ thuộc 1 người */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
                     <div className="flex items-center gap-1.5 text-amber-500">
-                        <ShieldAlert className="h-3.5 w-3.5" />
-                        <p className="text-[11px] font-semibold uppercase tracking-wider">Rủi ro phụ thuộc 1 người</p>
+                        <ShieldAlert className="h-3 w-3" />
+                        <p className="text-[10px] font-bold uppercase tracking-wider">Rủi ro phụ thuộc 1 người</p>
                     </div>
-                    <p className="mt-1 text-3xl font-black text-amber-600">
-                        {matrixData?.summary?.singlePersonRiskSkillCount ?? 0} <span className="text-base font-semibold">Kỹ năng</span>
+                    <p className="mt-0.5 text-lg sm:text-xl font-extrabold text-amber-600">
+                        {matrixData?.summary?.singlePersonRiskSkillCount ?? 0} <span className="text-xs font-semibold text-slate-500">Kỹ năng</span>
                     </p>
-                    <p className="mt-0.5 text-[11px] text-amber-500">⚠ Chỉ có 1 nhân sự phụ trách</p>
+                    <p className="text-[10px] text-amber-600 font-medium truncate">⚠ Chỉ có 1 nhân sự phụ trách</p>
                 </div>
 
                 {/* Kỹ năng thiếu người */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
                     <div className="flex items-center gap-1.5 text-rose-500">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        <p className="text-[11px] font-semibold uppercase tracking-wider">Kỹ năng thiếu người</p>
+                        <AlertTriangle className="h-3 w-3" />
+                        <p className="text-[10px] font-bold uppercase tracking-wider">Kỹ năng thiếu người</p>
                     </div>
-                    <p className="mt-1 text-3xl font-black text-rose-600">
-                        {matrixData?.summary?.unstaffedSkillCount ?? 0} <span className="text-base font-semibold">Kỹ năng</span>
+                    <p className="mt-0.5 text-lg sm:text-xl font-extrabold text-rose-600">
+                        {matrixData?.summary?.unstaffedSkillCount ?? 0} <span className="text-xs font-semibold text-slate-500">Kỹ năng</span>
                     </p>
-                    <p className="mt-0.5 text-[11px] text-rose-500">Chưa có nhân sự nào đạt</p>
+                    <p className="text-[10px] text-rose-600 font-medium truncate">Chưa có nhân sự nào đạt</p>
                 </div>
             </div>
         </div>

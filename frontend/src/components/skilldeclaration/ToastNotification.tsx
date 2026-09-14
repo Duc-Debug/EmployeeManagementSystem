@@ -38,7 +38,7 @@ interface ToastListProps {
 
 export function ToastList({ toasts, onDone }: ToastListProps) {
     return (
-        <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm">
+        <div className="fixed bottom-5 right-5 z-[9999] pointer-events-auto flex flex-col gap-2 max-w-sm">
             {toasts.map((t) => (
                 <SingleToast key={t.id} toast={t} onDone={onDone} />
             ))}

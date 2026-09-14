@@ -7,6 +7,7 @@ import {
   Trash2,
   AlertCircle,
   CheckCircle2,
+  Check,
   Clock,
   Loader2,
   X,
@@ -321,11 +322,14 @@ export default function WorkingCalendarConfigView() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header View */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
             Khai báo lịch làm việc & Ngày lễ
           </h1>
+          <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
+            Cấu hình ngày làm việc tiêu chuẩn trong tuần và quản lý danh mục ngày nghỉ lễ toàn công ty.
+          </p>
         </div>
       </div>
 
@@ -358,18 +362,18 @@ export default function WorkingCalendarConfigView() {
       {/* ========================================================= */}
       {/* SECTION 1: CẤU HÌNH NGÀY LÀM VIỆC TRONG TUẦN              */}
       {/* ========================================================= */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-5 border-b border-slate-100">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
-              <CalendarDays className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <CalendarDays className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
                 Lịch làm việc hàng tuần của công ty
               </h2>
               <p className="text-xs text-slate-500">
-                Xác định các ngày làm việc chính thức. Các ngày nghỉ cuối tuần sẽ không bị khấu trừ thêm khi có lịch nghỉ lễ.
+                Xác định các ngày làm việc chính thức. Các ngày nghỉ cuối tuần sẽ không bị trừ khi có lịch nghỉ lễ.
               </p>
             </div>
           </div>
@@ -382,70 +386,72 @@ export default function WorkingCalendarConfigView() {
         </div>
 
         {isLoadingCalendar ? (
-          <div className="flex items-center justify-center py-10 text-slate-400 text-sm">
+          <div className="flex items-center justify-center py-8 text-slate-400 text-sm">
             <Loader2 className="h-5 w-5 animate-spin mr-2 text-indigo-600" />
             Đang tải cấu hình lịch làm việc...
           </div>
         ) : (
-          <div className="pt-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+          <div className="pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
               {workingDays.map((day) => {
                 const info = DAY_LABELS[day.dayOfWeek] || { label: day.dayOfWeek, short: day.dayOfWeek };
                 const isWork = day.isWorkingDay;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={day.dayOfWeek}
                     onClick={() => canManage && handleToggleDay(day.dayOfWeek)}
-                    className={`relative flex flex-col items-center p-4 rounded-xl border transition-all select-none ${
+                    disabled={!canManage}
+                    className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center select-none ${
                       isWork
-                        ? "bg-indigo-50/50 border-indigo-200 text-slate-900 shadow-xs"
-                        : "bg-slate-50/70 border-slate-200 text-slate-500"
-                    } ${canManage ? "cursor-pointer hover:border-indigo-400" : "cursor-default"}`}
+                        ? "bg-indigo-50/70 border-indigo-300 text-slate-900 shadow-xs ring-1 ring-indigo-500/20 hover:bg-indigo-100/70"
+                        : "bg-slate-50/60 border-slate-200 text-slate-400 hover:bg-slate-100/60 hover:text-slate-600"
+                    } ${canManage ? "cursor-pointer active:scale-98" : "cursor-default"}`}
                   >
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      {info.short}
-                    </span>
-                    <span className="text-sm font-semibold mb-3">{info.label}</span>
-
                     <span
-                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                        isWork
-                          ? "bg-indigo-600 text-white"
-                          : "bg-slate-200 text-slate-600"
+                      className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md mb-1 ${
+                        isWork ? "bg-indigo-200/80 text-indigo-800" : "bg-slate-200/60 text-slate-500"
                       }`}
                     >
-                      {isWork ? "Ngày làm" : "Nghỉ"}
+                      {info.short}
                     </span>
+                    <span className="text-xs font-bold text-slate-800 mb-2">{info.label}</span>
 
-                    {canManage && (
-                      <div className="mt-3">
-                        <input
-                          type="checkbox"
-                          checked={isWork}
-                          onChange={() => handleToggleDay(day.dayOfWeek)}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                        />
-                      </div>
-                    )}
-                  </div>
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                        isWork
+                          ? "bg-indigo-600 text-white"
+                          : "bg-slate-200 text-slate-500"
+                      }`}
+                    >
+                      {isWork ? (
+                        <>
+                          <Check className="h-3 w-3 stroke-[2.5]" />
+                          Làm việc
+                        </>
+                      ) : (
+                        "Nghỉ"
+                      )}
+                    </span>
+                  </button>
                 );
               })}
             </div>
 
             {/* Actions for Calendar */}
             {canManage && (
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <span className="text-xs text-slate-500 italic">
-                  * Yêu cầu bắt buộc: Phải chọn ít nhất 1 ngày làm việc trong tuần.
+                  * Nhấp vào từng ngày để bật/tắt ngày làm việc (tối thiểu 1 ngày/tuần).
                 </span>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5 self-end sm:self-auto">
                   {hasCalendarChanges && (
                     <button
                       type="button"
                       onClick={handleResetCalendar}
                       disabled={isSavingCalendar}
-                      className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-xs"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-xs"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       Hoàn tác
@@ -455,14 +461,14 @@ export default function WorkingCalendarConfigView() {
                     type="button"
                     onClick={handleSaveCalendar}
                     disabled={isSavingCalendar || !hasCalendarChanges}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl shadow-xs transition ${
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl shadow-xs transition ${
                       hasCalendarChanges
-                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                        ? "bg-indigo-600 text-white hover:bg-indigo-700 active:scale-98"
                         : "bg-slate-100 text-slate-400 cursor-not-allowed"
                     }`}
                   >
                     {isSavingCalendar && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                    Lưu cấu hình ngày làm việc
+                    Lưu cấu hình
                   </button>
                 </div>
               </div>

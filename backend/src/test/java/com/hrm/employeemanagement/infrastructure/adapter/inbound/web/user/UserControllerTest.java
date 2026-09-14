@@ -66,6 +66,9 @@ class UserControllerTest {
     @Mock
     private GetUserListUseCase getUserListUseCase;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.user.GetUserStatsUseCase getUserStatsUseCase;
+
     @BeforeEach
     void setUp() {
         UserController userController =
@@ -74,7 +77,8 @@ class UserControllerTest {
                         toggleUserStatusUseCase,
                         updateUserRoleUseCase,
                         updateUserUseCase,
-                        getUserListUseCase
+                        getUserListUseCase,
+                        getUserStatsUseCase
                 );
 
         mockMvc = MockMvcBuilders
@@ -538,5 +542,22 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Cập nhật thông tin tài khoản thành công"))
                 .andExpect(jsonPath("$.data.fullName").value("Updated Full Name"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/users/stats - Lấy thống kê tổng số, active, locked người dùng")
+    void shouldReturnUserStatsSuccessfully() throws Exception {
+        com.hrm.employeemanagement.application.dto.user.UserStatsResult stats =
+                new com.hrm.employeemanagement.application.dto.user.UserStatsResult(350, 300, 50);
+
+        when(getUserStatsUseCase.getUserStats()).thenReturn(stats);
+
+        mockMvc.perform(get("/api/v1/users/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lấy thống kê tài khoản thành công"))
+                .andExpect(jsonPath("$.data.totalUsers").value(350))
+                .andExpect(jsonPath("$.data.activeUsers").value(300))
+                .andExpect(jsonPath("$.data.lockedUsers").value(50));
     }
 }

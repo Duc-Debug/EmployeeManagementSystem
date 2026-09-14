@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import {
     X,
     User,
@@ -7,29 +7,25 @@ import {
     CalendarDays,
     BadgeAlert,
     Briefcase,
-    Building2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { HrProfileData } from "./hrprofile.types";
+import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
+import { DEFAULT_ORG_UNIT_OPTIONS } from "../employee/form/employeeForm.constants";
+import TaskSelect from "../task/TaskSelect";
+import DatePickerInput from "../calendar/DatePickerInput";
+import { getProjectRoles } from "@/lib/api/project-roles";
 
 interface HrProfileFormProps {
     open: boolean;
     initialData?: HrProfileData;
     nextEmployeeCode: string;
+    orgUnitOptions?: readonly OrgUnitOption[];
     onClose: () => void;
     onSave: (data: HrProfileData) => void;
 }
 
-const DEPARTMENT_LIST = [
-    "Phòng Công nghệ",
-    "Phòng Marketing",
-    "Phòng Nhân sự",
-    "Phòng Kinh doanh",
-    "Phòng Tài chính",
-    "Ban Giám đốc",
-];
-
-const ROLE_LIST = [
+const DEFAULT_ROLE_LIST = [
     "Product Owner / BA",
     "Frontend Developer",
     "Backend Developer",
@@ -41,11 +37,7 @@ const ROLE_LIST = [
     "Accountant",
 ];
 
-import TaskSelect from "../task/TaskSelect";
-import DatePickerInput from "../calendar/DatePickerInput";
-
-const ROLE_OPTIONS = ROLE_LIST.map((r) => ({ id: r, label: r }));
-const DEPARTMENT_OPTIONS = DEPARTMENT_LIST.map((d) => ({ id: d, label: d }));
+const DEFAULT_ROLE_OPTIONS = DEFAULT_ROLE_LIST.map((r) => ({ id: r, label: r }));
 
 const BASE_INPUT = "w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100";
 const DISABLED_INPUT = "w-full rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed";
@@ -54,6 +46,7 @@ export default function HrProfileForm({
     open,
     initialData,
     nextEmployeeCode,
+    orgUnitOptions = DEFAULT_ORG_UNIT_OPTIONS,
     onClose,
     onSave,
 }: HrProfileFormProps) {
@@ -72,19 +65,62 @@ export default function HrProfileForm({
         standardHoursPerWeek: 40,
     });
 
+    const resolveInitialFormData = (data?: HrProfileData): Partial<HrProfileData> => {
+        if (!data) return emptyForm();
+        let matchedOrgId = data.orgUnitId;
+        if (!matchedOrgId && data.department) {
+            const found = orgUnitOptions.find(
+                (o) => o.unitName.toLowerCase() === data.department.toLowerCase()
+            );
+            if (found) matchedOrgId = String(found.id);
+        }
+        return {
+            ...data,
+            orgUnitId: matchedOrgId,
+        };
+    };
+
     const [formData, setFormData] = useState<Partial<HrProfileData>>(() =>
-        initialData ? { ...initialData } : emptyForm()
+        resolveInitialFormData(initialData)
     );
 
     const [prevOpen, setPrevOpen] = useState(open);
     const [prevInitial, setPrevInitial] = useState(initialData);
     const [errorMessage, setErrorMessage] = useState("");
+    const [roleOptions, setRoleOptions] = useState<{ id: string; label: string }[]>(DEFAULT_ROLE_OPTIONS);
+
+    useEffect(() => {
+        if (!open) return;
+        let isMounted = true;
+        getProjectRoles(true)
+            .then((roles) => {
+                if (!isMounted) return;
+                if (Array.isArray(roles) && roles.length > 0) {
+                    const activeRoles = roles.filter((r) => r.status === "ACTIVE");
+                    const mapped = activeRoles.map((r) => ({
+                        id: r.name,
+                        label: r.code ? `${r.name} (${r.code})` : r.name,
+                    }));
+                    const currentRole = formData.professionalRole;
+                    if (currentRole && !mapped.some((m) => m.id === currentRole)) {
+                        mapped.unshift({ id: currentRole, label: currentRole });
+                    }
+                    setRoleOptions(mapped);
+                }
+            })
+            .catch((err) => {
+                console.warn("Không thể tải danh sách vai trò chuyên môn từ Backend:", err);
+            });
+        return () => {
+            isMounted = false;
+        };
+    }, [open, formData.professionalRole]);
 
     if (open !== prevOpen || initialData !== prevInitial) {
         setPrevOpen(open);
         setPrevInitial(initialData);
         setErrorMessage("");
-        setFormData(initialData ? { ...initialData } : emptyForm());
+        setFormData(resolveInitialFormData(initialData));
     }
 
     if (!open) return null;
@@ -113,7 +149,7 @@ export default function HrProfileForm({
             setErrorMessage("Vui lòng nhập mã nhân viên.");
             return;
         }
-        if (!formData.department?.trim()) {
+        if (!formData.orgUnitId && !formData.department?.trim()) {
             setErrorMessage("Vui lòng chọn đơn vị tổ chức trực thuộc.");
             return;
         }
@@ -257,10 +293,10 @@ export default function HrProfileForm({
                                 <label className="text-xs font-semibold text-slate-700">Vai trò chuyên môn</label>
                                 <TaskSelect
                                     value={formData.professionalRole || ""}
-                                    options={ROLE_OPTIONS}
+                                    options={roleOptions}
                                     onChange={(id) => set("professionalRole", id)}
-                                    placeholder="-- Chọn vai trò --"
-                                    hideSearch={true}
+                                    placeholder="-- Chọn vai trò chuyên môn --"
+                                    hideSearch={false}
                                     icon={<Briefcase className="size-4 shrink-0 text-slate-400" />}
                                     buttonClassName="bg-slate-50/70 border-slate-200 py-2 rounded-xl"
                                 />
@@ -270,14 +306,20 @@ export default function HrProfileForm({
                         {/* Đơn vị tổ chức trực thuộc */}
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-slate-700">Đơn vị tổ chức trực thuộc *</label>
-                            <TaskSelect
-                                value={formData.department || ""}
-                                options={DEPARTMENT_OPTIONS}
-                                onChange={(id) => set("department", id)}
-                                placeholder="Chọn phòng ban / đơn vị (dạng cây)..."
-                                hideSearch={true}
-                                icon={<Building2 className="size-4 shrink-0 text-slate-400" />}
-                                buttonClassName="bg-slate-50/70 border-slate-200 py-2 rounded-xl"
+                            <OrgUnitCombobox
+                                id="hr-profile-org-unit"
+                                value={formData.orgUnitId ? String(formData.orgUnitId) : ""}
+                                options={orgUnitOptions}
+                                disallowRoot={true}
+                                placeholder="-- Chọn phòng ban / đơn vị trực thuộc --"
+                                onChange={(unitId) => {
+                                    const selected = orgUnitOptions.find((o) => String(o.id) === String(unitId));
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        orgUnitId: unitId,
+                                        department: selected ? selected.unitName : prev.department,
+                                    }));
+                                }}
                             />
                         </div>
                     </div>

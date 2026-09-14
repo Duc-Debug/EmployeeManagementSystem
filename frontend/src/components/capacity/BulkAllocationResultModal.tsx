@@ -44,7 +44,7 @@ export function BulkAllocationResultModal({
             </span>
             <div>
               <h3 className="text-sm font-bold text-slate-800">
-                Kết Quả Phân Bổ Hàng Loạt (NCL-06-CN-006)
+                Kết Quả Phân Bổ Nguồn Lực Hàng Loạt
               </h3>
               <p className="text-[11px] text-slate-500">
                 Tổng số tuần yêu cầu: <strong>{result.totalRequestedWeeks}</strong> tuần

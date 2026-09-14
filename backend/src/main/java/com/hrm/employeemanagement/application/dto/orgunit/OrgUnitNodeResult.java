@@ -15,5 +15,8 @@ public record OrgUnitNodeResult(
         OrgUnitStatus status,
         String description,
         Long managerId,
+        String managerName,
+        Integer employeeCount,
+        List<OrgUnitMemberResult> members,
         List<OrgUnitNodeResult> children) {
 }

@@ -22,9 +22,21 @@ export default function OrgNodeDetailModal({
     const Icon = node.icon;
     const hasChildren = node.children && node.children.length > 0;
     const nodeNumId = parseInt(node.id, 10);
-    const members = (users || []).filter(
-        (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.title.toLowerCase())
-    );
+    const members = (node.members && node.members.length > 0)
+        ? node.members.map((m) => ({
+            id: m.id,
+            fullName: m.fullName,
+            employeeCode: m.employeeCode,
+            roleName: m.professionalRole || "Nhân viên",
+        }))
+        : (users || []).filter(
+            (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.title.toLowerCase())
+        ).map((u) => ({
+            id: u.id,
+            fullName: u.fullName || u.username,
+            employeeCode: u.employeeId ? `Mã NV: ${u.employeeId}` : undefined,
+            roleName: u.roleName || "Nhân viên",
+        }));
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -98,23 +110,25 @@ export default function OrgNodeDetailModal({
                     </div>
 
                     {/* Cơ quan báo cáo & Phân cấp */}
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-                            <div className="flex items-center gap-1.5 text-slate-400 font-semibold text-[11px] mb-1">
+                            <div className="flex items-center gap-1.5 text-slate-400 font-semibold mb-1">
                                 <Layers className="h-3.5 w-3.5" />
                                 <span>Trực thuộc</span>
                             </div>
-                            <span className="font-bold text-slate-800 text-xs block truncate">
-                                {node.subLeft || "Cấp cao nhất"}
+                            <span className="font-bold text-slate-800 line-clamp-1">
+                                {node.subLeft || "Hội đồng Quản trị"}
                             </span>
                         </div>
                         <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-                            <div className="flex items-center gap-1.5 text-slate-400 font-semibold text-[11px] mb-1">
+                            <div className="flex items-center gap-1.5 text-slate-400 font-semibold mb-1">
                                 <GitBranch className="h-3.5 w-3.5" />
                                 <span>Quy mô nhánh</span>
                             </div>
-                            <span className="font-bold text-slate-800 text-xs block">
-                                {hasChildren ? `${node.children.length} đơn vị con` : "Đơn vị cơ sở"}
+                            <span className="font-bold text-slate-800">
+                                {hasChildren
+                                    ? `${node.children.length} đơn vị con`
+                                    : "Đơn vị cơ sở"}
                             </span>
                         </div>
                     </div>
@@ -140,11 +154,13 @@ export default function OrgNodeDetailModal({
                                             </div>
                                             <div className="min-w-0">
                                                 <div className="font-bold text-slate-800 truncate">
-                                                    {member.fullName || member.username}
+                                                    {member.fullName}
                                                 </div>
-                                                <div className="text-[10px] text-slate-400 truncate">
-                                                    {member.employeeId ? `Mã NV: ${member.employeeId}` : `@${member.username}`}
-                                                </div>
+                                                {member.employeeCode && (
+                                                    <div className="text-[10px] text-slate-400 truncate">
+                                                        {member.employeeCode}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full shrink-0 ml-2">
