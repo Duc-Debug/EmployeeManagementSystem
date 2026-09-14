@@ -167,9 +167,6 @@ export default function WorkLogModal({
               <h3 className="text-base font-bold text-slate-900">
                 {initialData ? "Chỉnh sửa giờ công" : "Ghi giờ công theo công việc"}
               </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                User Story NCL-09-CN-001 (QTN-01, QTN-08, QTN-09)
-              </p>
             </div>
           </div>
           <button

@@ -123,10 +123,7 @@ export function AttendanceView({
                         }`}
                     >
                         <BriefcaseBusiness className="h-4 w-4" />
-                        <span>Ghi giờ công dự án (NCL-09)</span>
-                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-extrabold text-indigo-700">
-                            NCL-09-CN-001
-                        </span>
+                        <span>Ghi giờ công dự án</span>
                     </button>
                     <button
                         type="button"

@@ -113,3 +113,19 @@ export async function deleteWorkLog(id: number): Promise<void> {
     method: "DELETE",
   });
 }
+
+/**
+ * NCL-09-CN-002: Nộp bảng chấm công theo tuần
+ */
+export interface SubmitWeeklyTimesheetRequest {
+  dateInWeek?: string;
+  timesheetId?: number;
+}
+
+export async function submitWeeklyTimesheet(payload?: SubmitWeeklyTimesheetRequest): Promise<WeeklyTimesheetResult> {
+  return apiRequest<WeeklyTimesheetResult>("/work-logs/my-week/submit", {
+    method: "POST",
+    body: JSON.stringify(payload || {}),
+  });
+}
+
