@@ -18,16 +18,18 @@ import com.hrm.employeemanagement.domain.notification.NotificationType;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.user.UserId;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Adapter lưu thông báo thay đổi phân bổ vào bảng notifications cho Quản lý dự án (PM)
  * và Nhân viên chuyên môn bị ảnh hưởng (NCL-07-CN-003, BR-02, BR-06).
- * Đảm bảo transaction isolation chuẩn:
- * - Sau khi allocation transaction commit thành công (afterCommit), notification mới được thực thi.
- * - Thực thi trong transaction riêng biệt (REQUIRES_NEW qua TransactionalAllocationNotificationPersister).
- * - Exception isolation: Lỗi lưu thông báo được catch và ghi log, tuyệt đối không làm rollback allocation đã commit.
+ *
+ * <p><b>Transaction contract:</b> Notification được lưu trực tiếp trong cùng transaction
+ * với allocation (không dùng afterCommit hay REQUIRES_NEW). Nếu allocation rollback,
+ * notification cũng rollback — đảm bảo tính nhất quán dữ liệu.
+ *
+ * <p><b>Exception isolation:</b> Lỗi lưu thông báo của một người nhận được catch và ghi log
+ * riêng biệt, tuyệt đối không làm rollback allocation hay ngắt việc lưu thông báo của người
+ * nhận còn lại.
  */
 @Component
 @Primary
@@ -37,25 +39,16 @@ public class DatabaseAllocationNotificationAdapter implements AllocationNotifica
 
     private final LoadProjectPort loadProjectPort;
     private final LoadEmployeePort loadEmployeePort;
-    private final TransactionalAllocationNotificationPersister notificationPersister;
-
-    @org.springframework.beans.factory.annotation.Autowired
-    public DatabaseAllocationNotificationAdapter(
-            LoadProjectPort loadProjectPort,
-            LoadEmployeePort loadEmployeePort,
-            TransactionalAllocationNotificationPersister notificationPersister
-    ) {
-        this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
-        this.notificationPersister = Objects.requireNonNull(notificationPersister, "TransactionalAllocationNotificationPersister must not be null");
-    }
+    private final SaveNotificationPort saveNotificationPort;
 
     public DatabaseAllocationNotificationAdapter(
             LoadProjectPort loadProjectPort,
             LoadEmployeePort loadEmployeePort,
             SaveNotificationPort saveNotificationPort
     ) {
-        this(loadProjectPort, loadEmployeePort, new TransactionalAllocationNotificationPersister(saveNotificationPort));
+        this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
+        this.saveNotificationPort = Objects.requireNonNull(saveNotificationPort, "SaveNotificationPort must not be null");
     }
 
     @Override
@@ -101,7 +94,7 @@ public class DatabaseAllocationNotificationAdapter implements AllocationNotifica
                 }
             }
 
-            final Notification pmNotification = pmUserId != null
+            Notification pmNotification = pmUserId != null
                     ? Notification.create(
                             pmUserId,
                             senderUserId,
@@ -113,7 +106,7 @@ public class DatabaseAllocationNotificationAdapter implements AllocationNotifica
                     )
                     : null;
 
-            final Notification empNotification = (employeeUserId != null && !employeeUserId.equals(pmUserId))
+            Notification empNotification = (employeeUserId != null && !employeeUserId.equals(pmUserId))
                     ? Notification.create(
                             employeeUserId,
                             senderUserId,
@@ -125,27 +118,13 @@ public class DatabaseAllocationNotificationAdapter implements AllocationNotifica
                     )
                     : null;
 
-            // 3. Thực thi lưu thông báo theo đúng Transaction Isolation Contract
-            if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                // Đăng ký afterCommit: Chỉ lưu khi allocation transaction đã commit thành công
-                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        persistNotificationsSafely(pmNotification, empNotification, projectId);
-                    }
-                });
-            } else {
-                // Non-transactional context (hoặc unit tests)
-                persistNotificationsSafely(pmNotification, empNotification, projectId);
-            }
+            // 3. Lưu thông báo trực tiếp trong cùng transaction với allocation
+            persistSingleNotificationSafely(pmNotification, "PM", projectId);
+            persistSingleNotificationSafely(empNotification, "Nhân sự", projectId);
+
         } catch (Exception e) {
             log.error("Lỗi chuẩn bị thông báo phân bổ cho dự án ID {}: {}", projectId, e.getMessage(), e);
         }
-    }
-
-    private void persistNotificationsSafely(Notification pmNotification, Notification empNotification, Long projectId) {
-        persistSingleNotificationSafely(pmNotification, "PM", projectId);
-        persistSingleNotificationSafely(empNotification, "Nhân sự", projectId);
     }
 
     private void persistSingleNotificationSafely(Notification notification, String recipientRole, Long projectId) {
@@ -153,7 +132,7 @@ public class DatabaseAllocationNotificationAdapter implements AllocationNotifica
             return;
         }
         try {
-            notificationPersister.saveInNewTransaction(notification);
+            saveNotificationPort.save(notification);
             log.info("Đã tạo thông báo phân bổ cho {} (UserId: {}) của dự án ID: {}",
                     recipientRole, notification.getRecipientId().value(), projectId);
         } catch (Exception e) {
