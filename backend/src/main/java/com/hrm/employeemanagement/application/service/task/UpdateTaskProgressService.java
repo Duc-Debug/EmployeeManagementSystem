@@ -66,7 +66,7 @@ public class UpdateTaskProgressService implements UpdateTaskProgressUseCase {
             throw new InvalidTaskDataException("Mã công việc (taskId) và trạng thái mới (status) không được để trống");
         }
 
-        // Quy tắc nghiệp vụ miền: Xác thực trạng thái hợp lệ cho nhân viên chuyên môn
+        // 1. Quy tắc nghiệp vụ miền: Xác thực trạng thái hợp lệ cho nhân viên chuyên môn (Whitelist)
         TaskProgressPolicy.validateProgressStatus(command.status());
 
         User currentUser = authenticatedUserPort.getAuthenticatedUser();
@@ -77,14 +77,7 @@ public class UpdateTaskProgressService implements UpdateTaskProgressUseCase {
         Task task = loadTaskPort.findById(new TaskId(command.taskId()))
                 .orElseThrow(() -> new TaskNotFoundException(command.taskId()));
 
-        Project project = loadProjectPort.findById(task.getProjectId())
-                .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + task.getProjectIdValue()));
-
-        // Quy tắc QTN-08: Chặn khi dự án ở trạng thái đã đóng (CLOSED)
-        if (project.getStatus() == ProjectStatus.CLOSED) {
-            throw new ProjectClosedException(project.getIdValue());
-        }
-
+        // 2. Fail-Fast Authorization (TC-02): Kiểm tra phân công trước để tránh truy vấn DB bảng projects khi không có quyền
         Employee currentEmployee = loadEmployeePort.findByUserId(currentUser.getId()).orElse(null);
         List<TaskAssignment> assignments = loadTaskAssignmentPort.findByTaskId(task.getId());
 
@@ -93,7 +86,6 @@ public class UpdateTaskProgressService implements UpdateTaskProgressUseCase {
                 || (task.getAssigneeId() != null && Objects.equals(task.getAssigneeId(), currentEmployee.getId()))
         );
 
-        // NCL-04-CN-002-TC-02: Người dùng không phải người được giao việc -> Từ chối và ghi nhật ký truy cập trái phép
         if (!isAssigned) {
             saveDeniedAuditLogPort.save(AuditLog.createChange(
                     currentUser.getIdValue(),
@@ -106,13 +98,23 @@ public class UpdateTaskProgressService implements UpdateTaskProgressUseCase {
             throw new TaskNotAssignedToUserException(task.getIdValue(), currentEmployee != null ? currentEmployee.getIdValue() : null);
         }
 
+        // 3. Tải dự án và kiểm tra quy tắc QTN-08
+        Project project = loadProjectPort.findById(task.getProjectId())
+                .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + task.getProjectIdValue()));
+
+        if (project.getStatus() == ProjectStatus.CLOSED) {
+            throw new ProjectClosedException(project.getIdValue());
+        }
+
         TaskStatus oldStatus = task.getStatus();
 
-        // Cập nhật trạng thái trùng nhau -> No-op (không cập nhật DB và không ghi log thừa)
+        // 4. Cập nhật trạng thái trùng nhau -> No-op (idempotent, không ghi DB, không ghi audit log thừa)
         if (oldStatus == command.status()) {
             return new TaskProgressResult(
                     task.getIdValue(),
                     task.getProjectIdValue(),
+                    project.getProjectCode(),
+                    project.getProjectName(),
                     task.getTaskCode(),
                     task.getName(),
                     oldStatus,
@@ -121,11 +123,11 @@ public class UpdateTaskProgressService implements UpdateTaskProgressUseCase {
             );
         }
 
-        // NCL-04-CN-002-TC-01: Cập nhật trạng thái công việc
+        // 5. NCL-04-CN-002-TC-01: Cập nhật trạng thái công việc
         task.updateStatus(command.status());
         Task savedTask = saveTaskPort.save(task);
 
-        // NCL-04-CN-002-TC-03: Ghi nhận nhật ký kiểm toán thay đổi tiến độ công việc
+        // 6. NCL-04-CN-002-TC-03: Ghi nhận nhật ký kiểm toán thay đổi tiến độ công việc
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUser.getIdValue(),
                 "UPDATE_TASK_PROGRESS",
@@ -138,6 +140,8 @@ public class UpdateTaskProgressService implements UpdateTaskProgressUseCase {
         return new TaskProgressResult(
                 savedTask.getIdValue(),
                 savedTask.getProjectIdValue(),
+                project.getProjectCode(),
+                project.getProjectName(),
                 savedTask.getTaskCode(),
                 savedTask.getName(),
                 oldStatus,

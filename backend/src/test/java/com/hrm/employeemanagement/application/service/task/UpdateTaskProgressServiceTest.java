@@ -185,12 +185,11 @@ class UpdateTaskProgressServiceTest {
 
         when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
         when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.of(employeeA));
 
         TaskAssignment assignment = TaskAssignment.create(new TaskId(TASK_ID), new EmployeeId(EMPLOYEE_ID_A), new UserId(1L), true);
         when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(List.of(assignment));
-
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(saveTaskPort.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TaskProgressResult result = service.updateProgress(command);
@@ -198,6 +197,8 @@ class UpdateTaskProgressServiceTest {
         assertNotNull(result);
         assertEquals(TASK_ID, result.taskId());
         assertEquals(PROJECT_ID, result.projectId());
+        assertEquals("PRJ-001", result.projectCode());
+        assertEquals("Dự án Alpha", result.projectName());
         assertEquals(TaskStatus.IN_PROGRESS, result.previousStatus());
         assertEquals(TaskStatus.DONE, result.currentStatus());
 
@@ -214,11 +215,11 @@ class UpdateTaskProgressServiceTest {
 
         when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
         when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.of(employeeA));
 
         TaskAssignment assignment = TaskAssignment.create(new TaskId(TASK_ID), new EmployeeId(EMPLOYEE_ID_A), new UserId(1L), true);
         when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(List.of(assignment));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(saveTaskPort.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TaskProgressResult result = service.updateProgress(command);
@@ -236,11 +237,11 @@ class UpdateTaskProgressServiceTest {
 
         when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
         when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.of(employeeA));
 
         TaskAssignment assignment = TaskAssignment.create(new TaskId(TASK_ID), new EmployeeId(EMPLOYEE_ID_A), new UserId(1L), true);
         when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(List.of(assignment));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
 
         TaskProgressResult result = service.updateProgress(command);
 
@@ -251,13 +252,12 @@ class UpdateTaskProgressServiceTest {
     }
 
     @Test
-    @DisplayName("NCL-04-CN-002-TC-02: Người dùng không phải người được giao việc -> Từ chối và ghi denied audit log")
-    void shouldRejectWhenUserIsNotAssignedToTask() {
+    @DisplayName("NCL-04-CN-002-TC-02: Fail-Fast Authorization - Không có quyền thì ngắt ngay, KHÔNG query bảng projects")
+    void shouldRejectWhenUserIsNotAssignedToTaskAndFailFast() {
         UpdateTaskProgressCommand command = new UpdateTaskProgressCommand(TASK_ID, TaskStatus.DONE);
 
         when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
         when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.of(employeeA));
 
         // Công việc được giao cho EMPLOYEE_ID_B (khác với EMPLOYEE_ID_A)
@@ -267,6 +267,8 @@ class UpdateTaskProgressServiceTest {
 
         assertThrows(TaskNotAssignedToUserException.class, () -> service.updateProgress(command));
 
+        // Xác nhận Fail-Fast: Tuyệt đối KHÔNG gọi query tới bảng projects
+        verify(loadProjectPort, never()).findById(any());
         verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
         verify(saveTaskPort, never()).save(any());
         verify(saveAuditLogPort, never()).save(any());
@@ -279,11 +281,11 @@ class UpdateTaskProgressServiceTest {
 
         when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
         when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.empty());
         when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(Collections.emptyList());
 
         assertThrows(TaskNotAssignedToUserException.class, () -> service.updateProgress(command));
+        verify(loadProjectPort, never()).findById(any());
         verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
         verify(saveTaskPort, never()).save(any());
     }
@@ -295,11 +297,11 @@ class UpdateTaskProgressServiceTest {
 
         when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
         when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
-        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.of(employeeA));
 
         TaskAssignment assignment = TaskAssignment.create(new TaskId(TASK_ID), new EmployeeId(EMPLOYEE_ID_A), new UserId(1L), true);
         when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(List.of(assignment));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(saveTaskPort.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.updateProgress(command);
@@ -341,6 +343,10 @@ class UpdateTaskProgressServiceTest {
 
         when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
         when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
+        when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.of(employeeA));
+
+        TaskAssignment assignment = TaskAssignment.create(new TaskId(TASK_ID), new EmployeeId(EMPLOYEE_ID_A), new UserId(1L), true);
+        when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(List.of(assignment));
         when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(closedProject));
 
         assertThrows(ProjectClosedException.class, () -> service.updateProgress(command));
@@ -354,7 +360,7 @@ class UpdateTaskProgressServiceTest {
 
         InvalidTaskDataException ex = assertThrows(InvalidTaskDataException.class,
                 () -> service.updateProgress(command));
-        assertEquals("Nhân viên chuyên môn không được phép hủy công việc (CANCELLED)", ex.getMessage());
+        assertEquals("Nhân viên chuyên môn chỉ được chuyển trạng thái qua: Chưa bắt đầu (TODO), Đang làm (IN_PROGRESS), Chờ duyệt (IN_REVIEW) hoặc Hoàn thành (DONE)", ex.getMessage());
         verify(saveTaskPort, never()).save(any());
     }
 

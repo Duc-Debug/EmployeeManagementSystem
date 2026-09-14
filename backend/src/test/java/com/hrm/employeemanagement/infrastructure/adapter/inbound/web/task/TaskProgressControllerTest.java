@@ -50,6 +50,8 @@ class TaskProgressControllerTest {
         TaskProgressResult result = new TaskProgressResult(
                 10L,
                 100L,
+                "PRJ-01",
+                "Dự án CRM",
                 "TSK-10",
                 "Phát triển API",
                 TaskStatus.IN_PROGRESS,
@@ -70,6 +72,9 @@ class TaskProgressControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Cập nhật tiến độ công việc thành công"))
                 .andExpect(jsonPath("$.data.taskId").value(10))
+                .andExpect(jsonPath("$.data.projectId").value(100))
+                .andExpect(jsonPath("$.data.projectCode").value("PRJ-01"))
+                .andExpect(jsonPath("$.data.projectName").value("Dự án CRM"))
                 .andExpect(jsonPath("$.data.previousStatus").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$.data.currentStatus").value("DONE"));
 
@@ -141,7 +146,7 @@ class TaskProgressControllerTest {
     @DisplayName("Ngoại lệ: Trạng thái không hợp lệ trả về 400 BAD REQUEST")
     void shouldReturn400WhenInvalidStatus() throws Exception {
         when(updateTaskProgressUseCase.updateProgress(any(UpdateTaskProgressCommand.class)))
-                .thenThrow(new InvalidTaskDataException("Nhân viên chuyên môn không được phép hủy công việc (CANCELLED)"));
+                .thenThrow(new InvalidTaskDataException("Nhân viên chuyên môn chỉ được chuyển trạng thái qua: Chưa bắt đầu (TODO), Đang làm (IN_PROGRESS), Chờ duyệt (IN_REVIEW) hoặc Hoàn thành (DONE)"));
 
         mockMvc.perform(patch("/api/v1/tasks/10/progress")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -152,6 +157,6 @@ class TaskProgressControllerTest {
                         """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Nhân viên chuyên môn không được phép hủy công việc (CANCELLED)"));
+                .andExpect(jsonPath("$.message").value("Nhân viên chuyên môn chỉ được chuyển trạng thái qua: Chưa bắt đầu (TODO), Đang làm (IN_PROGRESS), Chờ duyệt (IN_REVIEW) hoặc Hoàn thành (DONE)"));
     }
 }
