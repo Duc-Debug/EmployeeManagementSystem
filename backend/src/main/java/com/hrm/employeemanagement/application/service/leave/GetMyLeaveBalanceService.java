@@ -79,7 +79,9 @@ public class GetMyLeaveBalanceService implements GetMyLeaveBalanceUseCase {
         List<LeaveRequest> requests = loadLeaveRequestPort.findByEmployeeIdAndYear(employeeId, targetYear);
 
         BigDecimal usedDays = requests.stream()
-                .filter(r -> r.getLeaveType() == LeaveType.ANNUAL && r.getStatus() == LeaveStatus.APPROVED)
+                .filter(r -> r.getLeaveType() == LeaveType.ANNUAL
+                        && (r.getStatus() == LeaveStatus.APPROVED
+                        || r.getStatus() == LeaveStatus.CANCEL_REQUESTED))
                 .map(r -> BigDecimal.valueOf(LeaveBalancePolicy.calculateWorkingDaysInYear(
                         r.getStartDate(), r.getEndDate(), targetYear, calendar, holidayDates)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

@@ -38,6 +38,11 @@ public class LeaveRequestRepositoryAdapter implements SaveLeaveRequestPort, Load
     }
 
     @Override
+    public Optional<Long> findEmployeeIdById(Long id) {
+        return springDataLeaveRequestRepository.findEmployeeIdById(id);
+    }
+
+    @Override
     public Optional<LeaveRequest> findByIdForUpdate(Long id) {
         return springDataLeaveRequestRepository.findByIdForUpdate(id).map(mapper::toDomain);
     }
