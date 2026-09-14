@@ -1,4 +1,4 @@
--- V81: Create project role allocation templates and items schema
+-- V83: Create project role allocation templates and items schema
 
 CREATE TABLE IF NOT EXISTS project_role_allocation_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -29,4 +29,3 @@ CREATE TABLE IF NOT EXISTS project_role_allocation_template_items (
 CREATE INDEX idx_role_template_source_project ON project_role_allocation_templates(source_project_id);
 CREATE INDEX idx_role_template_items_template ON project_role_allocation_template_items(template_id);
 CREATE INDEX idx_role_template_items_role ON project_role_allocation_template_items(role_id);
-

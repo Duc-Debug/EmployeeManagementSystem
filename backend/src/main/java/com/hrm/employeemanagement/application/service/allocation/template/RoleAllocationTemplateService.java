@@ -239,6 +239,11 @@ public class RoleAllocationTemplateService implements
             employeeWeekAllocatedMap.merge(key, alloc.getAllocatedHours(), BigDecimal::add);
         }
 
+        // Track suggestions made during this preview so later roles see the
+        // employee's reduced capacity instead of independently reusing the
+        // original capacity for every role.
+        Map<String, BigDecimal> employeeWeekSuggestedMap = new HashMap<>();
+
         Map<Long, ProjectRole> roleMap = loadRolePort.findAll().stream()
                 .collect(Collectors.toMap(r -> r.getId().value(), r -> r, (r1, r2) -> r1));
 
@@ -269,7 +274,8 @@ public class RoleAllocationTemplateService implements
                     BigDecimal netAvail = employeeWeekAvailabilityMap.getOrDefault(key,
                             BigDecimal.valueOf(candidate.getStandardHoursPerWeek() != null ? candidate.getStandardHoursPerWeek() : 40));
                     BigDecimal allocated = employeeWeekAllocatedMap.getOrDefault(key, BigDecimal.ZERO);
-                    BigDecimal remaining = netAvail.subtract(allocated);
+                    BigDecimal suggested = employeeWeekSuggestedMap.getOrDefault(key, BigDecimal.ZERO);
+                    BigDecimal remaining = netAvail.subtract(allocated).subtract(suggested);
 
                     if (minRemaining == null || remaining.compareTo(minRemaining) < 0) {
                         minRemaining = remaining;
@@ -291,6 +297,13 @@ public class RoleAllocationTemplateService implements
                     requiredHours,
                     candidateAvailabilities
             );
+
+            if (suggestion.isAssigned()) {
+                for (YearWeek yw : targetWeeks) {
+                    String key = suggestion.getSuggestedEmployeeId() + "_" + yw.year() + "_" + yw.weekNumber();
+                    employeeWeekSuggestedMap.merge(key, requiredHours, BigDecimal::add);
+                }
+            }
 
             if (!suggestion.isAssigned()) {
                 hasUnassigned = true;

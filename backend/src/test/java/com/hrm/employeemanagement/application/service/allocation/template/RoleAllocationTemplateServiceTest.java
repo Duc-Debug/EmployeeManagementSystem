@@ -380,4 +380,41 @@ class RoleAllocationTemplateServiceTest {
         verify(saveDemandPort, never()).save(any());
         verify(saveAllocationPort, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Preview không gợi ý tổng số giờ vượt capacity khi nhiều vai trò dùng chung candidate pool")
+    void previewSuggestion_SharedCandidates_ShouldNotExceedAggregateCapacity() {
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
+
+        ProjectRole role1 = new ProjectRole(new ProjectRoleId(11L), "ENG_1", "ENGINEER", null);
+        ProjectRole role2 = new ProjectRole(new ProjectRoleId(12L), "ENG_2", "ENGINEER", null);
+        ProjectRole role3 = new ProjectRole(new ProjectRoleId(13L), "ENG_3", "ENGINEER", null);
+        ProjectRoleAllocationTemplate template = new ProjectRoleAllocationTemplate(
+                1L, "TPL_ENGINEERING", "Engineering", null, null, 99L, null, null, 0L,
+                List.of(
+                        new ProjectRoleAllocationTemplateItem(21L, 1L, 11L, BigDecimal.valueOf(30)),
+                        new ProjectRoleAllocationTemplateItem(22L, 1L, 12L, BigDecimal.valueOf(30)),
+                        new ProjectRoleAllocationTemplateItem(23L, 1L, 13L, BigDecimal.valueOf(30))));
+        Employee employee1 = new Employee(new EmployeeId(101L), new UserId(1L), 1L,
+                "EMP01", "Engineer One", "ENGINEER", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee employee2 = new Employee(new EmployeeId(102L), new UserId(2L), 1L,
+                "EMP02", "Engineer Two", "ENGINEER", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+
+        when(loadTemplatePort.findById(1L)).thenReturn(Optional.of(template));
+        when(loadProjectPort.findById(targetProject.getId())).thenReturn(Optional.of(targetProject));
+        when(loadRolePort.findAll()).thenReturn(List.of(role1, role2, role3));
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(employee1, employee2));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        PreviewRoleAllocationResult preview = service.previewSuggestion(1L, targetProject.getId().value());
+
+        assertThat(preview.suggestions()).hasSize(3);
+        assertThat(preview.suggestions().stream().filter(suggestion -> suggestion.assigned()).count()).isEqualTo(2);
+        assertThat(preview.suggestions().stream()
+                .filter(suggestion -> suggestion.assigned())
+                .map(suggestion -> suggestion.suggestedEmployeeId()))
+                .containsExactlyInAnyOrder(101L, 102L);
+        assertThat(preview.hasUnassignedRoles()).isTrue();
+    }
 }
