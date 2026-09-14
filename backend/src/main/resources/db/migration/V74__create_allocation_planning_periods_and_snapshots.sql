@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V73: CREATE ALLOCATION PLANNING PERIODS AND SNAPSHOTS SCHEMA
+-- FLYWAY MIGRATION V74: CREATE ALLOCATION PLANNING PERIODS AND SNAPSHOTS SCHEMA
 -- Epic: NCL-06 (Phan bo nguon luc theo tuan)
 -- Story: NCL-06-CN-009 (Khoa ke hoach phan bo cua ky - QTN-18)
 -- ============================================================
