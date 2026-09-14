@@ -134,8 +134,6 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.code IN ('VT-01', 'VT-02', 'VT-03', 'VT-04')
-  AND p.code IN ('TASK_DISCUSSION_READ', 'TASK_DISCUSSION_CREATE')
 WHERE r.code IN ('VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-06')
   AND p.code IN ('TASK_DISCUSSION_READ', 'TASK_DISCUSSION_CREATE', 'TASK_DISCUSSION_DELETE')
   AND NOT EXISTS (
