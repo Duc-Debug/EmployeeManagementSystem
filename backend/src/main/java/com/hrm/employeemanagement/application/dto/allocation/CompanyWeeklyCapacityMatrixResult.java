@@ -18,8 +18,42 @@ public record CompanyWeeklyCapacityMatrixResult(
         int page,
         int pageSize,
         int totalEmployees,
-        int totalPages
+        int totalPages,
+        BigDecimal overloadThreshold,
+        BigDecimal idleThreshold
 ) {
+
+    public CompanyWeeklyCapacityMatrixResult(
+            Long orgUnitId,
+            String orgUnitName,
+            int fromYear,
+            int fromWeek,
+            int durationWeeks,
+            List<HeaderWeekInfo> weeks,
+            List<EmployeeCapacityRowResult> rows,
+            CapacityMatrixSummaryResult summary,
+            int page,
+            int pageSize,
+            int totalEmployees,
+            int totalPages
+    ) {
+        this(
+                orgUnitId,
+                orgUnitName,
+                fromYear,
+                fromWeek,
+                durationWeeks,
+                weeks,
+                rows,
+                summary,
+                page,
+                pageSize,
+                totalEmployees,
+                totalPages,
+                BigDecimal.valueOf(100.0),
+                BigDecimal.valueOf(50.0)
+        );
+    }
 
     public CompanyWeeklyCapacityMatrixResult(
             Long orgUnitId,
@@ -43,7 +77,9 @@ public record CompanyWeeklyCapacityMatrixResult(
                 0,
                 rows != null ? Math.max(1, rows.size()) : 20,
                 rows != null ? rows.size() : 0,
-                rows != null && !rows.isEmpty() ? 1 : 0
+                rows != null && !rows.isEmpty() ? 1 : 0,
+                BigDecimal.valueOf(100.0),
+                BigDecimal.valueOf(50.0)
         );
     }
 

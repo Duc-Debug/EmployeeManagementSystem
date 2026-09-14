@@ -74,6 +74,57 @@ public class WeeklyCapacityMatrixPolicy {
      *   + utilization < 50% -> UNDERUTILIZED
      *   + 50% <= utilization <= 100% -> OPTIMAL
      */
+    public static final BigDecimal DEFAULT_OVERLOAD_THRESHOLD = BigDecimal.valueOf(100.0);
+
+    /**
+     * Xác định trạng thái năng lực theo ngưỡng cấu hình động (QTN-23, NCL-07-CN-004):
+     * - OVERLOAD: utilization >= overloadThreshold (TC-01: từ mức ngưỡng trở lên)
+     * - UNDERUTILIZED: utilization < idleThreshold (dưới mức ngưỡng nhàn rỗi)
+     * - OPTIMAL: idleThreshold <= utilization < overloadThreshold
+     * - Đặc biệt khi available = 0: allocated > 0 -> OVERLOADED; allocated = 0 -> OPTIMAL
+     */
+    public static CapacityStatus determineStatus(
+            BigDecimal allocatedHours,
+            BigDecimal availableHours,
+            BigDecimal overloadThreshold,
+            BigDecimal idleThreshold
+    ) {
+        BigDecimal safeAllocated = allocatedHours != null ? allocatedHours : BigDecimal.ZERO;
+        BigDecimal safeAvailable = availableHours != null ? availableHours : BigDecimal.ZERO;
+
+        if (safeAvailable.compareTo(BigDecimal.ZERO) <= 0) {
+            if (safeAllocated.compareTo(BigDecimal.ZERO) > 0) {
+                return CapacityStatus.OVERLOADED;
+            }
+            return CapacityStatus.OPTIMAL;
+        }
+
+        BigDecimal activeOverloadThreshold = overloadThreshold != null ? overloadThreshold : DEFAULT_OVERLOAD_THRESHOLD;
+        BigDecimal activeIdleThreshold = idleThreshold != null ? idleThreshold : UNDERUTILIZED_THRESHOLD;
+
+        BigDecimal utilization = calculateUtilizationPercentage(safeAllocated, safeAvailable);
+        if (utilization != null) {
+            if (utilization.compareTo(activeOverloadThreshold) >= 0) {
+                return CapacityStatus.OVERLOADED;
+            }
+            if (utilization.compareTo(activeIdleThreshold) < 0) {
+                return CapacityStatus.UNDERUTILIZED;
+            }
+        }
+
+        return CapacityStatus.OPTIMAL;
+    }
+
+    /**
+     * Xác định trạng thái năng lực của ô nhân sự trong tuần theo ngưỡng mặc định QTN-12:
+     * - Khi available = 0:
+     *   + allocated > 0 -> OVERLOADED (giao việc khi không có khả dụng)
+     *   + allocated = 0 -> OPTIMAL (nghỉ hợp lệ không giao việc, không phạt nhàn rỗi)
+     * - Khi available > 0:
+     *   + allocated > available -> OVERLOADED
+     *   + utilization < 50% -> UNDERUTILIZED
+     *   + 50% <= utilization <= 100% -> OPTIMAL
+     */
     public static CapacityStatus determineStatus(BigDecimal allocatedHours, BigDecimal availableHours) {
         BigDecimal safeAllocated = allocatedHours != null ? allocatedHours : BigDecimal.ZERO;
         BigDecimal safeAvailable = availableHours != null ? availableHours : BigDecimal.ZERO;

@@ -26,12 +26,15 @@ import type {
     ScheduleConflictStatus,
 } from "@/lib/api/schedule-conflict";
 
+import ReplacementSuggestionModal from "./ReplacementSuggestionModal";
+
 export default function ScheduleConflictWarningView() {
     const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [scanning, setScanning] = useState<boolean>(false);
     const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [selectedConflictForReplacement, setSelectedConflictForReplacement] = useState<ScheduleConflict | null>(null);
 
     // Filters
     const [searchTerm, setSearchTerm] = useState<string>("");
@@ -132,10 +135,6 @@ export default function ScheduleConflictWarningView() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
                 <div>
-                    <div className="flex items-center gap-2 text-indigo-600 font-semibold text-xs uppercase tracking-wider mb-1">
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
-                        <span>NCL-07-CN-001 • Quản lý & Theo dõi Phân bổ</span>
-                    </div>
                     <h1 className="text-xl font-bold text-slate-900">Cảnh báo Xung đột Lịch của Nhân sự</h1>
                     <p className="text-xs text-slate-500 mt-1">
                         Rà soát sớm các trường hợp nhân sự bị trùng phân bổ dự án hoặc bị xếp việc trùng đơn nghỉ phép đã duyệt.
@@ -410,6 +409,17 @@ export default function ScheduleConflictWarningView() {
                                             <div className="flex items-center justify-end gap-2">
                                                 {c.status !== "RESOLVED" && (
                                                     <button
+                                                        onClick={() => setSelectedConflictForReplacement(c)}
+                                                        title="Gợi ý nhân sự thay thế có cùng kỹ năng và còn giờ rảnh"
+                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs"
+                                                    >
+                                                        <UserCheck className="h-3.5 w-3.5" />
+                                                        <span>Gợi ý thay thế</span>
+                                                    </button>
+                                                )}
+
+                                                {c.status !== "RESOLVED" && (
+                                                    <button
                                                         onClick={() => handleNotify(c.id)}
                                                         disabled={actionLoadingId === c.id}
                                                         title="Gửi thông báo thương lượng cho các bên liên quan"
@@ -439,6 +449,16 @@ export default function ScheduleConflictWarningView() {
                         </table>
                     </div>
                 </div>
+            )}
+
+            {/* Modal Đề xuất Nhân sự Thay thế */}
+            {selectedConflictForReplacement && (
+                <ReplacementSuggestionModal
+                    conflict={selectedConflictForReplacement}
+                    isOpen={!!selectedConflictForReplacement}
+                    onClose={() => setSelectedConflictForReplacement(null)}
+                    onSuccess={loadData}
+                />
             )}
         </div>
     );
