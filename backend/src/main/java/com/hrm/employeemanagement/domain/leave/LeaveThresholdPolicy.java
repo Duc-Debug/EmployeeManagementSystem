@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.domain.leave;
 
 import java.time.LocalDate;
+import java.util.Locale;
 
 /**
  * Domain Policy xác định quy tắc cảnh báo khi số người nghỉ cùng ngày vượt ngưỡng (NCL-05-CN-006 & TC-02).
@@ -64,12 +65,13 @@ public final class LeaveThresholdPolicy {
         double thresholdPercentage = threshold * 100.0;
 
         return String.format(
+                Locale.ROOT,
                 "Cảnh báo: Có %d/%d nhân sự (%s) nghỉ ngày %s, đạt hoặc vượt ngưỡng quy định (%s)",
                 onLeaveCount,
                 totalEmployeesInDept,
-                String.format("%.1f%%", currentPercentage),
+                String.format(Locale.ROOT, "%.1f%%", currentPercentage),
                 date.toString(),
-                String.format("%.1f%%", thresholdPercentage)
+                String.format(Locale.ROOT, "%.1f%%", thresholdPercentage)
         );
     }
 }
