@@ -318,6 +318,7 @@ class AdjustResourceAllocationServiceTest {
                     currentUserId, LocalDateTime.now(), "300"
             );
             when(loadChangeLogPort.findByAllocationId(allocationId)).thenReturn(List.of(changeLog));
+            when(loadUserPort.findAllByIdIn(any())).thenReturn(List.of(currentUser));
 
             List<AllocationChangeLogResult> history = service.getHistory(allocationId);
 
@@ -325,6 +326,33 @@ class AdjustResourceAllocationServiceTest {
             assertEquals(1, history.size());
             assertEquals(AdjustmentAction.EDIT_HOURS, history.get(0).action());
             assertEquals(currentUserId, history.get(0).changedBy());
+            verify(loadUserPort).findAllByIdIn(any());
+        }
+
+        @Test
+        @DisplayName("Should throw AllocationNotFoundException when getting history of non-existing allocation")
+        void shouldThrowNotFoundWhenGettingHistoryOfMissingAllocation() {
+            when(authorizationService.requireAny(PermissionCode.RESOURCE_ALLOCATION_READ, PermissionCode.RESOURCE_ALLOCATION_MANAGE))
+                    .thenReturn(currentUserId);
+            when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(currentUser));
+            when(loadAllocationPort.findById(999L)).thenReturn(Optional.empty());
+
+            assertThrows(com.hrm.employeemanagement.domain.exception.allocation.AllocationNotFoundException.class,
+                    () -> service.getHistory(999L));
+        }
+
+        @Test
+        @DisplayName("Should deny access when employee org unit is outside DataScope")
+        void shouldDenyHistoryWhenEmployeeOutsideDataScope() {
+            when(authorizationService.requireAny(PermissionCode.RESOURCE_ALLOCATION_READ, PermissionCode.RESOURCE_ALLOCATION_MANAGE))
+                    .thenReturn(currentUserId);
+            when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(currentUser));
+            when(loadAllocationPort.findById(allocationId)).thenReturn(Optional.of(allocation));
+            when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+            when(loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, orgUnitId)).thenReturn(false);
+
+            assertThrows(PermissionDeniedException.class, () -> service.getHistory(allocationId));
+            verify(deniedAuditLogPort).save(any());
         }
 
         @Test

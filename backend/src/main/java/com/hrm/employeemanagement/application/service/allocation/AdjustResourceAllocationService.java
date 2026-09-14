@@ -210,25 +210,26 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         );
         User currentUser = loadCurrentUserOrThrow(currentUserId);
 
-        Optional<WeeklyProjectAllocation> allocOpt = loadAllocationPort.findById(allocationId);
-        if (allocOpt.isPresent()) {
-            WeeklyProjectAllocation alloc = allocOpt.get();
-            Employee employee = loadEmployeePort.findById(new EmployeeId(alloc.getEmployeeId())).orElse(null);
-            if (employee != null) {
-                requireOrgUnitInDataScope(currentUser, employee.getOrgUnitId(), currentUserId, allocationId);
-            }
-        }
+        WeeklyProjectAllocation alloc = loadAllocationPort.findById(allocationId)
+                .orElseThrow(() -> new AllocationNotFoundException(allocationId));
+        Employee employee = loadEmployeePort.findById(new EmployeeId(alloc.getEmployeeId()))
+                .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + alloc.getEmployeeId()));
+        requireOrgUnitInDataScope(currentUser, employee.getOrgUnitId(), currentUserId, allocationId);
 
         List<AllocationChangeLog> logs = loadChangeLogPort.findByAllocationId(allocationId);
 
-        Map<Long, String> userNames = logs.stream()
+        List<UserId> userIds = logs.stream()
                 .map(AllocationChangeLog::getChangedBy)
+                .filter(Objects::nonNull)
                 .distinct()
+                .map(UserId::new)
+                .toList();
+
+        Map<Long, String> userNames = loadUserPort.findAllByIdIn(userIds).stream()
                 .collect(Collectors.toMap(
-                        uId -> uId,
-                        uId -> loadUserPort.findById(new UserId(uId))
-                                .map(User::getUsername)
-                                .orElse("ID:" + uId)
+                        u -> u.getId().value(),
+                        User::getUsername,
+                        (existing, replacement) -> existing
                 ));
 
         return logs.stream().map(log -> new AllocationChangeLogResult(
@@ -272,6 +273,7 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         BigDecimal effectivePercentage;
 
         if (command.allocationPercentage() != null) {
+            AllocationAdjustmentPolicy.validateAllocationPercentage(command.allocationPercentage());
             effectivePercentage = command.allocationPercentage();
             effectiveHours = netAvailableHours.multiply(effectivePercentage)
                     .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
