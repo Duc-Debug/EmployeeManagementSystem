@@ -477,6 +477,84 @@ export default function ProjectView() {
         loadProjects();
     }, [loadProjects]);
 
+    const [months] = useState(buildMonths);
+    const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
+
+    const getDisplayedIsoWeek = useCallback((weekKey: string) => {
+        const month = months[selectedMonthIdx];
+        const [year, monthNumber] = month.id.split('-').map(Number);
+        const index = Math.max(0, month.weeks.findIndex((week) => week.key === weekKey));
+        return getIsoWeek(new Date(year, monthNumber - 1, index * 7 + 1));
+    }, [months, selectedMonthIdx]);
+
+    const loadProjectAllocations = useCallback(async (baseMembersInput?: ProjectMember[]) => {
+        if (!canReadAllocations || !selectedProjectId) return;
+        const month = months[selectedMonthIdx];
+        try {
+            const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
+                const isoWeek = getDisplayedIsoWeek(week.key);
+                const rows = await getProjectWeeklyAllocations(selectedProjectId, isoWeek.year, isoWeek.week, isoWeek.week);
+                return { key: week.key, rows };
+            }));
+            setMembers((previous) => {
+                const currentBase = baseMembersInput && baseMembersInput.length > 0 ? baseMembersInput : previous;
+                const existingEmpIds = new Set(
+                    currentBase.map((m) => m.employeeId || Number(m.id.replace('u-', '')))
+                );
+
+                const updated = currentBase.map((member) => {
+                    const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
+                    const weeklyHours: Record<string, number> = {};
+                    rowsByWeek.forEach(({ key, rows }) => {
+                        weeklyHours[key] = rows
+                            .filter((row) => row.employeeId === employeeId)
+                            .reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                    });
+                    return { ...member, weeklyHours };
+                });
+
+                // Tự động bổ sung nhân sự đã có phân bổ giờ vào danh sách nếu chưa có trong WBS
+                const allocatedEmpIds = new Set<number>();
+                rowsByWeek.forEach(({ rows }) => {
+                    rows.forEach((r) => {
+                        if (r.allocatedHours > 0 && !existingEmpIds.has(r.employeeId)) {
+                            allocatedEmpIds.add(r.employeeId);
+                        }
+                    });
+                });
+
+                if (allocatedEmpIds.size > 0 && allEmployees.length > 0) {
+                    allocatedEmpIds.forEach((empId) => {
+                        const empObj = allEmployees.find(
+                            (e) => (e.employeeId || Number(e.id.replace('u-', ''))) === empId
+                        );
+                        if (empObj) {
+                            const weeklyHours: Record<string, number> = {};
+                            rowsByWeek.forEach(({ key, rows }) => {
+                                weeklyHours[key] = rows
+                                    .filter((row) => row.employeeId === empId)
+                                    .reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                            });
+                            updated.push({ ...empObj, weeklyHours });
+                        }
+                    });
+                }
+
+                return updated;
+            });
+            setAllocationError(null);
+        } catch (error) {
+            setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
+            setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
+        }
+    }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId, allEmployees]);
+
+    useEffect(() => {
+        if (canReadAllocations && selectedProjectId) {
+            void loadProjectAllocations();
+        }
+    }, [canReadAllocations, selectedProjectId, selectedMonthIdx, loadProjectAllocations]);
+
     // 3. Tải cây WBS và danh sách thành viên dự án thật khi chọn một dự án
     const loadWbsForProject = useCallback(async (projId: number) => {
         setIsLoadingWbs(true);
@@ -517,12 +595,24 @@ export default function ProjectView() {
                     return projectRole ? { ...emp, role: projectRole } : emp;
                 });
 
-            setMembers(projectMembers);
+            setMembers((prevMembers) => {
+                const prevHoursMap = new Map(prevMembers.map((m) => [m.id, m.weeklyHours]));
+                return projectMembers.map((emp) => {
+                    const existingHours = prevHoursMap.get(emp.id);
+                    return existingHours && Object.keys(existingHours).length > 0
+                        ? { ...emp, weeklyHours: existingHours }
+                        : emp;
+                });
+            });
             const mapped = mapBackendWbsToUiCategories(wbsNodes, projectMembers);
             setCategories(mapped);
             getTaskDependencies(projId)
                 .then((res) => setTaskDependenciesList(res.dependencies || []))
                 .catch(() => setTaskDependenciesList([]));
+
+            if (canReadAllocations) {
+                void loadProjectAllocations(projectMembers);
+            }
         } catch (err) {
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
             setCategories([]);
@@ -531,7 +621,7 @@ export default function ProjectView() {
         } finally {
             setIsLoadingWbs(false);
         }
-    }, [allEmployees]);
+    }, [allEmployees, canReadAllocations, loadProjectAllocations]);
 
     useEffect(() => {
         if (selectedProjectId) {
@@ -561,46 +651,6 @@ export default function ProjectView() {
         }
     }, [selectedProjectId, loadMilestonesForProject]);
 
-    const [months] = useState(buildMonths);
-    const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
-
-    const getDisplayedIsoWeek = useCallback((weekKey: string) => {
-        const month = months[selectedMonthIdx];
-        const [year, monthNumber] = month.id.split('-').map(Number);
-        const index = Math.max(0, month.weeks.findIndex((week) => week.key === weekKey));
-        return getIsoWeek(new Date(year, monthNumber - 1, index * 7 + 1));
-    }, [months, selectedMonthIdx]);
-
-    const loadProjectAllocations = useCallback(async () => {
-        if (!canReadAllocations || !selectedProjectId) return;
-        const month = months[selectedMonthIdx];
-        try {
-            const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
-                const isoWeek = getDisplayedIsoWeek(week.key);
-                const rows = await getProjectWeeklyAllocations(selectedProjectId, isoWeek.year, isoWeek.week, isoWeek.week);
-                return { key: week.key, rows };
-            }));
-            setMembers((previous) => previous.map((member) => {
-                const employeeId = Number(member.id.replace('u-', ''));
-                const weeklyHours: Record<string, number> = {};
-                rowsByWeek.forEach(({ key, rows }) => {
-                    weeklyHours[key] = rows.filter((row) => row.employeeId === employeeId)
-                        .reduce((sum, row) => sum + Number(row.allocatedHours), 0);
-                });
-                return { ...member, weeklyHours };
-            }));
-            setAllocationError(null);
-        } catch (error) {
-            setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
-            if (canReadAllocations) {
-                setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
-            }
-        }
-    }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
-
-    useEffect(() => {
-        if (canReadAllocations && selectedProjectId && categories.length > 0) void loadProjectAllocations();
-    }, [canReadAllocations, selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
 
     // 4. Tải ước lượng nhu cầu nhân sự thật từ API Backend (NCL-03-CN-007)
     const loadProjectDemands = useCallback(async (projId: number) => {
