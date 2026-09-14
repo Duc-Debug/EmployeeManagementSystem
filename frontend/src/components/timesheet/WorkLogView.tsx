@@ -15,10 +15,13 @@ import {
   Layers,
   Sparkles,
   Info,
+  Send,
+  Lock,
 } from "lucide-react";
 import {
   getMyWeeklyTimesheet,
   deleteWorkLog,
+  submitWeeklyTimesheet,
   type WeeklyTimesheetResult,
   type WorkLogResult,
   type DailyWorkLogGroupDto,
@@ -33,6 +36,8 @@ export default function WorkLogView() {
   );
   const [weeklyData, setWeeklyData] = useState<WeeklyTimesheetResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Modal State
@@ -115,6 +120,27 @@ export default function WorkLogView() {
     }
   };
 
+  const handleSubmitWeeklyTimesheet = async () => {
+    setIsSubmitting(true);
+    try {
+      const result = await submitWeeklyTimesheet({
+        dateInWeek: currentDate,
+        timesheetId: weeklyData?.timesheetId ?? undefined,
+      });
+      setWeeklyData(result);
+      setIsSubmitModalOpen(false);
+      showToast("Nộp bảng chấm công theo tuần thành công! Trạng thái: Chờ duyệt.", "success");
+    } catch (err: unknown) {
+      console.error("Lỗi nộp bảng chấm công:", err);
+      showToast(
+        err instanceof Error ? err.message : "Không thể nộp bảng chấm công.",
+        "error"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const weekRangeFormatted = useMemo(() => {
     if (!weeklyData?.weekStartDate || !weeklyData?.weekEndDate) return "";
     const start = new Date(weeklyData.weekStartDate);
@@ -142,6 +168,7 @@ export default function WorkLogView() {
     .reduce((sum, e) => sum + Number(e.hours || 0), 0);
 
   const isTimesheetEditable = weeklyData?.isEditable !== false && (!weeklyData?.status || weeklyData.status === "DRAFT");
+  const canSubmitTimesheet = isTimesheetEditable && allEntries.length > 0 && totalHours > 0;
 
   const dailyGroups: DailyWorkLogGroupDto[] = weeklyData?.dailyGroups ?? [];
 
@@ -154,9 +181,6 @@ export default function WorkLogView() {
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
               Ghi giờ công theo công việc
             </h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
-              <Sparkles className="h-3 w-3" /> NCL-09-CN-001
-            </span>
           </div>
           <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
             Ghi nhận số giờ làm việc thực tế cho từng dự án &amp; công việc WBS được phân công.
@@ -211,6 +235,19 @@ export default function WorkLogView() {
             <Plus className="h-4 w-4" />
             <span>Ghi giờ công</span>
           </button>
+
+          {/* Submit Timesheet Button (NCL-09-CN-002) */}
+          {isTimesheetEditable && (
+            <button
+              type="button"
+              onClick={() => setIsSubmitModalOpen(true)}
+              disabled={!canSubmitTimesheet || isSubmitting}
+              className="flex min-h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+            >
+              <Send className="h-4 w-4" />
+              <span>Nộp bảng công tuần</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -242,7 +279,11 @@ export default function WorkLogView() {
                 </span>
               ) : weeklyData?.status === "SUBMITTED" ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
-                  <Clock className="h-3.5 w-3.5" /> Đã nộp chờ duyệt
+                  <Clock className="h-3.5 w-3.5" /> Đã nộp (Chờ quản lý duyệt)
+                </span>
+              ) : weeklyData?.status === "REJECTED" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800">
+                  <AlertCircle className="h-3.5 w-3.5" /> Bị từ chối (Cần sửa &amp; nộp lại)
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
@@ -253,6 +294,16 @@ export default function WorkLogView() {
           </div>
         </div>
       </div>
+
+      {/* Lock Notice Banner if not editable */}
+      {!isTimesheetEditable && (
+        <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-xs font-semibold text-blue-900 shadow-2xs">
+          <Lock className="h-5 w-5 shrink-0 text-blue-600" />
+          <div>
+            <span>Bảng chấm công tuần này đã ở trạng thái <strong>{weeklyData?.status === "APPROVED" ? "ĐÃ PHÊ DUYỆT" : "ĐÃ NỘP CHỜ DUYỆT"}</strong>. Dữ liệu đã được khóa không thể thêm, sửa hoặc xóa.</span>
+          </div>
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -517,6 +568,71 @@ export default function WorkLogView() {
         initialData={editingEntry}
         defaultDate={targetDateForNewLog}
       />
+
+      {/* Submit Timesheet Confirmation Modal */}
+      {isSubmitModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <Send className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Xác nhận nộp bảng chấm công tuần
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {weekRangeFormatted}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2 text-xs">
+              <div className="flex justify-between font-medium text-slate-600">
+                <span>Tổng số dòng ghi giờ:</span>
+                <span className="font-bold text-slate-900">{allEntries.length} dòng</span>
+              </div>
+              <div className="flex justify-between font-medium text-slate-600">
+                <span>Tổng số giờ làm việc:</span>
+                <span className="font-bold text-emerald-700 font-mono">{totalHours.toFixed(1)} hrs</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Sau khi nộp, bảng chấm công sẽ chuyển sang trạng thái <strong>Chờ duyệt (SUBMITTED)</strong>. Bạn sẽ không thể chỉnh sửa hoặc xóa các dòng ghi giờ trừ khi bị Quản lý từ chối duyệt.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsSubmitModalOpen(false)}
+                disabled={isSubmitting}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitWeeklyTimesheet}
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Đang nộp...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    <span>Xác nhận nộp</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       <div
