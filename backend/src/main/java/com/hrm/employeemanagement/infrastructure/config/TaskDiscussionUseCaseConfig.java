@@ -3,12 +3,6 @@ package com.hrm.employeemanagement.infrastructure.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.hrm.employeemanagement.application.port.inbound.notification.GetNotificationsUseCase;
-import com.hrm.employeemanagement.application.port.inbound.notification.MarkNotificationReadUseCase;
-import com.hrm.employeemanagement.application.port.inbound.task.comment.CreateTaskCommentUseCase;
-import com.hrm.employeemanagement.application.port.inbound.task.comment.DeleteTaskCommentUseCase;
-import com.hrm.employeemanagement.application.port.inbound.task.comment.DownloadTaskAttachmentUseCase;
-import com.hrm.employeemanagement.application.port.inbound.task.comment.GetTaskCommentsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
@@ -32,8 +26,6 @@ public class TaskDiscussionUseCaseConfig {
 
     @Bean
     public TaskDiscussionAccessService taskDiscussionAccessService(
-            AuthorizationService authorizationService, LoadTaskPort loadTaskPort,
-            LoadProjectPort loadProjectPort, LoadUserPort loadUserPort, LoadEmployeePort loadEmployeePort) {
             AuthorizationService authorizationService,
             LoadTaskPort loadTaskPort,
             LoadProjectPort loadProjectPort,
@@ -44,7 +36,6 @@ public class TaskDiscussionUseCaseConfig {
     }
 
     @Bean
-    public TransactionalTaskCommentServiceDecorator taskCommentApplicationService(
     public TransactionalTaskCommentServiceDecorator transactionalTaskCommentServiceDecorator(
             LoadTaskCommentPort loadTaskCommentPort,
             LoadTaskAttachmentPort loadTaskAttachmentPort,
@@ -55,7 +46,6 @@ public class TaskDiscussionUseCaseConfig {
             SaveNotificationPort saveNotificationPort,
             TaskAttachmentStoragePort taskAttachmentStoragePort,
             TaskDiscussionAccessService accessService) {
-        TaskCommentApplicationService service = new TaskCommentApplicationService(
         TaskCommentApplicationService pureService = new TaskCommentApplicationService(
                 loadTaskCommentPort,
                 loadTaskAttachmentPort,
@@ -66,33 +56,7 @@ public class TaskDiscussionUseCaseConfig {
                 saveNotificationPort,
                 taskAttachmentStoragePort,
                 accessService);
-        return new TransactionalTaskCommentServiceDecorator(service, loadTaskCommentPort, taskAttachmentStoragePort);
         return new TransactionalTaskCommentServiceDecorator(pureService, loadTaskCommentPort, taskAttachmentStoragePort);
-    }
-
-    @Bean
-    public NotificationApplicationService notificationApplicationService(
-    public CreateTaskCommentUseCase createTaskCommentUseCase(
-            TransactionalTaskCommentServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public GetTaskCommentsUseCase getTaskCommentsUseCase(
-            TransactionalTaskCommentServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public DeleteTaskCommentUseCase deleteTaskCommentUseCase(
-            TransactionalTaskCommentServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public DownloadTaskAttachmentUseCase downloadTaskAttachmentUseCase(
-            TransactionalTaskCommentServiceDecorator decorator) {
-        return decorator;
     }
 
     @Bean
@@ -101,7 +65,6 @@ public class TaskDiscussionUseCaseConfig {
             SaveNotificationPort saveNotificationPort,
             LoadUserPort loadUserPort,
             LoadEmployeePort loadEmployeePort) {
-        return new NotificationApplicationService(
         NotificationApplicationService pureService = new NotificationApplicationService(
                 loadNotificationPort,
                 saveNotificationPort,
@@ -110,15 +73,4 @@ public class TaskDiscussionUseCaseConfig {
         return new TransactionalNotificationServiceDecorator(pureService);
     }
 
-    @Bean
-    public GetNotificationsUseCase getNotificationsUseCase(
-            TransactionalNotificationServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public MarkNotificationReadUseCase markNotificationReadUseCase(
-            TransactionalNotificationServiceDecorator decorator) {
-        return decorator;
-    }
 }
