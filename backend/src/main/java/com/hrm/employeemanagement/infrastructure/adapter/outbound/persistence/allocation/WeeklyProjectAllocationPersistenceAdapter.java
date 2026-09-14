@@ -174,4 +174,18 @@ public class WeeklyProjectAllocationPersistenceAdapter implements
                 e.getVersion()
         );
     }
+
+    @Override
+    public void delete(WeeklyProjectAllocation allocation) {
+        if (allocation != null && allocation.getId() != null) {
+            repository.deleteById(allocation.getId());
+        }
+    }
+
+    @Override
+    public void deleteById(Long allocationId) {
+        if (allocationId != null) {
+            repository.deleteById(allocationId);
+        }
+    }
 }

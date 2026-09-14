@@ -651,6 +651,7 @@ export default function ProjectView() {
         }
     }, [selectedProjectId, loadMilestonesForProject]);
 
+
     // 4. Tải ước lượng nhu cầu nhân sự thật từ API Backend (NCL-03-CN-007)
     const loadProjectDemands = useCallback(async (projId: number) => {
         if (!canReadDemands) return;
