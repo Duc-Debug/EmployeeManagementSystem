@@ -1,0 +1,141 @@
+"use client";
+
+import { apiRequest } from "../api-client";
+
+/**
+ * Danh sách trạng thái tiến độ hợp lệ dành cho Chuyên viên (Người thực hiện).
+ * Chú ý: Tuyệt đối không bao gồm CANCELLED vì quyền hủy việc thuộc về Quản lý dự án (PM).
+ */
+export type SpecialistTaskProgressStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
+
+export const SPECIALIST_TASK_STATUSES: readonly SpecialistTaskProgressStatus[] = [
+  "TODO",
+  "IN_PROGRESS",
+  "IN_REVIEW",
+  "DONE",
+] as const;
+
+export interface TaskProgressResult {
+  taskId: number;
+  projectId: number;
+  projectCode: string;
+  projectName: string;
+  taskCode: string;
+  name: string;
+  previousStatus: string;
+  currentStatus: SpecialistTaskProgressStatus;
+  updatedAt: string;
+}
+
+export interface TaskProgressApiResponse {
+  success: boolean;
+  message: string;
+  data: TaskProgressResult;
+}
+
+export interface UpdateTaskProgressPayload {
+  status: SpecialistTaskProgressStatus;
+}
+
+export interface MyAssignedTaskItem {
+  taskId: number;
+  taskCode: string;
+  taskName: string;
+  projectId: number;
+  projectName: string;
+  status: string;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  isPrimary?: boolean;
+  assignedAt?: string;
+}
+
+export interface ProgressStatusMeta {
+  status: SpecialistTaskProgressStatus;
+  label: string;
+  shortLabel: string;
+  description: string;
+  badgeClass: string;
+  badgeActiveRing: string;
+  indicatorClass: string;
+}
+
+export const PROGRESS_STATUS_METADATA: Record<SpecialistTaskProgressStatus, ProgressStatusMeta> = {
+  TODO: {
+    status: "TODO",
+    label: "Chờ thực hiện",
+    shortLabel: "Chờ làm",
+    description: "Công việc đã được giao, chưa bắt đầu triển khai",
+    badgeClass: "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/70",
+    badgeActiveRing: "ring-slate-400 border-slate-400 bg-slate-50",
+    indicatorClass: "bg-slate-400",
+  },
+  IN_PROGRESS: {
+    status: "IN_PROGRESS",
+    label: "Đang thực hiện",
+    shortLabel: "Đang làm",
+    description: "Đang trong quá trình triển khai xử lý công việc",
+    badgeClass: "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100/70",
+    badgeActiveRing: "ring-sky-500 border-sky-400 bg-sky-50/70",
+    indicatorClass: "bg-sky-500",
+  },
+  IN_REVIEW: {
+    status: "IN_REVIEW",
+    label: "Chờ duyệt / Nghiệm thu",
+    shortLabel: "Chờ duyệt",
+    description: "Đã hoàn tất xử lý, đang gửi PM hoặc Tech Lead kiểm tra nghiệm thu",
+    badgeClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100/70",
+    badgeActiveRing: "ring-amber-500 border-amber-400 bg-amber-50/70",
+    indicatorClass: "bg-amber-500",
+  },
+  DONE: {
+    status: "DONE",
+    label: "Hoàn thành",
+    shortLabel: "Xong",
+    description: "Công việc đã nghiệm thu xong và đóng hoàn tất",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/70",
+    badgeActiveRing: "ring-emerald-500 border-emerald-400 bg-emerald-50/70",
+    indicatorClass: "bg-emerald-500",
+  },
+};
+
+/**
+ * Kiểm tra xem một chuỗi có phải là trạng thái tiến độ hợp lệ của Chuyên viên hay không
+ */
+export function isValidSpecialistStatus(status: unknown): status is SpecialistTaskProgressStatus {
+  return typeof status === "string" && (SPECIALIST_TASK_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * Cập nhật tiến độ công việc dành cho chuyên viên được phân công
+ * Endpoint: PATCH /api/v1/tasks/{taskId}/progress
+ */
+export async function updateTaskProgress(
+  taskId: number | string,
+  status: SpecialistTaskProgressStatus
+): Promise<TaskProgressResult> {
+  if (!isValidSpecialistStatus(status)) {
+    throw new Error(
+      `Trạng thái '${status}' không hợp lệ. Chuyên viên chỉ được cập nhật: ${SPECIALIST_TASK_STATUSES.join(", ")}`
+    );
+  }
+
+  const response = await apiRequest<TaskProgressApiResponse>(`/tasks/${taskId}/progress`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response?.data) {
+    throw new Error(response?.message || "Không nhận được phản hồi dữ liệu từ máy chủ");
+  }
+
+  return response.data;
+}
+
+/**
+ * Lấy danh sách toàn bộ công việc được phân công cho nhân sự đang đăng nhập
+ * Endpoint: GET /api/v1/tasks/me
+ */
+export async function getMyAssignedTasks(): Promise<MyAssignedTaskItem[]> {
+  return await apiRequest<MyAssignedTaskItem[]>("/tasks/me");
+}
