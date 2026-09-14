@@ -16,10 +16,13 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.period.Sa
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.service.allocation.period.AllocationPeriodService;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.repository.SpringDataWeeklyProjectAllocationRepository;
 import com.hrm.employeemanagement.infrastructure.decorator.allocation.LockGuardedAllocateResourceUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.decorator.allocation.LockGuardedBulkAllocateResourceUseCaseDecorator;
+import com.hrm.employeemanagement.infrastructure.decorator.allocation.LockGuardedDeleteWeeklyProjectAllocationPortDecorator;
 import com.hrm.employeemanagement.infrastructure.decorator.allocation.LockGuardedSaveWeeklyProjectAllocationPortDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.period.TransactionalAllocationPeriodServiceDecorator;
 
@@ -95,6 +98,24 @@ public class AllocationPeriodUseCaseConfig {
                 baseSaveAllocationPort,
                 loadAllocationPort,
                 checkAllocationPeriodLockUseCase
+        );
+    }
+
+    /**
+     * [QTN-18 / TC-02]: Bọc DeleteWeeklyProjectAllocationPort bằng Decorator để bảo vệ ở mức Persistence layer
+     * đối với thao tác DELETE / REMOVE: Chặn mọi hành vi xóa phân bổ đối với các tuần nằm trong kỳ đã bị khóa (LOCKED).
+     */
+    @Bean
+    @Primary
+    public DeleteWeeklyProjectAllocationPort lockGuardedDeleteWeeklyProjectAllocationPort(
+            @Qualifier("weeklyProjectAllocationPersistenceAdapter") DeleteWeeklyProjectAllocationPort baseDeleteAllocationPort,
+            CheckAllocationPeriodLockUseCase checkAllocationPeriodLockUseCase,
+            SpringDataWeeklyProjectAllocationRepository repository
+    ) {
+        return new LockGuardedDeleteWeeklyProjectAllocationPortDecorator(
+                baseDeleteAllocationPort,
+                checkAllocationPeriodLockUseCase,
+                repository
         );
     }
 }

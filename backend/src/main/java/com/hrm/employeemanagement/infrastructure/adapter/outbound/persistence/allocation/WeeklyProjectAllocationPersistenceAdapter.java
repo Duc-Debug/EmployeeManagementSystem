@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation;
 
+import com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
@@ -15,7 +16,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
-public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProjectAllocationPort, LoadWeeklyProjectAllocationPort {
+public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProjectAllocationPort, LoadWeeklyProjectAllocationPort, DeleteWeeklyProjectAllocationPort {
 
     private final SpringDataWeeklyProjectAllocationRepository repository;
 
@@ -144,5 +145,19 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 e.getOverloadApprovedAt(),
                 e.getVersion()
         );
+    }
+
+    @Override
+    public void delete(WeeklyProjectAllocation allocation) {
+        if (allocation != null && allocation.getId() != null) {
+            repository.deleteById(allocation.getId());
+        }
+    }
+
+    @Override
+    public void deleteById(Long allocationId) {
+        if (allocationId != null) {
+            repository.deleteById(allocationId);
+        }
     }
 }
