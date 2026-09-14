@@ -8,7 +8,6 @@ public interface SimulatedNotificationPort {
             String conflictSummary,
             String details
     );
-
     void sendReplacementSuggestionNotification(
             String recipientEmail,
             String recipientName,

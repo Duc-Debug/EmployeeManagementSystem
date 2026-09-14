@@ -91,4 +91,18 @@ public class LeaveRequestPolicy {
         }
         return !startA.isAfter(endB) && !endA.isBefore(startB);
     }
+
+    /**
+     * Quy tắc: "Chỉ hủy được nghỉ phép chưa tới ngày nghỉ".
+     * Đơn nghỉ phép đã duyệt chỉ hủy được khi ngày nghỉ chưa diễn ra (startDate > today).
+     */
+    public static void validateLeaveNotStarted(LocalDate startDate, LocalDate today) {
+        if (startDate == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu nghỉ phép không được để trống");
+        }
+        LocalDate referenceDate = (today != null) ? today : LocalDate.now();
+        if (!startDate.isAfter(referenceDate)) {
+            throw com.hrm.employeemanagement.domain.exception.leave.PastLeaveCancellationException.alreadyStarted();
+        }
+    }
 }

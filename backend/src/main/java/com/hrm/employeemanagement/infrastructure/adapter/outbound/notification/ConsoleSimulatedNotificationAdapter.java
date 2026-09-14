@@ -22,7 +22,6 @@ public class ConsoleSimulatedNotificationAdapter implements SimulatedNotificatio
         log.info("[SIMULATED NOTIFICATION] Sent to: {} ({}) | Subject: Cảnh báo xung đột lịch nhân sự [{}] | Summary: {} | Details: {}",
                 recipientName, recipientEmail, employeeName, conflictSummary, details);
     }
-
     @Override
     public void sendReplacementSuggestionNotification(
             String recipientEmail,
