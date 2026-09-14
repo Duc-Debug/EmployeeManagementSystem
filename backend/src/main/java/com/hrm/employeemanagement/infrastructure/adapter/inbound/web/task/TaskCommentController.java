@@ -1,6 +1,5 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.task;
 
-import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -37,8 +36,6 @@ import com.hrm.employeemanagement.application.port.outbound.task.comment.TaskAtt
 import com.hrm.employeemanagement.application.service.task.comment.TaskDiscussionAccessService;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.comment.entity.TaskAttachmentJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.comment.repository.SpringDataTaskAttachmentRepository;
 
 @RestController
 @RequestMapping("/api/v1/tasks")
@@ -52,7 +49,6 @@ public class TaskCommentController {
     private final DownloadTaskAttachmentUseCase downloadTaskAttachmentUseCase;
     private final CurrentUserPort currentUserPort;
     private final TaskAttachmentStoragePort taskAttachmentStoragePort;
-    private final SpringDataTaskAttachmentRepository attachmentRepository;
     private final TaskDiscussionAccessService accessService;
 
     public TaskCommentController(
@@ -62,7 +58,6 @@ public class TaskCommentController {
             DownloadTaskAttachmentUseCase downloadTaskAttachmentUseCase,
             CurrentUserPort currentUserPort,
             TaskAttachmentStoragePort taskAttachmentStoragePort,
-            SpringDataTaskAttachmentRepository attachmentRepository,
             TaskDiscussionAccessService accessService) {
         this.createTaskCommentUseCase = createTaskCommentUseCase;
         this.getTaskCommentsUseCase = getTaskCommentsUseCase;
@@ -70,7 +65,6 @@ public class TaskCommentController {
         this.downloadTaskAttachmentUseCase = downloadTaskAttachmentUseCase;
         this.currentUserPort = currentUserPort;
         this.taskAttachmentStoragePort = taskAttachmentStoragePort;
-        this.attachmentRepository = attachmentRepository;
         this.accessService = accessService;
     }
 
@@ -136,7 +130,6 @@ public class TaskCommentController {
     }
 
     @DeleteMapping("/{taskId}/comments/{commentId}")
-    @PreAuthorize("hasAuthority('TASK_DISCUSSION_CREATE')")
     @PreAuthorize("hasAuthority('TASK_DISCUSSION_DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @PathVariable Long taskId,
@@ -151,20 +144,12 @@ public class TaskCommentController {
     @GetMapping("/attachments/{attachmentId}/download")
     @PreAuthorize("hasAuthority('TASK_DISCUSSION_READ')")
     public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable Long attachmentId) {
-        TaskAttachmentJpaEntity attachment = attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tệp đính kèm với ID: " + attachmentId));
         TaskAttachmentDownloadResult result = downloadTaskAttachmentUseCase.downloadAttachment(attachmentId);
         String encodedFilename = URLEncoder.encode(result.fileName(), StandardCharsets.UTF_8).replace("+", "%20");
 
-        accessService.requireAccess(attachment.getTaskId(), PermissionCode.TASK_DISCUSSION_READ);
-        InputStream is = taskAttachmentStoragePort.loadFile(attachment.getFilePath());
-        String encodedFilename = URLEncoder.encode(attachment.getFileName(), StandardCharsets.UTF_8).replace("+", "%20");
-
         MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
-        if (attachment.getFileType() != null) {
         if (result.fileType() != null) {
             try {
-                mediaType = MediaType.parseMediaType(attachment.getFileType());
                 mediaType = MediaType.parseMediaType(result.fileType());
             } catch (Exception ignored) {
             }
@@ -173,8 +158,6 @@ public class TaskCommentController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFilename + "\"; filename*=UTF-8''" + encodedFilename)
                 .contentType(mediaType)
-                .contentLength(attachment.getFileSize())
-                .body(new InputStreamResource(is));
                 .contentLength(result.fileSize())
                 .body(new InputStreamResource(result.contentStream()));
     }
@@ -183,12 +166,9 @@ public class TaskCommentController {
         for (UploadedAttachmentDto uploaded : uploadedFiles) {
             try {
                 taskAttachmentStoragePort.deleteFile(uploaded.storedFilePath());
-            } catch (RuntimeException ignored) {
-                // Preserve the original upload or database failure.
             } catch (RuntimeException e) {
                 log.warn("Không thể xóa file rác sau khi thao tác thất bại: {}", uploaded.storedFilePath(), e);
             }
         }
     }
 }
-

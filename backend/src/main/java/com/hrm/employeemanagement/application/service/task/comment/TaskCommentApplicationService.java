@@ -32,13 +32,10 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
-import com.hrm.employeemanagement.domain.authorization.PermissionCode;
-import com.hrm.employeemanagement.domain.exception.task.InvalidCommentDataException;
 import com.hrm.employeemanagement.domain.exception.task.TaskAttachmentNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.TaskCommentNotFoundException;
 import com.hrm.employeemanagement.domain.notification.Notification;
 import com.hrm.employeemanagement.domain.notification.NotificationType;
-import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.task.comment.MentionParserService;
@@ -50,7 +47,6 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 public class TaskCommentApplicationService
-        implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase {
         implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase, DownloadTaskAttachmentUseCase {
 
     private final LoadTaskCommentPort loadTaskCommentPort;
@@ -96,14 +92,11 @@ public class TaskCommentApplicationService
         User author = loadUserPort.findById(authorId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng tác giả"));
 
-        // Phân tích danh sách người được nhắc tên
-        Set<UserId> targetMentions = new HashSet<>();
         // Phân tích danh sách người được nhắc tên và xác thực quyền truy cập dự án/task
         Set<UserId> candidateMentionIds = new HashSet<>();
         if (command.mentionedUserIds() != null) {
             for (Long uid : command.mentionedUserIds()) {
                 if (uid != null && !uid.equals(command.authorId())) {
-                    targetMentions.add(new UserId(uid));
                     candidateMentionIds.add(new UserId(uid));
                 }
             }
@@ -113,7 +106,6 @@ public class TaskCommentApplicationService
         for (String uname : parsedUsernames) {
             loadUserPort.findByUsername(uname).ifPresent(u -> {
                 if (!u.getId().equals(authorId)) {
-                    targetMentions.add(u.getId());
                     candidateMentionIds.add(u.getId());
                 }
             });
@@ -206,7 +198,6 @@ public class TaskCommentApplicationService
 
     @Override
     public void execute(Long taskId, Long commentId, Long requestingUserId) {
-        accessService.requireAccess(taskId, PermissionCode.TASK_DISCUSSION_CREATE);
         TaskCommentId id = TaskCommentId.of(commentId);
         TaskComment comment = loadTaskCommentPort.findById(id)
                 .orElseThrow(() -> new TaskCommentNotFoundException("Không tìm thấy trao đổi với ID: " + commentId));
@@ -215,17 +206,6 @@ public class TaskCommentApplicationService
             throw new TaskCommentNotFoundException("Không tìm thấy trao đổi trong công việc này");
         }
 
-        if (!comment.getAuthorId().value().equals(requestingUserId)) {
-            User requester = loadUserPort.findById(new UserId(requestingUserId))
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng"));
-            boolean isPrivileged = requester.getRole() != null &&
-                    (RoleCode.VT_01.equals(requester.getRole().getCode()) ||
-                     RoleCode.VT_02.equals(requester.getRole().getCode()) ||
-                     RoleCode.VT_06.equals(requester.getRole().getCode()));
-            if (!isPrivileged) {
-                throw new InvalidCommentDataException("Bạn không có quyền xóa trao đổi này");
-            }
-        }
         accessService.requireDeleteAccess(taskId, comment.getAuthorId().value(), requestingUserId);
 
         deleteTaskCommentPort.deleteById(id);
@@ -323,4 +303,3 @@ public class TaskCommentApplicationService
         return user.getUsername();
     }
 }
-

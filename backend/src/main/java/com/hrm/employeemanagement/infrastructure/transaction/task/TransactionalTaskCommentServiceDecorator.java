@@ -21,7 +21,6 @@ import com.hrm.employeemanagement.domain.task.comment.TaskCommentId;
 
 /** Transaction boundary for comment, attachment metadata, and mention notifications. */
 public class TransactionalTaskCommentServiceDecorator
-        implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase {
         implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase, DownloadTaskAttachmentUseCase {
 
     private final TaskCommentApplicationService delegate;
