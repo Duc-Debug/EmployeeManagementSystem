@@ -12,8 +12,11 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.leave.dto.ApproveCancelLeaveWebRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.leave.dto.ApproveLeaveWebRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.leave.dto.RejectCancelLeaveWebRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.leave.dto.RejectLeaveWebRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.leave.dto.RequestCancelLeaveWebRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.leave.dto.SubmitLeaveRequestWebRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -33,6 +36,9 @@ public class LeaveRequestController {
     private final CancelLeaveRequestUseCase cancelLeaveRequestUseCase;
     private final ApproveLeaveRequestUseCase approveLeaveRequestUseCase;
     private final RejectLeaveRequestUseCase rejectLeaveRequestUseCase;
+    private final RequestCancelApprovedLeaveUseCase requestCancelApprovedLeaveUseCase;
+    private final ApproveCancelLeaveRequestUseCase approveCancelLeaveRequestUseCase;
+    private final RejectCancelLeaveRequestUseCase rejectCancelLeaveRequestUseCase;
     private final GetLeaveImpactUseCase getLeaveImpactUseCase;
     private final GetPendingLeaveRequestsUseCase getPendingLeaveRequestsUseCase;
     private final LoadLeaveRequestPort loadLeaveRequestPort;
@@ -44,6 +50,9 @@ public class LeaveRequestController {
             CancelLeaveRequestUseCase cancelLeaveRequestUseCase,
             ApproveLeaveRequestUseCase approveLeaveRequestUseCase,
             RejectLeaveRequestUseCase rejectLeaveRequestUseCase,
+            RequestCancelApprovedLeaveUseCase requestCancelApprovedLeaveUseCase,
+            ApproveCancelLeaveRequestUseCase approveCancelLeaveRequestUseCase,
+            RejectCancelLeaveRequestUseCase rejectCancelLeaveRequestUseCase,
             GetLeaveImpactUseCase getLeaveImpactUseCase,
             GetPendingLeaveRequestsUseCase getPendingLeaveRequestsUseCase,
             LoadLeaveRequestPort loadLeaveRequestPort,
@@ -54,6 +63,9 @@ public class LeaveRequestController {
         this.cancelLeaveRequestUseCase = Objects.requireNonNull(cancelLeaveRequestUseCase, "cancelLeaveRequestUseCase must not be null");
         this.approveLeaveRequestUseCase = Objects.requireNonNull(approveLeaveRequestUseCase, "approveLeaveRequestUseCase must not be null");
         this.rejectLeaveRequestUseCase = Objects.requireNonNull(rejectLeaveRequestUseCase, "rejectLeaveRequestUseCase must not be null");
+        this.requestCancelApprovedLeaveUseCase = Objects.requireNonNull(requestCancelApprovedLeaveUseCase, "requestCancelApprovedLeaveUseCase must not be null");
+        this.approveCancelLeaveRequestUseCase = Objects.requireNonNull(approveCancelLeaveRequestUseCase, "approveCancelLeaveRequestUseCase must not be null");
+        this.rejectCancelLeaveRequestUseCase = Objects.requireNonNull(rejectCancelLeaveRequestUseCase, "rejectCancelLeaveRequestUseCase must not be null");
         this.getLeaveImpactUseCase = Objects.requireNonNull(getLeaveImpactUseCase, "getLeaveImpactUseCase must not be null");
         this.getPendingLeaveRequestsUseCase = Objects.requireNonNull(getPendingLeaveRequestsUseCase, "getPendingLeaveRequestsUseCase must not be null");
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
@@ -167,5 +179,45 @@ public class LeaveRequestController {
     ) {
         LeaveRequestResult result = rejectLeaveRequestUseCase.rejectLeaveRequest(id, request.getReason());
         return ResponseEntity.ok(ApiResponse.success("Đã từ chối đơn nghỉ phép", result));
+    }
+
+    /**
+     * NCL-05-CN-007: Nhân viên chuyên môn gửi yêu cầu hủy đơn nghỉ phép đã duyệt.
+     */
+    @PutMapping("/{id}/request-cancel")
+    @PreAuthorize("hasAuthority('LEAVE_REQUEST_CREATE')")
+    public ResponseEntity<ApiResponse<LeaveRequestResult>> requestCancelLeaveRequest(
+            @PathVariable Long id,
+            @Valid @RequestBody RequestCancelLeaveWebRequest request
+    ) {
+        LeaveRequestResult result = requestCancelApprovedLeaveUseCase.requestCancelApprovedLeave(id, request.getReason());
+        return ResponseEntity.ok(ApiResponse.success("Gửi yêu cầu hủy đơn nghỉ phép thành công. Đang chờ quản lý phê duyệt.", result));
+    }
+
+    /**
+     * NCL-05-CN-007: Quản lý nguồn lực phê duyệt yêu cầu hủy đơn nghỉ phép đã duyệt (hoàn trả giờ tuần).
+     */
+    @PutMapping("/{id}/approve-cancel")
+    @PreAuthorize("hasAuthority('LEAVE_REQUEST_APPROVE')")
+    public ResponseEntity<ApiResponse<LeaveRequestResult>> approveCancelLeaveRequest(
+            @PathVariable Long id,
+            @RequestBody(required = false) ApproveCancelLeaveWebRequest request
+    ) {
+        String comment = request != null ? request.getComment() : null;
+        LeaveRequestResult result = approveCancelLeaveRequestUseCase.approveCancelLeaveRequest(id, comment);
+        return ResponseEntity.ok(ApiResponse.success("Phê duyệt hủy đơn nghỉ phép thành công. Năng lực khả dụng đã được cộng lại.", result));
+    }
+
+    /**
+     * NCL-05-CN-007: Quản lý nguồn lực từ chối yêu cầu hủy đơn nghỉ phép đã duyệt.
+     */
+    @PutMapping("/{id}/reject-cancel")
+    @PreAuthorize("hasAuthority('LEAVE_REQUEST_APPROVE')")
+    public ResponseEntity<ApiResponse<LeaveRequestResult>> rejectCancelLeaveRequest(
+            @PathVariable Long id,
+            @Valid @RequestBody RejectCancelLeaveWebRequest request
+    ) {
+        LeaveRequestResult result = rejectCancelLeaveRequestUseCase.rejectCancelLeaveRequest(id, request.getReason());
+        return ResponseEntity.ok(ApiResponse.success("Đã từ chối yêu cầu hủy đơn nghỉ phép", result));
     }
 }
