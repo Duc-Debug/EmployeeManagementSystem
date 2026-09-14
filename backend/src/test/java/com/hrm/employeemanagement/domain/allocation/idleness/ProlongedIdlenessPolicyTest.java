@@ -106,6 +106,33 @@ class ProlongedIdlenessPolicyTest {
         assertFalse(ProlongedIdlenessPolicy.qualifiesForProlongedIdlenessAlert(list, 3));
     }
 
+    @Test
+    @DisplayName("Cải tiến — Tuần nghỉ phép trọn vẹn xen kẽ là tuần trung tính (Neutral Week), không làm đứt gãy chuỗi nhàn rỗi")
+    void qualifiesForProlongedIdlenessAlert_NeutralWeekDoesNotResetStreak() {
+        WeeklyIdlenessDetail w1 = createDetail(2026, 38, 40, 5, true, false);  // Idle
+        WeeklyIdlenessDetail w2 = createDetail(2026, 39, 40, 8, true, false);  // Idle
+        WeeklyIdlenessDetail w3 = createDetail(2026, 40, 0, 0, false, true);   // Neutral (nghỉ trọn tuần)
+        WeeklyIdlenessDetail w4 = createDetail(2026, 41, 40, 10, true, false); // Idle
+
+        List<WeeklyIdlenessDetail> list = List.of(w1, w2, w3, w4);
+
+        int maxConsecutive = ProlongedIdlenessPolicy.findMaxConsecutiveIdleWeeks(list);
+        assertEquals(3, maxConsecutive);
+        assertTrue(ProlongedIdlenessPolicy.qualifiesForProlongedIdlenessAlert(list, 3));
+    }
+
+    @Test
+    @DisplayName("Cải tiến — Tính tỷ lệ sử dụng trung bình có trọng số (Weighted Utilization)")
+    void calculateWeightedUtilization_StandardCases() {
+        // 14h / 48h = 29.2%
+        BigDecimal weighted = ProlongedIdlenessPolicy.calculateWeightedUtilization(BigDecimal.valueOf(14), BigDecimal.valueOf(48));
+        assertEquals(BigDecimal.valueOf(29.2).setScale(1, RoundingMode.HALF_UP), weighted);
+
+        // 0h available -> 0.0%
+        BigDecimal zeroAvail = ProlongedIdlenessPolicy.calculateWeightedUtilization(BigDecimal.valueOf(10), BigDecimal.ZERO);
+        assertEquals(BigDecimal.valueOf(0.0).setScale(1, RoundingMode.HALF_UP), zeroAvail);
+    }
+
     private WeeklyIdlenessDetail createDetail(
             int year,
             int week,

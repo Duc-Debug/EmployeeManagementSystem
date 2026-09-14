@@ -96,6 +96,8 @@ public class ProlongedIdlenessPolicy {
 
     /**
      * Đếm số tuần nhàn rỗi liên tiếp lớn nhất trong chuỗi các tuần (NCL-07-CN-006-TC-01).
+     * Cải tiến: Xử lý tuần trung tính (Neutral Week / Full Leave Week) - tuần nghỉ phép trọn vẹn hợp lệ
+     * không làm đứt gãy chuỗi nhàn rỗi trước đó của nhân sự.
      */
     public static int findMaxConsecutiveIdleWeeks(List<WeeklyIdlenessDetail> weeklyDetails) {
         if (weeklyDetails == null || weeklyDetails.isEmpty()) {
@@ -111,12 +113,35 @@ public class ProlongedIdlenessPolicy {
                 if (currentStreak > maxConsecutive) {
                     maxConsecutive = currentStreak;
                 }
+            } else if (detail.isFullLeaveWeek()
+                    || (detail.approvedLeaveHours() != null
+                    && detail.approvedLeaveHours().compareTo(BigDecimal.ZERO) > 0
+                    && detail.availableHours().compareTo(BigDecimal.ZERO) <= 0)) {
+                // Tuần trung tính (nghỉ phép hợp lệ cả tuần): giữ nguyên streak hiện tại, không reset
+                continue;
             } else {
                 currentStreak = 0;
             }
         }
 
         return maxConsecutive;
+    }
+
+    /**
+     * Tính tỷ lệ sử dụng trung bình có trọng số (%) trên tổng số giờ:
+     * WeightedUtilization = (TotalAllocatedHours * 100) / TotalAvailableHours
+     */
+    public static BigDecimal calculateWeightedUtilization(BigDecimal totalAllocatedHours, BigDecimal totalAvailableHours) {
+        BigDecimal safeAllocated = totalAllocatedHours != null ? totalAllocatedHours : BigDecimal.ZERO;
+        BigDecimal safeAvailable = totalAvailableHours != null ? totalAvailableHours : BigDecimal.ZERO;
+
+        if (safeAvailable.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+        }
+
+        return safeAllocated
+                .multiply(BigDecimal.valueOf(100))
+                .divide(safeAvailable, 1, RoundingMode.HALF_UP);
     }
 
     /**
