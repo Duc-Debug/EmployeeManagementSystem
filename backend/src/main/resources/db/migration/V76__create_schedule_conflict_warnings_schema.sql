@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS schedule_conflict_warnings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_conflict_employee FOREIGN KEY (employee_id) REFERENCES employees (id),
     CONSTRAINT fk_conflict_leave FOREIGN KEY (leave_request_id) REFERENCES leave_requests (id) ON DELETE SET NULL,
+    CONSTRAINT uk_conflict_emp_year_week_type UNIQUE (employee_id, year_number, week_number, conflict_type),
     INDEX idx_conflict_emp_week (employee_id, year_number, week_number),
     INDEX idx_conflict_status (status)
 );

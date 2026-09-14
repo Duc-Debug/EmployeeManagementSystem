@@ -112,6 +112,7 @@ class ScheduleConflictServiceTest {
         );
         when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
         when(loadEmployeePort.findById(new EmployeeId(10L))).thenReturn(Optional.of(emp));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp));
 
         Project p1 = new Project(new ProjectId(1L), "PROJ-A", "Dự án Alpha", 1L, new EmployeeId(1L), null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
         Project p2 = new Project(new ProjectId(2L), "PROJ-B", "Dự án Beta", 1L, new EmployeeId(1L), null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
@@ -119,6 +120,7 @@ class ScheduleConflictServiceTest {
 
         OrgUnit orgUnit = new OrgUnit(new OrgUnitId(1L), "DEV", "Phòng Lập Trình", OrgUnitType.DEPARTMENT, null, "/1", 1, OrgUnitStatus.ACTIVE, "Dev Dept", 1L, LocalDateTime.now(), LocalDateTime.now());
         when(loadOrgUnitPort.findById(new OrgUnitId(1L))).thenReturn(Optional.of(orgUnit));
+        when(loadOrgUnitPort.findAllByIdIn(any())).thenReturn(List.of(orgUnit));
 
         WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(1L, 10L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
         WeeklyProjectAllocation alloc2 = new WeeklyProjectAllocation(2L, 10L, 2L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
@@ -175,6 +177,7 @@ class ScheduleConflictServiceTest {
         );
         when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
         when(loadEmployeePort.findById(new EmployeeId(11L))).thenReturn(Optional.of(emp));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp));
 
         Project p1 = new Project(new ProjectId(1L), "PROJ-A", "Dự án Alpha", 1L, new EmployeeId(1L), null, null, null, null, ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
         when(loadProjectPort.findAllById(any())).thenReturn(List.of(p1));

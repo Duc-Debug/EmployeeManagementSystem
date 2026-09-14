@@ -63,8 +63,8 @@ export function canAccessTab(
 
         case "schedule-conflict":
         case "conflict-warning":
-            // NCL-07-CN-001: Cảnh báo xung đột lịch dành cho VT-01, VT-02 (PM), VT-03 (RM), VT-06 (Admin)
-            return ["VT-01", "VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // NCL-07-CN-001: Cảnh báo xung đột lịch dành cho VT-02 (PM), VT-03 (RM), VT-06 (Admin)
+            return ["VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "access":
         case "users":

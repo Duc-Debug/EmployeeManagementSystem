@@ -222,6 +222,17 @@ public class ScheduleConflictService implements
                 continue;
             }
 
+            // Batch load project names for all projects in allocations
+            Set<ProjectId> allProjectIds = allocations.stream()
+                    .map(WeeklyProjectAllocation::getProjectId)
+                    .filter(Objects::nonNull)
+                    .map(ProjectId::new)
+                    .collect(Collectors.toSet());
+
+            Map<Long, String> projectNameMap = allProjectIds.isEmpty() ? Collections.emptyMap() :
+                    loadProjectPort.findAllById(new ArrayList<>(allProjectIds)).stream()
+                            .collect(Collectors.toMap(p -> p.getId().value(), Project::getProjectName, (p1, p2) -> p1));
+
             List<Long> candidateList = new ArrayList<>(candidateEmpIds);
 
             // Load approved leaves for candidate employee IDs in target week
@@ -252,15 +263,21 @@ public class ScheduleConflictService implements
 
                 BigDecimal netAvailableHours = standardCapacity.subtract(approvedLeaveHours).max(BigDecimal.ZERO);
 
-                // Scenario 1: Multi-project / Overload allocation conflict (HIGH 2: only flag if total hours exceed capacity)
-                if (totalAllocatedHours.compareTo(standardCapacity) > 0 || (projectIdsSet.size() >= 2 && totalAllocatedHours.compareTo(netAvailableHours) > 0)) {
+                // Scenario 1: Multi-project / Overload allocation conflict
+                // Must require projectIdsSet.size() >= 2 for MULTI_PROJECT_ALLOCATION conflict type
+                boolean isMultiProjectConflict = projectIdsSet.size() >= 2 &&
+                        (totalAllocatedHours.compareTo(standardCapacity) > 0 || totalAllocatedHours.compareTo(netAvailableHours) > 0);
+
+                if (isMultiProjectConflict) {
                     BigDecimal excessHours = totalAllocatedHours.subtract(netAvailableHours).max(BigDecimal.ZERO);
                     if (excessHours.compareTo(BigDecimal.ZERO) == 0 && totalAllocatedHours.compareTo(standardCapacity) > 0) {
                         excessHours = totalAllocatedHours.subtract(standardCapacity).max(BigDecimal.ZERO);
                     }
 
                     String projectIdsStr = projectIdsSet.stream().map(String::valueOf).collect(Collectors.joining(","));
-                    List<String> pNames = getProjectNames(projectIdsSet);
+                    List<String> pNames = projectIdsSet.stream()
+                            .map(pId -> projectNameMap.getOrDefault(pId, "Dự án #" + pId))
+                            .collect(Collectors.toList());
                     String projectNamesStr = String.join(", ", pNames);
 
                     ScheduleConflict existing = loadConflictPort
@@ -304,7 +321,9 @@ public class ScheduleConflictService implements
                     }
 
                     String projectIdsStr = projectIdsSet.stream().map(String::valueOf).collect(Collectors.joining(","));
-                    List<String> pNames = getProjectNames(projectIdsSet);
+                    List<String> pNames = projectIdsSet.stream()
+                            .map(pId -> projectNameMap.getOrDefault(pId, "Dự án #" + pId))
+                            .collect(Collectors.toList());
                     String projectNamesStr = String.join(", ", pNames);
                     String leaveInfoStr = "Đơn nghỉ phép đã duyệt (" + approvedLeaveHours + "h)";
 
@@ -347,29 +366,45 @@ public class ScheduleConflictService implements
         return resultConflicts;
     }
 
-    private List<String> getProjectNames(Set<Long> projectIds) {
-        if (projectIds.isEmpty()) return Collections.emptyList();
-        List<ProjectId> ids = projectIds.stream().map(ProjectId::new).collect(Collectors.toList());
-        return loadProjectPort.findAllById(ids).stream()
-                .map(Project::getProjectName)
+    private List<ScheduleConflictResult> mapToResults(List<ScheduleConflict> conflicts) {
+        if (conflicts == null || conflicts.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<EmployeeId> empIds = conflicts.stream()
+                .map(c -> new EmployeeId(c.getEmployeeId()))
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, Employee> empMap = loadEmployeePort.findAllByIdIn(empIds).stream()
+                .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
+
+        List<Long> orgUnitIds = empMap.values().stream()
+                .map(Employee::getOrgUnitId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, String> orgUnitMap = orgUnitIds.isEmpty() ? Collections.emptyMap() :
+                loadOrgUnitPort.findAllByIdIn(orgUnitIds).stream()
+                        .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (u1, u2) -> u1));
+
+        return conflicts.stream()
+                .map(c -> mapToResult(c, empMap.get(c.getEmployeeId()), orgUnitMap))
                 .collect(Collectors.toList());
     }
 
-    private List<ScheduleConflictResult> mapToResults(List<ScheduleConflict> conflicts) {
-        return conflicts.stream().map(this::mapToResult).collect(Collectors.toList());
+    private ScheduleConflictResult mapToResult(ScheduleConflict conflict) {
+        return mapToResults(List.of(conflict)).get(0);
     }
 
-    private ScheduleConflictResult mapToResult(ScheduleConflict conflict) {
-        Employee emp = loadEmployeePort.findById(new EmployeeId(conflict.getEmployeeId())).orElse(null);
+    private ScheduleConflictResult mapToResult(ScheduleConflict conflict, Employee emp, Map<Long, String> orgUnitMap) {
         String empCode = emp != null ? emp.getEmployeeCode() : "NV" + conflict.getEmployeeId();
         String empName = emp != null ? emp.getFullName() : "Nhân viên #" + conflict.getEmployeeId();
 
         String deptName = "Chưa phân bổ phòng";
         if (emp != null && emp.getOrgUnitId() != null) {
-            OrgUnit orgUnit = loadOrgUnitPort.findById(new com.hrm.employeemanagement.domain.orgunit.OrgUnitId(emp.getOrgUnitId())).orElse(null);
-            if (orgUnit != null) {
-                deptName = orgUnit.getUnitName();
-            }
+            deptName = orgUnitMap.getOrDefault(emp.getOrgUnitId(), "Chưa phân bổ phòng");
         }
 
         String conflictTypeLabel = conflict.getConflictType() == ConflictType.MULTI_PROJECT_ALLOCATION
