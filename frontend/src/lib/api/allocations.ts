@@ -455,3 +455,35 @@ export async function autoConvertProjectReservations(
     }
   );
 }
+
+// NCL-07-CN-003: Thông báo phân bổ thay đổi
+export interface AllocationNotificationItemResult {
+  id: number;
+  title: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface AllocationNotificationPageResult {
+  content: AllocationNotificationItemResult[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export async function getAllocationNotifications(params?: {
+  projectId?: number;
+  page?: number;
+  size?: number;
+}): Promise<AllocationNotificationPageResult> {
+  const searchParams = new URLSearchParams();
+  if (params?.projectId != null) searchParams.append("projectId", String(params.projectId));
+  if (params?.page != null) searchParams.append("page", String(params.page));
+  if (params?.size != null) searchParams.append("size", String(params.size));
+  const queryStr = searchParams.toString();
+  return apiRequest<AllocationNotificationPageResult>(
+    `/allocations/notifications${queryStr ? `?${queryStr}` : ""}`
+  );
+}
