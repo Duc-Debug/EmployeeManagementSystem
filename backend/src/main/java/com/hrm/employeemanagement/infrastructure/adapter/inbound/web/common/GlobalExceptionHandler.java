@@ -405,6 +405,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.InvalidCommentDataException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCommentData(
+            com.hrm.employeemanagement.domain.exception.task.InvalidCommentDataException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_COMMENT_DATA", ex.getMessage(), HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.TaskCommentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTaskCommentNotFound(
+            com.hrm.employeemanagement.domain.exception.task.TaskCommentNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TASK_COMMENT_NOT_FOUND", ex.getMessage(), HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     // 14.6. Handle IllegalStateException (Invalid state transitions, e.g. approving already approved leave)
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
