@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.transaction.conflict;
 
-import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hrm.employeemanagement.application.dto.conflict.ConfirmReplacementProposalCommand;
@@ -10,8 +11,8 @@ import com.hrm.employeemanagement.application.port.inbound.conflict.ConfirmRepla
 import com.hrm.employeemanagement.application.port.inbound.conflict.GetReplacementSuggestionsUseCase;
 import com.hrm.employeemanagement.application.service.conflict.ScheduleConflictReplacementService;
 
-@Service
-@Transactional
+@Component
+@Primary
 public class TransactionalScheduleConflictReplacementService implements GetReplacementSuggestionsUseCase, ConfirmReplacementProposalUseCase {
 
     private final ScheduleConflictReplacementService delegate;
@@ -27,6 +28,7 @@ public class TransactionalScheduleConflictReplacementService implements GetRepla
     }
 
     @Override
+    @Transactional
     public ReplacementProposalResult confirmReplacementProposal(ConfirmReplacementProposalCommand command) {
         return delegate.confirmReplacementProposal(command);
     }
