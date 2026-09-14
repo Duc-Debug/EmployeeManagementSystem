@@ -104,7 +104,7 @@ public class TaskCommentController {
                                 file.getSize(),
                                 file.getContentType()));
                     } catch (Exception e) {
-                        deleteUploadedFilesQuietly(uploadedFiles);
+                        deleteUploadedFilesWithRetry(uploadedFiles);
                         throw new RuntimeException("Không thể tải lên file: " + file.getOriginalFilename(), e);
                     }
                 }
@@ -123,7 +123,7 @@ public class TaskCommentController {
         try {
             result = createTaskCommentUseCase.execute(command);
         } catch (RuntimeException exception) {
-            deleteUploadedFilesQuietly(uploadedFiles);
+            deleteUploadedFilesWithRetry(uploadedFiles);
             throw exception;
         }
         return ResponseEntity.ok(ApiResponse.success("Đăng ghi chú trao đổi thành công", result));
@@ -162,12 +162,29 @@ public class TaskCommentController {
                 .body(new InputStreamResource(result.contentStream()));
     }
 
-    private void deleteUploadedFilesQuietly(List<UploadedAttachmentDto> uploadedFiles) {
+    private void deleteUploadedFilesWithRetry(List<UploadedAttachmentDto> uploadedFiles) {
         for (UploadedAttachmentDto uploaded : uploadedFiles) {
+            deleteWithRetry(uploaded.storedFilePath(), 3, 100);
+        }
+    }
+
+    private void deleteWithRetry(String filePath, int maxRetries, long backoffMs) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                taskAttachmentStoragePort.deleteFile(uploaded.storedFilePath());
+                taskAttachmentStoragePort.deleteFile(filePath);
+                return;
             } catch (RuntimeException e) {
-                log.warn("Không thể xóa file rác sau khi thao tác thất bại: {}", uploaded.storedFilePath(), e);
+                if (attempt == maxRetries) {
+                    log.warn("Không thể xóa file rác sau {} lần thử: {}. File sẽ được dọn dẹp bởi scheduled orphan cleanup job.",
+                            maxRetries, filePath, e);
+                } else {
+                    try {
+                        Thread.sleep(backoffMs * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
             }
         }
     }

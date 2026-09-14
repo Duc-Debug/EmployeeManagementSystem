@@ -83,7 +83,7 @@ class TaskCommentApplicationServiceTest {
         Task task = mock(Task.class);
         when(task.getName()).thenReturn("Project Task 1");
         when(task.getId()).thenReturn(TaskId.of(100L));
-        when(accessService.requireAccess(100L, PermissionCode.TASK_DISCUSSION_CREATE)).thenReturn(task);
+        when(accessService.requireCreateAccess(100L, 1L)).thenReturn(task);
 
         User author = mock(User.class);
         when(author.getId()).thenReturn(new UserId(1L));

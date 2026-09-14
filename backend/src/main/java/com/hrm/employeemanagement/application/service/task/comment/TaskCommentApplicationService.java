@@ -86,7 +86,7 @@ public class TaskCommentApplicationService
     public TaskCommentResult execute(CreateTaskCommentCommand command) {
         Objects.requireNonNull(command, "Command không được null");
         TaskId taskId = TaskId.of(command.taskId());
-        Task task = accessService.requireAccess(command.taskId(), PermissionCode.TASK_DISCUSSION_CREATE);
+        Task task = accessService.requireCreateAccess(command.taskId(), command.authorId());
 
         UserId authorId = new UserId(command.authorId());
         User author = loadUserPort.findById(authorId)

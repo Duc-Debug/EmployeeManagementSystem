@@ -30,5 +30,13 @@ public class TaskAttachmentRepositoryAdapter implements LoadTaskAttachmentPort {
         }
         return attachmentRepository.findById(id.value()).map(mapper::toDomain);
     }
+
+    @Override
+    public boolean existsByFilePath(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return false;
+        }
+        return attachmentRepository.existsByFilePath(filePath);
+    }
 }
 

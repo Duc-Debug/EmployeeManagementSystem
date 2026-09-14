@@ -38,11 +38,13 @@ public class TaskCommentJpaEntity {
     private String content;
 
     @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<TaskAttachmentJpaEntity> attachments = new ArrayList<>();
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "task_comment_mentions", joinColumns = @JoinColumn(name = "comment_id"))
     @Column(name = "mentioned_user_id")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<Long> mentionedUserIds = new HashSet<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)

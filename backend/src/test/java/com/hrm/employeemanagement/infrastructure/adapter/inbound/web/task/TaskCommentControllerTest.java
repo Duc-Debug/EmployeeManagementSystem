@@ -121,6 +121,49 @@ class TaskCommentControllerTest {
     }
 
     @Test
+    void createComment_WhenDbFailsAndStorageDeleteFailsInitially_RetriesDeletion() throws Exception {
+        MockMultipartFile file1 = new MockMultipartFile("files", "file1.txt", "text/plain", "data1".getBytes());
+
+        when(taskAttachmentStoragePort.storeFile(eq(100L), eq("file1.txt"), any(InputStream.class), eq(5L)))
+                .thenReturn("uploads/tasks/100/file1.txt");
+
+        when(createTaskCommentUseCase.execute(any(CreateTaskCommentCommand.class)))
+                .thenThrow(new RuntimeException("Database error saving comment"));
+
+        org.mockito.Mockito.doThrow(new RuntimeException("Temporary IO lock"))
+                .doNothing()
+                .when(taskAttachmentStoragePort).deleteFile("uploads/tasks/100/file1.txt");
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                controller.createComment(100L, "Attachment comment", null, List.of(file1)));
+
+        assertEquals("Database error saving comment", exception.getMessage());
+        org.mockito.Mockito.verify(taskAttachmentStoragePort, org.mockito.Mockito.times(2))
+                .deleteFile("uploads/tasks/100/file1.txt");
+    }
+
+    @Test
+    void createComment_WhenDbFailsAndStorageDeleteFailsAllRetries_StillThrowsDbException() throws Exception {
+        MockMultipartFile file1 = new MockMultipartFile("files", "file1.txt", "text/plain", "data1".getBytes());
+
+        when(taskAttachmentStoragePort.storeFile(eq(100L), eq("file1.txt"), any(InputStream.class), eq(5L)))
+                .thenReturn("uploads/tasks/100/file1.txt");
+
+        when(createTaskCommentUseCase.execute(any(CreateTaskCommentCommand.class)))
+                .thenThrow(new RuntimeException("Database error saving comment"));
+
+        org.mockito.Mockito.doThrow(new RuntimeException("Permanent disk failure"))
+                .when(taskAttachmentStoragePort).deleteFile("uploads/tasks/100/file1.txt");
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                controller.createComment(100L, "Attachment comment", null, List.of(file1)));
+
+        assertEquals("Database error saving comment", exception.getMessage());
+        org.mockito.Mockito.verify(taskAttachmentStoragePort, org.mockito.Mockito.times(3))
+                .deleteFile("uploads/tasks/100/file1.txt");
+    }
+
+    @Test
     void deleteComment_Success() {
         ResponseEntity<ApiResponse<Void>> response = controller.deleteComment(100L, 1L);
 

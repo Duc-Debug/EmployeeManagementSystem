@@ -39,6 +39,10 @@ public class TaskDiscussionAccessService {
 
     public Task requireAccess(Long taskId, PermissionCode permission) {
         Long currentUserId = authorizationService.require(permission);
+        return requireAccessInternal(taskId, permission, currentUserId);
+    }
+
+    private Task requireAccessInternal(Long taskId, PermissionCode permission, Long currentUserId) {
         Task task = loadTaskPort.findById(TaskId.of(taskId))
                 .orElseThrow(() -> new TaskNotFoundException(taskId));
         Project project = loadProjectPort.findById(new ProjectId(task.getProjectId().value()))
@@ -49,6 +53,14 @@ public class TaskDiscussionAccessService {
             throw new PermissionDeniedException(permission);
         }
         return task;
+    }
+
+    public Task requireCreateAccess(Long taskId, Long authorId) {
+        Long currentUserId = authorizationService.require(PermissionCode.TASK_DISCUSSION_CREATE);
+        if (authorId != null && !Objects.equals(authorId, currentUserId)) {
+            throw new PermissionDeniedException(PermissionCode.TASK_DISCUSSION_CREATE);
+        }
+        return requireAccessInternal(taskId, PermissionCode.TASK_DISCUSSION_CREATE, currentUserId);
     }
 
     public Task requireDeleteAccess(Long taskId, Long authorId, Long requestingUserId) {

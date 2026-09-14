@@ -65,17 +65,30 @@ public class TransactionalTaskCommentServiceDecorator
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    filePaths.forEach(TransactionalTaskCommentServiceDecorator.this::deleteQuietly);
+                    filePaths.forEach(TransactionalTaskCommentServiceDecorator.this::deleteWithRetry);
                 }
             });
         }
     }
 
-    private void deleteQuietly(String filePath) {
-        try {
-            storagePort.deleteFile(filePath);
-        } catch (RuntimeException ignored) {
-            // The database transaction is already committed; cleanup may be retried separately.
+    private void deleteWithRetry(String filePath) {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                storagePort.deleteFile(filePath);
+                return;
+            } catch (RuntimeException e) {
+                if (attempt == 3) {
+                    org.slf4j.LoggerFactory.getLogger(TransactionalTaskCommentServiceDecorator.class)
+                            .warn("Không thể xóa file attachment sau khi xóa comment (đã thử 3 lần): {}. File sẽ được dọn dẹp bởi scheduled orphan cleanup job.", filePath, e);
+                } else {
+                    try {
+                        Thread.sleep(100L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
         }
     }
 }

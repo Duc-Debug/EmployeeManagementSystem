@@ -152,5 +152,21 @@ class TaskDiscussionAccessServiceTest {
 
         org.junit.jupiter.api.Assertions.assertFalse(service.canUserAccess(otherUser, task));
     }
+
+    @Test
+    void requireCreateAccess_WhenAuthorMatchesCurrentUserId_Succeeds() {
+        when(user.getDataScope()).thenReturn(DataScope.COMPANY);
+
+        Task result = service.requireCreateAccess(10L, 7L);
+
+        assertSame(task, result);
+        verify(authorization).require(PermissionCode.TASK_DISCUSSION_CREATE);
+    }
+
+    @Test
+    void requireCreateAccess_WhenAuthorDiffersFromCurrentUserId_ThrowsPermissionDeniedException() {
+        assertThrows(PermissionDeniedException.class,
+                () -> service.requireCreateAccess(10L, 99L));
+    }
 }
 

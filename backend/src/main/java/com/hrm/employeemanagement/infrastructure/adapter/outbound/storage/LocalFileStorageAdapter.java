@@ -7,7 +7,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -64,7 +68,30 @@ public class LocalFileStorageAdapter implements TaskAttachmentStoragePort {
         try {
             Path path = resolveStoredPath(filePath);
             Files.deleteIfExists(path);
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể xóa file lưu trữ: " + filePath, e);
+        }
+    }
+
+    @Override
+    public List<String> listFilesOlderThan(Instant threshold) {
+        if (!Files.exists(baseStorageLocation)) {
+            return Collections.emptyList();
+        }
+        try (Stream<Path> stream = Files.walk(baseStorageLocation)) {
+            return stream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> {
+                        try {
+                            return Files.getLastModifiedTime(path).toInstant().isBefore(threshold);
+                        } catch (IOException e) {
+                            return false;
+                        }
+                    })
+                    .map(Path::toString)
+                    .toList();
+        } catch (IOException e) {
+            throw new RuntimeException("Lỗi khi quét thư mục lưu trữ tệp đính kèm: " + e.getMessage(), e);
         }
     }
 
@@ -94,4 +121,3 @@ public class LocalFileStorageAdapter implements TaskAttachmentStoragePort {
         }
     }
 }
-

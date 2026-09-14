@@ -7,5 +7,7 @@ import com.hrm.employeemanagement.domain.task.comment.TaskAttachmentId;
 
 public interface LoadTaskAttachmentPort {
     Optional<TaskAttachment> findById(TaskAttachmentId id);
+
+    boolean existsByFilePath(String filePath);
 }
 

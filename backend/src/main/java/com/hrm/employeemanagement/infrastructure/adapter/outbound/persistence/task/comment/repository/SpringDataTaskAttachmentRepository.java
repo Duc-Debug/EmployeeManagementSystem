@@ -13,5 +13,7 @@ public interface SpringDataTaskAttachmentRepository extends JpaRepository<TaskAt
     List<TaskAttachmentJpaEntity> findByTaskIdOrderByUploadedAtDesc(Long taskId);
 
     List<TaskAttachmentJpaEntity> findByCommentId(Long commentId);
+    
+    boolean existsByFilePath(String filePath);
 }
 

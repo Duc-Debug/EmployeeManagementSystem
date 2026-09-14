@@ -16,7 +16,6 @@ public interface SpringDataTaskCommentRepository extends JpaRepository<TaskComme
     @EntityGraph(attributePaths = { "attachments", "mentionedUserIds" })
     Optional<TaskCommentJpaEntity> findById(Long id);
 
-    @EntityGraph(attributePaths = { "attachments", "mentionedUserIds" })
     List<TaskCommentJpaEntity> findByTaskIdOrderByCreatedAtAsc(Long taskId);
 
     void deleteByTaskId(Long taskId);
