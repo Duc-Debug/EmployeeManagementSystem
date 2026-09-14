@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -25,7 +27,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hrm.employeemanagement.application.dto.allocation.BulkAllocateResourceCommand;
 import com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult;
+import com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
@@ -34,6 +38,8 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.AdjustmentAction;
+import com.hrm.employeemanagement.domain.allocation.AllocationChangeLog;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -83,6 +89,12 @@ class BulkResourceAllocationServiceTest {
     private LoadOrgUnitPort loadOrgUnitPort;
 
     @Mock
+    private SaveAllocationChangeLogPort saveChangeLogPort;
+
+    @Mock
+    private AllocationNotificationPort notificationPort;
+
+    @Mock
     private Project projectMock;
 
     @Mock
@@ -105,8 +117,23 @@ class BulkResourceAllocationServiceTest {
                 loadAllocationPort,
                 saveAuditLogPort,
                 loadUserPort,
-                loadOrgUnitPort
+                loadOrgUnitPort,
+                saveChangeLogPort,
+                notificationPort
         );
+
+        org.mockito.Mockito.lenient().when(saveAllocationPort.save(any())).thenAnswer(invocation -> {
+            WeeklyProjectAllocation a = invocation.getArgument(0);
+            return new WeeklyProjectAllocation(
+                    a.getId() != null ? a.getId() : 1000L,
+                    a.getEmployeeId(),
+                    a.getProjectId(),
+                    a.getYearWeek(),
+                    a.getAllocatedHours(),
+                    a.getAllocationPercentage(),
+                    0L
+            );
+        });
     }
 
     private Employee createMockEmployee(EmployeeStatus status, LocalDate contractEndDate) {
@@ -454,5 +481,165 @@ class BulkResourceAllocationServiceTest {
         );
 
         assertTrue(ex.getMessage().contains("Không được cung cấp đồng thời"));
+    }
+
+    @Test
+    @DisplayName("Verify allocation is saved exactly once per week (no duplicate save calls)")
+    void shouldPersistEachAllocationExactlyOnce() {
+        mockAuthAndUser();
+        Employee employee = createMockEmployee(EmployeeStatus.ACTIVE, null);
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of());
+
+        BulkAllocateResourceCommand command = new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 2,
+                BigDecimal.valueOf(10), null
+        );
+
+        BulkAllocationResult result = service.bulkAllocateResource(command);
+
+        assertEquals(2, result.successCount());
+        // 2 tuần thành công -> saveAllocationPort.save phải được gọi chính xác 2 lần (1 lần/tuần), không được trùng lặp
+        verify(saveAllocationPort, times(2)).save(any(WeeklyProjectAllocation.class));
+    }
+
+    @Test
+    @DisplayName("NCL-07-CN-003 / Review HIGH: Bulk update phân bổ đã có ghi đúng AdjustmentAction.EDIT_HOURS và gửi thông báo EDIT_HOURS")
+    void shouldRecordEditHoursChangeLogAndNotificationWhenUpdatingExistingAllocation() {
+        // Given
+        mockAuthAndUser();
+        when(currentUserMock.getUsername()).thenReturn("rm_manager");
+        when(currentUserMock.getId()).thenReturn(new UserId(currentUserId));
+
+        Employee employee = createMockEmployee(EmployeeStatus.ACTIVE, null);
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+        when(projectMock.getIdValue()).thenReturn(projectId);
+        when(projectMock.getProjectName()).thenReturn("Dự án HR");
+
+        YearWeek yw1 = YearWeek.of(2026, 1);
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(
+                employeeId, projectId, yw1, BigDecimal.valueOf(20)
+        );
+
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of(existingAlloc));
+
+        BulkAllocateResourceCommand command = new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 1, BigDecimal.valueOf(30)
+        );
+
+        // When
+        BulkAllocationResult result = service.bulkAllocateResource(command);
+
+        // Then
+        assertEquals(1, result.successCount());
+        assertEquals(0, result.blockedCount());
+
+        // Verify Change Log: Phải là EDIT_HOURS, không phải ADD
+        verify(saveChangeLogPort).save(argThat(log ->
+                log.getAction() == AdjustmentAction.EDIT_HOURS
+                        && log.getOldValue().contains("20")
+                        && log.getNewValue().contains("30")
+                        && log.getChangedBy().equals(currentUserId)
+        ));
+
+        // Verify Notification: Phải gửi thông báo thay đổi phân bổ
+        verify(notificationPort).notifyAllocationChanged(
+                eq(projectId),
+                eq(employeeId),
+                eq(currentUserId),
+                argThat(title -> title != null && title.contains("Dự án HR")),
+                argThat(content -> content != null && content.contains("30h/tuần") && content.contains("Dự án HR"))
+        );
+    }
+
+    @Test
+    @DisplayName("NCL-07-CN-003 / Review HIGH: Bulk allocate gồm cả tuần mới và tuần đã có ghi nhận riêng biệt ADD và EDIT_HOURS")
+    void shouldRecordBothAddAndEditHoursWhenBulkAllocatingMixOfNewAndExistingWeeks() {
+        // Given
+        mockAuthAndUser();
+        when(currentUserMock.getUsername()).thenReturn("rm_manager");
+        when(currentUserMock.getId()).thenReturn(new UserId(currentUserId));
+
+        Employee employee = createMockEmployee(EmployeeStatus.ACTIVE, null);
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+        when(projectMock.getIdValue()).thenReturn(projectId);
+        when(projectMock.getProjectName()).thenReturn("Dự án HR");
+
+        YearWeek yw1 = YearWeek.of(2026, 1);
+        WeeklyProjectAllocation existingAllocWeek1 = WeeklyProjectAllocation.createNew(
+                employeeId, projectId, yw1, BigDecimal.valueOf(15)
+        );
+
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any()))
+                .thenReturn(List.of(existingAllocWeek1));
+
+        BulkAllocateResourceCommand command = new BulkAllocateResourceCommand(
+                employeeId, projectId, 2026, 1, 2026, 2, BigDecimal.valueOf(25)
+        );
+
+        // When
+        BulkAllocationResult result = service.bulkAllocateResource(command);
+
+        // Then
+        assertEquals(2, result.successCount());
+        assertEquals(0, result.blockedCount());
+
+        // Tuần 1: EDIT_HOURS (15 -> 25)
+        verify(saveChangeLogPort).save(argThat(log ->
+                log.getAction() == AdjustmentAction.EDIT_HOURS
+                        && log.getOldValue().contains("15")
+                        && log.getNewValue().contains("25")
+        ));
+
+        // Tuần 2: ADD ((Chưa phân bổ) -> 25)
+        verify(saveChangeLogPort).save(argThat(log ->
+                log.getAction() == AdjustmentAction.ADD
+                        && "(Chưa phân bổ)".equals(log.getOldValue())
+                        && log.getNewValue().contains("25")
+        ));
+
+        // Notifications: 1 thông báo cho EDIT_HOURS (Tuần 1) và 1 thông báo cho ADD (Tuần 2)
+        verify(notificationPort, times(2)).notifyAllocationChanged(
+                eq(projectId),
+                eq(employeeId),
+                eq(currentUserId),
+                argThat(title -> title != null && title.contains("Dự án HR")),
+                any()
+        );
+
+        verify(notificationPort).notifyAllocationChanged(
+                eq(projectId),
+                eq(employeeId),
+                eq(currentUserId),
+                any(),
+                argThat(content -> content != null && content.contains("1/2026") && content.contains("Phân bổ cũ"))
+        );
+
+        verify(notificationPort).notifyAllocationChanged(
+                eq(projectId),
+                eq(employeeId),
+                eq(currentUserId),
+                any(),
+                argThat(content -> content != null && content.contains("2/2026") && !content.contains("Phân bổ cũ"))
+        );
     }
 }
