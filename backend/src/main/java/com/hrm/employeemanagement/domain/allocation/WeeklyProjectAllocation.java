@@ -22,31 +22,39 @@ public class WeeklyProjectAllocation {
     private String overloadReason;
     private Long overloadApprovedBy;
     private java.time.LocalDateTime overloadApprovedAt;
+    private String varianceNote;
+    private Long updatedBy;
     private Long version;
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, 0L);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, null, null, 0L);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, version);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, version);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, version);
+        this(id, employeeId, projectId, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, String varianceNote, Long updatedBy, Long version) {
         this.id = id;
         this.employeeId = Objects.requireNonNull(employeeId, "ID nhân sự không được null");
         this.projectId = Objects.requireNonNull(projectId, "ID dự án không được null");
@@ -57,6 +65,8 @@ public class WeeklyProjectAllocation {
         this.overloadReason = overloadReason;
         this.overloadApprovedBy = overloadApprovedBy;
         this.overloadApprovedAt = overloadApprovedAt;
+        this.varianceNote = varianceNote;
+        this.updatedBy = updatedBy;
         this.version = version != null ? version : 0L;
     }
 
@@ -189,5 +199,31 @@ public class WeeklyProjectAllocation {
 
     public java.time.LocalDateTime getOverloadApprovedAt() {
         return overloadApprovedAt;
+    }
+
+    public void noteVariance(String reason, Long userId) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Lý do chênh lệch không được để trống");
+        }
+        this.varianceNote = reason.trim();
+        this.updatedBy = userId;
+    }
+
+    public void moveWeek(YearWeek newWeek, Long userId) {
+        this.yearWeek = Objects.requireNonNull(newWeek, "Tuần mới không được null");
+        this.updatedBy = userId;
+    }
+
+    public void updateAllocation(BigDecimal newAllocatedHours, BigDecimal newPercentage, Long userId) {
+        updateAllocation(newAllocatedHours, newPercentage);
+        this.updatedBy = userId;
+    }
+
+    public String getVarianceNote() {
+        return varianceNote;
+    }
+
+    public Long getUpdatedBy() {
+        return updatedBy;
     }
 }
