@@ -44,6 +44,7 @@ import {
     Lock,
     Unlock,
     Flag,
+    Kanban,
     Edit3,
     MoreHorizontal,
 } from 'lucide-react';
@@ -87,6 +88,7 @@ import {
 import { ProjectCloseModal } from './ProjectCloseModal';
 import { ProjectReopenModal } from './ProjectReopenModal';
 import { MilestoneListView } from './milestone/MilestoneListView';
+import TaskBoardView from '../task/TaskBoardView';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
@@ -268,7 +270,7 @@ export default function ProjectView() {
     const canManageAllocations = isRm;
     const canManageProject = isPm;
     const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones'>(() => {
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones' | 'board'>(() => {
         return canReadAllocations ? 'split' : 'wbs';
     });
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
@@ -1466,10 +1468,22 @@ export default function ProjectView() {
                             </span>
                         )}
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('board')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                            viewMode === 'board'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <Kanban className="h-3.5 w-3.5" />
+                        <span>Bảng Kanban</span>
+                    </button>
                 </div>
 
-                {/* Filters (Ẩn khi ở tab Mốc tiến độ hoặc Ước lượng nhu cầu) */}
-                {viewMode !== 'milestones' && viewMode !== 'demand' && (
+                {/* Filters (Ẩn khi ở tab Mốc tiến độ, Ước lượng nhu cầu hoặc Bảng Kanban) */}
+                {viewMode !== 'milestones' && viewMode !== 'demand' && viewMode !== 'board' && (
                     <div className="flex w-full flex-wrap items-center justify-end gap-2 xl:w-auto shrink-0">
                         {/* Search */}
                         <div className="relative flex-1 sm:w-56">
@@ -1592,6 +1606,15 @@ export default function ProjectView() {
                                 <p className="text-xs text-slate-400 mt-1">Vui lòng chọn một dự án ở thanh phía trên để xem và quản lý các mốc tiến độ.</p>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Section 5: Task Board / Kanban (NCL-04-CN-006) */}
+                {viewMode === 'board' && (
+                    <div className="lg:col-span-12">
+                        <TaskBoardView
+                            defaultProjectId={selectedProjectId ? selectedProjectId : undefined}
+                        />
                     </div>
                 )}
             </div>
