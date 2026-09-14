@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.hrm.employeemanagement.application.dto.task.TaskBoardAssigneeResult;
+import com.hrm.employeemanagement.domain.task.TaskBudgetBurnStatus;
 import com.hrm.employeemanagement.domain.task.TaskStatus;
 
 /**
@@ -24,6 +25,8 @@ public record TaskTrackingItemResult(
         BigDecimal budgetHours,
         BigDecimal actualHours,
         BigDecimal burnedPercentage,
+        boolean isOverBudget,
+        TaskBudgetBurnStatus budgetBurnStatus,
         boolean isOverdue,
         long overdueDays,
         int sortOrder

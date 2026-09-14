@@ -192,7 +192,7 @@ class GetProjectTaskTrackingServiceTest {
         ));
         when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(dev));
 
-        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null);
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, null);
         ProjectTaskTrackingResult result = service.getTaskTracking(query);
 
         assertNotNull(result);
@@ -241,7 +241,7 @@ class GetProjectTaskTrackingServiceTest {
         when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(normalTask, overdueTask));
         when(loadTaskAssignmentPort.findByTaskIdIn(any())).thenReturn(Collections.emptyList());
 
-        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null);
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, null);
         ProjectTaskTrackingResult result = service.getTaskTracking(query);
 
         assertEquals(2, result.totalTasks());
@@ -271,7 +271,7 @@ class GetProjectTaskTrackingServiceTest {
 
         when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(Collections.emptyList());
 
-        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null);
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, null);
         ProjectTaskTrackingResult result = service.getTaskTracking(query);
 
         assertEquals(0, result.totalTasks());
@@ -316,7 +316,7 @@ class GetProjectTaskTrackingServiceTest {
         when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
         when(loadProjectPort.existsMember(PROJECT_ID, otherEmployeeId)).thenReturn(false);
 
-        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null);
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, null);
 
         assertThrows(PermissionDeniedException.class, () -> service.getTaskTracking(query));
         verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
@@ -348,7 +348,7 @@ class GetProjectTaskTrackingServiceTest {
 
         when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(closedProject));
 
-        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null);
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, null);
 
         assertThrows(ProjectClosedException.class, () -> service.getTaskTracking(query));
     }
@@ -382,7 +382,7 @@ class GetProjectTaskTrackingServiceTest {
         ));
 
         // Lọc theo employeeId = 101L và status = IN_PROGRESS
-        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, 101L, TaskStatus.IN_PROGRESS, null);
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, 101L, TaskStatus.IN_PROGRESS, null, null);
         ProjectTaskTrackingResult result = service.getTaskTracking(query);
 
         assertEquals(1, result.totalTasks());
@@ -390,9 +390,120 @@ class GetProjectTaskTrackingServiceTest {
     }
 
     @Test
+    @DisplayName("Cải tiến 3: Tra cứu Hạng mục tổ tiên khi công việc lồng dưới công việc cha (Ancestor Category Resolution)")
+    void shouldResolveAncestorCategoryWhenTaskIsNestedUnderAnotherTask() {
+        when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(PM_USER_ID);
+        when(loadUserPort.findById(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmUser));
+        when(loadEmployeePort.findByUserId(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmEmployee));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
+
+        // Cấp 1: Hạng mục cha
+        Task rootCategory = new Task(
+                new TaskId(100L), new ProjectId(PROJECT_ID), null, "CAT-01", "Giai đoạn Backend",
+                "Mô tả", TaskType.CATEGORY, null, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                TaskStatus.IN_PROGRESS, 1, LocalDate.now(), LocalDate.now().plusDays(30),
+                LocalDate.now(), LocalDate.now().plusDays(30), null, 0, new UserId(1L), LocalDateTime.now(), null, 0L
+        );
+
+        // Cấp 2: Công việc cha (TASK) thuộc Hạng mục
+        Task parentTask = new Task(
+                new TaskId(101L), new ProjectId(PROJECT_ID), new TaskId(100L), "TSK-PARENT", "Xây dựng Module API",
+                "Mô tả", TaskType.TASK, null, BigDecimal.valueOf(50), BigDecimal.ZERO, BigDecimal.valueOf(50),
+                TaskStatus.IN_PROGRESS, 2, LocalDate.now(), LocalDate.now().plusDays(15),
+                LocalDate.now(), LocalDate.now().plusDays(15), null, 0, new UserId(1L), LocalDateTime.now(), null, 0L
+        );
+
+        // Cấp 3: Công việc con (TASK) thuộc Công việc cha
+        Task subTask = new Task(
+                new TaskId(102L), new ProjectId(PROJECT_ID), new TaskId(101L), "TSK-CHILD", "Viết API Controller",
+                "Mô tả", TaskType.TASK, null, BigDecimal.valueOf(20), BigDecimal.ZERO, BigDecimal.valueOf(20),
+                TaskStatus.IN_PROGRESS, 3, LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDate.now(), LocalDate.now().plusDays(5), null, 0, new UserId(1L), LocalDateTime.now(), null, 0L
+        );
+
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(rootCategory, parentTask, subTask));
+        when(loadTaskAssignmentPort.findByTaskIdIn(any())).thenReturn(Collections.emptyList());
+
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, null);
+        ProjectTaskTrackingResult result = service.getTaskTracking(query);
+
+        assertEquals(2, result.totalTasks());
+
+        // Công việc con (subTask) duyệt ngược lên tìm được đúng Hạng mục "Giai đoạn Backend"
+        TaskTrackingItemResult childItem = result.tasks().stream()
+                .filter(t -> t.taskId().equals(102L))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(100L, childItem.categoryId());
+        assertEquals("Giai đoạn Backend", childItem.categoryName());
+    }
+
+    @Test
+    @DisplayName("Cải tiến 2 & QTN-06: Đánh dấu isOverBudget = true khi giờ thực tế vượt ngân sách")
+    void shouldFlagOverBudgetWhenActualHoursExceedBudgetHours() {
+        when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(PM_USER_ID);
+        when(loadUserPort.findById(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmUser));
+        when(loadEmployeePort.findByUserId(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmEmployee));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
+
+        // Công việc có ngân sách 20h, thực tế 25h -> Vượt ngân sách
+        Task overBudgetTask = new Task(
+                new TaskId(55L), new ProjectId(PROJECT_ID), null, "TSK-55", "Tối ưu hóa Database",
+                "Mô tả", TaskType.TASK, null, BigDecimal.valueOf(20), BigDecimal.valueOf(25), BigDecimal.valueOf(20),
+                TaskStatus.IN_PROGRESS, 1, LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDate.now(), LocalDate.now().plusDays(5), null, 0, new UserId(1L), LocalDateTime.now(), null, 0L
+        );
+
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(overBudgetTask));
+        when(loadTaskAssignmentPort.findByTaskIdIn(any())).thenReturn(Collections.emptyList());
+
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, null);
+        ProjectTaskTrackingResult result = service.getTaskTracking(query);
+
+        assertEquals(1, result.totalTasks());
+        TaskTrackingItemResult item = result.tasks().get(0);
+        assertTrue(item.isOverBudget());
+        assertEquals(com.hrm.employeemanagement.domain.task.TaskBudgetBurnStatus.OVER_BUDGET, item.budgetBurnStatus());
+        assertEquals(new BigDecimal("125.00"), item.burnedPercentage());
+    }
+
+    @Test
+    @DisplayName("Cải tiến 4: Bộ lọc tìm kiếm nhanh theo từ khóa (keyword) trên taskCode và taskName")
+    void shouldFilterTasksByKeywordOnTaskCodeAndName() {
+        when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(PM_USER_ID);
+        when(loadUserPort.findById(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmUser));
+        when(loadEmployeePort.findByUserId(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmEmployee));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
+
+        Task task1 = new Task(
+                new TaskId(1L), new ProjectId(PROJECT_ID), null, "TSK-LOGIN", "Xây dựng chức năng Login",
+                "Mô tả", TaskType.TASK, null, BigDecimal.valueOf(10), BigDecimal.ZERO, BigDecimal.valueOf(10),
+                TaskStatus.IN_PROGRESS, 1, LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDate.now(), LocalDate.now().plusDays(5), null, 0, new UserId(1L), LocalDateTime.now(), null, 0L
+        );
+
+        Task task2 = new Task(
+                new TaskId(2L), new ProjectId(PROJECT_ID), null, "TSK-REPORT", "Tạo Báo cáo Doanh thu",
+                "Mô tả", TaskType.TASK, null, BigDecimal.valueOf(10), BigDecimal.ZERO, BigDecimal.valueOf(10),
+                TaskStatus.TODO, 2, LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDate.now(), LocalDate.now().plusDays(5), null, 0, new UserId(1L), LocalDateTime.now(), null, 0L
+        );
+
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(task1, task2));
+        when(loadTaskAssignmentPort.findByTaskIdIn(any())).thenReturn(Collections.emptyList());
+
+        // Tìm từ khóa "login" (không phân biệt hoa thường)
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, "login");
+        ProjectTaskTrackingResult result = service.getTaskTracking(query);
+
+        assertEquals(1, result.totalTasks());
+        assertEquals("TSK-LOGIN", result.tasks().get(0).taskCode());
+    }
+
+    @Test
     @DisplayName("Ngoại lệ: Ném InvalidTaskDataException khi query hoặc projectId bị null")
     void shouldThrowWhenQueryOrProjectIdIsNull() {
         assertThrows(InvalidTaskDataException.class, () -> service.getTaskTracking(null));
-        assertThrows(InvalidTaskDataException.class, () -> service.getTaskTracking(new TaskTrackingQuery(null, null, null, null)));
+        assertThrows(InvalidTaskDataException.class, () -> service.getTaskTracking(new TaskTrackingQuery(null, null, null, null, null)));
     }
 }

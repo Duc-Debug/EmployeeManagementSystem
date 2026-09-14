@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.task.GetProjectTaskTrackingService;
+import com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalGetProjectTaskTrackingUseCase;
 
 @Configuration
 public class TaskTrackingUseCaseConfig {
@@ -25,7 +26,7 @@ public class TaskTrackingUseCaseConfig {
             LoadUserPort loadUserPort,
             AuthorizationService authorizationService,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort) {
-        return new GetProjectTaskTrackingService(
+        GetProjectTaskTrackingService pureService = new GetProjectTaskTrackingService(
                 loadProjectPort,
                 loadTaskPort,
                 loadTaskAssignmentPort,
@@ -34,5 +35,6 @@ public class TaskTrackingUseCaseConfig {
                 authorizationService,
                 saveDeniedAuditLogPort
         );
+        return new TransactionalGetProjectTaskTrackingUseCase(pureService);
     }
 }

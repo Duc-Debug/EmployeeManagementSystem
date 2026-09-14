@@ -57,6 +57,7 @@ class ProjectTaskTrackingControllerTest {
                 Collections.emptyList(), TaskStatus.IN_PROGRESS,
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30),
                 BigDecimal.valueOf(40), BigDecimal.valueOf(20), BigDecimal.valueOf(50),
+                false, com.hrm.employeemanagement.domain.task.TaskBudgetBurnStatus.SAFE,
                 false, 0L, 1
         );
 
@@ -68,7 +69,7 @@ class ProjectTaskTrackingControllerTest {
 
         when(getProjectTaskTrackingUseCase.getTaskTracking(any(TaskTrackingQuery.class))).thenReturn(result);
 
-        mockMvc.perform(get("/api/v1/projects/100/task-tracking")
+        mockMvc.perform(get("/api/v1/projects/100/task-tracking?keyword=thiet-ke")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -78,7 +79,9 @@ class ProjectTaskTrackingControllerTest {
                 .andExpect(jsonPath("$.data.projectName").value("Dự án CRM"))
                 .andExpect(jsonPath("$.data.totalTasks").value(1))
                 .andExpect(jsonPath("$.data.tasks[0].taskCode").value("TSK-01"))
-                .andExpect(jsonPath("$.data.tasks[0].categoryName").value("Phân tích & Thiết kế"));
+                .andExpect(jsonPath("$.data.tasks[0].categoryName").value("Phân tích & Thiết kế"))
+                .andExpect(jsonPath("$.data.tasks[0].isOverBudget").value(false))
+                .andExpect(jsonPath("$.data.tasks[0].budgetBurnStatus").value("SAFE"));
 
         verify(getProjectTaskTrackingUseCase).getTaskTracking(any(TaskTrackingQuery.class));
     }

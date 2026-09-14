@@ -36,8 +36,9 @@ public class ProjectTaskTrackingController {
             @PathVariable Long projectId,
             @RequestParam(required = false) Long employeeId,
             @RequestParam(required = false) TaskStatus status,
-            @RequestParam(required = false) Boolean overdueOnly) {
-        TaskTrackingQuery query = new TaskTrackingQuery(projectId, employeeId, status, overdueOnly);
+            @RequestParam(required = false) Boolean overdueOnly,
+            @RequestParam(required = false) String keyword) {
+        TaskTrackingQuery query = new TaskTrackingQuery(projectId, employeeId, status, overdueOnly, keyword);
         ProjectTaskTrackingResult result = getProjectTaskTrackingUseCase.getTaskTracking(query);
         return ResponseEntity.ok(ApiResponse.success("Lấy bảng theo dõi công việc dự án thành công", result));
     }

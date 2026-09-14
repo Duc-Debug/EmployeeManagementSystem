@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -108,10 +109,10 @@ public class GetProjectTaskTrackingService implements GetProjectTaskTrackingUseC
             return emptyTrackingResult(project);
         }
 
-        // Tách nhóm hạng mục (CATEGORY) để tra cứu tên hạng mục cha
-        Map<TaskId, String> categoryNameMap = allProjectTasks.stream()
-                .filter(t -> t.getTaskType() == TaskType.CATEGORY && t.getId() != null)
-                .collect(Collectors.toMap(Task::getId, Task::getName, (existing, replacement) -> existing));
+        // Tạo map toàn bộ task để phục vụ duyệt ngược tìm hạng mục cha (Ancestor Category Resolution)
+        Map<TaskId, Task> allTaskMap = allProjectTasks.stream()
+                .filter(t -> t.getId() != null)
+                .collect(Collectors.toMap(Task::getId, t -> t, (existing, replacement) -> existing));
 
         // Lọc danh sách công việc cụ thể (TASK)
         List<Task> taskItems = allProjectTasks.stream()
@@ -147,6 +148,16 @@ public class GetProjectTaskTrackingService implements GetProjectTaskTrackingUseC
         List<TaskTrackingItemResult> items = new ArrayList<>();
 
         for (Task task : taskItems) {
+            // Áp dụng bộ lọc tìm kiếm từ khóa (keyword search)
+            if (query.keyword() != null && !query.keyword().isBlank()) {
+                String kw = query.keyword().trim().toLowerCase();
+                boolean codeMatches = task.getTaskCode() != null && task.getTaskCode().toLowerCase().contains(kw);
+                boolean nameMatches = task.getName() != null && task.getName().toLowerCase().contains(kw);
+                if (!codeMatches && !nameMatches) {
+                    continue;
+                }
+            }
+
             List<TaskAssignment> taskAssignments = assignmentMap.getOrDefault(task.getId(), Collections.emptyList());
 
             List<TaskBoardAssigneeResult> assignees = taskAssignments.stream()
@@ -185,17 +196,16 @@ public class GetProjectTaskTrackingService implements GetProjectTaskTrackingUseC
                 continue;
             }
 
-            String categoryName = task.getParentId() != null
-                    ? categoryNameMap.getOrDefault(task.getParentId(), "Chưa phân hạng mục")
-                    : "Chưa phân hạng mục";
+            // Duyệt ngược tìm hạng mục quản lý (Ancestor Category Resolution)
+            CategoryInfo categoryInfo = resolveCategory(task, allTaskMap);
 
             TaskTrackingItemResult item = new TaskTrackingItemResult(
                     task.getIdValue(),
                     task.getTaskCode(),
                     task.getName(),
                     task.getDescription(),
-                    task.getParentIdValue(),
-                    categoryName,
+                    categoryInfo.id(),
+                    categoryInfo.name(),
                     assignees,
                     task.getStatus() != null ? task.getStatus() : TaskStatus.TODO,
                     task.getPlannedStartDate() != null ? task.getPlannedStartDate() : task.getStartDate(),
@@ -203,6 +213,8 @@ public class GetProjectTaskTrackingService implements GetProjectTaskTrackingUseC
                     task.getBudgetHours() != null ? task.getBudgetHours() : BigDecimal.ZERO,
                     task.getActualHours() != null ? task.getActualHours() : BigDecimal.ZERO,
                     task.calculateBurnedPercentage(),
+                    task.isOverBudget(),
+                    task.getBudgetBurnStatus(),
                     isOverdue,
                     overdueDays,
                     task.getSortOrder() != null ? task.getSortOrder() : 0
@@ -253,6 +265,31 @@ public class GetProjectTaskTrackingService implements GetProjectTaskTrackingUseC
                 items
         );
     }
+
+    private CategoryInfo resolveCategory(Task task, Map<TaskId, Task> allTaskMap) {
+        if (task.getParentId() == null) {
+            return new CategoryInfo(null, "Chưa phân hạng mục");
+        }
+
+        TaskId currentParentId = task.getParentId();
+        Set<TaskId> visited = new HashSet<>();
+
+        while (currentParentId != null && !visited.contains(currentParentId)) {
+            visited.add(currentParentId);
+            Task parent = allTaskMap.get(currentParentId);
+            if (parent == null) {
+                break;
+            }
+            if (parent.getTaskType() == TaskType.CATEGORY) {
+                return new CategoryInfo(parent.getIdValue(), parent.getName());
+            }
+            currentParentId = parent.getParentId();
+        }
+
+        return new CategoryInfo(null, "Chưa phân hạng mục");
+    }
+
+    private record CategoryInfo(Long id, String name) {}
 
     private ProjectTaskTrackingResult emptyTrackingResult(Project project) {
         return new ProjectTaskTrackingResult(

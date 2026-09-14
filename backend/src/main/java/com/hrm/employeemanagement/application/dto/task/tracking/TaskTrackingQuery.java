@@ -9,6 +9,10 @@ public record TaskTrackingQuery(
         Long projectId,
         Long employeeId,
         TaskStatus status,
-        Boolean overdueOnly
+        Boolean overdueOnly,
+        String keyword
 ) {
+    public TaskTrackingQuery(Long projectId, Long employeeId, TaskStatus status, Boolean overdueOnly) {
+        this(projectId, employeeId, status, overdueOnly, null);
+    }
 }
