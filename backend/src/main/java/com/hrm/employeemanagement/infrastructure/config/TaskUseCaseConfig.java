@@ -203,4 +203,48 @@ public class TaskUseCaseConfig {
                 authorizationService);
         return new TransactionalCloneProjectWbsUseCase(service);
     }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.task.GetTaskBoardUseCase getTaskBoardUseCase(
+            GetAuthenticatedUserPort authenticatedUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadTaskAssignmentPort loadTaskAssignmentPort,
+            LoadTaskPort loadTaskPort,
+            LoadProjectPort loadProjectPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort) {
+        com.hrm.employeemanagement.application.service.task.GetTaskBoardService pureService =
+                new com.hrm.employeemanagement.application.service.task.GetTaskBoardService(
+                        authenticatedUserPort,
+                        loadEmployeePort,
+                        loadTaskAssignmentPort,
+                        loadTaskPort,
+                        loadProjectPort,
+                        loadOrgUnitPort,
+                        saveDeniedAuditLogPort);
+        return new com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalGetTaskBoardUseCase(pureService);
+    }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.task.MoveTaskBoardStatusUseCase moveTaskBoardStatusUseCase(
+            LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
+            LoadTaskAssignmentPort loadTaskAssignmentPort,
+            LoadProjectPort loadProjectPort,
+            LoadEmployeePort loadEmployeePort,
+            GetAuthenticatedUserPort authenticatedUserPort,
+            SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort) {
+        com.hrm.employeemanagement.application.service.task.MoveTaskBoardStatusService pureService =
+                new com.hrm.employeemanagement.application.service.task.MoveTaskBoardStatusService(
+                        loadTaskPort,
+                        saveTaskPort,
+                        loadTaskAssignmentPort,
+                        loadProjectPort,
+                        loadEmployeePort,
+                        authenticatedUserPort,
+                        saveAuditLogPort,
+                        saveDeniedAuditLogPort);
+        return new com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalMoveTaskBoardStatusUseCase(pureService);
+    }
 }
