@@ -446,8 +446,8 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
 
         // Tải skill name
         String skillName = "Chuyên môn";
-        if (command.skillId() != null) {
-            Optional<Skill> sOpt = loadSkillPort.findById(new com.hrm.employeemanagement.domain.skill.SkillId(command.skillId()));
+        if (targetSkillId != null) {
+            Optional<Skill> sOpt = loadSkillPort.findById(new com.hrm.employeemanagement.domain.skill.SkillId(targetSkillId));
             if (sOpt.isPresent()) skillName = sOpt.get().getName();
         }
 
@@ -457,8 +457,8 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 command.conflictId(),
                 originalEmp.getIdValue(),
                 replacementEmp.getIdValue(),
-                command.skillId(),
-                command.proficiencyLevel() != null ? command.proficiencyLevel() : 3,
+                targetSkillId,
+                reqLevel,
                 freeHours,
                 "PROPOSED",
                 command.notes(),
@@ -484,7 +484,7 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 originalEmp.getEmployeeCode(), originalEmp.getFullName(),
                 replacementEmp.getEmployeeCode(), replacementEmp.getFullName(),
                 conflict.getWeekNumber(), conflict.getYearNumber(),
-                skillName, formatProficiencyLevel(command.proficiencyLevel()),
+                skillName, formatProficiencyLevel(reqLevel),
                 command.notes() != null ? command.notes() : "Không có"
         );
 
@@ -514,10 +514,10 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 originalEmp.getFullName(),
                 replacementEmp.getIdValue(),
                 replacementEmp.getFullName(),
-                command.skillId(),
+                targetSkillId,
                 skillName,
-                command.proficiencyLevel(),
-                conflict.getExcessHours(),
+                reqLevel,
+                freeHours,
                 "PROPOSED",
                 command.notes(),
                 currentUserId,

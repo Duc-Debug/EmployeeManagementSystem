@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -569,6 +570,72 @@ class ScheduleConflictReplacementServiceTest {
     }
 
     @Test
+    void testConfirmProposal_NullSkillAndLevel_PersistsResolvedValues() {
+        Long rmUserId = 100L;
+        Long conflictId = 14L;
+        Long conflictedEmpId = 10L;
+        Long replacementEmpId = 20L;
+        Long resolvedSkillId = 50L;
+
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST)).thenReturn(rmUserId);
+
+        ScheduleConflict conflict = ScheduleConflict.create(
+                conflictedEmpId, 2026, 38, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1", "Dự án Alpha", null, null,
+                new BigDecimal("48.0"), new BigDecimal("40.0"), new BigDecimal("8.0"), "Overload"
+        );
+        when(loadConflictPort.findById(conflictId)).thenReturn(Optional.of(conflict));
+
+        Employee originalEmp = new Employee(new EmployeeId(conflictedEmpId), new UserId(1000L), 1L, "NV010", "Nguyễn Văn A", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee replacementEmp = new Employee(new EmployeeId(replacementEmpId), new UserId(2000L), 1L, "NV020", "Trần Văn B", "Dev", LocalDate.now(), null, false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findById(new EmployeeId(conflictedEmpId))).thenReturn(Optional.of(originalEmp));
+        when(loadEmployeePort.findById(new EmployeeId(replacementEmpId))).thenReturn(Optional.of(replacementEmp));
+
+        EmployeeSkill originalSkill = new EmployeeSkill(
+                1L, conflictedEmpId, resolvedSkillId, 4, new BigDecimal("4.0"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        EmployeeSkill replacementSkill = new EmployeeSkill(
+                2L, replacementEmpId, resolvedSkillId, 5, new BigDecimal("5.0"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(employeeSkillRepository.findByEmployeeId(conflictedEmpId)).thenReturn(List.of(originalSkill));
+        when(employeeSkillRepository.findByEmployeeIdAndSkillId(replacementEmpId, resolvedSkillId)).thenReturn(Optional.of(replacementSkill));
+
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyMap());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyList());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(Collections.emptyList());
+        when(loadSkillPort.findById(new SkillId(resolvedSkillId))).thenReturn(Optional.of(
+                new Skill(resolvedSkillId, "SKILL-JAVA", "Java Backend", "Backend", "Descr", LocalDateTime.now())
+        ));
+
+        User rmUser = Mockito.mock(User.class);
+        when(rmUser.getUsername()).thenReturn("rm_manager");
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(replacementPort.save(any())).thenAnswer(invocation -> {
+            ScheduleConflictReplacement proposal = invocation.getArgument(0);
+            return new ScheduleConflictReplacement(
+                    99L, proposal.getConflictId(), proposal.getOriginalEmployeeId(), proposal.getReplacementEmployeeId(),
+                    proposal.getSkillId(), proposal.getProficiencyLevel(), proposal.getFreeHours(), proposal.getStatus(),
+                    proposal.getNotes(), proposal.getCreatedBy(), LocalDateTime.now());
+        });
+
+        ReplacementProposalResult result = service.confirmReplacementProposal(
+                new ConfirmReplacementProposalCommand(conflictId, replacementEmpId, null, null, "Fallback skill")
+        );
+
+        ArgumentCaptor<ScheduleConflictReplacement> savedProposal = ArgumentCaptor.forClass(ScheduleConflictReplacement.class);
+        verify(replacementPort).save(savedProposal.capture());
+        assertEquals(resolvedSkillId, savedProposal.getValue().getSkillId());
+        assertEquals(4, savedProposal.getValue().getProficiencyLevel());
+        assertEquals(new BigDecimal("40"), savedProposal.getValue().getFreeHours());
+        assertEquals(resolvedSkillId, result.skillId());
+        assertEquals("Java Backend", result.skillName());
+        assertEquals(4, result.proficiencyLevel());
+        assertEquals(new BigDecimal("40"), result.freeHours());
+    }
+
+    @Test
     void testConfirmProposal_NullSkillId_StillValidatesSkillAndThrowsIfCandidateLacksSkill() {
         Long rmUserId = 100L;
         Long conflictId = 13L;
@@ -610,4 +677,3 @@ class ScheduleConflictReplacementServiceTest {
         assertTrue(ex.getMessage().contains("chưa có kỹ năng được phê duyệt"));
     }
 }
-
