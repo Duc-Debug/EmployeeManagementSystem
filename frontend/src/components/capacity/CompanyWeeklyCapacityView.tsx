@@ -40,6 +40,7 @@ import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationR
 import { AllocationAdjustmentModal, type AllocationItem } from "@/components/capacity/AllocationAdjustmentModal";
 import { AllocationPeriodManagementModal } from "@/components/capacity/period/AllocationPeriodManagementModal";
 import { RoleAllocationTemplateManagementModal } from "@/components/allocation/RoleAllocationTemplateManagementModal";
+import { CapacityThresholdConfigModal } from "@/components/capacity/CapacityThresholdConfigModal";
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
@@ -49,6 +50,10 @@ export default function CompanyWeeklyCapacityView() {
   const canManageAllocations = normalizedRole === "VT-03";
   const canAccessPeriods =
     normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
+  const canConfigureThresholds = normalizedRole === "VT-01";
+
+  // NCL-07-CN-004: State cho Modal Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23)
+  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -299,6 +304,8 @@ export default function CompanyWeeklyCapacityView() {
   const rows = matrixData?.rows || [];
   const totalEmployees = matrixData?.totalEmployees ?? 0;
   const totalPages = matrixData?.totalPages ?? 1;
+  const effectiveOverloadThreshold = matrixData?.overloadThreshold ?? 100;
+  const effectiveIdleThreshold = matrixData?.idleThreshold ?? 50;
 
   // Render 1 ô dữ liệu trong ma trận
   const renderCell = (cell: CapacityMatrixCell, row: EmployeeCapacityRow) => {
@@ -375,7 +382,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs min-h-[58px] shadow-xs hover:ring-2 hover:ring-rose-400 transition"
-          title={`Quá tải: Tổng phân bổ ${cell.allocatedHours}h vượt quá ${cell.availableHours}h khả dụng!${cell.approvedLeaveHours ? ` (Đã trừ ${cell.approvedLeaveHours}h do đơn nghỉ phép được duyệt)` : ''}${lockSuffix}`}
+          title={`Quá tải: Phân bổ ${cell.allocatedHours}h / ${cell.availableHours}h khả dụng (${cell.utilizationPercentage != null ? `${cell.utilizationPercentage}%` : "Vô cực"} ≥ ${effectiveOverloadThreshold}%)${cell.approvedLeaveHours ? ` (Đã trừ ${cell.approvedLeaveHours}h do đơn nghỉ phép được duyệt)` : ''}${lockSuffix}`}
         >
           <div className="flex items-center gap-1 font-bold text-rose-700">
             <AlertTriangle className="h-3.5 w-3.5 text-rose-600 animate-pulse" />
@@ -398,7 +405,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-800 text-xs min-h-[58px] hover:ring-2 hover:ring-amber-300 transition"
-          title={`Nhàn rỗi: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}%)${lockSuffix}`}
+          title={`Nhàn rỗi: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}% < ${effectiveIdleThreshold}%)${lockSuffix}`}
         >
           <span className="font-bold text-amber-700">
             {cell.utilizationPercentage != null ? `${cell.utilizationPercentage}%` : "0%"}
@@ -414,11 +421,11 @@ export default function CompanyWeeklyCapacityView() {
       );
     }
 
-    // Trạng thái tối ưu (50% - 100%)
+    // Trạng thái tối ưu
     return (
       <div
         className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs min-h-[58px] hover:ring-2 hover:ring-emerald-300 transition"
-        title={`Tối ưu: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}%)${lockSuffix}`}
+        title={`Tối ưu: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}% trong khoảng ${effectiveIdleThreshold}% - ${effectiveOverloadThreshold}%)${lockSuffix}`}
       >
         <div className="flex items-center gap-1 font-bold text-emerald-700">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -534,6 +541,19 @@ export default function CompanyWeeklyCapacityView() {
               <span>Kế hoạch kỳ (QTN-18)</span>
             </button>
           )}
+
+          {/* NCL-07-CN-004: Nút Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23) */}
+          {canConfigureThresholds && (
+            <button
+              type="button"
+              onClick={() => setIsThresholdModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
+              title="Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (NCL-07-CN-004 / QTN-23)"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
+              <span>Cấu hình ngưỡng (QTN-23)</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -572,7 +592,7 @@ export default function CompanyWeeklyCapacityView() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                {matrixData.summary.overloadedCellsCount} ô tuần vượt &gt; 100% (QTN-12)
+                {matrixData.summary.overloadedCellsCount} ô tuần đạt ngưỡng &ge; {effectiveOverloadThreshold}%
               </p>
             </div>
 
@@ -589,7 +609,7 @@ export default function CompanyWeeklyCapacityView() {
                 {matrixData.summary.underutilizedCellsCount}
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Số ô có mức phân bổ &lt; 50%
+                Số ô có mức phân bổ &lt; {effectiveIdleThreshold}%
               </p>
             </div>
 
@@ -667,9 +687,9 @@ export default function CompanyWeeklyCapacityView() {
             className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
           >
             <option value="ALL">Tất cả trạng thái</option>
-            <option value="OVERLOADED">Chỉ người quá tải (⚠ &gt; 100%)</option>
-            <option value="OPTIMAL">Tối ưu (50% - 100%)</option>
-            <option value="UNDERUTILIZED">Nhàn rỗi (&lt; 50%)</option>
+            <option value="OVERLOADED">Chỉ người quá tải (⚠ &ge; {effectiveOverloadThreshold}%)</option>
+            <option value="OPTIMAL">Tối ưu ({effectiveIdleThreshold}% - {effectiveOverloadThreshold}%)</option>
+            <option value="UNDERUTILIZED">Nhàn rỗi (&lt; {effectiveIdleThreshold}%)</option>
           </select>
         </div>
       </div>
@@ -838,20 +858,20 @@ export default function CompanyWeeklyCapacityView() {
         )}
       </div>
 
-      {/* 5. Chú thích màu sắc và quy tắc (QTN-12) */}
+      {/* 5. Chú thích màu sắc và quy tắc (QTN-12 & QTN-23) */}
       <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-xs text-slate-600">
         <span className="font-bold text-slate-700">Chú giải trạng thái:</span>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md bg-rose-500" />
-          <span>Quá tải (&gt; 100% giờ khả dụng - QTN-12)</span>
+          <span>Quá tải (&ge; {effectiveOverloadThreshold}% giờ khả dụng)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md bg-emerald-500" />
-          <span>Tối ưu (50% - 100%)</span>
+          <span>Tối ưu ({effectiveIdleThreshold}% - {effectiveOverloadThreshold}%)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md bg-amber-400" />
-          <span>Nhàn rỗi (&lt; 50%)</span>
+          <span>Nhàn rỗi (&lt; {effectiveIdleThreshold}%)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md bg-slate-300" />
@@ -930,6 +950,15 @@ export default function CompanyWeeklyCapacityView() {
         open={isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}
         onAppliedSuccess={fetchMatrix}
+      />
+
+      {/* NCL-07-CN-004: Capacity Threshold Config Modal (QTN-23) */}
+      <CapacityThresholdConfigModal
+        open={isThresholdModalOpen}
+        onClose={() => setIsThresholdModalOpen(false)}
+        onSuccess={() => {
+          fetchMatrix();
+        }}
       />
     </div>
   );
