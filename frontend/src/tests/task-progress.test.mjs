@@ -91,6 +91,32 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     };
   }
 
+  function getNextSuggestedStatus(currentStatus) {
+    switch (currentStatus) {
+      case "TODO":
+        return "IN_PROGRESS";
+      case "IN_PROGRESS":
+        return "IN_REVIEW";
+      case "IN_REVIEW":
+        return "DONE";
+      default:
+        return null;
+    }
+  }
+
+  function sortTasksByDeadline(tasks, direction = "asc") {
+    return [...tasks].sort((a, b) => {
+      const dateA = a.plannedEndDate ? new Date(a.plannedEndDate).getTime() : null;
+      const dateB = b.plannedEndDate ? new Date(b.plannedEndDate).getTime() : null;
+
+      if (dateA === null && dateB === null) return 0;
+      if (dateA === null) return 1;
+      if (dateB === null) return -1;
+
+      return direction === "asc" ? dateA - dateB : dateB - dateA;
+    });
+  }
+
   // Sample tasks for testing
   const sampleTasks = [
     {
@@ -99,6 +125,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
       taskName: "Thiết kế cơ sở dữ liệu",
       projectName: "Dự án Nền tảng số",
       status: "TODO",
+      plannedEndDate: "2026-09-30",
       isPrimary: true,
     },
     {
@@ -107,6 +134,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
       taskName: "Xây dựng RESTful API",
       projectName: "Dự án Nền tảng số",
       status: "IN_PROGRESS",
+      plannedEndDate: "2026-09-20",
       isPrimary: true,
     },
     {
@@ -115,6 +143,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
       taskName: "Viết Unit Test cho Service",
       projectName: "Dự án Nền tảng số",
       status: "IN_REVIEW",
+      plannedEndDate: "2026-10-15",
       isPrimary: false,
     },
     {
@@ -123,6 +152,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
       taskName: "Kiểm thử bảo mật hệ thống",
       projectName: "Dự án Alpha",
       status: "DONE",
+      plannedEndDate: null, // No deadline
       isPrimary: true,
     },
     {
@@ -131,6 +161,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
       taskName: "Nghiên cứu tài liệu cũ",
       projectName: "Dự án Alpha",
       status: "CANCELLED",
+      plannedEndDate: null, // No deadline
       isPrimary: false,
     },
   ];
@@ -138,6 +169,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
   test("TC-01: Specialist status whitelist validation enforces 4 valid states and rejects CANCELLED", () => {
     assert.equal(isValidSpecialistStatus("TODO"), true);
     assert.equal(isValidSpecialistStatus("IN_PROGRESS"), true);
+
     assert.equal(isValidSpecialistStatus("IN_REVIEW"), true);
     assert.equal(isValidSpecialistStatus("DONE"), true);
 
@@ -239,4 +271,49 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.equal(stats.inReview, 1);
     assert.equal(stats.done, 1);
   });
+
+  test("TC-10: Next suggested status progression returns correct sequential step", () => {
+    assert.equal(getNextSuggestedStatus("TODO"), "IN_PROGRESS");
+    assert.equal(getNextSuggestedStatus("IN_PROGRESS"), "IN_REVIEW");
+    assert.equal(getNextSuggestedStatus("IN_REVIEW"), "DONE");
+
+    // Terminal or invalid statuses have no next step
+    assert.equal(getNextSuggestedStatus("DONE"), null);
+    assert.equal(getNextSuggestedStatus("CANCELLED"), null);
+    assert.equal(getNextSuggestedStatus("UNKNOWN"), null);
+  });
+
+  test("TC-11: sortTasksByDeadline correctly prioritizes earliest deadlines with nulls placed at end", () => {
+    // Ascending: earliest deadline first
+    const sortedAsc = sortTasksByDeadline(sampleTasks, "asc");
+    assert.equal(sortedAsc[0].taskCode, "TSK-002"); // 2026-09-20
+    assert.equal(sortedAsc[1].taskCode, "TSK-001"); // 2026-09-30
+    assert.equal(sortedAsc[2].taskCode, "TSK-003"); // 2026-10-15
+    assert.equal(sortedAsc[3].plannedEndDate, null); // null at end
+    assert.equal(sortedAsc[4].plannedEndDate, null); // null at end
+
+    // Descending: latest deadline first
+    const sortedDesc = sortTasksByDeadline(sampleTasks, "desc");
+    assert.equal(sortedDesc[0].taskCode, "TSK-003"); // 2026-10-15
+    assert.equal(sortedDesc[1].taskCode, "TSK-001"); // 2026-09-30
+    assert.equal(sortedDesc[2].taskCode, "TSK-002"); // 2026-09-20
+    assert.equal(sortedDesc[3].plannedEndDate, null);
+    assert.equal(sortedDesc[4].plannedEndDate, null);
+  });
+
+  test("TC-12: Empty task list and edge case handling for sorting and KPI", () => {
+    const emptyList = [];
+    const sortedEmpty = sortTasksByDeadline(emptyList, "asc");
+    assert.deepEqual(sortedEmpty, []);
+
+    const emptyStats = calculateKpiStats(emptyList);
+    assert.deepEqual(emptyStats, {
+      total: 0,
+      todo: 0,
+      inProgress: 0,
+      inReview: 0,
+      done: 0,
+    });
+  });
 });
+
