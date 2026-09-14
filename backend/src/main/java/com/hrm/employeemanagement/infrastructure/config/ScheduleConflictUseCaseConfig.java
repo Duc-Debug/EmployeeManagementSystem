@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.conflict.ScheduleConflictReplacementService;
 import com.hrm.employeemanagement.application.service.conflict.ScheduleConflictService;
+import com.hrm.employeemanagement.infrastructure.transaction.conflict.TransactionalScheduleConflictReplacementService;
 
 @Configuration
 public class ScheduleConflictUseCaseConfig {
@@ -52,7 +53,7 @@ public class ScheduleConflictUseCaseConfig {
     }
 
     @Bean
-    public ScheduleConflictReplacementService scheduleConflictReplacementService(
+    public TransactionalScheduleConflictReplacementService scheduleConflictReplacementService(
             AuthorizationService authorizationService,
             LoadScheduleConflictPort loadConflictPort,
             SaveScheduleConflictPort saveConflictPort,
@@ -68,7 +69,7 @@ public class ScheduleConflictUseCaseConfig {
             SaveAuditLogInNewTransactionPort auditLogPort,
             SimulatedNotificationPort notificationPort
     ) {
-        return new ScheduleConflictReplacementService(
+        ScheduleConflictReplacementService pureService = new ScheduleConflictReplacementService(
                 authorizationService,
                 loadConflictPort,
                 saveConflictPort,
@@ -84,5 +85,7 @@ public class ScheduleConflictUseCaseConfig {
                 auditLogPort,
                 notificationPort
         );
+
+        return new TransactionalScheduleConflictReplacementService(pureService);
     }
 }
