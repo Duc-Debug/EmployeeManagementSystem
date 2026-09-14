@@ -31,6 +31,8 @@ public class LeaveRequestPersistenceMapper {
                 status,
                 entity.getApproverId(),
                 entity.getApproverComment(),
+                entity.getCancellationReason(),
+                entity.getCancellationRequestedAt(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -52,6 +54,8 @@ public class LeaveRequestPersistenceMapper {
                 domain.getReason(),
                 domain.getApproverId(),
                 domain.getApproverComment(),
+                domain.getCancellationReason(),
+                domain.getCancellationRequestedAt(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt()
         );

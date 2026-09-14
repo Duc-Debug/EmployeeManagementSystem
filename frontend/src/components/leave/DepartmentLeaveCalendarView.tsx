@@ -529,7 +529,11 @@ export default function DepartmentLeaveCalendarView() {
                                                     <span className="truncate font-semibold">{item.fullName}</span>
                                                     <span className={cn(
                                                         "h-1.5 w-1.5 rounded-full shrink-0",
-                                                        item.status === "APPROVED" ? "bg-emerald-500" : "bg-amber-500"
+                                                        item.status === "APPROVED"
+                                                            ? "bg-emerald-500"
+                                                            : item.status === "CANCEL_REQUESTED"
+                                                                ? "bg-orange-500"
+                                                                : "bg-amber-500"
                                                     )} />
                                                 </div>
                                             ))}
@@ -653,9 +657,15 @@ export default function DepartmentLeaveCalendarView() {
                                             "rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase",
                                             item.status === "APPROVED"
                                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                : "bg-amber-50 text-amber-700 border-amber-200"
+                                                : item.status === "CANCEL_REQUESTED"
+                                                    ? "bg-orange-50 text-orange-700 border-orange-200"
+                                                    : "bg-amber-50 text-amber-700 border-amber-200"
                                         )}>
-                                            {item.status === "APPROVED" ? "Đã duyệt" : "Chờ phê duyệt"}
+                                            {item.status === "APPROVED"
+                                                ? "Đã duyệt"
+                                                : item.status === "CANCEL_REQUESTED"
+                                                    ? "Chờ duyệt hủy"
+                                                    : "Chờ phê duyệt"}
                                         </span>
                                     </div>
 
