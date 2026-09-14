@@ -17,6 +17,7 @@ import {
   BookmarkCheck,
   Layers,
   Lock,
+  Copy,
 } from "lucide-react";
 import { useAuthUser } from "@/lib/auth-session";
 import { ResourceReservationModal } from "./ResourceReservationModal";
@@ -38,6 +39,7 @@ import { BulkAllocateResourceModal } from "@/components/capacity/BulkAllocateRes
 import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationResultModal";
 import { AllocationAdjustmentModal, type AllocationItem } from "@/components/capacity/AllocationAdjustmentModal";
 import { AllocationPeriodManagementModal } from "@/components/capacity/period/AllocationPeriodManagementModal";
+import { RoleAllocationTemplateManagementModal } from "@/components/allocation/RoleAllocationTemplateManagementModal";
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
@@ -121,6 +123,7 @@ export default function CompanyWeeklyCapacityView() {
 
   // NCL-06-CN-006: Bulk Allocation Modal States
   const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState<boolean>(false);
   const [bulkResult, setBulkResult] = useState<BulkAllocationResult | null>(null);
   const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
   const [bulkInitialEmployeeId, setBulkInitialEmployeeId] = useState<number | undefined>(undefined);
@@ -503,6 +506,19 @@ export default function CompanyWeeklyCapacityView() {
             >
               <Layers className="h-3.5 w-3.5" />
               <span>Phân bổ hàng loạt</span>
+            </button>
+          )}
+
+          {/* Mẫu phân bổ theo vai trò của dự án */}
+          {canManageAllocations && (
+            <button
+              type="button"
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-violet-200 bg-violet-50/80 px-3.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition shadow-2xs cursor-pointer"
+              title="Mẫu phân bổ theo vai trò của dự án"
+            >
+              <Copy className="h-3.5 w-3.5 text-violet-600" />
+              <span>Mẫu phân bổ vai trò</span>
             </button>
           )}
 
@@ -907,6 +923,13 @@ export default function CompanyWeeklyCapacityView() {
           loadLockedPeriods();
           fetchMatrix();
         }}
+      />
+
+      {/* Mẫu phân bổ theo vai trò của dự án */}
+      <RoleAllocationTemplateManagementModal
+        open={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onAppliedSuccess={fetchMatrix}
       />
     </div>
   );
