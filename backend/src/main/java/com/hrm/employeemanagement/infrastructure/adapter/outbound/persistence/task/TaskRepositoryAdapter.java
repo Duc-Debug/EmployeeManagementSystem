@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskId;
@@ -43,6 +44,17 @@ public class TaskRepositoryAdapter implements LoadTaskPort, SaveTaskPort {
             return List.of();
         }
         return taskRepository.findAllById(rawIds).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Task> findByAssigneeId(EmployeeId assigneeId) {
+        if (assigneeId == null || assigneeId.value() == null) {
+            return List.of();
+        }
+        return taskRepository.findByAssigneeId(assigneeId.value())
+                .stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 
     @Override

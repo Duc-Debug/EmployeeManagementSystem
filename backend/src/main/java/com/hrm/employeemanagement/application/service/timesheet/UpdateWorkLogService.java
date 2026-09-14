@@ -22,6 +22,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
@@ -89,6 +90,10 @@ public class UpdateWorkLogService implements UpdateWorkLogUseCase {
         Employee employee = loadEmployeePort.findByIdForUpdate(baseEmployee.getId())
                 .orElse(baseEmployee);
 
+        if (employee.getStatus() != null && employee.getStatus() != EmployeeStatus.ACTIVE) {
+            throw new WorkLogTaskNotAssignedException("Tài khoản nhân sự không ở trạng thái hoạt động (ACTIVE).");
+        }
+
         if (command.entryId() == null) {
             throw new TimesheetEntryNotFoundException("ID dòng ghi giờ không được để trống.");
         }
@@ -104,6 +109,7 @@ public class UpdateWorkLogService implements UpdateWorkLogUseCase {
                 .orElseThrow(() -> new TimesheetNotFoundException(entry.getTimesheetIdValue()));
 
         timesheet.assertModifiable();
+        entry.assertModifiable();
 
         // 1. Validate Input Data
         if (command.workDate() == null) {
@@ -117,6 +123,10 @@ public class UpdateWorkLogService implements UpdateWorkLogUseCase {
         }
         if (command.description() == null || command.description().trim().isEmpty()) {
             throw new WorkLogDescriptionBlankException("Mô tả nội dung công việc không được để trống.");
+        }
+
+        if (employee.getContractEndDate() != null && command.workDate().isAfter(employee.getContractEndDate())) {
+            throw new WorkLogTaskNotAssignedException("Ngày làm việc " + command.workDate() + " vượt quá ngày kết thúc hợp đồng (" + employee.getContractEndDate() + ").");
         }
 
         // 2. Validate Project

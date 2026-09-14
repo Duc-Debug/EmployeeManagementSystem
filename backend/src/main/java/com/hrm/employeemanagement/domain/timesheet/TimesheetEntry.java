@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetImmutableException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogDescriptionBlankException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogInvalidHoursException;
 import com.hrm.employeemanagement.domain.project.ProjectId;
@@ -129,6 +130,12 @@ public class TimesheetEntry {
 
     public boolean isDraft() {
         return this.status == TimesheetStatus.DRAFT;
+    }
+
+    public void assertModifiable() {
+        if (this.status != TimesheetStatus.DRAFT) {
+            throw new TimesheetImmutableException("Dòng ghi giờ công ở trạng thái [" + this.status + "] không thể sửa hoặc xóa.");
+        }
     }
 
     // Getters

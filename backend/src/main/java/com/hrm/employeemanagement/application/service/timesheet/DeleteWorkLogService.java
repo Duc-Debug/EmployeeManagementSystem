@@ -78,6 +78,7 @@ public class DeleteWorkLogService implements DeleteWorkLogUseCase {
                 .orElseThrow(() -> new TimesheetNotFoundException(entry.getTimesheetIdValue()));
 
         timesheet.assertModifiable();
+        entry.assertModifiable();
 
         TimesheetId timesheetId = entry.getTimesheetId();
         deleteTimesheetEntryPort.deleteById(entry.getId());
