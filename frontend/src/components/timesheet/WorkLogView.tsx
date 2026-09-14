@@ -166,7 +166,7 @@ export default function WorkLogView() {
     .filter((e) => !e.isBillable)
     .reduce((sum, e) => sum + Number(e.hours || 0), 0);
 
-  const isTimesheetEditable = weeklyData?.isEditable !== false && (!weeklyData?.status || weeklyData.status === "DRAFT");
+  const isTimesheetEditable = weeklyData?.isEditable !== false && (!weeklyData?.status || weeklyData.status === "DRAFT" || weeklyData.status === "REJECTED");
   const canSubmitTimesheet = isTimesheetEditable && allEntries.length > 0 && totalHours > 0;
 
   const dailyGroups: DailyWorkLogGroupDto[] = weeklyData?.dailyGroups ?? [];
@@ -294,12 +294,19 @@ export default function WorkLogView() {
         </div>
       </div>
 
-      {/* Lock Notice Banner if not editable */}
-      {!isTimesheetEditable && (
+      {/* Notice Banners */}
+      {weeklyData?.status === "REJECTED" ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-xs font-semibold text-rose-900 shadow-2xs">
+          <AlertCircle className="h-5 w-5 shrink-0 text-rose-600" />
+          <div>
+            <span>Bảng chấm công tuần này đã ở trạng thái <strong>BỊ TỪ CHỐI, CẦN CHỈNH SỬA VÀ NỘP LẠI</strong>. Bạn có thể cập nhật các dòng ghi giờ và nộp lại.</span>
+          </div>
+        </div>
+      ) : !isTimesheetEditable && (
         <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-xs font-semibold text-blue-900 shadow-2xs">
           <Lock className="h-5 w-5 shrink-0 text-blue-600" />
           <div>
-            <span>Bảng chấm công tuần này đã ở trạng thái <strong>{weeklyData?.status === "APPROVED" ? "ĐÃ PHÊ DUYỆT" : "ĐÃ NỘP CHỜ DUYỆT"}</strong>. Dữ liệu đã được khóa không thể thêm, sửa hoặc xóa.</span>
+            <span>Bảng chấm công tuần này đã ở trạng thái <strong>{weeklyData?.status === "APPROVED" ? "ĐÃ ĐƯỢC PHÊ DUYỆT" : "ĐÃ NỘP, CHỜ QUẢN LÝ DUYỆT"}</strong>. Dữ liệu đã được khóa không thể thêm, sửa hoặc xóa.</span>
           </div>
         </div>
       )}
