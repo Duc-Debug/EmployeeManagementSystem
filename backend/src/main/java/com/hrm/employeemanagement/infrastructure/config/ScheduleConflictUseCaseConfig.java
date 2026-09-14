@@ -6,13 +6,19 @@ import org.springframework.context.annotation.Configuration;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.LoadScheduleConflictPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.SaveScheduleConflictPort;
+import com.hrm.employeemanagement.application.port.outbound.conflict.SaveScheduleConflictReplacementPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SimulatedNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository;
+import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.service.conflict.ScheduleConflictReplacementService;
 import com.hrm.employeemanagement.application.service.conflict.ScheduleConflictService;
 
 @Configuration
@@ -40,6 +46,41 @@ public class ScheduleConflictUseCaseConfig {
                 loadProjectPort,
                 loadOrgUnitPort,
                 authorizationService,
+                auditLogPort,
+                notificationPort
+        );
+    }
+
+    @Bean
+    public ScheduleConflictReplacementService scheduleConflictReplacementService(
+            AuthorizationService authorizationService,
+            LoadScheduleConflictPort loadConflictPort,
+            SaveScheduleConflictPort saveConflictPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadSkillPort loadSkillPort,
+            EmployeeSkillRepository employeeSkillRepository,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            SaveScheduleConflictReplacementPort replacementPort,
+            SaveAuditLogInNewTransactionPort auditLogPort,
+            SimulatedNotificationPort notificationPort
+    ) {
+        return new ScheduleConflictReplacementService(
+                authorizationService,
+                loadConflictPort,
+                saveConflictPort,
+                loadEmployeePort,
+                loadUserPort,
+                loadOrgUnitPort,
+                loadSkillPort,
+                employeeSkillRepository,
+                loadWeeklyAvailabilityPort,
+                loadAllocationPort,
+                loadApprovedLeavesPort,
+                replacementPort,
                 auditLogPort,
                 notificationPort
         );

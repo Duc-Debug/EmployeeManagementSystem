@@ -29,8 +29,10 @@ import com.hrm.employeemanagement.application.port.outbound.availability.LoadApp
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.LoadScheduleConflictPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.SaveScheduleConflictPort;
+import com.hrm.employeemanagement.application.port.outbound.conflict.SaveScheduleConflictReplacementPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SimulatedNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -38,18 +40,17 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflict;
+import com.hrm.employeemanagement.domain.conflict.ScheduleConflictReplacement;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
 import com.hrm.employeemanagement.domain.skill.Skill;
 import com.hrm.employeemanagement.domain.skill.SkillId;
+import com.hrm.employeemanagement.domain.skill.SkillStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict.entity.ScheduleConflictReplacementJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict.repository.SpringDataScheduleConflictReplacementRepository;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.EmployeeSkillJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataEmployeeSkillRepository;
 
 class ScheduleConflictReplacementServiceTest {
 
@@ -60,11 +61,11 @@ class ScheduleConflictReplacementServiceTest {
     private LoadUserPort loadUserPort;
     private LoadOrgUnitPort loadOrgUnitPort;
     private LoadSkillPort loadSkillPort;
-    private SpringDataEmployeeSkillRepository employeeSkillRepository;
+    private EmployeeSkillRepository employeeSkillRepository;
     private LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
     private LoadWeeklyProjectAllocationPort loadAllocationPort;
     private LoadApprovedLeavesPort loadApprovedLeavesPort;
-    private SpringDataScheduleConflictReplacementRepository replacementRepository;
+    private SaveScheduleConflictReplacementPort replacementPort;
     private SaveAuditLogInNewTransactionPort auditLogPort;
     private SimulatedNotificationPort notificationPort;
 
@@ -79,11 +80,11 @@ class ScheduleConflictReplacementServiceTest {
         loadUserPort = Mockito.mock(LoadUserPort.class);
         loadOrgUnitPort = Mockito.mock(LoadOrgUnitPort.class);
         loadSkillPort = Mockito.mock(LoadSkillPort.class);
-        employeeSkillRepository = Mockito.mock(SpringDataEmployeeSkillRepository.class);
+        employeeSkillRepository = Mockito.mock(EmployeeSkillRepository.class);
         loadWeeklyAvailabilityPort = Mockito.mock(LoadWeeklyAvailabilityPort.class);
         loadAllocationPort = Mockito.mock(LoadWeeklyProjectAllocationPort.class);
         loadApprovedLeavesPort = Mockito.mock(LoadApprovedLeavesPort.class);
-        replacementRepository = Mockito.mock(SpringDataScheduleConflictReplacementRepository.class);
+        replacementPort = Mockito.mock(SaveScheduleConflictReplacementPort.class);
         auditLogPort = Mockito.mock(SaveAuditLogInNewTransactionPort.class);
         notificationPort = Mockito.mock(SimulatedNotificationPort.class);
 
@@ -99,7 +100,7 @@ class ScheduleConflictReplacementServiceTest {
                 loadWeeklyAvailabilityPort,
                 loadAllocationPort,
                 loadApprovedLeavesPort,
-                replacementRepository,
+                replacementPort,
                 auditLogPort,
                 notificationPort
         );
@@ -133,22 +134,22 @@ class ScheduleConflictReplacementServiceTest {
         when(loadSkillPort.findById(new SkillId(skillId))).thenReturn(Optional.of(skill));
 
         // Emp skill for conflicted employee
-        EmployeeSkillJpaEntity origSkill = new EmployeeSkillJpaEntity();
-        origSkill.setEmployeeId(conflictedEmpId);
-        origSkill.setSkillId(skillId);
-        origSkill.setProficiencyLevel(3);
+        EmployeeSkill origSkill = new EmployeeSkill(
+                1L, conflictedEmpId, skillId, 3, new BigDecimal("3.5"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
         when(employeeSkillRepository.findByEmployeeId(conflictedEmpId)).thenReturn(List.of(origSkill));
 
         // Matching candidates with same skill (>= 3)
-        EmployeeSkillJpaEntity cand1Skill = new EmployeeSkillJpaEntity();
-        cand1Skill.setEmployeeId(20L);
-        cand1Skill.setSkillId(skillId);
-        cand1Skill.setProficiencyLevel(4);
+        EmployeeSkill cand1Skill = new EmployeeSkill(
+                2L, 20L, skillId, 4, new BigDecimal("5.0"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
 
-        EmployeeSkillJpaEntity cand2Skill = new EmployeeSkillJpaEntity();
-        cand2Skill.setEmployeeId(30L);
-        cand2Skill.setSkillId(skillId);
-        cand2Skill.setProficiencyLevel(3);
+        EmployeeSkill cand2Skill = new EmployeeSkill(
+                3L, 30L, skillId, 3, new BigDecimal("3.0"),
+                SkillStatus.APPROVED, rmUserId, LocalDateTime.now(), null, LocalDateTime.now(), LocalDateTime.now()
+        );
 
         when(employeeSkillRepository.findApprovedBySkillAndMinLevel(eq(skillId), eq(3)))
                 .thenReturn(List.of(cand1Skill, cand2Skill));
@@ -250,9 +251,12 @@ class ScheduleConflictReplacementServiceTest {
         when(rmUser.getUsername()).thenReturn("rm_manager");
         when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
 
-        ScheduleConflictReplacementJpaEntity savedEntity = new ScheduleConflictReplacementJpaEntity();
-        savedEntity.setId(99L);
-        when(replacementRepository.save(any())).thenReturn(savedEntity);
+        ScheduleConflictReplacement savedDomain = new ScheduleConflictReplacement(
+                99L, conflictId, conflictedEmpId, replacementEmpId, skillId, 4,
+                new BigDecimal("8.0"), "PROPOSED", "Thay thế do NV010 bị trùng dự án Alpha",
+                rmUserId, LocalDateTime.now()
+        );
+        when(replacementPort.save(any())).thenReturn(savedDomain);
 
         ConfirmReplacementProposalCommand command = new ConfirmReplacementProposalCommand(
                 conflictId, replacementEmpId, skillId, 4, "Thay thế do NV010 bị trùng dự án Alpha"

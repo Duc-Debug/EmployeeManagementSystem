@@ -8,11 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.hrm.employeemanagement.application.dto.conflict.ConfirmReplacementProposalCommand;
 import com.hrm.employeemanagement.application.dto.conflict.ReplacementCandidateResult;
@@ -26,8 +22,10 @@ import com.hrm.employeemanagement.application.port.outbound.availability.LoadApp
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.LoadScheduleConflictPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.SaveScheduleConflictPort;
+import com.hrm.employeemanagement.application.port.outbound.conflict.SaveScheduleConflictReplacementPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SimulatedNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -38,20 +36,17 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflict;
+import com.hrm.employeemanagement.domain.conflict.ScheduleConflictReplacement;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
 import com.hrm.employeemanagement.domain.skill.Skill;
+import com.hrm.employeemanagement.domain.skill.SkillStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict.entity.ScheduleConflictReplacementJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict.repository.SpringDataScheduleConflictReplacementRepository;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.EmployeeSkillJpaEntity;
-import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataEmployeeSkillRepository;
 
-@Service
-@Transactional
 public class ScheduleConflictReplacementService implements GetReplacementSuggestionsUseCase, ConfirmReplacementProposalUseCase {
 
     private final AuthorizationService authorizationService;
@@ -61,11 +56,11 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
     private final LoadUserPort loadUserPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadSkillPort loadSkillPort;
-    private final SpringDataEmployeeSkillRepository employeeSkillRepository;
+    private final EmployeeSkillRepository employeeSkillRepository;
     private final LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
     private final LoadWeeklyProjectAllocationPort loadAllocationPort;
     private final LoadApprovedLeavesPort loadApprovedLeavesPort;
-    private final SpringDataScheduleConflictReplacementRepository replacementRepository;
+    private final SaveScheduleConflictReplacementPort replacementPort;
     private final SaveAuditLogInNewTransactionPort auditLogPort;
     private final SimulatedNotificationPort notificationPort;
 
@@ -77,11 +72,11 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort,
             LoadSkillPort loadSkillPort,
-            SpringDataEmployeeSkillRepository employeeSkillRepository,
+            EmployeeSkillRepository employeeSkillRepository,
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
-            SpringDataScheduleConflictReplacementRepository replacementRepository,
+            SaveScheduleConflictReplacementPort replacementPort,
             SaveAuditLogInNewTransactionPort auditLogPort,
             SimulatedNotificationPort notificationPort
     ) {
@@ -96,20 +91,17 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
         this.loadWeeklyAvailabilityPort = Objects.requireNonNull(loadWeeklyAvailabilityPort, "loadWeeklyAvailabilityPort must not be null");
         this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "loadAllocationPort must not be null");
         this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "loadApprovedLeavesPort must not be null");
-        this.replacementRepository = Objects.requireNonNull(replacementRepository, "replacementRepository must not be null");
+        this.replacementPort = Objects.requireNonNull(replacementPort, "replacementPort must not be null");
         this.auditLogPort = Objects.requireNonNull(auditLogPort, "auditLogPort must not be null");
         this.notificationPort = Objects.requireNonNull(notificationPort, "notificationPort must not be null");
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ReplacementSuggestionResult getReplacementSuggestions(Long conflictId, Long targetSkillId, Integer minProficiencyLevel) {
         Long currentUserId;
         try {
-            // [NCL-07-CN-002-TC-03] Enforce permission RESOURCE_REPLACEMENT_SUGGEST (RM VT-03, Admin VT-06)
             currentUserId = authorizationService.requireAny(PermissionCode.RESOURCE_REPLACEMENT_SUGGEST);
         } catch (PermissionDeniedException ex) {
-            // Ghi nhật ký từ chối truy cập cho TC-03
             auditLogPort.save(AuditLog.create(
                     null,
                     "ACCESS_DENIED",
@@ -134,26 +126,26 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
         }
 
         // Tìm các kỹ năng của nhân sự bị xung đột nếu không được truyền trực tiếp
-        List<EmployeeSkillJpaEntity> conflictedEmpSkills = employeeSkillRepository.findByEmployeeId(conflictedEmployee.getIdValue());
+        List<EmployeeSkill> conflictedEmpSkills = employeeSkillRepository.findByEmployeeId(conflictedEmployee.getIdValue());
         Long selectedSkillId = targetSkillId;
         int requiredLevel = minProficiencyLevel != null ? minProficiencyLevel : 1;
 
         if (selectedSkillId == null) {
             if (!conflictedEmpSkills.isEmpty()) {
                 // Ưu tiên chọn kỹ năng có mức thành thạo cao nhất
-                EmployeeSkillJpaEntity bestSkill = conflictedEmpSkills.stream()
-                        .max(Comparator.comparingInt(s -> s.getProficiencyLevel() != null ? s.getProficiencyLevel() : 0))
+                EmployeeSkill bestSkill = conflictedEmpSkills.stream()
+                        .max(Comparator.comparingInt(EmployeeSkill::getProficiencyLevelValue))
                         .orElse(conflictedEmpSkills.get(0));
                 selectedSkillId = bestSkill.getSkillId();
-                if (minProficiencyLevel == null && bestSkill.getProficiencyLevel() != null) {
-                    requiredLevel = bestSkill.getProficiencyLevel();
+                if (minProficiencyLevel == null) {
+                    requiredLevel = bestSkill.getProficiencyLevelValue();
                 }
             } else {
                 // FALLBACK: Nếu nhân sự chưa khai báo kỹ năng riêng, tự động lấy kỹ năng đã được duyệt phổ biến nhất trong hệ thống
-                List<EmployeeSkillJpaEntity> allApproved = employeeSkillRepository.findByStatus(com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED);
+                List<EmployeeSkill> allApproved = employeeSkillRepository.findByStatus(SkillStatus.APPROVED);
                 if (!allApproved.isEmpty()) {
                     selectedSkillId = allApproved.stream()
-                            .collect(Collectors.groupingBy(EmployeeSkillJpaEntity::getSkillId, Collectors.counting()))
+                            .collect(Collectors.groupingBy(EmployeeSkill::getSkillId, Collectors.counting()))
                             .entrySet().stream()
                             .max(Map.Entry.comparingByValue())
                             .map(Map.Entry::getKey)
@@ -192,12 +184,12 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
         }
 
         // 1. Tìm các nhân sự khác có cùng kỹ năng với mức thành thạo tương đương (>= requiredLevel)
-        List<EmployeeSkillJpaEntity> matchingEmpSkills = employeeSkillRepository
+        List<EmployeeSkill> matchingEmpSkills = employeeSkillRepository
                 .findApprovedBySkillAndMinLevel(selectedSkillId, requiredLevel);
 
         // Lọc bỏ chính nhân sự bị xung đột
         List<Long> candidateEmpIds = matchingEmpSkills.stream()
-                .map(EmployeeSkillJpaEntity::getEmployeeId)
+                .map(EmployeeSkill::getEmployeeId)
                 .filter(id -> !id.equals(conflictedEmployee.getIdValue()))
                 .distinct()
                 .toList();
@@ -263,8 +255,8 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                         Collectors.reducing(BigDecimal.ZERO, WeeklyProjectAllocation::getAllocatedHours, BigDecimal::add)
                 ));
 
-        Map<Long, EmployeeSkillJpaEntity> empSkillMap = matchingEmpSkills.stream()
-                .collect(Collectors.toMap(EmployeeSkillJpaEntity::getEmployeeId, s -> s, (s1, s2) -> s1));
+        Map<Long, EmployeeSkill> empSkillMap = matchingEmpSkills.stream()
+                .collect(Collectors.toMap(EmployeeSkill::getEmployeeId, s -> s, (s1, s2) -> s1));
 
         List<ReplacementCandidateResult> candidates = new ArrayList<>();
 
@@ -286,8 +278,8 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 continue; // Bỏ qua nếu không còn giờ rảnh
             }
 
-            EmployeeSkillJpaEntity es = empSkillMap.get(empId);
-            int profLevel = es != null && es.getProficiencyLevel() != null ? es.getProficiencyLevel() : requiredLevel;
+            EmployeeSkill es = empSkillMap.get(empId);
+            int profLevel = es != null ? es.getProficiencyLevelValue() : requiredLevel;
 
             String candidateDept = emp.getOrgUnitId() != null
                     ? orgUnitMap.getOrDefault(emp.getOrgUnitId(), "Chưa phân bổ phòng")
@@ -387,18 +379,21 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
         }
 
         // Lưu bản ghi đề xuất thay thế vào CSDL
-        ScheduleConflictReplacementJpaEntity entity = new ScheduleConflictReplacementJpaEntity();
-        entity.setConflictId(command.conflictId());
-        entity.setOriginalEmployeeId(originalEmp.getIdValue());
-        entity.setReplacementEmployeeId(replacementEmp.getIdValue());
-        entity.setSkillId(command.skillId());
-        entity.setProficiencyLevel(command.proficiencyLevel() != null ? command.proficiencyLevel() : 3);
-        entity.setFreeHours(conflict.getExcessHours());
-        entity.setStatus("PROPOSED");
-        entity.setNotes(command.notes());
-        entity.setCreatedBy(currentUserId);
+        ScheduleConflictReplacement domainToSave = new ScheduleConflictReplacement(
+                null,
+                command.conflictId(),
+                originalEmp.getIdValue(),
+                replacementEmp.getIdValue(),
+                command.skillId(),
+                command.proficiencyLevel() != null ? command.proficiencyLevel() : 3,
+                conflict.getExcessHours(),
+                "PROPOSED",
+                command.notes(),
+                currentUserId,
+                null
+        );
 
-        ScheduleConflictReplacementJpaEntity saved = replacementRepository.save(entity);
+        ScheduleConflictReplacement saved = replacementPort.save(domainToSave);
 
         // Cập nhật trạng thái của xung đột thành RESOLVED hoặc NOTIFIED
         conflict.markAsNotified(currentUserId);
