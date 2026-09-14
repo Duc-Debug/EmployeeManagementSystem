@@ -156,4 +156,45 @@ public class ResourceAllocationUseCaseConfig {
                 );
         return new TransactionalBulkAllocateResourceUseCase(pureService);
     }
+
+    /**
+     * NCL-06-CN-004: Đăng ký Bean cho AdjustResourceAllocationUseCase (QTN-15) được bọc Transactional Decorator
+     */
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.allocation.AdjustResourceAllocationUseCase adjustResourceAllocationUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort deleteAllocationPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort saveChangeLogPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.LoadAllocationChangeLogPort loadChangeLogPort,
+            com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.CheckActualHoursPort checkActualHoursPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort notificationPort,
+            LoadOrgUnitPort loadOrgUnitPort) {
+        com.hrm.employeemanagement.application.service.allocation.AdjustResourceAllocationService pureService =
+                new com.hrm.employeemanagement.application.service.allocation.AdjustResourceAllocationService(
+                        authorizationService,
+                        loadUserPort,
+                        loadEmployeePort,
+                        loadProjectPort,
+                        loadWeeklyAvailabilityPort,
+                        loadAllocationPort,
+                        saveAllocationPort,
+                        deleteAllocationPort,
+                        saveChangeLogPort,
+                        loadChangeLogPort,
+                        saveAuditLogPort,
+                        deniedAuditLogPort,
+                        checkActualHoursPort,
+                        notificationPort,
+                        loadOrgUnitPort
+                );
+        return new com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalAdjustResourceAllocationUseCase(pureService);
+    }
 }

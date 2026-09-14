@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation;
 
+import com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
@@ -11,11 +12,16 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 @Component
-public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProjectAllocationPort, LoadWeeklyProjectAllocationPort {
+public class WeeklyProjectAllocationPersistenceAdapter implements 
+        SaveWeeklyProjectAllocationPort, 
+        LoadWeeklyProjectAllocationPort,
+        DeleteWeeklyProjectAllocationPort {
 
     private final SpringDataWeeklyProjectAllocationRepository repository;
 
@@ -24,30 +30,47 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
     }
 
     @Override
+    public Optional<WeeklyProjectAllocation> findById(Long id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        return repository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        if (id != null) {
+            repository.deleteById(id);
+        }
+    }
+
+    @Override
     public WeeklyProjectAllocation save(WeeklyProjectAllocation allocation) {
         WeeklyProjectAllocationJpaEntity entity;
         if (allocation.getId() != null) {
             entity = repository.findById(allocation.getId())
-                    .orElseGet(() -> new WeeklyProjectAllocationJpaEntity(
-                            allocation.getId(),
-                            allocation.getEmployeeId(),
-                            allocation.getProjectId(),
-                            allocation.getYear(),
-                            allocation.getWeekNumber(),
-                            allocation.getAllocatedHours(),
-                            allocation.getAllocationPercentage(),
-                            allocation.isOverloaded(),
-                            allocation.getOverloadReason(),
-                            allocation.getOverloadApprovedBy(),
-                            allocation.getOverloadApprovedAt(),
-                            null
+                    .orElseThrow(() -> new ObjectOptimisticLockingFailureException(
+                            WeeklyProjectAllocationJpaEntity.class,
+                            allocation.getId()
                     ));
+
+            if (allocation.getVersion() != null && !Objects.equals(allocation.getVersion(), entity.getVersion())) {
+                throw new ObjectOptimisticLockingFailureException(
+                        WeeklyProjectAllocationJpaEntity.class,
+                        allocation.getId()
+                );
+            }
+
+            entity.setYear(allocation.getYear());
+            entity.setWeekNumber(allocation.getWeekNumber());
             entity.setAllocatedHours(allocation.getAllocatedHours());
             entity.setAllocationPercentage(allocation.getAllocationPercentage());
             entity.setIsOverloaded(allocation.isOverloaded());
             entity.setOverloadReason(allocation.getOverloadReason());
             entity.setOverloadApprovedBy(allocation.getOverloadApprovedBy());
             entity.setOverloadApprovedAt(allocation.getOverloadApprovedAt());
+            entity.setVarianceNote(allocation.getVarianceNote());
+            entity.setUpdatedBy(allocation.getUpdatedBy());
         } else {
             entity = new WeeklyProjectAllocationJpaEntity(
                     null,
@@ -61,6 +84,8 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                     allocation.getOverloadReason(),
                     allocation.getOverloadApprovedBy(),
                     allocation.getOverloadApprovedAt(),
+                    allocation.getVarianceNote(),
+                    allocation.getUpdatedBy(),
                     null
             );
         }
@@ -148,7 +173,30 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 e.getOverloadReason(),
                 e.getOverloadApprovedBy(),
                 e.getOverloadApprovedAt(),
+                e.getVarianceNote(),
+                e.getUpdatedBy(),
                 e.getVersion()
         );
+    }
+
+    @Override
+    public void delete(WeeklyProjectAllocation allocation) {
+        if (allocation != null && allocation.getId() != null) {
+            if (allocation.getVersion() != null) {
+                WeeklyProjectAllocationJpaEntity entity = repository.findById(allocation.getId())
+                        .orElse(null);
+                if (entity != null) {
+                    if (!Objects.equals(allocation.getVersion(), entity.getVersion())) {
+                        throw new ObjectOptimisticLockingFailureException(
+                                WeeklyProjectAllocationJpaEntity.class,
+                                allocation.getId()
+                        );
+                    }
+                    repository.delete(entity);
+                    return;
+                }
+            }
+            repository.deleteById(allocation.getId());
+        }
     }
 }
