@@ -90,8 +90,8 @@ public class UpdateWorkLogService implements UpdateWorkLogUseCase {
         Employee employee = loadEmployeePort.findByIdForUpdate(baseEmployee.getId())
                 .orElse(baseEmployee);
 
-        if (employee.getStatus() != null && employee.getStatus() != EmployeeStatus.ACTIVE) {
-            throw new WorkLogTaskNotAssignedException("Tài khoản nhân sự không ở trạng thái hoạt động (ACTIVE).");
+        if (employee.getStatus() != EmployeeStatus.ACTIVE) {
+            throw new com.hrm.employeemanagement.domain.exception.employee.EmployeeInactiveException("Tài khoản nhân sự không ở trạng thái hoạt động (ACTIVE).");
         }
 
         if (command.entryId() == null) {
