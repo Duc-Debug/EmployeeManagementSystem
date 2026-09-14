@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation;
 
+import com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
@@ -15,12 +16,30 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
-public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProjectAllocationPort, LoadWeeklyProjectAllocationPort {
+public class WeeklyProjectAllocationPersistenceAdapter implements 
+        SaveWeeklyProjectAllocationPort, 
+        LoadWeeklyProjectAllocationPort,
+        DeleteWeeklyProjectAllocationPort {
 
     private final SpringDataWeeklyProjectAllocationRepository repository;
 
     public WeeklyProjectAllocationPersistenceAdapter(SpringDataWeeklyProjectAllocationRepository repository) {
         this.repository = repository;
+    }
+
+    @Override
+    public Optional<WeeklyProjectAllocation> findById(Long id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        return repository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        if (id != null) {
+            repository.deleteById(id);
+        }
     }
 
     @Override
@@ -40,14 +59,20 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                             allocation.getOverloadReason(),
                             allocation.getOverloadApprovedBy(),
                             allocation.getOverloadApprovedAt(),
+                            allocation.getVarianceNote(),
+                            allocation.getUpdatedBy(),
                             null
                     ));
+            entity.setYear(allocation.getYear());
+            entity.setWeekNumber(allocation.getWeekNumber());
             entity.setAllocatedHours(allocation.getAllocatedHours());
             entity.setAllocationPercentage(allocation.getAllocationPercentage());
             entity.setIsOverloaded(allocation.isOverloaded());
             entity.setOverloadReason(allocation.getOverloadReason());
             entity.setOverloadApprovedBy(allocation.getOverloadApprovedBy());
             entity.setOverloadApprovedAt(allocation.getOverloadApprovedAt());
+            entity.setVarianceNote(allocation.getVarianceNote());
+            entity.setUpdatedBy(allocation.getUpdatedBy());
         } else {
             entity = new WeeklyProjectAllocationJpaEntity(
                     null,
@@ -61,6 +86,8 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                     allocation.getOverloadReason(),
                     allocation.getOverloadApprovedBy(),
                     allocation.getOverloadApprovedAt(),
+                    allocation.getVarianceNote(),
+                    allocation.getUpdatedBy(),
                     null
             );
         }
@@ -142,6 +169,8 @@ public class WeeklyProjectAllocationPersistenceAdapter implements SaveWeeklyProj
                 e.getOverloadReason(),
                 e.getOverloadApprovedBy(),
                 e.getOverloadApprovedAt(),
+                e.getVarianceNote(),
+                e.getUpdatedBy(),
                 e.getVersion()
         );
     }
