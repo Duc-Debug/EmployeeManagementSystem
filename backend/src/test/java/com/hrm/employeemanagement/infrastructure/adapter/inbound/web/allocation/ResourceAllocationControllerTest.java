@@ -104,7 +104,9 @@ class ResourceAllocationControllerTest {
                 .andExpect(jsonPath("$.data.weeks[0].weekNumber").value(37))
                 .andExpect(jsonPath("$.data.rows[0].employeeCode").value("EMP001"))
                 .andExpect(jsonPath("$.data.rows[0].cells[0].utilizationPercentage").value(80.0))
-                .andExpect(jsonPath("$.data.rows[0].cells[0].status").value("OPTIMAL"));
+                .andExpect(jsonPath("$.data.rows[0].cells[0].status").value("OPTIMAL"))
+                .andExpect(jsonPath("$.data.overloadThreshold").value(100.0))
+                .andExpect(jsonPath("$.data.idleThreshold").value(50.0));
     }
 
     @Test
