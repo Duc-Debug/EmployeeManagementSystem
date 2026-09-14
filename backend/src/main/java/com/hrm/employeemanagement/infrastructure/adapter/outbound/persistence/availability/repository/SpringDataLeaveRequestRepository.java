@@ -22,7 +22,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
 
     @Query("SELECT l FROM LeaveRequestJpaEntity l " +
            "WHERE l.employeeId = :employeeId " +
-           "AND l.status = 'APPROVED' " +
+           "AND l.status IN ('APPROVED', 'CANCEL_REQUESTED') " +
            "AND l.startDate <= :endDate AND l.endDate >= :startDate")
     List<LeaveRequestJpaEntity> findApprovedLeavesBetween(@Param("employeeId") Long employeeId,
                                                          @Param("startDate") LocalDate startDate,
@@ -30,7 +30,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
 
     @Query("SELECT l FROM LeaveRequestJpaEntity l " +
            "WHERE l.employeeId IN :employeeIds " +
-           "AND l.status = 'APPROVED' " +
+           "AND l.status IN ('APPROVED', 'CANCEL_REQUESTED') " +
            "AND l.startDate <= :endDate AND l.endDate >= :startDate")
     List<LeaveRequestJpaEntity> findApprovedLeavesForEmployeesBetween(@Param("employeeIds") List<Long> employeeIds,
                                                                      @Param("startDate") LocalDate startDate,
@@ -39,7 +39,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
     @Deprecated
     @Query("SELECT COALESCE(SUM(l.hoursDeducted), 0.00) FROM LeaveRequestJpaEntity l " +
            "WHERE l.employeeId = :employeeId " +
-           "AND l.status = 'APPROVED' " +
+           "AND l.status IN ('APPROVED', 'CANCEL_REQUESTED') " +
            "AND l.startDate <= :endDate AND l.endDate >= :startDate")
     BigDecimal sumApprovedLeaveHoursBetween(@Param("employeeId") Long employeeId,
                                             @Param("startDate") LocalDate startDate,
@@ -64,7 +64,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
     @Query("SELECT l FROM LeaveRequestJpaEntity l " +
            "WHERE l.employeeId = :employeeId " +
            "AND l.leaveType = 'ANNUAL' " +
-           "AND l.status IN ('APPROVED', 'PENDING') " +
+           "AND l.status IN ('APPROVED', 'PENDING', 'CANCEL_REQUESTED') " +
            "AND l.startDate <= :endDate AND l.endDate >= :startDate " +
            "ORDER BY l.startDate DESC")
     List<LeaveRequestJpaEntity> findAnnualLeavesInYear(
@@ -77,7 +77,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
 
     @Query("SELECT l FROM LeaveRequestJpaEntity l " +
            "WHERE l.employeeId IN :employeeIds " +
-           "AND l.status IN ('APPROVED', 'PENDING') " +
+           "AND l.status IN ('APPROVED', 'PENDING', 'CANCEL_REQUESTED') " +
            "AND l.startDate <= :endDate AND l.endDate >= :startDate " +
            "ORDER BY l.startDate ASC")
     List<LeaveRequestJpaEntity> findDepartmentLeavesBetween(
@@ -88,7 +88,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
     @Query(value = """
         SELECT lr.*
         FROM leave_requests lr
-        WHERE lr.status = 'PENDING'
+        WHERE lr.status IN ('PENDING', 'CANCEL_REQUESTED')
         ORDER BY lr.created_at ASC, lr.id ASC
         LIMIT :size OFFSET :offset
         """, nativeQuery = true)
@@ -100,7 +100,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
     @Query(value = """
         SELECT COUNT(*)
         FROM leave_requests lr
-        WHERE lr.status = 'PENDING'
+        WHERE lr.status IN ('PENDING', 'CANCEL_REQUESTED')
         """, nativeQuery = true)
     long countPendingCompanyScope();
 
@@ -110,7 +110,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
         JOIN employees e ON e.id = lr.employee_id
         JOIN org_units ou ON ou.id = e.org_unit_id
         JOIN org_units scope ON scope.id = :scopeOrgUnitId
-        WHERE lr.status = 'PENDING'
+        WHERE lr.status IN ('PENDING', 'CANCEL_REQUESTED')
           AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
         ORDER BY lr.created_at ASC, lr.id ASC
         LIMIT :size OFFSET :offset
@@ -127,7 +127,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
         JOIN employees e ON e.id = lr.employee_id
         JOIN org_units ou ON ou.id = e.org_unit_id
         JOIN org_units scope ON scope.id = :scopeOrgUnitId
-        WHERE lr.status = 'PENDING'
+        WHERE lr.status IN ('PENDING', 'CANCEL_REQUESTED')
           AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
         """, nativeQuery = true)
     long countPendingBranchScope(@Param("scopeOrgUnitId") Long scopeOrgUnitId);
@@ -136,7 +136,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
         SELECT lr.*
         FROM leave_requests lr
         JOIN employees e ON e.id = lr.employee_id
-        WHERE lr.status = 'PENDING'
+        WHERE lr.status IN ('PENDING', 'CANCEL_REQUESTED')
           AND e.user_id = :currentUserId
         ORDER BY lr.created_at ASC, lr.id ASC
         LIMIT :size OFFSET :offset
@@ -151,7 +151,7 @@ public interface SpringDataLeaveRequestRepository extends JpaRepository<LeaveReq
         SELECT COUNT(*)
         FROM leave_requests lr
         JOIN employees e ON e.id = lr.employee_id
-        WHERE lr.status = 'PENDING'
+        WHERE lr.status IN ('PENDING', 'CANCEL_REQUESTED')
           AND e.user_id = :currentUserId
         """, nativeQuery = true)
     long countPendingSelfScope(@Param("currentUserId") Long currentUserId);
