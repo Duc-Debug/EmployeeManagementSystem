@@ -5,7 +5,7 @@
 -- ============================================================
 
 ALTER TABLE weekly_project_allocations ADD COLUMN is_overloaded BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE weekly_project_allocations ADD COLUMN overload_reason TEXT NULL;
+ALTER TABLE weekly_project_allocations ADD COLUMN overload_reason VARCHAR(1000) NULL;
 ALTER TABLE weekly_project_allocations ADD COLUMN overload_approved_by BIGINT NULL;
 ALTER TABLE weekly_project_allocations ADD COLUMN overload_approved_at TIMESTAMP NULL;
 

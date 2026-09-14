@@ -44,6 +44,7 @@ export interface DepartmentNode {
     managerId: string | null;
     manager: string;
     unitType: UnitType;
+    employeeCount?: number;
     status: "ACTIVE" | "INACTIVE";
     description?: string;
     children: DepartmentNode[];
@@ -275,7 +276,7 @@ type ModalState =
 function mapOrgUnitNodeToDepartmentNode(node: OrgUnitTreeNode, userMap?: Map<number, User>): DepartmentNode {
     const managerId = node.managerId ? String(node.managerId) : null;
     const user = node.managerId && userMap ? userMap.get(node.managerId) : undefined;
-    const managerName = user ? (user.fullName || user.username) : undefined;
+    const managerName = node.managerName || (user ? (user.fullName || user.username) : undefined);
     return {
         id: String(node.id),
         name: node.unitName,
@@ -283,6 +284,7 @@ function mapOrgUnitNodeToDepartmentNode(node: OrgUnitTreeNode, userMap?: Map<num
         managerId,
         manager: managerName ?? (managerId ? `Quản lý #${managerId}` : "Chưa chỉ định"),
         unitType: node.unitType,
+        employeeCount: node.employeeCount ?? (node.members ? node.members.length : undefined),
         status: node.status === "ACTIVE" ? "ACTIVE" : "INACTIVE",
         description: node.description || undefined,
         children: node.children ? node.children.map((c) => mapOrgUnitNodeToDepartmentNode(c, userMap)) : [],
@@ -902,9 +904,11 @@ function TreeNodeItem({
     const isTarget = dropTargetId === node.id;
 
     const nodeNumId = parseInt(node.id, 10);
-    const memberCount = (users || []).filter(
-        (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.name.toLowerCase())
-    ).length;
+    const memberCount = (node.employeeCount !== undefined && node.employeeCount !== null)
+        ? node.employeeCount
+        : (users || []).filter(
+            (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.name.toLowerCase())
+        ).length;
 
     const meta = getUnitMeta(node.unitType);
     const IconComponent = meta.icon;

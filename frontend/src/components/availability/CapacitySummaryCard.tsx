@@ -52,7 +52,7 @@ export default function CapacitySummaryCard({
             Năng lực khả dụng {employeeName ? `• ${employeeName}` : ""}
           </h4>
           <p className="text-[11px] font-medium text-slate-500">
-            {weekLabel ? `${weekLabel} • ` : ""}Quy tắc QTN-10: Khả dụng = Giờ chuẩn - Giờ lễ - Giờ nghỉ phép đã duyệt
+            {weekLabel ? `${weekLabel} • ` : ""}Khả dụng = Giờ chuẩn - Giờ lễ - Giờ nghỉ phép đã duyệt
           </p>
         </div>
         <div className="flex items-center gap-2">

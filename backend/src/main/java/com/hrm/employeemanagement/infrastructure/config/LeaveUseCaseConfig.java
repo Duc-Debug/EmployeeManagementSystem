@@ -8,6 +8,8 @@ import com.hrm.employeemanagement.application.port.inbound.leave.GetMyLeaveBalan
 import com.hrm.employeemanagement.application.port.inbound.leave.GetPendingLeaveRequestsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.leave.RejectLeaveRequestUseCase;
 import com.hrm.employeemanagement.application.port.inbound.leave.SubmitLeaveRequestUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
@@ -167,7 +169,11 @@ public class LeaveUseCaseConfig {
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             @org.springframework.beans.factory.annotation.Autowired(required = false)
-            LoadWorkingCalendarPort loadWorkingCalendarPort
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort
     ) {
         ApproveLeaveRequestService service = new ApproveLeaveRequestService(
                 loadLeaveRequestPort,
@@ -181,7 +187,9 @@ public class LeaveUseCaseConfig {
                 saveWeeklyAvailabilityPort,
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
-                loadWorkingCalendarPort
+                loadWorkingCalendarPort,
+                loadWeeklyProjectAllocationPort,
+                saveWeeklyProjectAllocationPort
         );
         return new TransactionalApproveLeaveRequestService(service);
     }

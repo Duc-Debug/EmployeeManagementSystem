@@ -53,7 +53,10 @@ public class DeclareEmployeeSkillService implements DeclareEmployeeSkillUseCase 
         Employee currentEmployee = loadEmployeePort.findByUserId(new UserId(currentUserId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Tài khoản chưa được khởi tạo hồ sơ nhân sự"));
 
-        if (!currentEmployee.getIdValue().equals(command.employeeId())) {
+        Long targetEmployeeId = command.employeeId();
+        if (targetEmployeeId == null) {
+            targetEmployeeId = currentEmployee.getIdValue();
+        } else if (!currentEmployee.getIdValue().equals(targetEmployeeId)) {
             throw new PermissionDeniedException(PermissionCode.EMPLOYEE_SKILL_DECLARE);
         }
 
@@ -62,13 +65,13 @@ public class DeclareEmployeeSkillService implements DeclareEmployeeSkillUseCase 
                 .orElseThrow(() -> new SkillNotFoundException("Không tìm thấy kỹ năng trong danh mục với ID: " + command.skillId()));
 
         // 4. Kiểm tra dữ liệu trùng lặp (TC-02)
-        if (employeeSkillRepository.existsByEmployeeIdAndSkillId(command.employeeId(), command.skillId())) {
+        if (employeeSkillRepository.existsByEmployeeIdAndSkillId(targetEmployeeId, command.skillId())) {
             throw new DuplicateEmployeeSkillException("Kỹ năng '" + skill.getName() + "' đã có trong hồ sơ. Vui lòng chọn cập nhật mức thành thạo thay vì thêm mới.");
         }
 
         // 5. Khởi tạo bản ghi kỹ năng mới ở trạng thái PENDING (TC-01)
         EmployeeSkill newSkill = EmployeeSkill.declare(
-                command.employeeId(),
+                targetEmployeeId,
                 command.skillId(),
                 command.proficiencyLevel(),
                 command.yearsOfExperience()

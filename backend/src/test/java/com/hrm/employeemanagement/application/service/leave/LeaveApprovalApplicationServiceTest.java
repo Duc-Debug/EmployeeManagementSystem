@@ -165,4 +165,79 @@ class LeaveApprovalApplicationServiceTest {
         assertThat(impact.totalAllocatedHoursInLeavePeriod()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(impact.affectedProjects()).isEmpty();
     }
+
+    @Test
+    @DisplayName("Approve leave: Khi load/save allocation bị lỗi -> Không nuốt exception, ném ngoại lệ ra ngoài để rollback transaction")
+    void approveLeaveRequest_PropagatesAllocationException() {
+        com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort mockLoadAvail = mock(com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort.class);
+        com.hrm.employeemanagement.application.port.outbound.availability.SaveWeeklyAvailabilityPort mockSaveAvail = mock(com.hrm.employeemanagement.application.port.outbound.availability.SaveWeeklyAvailabilityPort.class);
+        com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort mockLoadAlloc = mock(com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort.class);
+        com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort mockSaveAlloc = mock(com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort.class);
+
+        ApproveLeaveRequestService serviceWithAlloc = new ApproveLeaveRequestService(
+                loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
+                null, null, loadEmployeePort, mockLoadAvail, mockSaveAvail, null, null, null,
+                mockLoadAlloc, mockSaveAlloc
+        );
+
+        when(authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE)).thenReturn(99L);
+        LeaveRequest sample = createSamplePendingRequest();
+        when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(sample));
+        when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(i -> i.getArgument(0));
+
+        Employee emp = mock(Employee.class);
+        when(emp.getIdValue()).thenReturn(10L);
+        when(emp.getStandardHoursPerWeek()).thenReturn(40);
+        when(loadEmployeePort.findById(new EmployeeId(10L))).thenReturn(Optional.of(emp));
+
+        doThrow(new RuntimeException("Lỗi DB khi truy vấn allocation"))
+                .when(mockLoadAlloc).loadAllocationsForEmployee(eq(10L), any());
+
+        assertThatThrownBy(() -> serviceWithAlloc.approveLeaveRequest(1L, "Duyệt đơn"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Lỗi DB khi truy vấn allocation");
+    }
+
+    @Test
+    @DisplayName("Approve leave: Khi số giờ phân bổ vượt quá netAvailableHours sau duyệt -> Cập nhật isOverloaded = true và lưu allocation")
+    void approveLeaveRequest_UpdatesAllocationOverloadStatus() {
+        com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort mockLoadAvail = mock(com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort.class);
+        com.hrm.employeemanagement.application.port.outbound.availability.SaveWeeklyAvailabilityPort mockSaveAvail = mock(com.hrm.employeemanagement.application.port.outbound.availability.SaveWeeklyAvailabilityPort.class);
+        com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort mockLoadAlloc = mock(com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort.class);
+        com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort mockSaveAlloc = mock(com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort.class);
+
+        ApproveLeaveRequestService serviceWithAlloc = new ApproveLeaveRequestService(
+                loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
+                null, null, loadEmployeePort, mockLoadAvail, mockSaveAvail, null, null, null,
+                mockLoadAlloc, mockSaveAlloc
+        );
+
+        when(authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE)).thenReturn(99L);
+        LeaveRequest sample = createSamplePendingRequest();
+        when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(sample));
+        when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(i -> i.getArgument(0));
+
+        Employee emp = mock(Employee.class);
+        when(emp.getIdValue()).thenReturn(10L);
+        when(emp.getStandardHoursPerWeek()).thenReturn(40);
+        when(loadEmployeePort.findById(new EmployeeId(10L))).thenReturn(Optional.of(emp));
+
+        // Sau khi nghỉ phép 24h, netAvailableHours = 16h
+        when(mockSaveAvail.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        // Phân bổ hiện tại là 50h cho tuần đó (vượt quá 40h khả dụng)
+        com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation alloc =
+                com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation.createNew(
+                        10L, 101L, com.hrm.employeemanagement.domain.availability.YearWeek.from(sample.getStartDate()), BigDecimal.valueOf(50)
+                );
+
+        when(mockLoadAlloc.loadAllocationsForEmployee(eq(10L), any()))
+                .thenReturn(List.of(alloc));
+
+        LeaveRequestResult result = serviceWithAlloc.approveLeaveRequest(1L, "Duyệt");
+
+        assertThat(result.status()).isEqualTo(LeaveStatus.APPROVED);
+        assertThat(alloc.isOverloaded()).isTrue();
+        verify(mockSaveAlloc).save(alloc);
+    }
 }

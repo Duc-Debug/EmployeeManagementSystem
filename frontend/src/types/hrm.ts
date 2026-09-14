@@ -51,6 +51,13 @@ export interface User {
   scopeOrgUnitId: number | null;
 }
 
+export interface OrgUnitMember {
+  id: number;
+  employeeCode: string;
+  fullName: string;
+  professionalRole?: string | null;
+}
+
 /** Matches GET /api/v1/org-units/tree. */
 export interface OrgUnitTreeNode {
   id: number;
@@ -63,5 +70,8 @@ export interface OrgUnitTreeNode {
   status: OrgUnitStatus;
   description: string | null;
   managerId: number | null;
+  managerName?: string | null;
+  employeeCount?: number;
+  members?: readonly OrgUnitMember[];
   children: readonly OrgUnitTreeNode[];
 }

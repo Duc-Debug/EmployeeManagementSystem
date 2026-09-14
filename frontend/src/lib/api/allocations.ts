@@ -140,6 +140,7 @@ export interface CapacityMatrixCell {
   isOverloaded: boolean;
   excessHours: number;
   reservedHours?: number;
+  approvedLeaveHours?: number;
   status: CapacityStatus;
 }
 
@@ -228,6 +229,58 @@ export async function getCompanyWeeklyCapacityMatrix(
   return apiRequest<CompanyWeeklyCapacityMatrixData>(
     `/allocations/weekly-matrix${queryStr ? `?${queryStr}` : ""}`
   );
+}
+
+export interface WeeklyAvailableHoursResult {
+  year: number;
+  weekNumber: number;
+  standardHours: number;
+  netAvailableHours: number;
+  totalAllocatedHours: number;
+  remainingHours: number;
+}
+
+export interface ResourceSearchResult {
+  employeeId: number;
+  employeeCode: string;
+  fullName: string;
+  orgUnitId?: number | null;
+  orgUnitName?: string | null;
+  jobTitle?: string | null;
+  skillId: number;
+  skillName: string;
+  proficiencyLevel: number;
+  yearsOfExperience?: number | null;
+  weeklyAvailabilities: WeeklyAvailableHoursResult[];
+  totalRemainingHours: number;
+}
+
+export interface SearchResourceQueryParams {
+  skillId: number;
+  minProficiencyLevel?: number;
+  orgUnitId?: number;
+  fromYear: number;
+  fromWeek: number;
+  toYear?: number;
+  toWeek?: number;
+  durationWeeks?: number;
+}
+
+export async function searchResourceCandidates(
+  params: SearchResourceQueryParams
+): Promise<ResourceSearchResult[]> {
+  const query = new URLSearchParams({
+    skillId: String(params.skillId),
+    fromYear: String(params.fromYear),
+    fromWeek: String(params.fromWeek),
+  });
+  if (params.toYear != null) query.append("toYear", String(params.toYear));
+  if (params.toWeek != null) query.append("toWeek", String(params.toWeek));
+  if (params.minProficiencyLevel != null) query.append("minProficiencyLevel", String(params.minProficiencyLevel));
+  if (params.orgUnitId != null) query.append("orgUnitId", String(params.orgUnitId));
+  if (params.durationWeeks != null) query.append("durationWeeks", String(params.durationWeeks));
+
+  return apiRequest<ResourceSearchResult[]>(`/allocations/search?${query.toString()}`);
 }
 
 // NCL-06-CN-005: Quản lý giữ chỗ nguồn lực (Resource Reservation - QTN-13)
@@ -325,4 +378,3 @@ export async function autoConvertProjectReservations(
     }
   );
 }
-
