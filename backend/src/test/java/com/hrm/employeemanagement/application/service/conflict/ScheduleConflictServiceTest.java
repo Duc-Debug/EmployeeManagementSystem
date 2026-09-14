@@ -305,9 +305,18 @@ class ScheduleConflictServiceTest {
     }
 
     @Test
+    @DisplayName("HIGH Regression: Chỉ có quyền READ không thể gọi scanScheduleConflicts")
+    void testScanScheduleConflicts_ReadPermissionOnly_ThrowsPermissionDeniedException() {
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
+
+        assertThrows(PermissionDeniedException.class, () -> service.scanScheduleConflicts(2026, 37, 37));
+    }
+
+    @Test
     @DisplayName("HIGH 2 Regression: Phân bổ 2 dự án nhưng tổng giờ <= 40h capacity không tạo cảnh báo xung đột")
     void testMultiProjectAllocationWithinCapacity_NoConflict() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
                 .thenReturn(1L);
 
         Employee emp = new Employee(
@@ -339,7 +348,7 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("Regression: 1 project vượt capacity (50h/40h) KHÔNG tạo MULTI_PROJECT_ALLOCATION")
     void testSingleProjectOverload_DoesNotCreateMultiProjectConflict() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
                 .thenReturn(1L);
 
         Employee emp = new Employee(
@@ -369,7 +378,7 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("Regression: Phân bổ 2 dự án tổng 40h + nghỉ phép 8h chỉ tạo LEAVE_ALLOCATION_CONFLICT, không tạo MULTI_PROJECT_ALLOCATION")
     void testTwoProjectsWithinCapacityWithLeave_CreatesOnlyLeaveConflictNotMultiProject() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
+        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
                 .thenReturn(1L);
 
         Employee emp = new Employee(

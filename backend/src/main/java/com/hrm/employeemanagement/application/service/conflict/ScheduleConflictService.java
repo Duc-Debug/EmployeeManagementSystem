@@ -116,7 +116,6 @@ public class ScheduleConflictService implements
     @Override
     public List<ScheduleConflictResult> scanScheduleConflicts(Integer yearNumber, Integer startWeek, Integer endWeek) {
         authorizationService.requireAny(
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ,
                 PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
         );
 
