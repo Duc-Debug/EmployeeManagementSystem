@@ -32,6 +32,7 @@ const navSections: ReadonlyArray<NavSection> = [
       { href: "/organization", icon: "organization", label: "Sơ đồ cây tổ chức" },
       { href: "/access", icon: "access", label: "Phân quyền hệ thống" },
       { href: "/skills", icon: "shield", label: "Khai báo kỹ năng" },
+      { href: "/work-logs", icon: "time", label: "Ghi giờ làm việc" },
     ],
   },
 ];
@@ -99,12 +100,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           if (authUser?.roleCode === "VT-06") {
             return true;
           }
-          // VT-04 (Specialist/Employee) has access to skills declaration
-          if (authUser?.roleCode === "VT-04" && item.href === "/skills") {
+          // VT-04 (Specialist/Employee) has access to skills declaration and work logs
+          if (authUser?.roleCode === "VT-04" && (item.href === "/skills" || item.href === "/work-logs")) {
             return true;
           }
-          // Non-admin roles have view access to organization tree
-          return item.href === "/organization" || item.href === "/skills";
+          // Non-admin roles have view access to organization tree, skills and work logs
+          return item.href === "/organization" || item.href === "/skills" || item.href === "/work-logs";
         }),
       }))
       .filter((section) => section.items.length > 0);
