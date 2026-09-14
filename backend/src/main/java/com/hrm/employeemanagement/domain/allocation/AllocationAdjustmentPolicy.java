@@ -75,6 +75,21 @@ public final class AllocationAdjustmentPolicy {
     }
 
     /**
+     * Kiểm tra tỷ lệ phần trăm phân bổ mới khi sửa giờ.
+     */
+    public static void validateAllocationPercentage(BigDecimal percentage) {
+        if (percentage == null) {
+            throw new InvalidAllocationAdjustmentException("Tỷ lệ phần trăm phân bổ mới không được để trống");
+        }
+        if (percentage.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidAllocationAdjustmentException("Tỷ lệ phần trăm phân bổ mới phải lớn hơn 0%");
+        }
+        if (percentage.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new InvalidAllocationAdjustmentException("Tỷ lệ phần trăm phân bổ không được vượt quá 100%");
+        }
+    }
+
+    /**
      * Kiểm tra nội dung lý do chênh lệch khi ghi chú.
      */
     public static void validateVarianceNote(String varianceNote) {

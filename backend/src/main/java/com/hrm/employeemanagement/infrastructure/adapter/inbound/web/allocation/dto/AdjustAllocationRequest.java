@@ -16,7 +16,7 @@ public record AdjustAllocationRequest(
         @DecimalMax(value = "168.00", message = "Số giờ phân bổ không được vượt quá 168 giờ")
         BigDecimal newHours,
 
-        @DecimalMin(value = "0.00", message = "Tỷ lệ phần trăm không được nhỏ hơn 0%")
+        @DecimalMin(value = "0.01", message = "Tỷ lệ phần trăm phân bổ phải lớn hơn 0%")
         @DecimalMax(value = "100.00", message = "Tỷ lệ phần trăm không được vượt quá 100%")
         BigDecimal allocationPercentage,
 
