@@ -119,8 +119,14 @@ export function CapacityThresholdConfigModal({
     if (idleThreshold < 0) {
       return "Ngưỡng nhàn rỗi không được nhỏ hơn 0%.";
     }
+    if (idleThreshold > 100) {
+      return "Ngưỡng nhàn rỗi không được vượt quá 100%.";
+    }
     if (overloadThreshold <= 0) {
       return "Ngưỡng quá tải phải lớn hơn 0%.";
+    }
+    if (overloadThreshold > 200) {
+      return "Ngưỡng quá tải không được vượt quá 200%.";
     }
     if (idleThreshold >= overloadThreshold) {
       return `Ngưỡng nhàn rỗi (${idleThreshold}%) phải nhỏ hơn ngưỡng quá tải (${overloadThreshold}%).`;
@@ -347,7 +353,7 @@ export function CapacityThresholdConfigModal({
                 <input
                   type="range"
                   min={50}
-                  max={150}
+                  max={200}
                   step={1}
                   value={overloadThreshold}
                   onChange={(e) => setOverloadThreshold(Number(e.target.value))}

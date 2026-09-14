@@ -56,6 +56,24 @@ class CapacityThresholdPolicyTest {
     }
 
     @Test
+    @DisplayName("Ném ngoại lệ khi idleThreshold > 100")
+    void testIdleExceedsMax_ThrowsException() {
+        assertThatThrownBy(() -> CapacityThresholdPolicy.validateThresholds(BigDecimal.valueOf(150.0), BigDecimal.valueOf(105.0)))
+                .isInstanceOf(InvalidCapacityThresholdException.class)
+                .hasMessageContaining("không được vượt quá 100%");
+    }
+
+    @Test
+    @DisplayName("Ném ngoại lệ khi overloadThreshold <= 0")
+    void testOverloadZeroOrNegative_ThrowsException() {
+        assertThatThrownBy(() -> CapacityThresholdPolicy.validateThresholds(BigDecimal.ZERO, BigDecimal.valueOf(0.0)))
+                .isInstanceOf(InvalidCapacityThresholdException.class);
+
+        assertThatThrownBy(() -> CapacityThresholdPolicy.validateThresholds(BigDecimal.valueOf(-10.0), BigDecimal.valueOf(0.0)))
+                .isInstanceOf(InvalidCapacityThresholdException.class);
+    }
+
+    @Test
     @DisplayName("Ném ngoại lệ khi overloadThreshold > 200")
     void testOverloadExceedsMax_ThrowsException() {
         assertThatThrownBy(() -> CapacityThresholdPolicy.validateThresholds(BigDecimal.valueOf(250.0), BigDecimal.valueOf(20.0)))

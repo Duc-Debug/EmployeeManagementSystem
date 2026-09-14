@@ -141,11 +141,10 @@ public class CapacityThresholdService implements
 
     @Override
     public CapacityThresholdResult getEffectiveThreshold(CapacityThresholdScope scopeType, Long orgUnitId) {
-        // Enforce Authorization: Cho phép VT-01, VT-02, VT-03 đọc cấu hình
+        // Enforce Authorization: Chỉ cho phép các vai trò có quyền CAPACITY_THRESHOLD_READ hoặc CAPACITY_THRESHOLD_MANAGE
         Long currentUserId = authorizationService.requireAny(
                 PermissionCode.CAPACITY_THRESHOLD_READ,
-                PermissionCode.CAPACITY_THRESHOLD_MANAGE,
-                PermissionCode.RESOURCE_ALLOCATION_READ
+                PermissionCode.CAPACITY_THRESHOLD_MANAGE
         );
 
         CapacityThresholdScope actualScope = scopeType != null ? scopeType : CapacityThresholdScope.COMPANY;

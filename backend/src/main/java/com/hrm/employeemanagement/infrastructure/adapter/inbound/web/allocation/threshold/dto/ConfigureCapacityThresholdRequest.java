@@ -16,13 +16,13 @@ public record ConfigureCapacityThresholdRequest(
         Long orgUnitId,
 
         @NotNull(message = "Ngưỡng quá tải không được để trống")
-        @DecimalMin(value = "0.0", message = "Ngưỡng quá tải không được nhỏ hơn 0%")
+        @DecimalMin(value = "0.1", message = "Ngưỡng quá tải phải lớn hơn 0%")
         @DecimalMax(value = "200.0", message = "Ngưỡng quá tải không được vượt quá 200%")
         BigDecimal overloadThreshold,
 
         @NotNull(message = "Ngưỡng nhàn rỗi không được để trống")
         @DecimalMin(value = "0.0", message = "Ngưỡng nhàn rỗi không được nhỏ hơn 0%")
-        @DecimalMax(value = "200.0", message = "Ngưỡng nhàn rỗi không được vượt quá 200%")
+        @DecimalMax(value = "100.0", message = "Ngưỡng nhàn rỗi không được vượt quá 100%")
         BigDecimal idleThreshold,
 
         Long version

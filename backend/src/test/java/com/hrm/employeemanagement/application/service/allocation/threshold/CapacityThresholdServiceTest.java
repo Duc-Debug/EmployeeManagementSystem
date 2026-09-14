@@ -375,4 +375,35 @@ class CapacityThresholdServiceTest {
         assertThat(results).hasSize(1);
         assertThat(results.get(0).action()).isEqualTo("UPDATE_CAPACITY_THRESHOLD");
     }
+
+    @Test
+    @DisplayName("HIGH #1 Security: getEffectiveThreshold yêu cầu đúng CAPACITY_THRESHOLD_READ hoặc CAPACITY_THRESHOLD_MANAGE, không cho phép bypass qua RESOURCE_ALLOCATION_READ")
+    void testGetEffectiveThreshold_RequiresDedicatedPermission() {
+        when(authorizationService.requireAny(
+                PermissionCode.CAPACITY_THRESHOLD_READ,
+                PermissionCode.CAPACITY_THRESHOLD_MANAGE
+        )).thenReturn(VT01_USER_ID);
+
+        when(loadCapacityThresholdPort.findByScopeKey("COMPANY")).thenReturn(Optional.empty());
+
+        CapacityThresholdResult result = service.getEffectiveThreshold(CapacityThresholdScope.COMPANY, null);
+        assertThat(result).isNotNull();
+
+        verify(authorizationService).requireAny(
+                PermissionCode.CAPACITY_THRESHOLD_READ,
+                PermissionCode.CAPACITY_THRESHOLD_MANAGE
+        );
+    }
+
+    @Test
+    @DisplayName("HIGH #1 Security: Ném PermissionDeniedException khi không có CAPACITY_THRESHOLD_READ hoặc CAPACITY_THRESHOLD_MANAGE")
+    void testGetEffectiveThreshold_PermissionDenied() {
+        when(authorizationService.requireAny(
+                PermissionCode.CAPACITY_THRESHOLD_READ,
+                PermissionCode.CAPACITY_THRESHOLD_MANAGE
+        )).thenThrow(new PermissionDeniedException(PermissionCode.CAPACITY_THRESHOLD_READ));
+
+        assertThatThrownBy(() -> service.getEffectiveThreshold(CapacityThresholdScope.COMPANY, null))
+                .isInstanceOf(PermissionDeniedException.class);
+    }
 }

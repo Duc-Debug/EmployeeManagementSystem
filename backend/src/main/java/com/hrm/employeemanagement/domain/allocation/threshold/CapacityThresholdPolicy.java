@@ -18,6 +18,7 @@ public class CapacityThresholdPolicy {
     public static final BigDecimal DEFAULT_OVERLOAD_THRESHOLD = BigDecimal.valueOf(100.0).setScale(1, RoundingMode.HALF_UP);
     public static final BigDecimal DEFAULT_IDLE_THRESHOLD = BigDecimal.valueOf(50.0).setScale(1, RoundingMode.HALF_UP);
     public static final BigDecimal MIN_THRESHOLD = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+    public static final BigDecimal MAX_IDLE_THRESHOLD = BigDecimal.valueOf(100.0).setScale(1, RoundingMode.HALF_UP);
     public static final BigDecimal MAX_THRESHOLD = BigDecimal.valueOf(200.0).setScale(1, RoundingMode.HALF_UP);
 
     public static void validateThresholds(BigDecimal overloadThreshold, BigDecimal idleThreshold) {
@@ -30,6 +31,14 @@ public class CapacityThresholdPolicy {
 
         if (idleThreshold.compareTo(MIN_THRESHOLD) < 0) {
             throw new InvalidCapacityThresholdException("Ngưỡng nhàn rỗi không được nhỏ hơn 0%");
+        }
+
+        if (idleThreshold.compareTo(MAX_IDLE_THRESHOLD) > 0) {
+            throw new InvalidCapacityThresholdException("Ngưỡng nhàn rỗi không được vượt quá 100%");
+        }
+
+        if (overloadThreshold.compareTo(MIN_THRESHOLD) <= 0) {
+            throw new InvalidCapacityThresholdException("Ngưỡng quá tải phải lớn hơn 0%");
         }
 
         if (overloadThreshold.compareTo(MAX_THRESHOLD) > 0) {

@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS capacity_threshold_configs (
     CONSTRAINT chk_ctc_scope_type CHECK (scope_type IN ('COMPANY', 'ORG_UNIT')),
     CONSTRAINT chk_ctc_threshold_range CHECK (
         idle_threshold >= 0 
+        AND idle_threshold <= 100
+        AND overload_threshold > 0
         AND overload_threshold <= 200 
         AND idle_threshold < overload_threshold
     ),
