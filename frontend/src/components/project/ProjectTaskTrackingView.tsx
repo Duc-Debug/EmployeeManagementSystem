@@ -215,7 +215,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
             }
             return 0;
         });
-    }, [data?.tasks, sortBy]);
+    }, [data, sortBy]);
 
     // Group tasks by category if enabled
     const groupedTasks = useMemo(() => {
