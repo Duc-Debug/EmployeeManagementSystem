@@ -4,7 +4,13 @@ import type { HrProfileData } from "./hrprofile.types";
 import HrProfileCard from "./HrProfileCard";
 import HrProfileForm from "./HrProfileForm";
 import { useAuthUser } from "@/lib/auth-session";
-import { getEmployees, updateEmployeeProfile } from "@/lib/api/employees";
+import { getEmployees, getEmployeeProfile, updateEmployeeProfile } from "@/lib/api/employees";
+import { getUsers } from "@/lib/api/users";
+import { getOrgTree } from "@/lib/api/org-units";
+import { flattenActiveOrgTree } from "@/lib/organization";
+import { getStoredDates, saveStoredDates } from "@/lib/employee-storage";
+import type { OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
+import { DEFAULT_ORG_UNIT_OPTIONS } from "../employee/form/employeeForm.constants";
 
 export default function HrProfilePage() {
     const currentUser = useAuthUser();
@@ -13,6 +19,7 @@ export default function HrProfilePage() {
     const isSelfOnly = roleCode === "VT-04" || currentUser?.dataScope === "SELF";
 
     const [profiles, setProfiles] = useState<HrProfileData[]>([]);
+    const [orgUnitOptions, setOrgUnitOptions] = useState<readonly OrgUnitOption[]>(DEFAULT_ORG_UNIT_OPTIONS);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -22,19 +29,83 @@ export default function HrProfilePage() {
     const loadProfiles = async () => {
         setIsLoading(true);
         try {
-            const res = await getEmployees(1, 100);
-            if (res && res.content && res.content.length > 0) {
-                const mapped: HrProfileData[] = res.content.map((p) => ({
-                    id: String(p.id),
-                    employeeId: p.id,
-                    employeeCode: p.employeeCode,
-                    fullName: p.fullName,
-                    department: p.orgUnitName || "Chưa phân bổ",
-                    professionalRole: p.professionalRole || "",
-                    startDate: p.startDate || "",
-                    contractEndDate: p.contractEndDate || "",
-                    standardHoursPerWeek: p.standardHoursPerWeek || 40,
-                }));
+            const [empRes, usersRes, treeRes] = await Promise.allSettled([
+                getEmployees(1, 100),
+                getUsers(0, 100),
+                getOrgTree(),
+            ]);
+
+            const orgUnitMap = new Map<number, string>();
+            if (treeRes.status === "fulfilled" && treeRes.value && treeRes.value.length > 0) {
+                const flat = flattenActiveOrgTree(treeRes.value);
+                if (flat.length > 0) {
+                    const dynamicOptions: OrgUnitOption[] = flat.map((u) => ({
+                        id: u.id,
+                        unitCode: u.unitCode,
+                        unitName: u.unitName,
+                        unitType: u.unitType,
+                        depth: u.level ?? 0,
+                    }));
+                    setOrgUnitOptions(dynamicOptions);
+                }
+                flat.forEach((unit) => {
+                    orgUnitMap.set(unit.id, unit.unitName);
+                });
+            }
+
+            const userMap = new Map<number, any>();
+            if (usersRes.status === "fulfilled" && usersRes.value?.content) {
+                usersRes.value.content.forEach((u: any) => {
+                    userMap.set(u.id, u);
+                    if (u.employeeId) userMap.set(u.employeeId, u);
+                });
+            }
+
+            if (empRes.status === "fulfilled" && empRes.value && empRes.value.content) {
+                const nonAdminEmps = empRes.value.content.filter((p) => {
+                    const u = (p.userId && userMap.get(p.userId)) || userMap.get(p.id);
+                    const role = (u?.roleCode || "").toUpperCase().replace(/_/g, "-");
+                    const roleName = (u?.roleName || p.professionalRole || "").toLowerCase();
+                    const username = (u?.username || "").toLowerCase();
+                    const fullName = (p.fullName || u?.fullName || "").toLowerCase();
+                    if (
+                        role === "VT-06" ||
+                        role === "ROLE-ADMIN" ||
+                        role === "ADMIN" ||
+                        username === "admin" ||
+                        username.includes("admin") ||
+                        roleName.includes("quản trị") ||
+                        roleName.includes("admin") ||
+                        fullName === "administrator" ||
+                        fullName.includes("quản trị viên")
+                    ) {
+                        return false;
+                    }
+                    return true;
+                });
+
+                const mapped: HrProfileData[] = nonAdminEmps.map((p) => {
+                    const u = (p.userId && userMap.get(p.userId)) || userMap.get(p.id);
+                    const empCode = p.employeeCode || (p.id ? `EMP-${String(p.id).padStart(3, "0")}` : "");
+                    const dates = getStoredDates(p.id) || (p.userId ? getStoredDates(p.userId) : undefined) || getStoredDates(empCode);
+                    const deptName = (p.orgUnitId && orgUnitMap.get(p.orgUnitId)) || u?.orgUnitName || "Chưa phân bổ";
+
+                    return {
+                        id: String(p.id),
+                        employeeId: p.id,
+                        employeeCode: empCode,
+                        fullName: p.fullName || u?.fullName || "",
+                        email: p.email || u?.email || (empCode ? `${empCode.toLowerCase().replace(/[^a-z0-9]/g, "")}@company.com` : ""),
+                        username: u?.username || "",
+                        orgUnitId: p.orgUnitId ? String(p.orgUnitId) : undefined,
+                        department: deptName,
+                        professionalRole: p.professionalRole || u?.roleName || "Nhân viên chuyên môn",
+                        startDate: p.startDate || dates?.joinDate || "",
+                        contractEndDate: p.contractEndDate || dates?.contractEndDate || "",
+                        standardHoursPerWeek: p.standardHoursPerWeek || 40,
+                        version: p.version ?? 0,
+                    };
+                });
                 setProfiles(mapped);
             } else {
                 setProfiles([]);
@@ -73,6 +144,7 @@ export default function HrProfilePage() {
                 startDate: "2024-01-01",
                 standardHoursPerWeek: 40,
                 employeeId: currentUser.id,
+                version: 0,
             }];
         }
         return [];
@@ -95,9 +167,31 @@ export default function HrProfilePage() {
         setIsFormOpen(true);
     };
 
-    const handleOpenEdit = (profile: HrProfileData) => {
+    const handleOpenEdit = async (profile: HrProfileData) => {
         setEditingProfile(profile);
         setIsFormOpen(true);
+        if (profile.employeeId) {
+            try {
+                const fresh = await getEmployeeProfile(profile.employeeId);
+                if (fresh) {
+                    setEditingProfile((prev) => {
+                        if (!prev || prev.employeeId !== profile.employeeId) return prev;
+                        return {
+                            ...prev,
+                            fullName: fresh.fullName || prev.fullName,
+                            orgUnitId: fresh.orgUnitId ? String(fresh.orgUnitId) : prev.orgUnitId,
+                            department: fresh.orgUnitName || prev.department,
+                            startDate: fresh.startDate || prev.startDate,
+                            contractEndDate: fresh.contractEndDate || prev.contractEndDate,
+                            standardHoursPerWeek: fresh.standardHoursPerWeek || prev.standardHoursPerWeek,
+                            version: fresh.version ?? prev.version ?? 0,
+                        };
+                    });
+                }
+            } catch {
+                // keep current
+            }
+        }
     };
 
     const handleDelete = (id: string) => {
@@ -108,15 +202,35 @@ export default function HrProfilePage() {
     const handleSave = async (data: HrProfileData) => {
         try {
             if (editingProfile && editingProfile.employeeId) {
+                let currentVersion = data.version ?? editingProfile.version ?? 0;
+                try {
+                    const fresh = await getEmployeeProfile(editingProfile.employeeId);
+                    if (fresh && typeof fresh.version === "number") {
+                        currentVersion = fresh.version;
+                    }
+                } catch {
+                    // fallback to currentVersion
+                }
+
+                const targetOrgUnitId = data.orgUnitId
+                    ? Number(data.orgUnitId)
+                    : (editingProfile.orgUnitId ? Number(editingProfile.orgUnitId) : 1);
+
                 await updateEmployeeProfile(editingProfile.employeeId, {
-                    version: 0,
+                    version: currentVersion,
                     fullName: data.fullName,
-                    orgUnitId: data.orgUnitId ? Number(data.orgUnitId) : 1,
+                    orgUnitId: targetOrgUnitId,
                     professionalRole: data.professionalRole,
                     startDate: data.startDate,
                     contractEndDate: data.contractEndDate,
                     standardHoursPerWeek: data.standardHoursPerWeek,
                 });
+
+                saveStoredDates([editingProfile.employeeId, editingProfile.employeeCode], {
+                    joinDate: data.startDate,
+                    contractEndDate: data.contractEndDate,
+                });
+
                 showNotification("success", `Đã cập nhật hồ sơ ${data.fullName} thành công.`);
             } else {
                 showNotification("error", "Việc tạo tài khoản và hồ sơ nhân sự mới được thực hiện tại mục Quản lý tài khoản (dành cho Quản trị viên VT-06).");
@@ -178,8 +292,24 @@ export default function HrProfilePage() {
                     </div>
                 </div>
 
+                {/* Table / List Header */}
+                {!isLoading && filtered.length > 0 && (
+                    <div className="hidden sm:flex items-center justify-between rounded-xl border border-slate-200/90 bg-slate-100/80 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        <div className="w-[220px] flex-none">Nhân sự</div>
+                        <div className="grid flex-1 grid-cols-3 px-4">
+                            <div>Email</div>
+                            <div>Phòng ban</div>
+                            <div>Vị trí chuyên môn</div>
+                        </div>
+                        <div className="w-[190px] flex-none text-right pr-1">
+                            Hợp đồng &amp; Giờ chuẩn
+                        </div>
+                        {canManage && <div className="w-[60px] flex-none text-right">Thao tác</div>}
+                    </div>
+                )}
+
                 {/* List */}
-                <div className="space-y-3 pt-1">
+                <div className="space-y-2.5 pt-1">
                     {isLoading && (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-500">
                             <Loader2 className="size-8 animate-spin text-indigo-600 mb-2" />
@@ -224,6 +354,7 @@ export default function HrProfilePage() {
                 open={isFormOpen}
                 initialData={editingProfile}
                 nextEmployeeCode={nextCode}
+                orgUnitOptions={orgUnitOptions}
                 onClose={() => setIsFormOpen(false)}
                 onSave={handleSave}
             />

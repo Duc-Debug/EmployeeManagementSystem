@@ -8,12 +8,11 @@ import EmployeeProfileForm from "../components/employee/form/EmployeeProfileForm
 import EmployeeDetailModal from "../components/employee/form/EmployeeDetailModal";
 import type { EmployeeFormData } from "../components/employee/form/employeeForm.types";
 import { DEFAULT_ORG_UNIT_OPTIONS } from "../components/employee/form/employeeForm.constants";
-import { getUsers, createUser, updateUserRole, toggleUserStatus } from "@/lib/api/users";
+import { getUsers, createUser, updateUser, toggleUserStatus } from "@/lib/api/users";
 import {
     getEmployeeProfile,
     getEmployeeProfileByUserId,
     updateEmployeeProfile,
-    createEmployeeProfile,
     type EmployeeProfile,
 } from "@/lib/api/employees";
 import {
@@ -496,15 +495,19 @@ export default function EmployeeProfilePage() {
             const numId = typeof editingEmployee.id === "number" ? editingEmployee.id : parseInt(String(editingEmployee.id).replace(/\D/g, ""), 10);
             if (!isNaN(numId)) {
                 try {
-                    // 1. Cập nhật phân quyền tài khoản (Role & DataScope)
-                    const roleRes = await updateUserRole(numId, {
+                    // 1. Cập nhật tài khoản, phân quyền & phòng ban qua API PUT /users/{id}
+                    const userRes = await updateUser(numId, {
+                        fullName: data.fullName.trim(),
+                        email: data.email?.trim() || "",
+                        employeeCode: data.employeeCode?.trim() || undefined,
+                        orgUnitId: data.orgUnitId ? Number(data.orgUnitId) : null,
                         roleCode: (data.roleCode as RoleCode) || "VT-04",
                         dataScope: (data.dataScope as DataScope) || "COMPANY",
                         scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
                     });
 
                     // 2. Cập nhật trạng thái tài khoản (Status) nếu có thay đổi
-                    let finalStatus = data.status;
+                    let finalStatus = userRes?.status || data.status;
                     if (data.status && data.status !== editingEmployee.status) {
                         const statusRes = await toggleUserStatus(numId, data.status === "LOCKED");
                         if (statusRes?.status) {
@@ -512,15 +515,11 @@ export default function EmployeeProfilePage() {
                         }
                     }
 
-                    // 3. Cập nhật hoặc tạo mới hồ sơ nhân sự (fullName, orgUnitId, standardHours, startDate, contractEndDate) qua API /employees
-                    let updatedFullName = data.fullName.trim() || editingEmployee.fullName;
-                    let updatedOrgUnitId = data.orgUnitId || editingEmployee.orgUnitId;
-                    let updatedDepartment = data.department || editingEmployee.department;
-                    let updatedStandardHours = Number(data.standardHoursPerWeek) || 40;
-
-                    const empId = editingEmployee.employeeId;
+                    // 3. Cập nhật hồ sơ nhân sự phụ (startDate, contractEndDate, standardHoursPerWeek) nếu cần
+                    const empId = editingEmployee.employeeId || userRes?.employeeId;
                     const reqStartDate = data.joinDate ? formatToDateInput(data.joinDate) : undefined;
                     const reqContractEndDate = data.contractEndDate ? formatToDateInput(data.contractEndDate) : undefined;
+                    let updatedStandardHours = Number(data.standardHoursPerWeek) || 40;
 
                     try {
                         let profile: EmployeeProfile | null = null;
@@ -540,37 +539,20 @@ export default function EmployeeProfilePage() {
                         }
 
                         if (profile) {
-                            const newOrgId = data.orgUnitId ? Number(data.orgUnitId) : profile.orgUnitId;
+                            const newOrgId = userRes.orgUnitId ?? (data.orgUnitId ? Number(data.orgUnitId) : profile.orgUnitId);
                             const updatedProfile = await updateEmployeeProfile(profile.id, {
                                 version: profile.version ?? 0,
-                                fullName: data.fullName.trim(),
+                                fullName: userRes.fullName || data.fullName.trim(),
                                 orgUnitId: newOrgId,
                                 professionalRole: profile.professionalRole,
                                 startDate: reqStartDate || profile.startDate,
                                 contractEndDate: reqContractEndDate || profile.contractEndDate,
                                 standardHoursPerWeek: Number(data.standardHoursPerWeek) || profile.standardHoursPerWeek || 40,
                             });
-                            updatedFullName = updatedProfile.fullName;
-                            updatedOrgUnitId = String(updatedProfile.orgUnitId);
-                            updatedDepartment = updatedProfile.orgUnitName || data.department || editingEmployee.department;
                             updatedStandardHours = updatedProfile.standardHoursPerWeek;
-                        } else if (numId && data.orgUnitId) {
-                            const createdProfile = await createEmployeeProfile({
-                                userId: numId,
-                                orgUnitId: Number(data.orgUnitId),
-                                employeeCode: data.employeeCode || `EMP-${String(numId).padStart(3, "0")}`,
-                                fullName: data.fullName.trim(),
-                                startDate: reqStartDate,
-                                contractEndDate: reqContractEndDate,
-                                standardHoursPerWeek: Number(data.standardHoursPerWeek) || 40,
-                            });
-                            updatedFullName = createdProfile.fullName;
-                            updatedOrgUnitId = String(createdProfile.orgUnitId);
-                            updatedDepartment = createdProfile.orgUnitName || data.department || editingEmployee.department;
-                            updatedStandardHours = createdProfile.standardHoursPerWeek;
                         }
                     } catch (profErr: any) {
-                        console.warn("Không thể đồng bộ hồ sơ nhân sự backend:", profErr);
+                        // Bỏ qua nếu user không có quyền EMPLOYEE_UPDATE hoặc profile không hỗ trợ
                     }
 
                     // 4. Lưu ngày tháng vào localStorage
@@ -579,25 +561,27 @@ export default function EmployeeProfilePage() {
                         { joinDate: data.joinDate, contractEndDate: data.contractEndDate }
                     );
 
-                    // Cập nhật state UI với các trường đã được backend xác nhận lưu thành công
+                    // 5. Cập nhật state UI với các trường đã được backend xác nhận lưu thành công
                     setEmployees((prev) =>
                         prev.map((e) =>
                             (e.id || e.employeeCode) === targetId
                                 ? {
                                       ...e,
-                                      fullName: updatedFullName,
-                                      orgUnitId: updatedOrgUnitId,
-                                      department: updatedDepartment,
+                                      fullName: userRes.fullName || data.fullName,
+                                      employeeId: userRes.employeeId ?? e.employeeId,
+                                      employeeCode: data.employeeCode || e.employeeCode,
+                                      orgUnitId: userRes.orgUnitId ? String(userRes.orgUnitId) : data.orgUnitId,
+                                      department: userRes.orgUnitName || data.department || e.department,
                                       joinDate: data.joinDate || e.joinDate,
                                       startDate: data.joinDate || e.startDate,
                                       contractEndDate: data.contractEndDate || e.contractEndDate,
                                       standardHoursPerWeek: updatedStandardHours,
-                                      roleCode: roleRes?.roleCode || data.roleCode,
-                                      roleName: roleRes?.roleName || data.roleName || e.roleName,
-                                      dataScope: roleRes?.dataScope || data.dataScope,
+                                      roleCode: userRes.roleCode || data.roleCode,
+                                      roleName: userRes.roleName || data.roleName || e.roleName,
+                                      dataScope: userRes.dataScope || data.dataScope,
                                       scopeOrgUnitId:
-                                          roleRes?.scopeOrgUnitId !== undefined
-                                              ? (roleRes.scopeOrgUnitId ? String(roleRes.scopeOrgUnitId) : undefined)
+                                          userRes.scopeOrgUnitId !== null && userRes.scopeOrgUnitId !== undefined
+                                              ? String(userRes.scopeOrgUnitId)
                                               : data.scopeOrgUnitId,
                                       status: finalStatus || e.status,
                                   }
@@ -606,7 +590,7 @@ export default function EmployeeProfilePage() {
                     );
                     setActionNotification({
                         type: "success",
-                        message: `Cập nhật thông tin nhân viên ${updatedFullName} thành công.`,
+                        message: `Cập nhật thông tin nhân viên ${userRes.fullName || data.fullName} thành công.`,
                     });
                     setIsFormOpen(false);
                 } catch (err: any) {
@@ -617,64 +601,26 @@ export default function EmployeeProfilePage() {
                         type: "error",
                         message: msg,
                     });
-                    // Giữ nguyên form, KHÔNG cập nhật state cục bộ
                 } finally {
                     setIsSaving(false);
                 }
-                saveStoredDates([targetId, data.employeeCode], {
-                    joinDate: data.joinDate,
-                    contractEndDate: data.contractEndDate,
-                });
-                setEmployees((prev) =>
-                    prev.map((e) =>
-                        (e.id || e.employeeCode) === targetId
-                            ? {
-                                  ...e,
-                                  fullName: data.fullName,
-                                  department: data.department,
-                                  joinDate: data.joinDate || e.joinDate,
-                                  startDate: data.joinDate || e.startDate,
-                                  contractEndDate: data.contractEndDate || e.contractEndDate,
-                                  standardHoursPerWeek: Number(data.standardHoursPerWeek) || 40,
-                                  roleCode: data.roleCode,
-                                  roleName: data.roleName || e.roleName,
-                                  dataScope: data.dataScope,
-                                  scopeOrgUnitId: data.scopeOrgUnitId,
-                                  status: data.status || e.status,
-                              }
-                            : e
-                    )
-                );
-                setIsFormOpen(false);
-                setIsSaving(false);
             }
         } else {
             // TẠO MỚI TÀI KHOẢN: GỌI API THẬT, KHÔNG FALLBACK TẠO STATE CỤC BỘ KHI THẤT BẠI
             try {
                 const res = await createUser({
-                    fullName: data.fullName,
-                    email: data.email,
-                    employeeCode: data.employeeCode,
+                    fullName: data.fullName.trim(),
+                    email: data.email?.trim() || undefined,
+                    employeeCode: data.employeeCode?.trim() || undefined,
                     username: data.username || data.fullName.toLowerCase().replace(/\s+/g, "."),
                     password: data.password || "123456",
                     orgUnitId: data.orgUnitId ? Number(data.orgUnitId) : null,
                     roleCode: (data.roleCode as RoleCode) || "VT-04",
+                    scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
                 });
 
                 if (!res || !res.id) {
                     throw new Error("Máy chủ phản hồi nhưng không tạo được tài khoản hợp lệ.");
-                }
-
-                if (data.dataScope || data.roleCode) {
-                    try {
-                        await updateUserRole(res.id, {
-                            roleCode: (data.roleCode as RoleCode) || "VT-04",
-                            dataScope: (data.dataScope as DataScope) || "COMPANY",
-                            scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,
-                        });
-                    } catch (roleErr) {
-                        console.warn("Không thể đồng bộ role/dataScope sau createUser:", roleErr);
-                    }
                 }
 
                 if (data.joinDate || data.contractEndDate) {
@@ -688,7 +634,15 @@ export default function EmployeeProfilePage() {
                 const newEmp: EmployeeFormData = {
                     ...data,
                     id: String(res.id),
-                    employeeCode: data.employeeCode,
+                    employeeId: res.employeeId ?? undefined,
+                    employeeCode: data.employeeCode || (res.employeeId ? `EMP-${String(res.employeeId).padStart(3, "0")}` : `EMP-${res.id}`),
+                    department: res.orgUnitName || data.department || "Chưa phân bổ",
+                    orgUnitId: res.orgUnitId ? String(res.orgUnitId) : data.orgUnitId,
+                    roleCode: res.roleCode || data.roleCode,
+                    roleName: res.roleName || data.roleName,
+                    dataScope: res.dataScope || data.dataScope,
+                    scopeOrgUnitId: res.scopeOrgUnitId ? String(res.scopeOrgUnitId) : data.scopeOrgUnitId,
+                    status: res.status || data.status || "ACTIVE",
                     joinDate: data.joinDate || undefined,
                     startDate: data.joinDate || undefined,
                     contractEndDate: data.contractEndDate || undefined,
@@ -708,7 +662,6 @@ export default function EmployeeProfilePage() {
                     type: "error",
                     message: msg,
                 });
-                // TUYỆT ĐỐI KHÔNG TẠO EMPLOYEE LOCAL VÀ KHÔNG ĐÓNG FORM KHI API THẤT BẠI!
             } finally {
                 setIsSaving(false);
             }

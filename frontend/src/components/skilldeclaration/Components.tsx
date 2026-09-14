@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Award, Check, Plus, Trash2, Edit3, X } from 'lucide-react';
+import { Award, Check, Plus, Trash2, Edit3, X, Loader2 } from 'lucide-react';
 import { PROFICIENCY_LEVELS } from './Types.ts';
 import type { CatalogSkill, DeclaredSkill, FormMode, Role, SkillPayload } from './Types.ts';
 import { SkillSelect } from './SkillSelect.tsx';
@@ -190,23 +190,45 @@ export function ConfirmDeleteModal({ open, skillName, onClose, onConfirm }: Conf
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl text-slate-900 space-y-4">
-                <h3 className="text-lg font-bold">Xác nhận xóa kỹ năng</h3>
-                <p className="text-sm text-slate-600">
-                    Bạn có chắc chắn muốn xóa kỹ năng <strong className="text-slate-900">"{skillName}"</strong> khỏi danh sách?
-                </p>
-
-                <div className="flex justify-end gap-3 pt-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl text-slate-900 overflow-hidden animate-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-100">
+                            <Trash2 className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900">Xác nhận xóa kỹ năng</h3>
+                            <p className="text-xs text-slate-500">Thao tác này không thể hoàn tác.</p>
+                        </div>
+                    </div>
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                        className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                <div className="p-6">
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                        Bạn có chắc chắn muốn xóa kỹ năng <strong className="text-slate-900">"{skillName}"</strong> khỏi danh sách khai báo cá nhân?
+                    </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                     >
                         Hủy
                     </button>
                     <button
+                        type="button"
                         onClick={onConfirm}
-                        className="rounded-xl bg-rose-600 hover:bg-rose-700 px-4 py-2 text-xs font-bold text-white transition shadow-sm"
+                        className="rounded-xl bg-rose-600 hover:bg-rose-700 px-4 py-2 text-xs font-bold text-white transition shadow-xs cursor-pointer"
                     >
                         Xóa kỹ năng
                     </button>
@@ -257,7 +279,7 @@ function SkillFormModalContent({
         editingSkill ? editingSkill.level : null
     );
     const [years, setYears] = useState(
-        editingSkill ? String(editingSkill.years) : ''
+        editingSkill ? String(editingSkill.years) : '1'
     );
     const [errors, setErrors] = useState<{ skillId?: boolean; level?: boolean; years?: boolean }>({});
 
@@ -295,117 +317,155 @@ function SkillFormModalContent({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl text-slate-900 space-y-5">
-                <div>
-                    <h3 className="text-lg font-bold">
-                        {mode === 'update' ? 'Cập nhật mức thành thạo' : 'Khai báo kỹ năng mới'}
-                    </h3>
-                    <p className="text-xs text-slate-500">Điền thông tin kỹ năng bạn muốn khai báo.</p>
-                </div>
-
-                {duplicateSkillName && (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-800 space-y-2">
-                        <p className="font-medium">
-                            ⚠️ Kỹ năng <strong>"{duplicateSkillName}"</strong> đã được bạn khai báo trước đó.
-                        </p>
-                        <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={onConfirmSwitchToUpdate}
-                                className="rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1 text-xs font-bold text-amber-900 transition"
-                            >
-                                Chuyển sang Cập nhật
-                            </button>
-                            <button
-                                type="button"
-                                onClick={onDismissDuplicateWarning}
-                                className="rounded-lg bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-bold text-slate-700 transition"
-                            >
-                                Bỏ qua
-                            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-md sm:max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl text-slate-900 overflow-hidden animate-in zoom-in-95 duration-150">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600 border border-violet-100">
+                            <Award className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900">
+                                {mode === 'update' ? 'Cập nhật mức thành thạo' : 'Khai báo kỹ năng mới'}
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                                {mode === 'update' ? 'Điều chỉnh mức độ thành thạo và số năm kinh nghiệm.' : 'Điền thông tin kỹ năng bạn muốn khai báo vào hồ sơ.'}
+                            </p>
                         </div>
                     </div>
-                )}
-
-                <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                        Tên kỹ năng <span className="text-rose-500">*</span>
-                    </label>
-                    <SkillSelect
-                        catalog={catalog}
-                        value={skillId}
-                        disabled={mode === 'update'}
-                        onChange={(selectedId) => {
-                            setSkillId(selectedId);
-                            setErrors((prev) => ({ ...prev, skillId: false }));
-                            if (onDismissDuplicateWarning) onDismissDuplicateWarning();
-                        }}
-                        onAddNewSkill={(newSkillName) => {
-                            if (onAddNewCatalogSkill) {
-                                const newId = onAddNewCatalogSkill(newSkillName);
-                                setSkillId(String(newId));
-                                setErrors((prev) => ({ ...prev, skillId: false }));
-                            }
-                        }}
-                    />
-                    {errors.skillId && <p className="text-xs text-rose-500">Vui lòng chọn kỹ năng.</p>}
-                </div>
-
-                <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                        Mức thành thạo <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-5 gap-2">
-                        {PROFICIENCY_LEVELS.map((l) => (
-                            <button
-                                key={l.level}
-                                type="button"
-                                onClick={() => {
-                                    setLevel(l.level);
-                                    setErrors((prev) => ({ ...prev, level: false }));
-                                }}
-                                className={`flex flex-col items-center justify-center rounded-xl border p-2.5 transition text-center ${
-                                    level === l.level
-                                        ? "border-violet-600 bg-violet-50 text-violet-700 font-bold ring-1 ring-violet-600 shadow-sm"
-                                        : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                                }`}
-                            >
-                                <span className="text-base font-bold">{l.level}</span>
-                                <span className="text-[10px] opacity-80 mt-0.5">{l.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                    {errors.level && <p className="text-xs text-rose-500">Vui lòng chọn 1 mức thành thạo từ 1 đến 5.</p>}
-                </div>
-
-                <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                        Số năm kinh nghiệm <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative flex items-center">
-                        <input
-                            type="number"
-                            min={0}
-                            step={0.5}
-                            placeholder="3.5"
-                            value={years}
-                            onChange={(e) => {
-                                setYears(e.target.value);
-                                setErrors((prev) => ({ ...prev, years: false }));
-                            }}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                        />
-                        <span className="absolute right-3.5 text-xs font-medium text-slate-400">năm</span>
-                    </div>
-                    {errors.years && <p className="text-xs text-rose-500">Vui lòng nhập số năm kinh nghiệm hợp lệ.</p>}
-                </div>
-
-                <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                        className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                {/* Form Body */}
+                <div className="p-6 space-y-4">
+                    {duplicateSkillName && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-800 space-y-2">
+                            <p className="font-medium">
+                                ⚠️ Kỹ năng <strong>"{duplicateSkillName}"</strong> đã được bạn khai báo trước đó.
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={onConfirmSwitchToUpdate}
+                                    className="rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1 text-xs font-bold text-amber-900 transition cursor-pointer"
+                                >
+                                    Chuyển sang Cập nhật
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onDismissDuplicateWarning}
+                                    className="rounded-lg bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-bold text-slate-700 transition cursor-pointer"
+                                >
+                                    Bỏ qua
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-700">
+                            Tên kỹ năng <span className="text-rose-500">*</span>
+                        </label>
+                        <SkillSelect
+                            catalog={catalog}
+                            value={skillId}
+                            disabled={mode === 'update'}
+                            onChange={(selectedId) => {
+                                setSkillId(selectedId);
+                                setErrors((prev) => ({ ...prev, skillId: false }));
+                                if (onDismissDuplicateWarning) onDismissDuplicateWarning();
+                            }}
+                            onAddNewSkill={(newSkillName) => {
+                                if (onAddNewCatalogSkill) {
+                                    const newId = onAddNewCatalogSkill(newSkillName);
+                                    setSkillId(String(newId));
+                                    setErrors((prev) => ({ ...prev, skillId: false }));
+                                }
+                            }}
+                        />
+                        {errors.skillId && <p className="text-xs text-rose-500 font-medium">Vui lòng chọn kỹ năng.</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                            <label className="block text-xs font-bold text-slate-700">
+                                Mức thành thạo <span className="text-rose-500">*</span>
+                            </label>
+                            {level !== null && (
+                                <span className="text-[11px] font-semibold text-violet-700">
+                                    Đang chọn: {PROFICIENCY_LEVELS.find((p) => p.level === level)?.label}
+                                </span>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
+                            {PROFICIENCY_LEVELS.map((l) => {
+                                const isSelected = level === l.level;
+                                return (
+                                    <button
+                                        key={l.level}
+                                        type="button"
+                                        onClick={() => {
+                                            setLevel(l.level);
+                                            setErrors((prev) => ({ ...prev, level: false }));
+                                        }}
+                                        className={`group relative flex flex-col items-center justify-center rounded-xl border p-2.5 transition-all text-center cursor-pointer select-none ${
+                                            isSelected
+                                                ? "border-violet-500 bg-violet-50 text-violet-700 font-bold shadow-xs ring-2 ring-violet-500/20"
+                                                : "border-slate-200 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:bg-white"
+                                        }`}
+                                    >
+                                        <span className={`text-base font-extrabold ${isSelected ? "text-violet-700" : "text-slate-800"}`}>
+                                            {l.level}
+                                        </span>
+                                        <span className={`text-[10px] font-medium mt-0.5 leading-tight ${isSelected ? "text-violet-600" : "text-slate-500"}`}>
+                                            {l.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {errors.level && <p className="text-xs text-rose-500 font-medium">Vui lòng chọn 1 mức thành thạo từ 1 đến 5.</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-700">
+                            Số năm kinh nghiệm <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative flex items-center">
+                            <input
+                                type="number"
+                                min={0.5}
+                                step={0.5}
+                                placeholder="1.0"
+                                value={years}
+                                onChange={(e) => {
+                                    setYears(e.target.value);
+                                    setErrors((prev) => ({ ...prev, years: false }));
+                                }}
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-900 placeholder-slate-400 focus:border-violet-500 focus:outline-hidden focus:ring-2 focus:ring-violet-500/20 transition"
+                            />
+                            <span className="absolute right-3.5 text-xs font-semibold text-slate-400 pointer-events-none">
+                                năm
+                            </span>
+                        </div>
+                        {errors.years && <p className="text-xs text-rose-500 font-medium">Vui lòng nhập số năm kinh nghiệm hợp lệ (lớn hơn 0).</p>}
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={saving}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                     >
                         Hủy
                     </button>
@@ -413,8 +473,9 @@ function SkillFormModalContent({
                         type="button"
                         disabled={saving}
                         onClick={handleSave}
-                        className="rounded-xl bg-violet-600 hover:bg-violet-700 px-5 py-2 text-xs font-bold text-white transition shadow-sm disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 active:scale-98 px-5 py-2 text-xs font-bold text-white transition shadow-xs disabled:opacity-50 cursor-pointer"
                     >
+                        {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                         {saving ? 'Đang lưu...' : (mode === 'update' ? 'Lưu cập nhật' : 'Lưu khai báo')}
                     </button>
                 </div>

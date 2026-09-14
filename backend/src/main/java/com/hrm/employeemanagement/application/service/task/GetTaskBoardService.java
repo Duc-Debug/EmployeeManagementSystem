@@ -231,10 +231,21 @@ public class GetTaskBoardService implements GetTaskBoardUseCase {
 
             List<Task> projectTasks = loadTaskPort.findAllByProjectId(project.getId());
             if (query.employeeId() != null) {
-                loadEmployeePort.findById(new EmployeeId(query.employeeId()))
+                Employee targetEmployee = loadEmployeePort.findById(new EmployeeId(query.employeeId()))
                         .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự với ID: " + query.employeeId()));
 
-                List<TaskAssignment> assignments = loadTaskAssignmentPort.findByEmployeeId(new EmployeeId(query.employeeId()));
+                if (!canAccessEmployee(currentUser, currentEmployee, targetEmployee)) {
+                    saveDeniedAudit(
+                            currentUser.getIdValue(),
+                            "EMPLOYEE_ACCESS_DENIED",
+                            "employees",
+                            targetEmployee.getIdValue(),
+                            "permission=EMPLOYEE_READ;dataScope=" + currentUser.getDataScope() + ";reason=OUTSIDE_DATA_SCOPE_TASK_BOARD_READ"
+                    );
+                    throw new PermissionDeniedException(PermissionCode.EMPLOYEE_READ);
+                }
+
+                List<TaskAssignment> assignments = loadTaskAssignmentPort.findByEmployeeId(targetEmployee.getId());
                 Set<TaskId> assignedTaskIds = assignments.stream()
                         .map(TaskAssignment::getTaskId)
                         .filter(Objects::nonNull)

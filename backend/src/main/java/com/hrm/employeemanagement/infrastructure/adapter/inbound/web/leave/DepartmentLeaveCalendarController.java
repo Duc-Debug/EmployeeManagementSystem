@@ -43,7 +43,7 @@ public class DepartmentLeaveCalendarController {
      * GET /api/v1/leave-requests/department-calendar?orgUnitId={id}&year={y}&month={m}&warningThreshold={rate}
      */
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('VT-03', 'VT-01', 'VT-06', 'ROLE_VT-03', 'ROLE_VT-01', 'ROLE_VT-06', 'DEPARTMENT_LEAVE_READ')")
+    @PreAuthorize("hasAnyAuthority('VT-03', 'VT-01', 'VT-05', 'VT-06', 'ROLE_VT-03', 'ROLE_VT-01', 'ROLE_VT-05', 'ROLE_VT-06', 'DEPARTMENT_LEAVE_READ')")
     public ResponseEntity<ApiResponse<DepartmentMonthlyLeaveCalendarResponse>> getDepartmentLeaveCalendar(
             @RequestParam @NotNull(message = "ID bộ phận (orgUnitId) không được để trống")
             @Positive(message = "ID bộ phận phải là số dương") Long orgUnitId,
@@ -75,7 +75,7 @@ public class DepartmentLeaveCalendarController {
      * GET /api/v1/leave-requests/department-calendar/{orgUnitId}?year={y}&month={m}&warningThreshold={rate}&includeSubUnits={bool}
      */
     @GetMapping("/{orgUnitId}")
-    @PreAuthorize("hasAnyAuthority('VT-03', 'VT-01', 'VT-06', 'ROLE_VT-03', 'ROLE_VT-01', 'ROLE_VT-06', 'DEPARTMENT_LEAVE_READ')")
+    @PreAuthorize("hasAnyAuthority('VT-03', 'VT-01', 'VT-05', 'VT-06', 'ROLE_VT-03', 'ROLE_VT-01', 'ROLE_VT-05', 'ROLE_VT-06', 'DEPARTMENT_LEAVE_READ')")
     public ResponseEntity<ApiResponse<DepartmentMonthlyLeaveCalendarResponse>> getDepartmentLeaveCalendarByPath(
             @PathVariable @NotNull(message = "ID bộ phận không được để trống")
             @Positive(message = "ID bộ phận phải là số dương") Long orgUnitId,

@@ -481,6 +481,30 @@ class GetTaskBoardServiceTest {
     }
 
     @Test
+    @DisplayName("Truy vấn kết hợp projectId và employeeId bị từ chối nếu employee nằm ngoài DataScope của user")
+    void testGetTaskBoard_ProjectAndEmployee_DeniedWhenEmployeeOutsideScope() {
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUser);
+        when(loadEmployeePort.findByUserId(currentUser.getId())).thenReturn(Optional.of(currentEmployee));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(project));
+        when(loadProjectPort.existsMember(PROJECT_ID, EMPLOYEE_ID)).thenReturn(true);
+
+        Employee outsideEmp = new Employee(
+                new EmployeeId(OTHER_EMPLOYEE_ID),
+                new UserId(77L),
+                20L,
+                "EMP99",
+                "Outside Emp",
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findById(new EmployeeId(OTHER_EMPLOYEE_ID))).thenReturn(Optional.of(outsideEmp));
+
+        assertThrows(PermissionDeniedException.class, () -> service.getTaskBoard(new TaskBoardQuery(PROJECT_ID, OTHER_EMPLOYEE_ID)));
+        verify(saveDeniedAuditLogPort, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
     @DisplayName("User với COMPANY scope có quyền truy cập bảng công việc của nhân sự bất kỳ")
     void testGetTaskBoard_CompanyScope_CanAccessAnyEmployee() {
         User companyUser = new User(

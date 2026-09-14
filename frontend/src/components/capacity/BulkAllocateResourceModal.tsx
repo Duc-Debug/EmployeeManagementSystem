@@ -206,9 +206,6 @@ export function BulkAllocateResourceModal({
               <h3 className="text-sm font-bold text-slate-800">
                 Phân Bổ Nguồn Lực Hàng Loạt Nhiều Tuần
               </h3>
-              <p className="text-[11px] text-slate-500">
-                NCL-06-CN-006 & NCL-06-CN-007 • Hỗ trợ theo Số Giờ và Tỷ Lệ %
-              </p>
             </div>
           </div>
           <button
@@ -479,10 +476,6 @@ export function BulkAllocateResourceModal({
             )}
           </div>
 
-          {/* Note on QTN-11 */}
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-2.5 text-[11px] text-indigo-900 leading-relaxed">
-            <span className="font-semibold">💡 Lưu ý nghiệp vụ:</span> Hệ thống sẽ tự động kiểm tra năng lực khả dụng từng tuần (QTN-11) và hợp đồng nhân sự (QTN-05). Các tuần đủ điều kiện sẽ được phân bổ thành công, các tuần bị vướng sẽ được báo cáo chi tiết trong kết quả.
-          </div>
 
           {/* Footer Buttons */}
           <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">

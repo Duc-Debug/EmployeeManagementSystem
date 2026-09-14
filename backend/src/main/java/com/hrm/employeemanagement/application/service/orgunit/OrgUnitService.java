@@ -258,7 +258,26 @@ public class OrgUnitService implements
     @Override
     public List<OrgUnitNodeResult> execute() {
         List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
-        return buildTreeHierarchy(allUnits);
+        List<Employee> allEmployees = loadEmployeePort.findAllActive();
+        Map<Long, String> employeeNameMap = new HashMap<>();
+        Map<Long, List<OrgUnitMemberResult>> unitMembersMap = new HashMap<>();
+        if (allEmployees != null) {
+            for (Employee emp : allEmployees) {
+                if (emp.getId() != null) {
+                    employeeNameMap.put(emp.getId().value(), emp.getFullName());
+                }
+                if (emp.getOrgUnitId() != null) {
+                    unitMembersMap.computeIfAbsent(emp.getOrgUnitId(), k -> new ArrayList<>())
+                            .add(new OrgUnitMemberResult(
+                                    emp.getId() != null ? emp.getId().value() : null,
+                                    emp.getEmployeeCode(),
+                                    emp.getFullName(),
+                                    emp.getProfessionalRole()
+                            ));
+                }
+            }
+        }
+        return buildTreeHierarchy(allUnits, employeeNameMap, unitMembersMap);
     }
 
     private OrgUnitResult toResult(OrgUnit unit) {
@@ -277,11 +296,20 @@ public class OrgUnitService implements
                 unit.getUpdatedAt());
     }
 
-    private List<OrgUnitNodeResult> buildTreeHierarchy(List<OrgUnit> units) {
+    private List<OrgUnitNodeResult> buildTreeHierarchy(
+            List<OrgUnit> units,
+            Map<Long, String> employeeNameMap,
+            Map<Long, List<OrgUnitMemberResult>> unitMembersMap
+    ) {
         Map<Long, OrgUnitNodeResult> nodeMap = new LinkedHashMap<>();
         List<OrgUnitNodeResult> rootNodes = new ArrayList<>();
         for (OrgUnit u : units) {
             Long id = u.getId() != null ? u.getId().getValue() : null;
+            Long managerId = u.getManagerId();
+            String managerName = managerId != null ? employeeNameMap.get(managerId) : null;
+            List<OrgUnitMemberResult> members = id != null ? unitMembersMap.getOrDefault(id, List.of()) : List.of();
+            Integer employeeCount = members.size();
+
             OrgUnitNodeResult node = new OrgUnitNodeResult(
                     id,
                     u.getUnitCode(),
@@ -292,7 +320,10 @@ public class OrgUnitService implements
                     u.getLevel(),
                     u.getStatus(),
                     u.getDescription(),
-                    u.getManagerId(),
+                    managerId,
+                    managerName,
+                    employeeCount,
+                    members,
                     new ArrayList<>());
             if (id != null) {
                 nodeMap.put(id, node);
