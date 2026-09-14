@@ -181,11 +181,4 @@ public class WeeklyProjectAllocationPersistenceAdapter implements
             repository.deleteById(allocation.getId());
         }
     }
-
-    @Override
-    public void deleteById(Long allocationId) {
-        if (allocationId != null) {
-            repository.deleteById(allocationId);
-        }
-    }
 }
