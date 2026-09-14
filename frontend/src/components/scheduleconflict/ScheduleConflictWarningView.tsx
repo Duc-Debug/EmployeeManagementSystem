@@ -26,12 +26,15 @@ import type {
     ScheduleConflictStatus,
 } from "@/lib/api/schedule-conflict";
 
+import ReplacementSuggestionModal from "./ReplacementSuggestionModal";
+
 export default function ScheduleConflictWarningView() {
     const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [scanning, setScanning] = useState<boolean>(false);
     const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [selectedConflictForReplacement, setSelectedConflictForReplacement] = useState<ScheduleConflict | null>(null);
 
     // Filters
     const [searchTerm, setSearchTerm] = useState<string>("");
@@ -410,10 +413,21 @@ export default function ScheduleConflictWarningView() {
                                             <div className="flex items-center justify-end gap-2">
                                                 {c.status !== "RESOLVED" && (
                                                     <button
+                                                        onClick={() => setSelectedConflictForReplacement(c)}
+                                                        title="Gợi ý nhân sự thay thế có cùng kỹ năng và còn giờ rảnh"
+                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs"
+                                                    >
+                                                        <UserCheck className="h-3.5 w-3.5" />
+                                                        <span>Gợi ý thay thế</span>
+                                                    </button>
+                                                )}
+
+                                                {c.status !== "RESOLVED" && (
+                                                    <button
                                                         onClick={() => handleNotify(c.id)}
                                                         disabled={actionLoadingId === c.id}
                                                         title="Gửi thông báo thương lượng cho các bên liên quan"
-                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition disabled:opacity-50"
+                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition disabled:opacity-50"
                                                     >
                                                         <Send className="h-3.5 w-3.5" />
                                                         <span>Thương lượng</span>
@@ -439,6 +453,16 @@ export default function ScheduleConflictWarningView() {
                         </table>
                     </div>
                 </div>
+            )}
+
+            {/* Modal Đề xuất Nhân sự Thay thế (NCL-07-CN-002) */}
+            {selectedConflictForReplacement && (
+                <ReplacementSuggestionModal
+                    conflict={selectedConflictForReplacement}
+                    isOpen={!!selectedConflictForReplacement}
+                    onClose={() => setSelectedConflictForReplacement(null)}
+                    onSuccess={loadData}
+                />
             )}
         </div>
     );

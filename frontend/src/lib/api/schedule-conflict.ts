@@ -76,3 +76,88 @@ export async function notifyScheduleConflict(id: number): Promise<ScheduleConfli
 export async function resolveScheduleConflict(id: number): Promise<ScheduleConflict> {
     return apiRequest<ScheduleConflict>(`/schedule-conflicts/${id}/resolve`, { method: "POST" });
 }
+
+export interface ReplacementCandidate {
+    employeeId: number;
+    employeeCode: string;
+    fullName: string;
+    orgUnitId?: number;
+    departmentName: string;
+    skillId: number;
+    skillName: string;
+    proficiencyLevel: number;
+    proficiencyLevelName: string;
+    freeHours: number;
+    standardHoursPerWeek: number;
+    totalAllocatedHours: number;
+    contractEndDate?: string;
+}
+
+export interface ReplacementSuggestionResult {
+    conflictId: number;
+    conflictedEmployeeId: number;
+    conflictedEmployeeCode: string;
+    conflictedEmployeeName: string;
+    departmentName: string;
+    yearNumber: number;
+    weekNumber: number;
+    weekLabel: string;
+    skillId?: number;
+    skillName: string;
+    requiredProficiencyLevel: number;
+    excessHours: number;
+    candidates: ReplacementCandidate[];
+    hasAvailableReplacements: boolean;
+    recommendationMessage?: string;
+}
+
+export interface ConfirmReplacementProposalPayload {
+    conflictId: number;
+    replacementEmployeeId: number;
+    skillId?: number;
+    proficiencyLevel?: number;
+    notes?: string;
+}
+
+export interface ReplacementProposalResult {
+    proposalId: number;
+    conflictId: number;
+    originalEmployeeId: number;
+    originalEmployeeName: string;
+    replacementEmployeeId: number;
+    replacementEmployeeName: string;
+    skillId?: number;
+    skillName: string;
+    proficiencyLevel: number;
+    freeHours: number;
+    status: string;
+    notes?: string;
+    createdBy: number;
+    createdByName: string;
+    createdAt: string;
+}
+
+export async function getReplacementSuggestions(
+    conflictId: number,
+    skillId?: number,
+    minProficiencyLevel?: number
+): Promise<ReplacementSuggestionResult> {
+    const params = new URLSearchParams();
+    if (skillId) params.append("skillId", String(skillId));
+    if (minProficiencyLevel) params.append("minProficiencyLevel", String(minProficiencyLevel));
+
+    const queryString = params.toString();
+    const url = `/schedule-conflicts/${conflictId}/replacement-suggestions${queryString ? `?${queryString}` : ""}`;
+    return apiRequest<ReplacementSuggestionResult>(url);
+}
+
+export async function confirmReplacementProposal(
+    conflictId: number,
+    payload: ConfirmReplacementProposalPayload
+): Promise<ReplacementProposalResult> {
+    return apiRequest<ReplacementProposalResult>(`/schedule-conflicts/${conflictId}/replacement-proposals`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
