@@ -20,17 +20,15 @@ import com.hrm.employeemanagement.application.port.inbound.task.comment.CreateTa
 import com.hrm.employeemanagement.application.port.inbound.task.comment.DeleteTaskCommentUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.comment.GetTaskCommentsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
-import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.DeleteTaskCommentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.LoadTaskCommentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.SaveTaskCommentPort;
-import com.hrm.employeemanagement.application.port.outbound.task.comment.TaskAttachmentStoragePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.task.InvalidCommentDataException;
 import com.hrm.employeemanagement.domain.exception.task.TaskCommentNotFoundException;
-import com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException;
 import com.hrm.employeemanagement.domain.notification.Notification;
 import com.hrm.employeemanagement.domain.notification.NotificationType;
 import com.hrm.employeemanagement.domain.role.RoleCode;
@@ -46,33 +44,30 @@ import com.hrm.employeemanagement.domain.user.UserId;
 public class TaskCommentApplicationService
         implements CreateTaskCommentUseCase, GetTaskCommentsUseCase, DeleteTaskCommentUseCase {
 
-    private final LoadTaskPort loadTaskPort;
     private final LoadTaskCommentPort loadTaskCommentPort;
     private final SaveTaskCommentPort saveTaskCommentPort;
     private final DeleteTaskCommentPort deleteTaskCommentPort;
     private final LoadUserPort loadUserPort;
     private final LoadEmployeePort loadEmployeePort;
     private final SaveNotificationPort saveNotificationPort;
-    private final TaskAttachmentStoragePort taskAttachmentStoragePort;
     private final MentionParserService mentionParserService;
+    private final TaskDiscussionAccessService accessService;
 
     public TaskCommentApplicationService(
-            LoadTaskPort loadTaskPort,
             LoadTaskCommentPort loadTaskCommentPort,
             SaveTaskCommentPort saveTaskCommentPort,
             DeleteTaskCommentPort deleteTaskCommentPort,
             LoadUserPort loadUserPort,
             LoadEmployeePort loadEmployeePort,
             SaveNotificationPort saveNotificationPort,
-            TaskAttachmentStoragePort taskAttachmentStoragePort) {
-        this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
+            TaskDiscussionAccessService accessService) {
         this.loadTaskCommentPort = Objects.requireNonNull(loadTaskCommentPort, "LoadTaskCommentPort must not be null");
         this.saveTaskCommentPort = Objects.requireNonNull(saveTaskCommentPort, "SaveTaskCommentPort must not be null");
         this.deleteTaskCommentPort = Objects.requireNonNull(deleteTaskCommentPort, "DeleteTaskCommentPort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.saveNotificationPort = Objects.requireNonNull(saveNotificationPort, "SaveNotificationPort must not be null");
-        this.taskAttachmentStoragePort = Objects.requireNonNull(taskAttachmentStoragePort, "TaskAttachmentStoragePort must not be null");
+        this.accessService = Objects.requireNonNull(accessService, "TaskDiscussionAccessService must not be null");
         this.mentionParserService = new MentionParserService();
     }
 
@@ -80,8 +75,7 @@ public class TaskCommentApplicationService
     public TaskCommentResult execute(CreateTaskCommentCommand command) {
         Objects.requireNonNull(command, "Command không được null");
         TaskId taskId = TaskId.of(command.taskId());
-        Task task = loadTaskPort.findById(taskId)
-                .orElseThrow(() -> new TaskNotFoundException(command.taskId()));
+        Task task = accessService.requireAccess(command.taskId(), PermissionCode.TASK_DISCUSSION_CREATE);
 
         UserId authorId = new UserId(command.authorId());
         User author = loadUserPort.findById(authorId)
@@ -160,6 +154,7 @@ public class TaskCommentApplicationService
 
     @Override
     public List<TaskCommentResult> execute(Long taskId) {
+        accessService.requireAccess(taskId, PermissionCode.TASK_DISCUSSION_READ);
         TaskId id = TaskId.of(taskId);
         List<TaskComment> comments = loadTaskCommentPort.findAllByTaskId(id);
         Set<UserId> relevantUserIds = comments.stream()
@@ -181,10 +176,15 @@ public class TaskCommentApplicationService
     }
 
     @Override
-    public void execute(Long commentId, Long requestingUserId) {
+    public void execute(Long taskId, Long commentId, Long requestingUserId) {
+        accessService.requireAccess(taskId, PermissionCode.TASK_DISCUSSION_CREATE);
         TaskCommentId id = TaskCommentId.of(commentId);
         TaskComment comment = loadTaskCommentPort.findById(id)
                 .orElseThrow(() -> new TaskCommentNotFoundException("Không tìm thấy trao đổi với ID: " + commentId));
+
+        if (!comment.getTaskId().value().equals(taskId)) {
+            throw new TaskCommentNotFoundException("Không tìm thấy trao đổi trong công việc này");
+        }
 
         if (!comment.getAuthorId().value().equals(requestingUserId)) {
             User requester = loadUserPort.findById(new UserId(requestingUserId))
@@ -195,14 +195,6 @@ public class TaskCommentApplicationService
                      RoleCode.VT_06.equals(requester.getRole().getCode()));
             if (!isPrivileged) {
                 throw new InvalidCommentDataException("Bạn không có quyền xóa trao đổi này");
-            }
-        }
-
-        // Xóa file vật lý
-        for (TaskAttachment att : comment.getAttachments()) {
-            try {
-                taskAttachmentStoragePort.deleteFile(att.getFilePath());
-            } catch (Exception ignored) {
             }
         }
 

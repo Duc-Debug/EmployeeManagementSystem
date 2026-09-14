@@ -30,6 +30,8 @@ import com.hrm.employeemanagement.application.port.inbound.task.comment.DeleteTa
 import com.hrm.employeemanagement.application.port.inbound.task.comment.GetTaskCommentsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.TaskAttachmentStoragePort;
+import com.hrm.employeemanagement.application.service.task.comment.TaskDiscussionAccessService;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.comment.entity.TaskAttachmentJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.comment.repository.SpringDataTaskAttachmentRepository;
@@ -44,6 +46,7 @@ public class TaskCommentController {
     private final CurrentUserPort currentUserPort;
     private final TaskAttachmentStoragePort taskAttachmentStoragePort;
     private final SpringDataTaskAttachmentRepository attachmentRepository;
+    private final TaskDiscussionAccessService accessService;
 
     public TaskCommentController(
             CreateTaskCommentUseCase createTaskCommentUseCase,
@@ -51,13 +54,15 @@ public class TaskCommentController {
             DeleteTaskCommentUseCase deleteTaskCommentUseCase,
             CurrentUserPort currentUserPort,
             TaskAttachmentStoragePort taskAttachmentStoragePort,
-            SpringDataTaskAttachmentRepository attachmentRepository) {
+            SpringDataTaskAttachmentRepository attachmentRepository,
+            TaskDiscussionAccessService accessService) {
         this.createTaskCommentUseCase = createTaskCommentUseCase;
         this.getTaskCommentsUseCase = getTaskCommentsUseCase;
         this.deleteTaskCommentUseCase = deleteTaskCommentUseCase;
         this.currentUserPort = currentUserPort;
         this.taskAttachmentStoragePort = taskAttachmentStoragePort;
         this.attachmentRepository = attachmentRepository;
+        this.accessService = accessService;
     }
 
     @GetMapping("/{taskId}/comments")
@@ -74,6 +79,8 @@ public class TaskCommentController {
             @RequestParam(value = "content", required = false) String content,
             @RequestParam(value = "mentionedUserIds", required = false) List<Long> mentionedUserIds,
             @RequestParam(value = "files", required = false) List<MultipartFile> files) {
+
+        accessService.requireAccess(taskId, PermissionCode.TASK_DISCUSSION_CREATE);
 
         Long currentUserId = currentUserPort.getCurrentUserId()
                 .orElseThrow(() -> new IllegalStateException("Người dùng chưa được xác thực"));
@@ -94,6 +101,7 @@ public class TaskCommentController {
                                 file.getSize(),
                                 file.getContentType()));
                     } catch (Exception e) {
+                        deleteUploadedFilesQuietly(uploadedFiles);
                         throw new RuntimeException("Không thể tải lên file: " + file.getOriginalFilename(), e);
                     }
                 }
@@ -112,7 +120,7 @@ public class TaskCommentController {
         try {
             result = createTaskCommentUseCase.execute(command);
         } catch (RuntimeException exception) {
-            uploadedFiles.forEach(uploaded -> taskAttachmentStoragePort.deleteFile(uploaded.storedFilePath()));
+            deleteUploadedFilesQuietly(uploadedFiles);
             throw exception;
         }
         return ResponseEntity.ok(ApiResponse.success("Đăng ghi chú trao đổi thành công", result));
@@ -126,7 +134,7 @@ public class TaskCommentController {
         Long currentUserId = currentUserPort.getCurrentUserId()
                 .orElseThrow(() -> new IllegalStateException("Người dùng chưa được xác thực"));
 
-        deleteTaskCommentUseCase.execute(commentId, currentUserId);
+        deleteTaskCommentUseCase.execute(taskId, commentId, currentUserId);
         return ResponseEntity.ok(ApiResponse.success("Xóa trao đổi thành công", null));
     }
 
@@ -136,6 +144,7 @@ public class TaskCommentController {
         TaskAttachmentJpaEntity attachment = attachmentRepository.findById(attachmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tệp đính kèm với ID: " + attachmentId));
 
+        accessService.requireAccess(attachment.getTaskId(), PermissionCode.TASK_DISCUSSION_READ);
         InputStream is = taskAttachmentStoragePort.loadFile(attachment.getFilePath());
         String encodedFilename = URLEncoder.encode(attachment.getFileName(), StandardCharsets.UTF_8).replace("+", "%20");
 
@@ -152,6 +161,16 @@ public class TaskCommentController {
                 .contentType(mediaType)
                 .contentLength(attachment.getFileSize())
                 .body(new InputStreamResource(is));
+    }
+
+    private void deleteUploadedFilesQuietly(List<UploadedAttachmentDto> uploadedFiles) {
+        for (UploadedAttachmentDto uploaded : uploadedFiles) {
+            try {
+                taskAttachmentStoragePort.deleteFile(uploaded.storedFilePath());
+            } catch (RuntimeException ignored) {
+                // Preserve the original upload or database failure.
+            }
+        }
     }
 }
 
