@@ -30,6 +30,10 @@ import com.hrm.employeemanagement.infrastructure.transaction.timesheet.Transacti
 import com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalGetWeeklyTimesheetUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalUpdateWorkLogUseCase;
 
+import com.hrm.employeemanagement.application.port.inbound.timesheet.SubmitWeeklyTimesheetUseCase;
+import com.hrm.employeemanagement.application.service.timesheet.SubmitWeeklyTimesheetService;
+import com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalSubmitWeeklyTimesheetUseCase;
+
 @Configuration
 public class TimesheetUseCaseConfig {
 
@@ -142,5 +146,30 @@ public class TimesheetUseCaseConfig {
                 authorizationService
         );
         return new TransactionalGetMyAssignedTasksForWorkLogUseCase(pureService);
+    }
+
+    @Bean
+    public SubmitWeeklyTimesheetUseCase submitWeeklyTimesheetUseCase(
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadTaskPort loadTaskPort,
+            LoadTimesheetPort loadTimesheetPort,
+            SaveTimesheetPort saveTimesheetPort,
+            LoadTimesheetEntryPort loadTimesheetEntryPort,
+            SaveTimesheetEntryPort saveTimesheetEntryPort,
+            SaveAuditLogPort saveAuditLogPort,
+            AuthorizationService authorizationService) {
+        SubmitWeeklyTimesheetService pureService = new SubmitWeeklyTimesheetService(
+                loadEmployeePort,
+                loadProjectPort,
+                loadTaskPort,
+                loadTimesheetPort,
+                saveTimesheetPort,
+                loadTimesheetEntryPort,
+                saveTimesheetEntryPort,
+                saveAuditLogPort,
+                authorizationService
+        );
+        return new TransactionalSubmitWeeklyTimesheetUseCase(pureService);
     }
 }
