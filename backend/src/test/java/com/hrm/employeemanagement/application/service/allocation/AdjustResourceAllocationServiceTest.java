@@ -242,6 +242,7 @@ class AdjustResourceAllocationServiceTest {
             when(checkActualHoursPort.hasActualHours(eq(employeeId), eq(projectId), any(YearWeek.class))).thenReturn(true);
 
             assertThrows(CannotRemoveAllocationWithActualHoursException.class, () -> service.removeAllocation(allocationId));
+            verify(deleteAllocationPort, never()).delete(any());
             verify(deleteAllocationPort, never()).deleteById(any());
         }
 
@@ -257,7 +258,7 @@ class AdjustResourceAllocationServiceTest {
 
             service.removeAllocation(allocationId);
 
-            verify(deleteAllocationPort).deleteById(allocationId);
+            verify(deleteAllocationPort).delete(allocation);
             verify(saveChangeLogPort).save(any(AllocationChangeLog.class));
             verify(notificationPort).notifyAllocationAdjusted(eq(projectId), eq(managerId), any());
         }

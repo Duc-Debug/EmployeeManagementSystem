@@ -499,7 +499,7 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
                 + allocation.getYearWeek().weekNumber() + "/" + allocation.getYearWeek().year();
         String newValue = "Đã gỡ bỏ (REMOVED)";
 
-        deleteAllocationPort.deleteById(allocation.getId());
+        deleteAllocationPort.delete(allocation);
 
         String notifiedPmIds = notifyProjectManager(project,
                 "Gỡ bỏ dòng phân bổ dự án '" + project.getProjectName() + "' cho nhân sự "
