@@ -502,6 +502,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.EmptyTimesheetSubmissionException.class)
+    public ResponseEntity<ErrorResponse> handleEmptyTimesheetSubmission(com.hrm.employeemanagement.domain.exception.timesheet.EmptyTimesheetSubmissionException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "EMPTY_TIMESHEET_SUBMISSION",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.employee.EmployeeInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleEmployeeInactive(com.hrm.employeemanagement.domain.exception.employee.EmployeeInactiveException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "EMPLOYEE_INACTIVE",
+                ex.getMessage(),
+                HttpStatus.FORBIDDEN.value());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
     @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleTimesheetNotFound(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotFoundException ex) {
         ErrorResponse response = ErrorResponse.of(
