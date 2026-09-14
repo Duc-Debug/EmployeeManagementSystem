@@ -23,12 +23,14 @@ import {
   getNextSuggestedStatus,
   QUICK_ADVANCE_LABELS,
   sortTasksByDeadline,
+  calculateTaskStats,
+  filterAssignedTasks,
+  formatTaskProgressError,
   type MyAssignedTaskItem,
   type TaskProgressResult,
   PROGRESS_STATUS_METADATA,
   type SpecialistTaskProgressStatus,
 } from "@/lib/api/taskProgress";
-import { ApiError } from "@/lib/api-client";
 import { TaskProgressBadge } from "./TaskProgressBadge";
 import { UpdateTaskProgressModal, type TaskProgressModalTarget } from "./UpdateTaskProgressModal";
 import { cn } from "@/lib/utils";
@@ -143,18 +145,7 @@ export const MyTaskProgressView: React.FC = () => {
       const result = await updateTaskProgress(task.taskId, nextStatus);
       handleUpdateSuccess(result);
     } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          showToast("Bạn không được phân công thực hiện công việc này.", "error");
-        } else if (err.status === 400) {
-          showToast(err.message || "Dự án đã đóng hoặc kết thúc.", "error");
-        } else {
-          showToast(err.message || "Không thể cập nhật tiến độ công việc.", "error");
-        }
-      } else {
-        const msg = err instanceof Error ? err.message : "Lỗi mạng khi cập nhật tiến độ.";
-        showToast(msg, "error");
-      }
+      showToast(formatTaskProgressError(err), "error");
     } finally {
       if (isMountedRef.current) {
         setAdvancingTaskId(null);
@@ -163,36 +154,11 @@ export const MyTaskProgressView: React.FC = () => {
   };
 
   // KPI Statistics
-  const stats = useMemo(() => {
-    const total = tasks.length;
-    const todo = tasks.filter((t) => t.status === "TODO").length;
-    const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
-    const inReview = tasks.filter((t) => t.status === "IN_REVIEW").length;
-    const done = tasks.filter((t) => t.status === "DONE").length;
-    return { total, todo, inProgress, inReview, done };
-  }, [tasks]);
+  const stats = useMemo(() => calculateTaskStats(tasks), [tasks]);
 
   // Filtered and Sorted tasks
   const displayedTasks = useMemo(() => {
-    const filtered = tasks.filter((task) => {
-      // Status filter
-      if (selectedStatusTab !== "ALL" && task.status !== selectedStatusTab) {
-        return false;
-      }
-
-      // Search query filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchCode = task.taskCode?.toLowerCase().includes(q);
-        const matchName = task.taskName?.toLowerCase().includes(q);
-        const matchProject = task.projectName?.toLowerCase().includes(q);
-        if (!matchCode && !matchName && !matchProject) {
-          return false;
-        }
-      }
-
-      return true;
-    });
+    const filtered = filterAssignedTasks(tasks, selectedStatusTab, searchQuery);
 
     switch (sortBy) {
       case "DEADLINE_ASC":

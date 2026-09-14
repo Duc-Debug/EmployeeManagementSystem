@@ -14,10 +14,10 @@ import {
   SPECIALIST_TASK_STATUSES,
   PROGRESS_STATUS_METADATA,
   updateTaskProgress,
+  formatTaskProgressError,
   type SpecialistTaskProgressStatus,
   type TaskProgressResult,
 } from "@/lib/api/taskProgress";
-import { ApiError } from "@/lib/api-client";
 import { TaskProgressBadge } from "./TaskProgressBadge";
 import { cn } from "@/lib/utils";
 
@@ -104,22 +104,7 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
       onSuccess(result);
       onClose();
     } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setErrorMessage("Bạn không được phân công thực hiện công việc này. Vui lòng liên hệ PM để kiểm tra.");
-        } else if (err.status === 400) {
-          setErrorMessage(
-            err.message || "Dự án đã đóng hoặc kết thúc, không được phép cập nhật tiến độ công việc."
-          );
-        } else {
-          setErrorMessage(
-            err.message || "Không thể cập nhật tiến độ công việc. Vui lòng kiểm tra kết nối và thử lại."
-          );
-        }
-      } else {
-        const fallbackMsg = err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định.";
-        setErrorMessage(fallbackMsg);
-      }
+      setErrorMessage(formatTaskProgressError(err));
     } finally {
       setIsSubmitting(false);
     }

@@ -275,6 +275,47 @@ class UpdateTaskProgressServiceTest {
     }
 
     @Test
+    @DisplayName("NCL-04-CN-002-TC-02: User là assigneeId cũ nhưng bị gỡ khỏi TaskAssignment -> Từ chối (Stale Assignment Protection)")
+    void shouldRejectWhenUserIsStaleAssigneeIdButNotInTaskAssignments() {
+        UpdateTaskProgressCommand command = new UpdateTaskProgressCommand(TASK_ID, TaskStatus.DONE);
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
+        when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.of(employeeA));
+
+        // task.assigneeId vẫn là EMPLOYEE_ID_A (chưa đồng bộ / stale), nhưng TaskAssignment là EMPLOYEE_ID_B
+        assertEquals(new EmployeeId(EMPLOYEE_ID_A), taskInProgress.getAssigneeId());
+        TaskAssignment assignmentForB = TaskAssignment.create(new TaskId(TASK_ID), new EmployeeId(EMPLOYEE_ID_B), new UserId(1L), true);
+        when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(List.of(assignmentForB));
+
+        assertThrows(TaskNotAssignedToUserException.class, () -> service.updateProgress(command));
+
+        verify(loadProjectPort, never()).findById(any());
+        verify(saveDeniedAuditLogPort).save(any(AuditLog.class));
+        verify(saveTaskPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-002-TC-02: Fallback cho task cũ chưa có TaskAssignment -> Vẫn authorize qua task.assigneeId")
+    void shouldAuthorizeViaAssigneeIdWhenAssignmentsListIsEmpty() {
+        UpdateTaskProgressCommand command = new UpdateTaskProgressCommand(TASK_ID, TaskStatus.DONE);
+
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(currentUserA);
+        when(loadTaskPort.findById(new TaskId(TASK_ID))).thenReturn(Optional.of(taskInProgress));
+        when(loadEmployeePort.findByUserId(new UserId(USER_ID_A))).thenReturn(Optional.of(employeeA));
+
+        // task_assignments rỗng (legacy task) -> fallback vào task.assigneeId
+        when(loadTaskAssignmentPort.findByTaskId(new TaskId(TASK_ID))).thenReturn(Collections.emptyList());
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
+        when(saveTaskPort.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaskProgressResult result = service.updateProgress(command);
+        assertNotNull(result);
+        assertEquals(TaskStatus.DONE, result.currentStatus());
+        verify(saveTaskPort).save(taskInProgress);
+    }
+
+    @Test
     @DisplayName("NCL-04-CN-002-TC-02: Người dùng không có hồ sơ nhân sự -> Từ chối (TaskNotAssignedToUserException)")
     void shouldRejectWhenUserHasNoEmployeeProfile() {
         UpdateTaskProgressCommand command = new UpdateTaskProgressCommand(TASK_ID, TaskStatus.DONE);

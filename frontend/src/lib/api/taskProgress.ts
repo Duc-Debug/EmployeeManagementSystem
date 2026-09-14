@@ -187,3 +187,103 @@ export async function getMyAssignedTasks(): Promise<MyAssignedTaskItem[]> {
   return await apiRequest<MyAssignedTaskItem[]>("/tasks/me");
 }
 
+export interface TaskProgressKpiStats {
+  total: number;
+  todo: number;
+  inProgress: number;
+  inReview: number;
+  done: number;
+}
+
+/**
+ * Tính toán thống kê KPI theo từng giai đoạn tiến độ
+ */
+export function calculateTaskStats(tasks: MyAssignedTaskItem[]): TaskProgressKpiStats {
+  return {
+    total: tasks.length,
+    todo: tasks.filter((t) => t.status === "TODO").length,
+    inProgress: tasks.filter((t) => t.status === "IN_PROGRESS").length,
+    inReview: tasks.filter((t) => t.status === "IN_REVIEW").length,
+    done: tasks.filter((t) => t.status === "DONE").length,
+  };
+}
+
+/**
+ * Lọc danh sách công việc theo trạng thái (tab) và từ khóa tìm kiếm
+ */
+export function filterAssignedTasks(
+  tasks: MyAssignedTaskItem[],
+  statusTab: string,
+  query?: string
+): MyAssignedTaskItem[] {
+  return tasks.filter((task) => {
+    if (statusTab !== "ALL" && task.status !== statusTab) {
+      return false;
+    }
+    if (query && query.trim()) {
+      const q = query.toLowerCase().trim();
+      const matchCode = task.taskCode?.toLowerCase().includes(q);
+      const matchName = task.taskName?.toLowerCase().includes(q);
+      const matchProject = task.projectName?.toLowerCase().includes(q);
+      if (!matchCode && !matchName && !matchProject) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+export interface TaskProgressPayloadResult {
+  shouldSend: boolean;
+  reason?: string;
+  endpoint?: (taskId: number | string) => string;
+  method?: string;
+  body?: UpdateTaskProgressPayload;
+}
+
+/**
+ * Xây dựng payload và kiểm tra tiền điều kiện trước khi gửi request cập nhật tiến độ
+ */
+export function buildUpdateTaskProgressPayload(
+  currentStatus: string,
+  newStatus: SpecialistTaskProgressStatus
+): TaskProgressPayloadResult {
+  if (!isValidSpecialistStatus(newStatus)) {
+    throw new Error(`Trạng thái '${newStatus}' không hợp lệ cho Chuyên viên`);
+  }
+  if (currentStatus === newStatus) {
+    return { shouldSend: false, reason: "SAME_STATUS" };
+  }
+  if (currentStatus === "CANCELLED") {
+    throw new Error("Không thể cập nhật công việc đã bị hủy");
+  }
+  return {
+    shouldSend: true,
+    endpoint: (taskId: number | string) => `/tasks/${taskId}/progress`,
+    method: "PATCH",
+    body: { status: newStatus },
+  };
+}
+
+/**
+ * Chuẩn hóa thông báo lỗi trả về từ Backend hoặc mạng khi cập nhật tiến độ
+ */
+export function formatTaskProgressError(err: unknown): string {
+  if (err && typeof err === "object") {
+    const errorWithStatus = err as { status?: number; message?: string };
+    if (errorWithStatus.status === 403) {
+      return "Bạn không được phân công thực hiện công việc này. Vui lòng liên hệ PM để kiểm tra.";
+    }
+    if (errorWithStatus.status === 400) {
+      return errorWithStatus.message || "Dự án đã đóng hoặc kết thúc, không được phép cập nhật tiến độ công việc.";
+    }
+    if (errorWithStatus.status === 404) {
+      return "Không tìm thấy công việc tương ứng trên hệ thống.";
+    }
+    if (errorWithStatus.message) {
+      return errorWithStatus.message;
+    }
+  }
+  return err instanceof Error ? err.message : "Đã xảy ra lỗi khi cập nhật tiến độ công việc.";
+}
+

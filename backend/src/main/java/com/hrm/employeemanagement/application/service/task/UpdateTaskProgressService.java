@@ -77,14 +77,19 @@ public class UpdateTaskProgressService implements UpdateTaskProgressUseCase {
         Task task = loadTaskPort.findById(new TaskId(command.taskId()))
                 .orElseThrow(() -> new TaskNotFoundException(command.taskId()));
 
-        // 2. Fail-Fast Authorization (TC-02): Kiểm tra phân công trước để tránh truy vấn DB bảng projects khi không có quyền
+        // 2. Fail-Fast Authorization (TC-02): Kiểm tra phân công trước để tránh truy vấn DB bảng projects khi không có quyền.
+        // TaskAssignment là Single Source of Truth (SSOT). Chỉ fallback về task.assigneeId khi task chưa có dữ liệu trong task_assignments (dữ liệu cũ/legacy).
         Employee currentEmployee = loadEmployeePort.findByUserId(currentUser.getId()).orElse(null);
         List<TaskAssignment> assignments = loadTaskAssignmentPort.findByTaskId(task.getId());
 
-        boolean isAssigned = currentEmployee != null && (
-                assignments.stream().anyMatch(a -> Objects.equals(a.getEmployeeId(), currentEmployee.getId()))
-                || (task.getAssigneeId() != null && Objects.equals(task.getAssigneeId(), currentEmployee.getId()))
-        );
+        boolean isAssigned;
+        if (!assignments.isEmpty()) {
+            isAssigned = currentEmployee != null && assignments.stream()
+                    .anyMatch(a -> Objects.equals(a.getEmployeeId(), currentEmployee.getId()));
+        } else {
+            isAssigned = currentEmployee != null && task.getAssigneeId() != null
+                    && Objects.equals(task.getAssigneeId(), currentEmployee.getId());
+        }
 
         if (!isAssigned) {
             saveDeniedAuditLogPort.save(AuditLog.createChange(
