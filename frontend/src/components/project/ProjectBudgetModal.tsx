@@ -128,7 +128,7 @@ export function ProjectBudgetModal({
                                 type="number"
                                 required
                                 min="0.1"
-                                step="0.5"
+                                step="any"
                                 value={budgetHours}
                                 onChange={(e) => setBudgetHours(parseFloat(e.target.value) || 0)}
                                 placeholder="Nhập số giờ ngân sách (VD: 40)"

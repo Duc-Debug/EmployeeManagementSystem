@@ -13,6 +13,7 @@ import {
     TrendingUp,
     CalendarRange,
     Briefcase,
+    AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -20,11 +21,12 @@ import { useAuthUser } from "@/lib/auth-session";
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
     { name: "Bảng năng lực & Phân bổ", icon: CalendarRange, id: "capacity" },
+    { name: "Cảnh báo xung đột lịch", icon: AlertTriangle, id: "schedule-conflict" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
     { name: "Lịch & Ngày lễ", icon: CalendarDays, id: "working-calendar" },
-    { name: "Chấm công", icon: Clock, id: "attendance" },
+    { name: "Chấm công & Giờ làm", icon: Clock, id: "attendance" },
     { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
     { name: "Phòng ban", icon: Building2, id: "departments" },
     { name: "Quản lý Năng lực & Kỹ năng", icon: ClipboardList, id: "skills" },
@@ -59,6 +61,11 @@ export function canAccessTab(
             // VT-04 (Nhân viên), VT-05 (Nhân sự), VT-06 (Admin) KHÔNG có quyền truy cập.
             return ["VT-01", "VT-02", "VT-03"].includes(normalized);
 
+        case "schedule-conflict":
+        case "conflict-warning":
+            // NCL-07-CN-001: Cảnh báo xung đột lịch dành cho VT-02 (PM), VT-03 (RM), VT-06 (Admin)
+            return ["VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+
         case "access":
         case "users":
             // Quản lý tài khoản & Phân quyền: Dành riêng cho Quản trị viên (VT-06)
@@ -90,10 +97,14 @@ export function canAccessTab(
             // Quản lý dự án & WBS: VT-01 (Xem), VT-02 (Dự án của mình), VT-03 (Xem), VT-04 (Dự án tham gia); HR (VT-05) & Admin (VT-06) bị ẩn (❌)
             return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalized);
 
+        case "work-logs":
+            // Ghi giờ công dự án theo task: Dành riêng cho VT-04 (Chuyên môn), VT-02 (Quản lý dự án), VT-06 (Admin)
+            return ["VT-02", "VT-04", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+
         case "attendance":
         case "timesheets":
-            // Bảng chấm công: VT-01, VT-02, VT-03, VT-04, VT-05 có quyền; Admin (VT-06) bị ẩn (❌)
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
+            // Bảng chấm công & Giờ làm việc: VT-01 -> VT-06 (Các vai trò không có quyền ghi giờ công sẽ sử dụng phần Chấm công vào/ra)
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "leave":
         case "leave-requests":
