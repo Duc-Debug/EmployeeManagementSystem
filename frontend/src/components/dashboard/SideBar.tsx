@@ -13,6 +13,7 @@ import {
     TrendingUp,
     CalendarRange,
     Briefcase,
+    AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -20,6 +21,7 @@ import { useAuthUser } from "@/lib/auth-session";
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
     { name: "Bảng năng lực & Phân bổ", icon: CalendarRange, id: "capacity" },
+    { name: "Cảnh báo xung đột lịch", icon: AlertTriangle, id: "schedule-conflict" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
     { name: "Hồ sơ nhân sự", icon: FileText, id: "hrprofile" },
     { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
@@ -58,6 +60,11 @@ export function canAccessTab(
             // NCL-06 / NCL-06-CN-002: Bảng năng lực chỉ dành cho VT-01 (Ban giám đốc), VT-02 (Quản lý dự án), VT-03 (Quản lý nguồn lực).
             // VT-04 (Nhân viên), VT-05 (Nhân sự), VT-06 (Admin) KHÔNG có quyền truy cập.
             return ["VT-01", "VT-02", "VT-03"].includes(normalized);
+
+        case "schedule-conflict":
+        case "conflict-warning":
+            // NCL-07-CN-001: Cảnh báo xung đột lịch dành cho VT-02 (PM), VT-03 (RM), VT-06 (Admin)
+            return ["VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "access":
         case "users":

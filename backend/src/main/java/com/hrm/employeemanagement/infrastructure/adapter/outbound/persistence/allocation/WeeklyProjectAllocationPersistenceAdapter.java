@@ -111,6 +111,12 @@ public class WeeklyProjectAllocationPersistenceAdapter implements
 
     @Override
     public List<WeeklyProjectAllocation> loadAllocationsForEmployeesInWeekRange(List<Long> employeeIds, Integer year, Integer startWeek, Integer endWeek) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return repository.findByYearAndWeekNumberBetween(year, startWeek, endWeek)
+                    .stream()
+                    .map(this::toDomain)
+                    .toList();
+        }
         return repository.findByEmployeeIdInAndYearAndWeekNumberBetween(employeeIds, year, startWeek, endWeek)
                 .stream()
                 .map(this::toDomain)
