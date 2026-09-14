@@ -473,10 +473,10 @@ public class ScheduleConflictReplacementService implements GetReplacementSuggest
                 proposalDetails
         );
 
-        // [NCL-07-CN-002-TC-04] Ghi lại lịch sử thực hiện vào Audit Log
+        // [NCL-07-CN-002-TC-04] Ghi lại lịch sử thực hiện vào Audit Log theo đặc tả BA
         auditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "PROPOSE_REPLACEMENT_STAFF",
+                "CONFIRM_REPLACEMENT_SUGGESTION",
                 "schedule_conflict_replacements",
                 saved.getId(),
                 null,

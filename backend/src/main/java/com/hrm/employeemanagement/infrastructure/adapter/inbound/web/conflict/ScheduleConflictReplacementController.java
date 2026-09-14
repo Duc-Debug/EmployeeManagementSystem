@@ -50,7 +50,7 @@ public class ScheduleConflictReplacementController {
     /**
      * API Xác nhận đề xuất nhân sự thay thế (NCL-07-CN-002)
      */
-    @PostMapping("/{id}/replacement-proposals")
+    @PostMapping("/{id}/confirm-replacement")
     @PreAuthorize("hasAuthority('RESOURCE_REPLACEMENT_SUGGEST')")
     public ResponseEntity<ApiResponse<ReplacementProposalResult>> confirmReplacementProposal(
             @PathVariable Long id,

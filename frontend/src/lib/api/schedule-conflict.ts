@@ -155,7 +155,7 @@ export async function confirmReplacementProposal(
     conflictId: number,
     payload: ConfirmReplacementProposalPayload
 ): Promise<ReplacementProposalResult> {
-    return apiRequest<ReplacementProposalResult>(`/schedule-conflicts/${conflictId}/replacement-proposals`, {
+    return apiRequest<ReplacementProposalResult>(`/schedule-conflicts/${conflictId}/confirm-replacement`, {
         method: "POST",
         body: JSON.stringify(payload),
     });
