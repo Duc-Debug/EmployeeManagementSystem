@@ -277,19 +277,19 @@ public class ScheduleConflictService implements
 
     private List<ScheduleConflict> scanInternal(Integer year, Integer startWeek, Integer endWeek) {
         List<Employee> activeEmployees = loadEmployeePort.findAllActive();
+        if (activeEmployees.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         Map<Long, Employee> activeEmpMap = activeEmployees.stream()
                 .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
+
+        // Candidate employees are strictly active employees
+        Set<Long> candidateEmpIds = activeEmpMap.keySet();
 
         // 1. Bulk query allocations across the entire week range [startWeek, endWeek]
         List<WeeklyProjectAllocation> allAllocations = loadAllocationPort
                 .loadAllocationsForEmployeesInWeekRange(null, year, startWeek, endWeek);
-
-        Set<Long> candidateEmpIds = new HashSet<>(activeEmpMap.keySet());
-        allAllocations.forEach(a -> candidateEmpIds.add(a.getEmployeeId()));
-
-        if (candidateEmpIds.isEmpty()) {
-            return Collections.emptyList();
-        }
 
         // 2. Load project names once for all allocations across the range
         Set<ProjectId> allProjectIds = allAllocations.stream()
@@ -302,13 +302,22 @@ public class ScheduleConflictService implements
                 loadProjectPort.findAllById(new ArrayList<>(allProjectIds)).stream()
                         .collect(Collectors.toMap(p -> p.getId().value(), Project::getProjectName, (p1, p2) -> p1));
 
-        // 3. Bulk query approved leaves across all candidate employees and all weeks in range
+        // 3. Bulk query approved leaves across active employees and all weeks in range
         List<YearWeek> allWeekRange = IntStream.rangeClosed(startWeek, endWeek)
                 .mapToObj(w -> new YearWeek(year, w))
                 .collect(Collectors.toList());
 
         Map<Long, Map<YearWeek, BigDecimal>> approvedLeavesMap = loadApprovedLeavesPort
                 .loadApprovedLeaveHoursForEmployeesAndWeeks(new ArrayList<>(candidateEmpIds), allWeekRange);
+
+        // 4. Bulk query existing conflicts across the entire week range [startWeek, endWeek]
+        List<ScheduleConflict> existingConflicts = loadConflictPort.findConflicts(year, startWeek, endWeek, null, null, null);
+        Map<ConflictKey, ScheduleConflict> existingConflictMap = existingConflicts.stream()
+                .collect(Collectors.toMap(
+                        c -> new ConflictKey(c.getEmployeeId(), c.getWeekNumber(), c.getConflictType()),
+                        c -> c,
+                        (c1, c2) -> c1
+                ));
 
         // Group allocations by week number and employeeId
         Map<Integer, Map<Long, List<WeeklyProjectAllocation>>> allocationsByWeekAndEmp = allAllocations.stream()
@@ -360,9 +369,7 @@ public class ScheduleConflictService implements
                             .collect(Collectors.toList());
                     String projectNamesStr = String.join(", ", pNames);
 
-                    ScheduleConflict existing = loadConflictPort
-                            .findExistingConflict(empId, year, currentWeekNum, ConflictType.MULTI_PROJECT_ALLOCATION)
-                            .orElse(null);
+                    ScheduleConflict existing = existingConflictMap.get(new ConflictKey(empId, currentWeekNum, ConflictType.MULTI_PROJECT_ALLOCATION));
 
                     if (existing != null) {
                         if (existing.getStatus() == ScheduleConflictStatus.RESOLVED) {
@@ -411,9 +418,7 @@ public class ScheduleConflictService implements
                     String projectNamesStr = String.join(", ", pNames);
                     String leaveInfoStr = "Đơn nghỉ phép đã duyệt (" + approvedLeaveHours + "h)";
 
-                    ScheduleConflict existingLeaveConflict = loadConflictPort
-                            .findExistingConflict(empId, year, currentWeekNum, ConflictType.LEAVE_ALLOCATION_CONFLICT)
-                            .orElse(null);
+                    ScheduleConflict existingLeaveConflict = existingConflictMap.get(new ConflictKey(empId, currentWeekNum, ConflictType.LEAVE_ALLOCATION_CONFLICT));
 
                     if (existingLeaveConflict != null) {
                         if (existingLeaveConflict.getStatus() == ScheduleConflictStatus.RESOLVED) {
@@ -453,6 +458,8 @@ public class ScheduleConflictService implements
 
         return resultConflicts;
     }
+
+    private record ConflictKey(Long employeeId, Integer weekNumber, ConflictType conflictType) {}
 
     private List<ScheduleConflictResult> mapToResults(List<ScheduleConflict> conflicts) {
         if (conflicts == null || conflicts.isEmpty()) {

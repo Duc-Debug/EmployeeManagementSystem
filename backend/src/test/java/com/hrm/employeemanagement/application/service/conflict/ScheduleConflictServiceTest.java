@@ -477,8 +477,8 @@ class ScheduleConflictServiceTest {
         resolvedConflict.setId(2002L);
         resolvedConflict.markAsResolved();
 
-        when(loadConflictPort.findExistingConflict(10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION))
-                .thenReturn(Optional.of(resolvedConflict));
+        when(loadConflictPort.findConflicts(2026, 37, 37, null, null, null))
+                .thenReturn(List.of(resolvedConflict));
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
 
         List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
@@ -489,6 +489,23 @@ class ScheduleConflictServiceTest {
         assertTrue(scanned.get(0).isRecurrent());
         assertNotNull(scanned.get(0).recurrentNote());
         verify(saveConflictPort).save(resolvedConflict);
+    }
+
+    @Test
+    @DisplayName("NCL-07-CN-005-TC-05: Nhân sự inactive có allocation cũ -> Loại khỏi danh sách rà soát xung đột")
+    void testInactiveEmployeeWithAllocationsIsExcludedFromScan() {
+        // Mock no active employees
+        when(loadEmployeePort.findAllActive()).thenReturn(Collections.emptyList());
+
+        WeeklyProjectAllocation inactiveAlloc1 = new WeeklyProjectAllocation(101L, 999L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
+        WeeklyProjectAllocation inactiveAlloc2 = new WeeklyProjectAllocation(102L, 999L, 2L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(any(), eq(2026), eq(37), eq(37)))
+                .thenReturn(List.of(inactiveAlloc1, inactiveAlloc2));
+
+        List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
+
+        assertTrue(scanned.isEmpty());
+        verify(saveConflictPort, never()).save(any());
     }
 
     @Test
