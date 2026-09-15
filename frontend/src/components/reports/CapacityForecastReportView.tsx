@@ -21,9 +21,11 @@ import {
 } from "@/lib/api/capacity-forecast";
 import { getIsoWeeksInYear, getIsoWeekDetails } from "@/lib/iso-week";
 import { getOrgTree } from "@/lib/api/org-units";
+import { useAuthUser } from "@/lib/auth-session";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 
 export default function CapacityForecastReportView() {
+  const user = useAuthUser();
   const now = new Date();
   const currentIsoDetails = getIsoWeekDetails(now);
   const [fromYear, setFromYear] = useState<number>(currentIsoDetails.year);
@@ -53,13 +55,28 @@ export default function CapacityForecastReportView() {
           }
           return list;
         };
-        setOrgUnits(flatten([...(tree || [])]));
+        const allNodes = [...(tree || [])];
+        const normalizedRole = user?.roleCode?.toUpperCase().replace(/_/g, "-");
+        if (normalizedRole === "VT-03" && user?.scopeOrgUnitId != null) {
+          const findScopeRoot = (nodes: readonly OrgUnitTreeNode[]): OrgUnitTreeNode | null => {
+            for (const node of nodes) {
+              if (Number(node.id) === Number(user.scopeOrgUnitId)) return node;
+              const match = findScopeRoot(node.children || []);
+              if (match) return match;
+            }
+            return null;
+          };
+          const scopeRoot = findScopeRoot(allNodes);
+          setOrgUnits(scopeRoot ? flatten([scopeRoot]) : []);
+        } else {
+          setOrgUnits(flatten(allNodes));
+        }
       } catch (err) {
         console.warn("Không thể tải danh sách phòng ban:", err);
       }
     }
     loadOrgUnitsData();
-  }, []);
+  }, [user?.roleCode, user?.scopeOrgUnitId]);
 
   const fetchReport = async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -223,7 +240,10 @@ export default function CapacityForecastReportView() {
     );
   };
 
-  if (forbidden) {
+  const normalizedRole = user?.roleCode?.toUpperCase().replace(/_/g, "-");
+  const roleCanAccess = normalizedRole === "VT-01" || normalizedRole === "VT-03";
+
+  if (forbidden && !roleCanAccess) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/50 dark:bg-red-950/30 text-center">
@@ -272,7 +292,9 @@ export default function CapacityForecastReportView() {
             onChange={(e) => setSelectedOrgUnitId(e.target.value)}
             className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">-- Toàn công ty --</option>
+            <option value="">
+              {normalizedRole === "VT-03" ? "-- Toàn bộ phạm vi được phép --" : "-- Toàn công ty --"}
+            </option>
             {orgUnits.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.unitName}
@@ -329,6 +351,13 @@ export default function CapacityForecastReportView() {
       </div>
 
       {/* Error state */}
+      {forbidden && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 text-sm flex items-center gap-3">
+          <ShieldAlert className="w-5 h-5 flex-shrink-0 text-red-500" />
+          <span>Đơn vị đã chọn nằm ngoài phạm vi dữ liệu được phép xem. Vui lòng chọn lại đơn vị thuộc nhánh của bạn.</span>
+        </div>
+      )}
+
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 text-sm flex items-center gap-3">
           <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
@@ -517,4 +546,3 @@ export default function CapacityForecastReportView() {
     </div>
   );
 }
-

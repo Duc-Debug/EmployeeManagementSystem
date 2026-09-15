@@ -45,6 +45,22 @@ function canAccessCapacityForecastTab(roleCode) {
   return ["VT-01", "VT-03"].includes(normalized);
 }
 
+function visibleOrgUnitIdsForRole(tree, roleCode, scopeOrgUnitId) {
+  const flatten = (nodes) => nodes.flatMap((node) => [node, ...flatten(node.children || [])]);
+  if (roleCode !== "VT-03" || scopeOrgUnitId == null) return flatten(tree).map((node) => node.id);
+
+  const findScopeRoot = (nodes) => {
+    for (const node of nodes) {
+      if (node.id === scopeOrgUnitId) return node;
+      const match = findScopeRoot(node.children || []);
+      if (match) return match;
+    }
+    return null;
+  };
+  const root = findScopeRoot(tree);
+  return root ? flatten([root]).map((node) => node.id) : [];
+}
+
 describe("Capacity Forecast Report Logic Tests (NCL-10-CN-004)", () => {
   test("BR-03 & BR-04: Tách riêng giờ giữ chỗ khỏi giờ cam kết chính thức", () => {
     const res = calculateWeeklyForecast(400, 300, 40);
@@ -83,5 +99,14 @@ describe("Capacity Forecast Report Logic Tests (NCL-10-CN-004)", () => {
     assert.equal(canAccessCapacityForecastTab("VT-04"), false);
     assert.equal(canAccessCapacityForecastTab("VT-05"), false);
   });
-});
 
+  test("VT-03 chỉ nhìn thấy đơn vị trong nhánh data scope", () => {
+    const tree = [
+      { id: 1, children: [{ id: 2, children: [{ id: 3, children: [] }] }] },
+      { id: 4, children: [] }
+    ];
+
+    assert.deepEqual(visibleOrgUnitIdsForRole(tree, "VT-03", 2), [2, 3]);
+    assert.deepEqual(visibleOrgUnitIdsForRole(tree, "VT-01", null), [1, 2, 3, 4]);
+  });
+});

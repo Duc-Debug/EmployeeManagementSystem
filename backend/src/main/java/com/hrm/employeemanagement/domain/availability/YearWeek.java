@@ -1,11 +1,11 @@
 package com.hrm.employeemanagement.domain.availability;
 
-import com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException;
-
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.time.temporal.WeekFields;
+
+import com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException;
 
 public record YearWeek(int year, int weekNumber) {
 
