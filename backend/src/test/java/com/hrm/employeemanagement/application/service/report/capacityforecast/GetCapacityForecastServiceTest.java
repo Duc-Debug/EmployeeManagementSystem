@@ -33,6 +33,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -300,5 +301,81 @@ class GetCapacityForecastServiceTest {
         // Only fromWeek provided
         CapacityForecastQuery onlyWeekQuery = new CapacityForecastQuery(null, null, 20, 12);
         assertThrows(IllegalArgumentException.class, () -> service.execute(onlyWeekQuery));
+    }
+
+    @Test
+    @DisplayName("BR-01: Ném IllegalArgumentException khi từ tuần truyền vào trước tuần ISO hiện tại")
+    void execute_ShouldThrowExceptionWhenRequestedWeekIsBeforeCurrentWeek() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        // Tuần 2026-W20 là trước tuần hiện tại (2026-W38)
+        CapacityForecastQuery pastWeekQuery = new CapacityForecastQuery(null, 2026, 20, 12);
+
+        // Act & Assert
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.execute(pastWeekQuery));
+        assertTrue(ex.getMessage().contains("Tuần bắt đầu phải là tuần hiện tại hoặc tuần tương lai"));
+    }
+
+    @Test
+    @DisplayName("ISO Week: Xử lý chính xác chuyển giao năm ISO (VD từ 2026-W52 với 4 tuần dự báo -> 2026-W52, 2027-W01, W02, W03)")
+    void execute_ShouldHandleCrossYearIsoWeeksCorrectly() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        Employee emp1 = mock(Employee.class);
+        when(emp1.getIdValue()).thenReturn(1L);
+        when(emp1.getStandardHoursPerWeek()).thenReturn(40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
+
+        CapacityForecastQuery crossYearQuery = new CapacityForecastQuery(null, 2026, 52, 4);
+
+        // Act
+        CapacityForecastResult result = service.execute(crossYearQuery);
+
+        // Assert
+        assertEquals(4, result.weeks().size());
+        assertEquals(2026, result.weeks().get(0).year());
+        assertEquals(52, result.weeks().get(0).weekNumber());
+
+        assertEquals(2026, result.weeks().get(1).year());
+        assertEquals(53, result.weeks().get(1).weekNumber());
+
+        assertEquals(2027, result.weeks().get(2).year());
+        assertEquals(1, result.weeks().get(2).weekNumber());
+
+        assertEquals(2027, result.weeks().get(3).year());
+        assertEquals(2, result.weeks().get(3).weekNumber());
+    }
+
+    @Test
+    @DisplayName("BR-02: Áp dụng điều chỉnh contractEndDate nếu hợp đồng kết thúc trong tuần")
+    void execute_ShouldAdjustForContractEndDate() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        Employee emp1 = mock(Employee.class);
+        when(emp1.getIdValue()).thenReturn(1L);
+        when(emp1.getStandardHoursPerWeek()).thenReturn(40);
+        // Hợp đồng hết hạn vào giữa tuần (Thứ Tư 16/09/2026) -> Chỉ làm việc 3 ngày (24h)
+        when(emp1.getContractEndDate()).thenReturn(LocalDate.of(2026, 9, 16));
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
+
+        CapacityForecastQuery query = new CapacityForecastQuery(null, 2026, 38, 4);
+
+        // Act
+        CapacityForecastResult result = service.execute(query);
+
+        // Assert
+        assertEquals(new BigDecimal("24.0"), result.weeks().get(0).availableHours());
     }
 }

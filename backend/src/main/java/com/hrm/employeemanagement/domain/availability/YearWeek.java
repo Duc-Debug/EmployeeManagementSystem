@@ -54,4 +54,14 @@ public record YearWeek(int year, int weekNumber) {
     public LocalDate getEndDate() {
         return getStartDate().plusDays(6);
     }
+
+    public boolean isBefore(YearWeek other) {
+        if (other == null) return false;
+        return this.getStartDate().isBefore(other.getStartDate());
+    }
+
+    public boolean isAfter(YearWeek other) {
+        if (other == null) return false;
+        return this.getStartDate().isAfter(other.getStartDate());
+    }
 }

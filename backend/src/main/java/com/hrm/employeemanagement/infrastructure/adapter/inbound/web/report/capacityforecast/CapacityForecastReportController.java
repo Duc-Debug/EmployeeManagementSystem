@@ -32,7 +32,6 @@ public class CapacityForecastReportController {
      * Dành cho Ban Giám đốc (VT-01) và Quản lý nguồn lực (VT-03).
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('CAPACITY_FORECAST_REPORT_READ')")
     public ResponseEntity<ApiResponse<CapacityForecastResult>> getCapacityForecastReport(
             @RequestParam(required = false) Long orgUnitId,
             @RequestParam(required = false) Integer fromYear,

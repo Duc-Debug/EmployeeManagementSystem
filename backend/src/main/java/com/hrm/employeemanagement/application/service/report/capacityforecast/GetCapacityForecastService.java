@@ -155,6 +155,12 @@ public class GetCapacityForecastService implements GetCapacityForecastUseCase {
             throw new IllegalArgumentException("Tuần bắt đầu không hợp lệ: " + fromWeek + " (năm " + fromYear + " có tối đa " + maxWeeksInYear + " tuần)");
         }
 
+        YearWeek requestedStart = YearWeek.of(fromYear, fromWeek);
+        YearWeek currentWeek = YearWeek.from(LocalDate.now());
+        if (requestedStart.isBefore(currentWeek)) {
+            throw new IllegalArgumentException("Tuần bắt đầu phải là tuần hiện tại hoặc tuần tương lai (từ tuần T" + currentWeek.weekNumber() + "/" + currentWeek.year() + " trở đi)");
+        }
+
         int rawDuration = (query != null && query.durationWeeks() != null) ? query.durationWeeks() : 12;
         if (rawDuration < 4 || rawDuration > 16) {
             throw new IllegalArgumentException("Số tuần dự báo phải từ 4 đến 16 tuần");
