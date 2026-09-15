@@ -276,14 +276,10 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         String safeOldValue = existingOpt.isPresent() ? oldValue : "(Chưa phân bổ)";
         String safeNewValue = newValue;
 
-        String summaryMessage = actionType.equals("ADD")
-                ? "Phân bổ mới nhân sự '" + employee.getFullName() + "' vào dự án '" + project.getProjectName() + "' tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ": " + safeNewValue
-                : "Cập nhật phân bổ nhân sự '" + employee.getFullName() + "' trong dự án '" + project.getProjectName() + "' tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ": " + safeOldValue + " -> " + safeNewValue;
-
         String notifiedPmIds = notifyStakeholders(
                 project, employee, currentUser, actionType,
                 AllocationNotificationPolicy.YearWeekRange.ofSingle(yearWeek),
-                safeOldValue, safeNewValue, summaryMessage
+                safeOldValue, safeNewValue
         );
 
         if (saveChangeLogPort != null) {
@@ -459,8 +455,7 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             String actionType,
             AllocationNotificationPolicy.YearWeekRange weekRange,
             String oldValue,
-            String newValue,
-            String summaryMessage
+            String newValue
     ) {
         if (notificationPort == null) {
             return null;

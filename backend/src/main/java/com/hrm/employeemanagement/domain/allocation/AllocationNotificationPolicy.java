@@ -117,6 +117,12 @@ public final class AllocationNotificationPolicy {
                     safeActor, safeEmployee, safeProject, rangeStr,
                     newValue != null ? newValue : "Đã phân bổ"
             );
+            case "MOVE_WEEK" -> String.format(
+                    "%s đã chuyển phân bổ của nhân sự %s trong dự án '%s' từ %s sang %s.",
+                    safeActor, safeEmployee, safeProject,
+                    oldValue != null ? oldValue : "tuần cũ",
+                    newValue != null ? newValue : "tuần mới"
+            );
             case "REMOVE" -> String.format(
                     "%s đã gỡ bỏ phân bổ của nhân sự %s khỏi dự án '%s' tại %s (phân bổ cũ: %s).",
                     safeActor, safeEmployee, safeProject, rangeStr,

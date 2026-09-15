@@ -126,5 +126,16 @@ class AllocationNotificationPolicyTest {
         assertTrue(removeContent.contains("Lê Quản Lý"));
         assertTrue(removeContent.contains("gỡ bỏ"));
         assertTrue(removeContent.contains("40h tại tuần 35/2026"));
+
+        // Case MOVE_WEEK
+        String moveContent = AllocationNotificationPolicy.formatContent(
+                "Lê Quản Lý", "MOVE_WEEK", "Nguyễn Văn A", "Dự án HRM", range, "Tuần 35/2026 (20h)", "Tuần 36/2026 (20h)"
+        );
+        assertTrue(moveContent.contains("Lê Quản Lý"));
+        assertTrue(moveContent.contains("chuyển phân bổ"));
+        assertTrue(moveContent.contains("Nguyễn Văn A"));
+        assertTrue(moveContent.contains("Dự án HRM"));
+        assertTrue(moveContent.contains("Tuần 35/2026 (20h)"));
+        assertTrue(moveContent.contains("Tuần 36/2026 (20h)"));
     }
 }

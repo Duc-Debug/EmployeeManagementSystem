@@ -342,14 +342,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         // Lưu phân bổ và ghi nhật ký kiểm toán trong CÙNG transaction (QTN-15)
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        String summaryMessage = "Điều chỉnh số giờ phân bổ dự án '" + project.getProjectName() + "' tuần "
-                + yearWeek.weekNumber() + "/" + yearWeek.year() + " cho nhân sự "
-                + employee.getFullName() + ": " + oldValue + " -> " + newValue;
-
         String notifiedPmIds = notifyStakeholders(
                 project, employee, currentUserId, "EDIT",
                 AllocationNotificationPolicy.YearWeekRange.ofSingle(yearWeek),
-                oldValue, newValue, summaryMessage
+                oldValue, newValue
         );
 
         saveChangeLogPort.save(AllocationChangeLog.create(
@@ -458,13 +454,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
 
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        String summaryMessage = "Chuyển tuần phân bổ dự án '" + project.getProjectName() + "' cho nhân sự "
-                + employee.getFullName() + ": " + oldValue + " -> " + newValue;
-
         String notifiedPmIds = notifyStakeholders(
                 project, employee, currentUserId, "MOVE_WEEK",
                 AllocationNotificationPolicy.YearWeekRange.ofSingle(targetWeek),
-                oldValue, newValue, summaryMessage
+                oldValue, newValue
         );
 
         saveChangeLogPort.save(AllocationChangeLog.create(
@@ -513,13 +506,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
 
         deleteAllocationPort.delete(allocation);
 
-        String summaryMessage = "Gỡ bỏ dòng phân bổ dự án '" + project.getProjectName() + "' cho nhân sự "
-                + employee.getFullName() + " (" + oldValue + ")";
-
         String notifiedPmIds = notifyStakeholders(
                 project, employee, currentUserId, "REMOVE",
                 AllocationNotificationPolicy.YearWeekRange.ofSingle(allocation.getYearWeek()),
-                oldValue, newValue, summaryMessage
+                oldValue, newValue
         );
 
         saveChangeLogPort.save(AllocationChangeLog.create(
@@ -556,14 +546,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         allocation.noteVariance(newValue, currentUserId);
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        String summaryMessage = "Ghi chú lý do chênh lệch phân bổ dự án '" + project.getProjectName() + "' tuần "
-                + allocation.getYearWeek().weekNumber() + "/" + allocation.getYearWeek().year()
-                + " cho nhân sự " + employee.getFullName() + ": " + newValue;
-
         String notifiedPmIds = notifyStakeholders(
                 project, employee, currentUserId, "NOTE_VARIANCE",
                 AllocationNotificationPolicy.YearWeekRange.ofSingle(allocation.getYearWeek()),
-                oldValue, newValue, summaryMessage
+                oldValue, newValue
         );
 
         saveChangeLogPort.save(AllocationChangeLog.create(
@@ -594,8 +580,7 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
             String actionType,
             AllocationNotificationPolicy.YearWeekRange weekRange,
             String oldValue,
-            String newValue,
-            String summaryMessage
+            String newValue
     ) {
         Long pmId = project.getManagerId() != null ? project.getManagerId().value() : null;
         String actorName = "Người quản lý nguồn lực";
