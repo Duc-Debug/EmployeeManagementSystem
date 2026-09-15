@@ -103,7 +103,8 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
                 entity.getResolvedAt(),
                 entity.getResolvedBy(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getVersion()
         );
     }
 
@@ -134,6 +135,7 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
         entity.setResolvedBy(domain.getResolvedBy());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
+        entity.setVersion(domain.getVersion());
         return entity;
     }
 }

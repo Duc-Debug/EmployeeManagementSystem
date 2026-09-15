@@ -30,6 +30,7 @@ ALTER TABLE schedule_conflict_warnings ADD COLUMN is_recurrent BOOLEAN NOT NULL 
 ALTER TABLE schedule_conflict_warnings ADD COLUMN recurrent_note TEXT NULL;
 ALTER TABLE schedule_conflict_warnings ADD COLUMN resolved_at TIMESTAMP NULL;
 ALTER TABLE schedule_conflict_warnings ADD COLUMN resolved_by BIGINT NULL;
+ALTER TABLE schedule_conflict_warnings ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
 
 -- 4. Tạo ngoại khóa cho người chịu trách nhiệm xử lý
 ALTER TABLE schedule_conflict_warnings

@@ -30,6 +30,7 @@ public class ScheduleConflict {
     private Long resolvedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long version;
 
     public ScheduleConflict() {
     }
@@ -60,6 +61,39 @@ public class ScheduleConflict {
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
+        this(id, employeeId, yearNumber, weekNumber, conflictType, projectIds, projectNames,
+                leaveRequestId, leaveInfo, totalAllocatedHours, netAvailableHours, excessHours,
+                status, details, notifiedAt, notifiedBy, assignedHandlerId, resolutionNote,
+                isRecurrent, recurrentNote, resolvedAt, resolvedBy, createdAt, updatedAt, 0L);
+    }
+
+    public ScheduleConflict(
+            Long id,
+            Long employeeId,
+            Integer yearNumber,
+            Integer weekNumber,
+            ConflictType conflictType,
+            String projectIds,
+            String projectNames,
+            Long leaveRequestId,
+            String leaveInfo,
+            BigDecimal totalAllocatedHours,
+            BigDecimal netAvailableHours,
+            BigDecimal excessHours,
+            ScheduleConflictStatus status,
+            String details,
+            LocalDateTime notifiedAt,
+            Long notifiedBy,
+            Long assignedHandlerId,
+            String resolutionNote,
+            Boolean isRecurrent,
+            String recurrentNote,
+            LocalDateTime resolvedAt,
+            Long resolvedBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
         this.id = id;
         this.employeeId = Objects.requireNonNull(employeeId, "employeeId must not be null");
         this.yearNumber = Objects.requireNonNull(yearNumber, "yearNumber must not be null");
@@ -84,6 +118,7 @@ public class ScheduleConflict {
         this.resolvedBy = resolvedBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.version = version;
     }
 
     public static ScheduleConflict create(
@@ -375,5 +410,13 @@ public class ScheduleConflict {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }
