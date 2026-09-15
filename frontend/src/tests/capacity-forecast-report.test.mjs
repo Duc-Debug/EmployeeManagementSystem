@@ -39,10 +39,8 @@ function calculateWeeklyForecast(availableHours, committedHours, reservedHours) 
   };
 }
 
-function canAccessCapacityForecastTab(roleCode) {
-  if (!roleCode) return false;
-  const normalized = roleCode.toUpperCase().replace(/_/g, "-");
-  return ["VT-01", "VT-03"].includes(normalized);
+function canAccessCapacityForecastTab(permissions) {
+  return permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
 }
 
 function visibleOrgUnitIdsForRole(tree, roleCode, scopeOrgUnitId) {
@@ -92,12 +90,11 @@ describe("Capacity Forecast Report Logic Tests (NCL-10-CN-004)", () => {
     assert.equal(zeroAvailWithAlloc.status, "OVER_CAPACITY");
   });
 
-  test("BR-07: Phân quyền menu hiển thị cho VT-01 & VT-03, chặn các vai trò khác", () => {
-    assert.equal(canAccessCapacityForecastTab("VT-01"), true);
-    assert.equal(canAccessCapacityForecastTab("VT-03"), true);
-    assert.equal(canAccessCapacityForecastTab("VT-02"), false);
-    assert.equal(canAccessCapacityForecastTab("VT-04"), false);
-    assert.equal(canAccessCapacityForecastTab("VT-05"), false);
+  test("BR-07: Menu dùng permission matrix từ backend thay vì hard-code role", () => {
+    assert.equal(canAccessCapacityForecastTab(["CAPACITY_FORECAST_REPORT_READ"]), true);
+    assert.equal(canAccessCapacityForecastTab(["PROJECT_READ"]), false);
+    assert.equal(canAccessCapacityForecastTab([]), false);
+    assert.equal(canAccessCapacityForecastTab(undefined), false);
   });
 
   test("VT-03 chỉ nhìn thấy đơn vị trong nhánh data scope", () => {

@@ -204,8 +204,8 @@ class GetCapacityForecastServiceTest {
     }
 
     @Test
-    @DisplayName("TC-03: VT-01 & VT-03 được phép truy cập; Vai trò khác nhận PermissionDeniedException và có audit log")
-    void execute_ShouldDenyUnauthorizedUserWithAuditLog() {
+    @DisplayName("TC-03: Permission denial được ủy quyền audit duy nhất cho AuthorizationService")
+    void execute_ShouldDelegatePermissionDeniedAuditToAuthorizationService() {
         // Arrange
         when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ))
                 .thenThrow(new PermissionDeniedException(PermissionCode.CAPACITY_FORECAST_REPORT_READ));
@@ -214,7 +214,7 @@ class GetCapacityForecastServiceTest {
 
         // Act & Assert
         assertThrows(PermissionDeniedException.class, () -> service.execute(query));
-        verify(saveAuditLogPort, times(1)).save(any(AuditLog.class));
+        verify(saveAuditLogPort, never()).save(any(AuditLog.class));
     }
 
     @Test

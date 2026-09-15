@@ -89,13 +89,9 @@ public class GetCapacityForecastService implements GetCapacityForecastUseCase {
     @Override
     public CapacityForecastResult execute(CapacityForecastQuery query) {
         // 1. Phân quyền: Kiểm tra CAPACITY_FORECAST_REPORT_READ
-        Long currentUserId;
-        try {
-            currentUserId = authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ);
-        } catch (PermissionDeniedException e) {
-            recordDeniedAuditLog(null, "CAPACITY_FORECAST_REPORT_READ");
-            throw e;
-        }
+        // AuthorizationService owns missing-permission auditing. Do not catch and audit
+        // the same denial here, otherwise one request creates two audit records.
+        Long currentUserId = authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ);
 
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));

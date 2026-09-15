@@ -56,8 +56,7 @@ export default function CapacityForecastReportView() {
           return list;
         };
         const allNodes = [...(tree || [])];
-        const normalizedRole = user?.roleCode?.toUpperCase().replace(/_/g, "-");
-        if (normalizedRole === "VT-03" && user?.scopeOrgUnitId != null) {
+        if (user?.dataScope === "ORGANIZATION_BRANCH" && user?.scopeOrgUnitId != null) {
           const findScopeRoot = (nodes: readonly OrgUnitTreeNode[]): OrgUnitTreeNode | null => {
             for (const node of nodes) {
               if (Number(node.id) === Number(user.scopeOrgUnitId)) return node;
@@ -240,10 +239,9 @@ export default function CapacityForecastReportView() {
     );
   };
 
-  const normalizedRole = user?.roleCode?.toUpperCase().replace(/_/g, "-");
-  const roleCanAccess = normalizedRole === "VT-01" || normalizedRole === "VT-03";
+  const hasReportPermission = user?.permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
 
-  if (forbidden && !roleCanAccess) {
+  if (forbidden && !hasReportPermission) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/50 dark:bg-red-950/30 text-center">
@@ -293,7 +291,7 @@ export default function CapacityForecastReportView() {
             className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
           >
             <option value="">
-              {normalizedRole === "VT-03" ? "-- Toàn bộ phạm vi được phép --" : "-- Toàn công ty --"}
+              {user?.dataScope === "ORGANIZATION_BRANCH" ? "-- Toàn bộ phạm vi được phép --" : "-- Toàn công ty --"}
             </option>
             {orgUnits.map((u) => (
               <option key={u.id} value={u.id}>

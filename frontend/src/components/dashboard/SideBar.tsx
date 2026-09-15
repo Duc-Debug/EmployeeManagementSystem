@@ -42,8 +42,13 @@ const SIDEBAR_SETTINGS = [
 export function canAccessTab(
     roleCode: string | undefined | null,
     tabId: string,
-    dataScope?: string | null
+    dataScope?: string | null,
+    permissions?: readonly string[] | null
 ): boolean {
+    if (tabId === "capacity-forecast") {
+        return permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
+    }
+
     if (!roleCode && !dataScope) return true;
     const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
 
@@ -125,10 +130,6 @@ export function canAccessTab(
             // Báo cáo nhu cầu tuyển dụng theo kỹ năng (NCL-10-CN-005): VT-01 (Ban Giám Đốc), VT-03 (HR), VT-06 (Admin)
             return ["VT-01", "VT-03", "VT-06"].includes(normalized);
 
-        case "capacity-forecast":
-            // Báo cáo dự báo năng lực các tuần tới (NCL-10-CN-004): VT-01 (Ban Giám Đốc), VT-03 (Quản lý Nguồn lực)
-            return ["VT-01", "VT-03"].includes(normalized);
-
         default:
             return true;
     }
@@ -149,7 +150,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
     const isEmployeeOnly = normalizedRole === "VT-04";
 
     const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) =>
-        canAccessTab(roleCode, item.id, dataScope)
+        canAccessTab(roleCode, item.id, dataScope, user?.permissions)
     ).map((item) => {
         if (item.id === "skills") {
             return {
@@ -165,7 +166,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
         }
         return item;
     });
-    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope));
+    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope, user?.permissions));
 
     return (
         <aside
