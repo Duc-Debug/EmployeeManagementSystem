@@ -133,6 +133,12 @@ public class SaveWeeklyTimesheetGridService implements SaveWeeklyTimesheetGridUs
         for (int i = 0; i < 7; i++) {
             dailyTotals.put(weekMonday.plusDays(i), BigDecimal.ZERO);
         }
+        for (TimesheetEntry entry : existingEntries) {
+            if (entry.getWorkDate() != null && entry.getHours() != null) {
+                dailyTotals.put(entry.getWorkDate(),
+                        dailyTotals.getOrDefault(entry.getWorkDate(), BigDecimal.ZERO).add(entry.getHours()));
+            }
+        }
 
         if (command.taskEntries() != null) {
             for (TaskWeeklyHoursInputDto row : command.taskEntries()) {
@@ -188,8 +194,20 @@ public class SaveWeeklyTimesheetGridService implements SaveWeeklyTimesheetGridUs
                             if (hours.compareTo(BigDecimal.valueOf(24)) > 0) {
                                 throw new WorkLogInvalidHoursException("Số giờ làm việc không được vượt quá 24 giờ.");
                             }
-                            dailyTotals.put(dayInput.workDate(), dailyTotals.getOrDefault(dayInput.workDate(), BigDecimal.ZERO).add(hours));
                         }
+
+                        String key = row.taskId() + "_" + dayInput.workDate();
+                        TimesheetEntry existing = existingEntryMap.get(key);
+
+                        BigDecimal oldHours = (existing != null && existing.getHours() != null)
+                                ? existing.getHours()
+                                : BigDecimal.ZERO;
+                        BigDecimal newHours = (hours != null && hours.compareTo(BigDecimal.ZERO) > 0)
+                                ? hours
+                                : BigDecimal.ZERO;
+
+                        BigDecimal currentSimulated = dailyTotals.getOrDefault(dayInput.workDate(), BigDecimal.ZERO);
+                        dailyTotals.put(dayInput.workDate(), currentSimulated.subtract(oldHours).add(newHours));
                     }
                 }
             }

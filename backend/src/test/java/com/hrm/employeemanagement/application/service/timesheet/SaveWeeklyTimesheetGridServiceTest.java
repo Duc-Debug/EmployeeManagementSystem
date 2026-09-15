@@ -280,5 +280,49 @@ class SaveWeeklyTimesheetGridServiceTest {
         SaveWeeklyTimesheetGridCommand cmd = new SaveWeeklyTimesheetGridCommand(monday, List.of(row));
         assertThrows(TimesheetImmutableException.class, () -> service.saveWeeklyGrid(cmd));
     }
+
+    @Test
+    @DisplayName("QTN-09: Chặn lưu khi DB đã có 8h (Task A) và request mới gửi thêm 8h (Task B) làm tổng ngày = 16h > 12h")
+    void shouldThrowDailyHoursLimitExceededWhenExistingEntryPlusNewTaskExceeds12Hours() {
+        when(authorizationService.require(PermissionCode.WORK_LOG_CREATE)).thenReturn(100L);
+        when(loadEmployeePort.findByUserId(new UserId(100L))).thenReturn(Optional.of(sampleEmployee));
+        when(loadEmployeePort.findByIdForUpdate(employeeId)).thenReturn(Optional.of(sampleEmployee));
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(sampleProject));
+        when(loadTaskPort.findById(taskId)).thenReturn(Optional.of(sampleTask));
+
+        Timesheet draftTs = Timesheet.create(employeeId, monday);
+
+        // Existing entry in DB for Task 99L on Monday = 8h
+        com.hrm.employeemanagement.domain.timesheet.TimesheetEntry existingTaskAEntry =
+                new com.hrm.employeemanagement.domain.timesheet.TimesheetEntry(
+                        new com.hrm.employeemanagement.domain.timesheet.TimesheetEntryId(999L),
+                        draftTs.getId(),
+                        employeeId,
+                        projectId,
+                        new TaskId(99L),
+                        monday,
+                        BigDecimal.valueOf(8),
+                        true,
+                        "Task A đã làm 8h",
+                        TimesheetStatus.DRAFT,
+                        java.time.LocalDateTime.now(),
+                        null,
+                        0L
+                );
+
+        when(loadTimesheetPort.findByEmployeeAndWeekStart(employeeId, monday)).thenReturn(Optional.of(draftTs));
+        when(loadTimesheetEntryPort.findByEmployeeAndDateRange(employeeId, monday, monday.plusDays(6)))
+                .thenReturn(List.of(existingTaskAEntry));
+
+        // Payload only sends Task B (taskId = 5L) with 8h on Monday (Task A is omitted from request)
+        TaskWeeklyHoursInputDto row = new TaskWeeklyHoursInputDto(
+                1L, 5L, true, "Task B gửi thêm 8h",
+                List.of(new TaskDailyHourInputDto(monday, BigDecimal.valueOf(8)))
+        );
+
+        SaveWeeklyTimesheetGridCommand cmd = new SaveWeeklyTimesheetGridCommand(monday, List.of(row));
+        assertThrows(DailyHoursLimitExceededException.class, () -> service.saveWeeklyGrid(cmd));
+        verify(saveTimesheetEntryPort, never()).save(any());
+    }
 }
 
