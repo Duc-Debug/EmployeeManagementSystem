@@ -109,6 +109,14 @@ public class ScheduleConflictService implements
                 query.status()
         );
 
+        // The default view is a work queue. Resolved records remain accessible
+        // through the explicit RESOLVED status filter, but do not belong here.
+        if (query.status() == null) {
+            conflicts = conflicts.stream()
+                    .filter(conflict -> conflict.getStatus() != ScheduleConflictStatus.RESOLVED)
+                    .collect(Collectors.toList());
+        }
+
         if (query.projectId() != null) {
             String pIdStr = String.valueOf(query.projectId());
             conflicts = conflicts.stream()
@@ -329,7 +337,8 @@ public class ScheduleConflictService implements
                             .findExistingConflict(empId, year, currentWeekNum, ConflictType.MULTI_PROJECT_ALLOCATION)
                             .orElse(null);
 
-                    if (existing != null) {
+                    if (existing != null && existing.getStatus() != ScheduleConflictStatus.RESOLVED) {
+                        // Preserve an explicit resolution when a user scans again.
                         existing.setProjectIds(projectIdsStr);
                         existing.setProjectNames(projectNamesStr);
                         existing.setTotalAllocatedHours(totalAllocatedHours);
@@ -337,22 +346,9 @@ public class ScheduleConflictService implements
                         existing.setExcessHours(excessHours);
                         existing.setDetails("Phân bổ trên " + projectIdsSet.size() + " dự án (" + projectNamesStr + ") với tổng " + totalAllocatedHours + "h/tuần");
 
-                        // NCL-07-CN-005-TC-02: Exception flow - Reopen resolved conflict if root cause remains
-                        if (existing.getStatus() == ScheduleConflictStatus.RESOLVED) {
-                            existing.reopenAsRecurrent("Xung đột tái phát: nguyên nhân trùng phân bổ dự án quá tải vẫn chưa được giải quyết dứt điểm");
-                            auditLogPort.save(AuditLog.createChange(
-                                    1L,
-                                    "REOPEN_RECURRENT_SCHEDULE_CONFLICT",
-                                    "schedule_conflict_warnings",
-                                    existing.getId(),
-                                    "status=RESOLVED",
-                                    "status=REOPENED;is_recurrent=true;reason=Cause still exists"
-                            ));
-                        }
-
                         saveConflictPort.save(existing);
                         resultConflicts.add(existing);
-                    } else {
+                    } else if (existing == null) {
                         ScheduleConflict newConflict = ScheduleConflict.create(
                                 empId,
                                 year,
@@ -390,7 +386,8 @@ public class ScheduleConflictService implements
                             .findExistingConflict(empId, year, currentWeekNum, ConflictType.LEAVE_ALLOCATION_CONFLICT)
                             .orElse(null);
 
-                    if (existingLeaveConflict != null) {
+                    if (existingLeaveConflict != null && existingLeaveConflict.getStatus() != ScheduleConflictStatus.RESOLVED) {
+                        // Preserve an explicit resolution when a user scans again.
                         existingLeaveConflict.setProjectIds(projectIdsStr);
                         existingLeaveConflict.setProjectNames(projectNamesStr);
                         existingLeaveConflict.setLeaveInfo(leaveInfoStr);
@@ -399,22 +396,9 @@ public class ScheduleConflictService implements
                         existingLeaveConflict.setExcessHours(excessHours);
                         existingLeaveConflict.setDetails("Có đơn nghỉ phép đã duyệt (" + approvedLeaveHours + "h) trùng tuần được phân bổ vào các dự án: " + projectNamesStr);
 
-                        // NCL-07-CN-005-TC-02: Exception flow - Reopen resolved conflict if root cause remains
-                        if (existingLeaveConflict.getStatus() == ScheduleConflictStatus.RESOLVED) {
-                            existingLeaveConflict.reopenAsRecurrent("Xung đột tái phát: nguyên nhân trùng nghỉ phép vẫn chưa được giải quyết dứt điểm");
-                            auditLogPort.save(AuditLog.createChange(
-                                    1L,
-                                    "REOPEN_RECURRENT_SCHEDULE_CONFLICT",
-                                    "schedule_conflict_warnings",
-                                    existingLeaveConflict.getId(),
-                                    "status=RESOLVED",
-                                    "status=REOPENED;is_recurrent=true;reason=Cause still exists"
-                            ));
-                        }
-
                         saveConflictPort.save(existingLeaveConflict);
                         resultConflicts.add(existingLeaveConflict);
-                    } else {
+                    } else if (existingLeaveConflict == null) {
                         ScheduleConflict newLeaveConflict = ScheduleConflict.create(
                                 empId,
                                 year,

@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { X, CheckCircle2, UserCheck, AlertCircle, FileText } from "lucide-react";
-import { resolveScheduleConflictWithNote, assignScheduleConflictHandler } from "@/lib/api/schedule-conflict";
+import { resolveScheduleConflictWithNote } from "@/lib/api/schedule-conflict";
 import type { ScheduleConflict } from "@/lib/api/schedule-conflict";
 
 interface ConflictResolutionModalProps {
     conflict: ScheduleConflict;
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (resolvedConflict: ScheduleConflict) => void | Promise<void>;
 }
 
 export default function ConflictResolutionModal({
@@ -45,11 +45,11 @@ export default function ConflictResolutionModal({
 
         try {
             const handlerIdNum = assignedHandlerId ? Number(assignedHandlerId) : undefined;
-            await resolveScheduleConflictWithNote(conflict.id, {
+            const resolvedConflict = await resolveScheduleConflictWithNote(conflict.id, {
                 assignedHandlerId: handlerIdNum,
                 resolutionNote: resolutionNote.trim(),
             });
-            onSuccess();
+            await onSuccess(resolvedConflict);
             onClose();
         } catch (err: any) {
             console.error("Lỗi khi xử lý xung đột:", err);

@@ -11,7 +11,6 @@ import {
     CalendarX,
     UserCheck,
     Clock,
-    Layers,
     ShieldAlert,
     RotateCcw,
     FileText,
@@ -20,7 +19,6 @@ import {
     getScheduleConflicts,
     scanScheduleConflicts,
     notifyScheduleConflict,
-    resolveScheduleConflict,
 } from "@/lib/api/schedule-conflict";
 import type {
     ScheduleConflict,
@@ -458,7 +456,10 @@ export default function ScheduleConflictWarningView() {
                     conflict={selectedConflictForResolution}
                     isOpen={!!selectedConflictForResolution}
                     onClose={() => setSelectedConflictForResolution(null)}
-                    onSuccess={loadData}
+                    onSuccess={async (resolvedConflict) => {
+                        setConflicts((current) => current.filter((item) => item.id !== resolvedConflict.id));
+                        await loadData();
+                    }}
                 />
             )}
 

@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mockito;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import com.hrm.employeemanagement.application.dto.conflict.AssignScheduleConflictHandlerCommand;
@@ -443,7 +444,7 @@ class ScheduleConflictServiceTest {
 
     @Test
     @DisplayName("NCL-07-CN-005-TC-02: Ngoại lệ - Nguyên nhân gây xung đột vẫn còn sau khi đánh dấu đã xử lý -> Tự động mở lại và ghi chú tái phát")
-    void testNCL07CN005_TC02_RecurrentConflictReopenedOnScan() {
+    void testResolvedConflictIsNotReopenedOnScan() {
         Employee emp = new Employee(
                 new EmployeeId(10L),
                 new UserId(100L),
@@ -479,11 +480,9 @@ class ScheduleConflictServiceTest {
 
         List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
 
-        assertEquals(1, scanned.size());
-        ScheduleConflictResult res = scanned.get(0);
-        assertEquals(ScheduleConflictStatus.REOPENED, res.status());
-        assertTrue(res.isRecurrent());
-        assertTrue(res.recurrentNote().contains("Xung đột tái phát"));
+        assertTrue(scanned.isEmpty());
+        assertEquals(ScheduleConflictStatus.RESOLVED, resolvedConflict.getStatus());
+        verify(saveConflictPort, never()).save(any(ScheduleConflict.class));
     }
 
     @Test
