@@ -1,0 +1,259 @@
+package com.hrm.employeemanagement.application.service.scenario;
+
+import java.util.Objects;
+
+import com.hrm.employeemanagement.application.dto.scenario.AddScenarioDemandCommand;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioDemandResult;
+import com.hrm.employeemanagement.application.dto.scenario.UpdateScenarioDemandCommand;
+import com.hrm.employeemanagement.application.port.inbound.scenario.AddScenarioDemandUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.DeleteScenarioDemandUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.UpdateScenarioDemandUseCase;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.DeleteScenarioDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.SaveScenarioDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandNotFoundException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
+import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
+import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+
+public class ScenarioDemandService implements
+        AddScenarioDemandUseCase,
+        UpdateScenarioDemandUseCase,
+        DeleteScenarioDemandUseCase {
+
+    private final AuthorizationService authorizationService;
+    private final LoadUserPort loadUserPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
+    private final LoadResourceScenarioPort loadScenarioPort;
+    private final SaveScenarioDemandPort saveDemandPort;
+    private final LoadScenarioDemandPort loadDemandPort;
+    private final DeleteScenarioDemandPort deleteDemandPort;
+    private final SaveAuditLogPort saveAuditLogPort;
+
+    public ScenarioDemandService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadResourceScenarioPort loadScenarioPort,
+            SaveScenarioDemandPort saveDemandPort,
+            LoadScenarioDemandPort loadDemandPort,
+            DeleteScenarioDemandPort deleteDemandPort,
+            SaveAuditLogPort saveAuditLogPort
+    ) {
+        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
+        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
+        this.saveDemandPort = Objects.requireNonNull(saveDemandPort, "SaveScenarioDemandPort must not be null");
+        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
+        this.deleteDemandPort = Objects.requireNonNull(deleteDemandPort, "DeleteScenarioDemandPort must not be null");
+        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+    }
+
+    @Override
+    public ScenarioDemandResult addDemand(AddScenarioDemandCommand command) {
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
+
+        // Chỉ VT-03 được quản lý nhu cầu giả định
+        if (currentUser.getRole() == null || currentUser.getRole().getCode() != RoleCode.VT_03) {
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "ACCESS_DENIED_DEMAND_ADD",
+                    "scenario_demands",
+                    null,
+                    null,
+                    "user_id=" + currentUserId + ";denied_reason=ROLE_NOT_VT_03"
+            ));
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+        }
+
+        ResourceScenario scenario = loadScenarioPort.findById(command.scenarioId())
+                .orElseThrow(() -> new ScenarioNotFoundException(command.scenarioId()));
+
+        // Kiểm tra DataScope
+        verifyScenarioInUserBranch(currentUser, scenario);
+
+        // Kiểm tra trạng thái kịch bản phải là draft
+        scenario.assertModifiable();
+
+        // Tạo nhu cầu mới (tự động validate headcount, week, hours)
+        ScenarioDemand demand = ScenarioDemand.create(
+                scenario.getId(),
+                command.demandName(),
+                command.headcount(),
+                command.weekStart(),
+                command.weekEnd(),
+                command.hoursPerWeekPerPerson(),
+                command.skillRequirement()
+        );
+
+        ScenarioDemand saved = saveDemandPort.save(demand);
+
+        // Ghi audit log
+        saveAuditLogPort.save(AuditLog.createChange(
+                currentUserId,
+                "ADD_SCENARIO_DEMAND",
+                "scenario_demands",
+                saved.getId(),
+                null,
+                "scenarioId=" + scenario.getId() + ";demandName=" + saved.getDemandName() +
+                        ";headcount=" + saved.getHeadcount() + ";weeks=" + saved.getWeekStart() + "-" + saved.getWeekEnd() +
+                        ";hours=" + saved.getHoursPerWeekPerPerson()
+        ));
+
+        return toDemandResult(saved);
+    }
+
+    @Override
+    public ScenarioDemandResult updateDemand(UpdateScenarioDemandCommand command) {
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
+
+        if (currentUser.getRole() == null || currentUser.getRole().getCode() != RoleCode.VT_03) {
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "ACCESS_DENIED_DEMAND_UPDATE",
+                    "scenario_demands",
+                    command.demandId(),
+                    null,
+                    "user_id=" + currentUserId + ";denied_reason=ROLE_NOT_VT_03"
+            ));
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+        }
+
+        ResourceScenario scenario = loadScenarioPort.findById(command.scenarioId())
+                .orElseThrow(() -> new ScenarioNotFoundException(command.scenarioId()));
+
+        verifyScenarioInUserBranch(currentUser, scenario);
+        scenario.assertModifiable();
+
+        ScenarioDemand demand = loadDemandPort.findById(command.demandId())
+                .orElseThrow(() -> new ScenarioDemandNotFoundException(command.demandId()));
+
+        if (!demand.getScenarioId().equals(scenario.getId())) {
+            throw new ScenarioDemandNotFoundException(command.demandId());
+        }
+
+        String oldValue = "demandName=" + demand.getDemandName() + ";headcount=" + demand.getHeadcount() +
+                ";weeks=" + demand.getWeekStart() + "-" + demand.getWeekEnd() +
+                ";hours=" + demand.getHoursPerWeekPerPerson();
+
+        demand.update(
+                command.demandName(),
+                command.headcount(),
+                command.weekStart(),
+                command.weekEnd(),
+                command.hoursPerWeekPerPerson(),
+                command.skillRequirement()
+        );
+
+        ScenarioDemand updated = saveDemandPort.save(demand);
+
+        String newValue = "demandName=" + updated.getDemandName() + ";headcount=" + updated.getHeadcount() +
+                ";weeks=" + updated.getWeekStart() + "-" + updated.getWeekEnd() +
+                ";hours=" + updated.getHoursPerWeekPerPerson();
+
+        saveAuditLogPort.save(AuditLog.createChange(
+                currentUserId,
+                "UPDATE_SCENARIO_DEMAND",
+                "scenario_demands",
+                updated.getId(),
+                oldValue,
+                newValue
+        ));
+
+        return toDemandResult(updated);
+    }
+
+    @Override
+    public void deleteDemand(Long scenarioId, Long demandId) {
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
+
+        if (currentUser.getRole() == null || currentUser.getRole().getCode() != RoleCode.VT_03) {
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUserId,
+                    "ACCESS_DENIED_DEMAND_DELETE",
+                    "scenario_demands",
+                    demandId,
+                    null,
+                    "user_id=" + currentUserId + ";denied_reason=ROLE_NOT_VT_03"
+            ));
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+        }
+
+        ResourceScenario scenario = loadScenarioPort.findById(scenarioId)
+                .orElseThrow(() -> new ScenarioNotFoundException(scenarioId));
+
+        verifyScenarioInUserBranch(currentUser, scenario);
+        scenario.assertModifiable();
+
+        ScenarioDemand demand = loadDemandPort.findById(demandId)
+                .orElseThrow(() -> new ScenarioDemandNotFoundException(demandId));
+
+        if (!demand.getScenarioId().equals(scenario.getId())) {
+            throw new ScenarioDemandNotFoundException(demandId);
+        }
+
+        String oldValue = "demandName=" + demand.getDemandName() + ";headcount=" + demand.getHeadcount() +
+                ";weeks=" + demand.getWeekStart() + "-" + demand.getWeekEnd();
+
+        deleteDemandPort.deleteById(demandId);
+
+        saveAuditLogPort.save(AuditLog.createChange(
+                currentUserId,
+                "DELETE_SCENARIO_DEMAND",
+                "scenario_demands",
+                demandId,
+                oldValue,
+                null
+        ));
+    }
+
+    private void verifyScenarioInUserBranch(User currentUser, ResourceScenario scenario) {
+        Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+        if (userScopeOrgUnitId == null || !loadOrgUnitPort.existsInOrgUnitBranch(scenario.getOrgUnitId(), userScopeOrgUnitId)) {
+            saveAuditLogPort.save(AuditLog.createChange(
+                    currentUser.getIdValue(),
+                    "ACCESS_DENIED_DEMAND_MANAGE",
+                    "scenario_demands",
+                    null,
+                    null,
+                    "user_id=" + currentUser.getIdValue() + ";denied_reason=SCENARIO_OUT_OF_SCOPE;scenarioOrgUnit=" + scenario.getOrgUnitId()
+            ));
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+        }
+    }
+
+    private ScenarioDemandResult toDemandResult(ScenarioDemand demand) {
+        return new ScenarioDemandResult(
+                demand.getId(),
+                demand.getScenarioId(),
+                demand.getDemandName(),
+                demand.getHeadcount(),
+                demand.getWeekStart(),
+                demand.getWeekEnd(),
+                demand.getHoursPerWeekPerPerson(),
+                demand.getTotalHoursPerWeek(),
+                demand.getSkillRequirement(),
+                demand.getCreatedAt(),
+                demand.getUpdatedAt()
+        );
+    }
+}

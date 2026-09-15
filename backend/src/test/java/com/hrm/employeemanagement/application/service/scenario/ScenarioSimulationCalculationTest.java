@@ -1,0 +1,184 @@
+package com.hrm.employeemanagement.application.service.scenario;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
+import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
+import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSnapshotPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
+import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
+import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
+import java.time.LocalDate;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.role.RoleId;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.UserStatus;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+class ScenarioSimulationCalculationTest {
+
+    private AuthorizationService authorizationService;
+    private LoadUserPort loadUserPort;
+    private LoadOrgUnitPort loadOrgUnitPort;
+    private LoadEmployeePort loadEmployeePort;
+    private LoadResourceScenarioPort loadScenarioPort;
+    private LoadScenarioDemandPort loadDemandPort;
+    private LoadScenarioSnapshotPort loadSnapshotPort;
+    private LoadCapacityThresholdPort loadCapacityThresholdPort;
+    private SaveAuditLogPort saveAuditLogPort;
+
+    private ScenarioSimulationCalculationService service;
+
+    private User vt03User;
+    private ResourceScenario scenario;
+
+    @BeforeEach
+    void setUp() {
+        authorizationService = mock(AuthorizationService.class);
+        loadUserPort = mock(LoadUserPort.class);
+        loadOrgUnitPort = mock(LoadOrgUnitPort.class);
+        loadEmployeePort = mock(LoadEmployeePort.class);
+        loadScenarioPort = mock(LoadResourceScenarioPort.class);
+        loadDemandPort = mock(LoadScenarioDemandPort.class);
+        loadSnapshotPort = mock(LoadScenarioSnapshotPort.class);
+        loadCapacityThresholdPort = mock(LoadCapacityThresholdPort.class);
+        saveAuditLogPort = mock(SaveAuditLogPort.class);
+
+        service = new ScenarioSimulationCalculationService(
+                authorizationService,
+                loadUserPort,
+                loadOrgUnitPort,
+                loadEmployeePort,
+                loadScenarioPort,
+                loadDemandPort,
+                loadSnapshotPort,
+                loadCapacityThresholdPort,
+                saveAuditLogPort
+        );
+
+        vt03User = new User(
+                new UserId(103L),
+                "vt03_user",
+                "hash",
+                new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực"),
+                UserStatus.ACTIVE,
+                null,
+                DataScope.ORGANIZATION_BRANCH,
+                10L,
+                1L
+        );
+
+        scenario = ResourceScenario.createNew(
+                "SCN-01", "Kịch bản test", "Mô tả", 10L, 2026, 38, 4, 103L
+        );
+        scenario.setId(1L);
+
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ)).thenReturn(103L);
+        when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+        when(loadScenarioPort.findById(1L)).thenReturn(Optional.of(scenario));
+        when(loadCapacityThresholdPort.findByScope(any(), any())).thenReturn(Optional.empty());
+    }
+
+    @Test
+    @DisplayName("VI. Tính toán năng lực mô phỏng: Snapshot + Demand = Workload, so sánh Available Capacity")
+    void testSimulationCalculation_WorkloadAndCapacityComparison() {
+        // Tuần 38: 1 nhân sự có snapshot allocation = 30h, available = 40h
+        // Tuần 39: 1 nhân sự có snapshot allocation = 40h, available = 40h
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 1L, 100L, 2026, 38, BigDecimal.valueOf(30), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 1L, 100L, 2026, 39, BigDecimal.valueOf(40), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(3L, 1L, 100L, 2026, 40, BigDecimal.valueOf(20), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(4L, 1L, 100L, 2026, 41, BigDecimal.valueOf(0), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(1L)).thenReturn(snapshots);
+
+        // Nhu cầu giả định: 1 người cần 20h từ tuần 38 đến 39
+        ScenarioDemand demand = ScenarioDemand.create(1L, "Hỗ trợ dự án", 1, 38, 39, BigDecimal.valueOf(20), "Java");
+        demand.setId(10L);
+        when(loadDemandPort.findByScenarioId(1L)).thenReturn(List.of(demand));
+
+        Employee emp = new Employee(
+                new EmployeeId(100L),
+                new UserId(200L),
+                10L,
+                "EMP100",
+                "Lê Văn B",
+                "Backend",
+                LocalDate.of(2025, 1, 1),
+                null,
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp));
+
+        ScenarioSimulationResult result = service.getSimulationResult(1L);
+
+        assertNotNull(result);
+        assertEquals(4, result.weeklyMetrics().size());
+
+        // Tuần 38: Snapshot Allocated = 30h, Demand = 20h -> Workload = 50h, Available = 40h -> Quá tải (OVERLOADED)
+        WeeklySimulationMetricResult w38 = result.weeklyMetrics().get(0);
+        assertEquals(38, w38.weekNumber());
+        assertEquals(BigDecimal.valueOf(30), w38.snapshotAllocatedHours());
+        assertEquals(BigDecimal.valueOf(20), w38.demandHours());
+        assertEquals(BigDecimal.valueOf(50), w38.scenarioWorkloadHours());
+        assertEquals(BigDecimal.valueOf(40), w38.availableHours());
+        assertTrue(w38.isOverloaded());
+        assertEquals(CapacityStatus.OVERLOADED, w38.status());
+        assertEquals(BigDecimal.valueOf(10.0).setScale(2), w38.excessHours());
+        assertEquals(BigDecimal.valueOf(125.0).setScale(1), w38.utilizationPercentage());
+
+        // Tuần 39: Snapshot Allocated = 40h, Demand = 20h -> Workload = 60h, Available = 40h -> Quá tải (OVERLOADED)
+        WeeklySimulationMetricResult w39 = result.weeklyMetrics().get(1);
+        assertEquals(39, w39.weekNumber());
+        assertEquals(BigDecimal.valueOf(60), w39.scenarioWorkloadHours());
+        assertTrue(w39.isOverloaded());
+
+        // Tuần 40: Demand không còn hiệu lực -> Workload = 20h, Available = 40h -> Tối ưu / 50%
+        WeeklySimulationMetricResult w40 = result.weeklyMetrics().get(2);
+        assertEquals(40, w40.weekNumber());
+        assertEquals(BigDecimal.valueOf(0), w40.demandHours());
+        assertEquals(BigDecimal.valueOf(20), w40.scenarioWorkloadHours());
+        assertEquals(CapacityStatus.OPTIMAL, w40.status());
+        assertFalse(w40.isOverloaded());
+
+        // Tuần 41: Workload = 0h -> Nhàn rỗi (UNDERUTILIZED)
+        WeeklySimulationMetricResult w41 = result.weeklyMetrics().get(3);
+        assertEquals(41, w41.weekNumber());
+        assertEquals(BigDecimal.valueOf(0), w41.scenarioWorkloadHours());
+        assertEquals(CapacityStatus.UNDERUTILIZED, w41.status());
+
+        // Kiểm tra danh sách nhân viên snapshot baseline
+        assertEquals(1, result.employeeSnapshots().size());
+        assertEquals("EMP100", result.employeeSnapshots().get(0).employeeCode());
+        assertEquals("Lê Văn B", result.employeeSnapshots().get(0).fullName());
+    }
+}
