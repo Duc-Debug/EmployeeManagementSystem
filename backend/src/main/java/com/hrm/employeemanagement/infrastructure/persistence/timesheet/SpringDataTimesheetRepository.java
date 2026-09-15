@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface SpringDataTimesheetRepository extends JpaRepository<TimesheetJpaEntity, Long> {
     Optional<TimesheetJpaEntity> findByEmployeeIdAndWeekStartDate(Long employeeId, LocalDate weekStartDate);
+
+    java.util.List<TimesheetJpaEntity> findByWeekStartDateLessThanEqualAndStatusAndRemindedAtIsNull(LocalDate date, String status);
 }

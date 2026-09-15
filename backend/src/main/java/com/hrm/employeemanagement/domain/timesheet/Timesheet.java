@@ -33,6 +33,7 @@ public class Timesheet {
     private Long approvedBy;
     private LocalDateTime approvedAt;
     private String rejectionReason;
+    private LocalDateTime remindedAt;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long version;
@@ -196,71 +197,23 @@ public class Timesheet {
     }
 
     // Getters
-    public TimesheetId getId() {
-        return id;
-    }
-
-    public Long getIdValue() {
-        return id != null ? id.value() : null;
-    }
-
-    public void setId(TimesheetId id) {
-        this.id = id;
-    }
-
-    public EmployeeId getEmployeeId() {
-        return employeeId;
-    }
-
-    public Long getEmployeeIdValue() {
-        return employeeId != null ? employeeId.value() : null;
-    }
-
-    public LocalDate getWeekStartDate() {
-        return weekStartDate;
-    }
-
-    public LocalDate getWeekEndDate() {
-        return weekEndDate;
-    }
-
-    public BigDecimal getTotalHours() {
-        return totalHours;
-    }
-
-    public TimesheetStatus getStatus() {
-        return status;
-    }
-
-    public LocalDateTime getSubmittedAt() {
-        return submittedAt;
-    }
-
-    public Long getApprovedBy() {
-        return approvedBy;
-    }
-
-    public LocalDateTime getApprovedAt() {
-        return approvedAt;
-    }
-
-    public String getRejectionReason() {
-        return rejectionReason;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public List<TimesheetEntry> getEntries() {
-        return Collections.unmodifiableList(entries);
-    }
+    public TimesheetId getId() { return id; }
+    public Long getIdValue() { return id != null ? id.value() : null; }
+    public void setId(TimesheetId id) { this.id = id; }
+    public EmployeeId getEmployeeId() { return employeeId; }
+    public Long getEmployeeIdValue() { return employeeId != null ? employeeId.value() : null; }
+    public LocalDate getWeekStartDate() { return weekStartDate; }
+    public LocalDate getWeekEndDate() { return weekEndDate; }
+    public BigDecimal getTotalHours() { return totalHours; }
+    public TimesheetStatus getStatus() { return status; }
+    public LocalDateTime getSubmittedAt() { return submittedAt; }
+    public Long getApprovedBy() { return approvedBy; }
+    public LocalDateTime getApprovedAt() { return approvedAt; }
+    public String getRejectionReason() { return rejectionReason; }
+    public LocalDateTime getRemindedAt() { return remindedAt; }
+    public void setRemindedAt(LocalDateTime remindedAt) { this.remindedAt = remindedAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Long getVersion() { return version; }
+    public List<TimesheetEntry> getEntries() { return Collections.unmodifiableList(entries); }
 }

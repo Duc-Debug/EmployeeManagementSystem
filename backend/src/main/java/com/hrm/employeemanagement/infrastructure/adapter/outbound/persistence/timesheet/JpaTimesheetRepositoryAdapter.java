@@ -36,6 +36,14 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
     }
 
     @Override
+    public java.util.List<Timesheet> findDraftTimesheetsForReminderUpTo(LocalDate targetDate) {
+        return repository.findByWeekStartDateLessThanEqualAndStatusAndRemindedAtIsNull(targetDate, TimesheetStatus.DRAFT.name())
+                .stream()
+                .map(this::toDomain)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
     public Timesheet save(Timesheet timesheet) {
         TimesheetJpaEntity entity = toJpaEntity(timesheet);
         TimesheetJpaEntity saved = repository.save(entity);
@@ -43,7 +51,7 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
     }
 
     private Timesheet toDomain(TimesheetJpaEntity entity) {
-        return new Timesheet(
+        Timesheet domain = new Timesheet(
                 new TimesheetId(entity.getId()),
                 new EmployeeId(entity.getEmployeeId()),
                 entity.getWeekStartDate(),
@@ -59,6 +67,8 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
                 entity.getVersion(),
                 null
         );
+        domain.setRemindedAt(entity.getRemindedAt());
+        return domain;
     }
 
     private TimesheetJpaEntity toJpaEntity(Timesheet domain) {
@@ -75,6 +85,7 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
         entity.setApprovedBy(domain.getApprovedBy());
         entity.setApprovedAt(domain.getApprovedAt());
         entity.setRejectionReason(domain.getRejectionReason());
+        entity.setRemindedAt(domain.getRemindedAt());
         if (domain.getCreatedAt() != null) {
             entity.setCreatedAt(domain.getCreatedAt());
         }
@@ -83,5 +94,13 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
             entity.setVersion(domain.getVersion());
         }
         return entity;
+    }
+
+    @Override
+    public void saveAll(java.util.List<Timesheet> timesheets) {
+        java.util.List<TimesheetJpaEntity> entities = timesheets.stream()
+                .map(this::toJpaEntity)
+                .collect(java.util.stream.Collectors.toList());
+        repository.saveAll(entities);
     }
 }

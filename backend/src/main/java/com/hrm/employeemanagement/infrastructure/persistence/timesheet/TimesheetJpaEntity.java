@@ -47,6 +47,9 @@ public class TimesheetJpaEntity {
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 
+    @Column(name = "reminded_at")
+    private LocalDateTime remindedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -81,6 +84,8 @@ public class TimesheetJpaEntity {
     public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public LocalDateTime getRemindedAt() { return remindedAt; }
+    public void setRemindedAt(LocalDateTime remindedAt) { this.remindedAt = remindedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
