@@ -209,6 +209,11 @@ public class WeeklyProjectAllocation {
         this.updatedBy = userId;
     }
 
+    public void updateVarianceNote(String note, Long userId) {
+        this.varianceNote = (note != null && !note.trim().isEmpty()) ? note.trim() : null;
+        this.updatedBy = userId;
+    }
+
     public void moveWeek(YearWeek newWeek, Long userId) {
         this.yearWeek = Objects.requireNonNull(newWeek, "Tuần mới không được null");
         this.updatedBy = userId;
