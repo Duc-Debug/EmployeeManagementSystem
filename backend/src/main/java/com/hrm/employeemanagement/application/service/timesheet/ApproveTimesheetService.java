@@ -114,7 +114,7 @@ public class ApproveTimesheetService implements ApproveTimesheetUseCase {
 
         TimesheetEntry savedEntry = saveTimesheetEntryPort.save(entry);
 
-        timesheet.syncStatusFromEntries();
+        timesheet.syncStatusFromEntries(currentUserId);
         saveTimesheetPort.save(timesheet);
 
         // Save Audit Log
@@ -158,10 +158,23 @@ public class ApproveTimesheetService implements ApproveTimesheetUseCase {
     }
 
     private void checkBudgetWarning(Task task, TimesheetEntry entry, List<String> warnings) {
-        // TODO: [NCL-09-CN-003] Implement budget warning TC-03
-        // Check if actual hours + this entry > 80% of budget
         if (task.getEstimatedHours() != null && task.getEstimatedHours().compareTo(BigDecimal.ZERO) > 0) {
-            // Placeholder for budget check logic
+            BigDecimal actual = task.getActualHours() != null ? task.getActualHours() : BigDecimal.ZERO;
+            BigDecimal entryHours = entry.getHours() != null ? entry.getHours() : BigDecimal.ZERO;
+            
+            BigDecimal projectedTotal = actual.add(entryHours);
+            BigDecimal threshold = task.getEstimatedHours().multiply(new BigDecimal("0.8"));
+            
+            if (projectedTotal.compareTo(threshold) >= 0) {
+                BigDecimal percentage = projectedTotal.multiply(new BigDecimal("100"))
+                        .divide(task.getEstimatedHours(), 0, java.math.RoundingMode.HALF_UP);
+                
+                if (projectedTotal.compareTo(task.getEstimatedHours()) > 0) {
+                    warnings.add("Thời gian thực tế (" + projectedTotal + "h) đã VƯỢT quỹ thời gian (" + task.getEstimatedHours() + "h) - Đạt " + percentage + "%.");
+                } else {
+                    warnings.add("Thời gian thực tế (" + projectedTotal + "h) đã đạt " + percentage + "% quỹ thời gian (" + task.getEstimatedHours() + "h).");
+                }
+            }
         }
     }
 }

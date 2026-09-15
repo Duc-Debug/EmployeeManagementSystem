@@ -161,16 +161,20 @@ public class Timesheet {
     }
 
     // Đồng bộ trạng thái tổng thể của bảng chấm công
-    public void syncStatusFromEntries() {
+    public void syncStatusFromEntries(Long actorId) {
         if (this.entries.isEmpty()) {
             return;
         }
         boolean hasRejected = false;
         boolean allApproved = true;
+        String firstRejectionReason = null;
 
         for (TimesheetEntry entry : this.entries) {
             if (entry.getStatus() == TimesheetStatus.REJECTED) {
                 hasRejected = true;
+                if (firstRejectionReason == null) {
+                    firstRejectionReason = entry.getRejectionReason();
+                }
             }
             if (entry.getStatus() != TimesheetStatus.APPROVED) {
                 allApproved = false;
@@ -179,9 +183,12 @@ public class Timesheet {
 
         if (hasRejected) {
             this.status = TimesheetStatus.REJECTED;
+            this.rejectionReason = firstRejectionReason;
         } else if (allApproved) {
             this.status = TimesheetStatus.APPROVED;
             this.approvedAt = LocalDateTime.now();
+            this.approvedBy = actorId;
+            this.rejectionReason = null;
         } else {
             this.status = TimesheetStatus.SUBMITTED;
         }
