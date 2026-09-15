@@ -27,10 +27,15 @@ import com.hrm.employeemanagement.application.port.inbound.timesheet.CreateWorkL
 import com.hrm.employeemanagement.application.port.inbound.timesheet.DeleteWorkLogUseCase;
 import com.hrm.employeemanagement.application.port.inbound.timesheet.GetMyAssignedTasksForWorkLogUseCase;
 import com.hrm.employeemanagement.application.port.inbound.timesheet.GetWeeklyTimesheetUseCase;
+import com.hrm.employeemanagement.application.dto.timesheet.SaveWeeklyTimesheetGridCommand;
 import com.hrm.employeemanagement.application.dto.timesheet.SubmitWeeklyTimesheetCommand;
+import com.hrm.employeemanagement.application.dto.timesheet.TaskDailyHourInputDto;
+import com.hrm.employeemanagement.application.dto.timesheet.TaskWeeklyHoursInputDto;
+import com.hrm.employeemanagement.application.port.inbound.timesheet.SaveWeeklyTimesheetGridUseCase;
 import com.hrm.employeemanagement.application.port.inbound.timesheet.SubmitWeeklyTimesheetUseCase;
 import com.hrm.employeemanagement.application.port.inbound.timesheet.UpdateWorkLogUseCase;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.timesheet.dto.CreateWorkLogRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.timesheet.dto.SaveWeeklyTimesheetGridRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.timesheet.dto.SubmitTimesheetRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.timesheet.dto.UpdateWorkLogRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
@@ -47,6 +52,7 @@ public class WorkLogController {
     private final GetWeeklyTimesheetUseCase getWeeklyTimesheetUseCase;
     private final GetMyAssignedTasksForWorkLogUseCase getMyAssignedTasksForWorkLogUseCase;
     private final SubmitWeeklyTimesheetUseCase submitWeeklyTimesheetUseCase;
+    private final SaveWeeklyTimesheetGridUseCase saveWeeklyTimesheetGridUseCase;
 
     public WorkLogController(
             CreateWorkLogUseCase createWorkLogUseCase,
@@ -54,13 +60,15 @@ public class WorkLogController {
             DeleteWorkLogUseCase deleteWorkLogUseCase,
             GetWeeklyTimesheetUseCase getWeeklyTimesheetUseCase,
             GetMyAssignedTasksForWorkLogUseCase getMyAssignedTasksForWorkLogUseCase,
-            SubmitWeeklyTimesheetUseCase submitWeeklyTimesheetUseCase) {
+            SubmitWeeklyTimesheetUseCase submitWeeklyTimesheetUseCase,
+            SaveWeeklyTimesheetGridUseCase saveWeeklyTimesheetGridUseCase) {
         this.createWorkLogUseCase = Objects.requireNonNull(createWorkLogUseCase, "CreateWorkLogUseCase must not be null");
         this.updateWorkLogUseCase = Objects.requireNonNull(updateWorkLogUseCase, "UpdateWorkLogUseCase must not be null");
         this.deleteWorkLogUseCase = Objects.requireNonNull(deleteWorkLogUseCase, "DeleteWorkLogUseCase must not be null");
         this.getWeeklyTimesheetUseCase = Objects.requireNonNull(getWeeklyTimesheetUseCase, "GetWeeklyTimesheetUseCase must not be null");
         this.getMyAssignedTasksForWorkLogUseCase = Objects.requireNonNull(getMyAssignedTasksForWorkLogUseCase, "GetMyAssignedTasksForWorkLogUseCase must not be null");
         this.submitWeeklyTimesheetUseCase = Objects.requireNonNull(submitWeeklyTimesheetUseCase, "SubmitWeeklyTimesheetUseCase must not be null");
+        this.saveWeeklyTimesheetGridUseCase = Objects.requireNonNull(saveWeeklyTimesheetGridUseCase, "SaveWeeklyTimesheetGridUseCase must not be null");
     }
 
     @PostMapping
@@ -107,6 +115,29 @@ public class WorkLogController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         WeeklyTimesheetResult result = getWeeklyTimesheetUseCase.getMyWeeklyTimesheet(date != null ? date : LocalDate.now());
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin bảng chấm công tuần thành công.", result));
+    }
+
+    @PutMapping("/my-week/grid")
+    public ResponseEntity<ApiResponse<WeeklyTimesheetResult>> saveWeeklyGrid(
+            @Valid @RequestBody SaveWeeklyTimesheetGridRequest request) {
+        List<TaskWeeklyHoursInputDto> taskEntries = request.taskEntries() != null
+                ? request.taskEntries().stream().map(t -> new TaskWeeklyHoursInputDto(
+                        t.projectId(),
+                        t.taskId(),
+                        t.isBillable(),
+                        t.description(),
+                        t.dailyHours() != null
+                                ? t.dailyHours().stream().map(d -> new TaskDailyHourInputDto(d.workDate(), d.hours())).toList()
+                                : List.of()
+                )).toList()
+                : List.of();
+
+        SaveWeeklyTimesheetGridCommand command = new SaveWeeklyTimesheetGridCommand(
+                request.dateInWeek(),
+                taskEntries
+        );
+        WeeklyTimesheetResult result = saveWeeklyTimesheetGridUseCase.saveWeeklyGrid(command);
+        return ResponseEntity.ok(ApiResponse.success("Lưu lưới ghi giờ làm việc thành công.", result));
     }
 
     @GetMapping("/my-tasks")
