@@ -105,7 +105,6 @@ export async function assignScheduleConflictHandler(
         body: JSON.stringify({ conflictId: id, assignedHandlerId }),
     });
 }
-
 export interface ReplacementCandidate {
     employeeId: number;
     employeeCode: string;
@@ -190,3 +189,4 @@ export async function confirmReplacementProposal(
         body: JSON.stringify(payload),
     });
 }
+
