@@ -64,8 +64,12 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
 
     @Override
     public List<ScheduleConflict> saveAll(List<ScheduleConflict> conflicts) {
+        if (conflicts == null || conflicts.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
         List<ScheduleConflictJpaEntity> entities = conflicts.stream().map(this::toEntity).collect(Collectors.toList());
-        return repository.saveAll(entities).stream().map(this::toDomain).collect(Collectors.toList());
+        List<ScheduleConflictJpaEntity> savedEntities = repository.saveAll(entities);
+        return savedEntities.stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
@@ -92,8 +96,15 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
                 entity.getDetails(),
                 entity.getNotifiedAt(),
                 entity.getNotifiedBy(),
+                entity.getAssignedHandlerId(),
+                entity.getResolutionNote(),
+                entity.getIsRecurrent(),
+                entity.getRecurrentNote(),
+                entity.getResolvedAt(),
+                entity.getResolvedBy(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getVersion()
         );
     }
 
@@ -116,8 +127,15 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
         entity.setDetails(domain.getDetails());
         entity.setNotifiedAt(domain.getNotifiedAt());
         entity.setNotifiedBy(domain.getNotifiedBy());
+        entity.setAssignedHandlerId(domain.getAssignedHandlerId());
+        entity.setResolutionNote(domain.getResolutionNote());
+        entity.setIsRecurrent(domain.getIsRecurrent());
+        entity.setRecurrentNote(domain.getRecurrentNote());
+        entity.setResolvedAt(domain.getResolvedAt());
+        entity.setResolvedBy(domain.getResolvedBy());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
+        entity.setVersion(domain.getVersion());
         return entity;
     }
 }
