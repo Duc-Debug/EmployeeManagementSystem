@@ -19,7 +19,9 @@ import {
   Lock,
   Bell,
   Copy,
+  Sparkles,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuthUser } from "@/lib/auth-session";
 import { ResourceReservationModal } from "./ResourceReservationModal";
 import {
@@ -46,6 +48,7 @@ import { CapacityThresholdConfigModal } from "@/components/capacity/CapacityThre
 import { ProlongedIdlenessWarningModal } from "@/components/capacity/ProlongedIdlenessWarningModal";
 
 export default function CompanyWeeklyCapacityView() {
+  const navigate = useNavigate();
   const currentUser = useAuthUser();
   const isCompanyScope = currentUser?.dataScope === "COMPANY";
   const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "") : "";
@@ -55,6 +58,7 @@ export default function CompanyWeeklyCapacityView() {
     normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
   const canAccessAllocationNotifications = normalizedRole === "VT-02" || normalizedRole === "VT-03";
   const canConfigureThresholds = normalizedRole === "VT-01";
+  const canAccessScenarios = normalizedRole === "VT-01" || normalizedRole === "VT-03";
   const canViewProlongedIdleness =
     normalizedRole === "VT-01" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
 
@@ -589,6 +593,19 @@ export default function CompanyWeeklyCapacityView() {
             >
               <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
               <span>Cảnh báo nhàn rỗi (QTN-23)</span>
+            </button>
+          )}
+
+          {/* NCL-08-CN-001: Nút Mô phỏng kịch bản nhận thêm dự án (QTN-14 Sandbox) */}
+          {canAccessScenarios && (
+            <button
+              type="button"
+              onClick={() => navigate("/simulation-scenarios")}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
+              title="Mô phỏng kịch bản nhận thêm dự án (NCL-08-CN-001 / QTN-14 Sandbox)"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Mô phỏng kịch bản (QTN-14)</span>
             </button>
           )}
         </div>
