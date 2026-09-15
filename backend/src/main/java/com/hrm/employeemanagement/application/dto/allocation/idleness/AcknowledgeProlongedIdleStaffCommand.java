@@ -8,10 +8,21 @@ import java.util.Objects;
 public record AcknowledgeProlongedIdleStaffCommand(
         Long employeeId,
         String actionTaken,
-        String notes
+        String notes,
+        Integer fromYear,
+        Integer fromWeek,
+        Integer durationWeeks
 ) {
     public AcknowledgeProlongedIdleStaffCommand {
         Objects.requireNonNull(employeeId, "employeeId must not be null");
         Objects.requireNonNull(actionTaken, "actionTaken must not be null");
+    }
+
+    public AcknowledgeProlongedIdleStaffCommand(
+            Long employeeId,
+            String actionTaken,
+            String notes
+    ) {
+        this(employeeId, actionTaken, notes, null, null, null);
     }
 }

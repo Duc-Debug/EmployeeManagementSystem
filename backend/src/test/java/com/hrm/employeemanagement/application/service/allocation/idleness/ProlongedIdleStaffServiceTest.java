@@ -20,7 +20,10 @@ import com.hrm.employeemanagement.application.dto.allocation.idleness.Acknowledg
 import com.hrm.employeemanagement.application.dto.allocation.idleness.ProlongedIdlenessQuery;
 import com.hrm.employeemanagement.application.dto.allocation.idleness.ProlongedIdlenessReportResult;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.idleness.LoadProlongedIdlenessAcknowledgementPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.idleness.SaveProlongedIdlenessAcknowledgementPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
+import com.hrm.employeemanagement.domain.allocation.idleness.ProlongedIdlenessAcknowledgement;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
@@ -86,6 +89,12 @@ class ProlongedIdleStaffServiceTest {
     @Mock
     private SimulatedNotificationPort notificationPort;
 
+    @Mock
+    private SaveProlongedIdlenessAcknowledgementPort saveAcknowledgementPort;
+
+    @Mock
+    private LoadProlongedIdlenessAcknowledgementPort loadAcknowledgementPort;
+
     private ProlongedIdleStaffService service;
 
     @BeforeEach
@@ -99,7 +108,9 @@ class ProlongedIdleStaffServiceTest {
                 loadApprovedLeavesPort,
                 loadHolidaysPort,
                 auditLogPort,
-                notificationPort
+                notificationPort,
+                saveAcknowledgementPort,
+                loadAcknowledgementPort
         );
     }
 
@@ -320,6 +331,9 @@ class ProlongedIdleStaffServiceTest {
         assertEquals(employeeId, savedLog.getRecordId());
         assertTrue(savedLog.getNewValue().contains("actionTaken=Đã điều chuyển nhân sự"));
 
+        // Kiểm tra lưu DB persistence
+        verify(saveAcknowledgementPort).save(any());
+
         // Kiểm tra phát thông báo
         verify(notificationPort).sendScheduleConflictWarningNotification(
                 any(),
@@ -376,6 +390,7 @@ class ProlongedIdleStaffServiceTest {
         assertEquals(1, result.size());
         assertEquals(2, result.totalPages());
         assertEquals(1, result.items().size()); // 1 item on page 0
+        assertEquals(BigDecimal.valueOf(320.0).setScale(1), result.totalEmptyHours()); // 160h * 2 idle employees = 320.0h total empty hours
 
         // Xác nhận loadOrgUnitPort.findAll() CHỈ ĐƯỢC GỌI ĐÚNG 1 LẦN DUY NHẤT (không duplicate)
         verify(loadOrgUnitPort, times(1)).findAll();

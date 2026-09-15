@@ -53,12 +53,14 @@ export function ProlongedIdlenessWarningModal({
   const [fromYear, setFromYear] = useState<number>(currentYear);
   const [fromWeek, setFromWeek] = useState<number>(initialWeek ?? 1);
   const [durationWeeks, setDurationWeeks] = useState<number>(4);
-  const [consecutiveThreshold, setConsecutiveThreshold] = useState<number>(3);
+  const CONSECUTIVE_THRESHOLD = 3; // TC-01: Ngưỡng cố định theo quy tắc nghiệp vụ Domain Policy
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "OPEN" | "ACKNOWLEDGED">("ALL");
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(initialOrgUnitId);
   const [search, setSearch] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [page, setPage] = useState<number>(0);
   const [pageSize] = useState<number>(10);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -119,7 +121,8 @@ export function ProlongedIdlenessWarningModal({
         fromYear,
         fromWeek,
         durationWeeks,
-        consecutiveThreshold,
+        consecutiveThreshold: CONSECUTIVE_THRESHOLD,
+        status: statusFilter,
         search: debouncedSearch.trim() || undefined,
         page,
         size: pageSize,
@@ -131,7 +134,7 @@ export function ProlongedIdlenessWarningModal({
     } finally {
       setIsLoading(false);
     }
-  }, [open, selectedOrgUnitId, fromYear, fromWeek, durationWeeks, consecutiveThreshold, debouncedSearch, page, pageSize]);
+  }, [open, selectedOrgUnitId, fromYear, fromWeek, durationWeeks, statusFilter, debouncedSearch, page, pageSize]);
 
   useEffect(() => {
     fetchData();
@@ -147,45 +150,70 @@ export function ProlongedIdlenessWarningModal({
     }, 4000);
   };
 
-  const handleExportCsv = () => {
-    if (!report || report.items.length === 0) return;
-    const headers = [
-      "Mã nhân viên",
-      "Họ và tên",
-      "Phòng ban",
-      "Vị trí chuyên môn",
-      "Số tuần nhàn rỗi liên tiếp",
-      "Tỷ lệ sử dụng trung bình (%)",
-      "Tổng giờ trống (h)",
-    ];
+  const handleExportCsv = async () => {
+    if (!report || report.totalIdleEmployees === 0) return;
+    setIsExporting(true);
+    try {
+      const allData = await getProlongedIdleStaff({
+        orgUnitId: selectedOrgUnitId,
+        fromYear,
+        fromWeek,
+        durationWeeks,
+        consecutiveThreshold: CONSECUTIVE_THRESHOLD,
+        status: statusFilter,
+        search: debouncedSearch.trim() || undefined,
+        page: 0,
+        size: 1000,
+      });
 
-    const rows = report.items.map((item) => [
-      `"${item.employeeCode}"`,
-      `"${item.fullName.replace(/"/g, '""')}"`,
-      `"${item.departmentName.replace(/"/g, '""')}"`,
-      `"${item.positionTitle.replace(/"/g, '""')}"`,
-      item.consecutiveIdleWeeks,
-      item.averageUtilization,
-      item.totalEmptyHours,
-    ]);
+      const itemsToExport = allData?.items || [];
+      if (itemsToExport.length === 0) return;
 
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `Bao_cao_nhan_su_nhan_roi_${report.fromYear}_W${report.fromWeek}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const headers = [
+        "Mã nhân viên",
+        "Họ và tên",
+        "Phòng ban",
+        "Vị trí chuyên môn",
+        "Số tuần nhàn rỗi liên tiếp",
+        "Tỷ lệ sử dụng trung bình (%)",
+        "Tổng giờ trống (h)",
+        "Trạng thái",
+        "Hành động can thiệp",
+      ];
+
+      const rows = itemsToExport.map((item) => [
+        `"${item.employeeCode}"`,
+        `"${(item.fullName || "").replace(/"/g, '""')}"`,
+        `"${(item.departmentName || "").replace(/"/g, '""')}"`,
+        `"${(item.positionTitle || "").replace(/"/g, '""')}"`,
+        item.consecutiveIdleWeeks,
+        item.averageUtilization,
+        item.totalEmptyHours,
+        `"${item.status === 'ACKNOWLEDGED' ? 'Đã xử lý' : 'Chưa xử lý'}"`,
+        `"${(item.actionTaken || '').replace(/"/g, '""')}"`,
+      ]);
+
+      const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `Bao_cao_nhan_su_nhan_roi_${report.fromYear}_W${report.fromWeek}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.warn("Lỗi xuất file CSV:", err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  const totalEmptyHoursInReport =
-    report?.items.reduce((sum, item) => sum + (item.totalEmptyHours || 0), 0) || 0;
+  const totalEmptyHoursInReport = report?.totalEmptyHours ?? 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
@@ -243,7 +271,7 @@ export function ProlongedIdlenessWarningModal({
                 <span className="text-xs text-amber-700">nhân sự</span>
               </div>
               <p className="mt-1 text-[11px] text-amber-700/80">
-                Chuỗi vi phạm &ge; {consecutiveThreshold} tuần liên tiếp
+                Chuỗi vi phạm &ge; {report?.consecutiveThreshold ?? CONSECUTIVE_THRESHOLD} tuần liên tiếp
               </p>
             </div>
 
@@ -282,7 +310,7 @@ export function ProlongedIdlenessWarningModal({
 
           {/* Filter Bar */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               {/* Tuần bắt đầu */}
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
@@ -329,20 +357,33 @@ export function ProlongedIdlenessWarningModal({
                 </select>
               </div>
 
-              {/* Ngưỡng tuần nhàn rỗi */}
+              {/* Quy tắc chuỗi tuần nhàn rỗi (TC-01) */}
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  Số tuần liên tiếp &ge;
+                  Quy tắc cảnh báo
+                </label>
+                <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+                  <span>&ge; 3 tuần (TC-01)</span>
+                </div>
+              </div>
+
+              {/* Lọc trạng thái xử lý */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                  Trạng thái
                 </label>
                 <select
-                  value={consecutiveThreshold}
-                  onChange={(e) => setConsecutiveThreshold(Number(e.target.value))}
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value as "ALL" | "OPEN" | "ACKNOWLEDGED");
+                    setPage(0);
+                  }}
                   className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-amber-500"
                 >
-                  <option value={2}>2 tuần liên tiếp</option>
-                  <option value={3}>3 tuần liên tiếp (Chuẩn)</option>
-                  <option value={4}>4 tuần liên tiếp</option>
-                  <option value={5}>5 tuần liên tiếp</option>
+                  <option value="ALL">Tất cả</option>
+                  <option value="OPEN">Chưa xử lý</option>
+                  <option value="ACKNOWLEDGED">Đã xử lý</option>
                 </select>
               </div>
 
@@ -394,12 +435,16 @@ export function ProlongedIdlenessWarningModal({
               <button
                 type="button"
                 onClick={handleExportCsv}
-                disabled={!report || report.items.length === 0}
+                disabled={!report || report.totalIdleEmployees === 0 || isExporting}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Xuất danh sách nhân sự nhàn rỗi ra file CSV"
+                title="Xuất toàn bộ danh sách nhân sự nhàn rỗi ra file CSV"
               >
-                <Download className="h-3.5 w-3.5 text-slate-500" />
-                <span>Xuất CSV</span>
+                {isExporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />
+                ) : (
+                  <Download className="h-3.5 w-3.5 text-slate-500" />
+                )}
+                <span>{isExporting ? "Đang xuất..." : "Xuất CSV"}</span>
               </button>
             </div>
           </div>
@@ -500,7 +545,7 @@ export function ProlongedIdlenessWarningModal({
                           {/* Cột 6: Dải tuần chi tiết */}
                           <td className="px-4 py-3.5">
                             <div className="flex items-center justify-center gap-1">
-                              {item.weeklyDetails.map((w) => {
+                              {(item.weeklyBreakdown || item.weeklyDetails || []).map((w) => {
                                 let badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
 
                                 if (w.isFullLeaveWeek) {
@@ -525,13 +570,29 @@ export function ProlongedIdlenessWarningModal({
                           {/* Cột 7: Nút Xử lý cảnh báo (TC-04) */}
                           {canAcknowledge && (
                             <td className="px-4 py-3.5 text-center">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedStaffToAcknowledge(item)}
-                                className="inline-flex items-center gap-1 rounded-xl bg-amber-500/10 border border-amber-300/80 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-500 hover:text-white transition shadow-2xs"
-                              >
-                                <span>Xử lý</span>
-                              </button>
+                              {item.status === "ACKNOWLEDGED" ? (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-300 shadow-2xs"
+                                  title={
+                                    item.actionTaken
+                                      ? `Đã can thiệp: ${item.actionTaken}${
+                                          item.ackNotes ? ` - ${item.ackNotes}` : ""
+                                        }`
+                                      : "Đã xử lý cảnh báo"
+                                  }
+                                >
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                  <span>Đã xử lý</span>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedStaffToAcknowledge(item)}
+                                  className="inline-flex items-center gap-1 rounded-xl bg-amber-500/10 border border-amber-300/80 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-500 hover:text-white transition shadow-2xs"
+                                >
+                                  <span>Xử lý</span>
+                                </button>
+                              )}
                             </td>
                           )}
                         </tr>
@@ -581,6 +642,9 @@ export function ProlongedIdlenessWarningModal({
           open={selectedStaffToAcknowledge !== null}
           onClose={() => setSelectedStaffToAcknowledge(null)}
           staff={selectedStaffToAcknowledge}
+          fromYear={fromYear}
+          fromWeek={fromWeek}
+          durationWeeks={durationWeeks}
           onSuccess={handleAcknowledgeSuccess}
         />
       </div>

@@ -14,6 +14,7 @@ import com.hrm.employeemanagement.application.dto.allocation.idleness.ProlongedI
 import com.hrm.employeemanagement.application.dto.allocation.idleness.ProlongedIdlenessReportResult;
 import com.hrm.employeemanagement.application.port.inbound.allocation.idleness.AcknowledgeProlongedIdleStaffUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.idleness.GetProlongedIdleStaffUseCase;
+import com.hrm.employeemanagement.domain.allocation.idleness.ProlongedIdlenessPolicy;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.idleness.dto.AcknowledgeProlongedIdleStaffRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
@@ -48,6 +49,7 @@ public class ProlongedIdlenessController {
             @RequestParam(required = false, defaultValue = "4") Integer durationWeeks,
             @RequestParam(required = false, defaultValue = "3") Integer consecutiveThreshold,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
             @RequestParam(required = false, defaultValue = "0") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size
     ) {
@@ -56,8 +58,9 @@ public class ProlongedIdlenessController {
                 fromYear,
                 fromWeek,
                 durationWeeks,
-                consecutiveThreshold,
+                ProlongedIdlenessPolicy.DEFAULT_CONSECUTIVE_WEEKS,
                 search,
+                status,
                 page,
                 size
         );
@@ -75,7 +78,10 @@ public class ProlongedIdlenessController {
         AcknowledgeProlongedIdleStaffCommand command = new AcknowledgeProlongedIdleStaffCommand(
                 request.employeeId(),
                 request.actionTaken(),
-                request.notes()
+                request.notes(),
+                request.fromYear(),
+                request.fromWeek(),
+                request.durationWeeks()
         );
         AcknowledgeProlongedIdleStaffResult result = acknowledgeProlongedIdleStaffUseCase.acknowledgeProlongedIdleStaff(command);
         return ResponseEntity.ok(ApiResponse.success("Xác nhận xử lý cảnh báo nhàn rỗi thành công", result));

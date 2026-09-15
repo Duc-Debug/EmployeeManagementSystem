@@ -23,7 +23,13 @@ export interface ProlongedIdleStaffItem {
   consecutiveIdleWeeks: number;
   totalEmptyHours: number;
   averageUtilization: number;
-  weeklyDetails: WeeklyIdlenessDetail[];
+  weeklyBreakdown?: WeeklyIdlenessDetail[];
+  weeklyDetails?: WeeklyIdlenessDetail[];
+  status?: "OPEN" | "ACKNOWLEDGED";
+  actionTaken?: string | null;
+  ackNotes?: string | null;
+  acknowledgedAt?: string | null;
+  acknowledgedBy?: number | null;
 }
 
 export interface ProlongedIdlenessReportResult {
@@ -35,6 +41,7 @@ export interface ProlongedIdlenessReportResult {
   effectiveIdleThreshold: number;
   consecutiveThreshold: number;
   totalIdleEmployees: number;
+  totalEmptyHours: number;
   page: number;
   size: number;
   totalPages: number;
@@ -48,6 +55,7 @@ export interface ProlongedIdlenessQueryParams {
   durationWeeks?: number | null;
   consecutiveThreshold?: number | null;
   search?: string | null;
+  status?: "ALL" | "OPEN" | "ACKNOWLEDGED" | null;
   page?: number | null;
   size?: number | null;
 }
@@ -56,6 +64,9 @@ export interface AcknowledgeProlongedIdleStaffPayload {
   employeeId: number;
   actionTaken: string;
   notes?: string | null;
+  fromYear?: number | null;
+  fromWeek?: number | null;
+  durationWeeks?: number | null;
 }
 
 export interface AcknowledgeProlongedIdleStaffResult {
@@ -93,6 +104,9 @@ export async function getProlongedIdleStaff(
   }
   if (params?.search && params.search.trim()) {
     query.append("search", params.search.trim());
+  }
+  if (params?.status) {
+    query.append("status", params.status);
   }
   if (params?.page !== undefined && params.page !== null) {
     query.append("page", String(params.page));

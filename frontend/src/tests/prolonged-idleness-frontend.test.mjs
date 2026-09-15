@@ -52,6 +52,7 @@ function buildProlongedIdlenessQueryParams({
   fromWeek,
   durationWeeks = 4,
   consecutiveThreshold = 3,
+  status,
   search,
   page = 0,
   size = 10,
@@ -62,6 +63,7 @@ function buildProlongedIdlenessQueryParams({
   if (fromWeek !== undefined && fromWeek !== null) params.append("fromWeek", String(fromWeek));
   params.append("durationWeeks", String(Math.max(1, durationWeeks)));
   params.append("consecutiveThreshold", String(Math.max(1, consecutiveThreshold)));
+  if (status) params.append("status", status);
   if (search && search.trim()) params.append("search", search.trim());
   params.append("page", String(Math.max(0, page)));
   params.append("size", String(Math.max(1, size)));
@@ -69,12 +71,12 @@ function buildProlongedIdlenessQueryParams({
 }
 
 // 5. Helper tính toán tổng quan thống kê nhân sự nhàn rỗi
-function calculateIdlenessMetrics(items) {
+function calculateIdlenessMetrics(items, reportTotalEmptyHours = null) {
   if (!items || items.length === 0) {
     return { totalIdle: 0, totalEmptyHours: 0, averageUtil: 0 };
   }
   const totalIdle = items.length;
-  const totalEmptyHours = items.reduce((sum, item) => sum + (item.totalEmptyHours || 0), 0);
+  const totalEmptyHours = reportTotalEmptyHours !== null ? reportTotalEmptyHours : items.reduce((sum, item) => sum + (item.totalEmptyHours || 0), 0);
   const sumUtil = items.reduce((sum, item) => sum + (item.averageUtilization || 0), 0);
   const averageUtil = Number((sumUtil / totalIdle).toFixed(1));
   return { totalIdle, totalEmptyHours, averageUtil };
@@ -90,6 +92,8 @@ function generateIdlenessCsvContent(items) {
     "Số tuần nhàn rỗi liên tiếp",
     "Tỷ lệ sử dụng trung bình (%)",
     "Tổng giờ trống (h)",
+    "Trạng thái",
+    "Hành động can thiệp",
   ];
 
   const rows = items.map((item) => [
@@ -100,6 +104,8 @@ function generateIdlenessCsvContent(items) {
     item.consecutiveIdleWeeks,
     item.averageUtilization,
     item.totalEmptyHours,
+    `"${item.status === 'ACKNOWLEDGED' ? 'Đã xử lý' : 'Chưa xử lý'}"`,
+    `"${(item.actionTaken || '').replace(/"/g, '""')}"`,
   ]);
 
   return "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");

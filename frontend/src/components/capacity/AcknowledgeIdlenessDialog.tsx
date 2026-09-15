@@ -11,6 +11,9 @@ interface AcknowledgeIdlenessDialogProps {
   open: boolean;
   onClose: () => void;
   staff: ProlongedIdleStaffItem | null;
+  fromYear?: number;
+  fromWeek?: number;
+  durationWeeks?: number;
   onSuccess: () => void;
 }
 
@@ -25,6 +28,9 @@ export function AcknowledgeIdlenessDialog({
   open,
   onClose,
   staff,
+  fromYear,
+  fromWeek,
+  durationWeeks,
   onSuccess,
 }: AcknowledgeIdlenessDialogProps) {
   const [actionTaken, setActionTaken] = useState("");
@@ -66,6 +72,9 @@ export function AcknowledgeIdlenessDialog({
         employeeId: staff.employeeId,
         actionTaken: trimmedAction,
         notes: notes.trim() || undefined,
+        fromYear,
+        fromWeek,
+        durationWeeks,
       });
       onSuccess();
       onClose();

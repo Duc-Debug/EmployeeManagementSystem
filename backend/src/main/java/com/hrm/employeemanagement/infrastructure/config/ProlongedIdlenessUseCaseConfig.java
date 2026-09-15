@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import com.hrm.employeemanagement.application.port.inbound.allocation.idleness.AcknowledgeProlongedIdleStaffUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.idleness.GetProlongedIdleStaffUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.idleness.LoadProlongedIdlenessAcknowledgementPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.idleness.SaveProlongedIdlenessAcknowledgementPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
@@ -33,7 +35,9 @@ public class ProlongedIdlenessUseCaseConfig {
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             LoadHolidaysPort loadHolidaysPort,
             SaveAuditLogInNewTransactionPort auditLogPort,
-            SimulatedNotificationPort notificationPort
+            SimulatedNotificationPort notificationPort,
+            SaveProlongedIdlenessAcknowledgementPort saveAcknowledgementPort,
+            LoadProlongedIdlenessAcknowledgementPort loadAcknowledgementPort
     ) {
         return new ProlongedIdleStaffService(
                 authorizationService,
@@ -44,7 +48,9 @@ public class ProlongedIdlenessUseCaseConfig {
                 loadApprovedLeavesPort,
                 loadHolidaysPort,
                 auditLogPort,
-                notificationPort
+                notificationPort,
+                saveAcknowledgementPort,
+                loadAcknowledgementPort
         );
     }
 

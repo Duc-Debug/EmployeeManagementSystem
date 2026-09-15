@@ -26,6 +26,8 @@ import com.hrm.employeemanagement.application.dto.allocation.idleness.ProlongedI
 import com.hrm.employeemanagement.application.port.inbound.allocation.idleness.AcknowledgeProlongedIdleStaffUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.idleness.GetProlongedIdleStaffUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.idleness.LoadProlongedIdlenessAcknowledgementPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.idleness.SaveProlongedIdlenessAcknowledgementPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
@@ -35,6 +37,7 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.allocation.idleness.ProlongedIdlenessAcknowledgement;
 import com.hrm.employeemanagement.domain.allocation.idleness.ProlongedIdlenessPolicy;
 import com.hrm.employeemanagement.domain.allocation.idleness.WeeklyIdlenessDetail;
 import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
@@ -49,7 +52,6 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
-import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 
 /**
  * Pure Java Application Service cho Use Case NCL-07-CN-006:
@@ -66,6 +68,34 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
     private final LoadHolidaysPort loadHolidaysPort;
     private final SaveAuditLogInNewTransactionPort auditLogPort;
     private final SimulatedNotificationPort notificationPort;
+    private final SaveProlongedIdlenessAcknowledgementPort saveAcknowledgementPort;
+    private final LoadProlongedIdlenessAcknowledgementPort loadAcknowledgementPort;
+
+    public ProlongedIdleStaffService(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            LoadHolidaysPort loadHolidaysPort,
+            SaveAuditLogInNewTransactionPort auditLogPort,
+            SimulatedNotificationPort notificationPort,
+            SaveProlongedIdlenessAcknowledgementPort saveAcknowledgementPort,
+            LoadProlongedIdlenessAcknowledgementPort loadAcknowledgementPort
+    ) {
+        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "loadOrgUnitPort must not be null");
+        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "loadCapacityThresholdPort must not be null");
+        this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "loadAllocationPort must not be null");
+        this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "loadApprovedLeavesPort must not be null");
+        this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "loadHolidaysPort must not be null");
+        this.auditLogPort = Objects.requireNonNull(auditLogPort, "auditLogPort must not be null");
+        this.notificationPort = Objects.requireNonNull(notificationPort, "notificationPort must not be null");
+        this.saveAcknowledgementPort = saveAcknowledgementPort;
+        this.loadAcknowledgementPort = loadAcknowledgementPort;
+    }
 
     public ProlongedIdleStaffService(
             AuthorizationService authorizationService,
@@ -78,15 +108,19 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
             SaveAuditLogInNewTransactionPort auditLogPort,
             SimulatedNotificationPort notificationPort
     ) {
-        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
-        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "loadOrgUnitPort must not be null");
-        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "loadCapacityThresholdPort must not be null");
-        this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "loadAllocationPort must not be null");
-        this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "loadApprovedLeavesPort must not be null");
-        this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "loadHolidaysPort must not be null");
-        this.auditLogPort = Objects.requireNonNull(auditLogPort, "auditLogPort must not be null");
-        this.notificationPort = Objects.requireNonNull(notificationPort, "notificationPort must not be null");
+        this(
+                authorizationService,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadCapacityThresholdPort,
+                loadAllocationPort,
+                loadApprovedLeavesPort,
+                loadHolidaysPort,
+                auditLogPort,
+                notificationPort,
+                null,
+                null
+        );
     }
 
     @Override
@@ -112,9 +146,8 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
         }
 
         int durationWeeks = Math.min(Math.max(1, query.durationWeeks() != null ? query.durationWeeks() : 4), 16);
-        int consecutiveThreshold = query.consecutiveThreshold() != null && query.consecutiveThreshold() > 0
-                ? query.consecutiveThreshold()
-                : ProlongedIdlenessPolicy.DEFAULT_CONSECUTIVE_WEEKS;
+        // TC-01: Ngưỡng chuỗi tuần nhàn rỗi bất biến (3 tuần) theo quy tắc nghiệp vụ Domain Policy
+        int consecutiveThreshold = ProlongedIdlenessPolicy.DEFAULT_CONSECUTIVE_WEEKS;
 
         List<YearWeek> targetWeeks = buildTargetWeeks(fromYear, fromWeek, durationWeeks);
 
@@ -131,16 +164,8 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
             orgUnitName = orgUnitNameMap.getOrDefault(query.orgUnitId(), "Bộ phận " + query.orgUnitId());
         }
 
-        // 5. Lấy danh sách nhân sự thuộc phạm vi tìm kiếm (tái sử dụng allUnits)
-        List<Employee> employees = loadEmployeesInScope(query.orgUnitId(), allUnits);
-        if (query.search() != null && !query.search().isBlank()) {
-            String searchPattern = query.search().trim().toLowerCase();
-            employees = employees.stream()
-                    .filter(emp -> (emp.getFullName() != null && emp.getFullName().toLowerCase().contains(searchPattern))
-                            || (emp.getEmployeeCode() != null && emp.getEmployeeCode().toLowerCase().contains(searchPattern))
-                            || (emp.getProfessionalRole() != null && emp.getProfessionalRole().toLowerCase().contains(searchPattern)))
-                    .toList();
-        }
+        // 5. Tối ưu Server-side filtering: Đẩy tìm kiếm search & orgUnit trực tiếp xuống database
+        List<Employee> employees = loadEmployeesInScope(query.orgUnitId(), allUnits, query.search());
 
         int page = query.page() != null && query.page() >= 0 ? query.page() : 0;
         int size = query.size() != null && query.size() > 0 ? query.size() : 20;
@@ -155,6 +180,7 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                     idleThreshold,
                     consecutiveThreshold,
                     0,
+                    BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP),
                     page,
                     size,
                     0,
@@ -162,7 +188,7 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
             );
         }
 
-        // 5. Batch load dữ liệu phụ thuộc (Allocations, Leaves, Holidays)
+        // 6. Batch load dữ liệu phụ thuộc (Allocations, Leaves, Holidays) cho tập nhân sự đã lọc
         List<Long> employeeIds = employees.stream().map(Employee::getIdValue).toList();
         List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployeesAndWeeks(employeeIds, targetWeeks);
         Map<String, BigDecimal> allocationMap = new HashMap<>();
@@ -186,8 +212,8 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                         yw -> WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yw, holidays, workingDays)
                 ));
 
-        // 6. Rà soát từng nhân sự và tính toán chuỗi tuần nhàn rỗi
-        List<ProlongedIdleStaffItemResult> idleItems = new ArrayList<>();
+        // 7. Rà soát từng nhân sự và tính toán chuỗi tuần nhàn rỗi
+        List<ProlongedIdleStaffItemResult> idleCandidateItems = new ArrayList<>();
 
         for (Employee emp : employees) {
             Long empId = emp.getIdValue();
@@ -272,7 +298,7 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                         ? orgUnitNameMap.getOrDefault(emp.getOrgUnitId(), "Phòng ban " + emp.getOrgUnitId())
                         : "Chưa phân bổ";
 
-                idleItems.add(new ProlongedIdleStaffItemResult(
+                idleCandidateItems.add(new ProlongedIdleStaffItemResult(
                         emp.getIdValue(),
                         emp.getEmployeeCode(),
                         emp.getFullName(),
@@ -282,21 +308,74 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                         consecutiveWeeks,
                         totalEmpty,
                         avgUtil,
-                        detailResults
+                        detailResults,
+                        "OPEN",
+                        null,
+                        null,
+                        null,
+                        null
                 ));
             }
         }
 
+        // 8. Tra cứu trạng thái ACKNOWLEDGED từ database
+        Map<Long, ProlongedIdlenessAcknowledgement> ackMap = Collections.emptyMap();
+        if (loadAcknowledgementPort != null && !idleCandidateItems.isEmpty()) {
+            List<Long> idleEmpIds = idleCandidateItems.stream().map(ProlongedIdleStaffItemResult::employeeId).toList();
+            List<ProlongedIdlenessAcknowledgement> acks = loadAcknowledgementPort.findByPeriodAndEmployees(fromYear, fromWeek, durationWeeks, idleEmpIds);
+            ackMap = acks.stream().collect(Collectors.toMap(ProlongedIdlenessAcknowledgement::getEmployeeId, a -> a, (a1, a2) -> a1));
+        }
+
+        // 9. Cập nhật trạng thái và lọc theo filter status ("OPEN", "ACKNOWLEDGED", "ALL")
+        List<ProlongedIdleStaffItemResult> finalIdleItems = new ArrayList<>();
+        for (ProlongedIdleStaffItemResult item : idleCandidateItems) {
+            ProlongedIdlenessAcknowledgement ack = ackMap.get(item.employeeId());
+            String status = ack != null ? "ACKNOWLEDGED" : "OPEN";
+            String actionTaken = ack != null ? ack.getActionTaken() : null;
+            String ackNotes = ack != null ? ack.getNotes() : null;
+            LocalDateTime acknowledgedAt = ack != null ? ack.getAcknowledgedAt() : null;
+            Long acknowledgedBy = ack != null ? ack.getAcknowledgedBy() : null;
+
+            ProlongedIdleStaffItemResult mappedItem = new ProlongedIdleStaffItemResult(
+                    item.employeeId(),
+                    item.employeeCode(),
+                    item.fullName(),
+                    item.orgUnitId(),
+                    item.departmentName(),
+                    item.positionTitle(),
+                    item.consecutiveIdleWeeks(),
+                    item.totalEmptyHours(),
+                    item.averageUtilization(),
+                    item.weeklyBreakdown(),
+                    status,
+                    actionTaken,
+                    ackNotes,
+                    acknowledgedAt,
+                    acknowledgedBy
+            );
+
+            String queryStatus = query.status() != null ? query.status().toUpperCase() : "ALL";
+            if ("ALL".equals(queryStatus) || queryStatus.equals(status)) {
+                finalIdleItems.add(mappedItem);
+            }
+        }
+
         // Sắp xếp: ưu tiên số tuần nhàn rỗi giảm dần, sau đó tổng số giờ trống giảm dần
-        idleItems.sort(Comparator.comparingInt(ProlongedIdleStaffItemResult::consecutiveIdleWeeks).reversed()
+        finalIdleItems.sort(Comparator.comparingInt(ProlongedIdleStaffItemResult::consecutiveIdleWeeks).reversed()
                 .thenComparing(ProlongedIdleStaffItemResult::totalEmptyHours, Comparator.reverseOrder()));
 
-        int totalItems = idleItems.size();
+        // 10. Tính toán các KPI tổng thể toàn báo cáo (Grand Totals trước khi cắt subList trang)
+        int totalItems = finalIdleItems.size();
+        BigDecimal grandTotalEmptyHours = finalIdleItems.stream()
+                .map(ProlongedIdleStaffItemResult::totalEmptyHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(1, RoundingMode.HALF_UP);
+
         int totalPages = totalItems == 0 ? 0 : (int) Math.ceil((double) totalItems / size);
 
         int fromIndex = Math.min(page * size, totalItems);
         int toIndex = Math.min(fromIndex + size, totalItems);
-        List<ProlongedIdleStaffItemResult> pagedItems = idleItems.subList(fromIndex, toIndex);
+        List<ProlongedIdleStaffItemResult> pagedItems = finalIdleItems.subList(fromIndex, toIndex);
 
         return new ProlongedIdlenessReportResult(
                 query.orgUnitId(),
@@ -307,6 +386,7 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                 idleThreshold,
                 consecutiveThreshold,
                 totalItems,
+                grandTotalEmptyHours,
                 page,
                 size,
                 totalPages,
@@ -329,7 +409,25 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
 
         LocalDateTime now = LocalDateTime.now();
 
-        // 3. Ghi nhận nhật ký kiểm toán (NCL-07-CN-006-TC-04)
+        int targetYear = command.fromYear() != null ? command.fromYear() : now.get(IsoFields.WEEK_BASED_YEAR);
+        int targetWeek = command.fromWeek() != null ? command.fromWeek() : now.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        int targetDuration = command.durationWeeks() != null ? command.durationWeeks() : 4;
+
+        // 3. Lưu trạng thái ACKNOWLEDGED vào cơ sở dữ liệu persistence (NCL-07-CN-006-TC-04)
+        if (saveAcknowledgementPort != null) {
+            ProlongedIdlenessAcknowledgement acknowledgement = ProlongedIdlenessAcknowledgement.create(
+                    command.employeeId(),
+                    targetYear,
+                    targetWeek,
+                    targetDuration,
+                    command.actionTaken(),
+                    command.notes(),
+                    currentUserId
+            );
+            saveAcknowledgementPort.save(acknowledgement);
+        }
+
+        // 4. Ghi nhận nhật ký kiểm toán (NCL-07-CN-006-TC-04)
         auditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "ACKNOWLEDGE_PROLONGED_IDLENESS",
@@ -339,7 +437,7 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
                 "actionTaken=" + command.actionTaken() + ";notes=" + (command.notes() != null ? command.notes() : "")
         ));
 
-        // 4. Phát thông báo mô phỏng
+        // 5. Phát thông báo mô phỏng
         notificationPort.sendScheduleConflictWarningNotification(
                 "rm@company.com",
                 "Quản lý nguồn lực",
@@ -375,10 +473,17 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
         return CapacityThresholdPolicy.DEFAULT_IDLE_THRESHOLD;
     }
 
-    private List<Employee> loadEmployeesInScope(Long orgUnitId, List<OrgUnit> allUnits) {
+    private List<Employee> loadEmployeesInScope(Long orgUnitId, List<OrgUnit> allUnits, String search) {
+        String cleanSearch = (search != null && !search.isBlank()) ? search.trim() : null;
         if (orgUnitId != null) {
             List<Long> branchIds = resolveScopeBranchOrgUnitIds(orgUnitId, allUnits);
+            if (cleanSearch != null) {
+                return loadEmployeePort.findActivePaged(branchIds, cleanSearch, Integer.MAX_VALUE, 0);
+            }
             return loadEmployeePort.findActiveByOrgUnitIds(branchIds);
+        }
+        if (cleanSearch != null) {
+            return loadEmployeePort.findActivePaged(null, cleanSearch, Integer.MAX_VALUE, 0);
         }
         return loadEmployeePort.findAllActive();
     }
