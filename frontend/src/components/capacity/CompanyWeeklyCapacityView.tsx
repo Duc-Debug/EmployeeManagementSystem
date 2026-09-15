@@ -17,6 +17,7 @@ import {
   BookmarkCheck,
   Layers,
   Lock,
+  Bell,
   Copy,
 } from "lucide-react";
 import { useAuthUser } from "@/lib/auth-session";
@@ -39,8 +40,10 @@ import { BulkAllocateResourceModal } from "@/components/capacity/BulkAllocateRes
 import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationResultModal";
 import { AllocationAdjustmentModal, type AllocationItem } from "@/components/capacity/AllocationAdjustmentModal";
 import { AllocationPeriodManagementModal } from "@/components/capacity/period/AllocationPeriodManagementModal";
+import { AllocationNotificationsModal } from "@/components/capacity/AllocationNotificationsModal";
 import { RoleAllocationTemplateManagementModal } from "@/components/allocation/RoleAllocationTemplateManagementModal";
 import { CapacityThresholdConfigModal } from "@/components/capacity/CapacityThresholdConfigModal";
+import { ProlongedIdlenessWarningModal } from "@/components/capacity/ProlongedIdlenessWarningModal";
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
@@ -50,10 +53,15 @@ export default function CompanyWeeklyCapacityView() {
   const canManageAllocations = normalizedRole === "VT-03";
   const canAccessPeriods =
     normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
+  const canAccessAllocationNotifications = normalizedRole === "VT-02" || normalizedRole === "VT-03";
   const canConfigureThresholds = normalizedRole === "VT-01";
+  const canViewProlongedIdleness =
+    normalizedRole === "VT-01" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
 
   // NCL-07-CN-004: State cho Modal Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23)
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
+  // NCL-07-CN-006: State cho Modal Cảnh báo nhân sự nhàn rỗi kéo dài (QTN-23)
+  const [isProlongedIdlenessModalOpen, setIsProlongedIdlenessModalOpen] = useState<boolean>(false);
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -73,6 +81,9 @@ export default function CompanyWeeklyCapacityView() {
   const [orgUnits, setOrgUnits] = useState<{ id: number; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // NCL-07-CN-003: State cho Modal Thông báo phân bổ thay đổi
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
 
   // NCL-06-CN-009: State cho Modal Quản lý kỳ kế hoạch phân bổ (QTN-18)
   const [isPeriodModalOpen, setIsPeriodModalOpen] = useState<boolean>(false);
@@ -542,6 +553,19 @@ export default function CompanyWeeklyCapacityView() {
             </button>
           )}
 
+          {/* NCL-07-CN-003: Nút Thông báo phân bổ thay đổi (BR-05 / AC-03: Chỉ VT-02 và VT-03) */}
+          {canAccessAllocationNotifications && (
+            <button
+              type="button"
+              onClick={() => setIsNotificationModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-sky-200 bg-sky-50/70 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition shadow-2xs"
+              title="Xem lịch sử thông báo phân bổ thay đổi (NCL-07-CN-003)"
+            >
+              <Bell className="h-3.5 w-3.5 text-sky-600" />
+              <span>Thông báo phân bổ</span>
+            </button>
+          )}
+
           {/* NCL-07-CN-004: Nút Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23) */}
           {canConfigureThresholds && (
             <button
@@ -552,6 +576,19 @@ export default function CompanyWeeklyCapacityView() {
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
               <span>Cấu hình ngưỡng (QTN-23)</span>
+            </button>
+          )}
+
+          {/* NCL-07-CN-006: Nút Cảnh báo nhân sự nhàn rỗi kéo dài (QTN-23) */}
+          {canViewProlongedIdleness && (
+            <button
+              type="button"
+              onClick={() => setIsProlongedIdlenessModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50/80 px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition shadow-2xs"
+              title="Cảnh báo nhân sự nhàn rỗi kéo dài nhiều tuần liên tiếp (NCL-07-CN-006 / QTN-23)"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+              <span>Cảnh báo nhàn rỗi (QTN-23)</span>
             </button>
           )}
         </div>
@@ -945,6 +982,13 @@ export default function CompanyWeeklyCapacityView() {
         }}
       />
 
+      {/* NCL-07-CN-003: Allocation Notifications Modal */}
+      <AllocationNotificationsModal
+        open={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+        userRole={normalizedRole}
+      />
+
       {/* Mẫu phân bổ theo vai trò của dự án */}
       <RoleAllocationTemplateManagementModal
         open={isTemplateModalOpen}
@@ -959,6 +1003,15 @@ export default function CompanyWeeklyCapacityView() {
         onSuccess={() => {
           fetchMatrix();
         }}
+      />
+
+      {/* NCL-07-CN-006: Prolonged Idleness Warning Modal (QTN-23) */}
+      <ProlongedIdlenessWarningModal
+        open={isProlongedIdlenessModalOpen}
+        onClose={() => setIsProlongedIdlenessModalOpen(false)}
+        initialYear={selectedYear}
+        initialWeek={selectedWeek}
+        initialOrgUnitId={selectedOrgUnitId}
       />
     </div>
   );
