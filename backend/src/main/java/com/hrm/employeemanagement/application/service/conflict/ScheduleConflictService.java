@@ -197,7 +197,7 @@ public class ScheduleConflictService implements
         ScheduleConflict conflict = loadConflictPort.findById(conflictId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cảnh báo xung đột lịch với ID: " + conflictId));
 
-        conflict.markAsResolved();
+        conflict.markAsResolved(currentUserId);
         ScheduleConflict saved = saveConflictPort.save(conflict);
 
         auditLogPort.save(AuditLog.createChange(

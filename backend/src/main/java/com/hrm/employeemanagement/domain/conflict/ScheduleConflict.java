@@ -136,12 +136,23 @@ public class ScheduleConflict {
     }
 
     public void markAsResolved() {
+        markAsResolved(null);
+    }
+
+    public void markAsResolved(Long userId) {
+        if (this.status == ScheduleConflictStatus.RESOLVED) {
+            throw new IllegalStateException("Cảnh báo xung đột lịch đã được đánh dấu là đã xử lý (RESOLVED)");
+        }
         this.status = ScheduleConflictStatus.RESOLVED;
+        this.resolvedBy = userId;
         this.resolvedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
     public void resolveWithNote(Long userId, Long handlerId, String note) {
+        if (this.status == ScheduleConflictStatus.RESOLVED) {
+            throw new IllegalStateException("Cảnh báo xung đột lịch đã được đánh dấu là đã xử lý (RESOLVED)");
+        }
         this.status = ScheduleConflictStatus.RESOLVED;
         if (handlerId != null) {
             this.assignedHandlerId = handlerId;

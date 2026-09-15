@@ -410,14 +410,16 @@ export default function ScheduleConflictWarningView() {
                                         {/* Action Buttons */}
                                         <td className="px-5 py-4 text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => setSelectedConflictForResolution(c)}
-                                                    title="Gán người chịu trách nhiệm và ghi nhận cách xử lý"
-                                                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-xs"
-                                                >
-                                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                                    <span>Xử lý xung đột</span>
-                                                </button>
+                                                {c.status !== "RESOLVED" && (
+                                                    <button
+                                                        onClick={() => setSelectedConflictForResolution(c)}
+                                                        title="Gán người chịu trách nhiệm và ghi nhận cách xử lý"
+                                                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-xs"
+                                                    >
+                                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                                        <span>Xử lý xung đột</span>
+                                                    </button>
+                                                )}
 
                                                 {c.status !== "RESOLVED" && (
                                                     <button

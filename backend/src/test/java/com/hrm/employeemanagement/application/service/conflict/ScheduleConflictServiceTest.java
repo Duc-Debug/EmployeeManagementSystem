@@ -578,4 +578,46 @@ class ScheduleConflictServiceTest {
         AssignScheduleConflictHandlerCommand inactiveCommand = new AssignScheduleConflictHandlerCommand(2004L, 888L);
         assertThrows(IllegalStateException.class, () -> service.assignScheduleConflictHandler(inactiveCommand));
     }
+
+    @Test
+    @DisplayName("Legacy resolve endpoint sets resolvedBy correctly")
+    void testLegacyResolveEndpointSetsResolvedBy() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Xung đột mở"
+        );
+        conflict.setId(3001L);
+
+        when(loadConflictPort.findById(3001L)).thenReturn(Optional.of(conflict));
+        when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ScheduleConflictResult result = service.resolveScheduleConflict(3001L);
+
+        assertNotNull(result);
+        assertEquals(ScheduleConflictStatus.RESOLVED, result.status());
+        assertEquals(1L, result.resolvedBy());
+        verify(auditLogPort).save(any());
+    }
+
+    @Test
+    @DisplayName("Attempting to resolve an already RESOLVED conflict throws IllegalStateException")
+    void testResolvingAlreadyResolvedConflictThrowsException() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trên 2 dự án"
+        );
+        conflict.setId(3002L);
+        conflict.markAsResolved(100L);
+
+        when(loadConflictPort.findById(3002L)).thenReturn(Optional.of(conflict));
+
+        assertThrows(IllegalStateException.class, () -> service.resolveScheduleConflict(3002L));
+
+        ResolveScheduleConflictWithNoteCommand command = new ResolveScheduleConflictWithNoteCommand(3002L, null, "Note");
+        assertThrows(IllegalStateException.class, () -> service.resolveScheduleConflictWithNote(command));
+    }
 }
