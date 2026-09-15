@@ -16,6 +16,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExceededException;
 import com.hrm.employeemanagement.domain.exception.timesheet.EmptyTimesheetSubmissionException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetImmutableException;
+
 /**
  * Entity: Chấm giờ công việc
  * Timesheet
@@ -86,22 +87,24 @@ public class Timesheet {
                 LocalDateTime.now(),
                 null,
                 0L,
-                new ArrayList<>()
-        );
+                new ArrayList<>());
     }
 
     public void assertModifiable() {
         if (this.status != TimesheetStatus.DRAFT && this.status != TimesheetStatus.REJECTED) {
-            throw new TimesheetImmutableException("Bảng chấm công ở trạng thái [" + this.status + "] không thể sửa hoặc thêm dòng mới.");
+            throw new TimesheetImmutableException(
+                    "Bảng chấm công ở trạng thái [" + this.status + "] không thể sửa hoặc thêm dòng mới.");
         }
     }
 
     public void submit() {
         if (this.status != TimesheetStatus.DRAFT && this.status != TimesheetStatus.REJECTED) {
-            throw new TimesheetImmutableException("Chỉ có thể nộp bảng chấm công ở trạng thái nháp (DRAFT) hoặc bị từ chối (REJECTED).");
+            throw new TimesheetImmutableException(
+                    "Chỉ có thể nộp bảng chấm công ở trạng thái nháp (DRAFT) hoặc bị từ chối (REJECTED).");
         }
         if (this.entries == null || this.entries.isEmpty()) {
-            throw new EmptyTimesheetSubmissionException("Không thể nộp bảng chấm công rỗng. Vui lòng ghi nhận ít nhất một dòng giờ công.");
+            throw new EmptyTimesheetSubmissionException(
+                    "Không thể nộp bảng chấm công rỗng. Vui lòng ghi nhận ít nhất một dòng giờ công.");
         }
 
         // QTN-09: Kiểm tra giới hạn 12 giờ/ngày cho tất cả các ngày trong tuần
@@ -109,8 +112,7 @@ public class Timesheet {
                 .filter(e -> e.getWorkDate() != null && e.getHours() != null)
                 .collect(Collectors.groupingBy(
                         TimesheetEntry::getWorkDate,
-                        Collectors.reducing(BigDecimal.ZERO, TimesheetEntry::getHours, BigDecimal::add)
-                ));
+                        Collectors.reducing(BigDecimal.ZERO, TimesheetEntry::getHours, BigDecimal::add)));
 
         for (Map.Entry<LocalDate, BigDecimal> entry : dailyTotals.entrySet()) {
             if (entry.getValue().compareTo(BigDecimal.valueOf(12)) > 0) {
@@ -158,6 +160,7 @@ public class Timesheet {
         recalculateTotalHours();
     }
 
+    // Đồng bộ trạng thái tổng thể của bảng chấm công
     public void syncStatusFromEntries() {
         if (this.entries.isEmpty()) {
             return;
@@ -186,21 +189,71 @@ public class Timesheet {
     }
 
     // Getters
-    public TimesheetId getId() { return id; }
-    public Long getIdValue() { return id != null ? id.value() : null; }
-    public void setId(TimesheetId id) { this.id = id; }
-    public EmployeeId getEmployeeId() { return employeeId; }
-    public Long getEmployeeIdValue() { return employeeId != null ? employeeId.value() : null; }
-    public LocalDate getWeekStartDate() { return weekStartDate; }
-    public LocalDate getWeekEndDate() { return weekEndDate; }
-    public BigDecimal getTotalHours() { return totalHours; }
-    public TimesheetStatus getStatus() { return status; }
-    public LocalDateTime getSubmittedAt() { return submittedAt; }
-    public Long getApprovedBy() { return approvedBy; }
-    public LocalDateTime getApprovedAt() { return approvedAt; }
-    public String getRejectionReason() { return rejectionReason; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public Long getVersion() { return version; }
-    public List<TimesheetEntry> getEntries() { return Collections.unmodifiableList(entries); }
+    public TimesheetId getId() {
+        return id;
+    }
+
+    public Long getIdValue() {
+        return id != null ? id.value() : null;
+    }
+
+    public void setId(TimesheetId id) {
+        this.id = id;
+    }
+
+    public EmployeeId getEmployeeId() {
+        return employeeId;
+    }
+
+    public Long getEmployeeIdValue() {
+        return employeeId != null ? employeeId.value() : null;
+    }
+
+    public LocalDate getWeekStartDate() {
+        return weekStartDate;
+    }
+
+    public LocalDate getWeekEndDate() {
+        return weekEndDate;
+    }
+
+    public BigDecimal getTotalHours() {
+        return totalHours;
+    }
+
+    public TimesheetStatus getStatus() {
+        return status;
+    }
+
+    public LocalDateTime getSubmittedAt() {
+        return submittedAt;
+    }
+
+    public Long getApprovedBy() {
+        return approvedBy;
+    }
+
+    public LocalDateTime getApprovedAt() {
+        return approvedAt;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public List<TimesheetEntry> getEntries() {
+        return Collections.unmodifiableList(entries);
+    }
 }
