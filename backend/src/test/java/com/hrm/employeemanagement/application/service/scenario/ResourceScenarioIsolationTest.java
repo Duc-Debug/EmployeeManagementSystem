@@ -254,7 +254,7 @@ class ResourceScenarioIsolationTest {
 
         // 2. VT-03 thêm demand lớn (ví dụ 10 người x 40h)
         AddScenarioDemandCommand demandCmd = new AddScenarioDemandCommand(
-                scenario.id(), "Nhu cầu lớn", 10, 38, 42, BigDecimal.valueOf(40), "Fullstack"
+                scenario.id(), "Nhu cầu lớn", 10, 2026, 38, 2026, 42, BigDecimal.valueOf(40), "Fullstack"
         );
         demandService.addDemand(demandCmd);
 

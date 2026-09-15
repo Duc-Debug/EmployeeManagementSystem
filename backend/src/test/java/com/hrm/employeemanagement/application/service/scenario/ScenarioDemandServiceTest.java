@@ -122,7 +122,7 @@ class ScenarioDemandServiceTest {
         });
 
         AddScenarioDemandCommand command = new AddScenarioDemandCommand(
-                1L, "Java Dev Senior", 2, 1, 6, BigDecimal.valueOf(40), "Java Spring"
+                1L, "Java Dev Senior", 2, 2026, 38, 2026, 42, BigDecimal.valueOf(40), "Java Spring"
         );
 
         ScenarioDemandResult result = service.addDemand(command);
@@ -131,6 +131,10 @@ class ScenarioDemandServiceTest {
         assertEquals(10L, result.id());
         assertEquals("Java Dev Senior", result.demandName());
         assertEquals(2, result.headcount());
+        assertEquals(2026, result.startYear());
+        assertEquals(38, result.startWeek());
+        assertEquals(2026, result.endYear());
+        assertEquals(42, result.endWeek());
         assertEquals(BigDecimal.valueOf(80), result.totalHoursPerWeek());
 
         verify(saveAuditLogPort, times(1)).save(argThat(log ->
@@ -144,14 +148,14 @@ class ScenarioDemandServiceTest {
     @DisplayName("AC-04: VT-03 sửa nhu cầu giả định thành công, ghi audit log với old và new value")
     void testUpdateDemand_Success() {
         ScenarioDemand existing = ScenarioDemand.create(
-                1L, "Cũ", 1, 1, 4, BigDecimal.valueOf(20), "Java"
+                1L, "Cũ", 1, 2026, 38, 2026, 40, BigDecimal.valueOf(20), "Java"
         );
         existing.setId(10L);
         when(loadDemandPort.findById(10L)).thenReturn(Optional.of(existing));
         when(saveDemandPort.save(any(ScenarioDemand.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UpdateScenarioDemandCommand command = new UpdateScenarioDemandCommand(
-                1L, 10L, "Mới", 2, 1, 6, BigDecimal.valueOf(40), "Java"
+                1L, 10L, "Mới", 2, 2026, 38, 2026, 42, BigDecimal.valueOf(40), "Java"
         );
 
         ScenarioDemandResult result = service.updateDemand(command);
@@ -172,7 +176,7 @@ class ScenarioDemandServiceTest {
     @DisplayName("AC-04: VT-03 xóa nhu cầu giả định thành công, ghi audit log")
     void testDeleteDemand_Success() {
         ScenarioDemand existing = ScenarioDemand.create(
-                1L, "Cần xóa", 2, 1, 4, BigDecimal.valueOf(40), "Python"
+                1L, "Cần xóa", 2, 2026, 38, 2026, 40, BigDecimal.valueOf(40), "Python"
         );
         existing.setId(10L);
         when(loadDemandPort.findById(10L)).thenReturn(Optional.of(existing));
@@ -193,7 +197,7 @@ class ScenarioDemandServiceTest {
         when(loadUserPort.findById(new UserId(101L))).thenReturn(Optional.of(vt01User));
 
         AddScenarioDemandCommand command = new AddScenarioDemandCommand(
-                1L, "Java Dev", 1, 1, 4, BigDecimal.valueOf(40), "Java"
+                1L, "Java Dev", 1, 2026, 38, 2026, 40, BigDecimal.valueOf(40), "Java"
         );
 
         assertThrows(PermissionDeniedException.class, () -> service.addDemand(command));
@@ -209,9 +213,20 @@ class ScenarioDemandServiceTest {
         draftScenario.setStatus(ScenarioStatus.APPLIED);
 
         AddScenarioDemandCommand command = new AddScenarioDemandCommand(
-                1L, "Java Dev", 1, 1, 4, BigDecimal.valueOf(40), "Java"
+                1L, "Java Dev", 1, 2026, 38, 2026, 40, BigDecimal.valueOf(40), "Java"
         );
 
         assertThrows(ScenarioNotModifiableException.class, () -> service.addDemand(command));
+    }
+
+    @Test
+    @DisplayName("Nhu cầu nằm ngoài phạm vi kịch bản ném InvalidScenarioDemandException")
+    void testAddDemand_OutsideScenarioBounds_ThrowsException() {
+        AddScenarioDemandCommand command = new AddScenarioDemandCommand(
+                1L, "Java Dev", 1, 2026, 30, 2026, 35, BigDecimal.valueOf(40), "Java"
+        );
+
+        assertThrows(com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException.class,
+                () -> service.addDemand(command));
     }
 }

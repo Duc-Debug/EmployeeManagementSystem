@@ -156,11 +156,11 @@ class ResourceScenarioControllerTest {
     @DisplayName("POST /api/v1/resource-scenarios/{id}/demands: Thêm nhu cầu thành công -> 200 OK")
     void testAddDemand_Success() throws Exception {
         AddScenarioDemandRequest request = new AddScenarioDemandRequest(
-                "Java Senior", 2, 1, 6, BigDecimal.valueOf(40), "Spring Boot"
+                "Java Senior", 2, 2026, 1, 2026, 6, BigDecimal.valueOf(40), "Spring Boot"
         );
 
         ScenarioDemandResult result = new ScenarioDemandResult(
-                10L, 1L, "Java Senior", 2, 1, 6, BigDecimal.valueOf(40),
+                10L, 1L, "Java Senior", 2, 2026, 1, 2026, 6, BigDecimal.valueOf(40),
                 BigDecimal.valueOf(80), "Spring Boot", LocalDateTime.now(), null
         );
 
@@ -179,7 +179,7 @@ class ResourceScenarioControllerTest {
     @DisplayName("POST /api/v1/resource-scenarios/{id}/demands: Validation lỗi (headcount=0) -> 400 BAD_REQUEST")
     void testAddDemand_ValidationError() throws Exception {
         AddScenarioDemandRequest request = new AddScenarioDemandRequest(
-                "Java Senior", 0, 1, 6, BigDecimal.valueOf(40), "Spring Boot"
+                "Java Senior", 0, 2026, 1, 2026, 6, BigDecimal.valueOf(40), "Spring Boot"
         );
 
         mockMvc.perform(post("/api/v1/resource-scenarios/1/demands")

@@ -120,7 +120,7 @@ class ScenarioSimulationCalculationTest {
         when(loadSnapshotPort.findByScenarioId(1L)).thenReturn(snapshots);
 
         // Nhu cầu giả định: 1 người cần 20h từ tuần 38 đến 39
-        ScenarioDemand demand = ScenarioDemand.create(1L, "Hỗ trợ dự án", 1, 38, 39, BigDecimal.valueOf(20), "Java");
+        ScenarioDemand demand = ScenarioDemand.create(1L, "Hỗ trợ dự án", 1, 2026, 38, 2026, 39, BigDecimal.valueOf(20), "Java");
         demand.setId(10L);
         when(loadDemandPort.findByScenarioId(1L)).thenReturn(List.of(demand));
 
@@ -180,5 +180,80 @@ class ScenarioSimulationCalculationTest {
         assertEquals(1, result.employeeSnapshots().size());
         assertEquals("EMP100", result.employeeSnapshots().get(0).employeeCode());
         assertEquals("Lê Văn B", result.employeeSnapshots().get(0).fullName());
+    }
+
+    @Test
+    @DisplayName("Regression: Kịch bản vắt qua năm (2026-W52 đến 2027-W02) tính demand chính xác theo YearWeek")
+    void testSimulationCalculation_CrossYearScenarioDemand_HandledCorrectly() {
+        // Scenario bắt đầu từ 2026-W52, kéo dài 4 tuần: [2026-W52, 2026-W53, 2027-W01, 2027-W02]
+        ResourceScenario crossYearScenario = ResourceScenario.createNew(
+                "SCN-CROSS", "Kịch bản vắt năm", "Mô tả", 10L, 2026, 52, 4, 100L
+        );
+        crossYearScenario.setId(99L);
+        when(loadScenarioPort.findById(99L)).thenReturn(Optional.of(crossYearScenario));
+
+        // Snapshot: 1 nhân sự có 40h available mỗi tuần, 0h allocated
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 99L, 100L, 2026, 52, BigDecimal.ZERO, BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 99L, 100L, 2026, 53, BigDecimal.ZERO, BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(3L, 99L, 100L, 2027, 1, BigDecimal.ZERO, BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(4L, 99L, 100L, 2027, 2, BigDecimal.ZERO, BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(99L)).thenReturn(snapshots);
+
+        // Demand: Chỉ phát sinh ở 2027-W01 đến 2027-W02 (40h/tuần)
+        ScenarioDemand crossYearDemand = ScenarioDemand.create(
+                99L, "Demand năm mới", 1, 2027, 1, 2027, 2, BigDecimal.valueOf(40), "Golang"
+        );
+        crossYearDemand.setId(20L);
+        when(loadDemandPort.findByScenarioId(99L)).thenReturn(List.of(crossYearDemand));
+
+        Employee emp = new Employee(
+                new EmployeeId(100L),
+                new UserId(200L),
+                10L,
+                "EMP100",
+                "Lê Văn B",
+                "Backend",
+                LocalDate.of(2025, 1, 1),
+                null,
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp));
+
+        ScenarioSimulationResult result = service.getSimulationResult(99L);
+
+        assertNotNull(result);
+        assertEquals(4, result.weeklyMetrics().size());
+
+        // Tuần 1: 2026-W52 -> demand = 0
+        WeeklySimulationMetricResult m1 = result.weeklyMetrics().get(0);
+        assertEquals(2026, m1.year());
+        assertEquals(52, m1.weekNumber());
+        assertEquals(BigDecimal.valueOf(0), m1.demandHours(), "Tuần 2026-W52 không được có demand");
+        assertEquals(BigDecimal.valueOf(0), m1.scenarioWorkloadHours());
+
+        // Tuần 2: 2026-W53 -> demand = 0
+        WeeklySimulationMetricResult m2 = result.weeklyMetrics().get(1);
+        assertEquals(2026, m2.year());
+        assertEquals(53, m2.weekNumber());
+        assertEquals(BigDecimal.valueOf(0), m2.demandHours(), "Tuần 2026-W53 không được có demand");
+        assertEquals(BigDecimal.valueOf(0), m2.scenarioWorkloadHours());
+
+        // Tuần 3: 2027-W01 -> demand = 40h
+        WeeklySimulationMetricResult m3 = result.weeklyMetrics().get(2);
+        assertEquals(2027, m3.year());
+        assertEquals(1, m3.weekNumber());
+        assertEquals(BigDecimal.valueOf(40), m3.demandHours(), "Tuần 2027-W01 phải có demand = 40");
+        assertEquals(BigDecimal.valueOf(40), m3.scenarioWorkloadHours());
+
+        // Tuần 4: 2027-W02 -> demand = 40h
+        WeeklySimulationMetricResult m4 = result.weeklyMetrics().get(3);
+        assertEquals(2027, m4.year());
+        assertEquals(2, m4.weekNumber());
+        assertEquals(BigDecimal.valueOf(40), m4.demandHours(), "Tuần 2027-W02 phải có demand = 40");
+        assertEquals(BigDecimal.valueOf(40), m4.scenarioWorkloadHours());
     }
 }
