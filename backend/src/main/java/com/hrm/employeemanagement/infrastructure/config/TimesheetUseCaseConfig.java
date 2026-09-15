@@ -203,4 +203,46 @@ public class TimesheetUseCaseConfig {
                 );
         return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalSaveWeeklyTimesheetGridUseCase(pureService);
     }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.timesheet.ApproveTimesheetUseCase approveTimesheetUseCase(
+            LoadTimesheetEntryPort loadTimesheetEntryPort,
+            SaveTimesheetEntryPort saveTimesheetEntryPort,
+            LoadTimesheetPort loadTimesheetPort,
+            SaveTimesheetPort saveTimesheetPort,
+            LoadProjectPort loadProjectPort,
+            LoadTaskPort loadTaskPort,
+            LoadEmployeePort loadEmployeePort,
+            com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetAuditLogPort saveTimesheetAuditLogPort,
+            AuthorizationService authorizationService) {
+        com.hrm.employeemanagement.application.service.timesheet.ApproveTimesheetService pureService = new com.hrm.employeemanagement.application.service.timesheet.ApproveTimesheetService(
+                loadTimesheetEntryPort,
+                saveTimesheetEntryPort,
+                loadTimesheetPort,
+                saveTimesheetPort,
+                loadProjectPort,
+                loadTaskPort,
+                loadEmployeePort,
+                saveTimesheetAuditLogPort,
+                authorizationService
+        );
+        return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalApproveTimesheetUseCase(pureService);
+    }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.timesheet.GetPendingApprovalsUseCase getPendingApprovalsUseCase(
+            LoadTimesheetEntryPort loadTimesheetEntryPort,
+            LoadProjectPort loadProjectPort,
+            LoadTaskPort loadTaskPort,
+            LoadEmployeePort loadEmployeePort,
+            AuthorizationService authorizationService) {
+        com.hrm.employeemanagement.application.service.timesheet.GetPendingApprovalsService pureService = new com.hrm.employeemanagement.application.service.timesheet.GetPendingApprovalsService(
+                loadTimesheetEntryPort,
+                loadProjectPort,
+                loadTaskPort,
+                loadEmployeePort,
+                authorizationService
+        );
+        return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalGetPendingApprovalsUseCase(pureService);
+    }
 }

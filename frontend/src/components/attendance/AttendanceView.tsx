@@ -17,7 +17,7 @@ import { StatCard } from "./StatCard"
 import { TimesheetTable } from "./TimesheetTable"
 import { ShiftConfigModal, type ShiftRulesData } from "./ShiftConfigModal"
 import WorkLogView from "../timesheet/WorkLogView"
-
+import { TimesheetApprovalView } from "../timesheet/TimesheetApprovalView"
 import { useAuthUser } from "@/lib/auth-session"
 
 export function AttendanceView({
@@ -84,7 +84,9 @@ export function AttendanceView({
     const myRecord = displayedRecords[0]
     const isPresent = myRecord && myRecord.status !== "Vắng mặt"
 
-    const [subTab, setSubTab] = useState<"work-logs" | "checkin">(() => canAccessWorkLog ? "work-logs" : "checkin")
+    const canApproveWorkLog = isPM || (user?.permissions && user.permissions.includes("WORK_LOG_APPROVE"))
+
+    const [subTab, setSubTab] = useState<"work-logs" | "checkin" | "approvals">(() => canAccessWorkLog ? "work-logs" : "checkin")
     const [isConfigOpen, setIsConfigOpen] = useState(false)
     const [shiftRules, setShiftRules] = useState<ShiftRulesData>({
         startTime: "08:00 AM",
@@ -111,20 +113,36 @@ export function AttendanceView({
     return (
         <section className="space-y-6">
             {/* Sub-tabs Navigation */}
-            {canAccessWorkLog && (
+            {(canAccessWorkLog || canApproveWorkLog) && (
                 <div className="flex border-b border-slate-200">
-                    <button
-                        type="button"
-                        onClick={() => setSubTab("work-logs")}
-                        className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
-                            subTab === "work-logs"
-                                ? "border-indigo-600 text-indigo-600"
-                                : "border-transparent text-slate-500 hover:text-slate-800"
-                        }`}
-                    >
-                        <BriefcaseBusiness className="h-4 w-4" />
-                        <span>Ghi giờ công dự án</span>
-                    </button>
+                    {canAccessWorkLog && (
+                        <button
+                            type="button"
+                            onClick={() => setSubTab("work-logs")}
+                            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
+                                subTab === "work-logs"
+                                    ? "border-indigo-600 text-indigo-600"
+                                    : "border-transparent text-slate-500 hover:text-slate-800"
+                            }`}
+                        >
+                            <BriefcaseBusiness className="h-4 w-4" />
+                            <span>Ghi giờ công dự án</span>
+                        </button>
+                    )}
+                    {canApproveWorkLog && (
+                        <button
+                            type="button"
+                            onClick={() => setSubTab("approvals")}
+                            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition cursor-pointer ${
+                                subTab === "approvals"
+                                    ? "border-emerald-600 text-emerald-600"
+                                    : "border-transparent text-slate-500 hover:text-slate-800"
+                            }`}
+                        >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Duyệt giờ công</span>
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setSubTab("checkin")}
@@ -140,8 +158,10 @@ export function AttendanceView({
                 </div>
             )}
 
-            {canAccessWorkLog && subTab === "work-logs" ? (
+            {subTab === "work-logs" && canAccessWorkLog ? (
                 <WorkLogView />
+            ) : subTab === "approvals" && canApproveWorkLog ? (
+                <TimesheetApprovalView />
             ) : (
                 <div className="space-y-6">
                     {/* Header */}
