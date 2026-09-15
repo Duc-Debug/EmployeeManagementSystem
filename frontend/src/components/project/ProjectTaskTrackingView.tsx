@@ -668,16 +668,21 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                         <span>Chỉ việc trễ hạn</span>
                     </button>
 
-                    {/* Clear Filters */}
+                    {/* Clear Filters & Count indicator */}
                     {hasActiveFilters && (
-                        <button
-                            type="button"
-                            onClick={handleResetFilters}
-                            className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 cursor-pointer"
-                        >
-                            <X className="h-3 w-3" />
-                            Xóa lọc
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md">
+                                Hiển thị: {sortedTasks.length}/{data?.totalTasks ?? 0}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleResetFilters}
+                                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium px-1.5 py-0.5 cursor-pointer"
+                            >
+                                <X className="h-3 w-3" />
+                                Xóa lọc
+                            </button>
+                        </div>
                     )}
                 </div>
 

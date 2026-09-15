@@ -28,7 +28,6 @@ import com.hrm.employeemanagement.application.port.inbound.task.GetProjectTaskTr
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
-import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.task.TaskStatus;
 
@@ -99,15 +98,31 @@ class ProjectTaskTrackingControllerTest {
     }
 
     @Test
-    @DisplayName("Quy tắc QTN-04: Dự án đã đóng trả về 400 BAD REQUEST")
-    void shouldReturn400WhenProjectClosed() throws Exception {
+    @DisplayName("Quy tắc QTN-04: Dự án đã đóng (CLOSED) vẫn trả về 200 OK ở chế độ xem lưu trữ")
+    void shouldReturn200WhenProjectClosed() throws Exception {
+        ProjectTaskTrackingResult closedResult = new ProjectTaskTrackingResult(
+                100L,
+                "PRJ-CLOSED",
+                "Dự án đã đóng",
+                ProjectStatus.CLOSED,
+                5,
+                0,
+                5,
+                0,
+                BigDecimal.valueOf(100),
+                BigDecimal.valueOf(95),
+                null,
+                Collections.emptyList()
+        );
         when(getProjectTaskTrackingUseCase.getTaskTracking(any(TaskTrackingQuery.class)))
-                .thenThrow(new ProjectClosedException(100L));
+                .thenReturn(closedResult);
 
         mockMvc.perform(get("/api/v1/projects/100/task-tracking")
                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.projectStatus").value("CLOSED"))
+                .andExpect(jsonPath("$.data.totalTasks").value(5));
     }
 
     @Test

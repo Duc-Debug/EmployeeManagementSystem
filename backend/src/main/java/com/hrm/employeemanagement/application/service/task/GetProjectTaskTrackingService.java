@@ -31,7 +31,6 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
-import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
@@ -97,11 +96,7 @@ public class GetProjectTaskTrackingService implements GetProjectTaskTrackingUseC
             saveDeniedAudit(currentUserId, currentUser, query.projectId(), "OUTSIDE_DATA_SCOPE_TASK_TRACKING_READ");
             throw new PermissionDeniedException(PermissionCode.PROJECT_READ);
         }
-
-        // 2. Tuân thủ quy tắc nghiệp vụ QTN-04: Dự án phải đang chạy, từ chối khi dự án đã đóng
-        if (project.getStatus() == ProjectStatus.CLOSED) {
-            throw new ProjectClosedException(project.getIdValue());
-        }
+        // 2. Tuân thủ quy tắc nghiệp vụ QTN-04: Dự án CLOSED ở chế độ chỉ đọc (Archive / Read-Only), không chặn truy vấn xem lịch sử
 
         // 3. Tải toàn bộ công việc và hạng mục của dự án
         List<Task> allProjectTasks = loadTaskPort.findAllByProjectId(project.getId());
@@ -232,19 +227,25 @@ public class GetProjectTaskTrackingService implements GetProjectTaskTrackingUseC
 
         items.sort(overdueFirstComparator);
 
-        // 7. Thống kê tổng hợp số liệu
-        int totalTasks = items.size();
-        int overdueTasks = (int) items.stream().filter(TaskTrackingItemResult::isOverdue).count();
-        int completedTasks = (int) items.stream().filter(i -> i.status() == TaskStatus.DONE).count();
-        int inProgressTasks = (int) items.stream().filter(i -> i.status() == TaskStatus.IN_PROGRESS).count();
+        // 7. Thống kê tổng hợp số liệu toàn dự án (Project Overview KPI) trên toàn bộ taskItems
+        int totalTasks = taskItems.size();
+        int overdueTasks = (int) taskItems.stream()
+                .filter(t -> TaskOverduePolicy.isOverdue(t, today))
+                .count();
+        int completedTasks = (int) taskItems.stream()
+                .filter(t -> t.getStatus() == TaskStatus.DONE)
+                .count();
+        int inProgressTasks = (int) taskItems.stream()
+                .filter(t -> t.getStatus() == TaskStatus.IN_PROGRESS)
+                .count();
 
-        BigDecimal totalBudgetHours = items.stream()
-                .map(TaskTrackingItemResult::budgetHours)
+        BigDecimal totalBudgetHours = taskItems.stream()
+                .map(Task::getBudgetHours)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalActualHours = items.stream()
-                .map(TaskTrackingItemResult::actualHours)
+        BigDecimal totalActualHours = taskItems.stream()
+                .map(Task::getActualHours)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 

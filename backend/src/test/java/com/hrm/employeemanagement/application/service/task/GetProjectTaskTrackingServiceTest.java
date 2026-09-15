@@ -11,6 +11,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +43,6 @@ import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
-import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
@@ -323,8 +323,8 @@ class GetProjectTaskTrackingServiceTest {
     }
 
     @Test
-    @DisplayName("Quy tắc QTN-04: Dự án đã đóng (CLOSED) -> Từ chối thao tác và ném ProjectClosedException")
-    void shouldRejectWhenProjectIsClosed() {
+    @DisplayName("Quy tắc QTN-04: Dự án đã đóng (CLOSED) -> Cho phép xem dữ liệu ở chế độ lưu trữ (Archive / Read-Only)")
+    void shouldAllowReadingTaskTrackingWhenProjectIsClosed() {
         when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(PM_USER_ID);
         when(loadUserPort.findById(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmUser));
         when(loadEmployeePort.findByUserId(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmEmployee));
@@ -346,15 +346,30 @@ class GetProjectTaskTrackingServiceTest {
                 0L
         );
 
+        Task taskA = new Task(
+                new TaskId(1L), new ProjectId(PROJECT_ID), null, "TSK-01", "Task cũ",
+                "Mô tả", TaskType.TASK, new EmployeeId(101L), BigDecimal.valueOf(10), BigDecimal.ZERO, BigDecimal.valueOf(10),
+                TaskStatus.DONE, 1, LocalDate.now().minusDays(30), LocalDate.now().minusDays(20),
+                LocalDate.now().minusDays(30), LocalDate.now().minusDays(20), null, 0, new UserId(1L), LocalDateTime.now(), null, 0L
+        );
+
         when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(closedProject));
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(taskA));
+        when(loadTaskAssignmentPort.findByTaskIdIn(any())).thenReturn(Collections.emptyList());
 
         TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, null);
 
-        assertThrows(ProjectClosedException.class, () -> service.getTaskTracking(query));
+        ProjectTaskTrackingResult result = service.getTaskTracking(query);
+
+        assertNotNull(result);
+        assertEquals(ProjectStatus.CLOSED, result.projectStatus());
+        assertEquals(1, result.totalTasks());
+        assertEquals(1, result.completedTasks());
+        assertEquals(1, result.tasks().size());
     }
 
     @Test
-    @DisplayName("Bộ lọc: Lọc chính xác theo người phụ trách (employeeId) và theo trạng thái (status)")
+    @DisplayName("Bộ lọc: Lọc chính xác theo người phụ trách (employeeId) và theo trạng thái (status), KPI giữ nguyên toàn dự án")
     void shouldFilterTasksByEmployeeIdAndStatus() {
         when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(PM_USER_ID);
         when(loadUserPort.findById(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmUser));
@@ -385,7 +400,10 @@ class GetProjectTaskTrackingServiceTest {
         TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, 101L, TaskStatus.IN_PROGRESS, null, null);
         ProjectTaskTrackingResult result = service.getTaskTracking(query);
 
-        assertEquals(1, result.totalTasks());
+        // KPI vẫn là 2 tasks của toàn dự án
+        assertEquals(2, result.totalTasks());
+        // Danh sách trả về chỉ có 1 task thỏa mãn bộ lọc
+        assertEquals(1, result.tasks().size());
         assertEquals("TSK-01", result.tasks().get(0).taskCode());
     }
 
@@ -496,8 +514,40 @@ class GetProjectTaskTrackingServiceTest {
         TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, "login");
         ProjectTaskTrackingResult result = service.getTaskTracking(query);
 
-        assertEquals(1, result.totalTasks());
+        // KPI vẫn là 2 tasks của toàn dự án
+        assertEquals(2, result.totalTasks());
+        assertEquals(1, result.tasks().size());
         assertEquals("TSK-LOGIN", result.tasks().get(0).taskCode());
+    }
+
+    @Test
+    @DisplayName("Bộ lọc: Khi không có công việc nào khớp với bộ lọc, KPI dự án vẫn giữ nguyên và suggestionMessage là null")
+    void shouldKeepProjectKpiIntactWhenFilterYieldsNoResults() {
+        when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(PM_USER_ID);
+        when(loadUserPort.findById(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmUser));
+        when(loadEmployeePort.findByUserId(new UserId(PM_USER_ID))).thenReturn(Optional.of(pmEmployee));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(activeProject));
+
+        Task task1 = new Task(
+                new TaskId(1L), new ProjectId(PROJECT_ID), null, "TSK-01", "Task Một",
+                "Mô tả", TaskType.TASK, null, BigDecimal.valueOf(10), BigDecimal.ZERO, BigDecimal.valueOf(10),
+                TaskStatus.IN_PROGRESS, 1, LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDate.now(), LocalDate.now().plusDays(5), null, 0, new UserId(1L), LocalDateTime.now(), null, 0L
+        );
+
+        when(loadTaskPort.findAllByProjectId(new ProjectId(PROJECT_ID))).thenReturn(List.of(task1));
+        when(loadTaskAssignmentPort.findByTaskIdIn(any())).thenReturn(Collections.emptyList());
+
+        // Tìm từ khóa không tồn tại
+        TaskTrackingQuery query = new TaskTrackingQuery(PROJECT_ID, null, null, null, "NON_EXISTENT_KEYWORD");
+        ProjectTaskTrackingResult result = service.getTaskTracking(query);
+
+        assertEquals(1, result.totalTasks());
+        assertEquals(0, result.completedTasks());
+        assertEquals(1, result.inProgressTasks());
+        assertTrue(result.tasks().isEmpty());
+        // Không gợi ý tạo WBS vì dự án thực tế đã có WBS/tasks
+        assertNull(result.suggestionMessage());
     }
 
     @Test
