@@ -18,6 +18,7 @@ import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView"
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWarningView";
+import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
 import RmDashboardOverview from "./RmDashboardOverview";
@@ -61,6 +62,7 @@ export default function Dashboard() {
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
         if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("recruitment") || path.includes("tuyen-dung")) return "recruitment-demand";
+        if (path.includes("simulation-scenario") || path.includes("mo-phong-kich-ban") || path.includes("scenarios")) return "simulation-scenarios";
         if (path.includes("schedule-conflict") || path.includes("xung-dot-lich") || path.includes("conflict")) return "schedule-conflict";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         return "overview";
@@ -262,6 +264,8 @@ export default function Dashboard() {
                                 {activeTab === "leave" && <LeaveManagementView />}
 
                                 {activeTab === "recruitment-demand" && <RecruitmentDemandReportView />}
+
+                                {activeTab === "simulation-scenarios" && <SimulationScenarioListView />}
 
                                 {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
 
