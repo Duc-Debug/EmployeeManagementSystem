@@ -153,11 +153,14 @@ public class ScheduleConflict {
         if (this.status == ScheduleConflictStatus.RESOLVED) {
             throw new IllegalStateException("Cảnh báo xung đột lịch đã được đánh dấu là đã xử lý (RESOLVED)");
         }
+        if (note == null || note.trim().isEmpty()) {
+            throw new IllegalArgumentException("Ghi chú cách xử lý xung đột không được để trống");
+        }
         this.status = ScheduleConflictStatus.RESOLVED;
         if (handlerId != null) {
             this.assignedHandlerId = handlerId;
         }
-        this.resolutionNote = note;
+        this.resolutionNote = note.trim();
         this.resolvedBy = userId;
         this.resolvedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
@@ -172,6 +175,9 @@ public class ScheduleConflict {
         this.status = ScheduleConflictStatus.REOPENED;
         this.isRecurrent = true;
         this.recurrentNote = note;
+        this.resolvedAt = null;
+        this.resolvedBy = null;
+        this.resolutionNote = null;
         this.updatedAt = LocalDateTime.now();
     }
 

@@ -620,4 +620,73 @@ class ScheduleConflictServiceTest {
         ResolveScheduleConflictWithNoteCommand command = new ResolveScheduleConflictWithNoteCommand(3002L, null, "Note");
         assertThrows(IllegalStateException.class, () -> service.resolveScheduleConflictWithNote(command));
     }
+
+    @Test
+    @DisplayName("resolveScheduleConflictWithNote throws IllegalArgumentException when resolutionNote is blank")
+    void testResolveWithNoteFailsWhenNoteIsBlank() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trên 2 dự án"
+        );
+        conflict.setId(3003L);
+        when(loadConflictPort.findById(3003L)).thenReturn(Optional.of(conflict));
+
+        ResolveScheduleConflictWithNoteCommand emptyNoteCmd = new ResolveScheduleConflictWithNoteCommand(3003L, null, "   ");
+        assertThrows(IllegalArgumentException.class, () -> service.resolveScheduleConflictWithNote(emptyNoteCmd));
+
+        ResolveScheduleConflictWithNoteCommand nullNoteCmd = new ResolveScheduleConflictWithNoteCommand(3003L, null, null);
+        assertThrows(IllegalArgumentException.class, () -> service.resolveScheduleConflictWithNote(nullNoteCmd));
+    }
+
+    @Test
+    @DisplayName("Reopening a conflict clears previous resolution audit fields")
+    void testReopeningConflictClearsResolvedAuditFields() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trên 2 dự án"
+        );
+        conflict.resolveWithNote(100L, 20L, "Đã xử lý lần 1");
+        assertEquals(ScheduleConflictStatus.RESOLVED, conflict.getStatus());
+        assertNotNull(conflict.getResolvedBy());
+        assertNotNull(conflict.getResolutionNote());
+
+        conflict.reopenAsRecurrent("Xung đột tái phát");
+        assertEquals(ScheduleConflictStatus.REOPENED, conflict.getStatus());
+        assertTrue(conflict.getIsRecurrent());
+        assertEquals("Xung đột tái phát", conflict.getRecurrentNote());
+        org.junit.jupiter.api.Assertions.assertNull(conflict.getResolvedBy());
+        org.junit.jupiter.api.Assertions.assertNull(conflict.getResolvedAt());
+        org.junit.jupiter.api.Assertions.assertNull(conflict.getResolutionNote());
+    }
+
+    @Test
+    @DisplayName("mapToResults looks up notifiedBy and resolvedBy using UserId via findAllByUserIdIn")
+    void testMapToResultsUsesFindAllByUserIdInForUserIds() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trùng"
+        );
+        conflict.setId(4001L);
+        conflict.markAsNotified(50L);
+
+        Employee emp = new Employee(new EmployeeId(10L), new UserId(100L), 1L, "NV010", "Nguyễn Văn A", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        Employee notifierEmp = new Employee(new EmployeeId(5L), new UserId(1L), 1L, "NV005", "Trần Văn Notifier", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+
+        when(loadConflictPort.findById(4001L)).thenReturn(Optional.of(conflict));
+        when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp));
+        when(loadEmployeePort.findAllByUserIdIn(List.of(new UserId(1L)))).thenReturn(List.of(notifierEmp));
+
+        ScheduleConflictResult result = service.notifyScheduleConflict(4001L);
+
+        assertNotNull(result);
+        assertEquals("Trần Văn Notifier", result.notifiedByName());
+        verify(loadEmployeePort).findAllByUserIdIn(List.of(new UserId(1L)));
+    }
 }

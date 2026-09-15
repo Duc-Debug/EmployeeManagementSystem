@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { X, CheckCircle2, UserCheck, AlertCircle, FileText } from "lucide-react";
 import { resolveScheduleConflictWithNote } from "@/lib/api/schedule-conflict";
 import type { ScheduleConflict } from "@/lib/api/schedule-conflict";
+import { getEmployees } from "@/lib/api/employees";
+import type { EmployeeProfile } from "@/lib/api/employees";
 
 interface ConflictResolutionModalProps {
     conflict: ScheduleConflict;
@@ -20,16 +22,33 @@ export default function ConflictResolutionModal({
         conflict.assignedHandlerId ? String(conflict.assignedHandlerId) : ""
     );
     const [resolutionNote, setResolutionNote] = useState<string>(conflict.resolutionNote || "");
+    const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+    const [loadingEmployees, setLoadingEmployees] = useState<boolean>(false);
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (conflict) {
+        if (conflict && isOpen) {
             setAssignedHandlerId(conflict.assignedHandlerId ? String(conflict.assignedHandlerId) : "");
             setResolutionNote(conflict.resolutionNote || "");
             setError(null);
+            loadEmployeeList();
         }
-    }, [conflict]);
+    }, [conflict, isOpen]);
+
+    const loadEmployeeList = async () => {
+        try {
+            setLoadingEmployees(true);
+            const res = await getEmployees(1, 100);
+            if (res && res.content) {
+                setEmployees(res.content);
+            }
+        } catch (err) {
+            console.error("Lỗi khi tải danh sách nhân viên:", err);
+        } finally {
+            setLoadingEmployees(false);
+        }
+    };
 
     if (!isOpen || !conflict) return null;
 
@@ -117,19 +136,25 @@ export default function ConflictResolutionModal({
 
                 {/* Form Inputs */}
                 <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-                    {/* Assigned Handler ID */}
+                    {/* Assigned Handler ID Select */}
                     <div>
                         <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
                             <UserCheck className="h-3.5 w-3.5 text-indigo-600" />
-                            <span>Mã ID Người xử lý / Người chịu trách nhiệm:</span>
+                            <span>Người xử lý / Người chịu trách nhiệm:</span>
                         </label>
-                        <input
-                            type="number"
-                            placeholder="Nhập Mã ID nhân sự/quản lý chịu trách nhiệm..."
+                        <select
                             value={assignedHandlerId}
                             onChange={(e) => setAssignedHandlerId(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none transition"
-                        />
+                            disabled={loadingEmployees}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none transition disabled:opacity-50"
+                        >
+                            <option value="">-- Chưa gán người xử lý --</option>
+                            {employees.map((emp) => (
+                                <option key={emp.id} value={emp.id}>
+                                    {emp.fullName} ({emp.employeeCode}) - {emp.orgUnitName || "Chưa phân phòng"}
+                                </option>
+                            ))}
+                        </select>
                         <p className="text-[11px] text-slate-400 mt-1">
                             Người chịu trách nhiệm theo dõi và giải quyết dứt điểm xung đột này.
                         </p>

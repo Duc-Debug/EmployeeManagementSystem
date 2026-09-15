@@ -49,6 +49,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.user.UserId;
 
 public class ScheduleConflictService implements
         GetScheduleConflictsUseCase,
@@ -217,6 +218,13 @@ public class ScheduleConflictService implements
         Long currentUserId = authorizationService.requireAny(
                 PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
+
+        if (command == null || command.conflictId() == null) {
+            throw new IllegalArgumentException("Thông tin xử lý xung đột không hợp lệ");
+        }
+        if (command.resolutionNote() == null || command.resolutionNote().trim().isEmpty()) {
+            throw new IllegalArgumentException("Ghi chú cách xử lý xung đột không được để trống");
+        }
 
         validateAssignedHandler(command.assignedHandlerId());
 
@@ -471,8 +479,9 @@ public class ScheduleConflictService implements
             return Collections.emptyList();
         }
 
+        // 1. Employee IDs (employeeId & assignedHandlerId)
         Set<Long> empIdSet = conflicts.stream()
-                .flatMap(c -> Stream.of(c.getEmployeeId(), c.getAssignedHandlerId(), c.getNotifiedBy(), c.getResolvedBy()))
+                .flatMap(c -> Stream.of(c.getEmployeeId(), c.getAssignedHandlerId()))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
@@ -481,6 +490,19 @@ public class ScheduleConflictService implements
         Map<Long, Employee> empMap = empIds.isEmpty() ? Collections.emptyMap() :
                 loadEmployeePort.findAllByIdIn(empIds).stream()
                         .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
+
+        // 2. User IDs (notifiedBy & resolvedBy)
+        Set<Long> userIdSet = conflicts.stream()
+                .flatMap(c -> Stream.of(c.getNotifiedBy(), c.getResolvedBy()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<UserId> userIds = userIdSet.stream().map(UserId::new).collect(Collectors.toList());
+
+        Map<Long, Employee> userToEmpMap = userIds.isEmpty() ? Collections.emptyMap() :
+                loadEmployeePort.findAllByUserIdIn(userIds).stream()
+                        .filter(e -> e.getUserId() != null)
+                        .collect(Collectors.toMap(e -> e.getUserId().value(), e -> e, (e1, e2) -> e1));
 
         List<Long> orgUnitIds = empMap.values().stream()
                 .map(Employee::getOrgUnitId)
@@ -493,7 +515,7 @@ public class ScheduleConflictService implements
                         .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (u1, u2) -> u1));
 
         return conflicts.stream()
-                .map(c -> mapToResult(c, empMap, orgUnitMap))
+                .map(c -> mapToResult(c, empMap, userToEmpMap, orgUnitMap))
                 .collect(Collectors.toList());
     }
 
@@ -505,7 +527,7 @@ public class ScheduleConflictService implements
         return (results != null && !results.isEmpty()) ? results.get(0) : null;
     }
 
-    private ScheduleConflictResult mapToResult(ScheduleConflict conflict, Map<Long, Employee> empMap, Map<Long, String> orgUnitMap) {
+    private ScheduleConflictResult mapToResult(ScheduleConflict conflict, Map<Long, Employee> empMap, Map<Long, Employee> userToEmpMap, Map<Long, String> orgUnitMap) {
         Employee emp = empMap.get(conflict.getEmployeeId());
         String empCode = emp != null ? emp.getEmployeeCode() : "NV" + conflict.getEmployeeId();
         String empName = emp != null ? emp.getFullName() : "Nhân viên #" + conflict.getEmployeeId();
@@ -532,10 +554,10 @@ public class ScheduleConflictService implements
         String handlerCode = handler != null ? handler.getEmployeeCode() : (conflict.getAssignedHandlerId() != null ? "NV" + conflict.getAssignedHandlerId() : null);
         String handlerName = handler != null ? handler.getFullName() : (conflict.getAssignedHandlerId() != null ? "Người xử lý #" + conflict.getAssignedHandlerId() : null);
 
-        Employee notifiedUser = conflict.getNotifiedBy() != null ? empMap.get(conflict.getNotifiedBy()) : null;
+        Employee notifiedUser = conflict.getNotifiedBy() != null ? userToEmpMap.get(conflict.getNotifiedBy()) : null;
         String notifiedUserName = notifiedUser != null ? notifiedUser.getFullName() : (conflict.getNotifiedBy() != null ? "User #" + conflict.getNotifiedBy() : null);
 
-        Employee resolvedUser = conflict.getResolvedBy() != null ? empMap.get(conflict.getResolvedBy()) : null;
+        Employee resolvedUser = conflict.getResolvedBy() != null ? userToEmpMap.get(conflict.getResolvedBy()) : null;
         String resolvedUserName = resolvedUser != null ? resolvedUser.getFullName() : (conflict.getResolvedBy() != null ? "User #" + conflict.getResolvedBy() : null);
 
         return new ScheduleConflictResult(
