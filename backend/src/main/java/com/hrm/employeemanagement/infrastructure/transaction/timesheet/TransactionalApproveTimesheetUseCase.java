@@ -12,13 +12,13 @@ public class TransactionalApproveTimesheetUseCase implements ApproveTimesheetUse
 
     @Override
     @Transactional
-    public ApprovalResult approveEntry(Long entryId) {
-        return delegate.approveEntry(entryId);
+    public ApprovalResult approveEntry(Long entryId, Long version) {
+        return delegate.approveEntry(entryId, version);
     }
 
     @Override
     @Transactional
-    public ApprovalResult rejectEntry(Long entryId, String reason) {
-        return delegate.rejectEntry(entryId, reason);
+    public ApprovalResult rejectEntry(Long entryId, Long version, String reason) {
+        return delegate.rejectEntry(entryId, version, reason);
     }
 }

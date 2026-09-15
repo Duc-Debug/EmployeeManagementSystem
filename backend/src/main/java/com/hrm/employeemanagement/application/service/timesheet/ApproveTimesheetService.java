@@ -63,16 +63,16 @@ public class ApproveTimesheetService implements ApproveTimesheetUseCase {
     }
 
     @Override
-    public ApprovalResult approveEntry(Long entryId) {
-        return processApproval(entryId, true, null);
+    public ApprovalResult approveEntry(Long entryId, Long version) {
+        return processApproval(entryId, version, true, null);
     }
 
     @Override
-    public ApprovalResult rejectEntry(Long entryId, String reason) {
-        return processApproval(entryId, false, reason);
+    public ApprovalResult rejectEntry(Long entryId, Long version, String reason) {
+        return processApproval(entryId, version, false, reason);
     }
 
-    private ApprovalResult processApproval(Long entryId, boolean isApprove, String reason) {
+    private ApprovalResult processApproval(Long entryId, Long version, boolean isApprove, String reason) {
         Long currentUserId = authorizationService.require(PermissionCode.WORK_LOG_APPROVE);
         UserId actorId = new UserId(currentUserId);
         
@@ -81,6 +81,10 @@ public class ApproveTimesheetService implements ApproveTimesheetUseCase {
 
         TimesheetEntry entryRef = loadTimesheetEntryPort.findById(new TimesheetEntryId(entryId))
                 .orElseThrow(() -> new TimesheetEntryNotFoundException("Không tìm thấy dòng giờ công"));
+
+        if (version != null && entryRef.getVersion() != null && !entryRef.getVersion().equals(version)) {
+            throw new IllegalStateException("Dữ liệu đã bị thay đổi bởi người khác, vui lòng tải lại trang");
+        }
 
         Timesheet timesheet = loadTimesheetPort.findById(entryRef.getTimesheetId())
                 .orElseThrow(() -> new TimesheetNotFoundException("Không tìm thấy bảng chấm công"));
