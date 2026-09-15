@@ -77,21 +77,6 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             SaveAuditLogInNewTransactionPort saveAuditLogPort,
             LoadUserPort loadUserPort,
-            LoadOrgUnitPort loadOrgUnitPort) {
-        this(authorizationService, loadEmployeePort, loadProjectPort, loadWeeklyAvailabilityPort,
-                saveAllocationPort, loadAllocationPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort,
-                null, null);
-    }
-
-    public BulkResourceAllocationService(
-            AuthorizationService authorizationService,
-            LoadEmployeePort loadEmployeePort,
-            LoadProjectPort loadProjectPort,
-            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
-            SaveWeeklyProjectAllocationPort saveAllocationPort,
-            LoadWeeklyProjectAllocationPort loadAllocationPort,
-            SaveAuditLogInNewTransactionPort saveAuditLogPort,
-            LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort,
             SaveAllocationChangeLogPort saveChangeLogPort,
             AllocationNotificationPort notificationPort) {
@@ -109,8 +94,10 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                 "SaveAuditLogInNewTransactionPort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
-        this.saveChangeLogPort = saveChangeLogPort;
-        this.notificationPort = notificationPort;
+        this.saveChangeLogPort = Objects.requireNonNull(saveChangeLogPort,
+                "SaveAllocationChangeLogPort must not be null");
+        this.notificationPort = Objects.requireNonNull(notificationPort,
+                "AllocationNotificationPort must not be null");
     }
 
     @Override
@@ -284,60 +271,52 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                 updatedAllocatedWeeks.add(alloc.getYearWeek());
             }
 
-            if (saveChangeLogPort != null) {
-                Long allocationId = (saved != null && saved.getId() != null) ? saved.getId() : alloc.getId();
-                if (allocationId != null) {
-                    AdjustmentAction action = plan.isNew() ? AdjustmentAction.ADD : AdjustmentAction.EDIT_HOURS;
-                    saveChangeLogPort.save(AllocationChangeLog.create(
-                            allocationId,
-                            action,
-                            plan.oldValue(),
-                            plan.newValue(),
-                            currentUserId,
-                            null
-                    ));
-                }
+            Long allocationId = (saved != null && saved.getId() != null) ? saved.getId() : alloc.getId();
+            if (allocationId != null) {
+                AdjustmentAction action = plan.isNew() ? AdjustmentAction.ADD : AdjustmentAction.EDIT_HOURS;
+                saveChangeLogPort.save(AllocationChangeLog.create(
+                        allocationId,
+                        action,
+                        plan.oldValue(),
+                        plan.newValue(),
+                        currentUserId,
+                        null
+                ));
             }
         }
 
         // [TC-02, BR-04] Gộp các tuần liên tiếp thành thông báo độc lập theo từng loại hành động
-        if (notificationPort != null) {
-            String detailStr = command.allocationPercentagePerWeek() != null
-                    ? command.allocationPercentagePerWeek() + "%/tuần"
-                    : command.allocatedHoursPerWeek() + "h/tuần";
+        String detailStr = command.allocationPercentagePerWeek() != null
+                ? command.allocationPercentagePerWeek() + "%/tuần"
+                : command.allocatedHoursPerWeek() + "h/tuần";
 
-            // 1. Thông báo cho các tuần thêm mới (ADD)
-            if (!newlyAllocatedWeeks.isEmpty()) {
-                List<AllocationNotificationPolicy.YearWeekRange> addRanges =
-                        AllocationNotificationPolicy.mergeConsecutiveWeeks(newlyAllocatedWeeks);
+        // 1. Thông báo cho các tuần thêm mới (ADD)
+        if (!newlyAllocatedWeeks.isEmpty()) {
+            List<AllocationNotificationPolicy.YearWeekRange> addRanges =
+                    AllocationNotificationPolicy.mergeConsecutiveWeeks(newlyAllocatedWeeks);
 
-                for (AllocationNotificationPolicy.YearWeekRange range : addRanges) {
-                    notifyStakeholders(
-                            project, employee, currentUser, "ADD",
-                            range,
-                            "(Chưa phân bổ)",
-                            detailStr,
-                            "Phân bổ nhân sự '" + employee.getFullName() + "' vào dự án '" + project.getProjectName() + "' "
-                                    + range.toDisplayString() + ": " + detailStr
-                    );
-                }
+            for (AllocationNotificationPolicy.YearWeekRange range : addRanges) {
+                notifyStakeholders(
+                        project, employee, currentUser, "ADD",
+                        range,
+                        "(Chưa phân bổ)",
+                        detailStr
+                );
             }
+        }
 
-            // 2. Thông báo cho các tuần cập nhật / điều chỉnh (EDIT_HOURS)
-            if (!updatedAllocatedWeeks.isEmpty()) {
-                List<AllocationNotificationPolicy.YearWeekRange> editRanges =
-                        AllocationNotificationPolicy.mergeConsecutiveWeeks(updatedAllocatedWeeks);
+        // 2. Thông báo cho các tuần cập nhật / điều chỉnh (EDIT_HOURS)
+        if (!updatedAllocatedWeeks.isEmpty()) {
+            List<AllocationNotificationPolicy.YearWeekRange> editRanges =
+                    AllocationNotificationPolicy.mergeConsecutiveWeeks(updatedAllocatedWeeks);
 
-                for (AllocationNotificationPolicy.YearWeekRange range : editRanges) {
-                    notifyStakeholders(
-                            project, employee, currentUser, "EDIT_HOURS",
-                            range,
-                            "Phân bổ cũ",
-                            detailStr,
-                            "Điều chỉnh phân bổ nhân sự '" + employee.getFullName() + "' trong dự án '" + project.getProjectName() + "' "
-                                    + range.toDisplayString() + ": " + detailStr
-                    );
-                }
+            for (AllocationNotificationPolicy.YearWeekRange range : editRanges) {
+                notifyStakeholders(
+                        project, employee, currentUser, "EDIT_HOURS",
+                        range,
+                        "Phân bổ cũ",
+                        detailStr
+                );
             }
         }
 
@@ -413,20 +392,15 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
         };
     }
 
-    private String notifyStakeholders(
+    private void notifyStakeholders(
             Project project,
             Employee employee,
             User actor,
             String actionType,
             AllocationNotificationPolicy.YearWeekRange weekRange,
             String oldValue,
-            String newValue,
-            String summaryMessage
+            String newValue
     ) {
-        if (notificationPort == null) {
-            return null;
-        }
-        Long pmId = project.getManagerId() != null ? project.getManagerId().value() : null;
         String title = AllocationNotificationPolicy.formatTitle(project.getProjectName(), actionType);
         String content = AllocationNotificationPolicy.formatContent(
                 actor != null ? actor.getUsername() : "Người quản lý nguồn lực",
@@ -444,7 +418,6 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                 title,
                 content
         );
-        return pmId != null ? String.valueOf(pmId) : null;
     }
 
     private record WeekAllocationPlan(

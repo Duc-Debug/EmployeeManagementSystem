@@ -642,4 +642,41 @@ class BulkResourceAllocationServiceTest {
                 argThat(content -> content != null && content.contains("2/2026") && !content.contains("Phân bổ cũ"))
         );
     }
+
+    @Test
+    @DisplayName("Constructor should throw NullPointerException when saveChangeLogPort is null")
+    void constructor_ShouldThrowNpe_WhenSaveChangeLogPortIsNull() {
+        assertThrows(NullPointerException.class, () -> new BulkResourceAllocationService(
+                authorizationService,
+                loadEmployeePort,
+                loadProjectPort,
+                loadWeeklyAvailabilityPort,
+                saveAllocationPort,
+                loadAllocationPort,
+                saveAuditLogPort,
+                loadUserPort,
+                loadOrgUnitPort,
+                null,
+                notificationPort
+        ));
+    }
+
+    @Test
+    @DisplayName("Constructor should throw NullPointerException when notificationPort is null")
+    void constructor_ShouldThrowNpe_WhenNotificationPortIsNull() {
+        assertThrows(NullPointerException.class, () -> new BulkResourceAllocationService(
+                authorizationService,
+                loadEmployeePort,
+                loadProjectPort,
+                loadWeeklyAvailabilityPort,
+                saveAllocationPort,
+                loadAllocationPort,
+                saveAuditLogPort,
+                loadUserPort,
+                loadOrgUnitPort,
+                saveChangeLogPort,
+                null
+        ));
+    }
 }
+

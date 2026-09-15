@@ -4,4 +4,4 @@
 -- Story: NCL-07-CN-003 (Thông báo khi phân bổ thay đổi)
 -- ============================================================
 
-CREATE INDEX idx_notifications_type_target ON notifications(type, target_type, target_id);
+CREATE INDEX idx_notifications_type_target ON notifications(type, target_id, created_at);
