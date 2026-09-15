@@ -32,6 +32,12 @@ import com.hrm.employeemanagement.application.port.inbound.allocation.BulkAlloca
 import com.hrm.employeemanagement.application.service.allocation.BulkResourceAllocationService;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalBulkAllocateResourceUseCase;
 
+import com.hrm.employeemanagement.application.port.inbound.allocation.GetAllocationNotificationsUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadAllocationNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort;
+import com.hrm.employeemanagement.application.service.allocation.GetAllocationNotificationsService;
+
 @Configuration
 public class ResourceAllocationUseCaseConfig {
 
@@ -47,7 +53,8 @@ public class ResourceAllocationUseCaseConfig {
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             java.util.Optional<LoadWorkingCalendarPort> loadWorkingCalendarPort,
             java.util.Optional<com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort> loadReservationPort,
-            java.util.Optional<SaveAuditLogInNewTransactionPort> saveAuditLogPort) {
+            java.util.Optional<SaveAuditLogInNewTransactionPort> saveAuditLogPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort loadCapacityThresholdPort) {
         return new GetCompanyWeeklyCapacityService(
                 authorizationService,
                 loadUserPort,
@@ -59,7 +66,8 @@ public class ResourceAllocationUseCaseConfig {
                 loadApprovedLeavesPort,
                 loadWorkingCalendarPort.orElse(null),
                 loadReservationPort.orElse(null),
-                saveAuditLogPort.map(p -> (com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort) p::save).orElse(null)
+                saveAuditLogPort.map(p -> (com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort) p::save).orElse(null),
+                loadCapacityThresholdPort
         );
     }
 
@@ -81,7 +89,9 @@ public class ResourceAllocationUseCaseConfig {
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             SaveAuditLogInNewTransactionPort saveAuditLogPort,
             LoadUserPort loadUserPort,
-            LoadOrgUnitPort loadOrgUnitPort) {
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAllocationChangeLogPort saveChangeLogPort,
+            AllocationNotificationPort notificationPort) {
 
         return new ResourceAllocationService(
                 authorizationService,
@@ -92,7 +102,9 @@ public class ResourceAllocationUseCaseConfig {
                 loadAllocationPort,
                 saveAuditLogPort,
                 loadUserPort,
-                loadOrgUnitPort
+                loadOrgUnitPort,
+                saveChangeLogPort,
+                notificationPort
         );
     }
 
@@ -141,7 +153,9 @@ public class ResourceAllocationUseCaseConfig {
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             SaveAuditLogInNewTransactionPort saveAuditLogPort,
             LoadUserPort loadUserPort,
-            LoadOrgUnitPort loadOrgUnitPort) {
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAllocationChangeLogPort saveChangeLogPort,
+            AllocationNotificationPort notificationPort) {
         BulkResourceAllocationService pureService =
                 new BulkResourceAllocationService(
                         authorizationService,
@@ -152,9 +166,32 @@ public class ResourceAllocationUseCaseConfig {
                         loadAllocationPort,
                         saveAuditLogPort,
                         loadUserPort,
-                        loadOrgUnitPort
+                        loadOrgUnitPort,
+                        saveChangeLogPort,
+                        notificationPort
                 );
         return new TransactionalBulkAllocateResourceUseCase(pureService);
+    }
+
+    /**
+     * NCL-07-CN-003: Đăng ký Bean cho GetAllocationNotificationsUseCase
+     */
+    @Bean
+    public GetAllocationNotificationsUseCase getAllocationNotificationsUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadAllocationNotificationPort loadAllocationNotificationPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort) {
+        return new GetAllocationNotificationsService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadProjectPort,
+                loadAllocationNotificationPort,
+                deniedAuditLogPort
+        );
     }
 
     /**

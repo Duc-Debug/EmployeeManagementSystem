@@ -4,6 +4,7 @@ public enum NotificationType {
     TASK_MENTION,
     TASK_COMMENT,
     TASK_ASSIGNED,
-    TIMESHEET_REMINDER
+    TIMESHEET_REMINDER,
+    ALLOCATION_CHANGED
 }
 

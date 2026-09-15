@@ -30,6 +30,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.allocation.AdjustmentAction;
 import com.hrm.employeemanagement.domain.allocation.AllocationAdjustmentPolicy;
 import com.hrm.employeemanagement.domain.allocation.AllocationChangeLog;
+import com.hrm.employeemanagement.domain.allocation.AllocationNotificationPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
@@ -142,6 +143,7 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         }
 
         return switch (command.action()) {
+            case ADD -> throw new InvalidAllocationAdjustmentException("Hành động ADD không áp dụng cho điều chỉnh dòng phân bổ hiện có");
             case EDIT_HOURS -> executeEditHours(allocation, employee, project, command, currentUserId);
             case MOVE_WEEK -> executeMoveWeek(allocation, employee, project, command, currentUserId);
             case REMOVE -> {
@@ -340,10 +342,11 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         // Lưu phân bổ và ghi nhật ký kiểm toán trong CÙNG transaction (QTN-15)
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        String notifiedPmIds = notifyProjectManager(project,
-                "Điều chỉnh số giờ phân bổ dự án '" + project.getProjectName() + "' tuần "
-                        + yearWeek.weekNumber() + "/" + yearWeek.year() + " cho nhân sự "
-                        + employee.getFullName() + ": " + oldValue + " -> " + newValue);
+        String notifiedPmIds = notifyStakeholders(
+                project, employee, currentUserId, "EDIT",
+                AllocationNotificationPolicy.YearWeekRange.ofSingle(yearWeek),
+                oldValue, newValue
+        );
 
         saveChangeLogPort.save(AllocationChangeLog.create(
                 saved.getId(),
@@ -451,9 +454,11 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
 
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        String notifiedPmIds = notifyProjectManager(project,
-                "Chuyển tuần phân bổ dự án '" + project.getProjectName() + "' cho nhân sự "
-                        + employee.getFullName() + ": " + oldValue + " -> " + newValue);
+        String notifiedPmIds = notifyStakeholders(
+                project, employee, currentUserId, "MOVE_WEEK",
+                AllocationNotificationPolicy.YearWeekRange.ofSingle(targetWeek),
+                oldValue, newValue
+        );
 
         saveChangeLogPort.save(AllocationChangeLog.create(
                 saved.getId(),
@@ -501,9 +506,11 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
 
         deleteAllocationPort.delete(allocation);
 
-        String notifiedPmIds = notifyProjectManager(project,
-                "Gỡ bỏ dòng phân bổ dự án '" + project.getProjectName() + "' cho nhân sự "
-                        + employee.getFullName() + " (" + oldValue + ")");
+        String notifiedPmIds = notifyStakeholders(
+                project, employee, currentUserId, "REMOVE",
+                AllocationNotificationPolicy.YearWeekRange.ofSingle(allocation.getYearWeek()),
+                oldValue, newValue
+        );
 
         saveChangeLogPort.save(AllocationChangeLog.create(
                 allocation.getId(),
@@ -539,10 +546,11 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         allocation.noteVariance(newValue, currentUserId);
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        String notifiedPmIds = notifyProjectManager(project,
-                "Ghi chú lý do chênh lệch phân bổ dự án '" + project.getProjectName() + "' tuần "
-                        + allocation.getYearWeek().weekNumber() + "/" + allocation.getYearWeek().year()
-                        + " cho nhân sự " + employee.getFullName() + ": " + newValue);
+        String notifiedPmIds = notifyStakeholders(
+                project, employee, currentUserId, "NOTE_VARIANCE",
+                AllocationNotificationPolicy.YearWeekRange.ofSingle(allocation.getYearWeek()),
+                oldValue, newValue
+        );
 
         saveChangeLogPort.save(AllocationChangeLog.create(
                 saved.getId(),
@@ -565,14 +573,40 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         return calculateCapacity(employee, allocation.getYearWeek());
     }
 
-    private String notifyProjectManager(Project project, String message) {
+    private String notifyStakeholders(
+            Project project,
+            Employee employee,
+            Long actorUserId,
+            String actionType,
+            AllocationNotificationPolicy.YearWeekRange weekRange,
+            String oldValue,
+            String newValue
+    ) {
         Long pmId = project.getManagerId() != null ? project.getManagerId().value() : null;
-        try {
-            return notificationPort.notifyAllocationAdjusted(project.getIdValue(), pmId, message);
-        } catch (Exception e) {
-            // Safe notification: log error without breaking the atomic business update
-            return pmId != null ? String.valueOf(pmId) : null;
+        String actorName = "Người quản lý nguồn lực";
+        if (actorUserId != null) {
+            actorName = loadUserPort.findById(new UserId(actorUserId))
+                    .map(User::getUsername)
+                    .orElse("ID:" + actorUserId);
         }
+        String title = AllocationNotificationPolicy.formatTitle(project.getProjectName(), actionType);
+        String content = AllocationNotificationPolicy.formatContent(
+                actorName,
+                actionType,
+                employee != null ? employee.getFullName() : "Nhân sự",
+                project.getProjectName(),
+                weekRange,
+                oldValue,
+                newValue
+        );
+        notificationPort.notifyAllocationChanged(
+                project.getIdValue(),
+                employee != null ? employee.getIdValue() : null,
+                actorUserId,
+                title,
+                content
+        );
+        return pmId != null ? String.valueOf(pmId) : null;
     }
 
     private void requireOrgUnitInDataScope(User currentUser, Long orgUnitId, Long currentUserId, Long allocationId) {

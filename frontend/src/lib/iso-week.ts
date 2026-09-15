@@ -12,6 +12,10 @@ export function addIsoWeeks(year: number, week: number, weeksToAdd: number): { y
   return getIsoWeekParts(monday);
 }
 
+export function getIsoWeekDetails(date: Date): { year: number; week: number } {
+  return getIsoWeekParts(date);
+}
+
 function getIsoWeekParts(date: Date): { year: number; week: number } {
   const utc = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = utc.getUTCDay() || 7;
