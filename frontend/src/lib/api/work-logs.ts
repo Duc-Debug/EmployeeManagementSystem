@@ -18,8 +18,10 @@ export interface WorkLogResult {
   isBillable: boolean;
   description: string;
   status: string;
+  rejectionReason?: string;
   createdAt?: string;
   updatedAt?: string;
+  version: number;
 }
 
 export interface DailyWorkLogGroupDto {
