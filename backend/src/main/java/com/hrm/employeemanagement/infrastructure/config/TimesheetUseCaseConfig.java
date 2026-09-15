@@ -180,16 +180,19 @@ public class TimesheetUseCaseConfig {
             LoadEmployeePort loadEmployeePort,
             com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort saveNotificationPort,
             com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetHistoryPort saveTimesheetHistoryPort,
-            com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort) {
-        return new com.hrm.employeemanagement.application.service.timesheet.SendTimesheetRemindersService(
+            com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort,
+            com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort loadHolidaysPort) {
+        com.hrm.employeemanagement.application.service.timesheet.SendTimesheetRemindersService pureService = new com.hrm.employeemanagement.application.service.timesheet.SendTimesheetRemindersService(
                 loadTimesheetPort,
                 saveTimesheetPort,
                 loadEmployeePort,
                 saveNotificationPort,
                 saveTimesheetHistoryPort,
                 loadWorkingCalendarPort,
+                loadHolidaysPort,
                 java.time.Clock.systemDefaultZone()
         );
+        return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalSendTimesheetRemindersUseCase(pureService);
     }
 
     @Bean

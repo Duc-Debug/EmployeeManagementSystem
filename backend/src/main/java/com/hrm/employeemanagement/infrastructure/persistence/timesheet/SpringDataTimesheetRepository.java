@@ -10,5 +10,5 @@ import org.springframework.stereotype.Repository;
 public interface SpringDataTimesheetRepository extends JpaRepository<TimesheetJpaEntity, Long> {
     Optional<TimesheetJpaEntity> findByEmployeeIdAndWeekStartDate(Long employeeId, LocalDate weekStartDate);
 
-    java.util.List<TimesheetJpaEntity> findByWeekStartDateLessThanEqualAndStatusAndRemindedAtIsNull(LocalDate date, String status);
+    java.util.List<TimesheetJpaEntity> findByWeekStartDateLessThanEqualAndStatusAndRemindedAtIsNull(LocalDate date, String status, org.springframework.data.domain.Pageable pageable);
 }

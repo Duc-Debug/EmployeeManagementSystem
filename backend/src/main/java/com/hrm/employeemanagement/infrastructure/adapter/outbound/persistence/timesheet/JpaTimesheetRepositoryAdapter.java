@@ -36,8 +36,8 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
     }
 
     @Override
-    public java.util.List<Timesheet> findDraftTimesheetsForReminderUpTo(LocalDate targetDate) {
-        return repository.findByWeekStartDateLessThanEqualAndStatusAndRemindedAtIsNull(targetDate, TimesheetStatus.DRAFT.name())
+    public java.util.List<Timesheet> findDraftTimesheetsForReminderUpTo(LocalDate targetDate, int limit) {
+        return repository.findByWeekStartDateLessThanEqualAndStatusAndRemindedAtIsNull(targetDate, TimesheetStatus.DRAFT.name(), org.springframework.data.domain.PageRequest.of(0, limit))
                 .stream()
                 .map(this::toDomain)
                 .collect(java.util.stream.Collectors.toList());
