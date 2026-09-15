@@ -35,15 +35,19 @@ public class TimesheetApprovalController {
     }
 
     @PutMapping("/entries/{entryId}/approve")
-    public ResponseEntity<ApproveTimesheetUseCase.ApprovalResult> approveEntry(@PathVariable Long entryId) {
-        return ResponseEntity.ok(approveTimesheetUseCase.approveEntry(entryId));
+    public ResponseEntity<ApproveTimesheetUseCase.ApprovalResult> approveEntry(
+            @PathVariable Long entryId,
+            @RequestBody Map<String, Object> request) {
+        Long version = request.containsKey("version") ? Long.valueOf(request.get("version").toString()) : null;
+        return ResponseEntity.ok(approveTimesheetUseCase.approveEntry(entryId, version));
     }
 
     @PutMapping("/entries/{entryId}/reject")
     public ResponseEntity<ApproveTimesheetUseCase.ApprovalResult> rejectEntry(
             @PathVariable Long entryId,
-            @RequestBody Map<String, String> request) {
-        String reason = request.get("rejectionReason");
-        return ResponseEntity.ok(approveTimesheetUseCase.rejectEntry(entryId, reason));
+            @RequestBody Map<String, Object> request) {
+        Long version = request.containsKey("version") ? Long.valueOf(request.get("version").toString()) : null;
+        String reason = (String) request.get("rejectionReason");
+        return ResponseEntity.ok(approveTimesheetUseCase.rejectEntry(entryId, version, reason));
     }
 }

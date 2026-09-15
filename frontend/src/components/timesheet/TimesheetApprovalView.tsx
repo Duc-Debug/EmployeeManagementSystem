@@ -41,28 +41,32 @@ export const TimesheetApprovalView: React.FC = () => {
     loadData();
   }, []);
 
-  const handleApprove = async (id: number) => {
+  const handleApprove = async (id: number, version: number) => {
     try {
       setIsProcessing(id);
-      const res = await approveTimesheetEntry(id);
+      const res = await approveTimesheetEntry(id, version);
       if (res.warnings && res.warnings.length > 0) {
         alert("Cảnh báo: " + res.warnings.join("\n"));
       }
       setEntries((prev) => prev.filter((e) => e.id !== id));
     } catch (err: any) {
-      alert("Lỗi duyệt: " + (err.message || "Không xác định"));
+      setError(err.message || "Không thể duyệt giờ công");
     } finally {
       setIsProcessing(null);
     }
   };
 
-  const handleReject = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleReject = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!rejectId || !rejectionReason.trim()) return;
+    
+    // Find the version of the entry being rejected
+    const entryToReject = entries.find(e => e.id === rejectId);
+    if (!entryToReject) return;
 
     try {
       setIsProcessing(rejectId);
-      await rejectTimesheetEntry(rejectId, rejectionReason);
+      await rejectTimesheetEntry(rejectId, entryToReject.version, rejectionReason);
       setEntries((prev) => prev.filter((item) => item.id !== rejectId));
       setRejectId(null);
       setRejectionReason("");
@@ -177,7 +181,7 @@ export const TimesheetApprovalView: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleApprove(entry.id)}
+                          onClick={() => handleApprove(entry.id, entry.version)}
                           disabled={isProcessing === entry.id}
                           className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-600/20 disabled:opacity-50"
                         >
