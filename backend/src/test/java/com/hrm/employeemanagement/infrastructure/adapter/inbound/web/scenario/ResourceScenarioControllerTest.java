@@ -19,6 +19,7 @@ import com.hrm.employeemanagement.application.port.inbound.scenario.*;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException;
 import com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandNotFoundException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
@@ -121,6 +122,25 @@ class ResourceScenarioControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios: Mã kịch bản bị trùng -> 409 Conflict")
+    void testCreateScenario_DuplicateCode_Returns409Conflict() throws Exception {
+        CreateScenarioRequest request = new CreateScenarioRequest(
+                "SCN-2026-001", "Kịch bản trùng", "Mô tả", 10L, 2026, 38, 8
+        );
+
+        when(createScenarioUseCase.createScenario(any()))
+                .thenThrow(new DuplicateScenarioCodeException("SCN-2026-001"));
+
+        mockMvc.perform(post("/api/v1/resource-scenarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.code").value("DUPLICATE_SCENARIO_CODE"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("SCN-2026-001")));
     }
 
     @Test

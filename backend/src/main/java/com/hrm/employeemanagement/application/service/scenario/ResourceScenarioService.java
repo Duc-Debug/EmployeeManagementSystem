@@ -40,6 +40,7 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
@@ -158,28 +159,59 @@ public class ResourceScenarioService implements
         int durationWeeks = command.durationWeeks();
 
         String code = command.code();
-        if (code == null || code.trim().isEmpty()) {
-            code = generateScenarioCode(fromYear);
-        } else {
+        boolean isClientProvidedCode = code != null && !code.trim().isEmpty();
+
+        if (isClientProvidedCode) {
             code = code.trim();
             if (loadScenarioPort.existsByCode(code)) {
-                code = generateScenarioCode(fromYear);
+                throw new DuplicateScenarioCodeException(code);
             }
+        } else {
+            code = generateUniqueScenarioCode(fromYear);
         }
 
         // 3. Tạo thực thể ResourceScenario
-        ResourceScenario scenario = ResourceScenario.createNew(
-                code,
-                command.name().trim(),
-                command.description() != null ? command.description().trim() : null,
-                targetOrgUnitId,
-                fromYear,
-                fromWeek,
-                durationWeeks,
-                currentUserId
-        );
-
-        ResourceScenario savedScenario = saveScenarioPort.save(scenario);
+        ResourceScenario savedScenario;
+        if (isClientProvidedCode) {
+            ResourceScenario scenario = ResourceScenario.createNew(
+                    code,
+                    command.name().trim(),
+                    command.description() != null ? command.description().trim() : null,
+                    targetOrgUnitId,
+                    fromYear,
+                    fromWeek,
+                    durationWeeks,
+                    currentUserId
+            );
+            savedScenario = saveScenarioPort.save(scenario);
+        } else {
+            int maxAttempts = 5;
+            DuplicateScenarioCodeException lastEx = null;
+            ResourceScenario created = null;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                String candidateCode = (attempt == 1) ? code : generateUniqueScenarioCode(fromYear);
+                ResourceScenario scenario = ResourceScenario.createNew(
+                        candidateCode,
+                        command.name().trim(),
+                        command.description() != null ? command.description().trim() : null,
+                        targetOrgUnitId,
+                        fromYear,
+                        fromWeek,
+                        durationWeeks,
+                        currentUserId
+                );
+                try {
+                    created = saveScenarioPort.save(scenario);
+                    break;
+                } catch (DuplicateScenarioCodeException ex) {
+                    lastEx = ex;
+                }
+            }
+            if (created == null) {
+                throw lastEx != null ? lastEx : new DuplicateScenarioCodeException("Không thể tạo mã kịch bản sau nhiều lần thử");
+            }
+            savedScenario = created;
+        }
 
         // 4. Chụp Snapshot dữ liệu phân bổ thật và năng lực khả dụng tại thời điểm tạo (QTN-14)
         List<YearWeek> targetWeeks = buildTargetWeeks(fromYear, fromWeek, durationWeeks);
@@ -444,6 +476,16 @@ public class ResourceScenarioService implements
     private String generateScenarioCode(int year) {
         String uuid = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         return "SCN-" + year + "-" + uuid;
+    }
+
+    private String generateUniqueScenarioCode(int year) {
+        for (int i = 0; i < 5; i++) {
+            String candidate = generateScenarioCode(year);
+            if (!loadScenarioPort.existsByCode(candidate)) {
+                return candidate;
+            }
+        }
+        throw new DuplicateScenarioCodeException("Không thể tạo mã kịch bản duy nhất sau 5 lần thử");
     }
 
     private void validateManageScope(User currentUser, Long targetOrgUnitId) {

@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.infrastructure.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import com.hrm.employeemanagement.application.port.inbound.scenario.*;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
@@ -19,6 +20,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.application.service.scenario.ResourceScenarioService;
 import com.hrm.employeemanagement.application.service.scenario.ScenarioDemandService;
 import com.hrm.employeemanagement.application.service.scenario.ScenarioSimulationCalculationService;
+import com.hrm.employeemanagement.infrastructure.transaction.scenario.RetryableCreateSimulationScenarioUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.scenario.TransactionalResourceScenarioServiceDecorator;
 
 @Configuration
@@ -95,5 +97,13 @@ public class ResourceScenarioUseCaseConfig {
                 demandService,
                 simulationService
         );
+    }
+
+    @Bean
+    @Primary
+    public CreateSimulationScenarioUseCase createSimulationScenarioUseCase(
+            TransactionalResourceScenarioServiceDecorator transactionalDecorator
+    ) {
+        return new RetryableCreateSimulationScenarioUseCaseDecorator(transactionalDecorator);
     }
 }

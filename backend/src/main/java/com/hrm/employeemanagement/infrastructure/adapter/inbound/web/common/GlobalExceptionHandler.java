@@ -611,6 +611,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateScenarioCode(com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_SCENARIO_CODE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {

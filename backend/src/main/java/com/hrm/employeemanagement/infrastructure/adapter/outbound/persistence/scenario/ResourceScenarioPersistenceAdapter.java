@@ -3,10 +3,12 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.s
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.SaveResourceScenarioPort;
+import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException;
 import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
 import com.hrm.employeemanagement.domain.scenario.ScenarioStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.scenario.entity.ResourceScenarioJpaEntity;
@@ -23,9 +25,32 @@ public class ResourceScenarioPersistenceAdapter implements SaveResourceScenarioP
 
     @Override
     public ResourceScenario save(ResourceScenario scenario) {
-        ResourceScenarioJpaEntity entity = toEntity(scenario);
-        ResourceScenarioJpaEntity saved = repository.save(entity);
-        return toDomain(saved);
+        try {
+            ResourceScenarioJpaEntity entity = toEntity(scenario);
+            ResourceScenarioJpaEntity saved = repository.saveAndFlush(entity);
+            return toDomain(saved);
+        } catch (DataIntegrityViolationException ex) {
+            if (isScenarioCodeDuplicate(ex)) {
+                throw new DuplicateScenarioCodeException(scenario.getCode());
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isScenarioCodeDuplicate(DataIntegrityViolationException ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                String constraintName = cve.getConstraintName();
+                if (constraintName != null && (constraintName.toLowerCase().contains("scenario_code") || constraintName.toLowerCase().contains("uk_scenario_code"))) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
+        String lowerMsg = rootMsg != null ? rootMsg.toLowerCase() : "";
+        return lowerMsg.contains("scenario_code") || lowerMsg.contains("uk_scenario_code") || lowerMsg.contains("duplicate") || lowerMsg.contains("unique");
     }
 
     @Override
