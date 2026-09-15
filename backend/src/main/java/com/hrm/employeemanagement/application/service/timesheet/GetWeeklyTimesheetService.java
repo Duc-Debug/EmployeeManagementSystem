@@ -117,6 +117,7 @@ public class GetWeeklyTimesheetService implements GetWeeklyTimesheetUseCase {
                     e.isBillable(),
                     e.getDescription(),
                     e.getStatus().name(),
+                    e.getRejectionReason(),
                     e.getCreatedAt(),
                     e.getUpdatedAt(),
                     e.getVersion()

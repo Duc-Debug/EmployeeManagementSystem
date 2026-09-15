@@ -28,4 +28,11 @@ public interface SpringDataTimesheetEntryRepository extends JpaRepository<Timesh
             @Param("workDate") LocalDate workDate,
             @Param("excludeId") Long excludeId
     );
+
+    @Query("SELECT e FROM TimesheetEntryJpaEntity e JOIN ProjectJpaEntity p ON e.projectId = p.id " +
+           "WHERE p.managerId = :managerId AND e.status = :status ORDER BY e.workDate DESC")
+    List<TimesheetEntryJpaEntity> findPendingApprovalsByManager(
+            @Param("managerId") Long managerId,
+            @Param("status") String status
+    );
 }

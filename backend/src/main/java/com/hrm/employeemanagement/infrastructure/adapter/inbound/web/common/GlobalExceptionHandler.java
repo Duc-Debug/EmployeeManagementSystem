@@ -575,6 +575,52 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioNotFound(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioDemandNotFound(com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_DEMAND_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidScenarioDemand(com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_SCENARIO_DEMAND",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotModifiableException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioNotModifiable(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotModifiableException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_NOT_MODIFIABLE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateScenarioCode(com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_SCENARIO_CODE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
