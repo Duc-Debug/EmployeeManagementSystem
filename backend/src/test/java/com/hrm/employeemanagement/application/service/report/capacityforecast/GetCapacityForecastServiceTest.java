@@ -18,6 +18,7 @@ import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -250,5 +251,54 @@ class GetCapacityForecastServiceTest {
 
         CapacityForecastQuery invalidQueryHigh = new CapacityForecastQuery(null, 2026, 38, 20);
         assertThrows(IllegalArgumentException.class, () -> service.execute(invalidQueryHigh));
+    }
+
+    @Test
+    @DisplayName("Regression: Ưu tiên dùng netAvailableHours từ WeeklyAvailability đã lưu khi có sẵn record")
+    void execute_ShouldPreferSavedWeeklyAvailabilityNetAvailableHoursWhenPresent() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        Employee emp1 = mock(Employee.class);
+        when(emp1.getIdValue()).thenReturn(1L);
+        when(emp1.getStandardHoursPerWeek()).thenReturn(40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
+
+        // WeeklyAvailability đã lưu có standard 40h nhưng netAvailableHours = 24h
+        WeeklyAvailability savedAvail = new WeeklyAvailability(
+                50L, 1L, YearWeek.of(2026, 38), 40, 16, BigDecimal.ZERO, BigDecimal.valueOf(24)
+        );
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of(savedAvail));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(any(), any())).thenReturn(List.of());
+
+        CapacityForecastQuery query = new CapacityForecastQuery(null, 2026, 38, 4);
+
+        // Act
+        CapacityForecastResult result = service.execute(query);
+
+        // Assert
+        assertEquals(new BigDecimal("24.0"), result.weeks().get(0).availableHours());
+    }
+
+    @Test
+    @DisplayName("Validation: Ném IllegalArgumentException khi chỉ truyền 1 trong 2 tham số fromYear hoặc fromWeek")
+    void execute_ShouldThrowExceptionWhenOnlyOneOfFromYearOrFromWeekIsProvided() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        // Only fromYear provided
+        CapacityForecastQuery onlyYearQuery = new CapacityForecastQuery(null, 2027, null, 12);
+        assertThrows(IllegalArgumentException.class, () -> service.execute(onlyYearQuery));
+
+        // Only fromWeek provided
+        CapacityForecastQuery onlyWeekQuery = new CapacityForecastQuery(null, null, 20, 12);
+        assertThrows(IllegalArgumentException.class, () -> service.execute(onlyWeekQuery));
     }
 }
