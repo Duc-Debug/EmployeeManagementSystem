@@ -32,6 +32,7 @@ public class Timesheet {
     private Long approvedBy;
     private LocalDateTime approvedAt;
     private String rejectionReason;
+    private LocalDateTime remindedAt;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long version;
@@ -172,6 +173,8 @@ public class Timesheet {
     public Long getApprovedBy() { return approvedBy; }
     public LocalDateTime getApprovedAt() { return approvedAt; }
     public String getRejectionReason() { return rejectionReason; }
+    public LocalDateTime getRemindedAt() { return remindedAt; }
+    public void setRemindedAt(LocalDateTime remindedAt) { this.remindedAt = remindedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public Long getVersion() { return version; }
