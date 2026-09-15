@@ -1728,7 +1728,7 @@ export default function ProjectView() {
             {canManageProject && <ProjectTaskModal
                 open={taskModalOpen}
                 categories={categories}
-                members={members}
+                members={allEmployees.length > 0 ? allEmployees : members}
                 defaultCategoryId={defaultCatId}
                 onClose={() => setTaskModalOpen(false)}
                 onSubmit={handleCreateTask}
