@@ -7,6 +7,6 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.sc
 
 @Repository
 public interface SpringDataScenarioDemandRepository extends JpaRepository<ScenarioDemandJpaEntity, Long> {
-    List<ScenarioDemandJpaEntity> findByScenarioIdOrderByWeekStartAsc(Long scenarioId);
+    List<ScenarioDemandJpaEntity> findByScenarioIdOrderByStartYearAscStartWeekAsc(Long scenarioId);
     void deleteByScenarioId(Long scenarioId);
 }

@@ -21,11 +21,17 @@ public class ScenarioDemandJpaEntity {
     @Column(name = "headcount", nullable = false)
     private Integer headcount;
 
-    @Column(name = "week_start", nullable = false)
-    private Integer weekStart;
+    @Column(name = "start_year", nullable = false)
+    private Integer startYear;
 
-    @Column(name = "week_end", nullable = false)
-    private Integer weekEnd;
+    @Column(name = "start_week", nullable = false)
+    private Integer startWeek;
+
+    @Column(name = "end_year", nullable = false)
+    private Integer endYear;
+
+    @Column(name = "end_week", nullable = false)
+    private Integer endWeek;
 
     @Column(name = "hours_per_week_per_person", nullable = false, precision = 5, scale = 2)
     private BigDecimal hoursPerWeekPerPerson;
@@ -46,8 +52,10 @@ public class ScenarioDemandJpaEntity {
             Long scenarioId,
             String demandName,
             Integer headcount,
-            Integer weekStart,
-            Integer weekEnd,
+            Integer startYear,
+            Integer startWeek,
+            Integer endYear,
+            Integer endWeek,
             BigDecimal hoursPerWeekPerPerson,
             String skillRequirement,
             LocalDateTime createdAt,
@@ -57,8 +65,10 @@ public class ScenarioDemandJpaEntity {
         this.scenarioId = scenarioId;
         this.demandName = demandName;
         this.headcount = headcount;
-        this.weekStart = weekStart;
-        this.weekEnd = weekEnd;
+        this.startYear = startYear;
+        this.startWeek = startWeek;
+        this.endYear = endYear;
+        this.endWeek = endWeek;
         this.hoursPerWeekPerPerson = hoursPerWeekPerPerson;
         this.skillRequirement = skillRequirement;
         this.createdAt = createdAt;
@@ -73,10 +83,14 @@ public class ScenarioDemandJpaEntity {
     public void setDemandName(String demandName) { this.demandName = demandName; }
     public Integer getHeadcount() { return headcount; }
     public void setHeadcount(Integer headcount) { this.headcount = headcount; }
-    public Integer getWeekStart() { return weekStart; }
-    public void setWeekStart(Integer weekStart) { this.weekStart = weekStart; }
-    public Integer getWeekEnd() { return weekEnd; }
-    public void setWeekEnd(Integer weekEnd) { this.weekEnd = weekEnd; }
+    public Integer getStartYear() { return startYear; }
+    public void setStartYear(Integer startYear) { this.startYear = startYear; }
+    public Integer getStartWeek() { return startWeek; }
+    public void setStartWeek(Integer startWeek) { this.startWeek = startWeek; }
+    public Integer getEndYear() { return endYear; }
+    public void setEndYear(Integer endYear) { this.endYear = endYear; }
+    public Integer getEndWeek() { return endWeek; }
+    public void setEndWeek(Integer endWeek) { this.endWeek = endWeek; }
     public BigDecimal getHoursPerWeekPerPerson() { return hoursPerWeekPerPerson; }
     public void setHoursPerWeekPerPerson(BigDecimal hoursPerWeekPerPerson) { this.hoursPerWeekPerPerson = hoursPerWeekPerPerson; }
     public String getSkillRequirement() { return skillRequirement; }

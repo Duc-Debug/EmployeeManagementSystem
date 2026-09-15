@@ -106,6 +106,18 @@ public class ResourceScenario {
         this.snapshotItems = items != null ? new ArrayList<>(items) : new ArrayList<>();
     }
 
+    public com.hrm.employeemanagement.domain.availability.YearWeek getStartYearWeek() {
+        return com.hrm.employeemanagement.domain.availability.YearWeek.of(fromYear, fromWeek);
+    }
+
+    public com.hrm.employeemanagement.domain.availability.YearWeek getEndYearWeek() {
+        com.hrm.employeemanagement.domain.availability.YearWeek start = getStartYearWeek();
+        java.time.LocalDate monday = start.getStartDate().plusWeeks(durationWeeks - 1);
+        int y = monday.get(java.time.temporal.IsoFields.WEEK_BASED_YEAR);
+        int w = monday.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        return com.hrm.employeemanagement.domain.availability.YearWeek.of(y, w);
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getCode() { return code; }

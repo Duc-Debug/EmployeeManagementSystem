@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- FLYWAY MIGRATION V88: CREATE SIMULATION SCENARIO SCHEMA
 -- Epic: NCL-08 (Mô phỏng kịch bản nhận thêm dự án)
 -- Story: NCL-08-CN-001 (Tạo kịch bản mô phỏng nhận thêm dự án - QTN-14)
@@ -37,8 +37,10 @@ CREATE TABLE IF NOT EXISTS scenario_demands (
     scenario_id BIGINT NOT NULL,
     demand_name VARCHAR(255) NOT NULL,
     headcount INT NOT NULL,
-    week_start INT NOT NULL,
-    week_end INT NOT NULL,
+    start_year INT NOT NULL,
+    start_week INT NOT NULL,
+    end_year INT NOT NULL,
+    end_week INT NOT NULL,
     hours_per_week_per_person DECIMAL(5, 2) NOT NULL,
     skill_requirement VARCHAR(255) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -47,7 +49,11 @@ CREATE TABLE IF NOT EXISTS scenario_demands (
     CONSTRAINT fk_demand_scenario FOREIGN KEY (scenario_id) REFERENCES resource_scenarios(id) ON DELETE CASCADE,
     CONSTRAINT chk_demand_headcount CHECK (headcount > 0),
     CONSTRAINT chk_demand_hours CHECK (hours_per_week_per_person >= 0),
-    CONSTRAINT chk_demand_weeks CHECK (week_start BETWEEN 1 AND 53 AND week_end BETWEEN 1 AND 53 AND week_start <= week_end)
+    CONSTRAINT chk_demand_start_week CHECK (start_week BETWEEN 1 AND 53),
+    CONSTRAINT chk_demand_end_week CHECK (end_week BETWEEN 1 AND 53),
+    CONSTRAINT chk_demand_year_week CHECK (
+        start_year < end_year OR (start_year = end_year AND start_week <= end_week)
+    )
 );
 
 CREATE INDEX idx_demand_scenario_id ON scenario_demands (scenario_id);

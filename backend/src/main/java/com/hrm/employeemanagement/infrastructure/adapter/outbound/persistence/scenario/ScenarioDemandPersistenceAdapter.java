@@ -38,7 +38,7 @@ public class ScenarioDemandPersistenceAdapter implements
 
     @Override
     public List<ScenarioDemand> findByScenarioId(Long scenarioId) {
-        return repository.findByScenarioIdOrderByWeekStartAsc(scenarioId).stream()
+        return repository.findByScenarioIdOrderByStartYearAscStartWeekAsc(scenarioId).stream()
                 .map(this::toDomain)
                 .toList();
     }
@@ -59,8 +59,10 @@ public class ScenarioDemandPersistenceAdapter implements
                 domain.getScenarioId(),
                 domain.getDemandName(),
                 domain.getHeadcount(),
-                domain.getWeekStart(),
-                domain.getWeekEnd(),
+                domain.getStartYear(),
+                domain.getStartWeek(),
+                domain.getEndYear(),
+                domain.getEndWeek(),
                 domain.getHoursPerWeekPerPerson(),
                 domain.getSkillRequirement(),
                 domain.getCreatedAt(),
@@ -74,8 +76,10 @@ public class ScenarioDemandPersistenceAdapter implements
                 entity.getScenarioId(),
                 entity.getDemandName(),
                 entity.getHeadcount(),
-                entity.getWeekStart(),
-                entity.getWeekEnd(),
+                entity.getStartYear(),
+                entity.getStartWeek(),
+                entity.getEndYear(),
+                entity.getEndWeek(),
                 entity.getHoursPerWeekPerPerson(),
                 entity.getSkillRequirement(),
                 entity.getCreatedAt(),

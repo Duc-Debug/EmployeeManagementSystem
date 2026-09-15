@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.domain.scenario;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException;
 
 public class ScenarioDemand {
@@ -10,8 +11,10 @@ public class ScenarioDemand {
     private Long scenarioId;
     private String demandName;
     private Integer headcount;
-    private Integer weekStart;
-    private Integer weekEnd;
+    private Integer startYear;
+    private Integer startWeek;
+    private Integer endYear;
+    private Integer endWeek;
     private BigDecimal hoursPerWeekPerPerson;
     private String skillRequirement;
     private LocalDateTime createdAt;
@@ -22,8 +25,10 @@ public class ScenarioDemand {
             Long scenarioId,
             String demandName,
             Integer headcount,
-            Integer weekStart,
-            Integer weekEnd,
+            Integer startYear,
+            Integer startWeek,
+            Integer endYear,
+            Integer endWeek,
             BigDecimal hoursPerWeekPerPerson,
             String skillRequirement,
             LocalDateTime createdAt,
@@ -33,8 +38,10 @@ public class ScenarioDemand {
         this.scenarioId = scenarioId;
         this.demandName = demandName;
         this.headcount = headcount;
-        this.weekStart = weekStart;
-        this.weekEnd = weekEnd;
+        this.startYear = startYear;
+        this.startWeek = startWeek;
+        this.endYear = endYear;
+        this.endWeek = endWeek;
         this.hoursPerWeekPerPerson = hoursPerWeekPerPerson;
         this.skillRequirement = skillRequirement;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
@@ -46,8 +53,10 @@ public class ScenarioDemand {
             Long scenarioId,
             String demandName,
             Integer headcount,
-            Integer weekStart,
-            Integer weekEnd,
+            Integer startYear,
+            Integer startWeek,
+            Integer endYear,
+            Integer endWeek,
             BigDecimal hoursPerWeekPerPerson,
             String skillRequirement
     ) {
@@ -56,8 +65,10 @@ public class ScenarioDemand {
                 scenarioId,
                 demandName,
                 headcount,
-                weekStart,
-                weekEnd,
+                startYear,
+                startWeek,
+                endYear,
+                endWeek,
                 hoursPerWeekPerPerson,
                 skillRequirement,
                 LocalDateTime.now(),
@@ -65,18 +76,46 @@ public class ScenarioDemand {
         );
     }
 
+    public static ScenarioDemand create(
+            Long scenarioId,
+            String demandName,
+            Integer headcount,
+            YearWeek demandStart,
+            YearWeek demandEnd,
+            BigDecimal hoursPerWeekPerPerson,
+            String skillRequirement
+    ) {
+        Objects.requireNonNull(demandStart, "demandStart không được null");
+        Objects.requireNonNull(demandEnd, "demandEnd không được null");
+        return create(
+                scenarioId,
+                demandName,
+                headcount,
+                demandStart.year(),
+                demandStart.weekNumber(),
+                demandEnd.year(),
+                demandEnd.weekNumber(),
+                hoursPerWeekPerPerson,
+                skillRequirement
+        );
+    }
+
     public void update(
             String demandName,
             Integer headcount,
-            Integer weekStart,
-            Integer weekEnd,
+            Integer startYear,
+            Integer startWeek,
+            Integer endYear,
+            Integer endWeek,
             BigDecimal hoursPerWeekPerPerson,
             String skillRequirement
     ) {
         this.demandName = demandName;
         this.headcount = headcount;
-        this.weekStart = weekStart;
-        this.weekEnd = weekEnd;
+        this.startYear = startYear;
+        this.startWeek = startWeek;
+        this.endYear = endYear;
+        this.endWeek = endWeek;
         this.hoursPerWeekPerPerson = hoursPerWeekPerPerson;
         this.skillRequirement = skillRequirement;
         this.updatedAt = LocalDateTime.now();
@@ -93,11 +132,18 @@ public class ScenarioDemand {
         if (hoursPerWeekPerPerson == null || hoursPerWeekPerPerson.compareTo(BigDecimal.ZERO) < 0) {
             throw new InvalidScenarioDemandException("Số giờ/tuần/người không được âm");
         }
-        if (weekStart == null || weekEnd == null || weekStart < 1 || weekStart > 53 || weekEnd < 1 || weekEnd > 53) {
+        if (startYear == null || startWeek == null || endYear == null || endWeek == null) {
+            throw new InvalidScenarioDemandException("Năm và tuần bắt đầu/kết thúc không được để trống");
+        }
+        if (startWeek < 1 || startWeek > 53 || endWeek < 1 || endWeek > 53) {
             throw new InvalidScenarioDemandException("Tuần bắt đầu và tuần kết thúc phải nằm trong khoảng từ 1 đến 53");
         }
-        if (weekStart > weekEnd) {
-            throw new InvalidScenarioDemandException("Tuần bắt đầu không được lớn hơn tuần kết thúc");
+        YearWeek start = YearWeek.of(startYear, startWeek);
+        YearWeek end = YearWeek.of(endYear, endWeek);
+        if (start.isAfter(end)) {
+            throw new InvalidScenarioDemandException(
+                    "Thời điểm bắt đầu nhu cầu (" + startYear + "-W" + startWeek + ") không được sau thời điểm kết thúc (" + endYear + "-W" + endWeek + ")"
+            );
         }
     }
 
@@ -108,8 +154,19 @@ public class ScenarioDemand {
         return hoursPerWeekPerPerson.multiply(BigDecimal.valueOf(headcount));
     }
 
-    public boolean isActiveInWeek(int weekNumber) {
-        return weekNumber >= weekStart && weekNumber <= weekEnd;
+    public boolean isActiveInWeek(YearWeek week) {
+        if (week == null) return false;
+        YearWeek start = getDemandStart();
+        YearWeek end = getDemandEnd();
+        return !week.isBefore(start) && !week.isAfter(end);
+    }
+
+    public YearWeek getDemandStart() {
+        return (startYear != null && startWeek != null) ? YearWeek.of(startYear, startWeek) : null;
+    }
+
+    public YearWeek getDemandEnd() {
+        return (endYear != null && endWeek != null) ? YearWeek.of(endYear, endWeek) : null;
     }
 
     public Long getId() { return id; }
@@ -118,8 +175,12 @@ public class ScenarioDemand {
     public void setScenarioId(Long scenarioId) { this.scenarioId = scenarioId; }
     public String getDemandName() { return demandName; }
     public Integer getHeadcount() { return headcount; }
-    public Integer getWeekStart() { return weekStart; }
-    public Integer getWeekEnd() { return weekEnd; }
+    public Integer getStartYear() { return startYear; }
+    public Integer getStartWeek() { return startWeek; }
+    public Integer getEndYear() { return endYear; }
+    public Integer getEndWeek() { return endWeek; }
+    public Integer getWeekStart() { return startWeek; }
+    public Integer getWeekEnd() { return endWeek; }
     public BigDecimal getHoursPerWeekPerPerson() { return hoursPerWeekPerPerson; }
     public String getSkillRequirement() { return skillRequirement; }
     public LocalDateTime getCreatedAt() { return createdAt; }
