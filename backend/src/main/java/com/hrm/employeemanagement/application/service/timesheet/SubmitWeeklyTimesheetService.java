@@ -187,6 +187,7 @@ public class SubmitWeeklyTimesheetService implements SubmitWeeklyTimesheetUseCas
                     e.isBillable(),
                     e.getDescription(),
                     e.getStatus().name(),
+                    e.getRejectionReason(),
                     e.getCreatedAt(),
                     e.getUpdatedAt(),
                     e.getVersion()

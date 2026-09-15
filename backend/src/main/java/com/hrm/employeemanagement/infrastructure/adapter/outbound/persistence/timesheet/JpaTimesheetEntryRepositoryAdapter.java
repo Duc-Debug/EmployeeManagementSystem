@@ -54,6 +54,15 @@ public class JpaTimesheetEntryRepositoryAdapter implements LoadTimesheetEntryPor
     }
 
     @Override
+    public List<TimesheetEntry> findPendingApprovals(EmployeeId managerId) {
+        if (managerId == null || managerId.value() == null) return List.of();
+        return repository.findPendingApprovalsByManager(managerId.value(), TimesheetStatus.SUBMITTED.name())
+                .stream()
+                .map(this::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public BigDecimal sumHoursByEmployeeAndDate(EmployeeId employeeId, LocalDate workDate, TimesheetEntryId excludeEntryId) {
         if (employeeId == null || employeeId.value() == null || workDate == null) return BigDecimal.ZERO;
         Long excludeId = excludeEntryId != null ? excludeEntryId.value() : null;
@@ -76,7 +85,7 @@ public class JpaTimesheetEntryRepositoryAdapter implements LoadTimesheetEntryPor
     }
 
     private TimesheetEntry toDomain(TimesheetEntryJpaEntity entity) {
-        return new TimesheetEntry(
+        TimesheetEntry entry = new TimesheetEntry(
                 new TimesheetEntryId(entity.getId()),
                 new TimesheetId(entity.getTimesheetId()),
                 new EmployeeId(entity.getEmployeeId()),
@@ -91,6 +100,8 @@ public class JpaTimesheetEntryRepositoryAdapter implements LoadTimesheetEntryPor
                 entity.getUpdatedAt(),
                 entity.getVersion()
         );
+        entry.setRejectionReason(entity.getRejectionReason());
+        return entry;
     }
 
     private TimesheetEntryJpaEntity toJpaEntity(TimesheetEntry domain) {
@@ -109,6 +120,7 @@ public class JpaTimesheetEntryRepositoryAdapter implements LoadTimesheetEntryPor
         entity.setBillable(domain.isBillable());
         entity.setDescription(domain.getDescription());
         entity.setStatus(domain.getStatus().name());
+        entity.setRejectionReason(domain.getRejectionReason());
         if (domain.getCreatedAt() != null) {
             entity.setCreatedAt(domain.getCreatedAt());
         }
