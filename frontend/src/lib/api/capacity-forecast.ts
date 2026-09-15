@@ -45,7 +45,7 @@ export interface CapacityForecastQueryParams {
   durationWeeks?: number;
 }
 
-export async function getCapacityForecastReport(params?: CapacityForecastQueryParams): Promise<CapacityForecastReportData> {
+export async function getCapacityForecastReport(params?: CapacityForecastQueryParams, signal?: AbortSignal): Promise<CapacityForecastReportData> {
   const query = new URLSearchParams();
   if (params?.orgUnitId) query.append("orgUnitId", String(params.orgUnitId));
   if (params?.fromYear) query.append("fromYear", String(params.fromYear));
@@ -53,6 +53,6 @@ export async function getCapacityForecastReport(params?: CapacityForecastQueryPa
   if (params?.durationWeeks) query.append("durationWeeks", String(params.durationWeeks));
 
   const qs = query.toString() ? `?${query.toString()}` : "";
-  return apiRequest<CapacityForecastReportData>(`/reports/capacity-forecast${qs}`);
+  return apiRequest<CapacityForecastReportData>(`/reports/capacity-forecast${qs}`, { signal });
 }
 

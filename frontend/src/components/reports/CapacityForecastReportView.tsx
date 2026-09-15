@@ -61,7 +61,7 @@ export default function CapacityForecastReportView() {
     loadOrgUnitsData();
   }, []);
 
-  const fetchReport = async () => {
+  const fetchReport = async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     setForbidden(false);
@@ -71,9 +71,12 @@ export default function CapacityForecastReportView() {
         fromWeek,
         durationWeeks,
         orgUnitId: selectedOrgUnitId ? Number(selectedOrgUnitId) : undefined
-      });
+      }, signal);
       setReportData(data);
     } catch (err: any) {
+      if (err?.name === "AbortError") {
+        return;
+      }
       if (err?.status === 403 || String(err?.message || "").includes("403")) {
         setForbidden(true);
       } else {
@@ -81,12 +84,18 @@ export default function CapacityForecastReportView() {
       }
       setReportData(null);
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchReport();
+    const controller = new AbortController();
+    fetchReport(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [fromYear, fromWeek, durationWeeks, selectedOrgUnitId]);
 
   const maxWeeksInFromYear = getIsoWeeksInYear(fromYear);
@@ -243,7 +252,7 @@ export default function CapacityForecastReportView() {
         </div>
 
         <button
-          onClick={fetchReport}
+          onClick={() => fetchReport()}
           disabled={isLoading}
           className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition"
         >
@@ -281,7 +290,7 @@ export default function CapacityForecastReportView() {
             onChange={(e) => setFromYear(Number(e.target.value))}
             className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
           >
-            {[fromYear - 1, fromYear, fromYear + 1].map((y) => (
+            {[currentIsoDetails.year, currentIsoDetails.year + 1].map((y) => (
               <option key={y} value={y}>Năm {y}</option>
             ))}
           </select>
