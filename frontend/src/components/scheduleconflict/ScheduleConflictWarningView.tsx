@@ -27,10 +27,7 @@ import type {
 } from "@/lib/api/schedule-conflict";
 
 import ReplacementSuggestionModal from "./ReplacementSuggestionModal";
-<<<<<<< HEAD
 import ConflictResolutionModal from "./ConflictResolutionModal";
-=======
->>>>>>> a114810c62cc3c7fb7293ec35488e2621e5a793e
 
 export default function ScheduleConflictWarningView() {
     const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
@@ -39,10 +36,7 @@ export default function ScheduleConflictWarningView() {
     const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [selectedConflictForReplacement, setSelectedConflictForReplacement] = useState<ScheduleConflict | null>(null);
-<<<<<<< HEAD
     const [selectedConflictForResolution, setSelectedConflictForResolution] = useState<ScheduleConflict | null>(null);
-=======
->>>>>>> a114810c62cc3c7fb7293ec35488e2621e5a793e
 
     // Filters
     const [searchTerm, setSearchTerm] = useState<string>("");
@@ -134,11 +128,7 @@ export default function ScheduleConflictWarningView() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
                 <div>
-<<<<<<< HEAD
-                    <h1 className="text-xl font-bold text-slate-900">Danh sách Xung đột Lịch cần Xử lý (NCL-07-CN-005)</h1>
-=======
-                    <h1 className="text-xl font-bold text-slate-900">Cảnh báo Xung đột Lịch của Nhân sự</h1>
->>>>>>> a114810c62cc3c7fb7293ec35488e2621e5a793e
+                    <h1 className="text-xl font-bold text-slate-900">Danh sách Xung đột Lịch cần Xử lý</h1>
                     <p className="text-xs text-slate-500 mt-1">
                         Hệ thống gom các xung đột đang mở thành danh sách, gán người chịu trách nhiệm, ghi nhận cách xử lý và theo dõi các xung đột tái phát.
                     </p>
