@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -14,12 +13,17 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import com.hrm.employeemanagement.application.dto.conflict.AssignScheduleConflictHandlerCommand;
+import com.hrm.employeemanagement.application.dto.conflict.ResolveScheduleConflictWithNoteCommand;
 import com.hrm.employeemanagement.application.dto.conflict.ScheduleConflictQuery;
 import com.hrm.employeemanagement.application.dto.conflict.ScheduleConflictResult;
+import com.hrm.employeemanagement.application.port.inbound.conflict.AssignScheduleConflictHandlerUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.GetScheduleConflictsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.NotifyScheduleConflictUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictUseCase;
+import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictWithNoteUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ScanScheduleConflictsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
@@ -48,7 +52,9 @@ public class ScheduleConflictService implements
         GetScheduleConflictsUseCase,
         ScanScheduleConflictsUseCase,
         NotifyScheduleConflictUseCase,
-        ResolveScheduleConflictUseCase {
+        ResolveScheduleConflictUseCase,
+        ResolveScheduleConflictWithNoteUseCase,
+        AssignScheduleConflictHandlerUseCase {
 
     private final LoadScheduleConflictPort loadConflictPort;
     private final SaveScheduleConflictPort saveConflictPort;
@@ -87,13 +93,13 @@ public class ScheduleConflictService implements
 
     @Override
     public List<ScheduleConflictResult> getScheduleConflicts(ScheduleConflictQuery query) {
-        // TC-04: Enforce permission RESOURCE_SCHEDULE_CONFLICT_READ (VT-02 PM, VT-03 RM, VT-06 Admin)
+        // Enforce permission (VT-02 PM, VT-03 RM, VT-06 Admin)
         authorizationService.requireAny(
                 PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ,
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
 
-        // GET endpoint is strictly read-only (HIGH 1: zero DB side-effects)
         List<ScheduleConflict> conflicts = loadConflictPort.findConflicts(
                 query.yearNumber(),
                 query.startWeek(),
@@ -116,7 +122,8 @@ public class ScheduleConflictService implements
     @Override
     public List<ScheduleConflictResult> scanScheduleConflicts(Integer yearNumber, Integer startWeek, Integer endWeek) {
         authorizationService.requireAny(
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
 
         Integer year = yearNumber != null ? yearNumber : LocalDate.now().getYear();
@@ -129,9 +136,9 @@ public class ScheduleConflictService implements
 
     @Override
     public ScheduleConflictResult notifyScheduleConflict(Long conflictId) {
-        // BLOCKER 1: Require strictly RESOURCE_SCHEDULE_CONFLICT_NOTIFY (READ permission is not allowed to mutate data)
         Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
 
         ScheduleConflict conflict = loadConflictPort.findById(conflictId)
@@ -140,7 +147,6 @@ public class ScheduleConflictService implements
         conflict.markAsNotified(currentUserId);
         ScheduleConflict saved = saveConflictPort.save(conflict);
 
-        // Fetch employee info for simulated notification
         Optional<Employee> empOpt = loadEmployeePort.findById(new EmployeeId(conflict.getEmployeeId()));
         String empName = empOpt.map(Employee::getFullName).orElse("Nhân viên #" + conflict.getEmployeeId());
         String empCode = empOpt.map(Employee::getEmployeeCode).orElse("NV" + conflict.getEmployeeId());
@@ -149,7 +155,6 @@ public class ScheduleConflictService implements
                 ? "Trùng phân bổ nhiều dự án (" + conflict.getProjectNames() + ") - Giờ vượt: " + conflict.getExcessHours() + "h"
                 : "Xung đột phân bổ (" + conflict.getProjectNames() + ") và đơn nghỉ phép đã duyệt (" + conflict.getLeaveInfo() + ")";
 
-        // Trigger simulated notification email/message
         notificationPort.sendScheduleConflictWarningNotification(
                 "pm.management@company.com",
                 "Quản lý dự án / Resource Manager",
@@ -158,7 +163,6 @@ public class ScheduleConflictService implements
                 conflict.getDetails() != null ? conflict.getDetails() : "Xung đột phát hiện tuần " + conflict.getWeekNumber() + "/" + conflict.getYearNumber()
         );
 
-        // TC-05: Record audit log entry in audit_logs table
         auditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "NOTIFY_SCHEDULE_CONFLICT",
@@ -173,9 +177,9 @@ public class ScheduleConflictService implements
 
     @Override
     public ScheduleConflictResult resolveScheduleConflict(Long conflictId) {
-        // BLOCKER 1: Require strictly RESOURCE_SCHEDULE_CONFLICT_NOTIFY (READ permission is not allowed to mutate data)
         Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
 
         ScheduleConflict conflict = loadConflictPort.findById(conflictId)
@@ -184,7 +188,6 @@ public class ScheduleConflictService implements
         conflict.markAsResolved();
         ScheduleConflict saved = saveConflictPort.save(conflict);
 
-        // TC-05: Record audit log entry in audit_logs table
         auditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "RESOLVE_SCHEDULE_CONFLICT",
@@ -192,6 +195,56 @@ public class ScheduleConflictService implements
                 conflictId,
                 null,
                 "employee_id=" + conflict.getEmployeeId() + ";status=RESOLVED"
+        ));
+
+        return mapToResult(saved);
+    }
+
+    @Override
+    public ScheduleConflictResult resolveScheduleConflictWithNote(ResolveScheduleConflictWithNoteCommand command) {
+        Long currentUserId = authorizationService.requireAny(
+                PermissionCode.RESOURCE_CONFLICT_HANDLE,
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+        );
+
+        ScheduleConflict conflict = loadConflictPort.findById(command.conflictId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cảnh báo xung đột lịch với ID: " + command.conflictId()));
+
+        conflict.resolveWithNote(currentUserId, command.assignedHandlerId(), command.resolutionNote());
+        ScheduleConflict saved = saveConflictPort.save(conflict);
+
+        auditLogPort.save(AuditLog.createChange(
+                currentUserId,
+                "RESOLVE_SCHEDULE_CONFLICT",
+                "schedule_conflict_warnings",
+                command.conflictId(),
+                null,
+                "employee_id=" + conflict.getEmployeeId() + ";status=RESOLVED;assigned_handler_id=" + conflict.getAssignedHandlerId() + ";resolution_note=" + (command.resolutionNote() != null ? command.resolutionNote() : "")
+        ));
+
+        return mapToResult(saved);
+    }
+
+    @Override
+    public ScheduleConflictResult assignScheduleConflictHandler(AssignScheduleConflictHandlerCommand command) {
+        Long currentUserId = authorizationService.requireAny(
+                PermissionCode.RESOURCE_CONFLICT_HANDLE,
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+        );
+
+        ScheduleConflict conflict = loadConflictPort.findById(command.conflictId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cảnh báo xung đột lịch với ID: " + command.conflictId()));
+
+        conflict.assignHandler(command.assignedHandlerId());
+        ScheduleConflict saved = saveConflictPort.save(conflict);
+
+        auditLogPort.save(AuditLog.createChange(
+                currentUserId,
+                "ASSIGN_SCHEDULE_CONFLICT_HANDLER",
+                "schedule_conflict_warnings",
+                command.conflictId(),
+                null,
+                "employee_id=" + conflict.getEmployeeId() + ";assigned_handler_id=" + command.assignedHandlerId()
         ));
 
         return mapToResult(saved);
@@ -207,7 +260,6 @@ public class ScheduleConflictService implements
         for (int week = startWeek; week <= endWeek; week++) {
             final int currentWeekNum = week;
 
-            // Load ALL allocations for target week (pass null employeeIds to search all allocations)
             List<WeeklyProjectAllocation> allocations = loadAllocationPort
                     .loadAllocationsForEmployeesInWeekRange(null, year, currentWeekNum, currentWeekNum);
 
@@ -221,7 +273,6 @@ public class ScheduleConflictService implements
                 continue;
             }
 
-            // Batch load project names for all projects in allocations
             Set<ProjectId> allProjectIds = allocations.stream()
                     .map(WeeklyProjectAllocation::getProjectId)
                     .filter(Objects::nonNull)
@@ -234,7 +285,6 @@ public class ScheduleConflictService implements
 
             List<Long> candidateList = new ArrayList<>(candidateEmpIds);
 
-            // Load approved leaves for candidate employee IDs in target week
             YearWeek yw = new YearWeek(year, currentWeekNum);
             Map<Long, Map<YearWeek, BigDecimal>> approvedLeavesMap = loadApprovedLeavesPort
                     .loadApprovedLeaveHoursForEmployeesAndWeeks(candidateList, List.of(yw));
@@ -263,7 +313,6 @@ public class ScheduleConflictService implements
                 BigDecimal netAvailableHours = standardCapacity.subtract(approvedLeaveHours).max(BigDecimal.ZERO);
 
                 // Scenario 1: Multi-project overload allocation conflict
-                // Strictly requires >= 2 projects AND total allocated hours > standard capacity
                 boolean isMultiProjectConflict = projectIdsSet.size() >= 2 &&
                         totalAllocatedHours.compareTo(standardCapacity) > 0;
 
@@ -287,6 +336,20 @@ public class ScheduleConflictService implements
                         existing.setNetAvailableHours(netAvailableHours);
                         existing.setExcessHours(excessHours);
                         existing.setDetails("Phân bổ trên " + projectIdsSet.size() + " dự án (" + projectNamesStr + ") với tổng " + totalAllocatedHours + "h/tuần");
+
+                        // NCL-07-CN-005-TC-02: Exception flow - Reopen resolved conflict if root cause remains
+                        if (existing.getStatus() == ScheduleConflictStatus.RESOLVED) {
+                            existing.reopenAsRecurrent("Xung đột tái phát: nguyên nhân trùng phân bổ dự án quá tải vẫn chưa được giải quyết dứt điểm");
+                            auditLogPort.save(AuditLog.createChange(
+                                    1L,
+                                    "REOPEN_RECURRENT_SCHEDULE_CONFLICT",
+                                    "schedule_conflict_warnings",
+                                    existing.getId(),
+                                    "status=RESOLVED",
+                                    "status=REOPENED;is_recurrent=true;reason=Cause still exists"
+                            ));
+                        }
+
                         saveConflictPort.save(existing);
                         resultConflicts.add(existing);
                     } else {
@@ -309,7 +372,7 @@ public class ScheduleConflictService implements
                     }
                 }
 
-                // Scenario 2: Leave & Allocation conflict (TC-02)
+                // Scenario 2: Leave & Allocation conflict
                 if (approvedLeaveHours.compareTo(BigDecimal.ZERO) > 0 && totalAllocatedHours.compareTo(BigDecimal.ZERO) > 0) {
                     BigDecimal excessHours = totalAllocatedHours.add(approvedLeaveHours).subtract(standardCapacity).max(BigDecimal.ZERO);
                     if (excessHours.compareTo(BigDecimal.ZERO) == 0) {
@@ -335,6 +398,20 @@ public class ScheduleConflictService implements
                         existingLeaveConflict.setNetAvailableHours(netAvailableHours);
                         existingLeaveConflict.setExcessHours(excessHours);
                         existingLeaveConflict.setDetails("Có đơn nghỉ phép đã duyệt (" + approvedLeaveHours + "h) trùng tuần được phân bổ vào các dự án: " + projectNamesStr);
+
+                        // NCL-07-CN-005-TC-02: Exception flow - Reopen resolved conflict if root cause remains
+                        if (existingLeaveConflict.getStatus() == ScheduleConflictStatus.RESOLVED) {
+                            existingLeaveConflict.reopenAsRecurrent("Xung đột tái phát: nguyên nhân trùng nghỉ phép vẫn chưa được giải quyết dứt điểm");
+                            auditLogPort.save(AuditLog.createChange(
+                                    1L,
+                                    "REOPEN_RECURRENT_SCHEDULE_CONFLICT",
+                                    "schedule_conflict_warnings",
+                                    existingLeaveConflict.getId(),
+                                    "status=RESOLVED",
+                                    "status=REOPENED;is_recurrent=true;reason=Cause still exists"
+                            ));
+                        }
+
                         saveConflictPort.save(existingLeaveConflict);
                         resultConflicts.add(existingLeaveConflict);
                     } else {
@@ -367,13 +444,16 @@ public class ScheduleConflictService implements
             return Collections.emptyList();
         }
 
-        List<EmployeeId> empIds = conflicts.stream()
-                .map(c -> new EmployeeId(c.getEmployeeId()))
-                .distinct()
-                .collect(Collectors.toList());
+        Set<Long> empIdSet = conflicts.stream()
+                .flatMap(c -> Stream.of(c.getEmployeeId(), c.getAssignedHandlerId(), c.getNotifiedBy(), c.getResolvedBy()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
-        Map<Long, Employee> empMap = loadEmployeePort.findAllByIdIn(empIds).stream()
-                .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
+        List<EmployeeId> empIds = empIdSet.stream().map(EmployeeId::new).collect(Collectors.toList());
+
+        Map<Long, Employee> empMap = empIds.isEmpty() ? Collections.emptyMap() :
+                loadEmployeePort.findAllByIdIn(empIds).stream()
+                        .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
 
         List<Long> orgUnitIds = empMap.values().stream()
                 .map(Employee::getOrgUnitId)
@@ -386,15 +466,20 @@ public class ScheduleConflictService implements
                         .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (u1, u2) -> u1));
 
         return conflicts.stream()
-                .map(c -> mapToResult(c, empMap.get(c.getEmployeeId()), orgUnitMap))
+                .map(c -> mapToResult(c, empMap, orgUnitMap))
                 .collect(Collectors.toList());
     }
 
     private ScheduleConflictResult mapToResult(ScheduleConflict conflict) {
-        return mapToResults(List.of(conflict)).get(0);
+        if (conflict == null) {
+            return null;
+        }
+        List<ScheduleConflictResult> results = mapToResults(Collections.singletonList(conflict));
+        return (results != null && !results.isEmpty()) ? results.get(0) : null;
     }
 
-    private ScheduleConflictResult mapToResult(ScheduleConflict conflict, Employee emp, Map<Long, String> orgUnitMap) {
+    private ScheduleConflictResult mapToResult(ScheduleConflict conflict, Map<Long, Employee> empMap, Map<Long, String> orgUnitMap) {
+        Employee emp = empMap.get(conflict.getEmployeeId());
         String empCode = emp != null ? emp.getEmployeeCode() : "NV" + conflict.getEmployeeId();
         String empName = emp != null ? emp.getFullName() : "Nhân viên #" + conflict.getEmployeeId();
 
@@ -411,9 +496,20 @@ public class ScheduleConflictService implements
             case OPEN -> "MỚI PHÁT HIỆN";
             case NOTIFIED -> "ĐÃ THÔNG BÁO";
             case RESOLVED -> "ĐÃ XỬ LÝ";
+            case REOPENED -> "TÁI PHÁT";
         };
 
         String weekLabel = "Tuần " + conflict.getWeekNumber() + "/" + conflict.getYearNumber();
+
+        Employee handler = conflict.getAssignedHandlerId() != null ? empMap.get(conflict.getAssignedHandlerId()) : null;
+        String handlerCode = handler != null ? handler.getEmployeeCode() : (conflict.getAssignedHandlerId() != null ? "NV" + conflict.getAssignedHandlerId() : null);
+        String handlerName = handler != null ? handler.getFullName() : (conflict.getAssignedHandlerId() != null ? "Người xử lý #" + conflict.getAssignedHandlerId() : null);
+
+        Employee notifiedUser = conflict.getNotifiedBy() != null ? empMap.get(conflict.getNotifiedBy()) : null;
+        String notifiedUserName = notifiedUser != null ? notifiedUser.getFullName() : (conflict.getNotifiedBy() != null ? "User #" + conflict.getNotifiedBy() : null);
+
+        Employee resolvedUser = conflict.getResolvedBy() != null ? empMap.get(conflict.getResolvedBy()) : null;
+        String resolvedUserName = resolvedUser != null ? resolvedUser.getFullName() : (conflict.getResolvedBy() != null ? "User #" + conflict.getResolvedBy() : null);
 
         return new ScheduleConflictResult(
                 conflict.getId(),
@@ -438,7 +534,16 @@ public class ScheduleConflictService implements
                 conflict.getDetails(),
                 conflict.getNotifiedAt(),
                 conflict.getNotifiedBy(),
-                null,
+                notifiedUserName,
+                conflict.getAssignedHandlerId(),
+                handlerCode,
+                handlerName,
+                conflict.getResolutionNote(),
+                conflict.getIsRecurrent(),
+                conflict.getRecurrentNote(),
+                conflict.getResolvedAt(),
+                conflict.getResolvedBy(),
+                resolvedUserName,
                 conflict.getCreatedAt(),
                 conflict.getUpdatedAt()
         );

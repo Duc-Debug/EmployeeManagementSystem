@@ -70,6 +70,24 @@ public class ScheduleConflictJpaEntity {
     @Column(name = "notified_by")
     private Long notifiedBy;
 
+    @Column(name = "assigned_handler_id")
+    private Long assignedHandlerId;
+
+    @Column(name = "resolution_note", columnDefinition = "TEXT")
+    private String resolutionNote;
+
+    @Column(name = "is_recurrent")
+    private Boolean isRecurrent = false;
+
+    @Column(name = "recurrent_note", columnDefinition = "TEXT")
+    private String recurrentNote;
+
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
+
+    @Column(name = "resolved_by")
+    private Long resolvedBy;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -205,6 +223,54 @@ public class ScheduleConflictJpaEntity {
 
     public void setNotifiedBy(Long notifiedBy) {
         this.notifiedBy = notifiedBy;
+    }
+
+    public Long getAssignedHandlerId() {
+        return assignedHandlerId;
+    }
+
+    public void setAssignedHandlerId(Long assignedHandlerId) {
+        this.assignedHandlerId = assignedHandlerId;
+    }
+
+    public String getResolutionNote() {
+        return resolutionNote;
+    }
+
+    public void setResolutionNote(String resolutionNote) {
+        this.resolutionNote = resolutionNote;
+    }
+
+    public Boolean getIsRecurrent() {
+        return isRecurrent;
+    }
+
+    public void setIsRecurrent(Boolean isRecurrent) {
+        this.isRecurrent = isRecurrent != null ? isRecurrent : false;
+    }
+
+    public String getRecurrentNote() {
+        return recurrentNote;
+    }
+
+    public void setRecurrentNote(String recurrentNote) {
+        this.recurrentNote = recurrentNote;
+    }
+
+    public LocalDateTime getResolvedAt() {
+        return resolvedAt;
+    }
+
+    public void setResolvedAt(LocalDateTime resolvedAt) {
+        this.resolvedAt = resolvedAt;
+    }
+
+    public Long getResolvedBy() {
+        return resolvedBy;
+    }
+
+    public void setResolvedBy(Long resolvedBy) {
+        this.resolvedBy = resolvedBy;
     }
 
     public LocalDateTime getCreatedAt() {

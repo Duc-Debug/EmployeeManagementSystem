@@ -92,6 +92,12 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
                 entity.getDetails(),
                 entity.getNotifiedAt(),
                 entity.getNotifiedBy(),
+                entity.getAssignedHandlerId(),
+                entity.getResolutionNote(),
+                entity.getIsRecurrent(),
+                entity.getRecurrentNote(),
+                entity.getResolvedAt(),
+                entity.getResolvedBy(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -116,6 +122,12 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
         entity.setDetails(domain.getDetails());
         entity.setNotifiedAt(domain.getNotifiedAt());
         entity.setNotifiedBy(domain.getNotifiedBy());
+        entity.setAssignedHandlerId(domain.getAssignedHandlerId());
+        entity.setResolutionNote(domain.getResolutionNote());
+        entity.setIsRecurrent(domain.getIsRecurrent());
+        entity.setRecurrentNote(domain.getRecurrentNote());
+        entity.setResolvedAt(domain.getResolvedAt());
+        entity.setResolvedBy(domain.getResolvedBy());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
         return entity;

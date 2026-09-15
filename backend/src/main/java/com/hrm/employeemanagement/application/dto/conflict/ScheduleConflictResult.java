@@ -30,6 +30,15 @@ public record ScheduleConflictResult(
         LocalDateTime notifiedAt,
         Long notifiedBy,
         String notifiedByName,
+        Long assignedHandlerId,
+        String assignedHandlerCode,
+        String assignedHandlerName,
+        String resolutionNote,
+        Boolean isRecurrent,
+        String recurrentNote,
+        LocalDateTime resolvedAt,
+        Long resolvedBy,
+        String resolvedByName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

@@ -22,6 +22,12 @@ public class ScheduleConflict {
     private String details;
     private LocalDateTime notifiedAt;
     private Long notifiedBy;
+    private Long assignedHandlerId;
+    private String resolutionNote;
+    private Boolean isRecurrent = false;
+    private String recurrentNote;
+    private LocalDateTime resolvedAt;
+    private Long resolvedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -45,6 +51,12 @@ public class ScheduleConflict {
             String details,
             LocalDateTime notifiedAt,
             Long notifiedBy,
+            Long assignedHandlerId,
+            String resolutionNote,
+            Boolean isRecurrent,
+            String recurrentNote,
+            LocalDateTime resolvedAt,
+            Long resolvedBy,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
@@ -64,6 +76,12 @@ public class ScheduleConflict {
         this.details = details;
         this.notifiedAt = notifiedAt;
         this.notifiedBy = notifiedBy;
+        this.assignedHandlerId = assignedHandlerId;
+        this.resolutionNote = resolutionNote;
+        this.isRecurrent = isRecurrent != null ? isRecurrent : false;
+        this.recurrentNote = recurrentNote;
+        this.resolvedAt = resolvedAt;
+        this.resolvedBy = resolvedBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -99,6 +117,12 @@ public class ScheduleConflict {
                 details,
                 null,
                 null,
+                null,
+                null,
+                false,
+                null,
+                null,
+                null,
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
@@ -113,6 +137,30 @@ public class ScheduleConflict {
 
     public void markAsResolved() {
         this.status = ScheduleConflictStatus.RESOLVED;
+        this.resolvedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void resolveWithNote(Long userId, Long handlerId, String note) {
+        this.status = ScheduleConflictStatus.RESOLVED;
+        if (handlerId != null) {
+            this.assignedHandlerId = handlerId;
+        }
+        this.resolutionNote = note;
+        this.resolvedBy = userId;
+        this.resolvedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void assignHandler(Long handlerId) {
+        this.assignedHandlerId = handlerId;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void reopenAsRecurrent(String note) {
+        this.status = ScheduleConflictStatus.REOPENED;
+        this.isRecurrent = true;
+        this.recurrentNote = note;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -243,6 +291,54 @@ public class ScheduleConflict {
 
     public void setNotifiedBy(Long notifiedBy) {
         this.notifiedBy = notifiedBy;
+    }
+
+    public Long getAssignedHandlerId() {
+        return assignedHandlerId;
+    }
+
+    public void setAssignedHandlerId(Long assignedHandlerId) {
+        this.assignedHandlerId = assignedHandlerId;
+    }
+
+    public String getResolutionNote() {
+        return resolutionNote;
+    }
+
+    public void setResolutionNote(String resolutionNote) {
+        this.resolutionNote = resolutionNote;
+    }
+
+    public Boolean getIsRecurrent() {
+        return isRecurrent;
+    }
+
+    public void setIsRecurrent(Boolean isRecurrent) {
+        this.isRecurrent = isRecurrent != null ? isRecurrent : false;
+    }
+
+    public String getRecurrentNote() {
+        return recurrentNote;
+    }
+
+    public void setRecurrentNote(String recurrentNote) {
+        this.recurrentNote = recurrentNote;
+    }
+
+    public LocalDateTime getResolvedAt() {
+        return resolvedAt;
+    }
+
+    public void setResolvedAt(LocalDateTime resolvedAt) {
+        this.resolvedAt = resolvedAt;
+    }
+
+    public Long getResolvedBy() {
+        return resolvedBy;
+    }
+
+    public void setResolvedBy(Long resolvedBy) {
+        this.resolvedBy = resolvedBy;
     }
 
     public LocalDateTime getCreatedAt() {

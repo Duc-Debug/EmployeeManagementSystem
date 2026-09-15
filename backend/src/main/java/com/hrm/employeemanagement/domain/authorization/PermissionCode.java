@@ -59,5 +59,6 @@ public enum PermissionCode {
     WORK_LOG_CREATE,
     WORK_LOG_READ,
     WORK_LOG_UPDATE,
-    WORK_LOG_DELETE
+    WORK_LOG_DELETE,
+    RESOURCE_CONFLICT_HANDLE
 }

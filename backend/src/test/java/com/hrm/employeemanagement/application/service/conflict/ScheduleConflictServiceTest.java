@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,8 +20,11 @@ import org.mockito.Mockito;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.hrm.employeemanagement.application.dto.conflict.AssignScheduleConflictHandlerCommand;
+import com.hrm.employeemanagement.application.dto.conflict.ResolveScheduleConflictWithNoteCommand;
 import com.hrm.employeemanagement.application.dto.conflict.ScheduleConflictQuery;
 import com.hrm.employeemanagement.application.dto.conflict.ScheduleConflictResult;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.conflict.LoadScheduleConflictPort;
@@ -32,6 +34,7 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
@@ -47,8 +50,6 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnitType;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
-import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
-import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 class ScheduleConflictServiceTest {
@@ -91,15 +92,13 @@ class ScheduleConflictServiceTest {
                 auditLogPort,
                 notificationPort
         );
+
+        when(authorizationService.requireAny(any(PermissionCode[].class))).thenReturn(1L);
     }
 
     @Test
     @DisplayName("NCL-07-CN-001-TC-01: Luồng thành công - Phân bổ 2 dự án cùng tuần phát hiện xung đột và giờ vượt")
     void testTC01_MultiProjectAllocationSuccess() {
-        // Arrange
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenReturn(1L);
-
         Employee emp = new Employee(
                 new EmployeeId(10L),
                 new UserId(100L),
@@ -142,11 +141,9 @@ class ScheduleConflictServiceTest {
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenReturn(createdConflict);
         when(loadConflictPort.findConflicts(2026, 37, 37, null, null, null)).thenReturn(List.of(createdConflict));
 
-        // Act
         ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);
         List<ScheduleConflictResult> results = service.getScheduleConflicts(query);
 
-        // Assert
         assertNotNull(results);
         assertEquals(1, results.size());
         ScheduleConflictResult res = results.get(0);
@@ -161,10 +158,6 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("NCL-07-CN-001-TC-02: Ngoại lệ - Trùng đơn nghỉ phép đã duyệt phát hiện xung đột")
     void testTC02_ApprovedLeaveConflict() {
-        // Arrange
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenReturn(1L);
-
         Employee emp = new Employee(
                 new EmployeeId(11L),
                 new UserId(101L),
@@ -202,11 +195,9 @@ class ScheduleConflictServiceTest {
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenReturn(createdLeaveConflict);
         when(loadConflictPort.findConflicts(2026, 37, 37, null, null, null)).thenReturn(List.of(createdLeaveConflict));
 
-        // Act
         ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);
         List<ScheduleConflictResult> results = service.getScheduleConflicts(query);
 
-        // Assert
         assertNotNull(results);
         assertEquals(1, results.size());
         ScheduleConflictResult res = results.get(0);
@@ -218,18 +209,12 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("NCL-07-CN-001-TC-03: Dữ liệu rỗng - Không có xung đột nào trong khoảng rà soát")
     void testTC03_EmptyDataNoConflicts() {
-        // Arrange
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenReturn(1L);
-
         when(loadEmployeePort.findAllActive()).thenReturn(Collections.emptyList());
         when(loadConflictPort.findConflicts(2026, 37, 37, null, null, null)).thenReturn(Collections.emptyList());
 
-        // Act
         ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);
         List<ScheduleConflictResult> results = service.getScheduleConflicts(query);
 
-        // Assert
         assertNotNull(results);
         assertTrue(results.isEmpty());
     }
@@ -237,11 +222,12 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("NCL-07-CN-001-TC-04: Không có quyền - Người dùng từ chối truy cập và hệ thống ghi log audit PERMISSION_DENIED")
     void testTC04_PermissionDenied() {
-        // Arrange
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ));
+        when(authorizationService.requireAny(
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ,
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
+        )).thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ));
 
-        // Act & Assert
         ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);
         assertThrows(PermissionDeniedException.class, () -> service.getScheduleConflicts(query));
     }
@@ -249,10 +235,6 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("NCL-07-CN-001-TC-05: Lưu lịch sử - Gửi thông báo mô phỏng và cập nhật status + ghi audit log")
     void testTC05_NotifyScheduleConflictAuditHistory() {
-        // Arrange
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenReturn(1L);
-
         ScheduleConflict conflict = ScheduleConflict.create(
                 10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
                 "1,2", "Dự án Alpha, Dự án Beta", null, null,
@@ -264,10 +246,8 @@ class ScheduleConflictServiceTest {
         when(loadConflictPort.findById(1001L)).thenReturn(Optional.of(conflict));
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         ScheduleConflictResult result = service.notifyScheduleConflict(1001L);
 
-        // Assert
         assertNotNull(result);
         assertEquals(ScheduleConflictStatus.NOTIFIED, result.status());
         verify(notificationPort).sendScheduleConflictWarningNotification(any(), any(), any(), any(), any());
@@ -277,8 +257,19 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("BLOCKER 1 Regression: Chỉ có quyền READ không thể gọi notifyScheduleConflict")
     void testNotifyScheduleConflict_ReadPermissionOnly_ThrowsPermissionDeniedException() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trên 2 dự án"
+        );
+        conflict.setId(1001L);
+        when(loadConflictPort.findById(1001L)).thenReturn(Optional.of(conflict));
+
+        when(authorizationService.requireAny(
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
+        )).thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
 
         assertThrows(PermissionDeniedException.class, () -> service.notifyScheduleConflict(1001L));
     }
@@ -286,8 +277,19 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("BLOCKER 1 Regression: Chỉ có quyền READ không thể gọi resolveScheduleConflict")
     void testResolveScheduleConflict_ReadPermissionOnly_ThrowsPermissionDeniedException() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trên 2 dự án"
+        );
+        conflict.setId(1001L);
+        when(loadConflictPort.findById(1001L)).thenReturn(Optional.of(conflict));
+
+        when(authorizationService.requireAny(
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
+        )).thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
 
         assertThrows(PermissionDeniedException.class, () -> service.resolveScheduleConflict(1001L));
     }
@@ -295,9 +297,6 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("HIGH 1 Regression: GET getScheduleConflicts chỉ đọc dữ liệu, không ghi DB")
     void testGetScheduleConflicts_IsReadOnly_DoesNotScanOrPersist() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ, PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenReturn(1L);
-
         ScheduleConflictQuery query = new ScheduleConflictQuery(2026, 37, 37, null, null, null, null);
         service.getScheduleConflicts(query);
 
@@ -307,8 +306,10 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("HIGH Regression: Chỉ có quyền READ không thể gọi scanScheduleConflicts")
     void testScanScheduleConflicts_ReadPermissionOnly_ThrowsPermissionDeniedException() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
+        when(authorizationService.requireAny(
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
+        )).thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
 
         assertThrows(PermissionDeniedException.class, () -> service.scanScheduleConflicts(2026, 37, 37));
     }
@@ -316,9 +317,6 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("HIGH 2 Regression: Phân bổ 2 dự án nhưng tổng giờ <= 40h capacity không tạo cảnh báo xung đột")
     void testMultiProjectAllocationWithinCapacity_NoConflict() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenReturn(1L);
-
         Employee emp = new Employee(
                 new EmployeeId(12L),
                 new UserId(102L),
@@ -348,9 +346,6 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("Regression: 1 project vượt capacity (50h/40h) KHÔNG tạo MULTI_PROJECT_ALLOCATION")
     void testSingleProjectOverload_DoesNotCreateMultiProjectConflict() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenReturn(1L);
-
         Employee emp = new Employee(
                 new EmployeeId(13L),
                 new UserId(103L),
@@ -378,9 +373,6 @@ class ScheduleConflictServiceTest {
     @Test
     @DisplayName("Regression: Phân bổ 2 dự án tổng 40h + nghỉ phép 8h chỉ tạo LEAVE_ALLOCATION_CONFLICT, không tạo MULTI_PROJECT_ALLOCATION")
     void testTwoProjectsWithinCapacityWithLeave_CreatesOnlyLeaveConflictNotMultiProject() {
-        when(authorizationService.requireAny(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY))
-                .thenReturn(1L);
-
         Employee emp = new Employee(
                 new EmployeeId(14L),
                 new UserId(104L),
@@ -420,5 +412,124 @@ class ScheduleConflictServiceTest {
 
         assertEquals(1, scanned.size());
         assertEquals(ConflictType.LEAVE_ALLOCATION_CONFLICT, scanned.get(0).conflictType());
+    }
+
+    @Test
+    @DisplayName("NCL-07-CN-005-TC-01: Luồng thành công - Đánh dấu một xung đột là đã xử lý kèm người xử lý và cách xử lý")
+    void testNCL07CN005_TC01_ResolveConflictWithNoteSuccess() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Xung đột 3 xung đột mở"
+        );
+        conflict.setId(2001L);
+
+        when(loadConflictPort.findById(2001L)).thenReturn(Optional.of(conflict));
+        when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ResolveScheduleConflictWithNoteCommand command = new ResolveScheduleConflictWithNoteCommand(
+                2001L, 20L, "Đã giảm giờ phân bổ dự án Alpha xuống 20h"
+        );
+
+        ScheduleConflictResult result = service.resolveScheduleConflictWithNote(command);
+
+        assertNotNull(result);
+        assertEquals(ScheduleConflictStatus.RESOLVED, result.status());
+        assertEquals(20L, result.assignedHandlerId());
+        assertEquals("Đã giảm giờ phân bổ dự án Alpha xuống 20h", result.resolutionNote());
+        verify(auditLogPort).save(any());
+    }
+
+    @Test
+    @DisplayName("NCL-07-CN-005-TC-02: Ngoại lệ - Nguyên nhân gây xung đột vẫn còn sau khi đánh dấu đã xử lý -> Tự động mở lại và ghi chú tái phát")
+    void testNCL07CN005_TC02_RecurrentConflictReopenedOnScan() {
+        Employee emp = new Employee(
+                new EmployeeId(10L),
+                new UserId(100L),
+                1L,
+                "NV010",
+                "Nguyễn Văn A",
+                false,
+                40,
+                com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp));
+
+        WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(1L, 10L, 1L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
+        WeeklyProjectAllocation alloc2 = new WeeklyProjectAllocation(2L, 10L, 2L, new YearWeek(2026, 37), BigDecimal.valueOf(40.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesInWeekRange(any(), eq(2026), eq(37), eq(37)))
+                .thenReturn(List.of(alloc1, alloc2));
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any()))
+                .thenReturn(Collections.emptyMap());
+
+        ScheduleConflict resolvedConflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trên 2 dự án"
+        );
+        resolvedConflict.setId(2002L);
+        resolvedConflict.markAsResolved();
+
+        when(loadConflictPort.findExistingConflict(10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION))
+                .thenReturn(Optional.of(resolvedConflict));
+        when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
+
+        assertEquals(1, scanned.size());
+        ScheduleConflictResult res = scanned.get(0);
+        assertEquals(ScheduleConflictStatus.REOPENED, res.status());
+        assertTrue(res.isRecurrent());
+        assertTrue(res.recurrentNote().contains("Xung đột tái phát"));
+    }
+
+    @Test
+    @DisplayName("NCL-07-CN-005-TC-03: Không có quyền - Từ chối truy cập và ghi nhật ký từ chối PERMISSION_DENIED")
+    void testNCL07CN005_TC03_NoPermissionDenied() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Xung đột 3 xung đột mở"
+        );
+        conflict.setId(2001L);
+        when(loadConflictPort.findById(2001L)).thenReturn(Optional.of(conflict));
+
+        when(authorizationService.requireAny(
+                PermissionCode.RESOURCE_CONFLICT_HANDLE,
+                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+        )).thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_CONFLICT_HANDLE));
+
+        ResolveScheduleConflictWithNoteCommand command = new ResolveScheduleConflictWithNoteCommand(
+                2001L, 20L, "Xử lý"
+        );
+
+        assertThrows(PermissionDeniedException.class, () -> service.resolveScheduleConflictWithNote(command));
+    }
+
+    @Test
+    @DisplayName("NCL-07-CN-005-TC-04: Gán người xử lý - Lưu lịch sử audit log thành công")
+    void testNCL07CN005_TC04_AssignHandlerAuditLog() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Xung đột 3 xung đột mở"
+        );
+        conflict.setId(2003L);
+
+        when(loadConflictPort.findById(2003L)).thenReturn(Optional.of(conflict));
+        when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AssignScheduleConflictHandlerCommand command = new AssignScheduleConflictHandlerCommand(2003L, 25L);
+
+        ScheduleConflictResult result = service.assignScheduleConflictHandler(command);
+
+        assertNotNull(result);
+        assertEquals(25L, result.assignedHandlerId());
+        verify(auditLogPort).save(any());
     }
 }

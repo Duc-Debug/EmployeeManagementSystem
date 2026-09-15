@@ -3,7 +3,7 @@
 import { apiRequest } from "../api-client";
 
 export type ConflictType = "MULTI_PROJECT_ALLOCATION" | "LEAVE_ALLOCATION_CONFLICT";
-export type ScheduleConflictStatus = "OPEN" | "NOTIFIED" | "RESOLVED";
+export type ScheduleConflictStatus = "OPEN" | "NOTIFIED" | "RESOLVED" | "REOPENED";
 
 export interface ScheduleConflict {
     id: number;
@@ -28,6 +28,16 @@ export interface ScheduleConflict {
     details?: string;
     notifiedAt?: string;
     notifiedBy?: number;
+    notifiedByName?: string;
+    assignedHandlerId?: number;
+    assignedHandlerCode?: string;
+    assignedHandlerName?: string;
+    resolutionNote?: string;
+    isRecurrent?: boolean;
+    recurrentNote?: string;
+    resolvedAt?: string;
+    resolvedBy?: number;
+    resolvedByName?: string;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -54,7 +64,6 @@ export async function getScheduleConflicts(query?: ScheduleConflictQuery): Promi
 
     const queryString = params.toString();
     const url = `/schedule-conflicts${queryString ? `?${queryString}` : ""}`;
-    // apiRequest already unwraps the backend ApiResponse and returns its data.
     return apiRequest<ScheduleConflict[]>(url);
 }
 
@@ -75,6 +84,26 @@ export async function notifyScheduleConflict(id: number): Promise<ScheduleConfli
 
 export async function resolveScheduleConflict(id: number): Promise<ScheduleConflict> {
     return apiRequest<ScheduleConflict>(`/schedule-conflicts/${id}/resolve`, { method: "POST" });
+}
+
+export async function resolveScheduleConflictWithNote(
+    id: number,
+    payload: { assignedHandlerId?: number; resolutionNote: string }
+): Promise<ScheduleConflict> {
+    return apiRequest<ScheduleConflict>(`/schedule-conflicts/${id}/resolve-with-note`, {
+        method: "POST",
+        body: JSON.stringify({ conflictId: id, ...payload }),
+    });
+}
+
+export async function assignScheduleConflictHandler(
+    id: number,
+    assignedHandlerId: number
+): Promise<ScheduleConflict> {
+    return apiRequest<ScheduleConflict>(`/schedule-conflicts/${id}/assign-handler`, {
+        method: "POST",
+        body: JSON.stringify({ conflictId: id, assignedHandlerId }),
+    });
 }
 
 export interface ReplacementCandidate {
@@ -161,4 +190,3 @@ export async function confirmReplacementProposal(
         body: JSON.stringify(payload),
     });
 }
-
