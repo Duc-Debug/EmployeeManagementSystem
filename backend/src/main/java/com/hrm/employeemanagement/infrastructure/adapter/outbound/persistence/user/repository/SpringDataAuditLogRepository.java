@@ -4,6 +4,10 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.us
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface SpringDataAuditLogRepository extends JpaRepository<AuditLogJpaEntity, Long> {
+
+    List<AuditLogJpaEntity> findByTableNameAndRecordIdOrderByCreatedAtDesc(String tableName, Long recordId);
 }

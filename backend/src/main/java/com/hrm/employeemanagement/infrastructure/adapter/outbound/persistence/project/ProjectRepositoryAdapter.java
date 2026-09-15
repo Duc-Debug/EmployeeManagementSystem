@@ -204,4 +204,20 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
                 }
                 return false;
         }
+
+        @Override
+        public List<Long> findAllProjectIdsByOrgUnitBranch(Long scopeOrgUnitId) {
+                if (scopeOrgUnitId == null) {
+                        return List.of();
+                }
+                return projectRepository.findAllProjectIdsByOrgUnitBranch(scopeOrgUnitId);
+        }
+
+        @Override
+        public List<Long> findAllManagedProjectIds(Long employeeId) {
+                if (employeeId == null) {
+                        return List.of();
+                }
+                return projectRepository.findAllManagedProjectIds(employeeId);
+        }
 }
