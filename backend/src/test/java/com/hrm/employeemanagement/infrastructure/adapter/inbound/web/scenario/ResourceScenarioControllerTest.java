@@ -222,4 +222,96 @@ class ResourceScenarioControllerTest {
                 .andExpect(jsonPath("$.data.weeklyMetrics[0].scenarioWorkloadHours").value(72))
                 .andExpect(jsonPath("$.data.weeklyMetrics[0].isOverloaded").value(true));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios: fromYear và fromWeek được chuyển giao chính xác cho UseCase")
+    void testCreateScenario_WithFromYearAndFromWeek_ForwardedCorrectly() throws Exception {
+        CreateScenarioRequest request = new CreateScenarioRequest(
+                "SCN-2027-X", "Kịch bản năm 2027", "Mô tả", 10L, 2027, 12, 10
+        );
+
+        ScenarioResult result = new ScenarioResult(
+                2L, "SCN-2027-X", "Kịch bản năm 2027", "Mô tả", 10L, "Phòng Kỹ Thuật",
+                "draft", 2027, 12, 10, LocalDateTime.now(), 103L, "rm_user",
+                LocalDateTime.now(), null, 0, 5
+        );
+
+        when(createScenarioUseCase.createScenario(argThat(cmd ->
+                Integer.valueOf(2027).equals(cmd.fromYear()) &&
+                Integer.valueOf(12).equals(cmd.fromWeek()) &&
+                Integer.valueOf(10).equals(cmd.durationWeeks()) &&
+                Long.valueOf(10L).equals(cmd.orgUnitId())
+        ))).thenReturn(result);
+
+        mockMvc.perform(post("/api/v1/resource-scenarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.fromYear").value(2027))
+                .andExpect(jsonPath("$.data.fromWeek").value(12))
+                .andExpect(jsonPath("$.data.durationWeeks").value(10));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios: durationWeeks > 16 -> 400 Bad Request (Validation Error)")
+    void testCreateScenario_DurationWeeksTooLarge_Returns400() throws Exception {
+        String jsonPayload = """
+                {
+                    "code": "SCN-01",
+                    "name": "Kịch bản vượt ngưỡng tuần",
+                    "fromYear": 2026,
+                    "fromWeek": 38,
+                    "durationWeeks": 100
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Số tuần mô phỏng tối đa là 16 tuần")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios: durationWeeks < 1 -> 400 Bad Request")
+    void testCreateScenario_DurationWeeksZero_Returns400() throws Exception {
+        String jsonPayload = """
+                {
+                    "code": "SCN-01",
+                    "name": "Kịch bản 0 tuần",
+                    "fromYear": 2026,
+                    "fromWeek": 38,
+                    "durationWeeks": 0
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Số tuần mô phỏng tối thiểu là 1 tuần")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios: durationWeeks null -> 400 Bad Request")
+    void testCreateScenario_DurationWeeksNull_Returns400() throws Exception {
+        String jsonPayload = """
+                {
+                    "code": "SCN-01",
+                    "name": "Kịch bản thiếu durationWeeks",
+                    "fromYear": 2026,
+                    "fromWeek": 38,
+                    "durationWeeks": null
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Số tuần mô phỏng không được để trống")));
+    }
 }

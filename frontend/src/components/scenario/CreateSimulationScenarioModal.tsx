@@ -110,8 +110,8 @@ export const CreateSimulationScenarioModal: React.FC<CreateSimulationScenarioMod
       setError("Tuần bắt đầu phải từ 1 đến 53");
       return;
     }
-    if (durationWeeks < 1 || durationWeeks > 52) {
-      setError("Số tuần mô phỏng phải từ 1 đến 52 tuần");
+    if (durationWeeks < 1 || durationWeeks > 16) {
+      setError("Số tuần mô phỏng phải từ 1 đến 16 tuần");
       return;
     }
 
@@ -124,8 +124,8 @@ export const CreateSimulationScenarioModal: React.FC<CreateSimulationScenarioMod
         name: name.trim(),
         description: description.trim() || undefined,
         orgUnitId,
-        startYear,
-        startWeek,
+        fromYear: startYear,
+        fromWeek: startWeek,
         durationWeeks,
       };
 
@@ -251,11 +251,11 @@ export const CreateSimulationScenarioModal: React.FC<CreateSimulationScenarioMod
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Số tuần (1-52)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Số tuần (1-16)</label>
               <input
                 type="number"
                 min={1}
-                max={52}
+                max={16}
                 value={durationWeeks}
                 onChange={(e) => setDurationWeeks(Number(e.target.value))}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden"

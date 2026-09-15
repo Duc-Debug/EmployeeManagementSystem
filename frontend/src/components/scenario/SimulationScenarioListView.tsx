@@ -284,13 +284,13 @@ export const SimulationScenarioListView: React.FC = () => {
                   <div className="flex items-center text-[11px]">
                     <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-slate-400 shrink-0" />
                     <span>
-                      Tuần {scn.startWeek} → Tuần {scn.startWeek + scn.durationWeeks - 1}, {scn.startYear} ({scn.durationWeeks}w)
+                      Tuần {scn.fromWeek ?? scn.startWeek} → Tuần {(scn.fromWeek ?? scn.startWeek ?? 1) + scn.durationWeeks - 1}, {scn.fromYear ?? scn.startYear} ({scn.durationWeeks}w)
                     </span>
                   </div>
                   <div className="flex items-center text-[11px]">
                     <Users className="h-3.5 w-3.5 mr-1.5 text-slate-400 shrink-0" />
                     <span>
-                      {scn.demandCount} nhu cầu giả định • {scn.totalSnapshotEmployees} nhân sự snapshot
+                      {scn.demandsCount ?? scn.demandCount ?? 0} nhu cầu giả định • {scn.snapshotEmployeesCount ?? scn.totalSnapshotEmployees ?? 0} nhân sự snapshot
                     </span>
                   </div>
                 </div>

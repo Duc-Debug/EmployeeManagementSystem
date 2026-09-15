@@ -107,6 +107,16 @@ public class ResourceScenarioService implements
 
     @Override
     public ScenarioResult createScenario(CreateScenarioCommand command) {
+        if (command == null) {
+            throw new IllegalArgumentException("Dữ liệu kịch bản không được để trống");
+        }
+        if (command.durationWeeks() == null || command.durationWeeks() < 1 || command.durationWeeks() > 16) {
+            throw new IllegalArgumentException("Số tuần mô phỏng phải từ 1 đến 16 tuần");
+        }
+        if (command.fromWeek() != null && (command.fromWeek() < 1 || command.fromWeek() > 53)) {
+            throw new IllegalArgumentException("Tuần bắt đầu phải từ 1 đến 53");
+        }
+
         // 1. Kiểm tra quyền hạn: Dùng AuthorizationService làm nguồn sự thật duy nhất (RESOURCE_SCENARIO_MANAGE)
         Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE);
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
@@ -137,7 +147,8 @@ public class ResourceScenarioService implements
             fromYear = now.get(IsoFields.WEEK_BASED_YEAR);
             fromWeek = now.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
         }
-        int durationWeeks = command.durationWeeks() != null ? Math.min(Math.max(1, command.durationWeeks()), 16) : 8;
+
+        int durationWeeks = command.durationWeeks();
 
         String code = command.code();
         if (code == null || code.trim().isEmpty()) {

@@ -293,4 +293,35 @@ class ResourceScenarioServiceTest {
         assertNotNull(detail);
         assertEquals("SCN-10", detail.scenario().code());
     }
+
+    @Test
+    @DisplayName("Tạo kịch bản với durationWeeks > 16 hoặc < 1 ném IllegalArgumentException")
+    void testCreateScenario_DurationWeeksOutOfRange_ThrowsException() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(103L);
+        when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        CreateScenarioCommand cmdOver = new CreateScenarioCommand(
+                "SCN-OVER", "Quá 16 tuần", "Mô tả", 10L, 2026, 38, 17
+        );
+        assertThrows(IllegalArgumentException.class, () -> service.createScenario(cmdOver));
+
+        CreateScenarioCommand cmdZero = new CreateScenarioCommand(
+                "SCN-ZERO", "0 tuần", "Mô tả", 10L, 2026, 38, 0
+        );
+        assertThrows(IllegalArgumentException.class, () -> service.createScenario(cmdZero));
+    }
+
+    @Test
+    @DisplayName("Tạo kịch bản với fromWeek > 53 hoặc < 1 ném IllegalArgumentException")
+    void testCreateScenario_FromWeekOutOfRange_ThrowsException() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(103L);
+        when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        CreateScenarioCommand cmdInvalidWeek = new CreateScenarioCommand(
+                "SCN-INVALID", "Tuần 60", "Mô tả", 10L, 2026, 60, 8
+        );
+        assertThrows(IllegalArgumentException.class, () -> service.createScenario(cmdInvalidWeek));
+    }
 }

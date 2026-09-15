@@ -10,16 +10,23 @@ export interface ScenarioResult {
   orgUnitId: number;
   orgUnitName: string;
   status: "draft" | "applied" | "discarded" | string;
-  startYear: number;
-  startWeek: number;
+  fromYear: number;
+  fromWeek: number;
   durationWeeks: number;
   baseSnapshotAt: string;
   createdBy: number;
-  creatorName: string;
+  createdByName: string;
   createdAt: string;
-  appliedAt: string | null;
-  demandCount: number;
-  totalSnapshotEmployees: number;
+  updatedAt: string | null;
+  demandsCount: number;
+  snapshotEmployeesCount: number;
+  // Aliases for compatibility
+  startYear?: number;
+  startWeek?: number;
+  creatorName?: string;
+  demandCount?: number;
+  totalSnapshotEmployees?: number;
+  appliedAt?: string | null;
 }
 
 export interface ScenarioDemandResult {
@@ -51,45 +58,69 @@ export interface ScenarioDetailResult {
 export interface WeeklySimulationMetricResult {
   year: number;
   weekNumber: number;
+  weekLabel?: string;
   snapshotAllocatedHours: number;
   demandHours: number;
-  totalWorkloadHours: number;
-  availableCapacityHours: number;
+  scenarioWorkloadHours: number;
+  availableHours: number;
+  remainingHours?: number;
+  excessHours?: number;
   utilizationPercentage: number;
   status: "OVERLOADED" | "OPTIMAL" | "AVAILABLE" | "UNDERLOADED" | string;
+  isOverloaded?: boolean;
+  // Aliases for compatibility
+  totalWorkloadHours?: number;
+  availableCapacityHours?: number;
 }
 
 export interface EmployeeSnapshotCellResult {
   year: number;
   weekNumber: number;
-  snapshotAllocatedHours: number;
-  snapshotAvailableHours: number;
+  allocatedHours: number;
+  availableHours: number;
+  // Aliases for compatibility
+  snapshotAllocatedHours?: number;
+  snapshotAvailableHours?: number;
 }
 
 export interface EmployeeSnapshotRowResult {
   employeeId: number;
   employeeCode: string;
-  employeeName: string;
+  fullName: string;
   professionalRole: string;
-  weeklyCells: EmployeeSnapshotCellResult[];
+  cells: EmployeeSnapshotCellResult[];
+  // Aliases for compatibility
+  employeeName?: string;
+  weeklyCells?: EmployeeSnapshotCellResult[];
 }
 
 export interface ScenarioSimulationResult {
   scenarioId: number;
+  scenarioCode?: string;
+  scenarioName?: string;
+  orgUnitId?: number;
+  orgUnitName?: string;
+  status?: string;
+  baseSnapshotAt?: string;
   weeklyMetrics: WeeklySimulationMetricResult[];
-  employeeRows: EmployeeSnapshotRowResult[];
+  employeeSnapshots: EmployeeSnapshotRowResult[];
   overloadThreshold: number;
   idleThreshold: number;
+  // Aliases for compatibility
+  employeeRows?: EmployeeSnapshotRowResult[];
 }
 
 export interface CreateScenarioPayload {
-  code: string;
+  code?: string;
   name: string;
   description?: string;
   orgUnitId: number;
-  startYear: number;
-  startWeek: number;
+  fromYear: number;
+  fromWeek: number;
   durationWeeks: number;
+  // Aliases for compatibility
+  startYear?: number;
+  startWeek?: number;
 }
 
 export interface AddDemandPayload {
@@ -125,9 +156,18 @@ export interface UpdateDemandPayload {
 }
 
 export async function createScenario(payload: CreateScenarioPayload): Promise<ScenarioResult> {
+  const body = {
+    code: payload.code,
+    name: payload.name,
+    description: payload.description,
+    orgUnitId: payload.orgUnitId,
+    fromYear: payload.fromYear ?? payload.startYear,
+    fromWeek: payload.fromWeek ?? payload.startWeek,
+    durationWeeks: payload.durationWeeks,
+  };
   return apiRequest<ScenarioResult>("/resource-scenarios", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }
 

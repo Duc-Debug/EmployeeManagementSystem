@@ -175,8 +175,8 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   // Calculation summaries
   const totalSnapshotHours = simulation?.weeklyMetrics.reduce((sum, m) => sum + m.snapshotAllocatedHours, 0) || 0;
   const totalDemandHours = simulation?.weeklyMetrics.reduce((sum, m) => sum + m.demandHours, 0) || 0;
-  const totalWorkloadHours = simulation?.weeklyMetrics.reduce((sum, m) => sum + m.totalWorkloadHours, 0) || 0;
-  const totalAvailableCapacity = simulation?.weeklyMetrics.reduce((sum, m) => sum + m.availableCapacityHours, 0) || 0;
+  const totalWorkloadHours = simulation?.weeklyMetrics.reduce((sum, m) => sum + (m.scenarioWorkloadHours ?? m.totalWorkloadHours ?? 0), 0) || 0;
+  const totalAvailableCapacity = simulation?.weeklyMetrics.reduce((sum, m) => sum + (m.availableHours ?? m.availableCapacityHours ?? 0), 0) || 0;
   const avgUtilization = totalAvailableCapacity > 0 ? (totalWorkloadHours / totalAvailableCapacity) * 100 : 0;
 
   return (
@@ -208,11 +208,11 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               </span>
               <span className="flex items-center">
                 <CalendarRange className="h-3.5 w-3.5 mr-1 text-slate-400" />
-                Tuần {scenario.startWeek} - Tuần {scenario.startWeek + scenario.durationWeeks - 1}, Năm {scenario.startYear} ({scenario.durationWeeks} tuần)
+                Tuần {scenario.fromWeek ?? scenario.startWeek} - Tuần {(scenario.fromWeek ?? scenario.startWeek ?? 1) + scenario.durationWeeks - 1}, Năm {scenario.fromYear ?? scenario.startYear} ({scenario.durationWeeks} tuần)
               </span>
               <span className="flex items-center">
                 <Users className="h-3.5 w-3.5 mr-1 text-slate-400" />
-                {scenario.totalSnapshotEmployees} nhân sự trong snapshot
+                {scenario.snapshotEmployeesCount ?? scenario.totalSnapshotEmployees ?? 0} nhân sự trong snapshot
               </span>
             </div>
           </div>
@@ -379,7 +379,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center font-mono">
-                      W{demand.startWeek ?? demand.weekStart}/{demand.startYear ?? scenario.startYear} → W{demand.endWeek ?? demand.weekEnd}/{demand.endYear ?? scenario.startYear}
+                      W{demand.startWeek ?? demand.weekStart}/{demand.startYear ?? scenario.fromYear ?? scenario.startYear} → W{demand.endWeek ?? demand.weekEnd}/{demand.endYear ?? scenario.fromYear ?? scenario.startYear}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">{demand.hoursPerWeekPerPerson ?? demand.hoursPerWeek}h</td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-indigo-600">
@@ -469,10 +469,10 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                     +{metric.demandHours}h
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                    {metric.totalWorkloadHours}h
+                    {metric.scenarioWorkloadHours ?? metric.totalWorkloadHours}h
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-slate-600">
-                    {metric.availableCapacityHours}h
+                    {metric.availableHours ?? metric.availableCapacityHours}h
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-bold">
                     <span
@@ -509,7 +509,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
             )}
             <Clock className="h-4 w-4 text-indigo-600" />
             <h3 className="text-sm font-bold text-slate-900">
-              Chi Tiết Ảnh Chụp Nhân Sự Tại Thời Điểm Snapshot ({simulation?.employeeRows.length || 0} nhân sự)
+              Chi Tiết Ảnh Chụp Nhân Sự Tại Thời Điểm Snapshot ({(simulation?.employeeSnapshots ?? simulation?.employeeRows ?? []).length} nhân sự)
             </h3>
           </div>
           <span className="text-[11px] text-slate-400 font-medium">
@@ -533,15 +533,15 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {simulation?.employeeRows.map((emp) => (
+                {(simulation?.employeeSnapshots ?? simulation?.employeeRows ?? []).map((emp) => (
                   <tr key={emp.employeeId} className="hover:bg-slate-50/60 transition">
                     <td className="px-4 py-2.5 font-mono text-slate-500">{emp.employeeCode}</td>
-                    <td className="px-4 py-2.5 font-medium text-slate-900">{emp.employeeName}</td>
+                    <td className="px-4 py-2.5 font-medium text-slate-900">{emp.fullName ?? emp.employeeName}</td>
                     <td className="px-4 py-2.5 text-slate-500">{emp.professionalRole || "—"}</td>
-                    {emp.weeklyCells.map((cell) => (
+                    {(emp.cells ?? emp.weeklyCells ?? []).map((cell) => (
                       <td key={cell.weekNumber} className="px-3 py-2.5 text-center font-mono text-[11px]">
-                        <span className="font-semibold text-slate-800">{cell.snapshotAllocatedHours}h</span>
-                        <span className="text-slate-400"> / {cell.snapshotAvailableHours}h</span>
+                        <span className="font-semibold text-slate-800">{cell.allocatedHours ?? cell.snapshotAllocatedHours}h</span>
+                        <span className="text-slate-400"> / {cell.availableHours ?? cell.snapshotAvailableHours}h</span>
                       </td>
                     ))}
                   </tr>
@@ -557,8 +557,8 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
         <AddEditDemandModal
           isOpen={isDemandModalOpen}
           scenarioId={scenarioId}
-          scenarioStartYear={scenario.startYear}
-          scenarioStartWeek={scenario.startWeek}
+          scenarioStartYear={scenario.fromYear ?? scenario.startYear}
+          scenarioStartWeek={scenario.fromWeek ?? scenario.startWeek}
           scenarioDurationWeeks={scenario.durationWeeks}
           availableWeeks={simulation?.weeklyMetrics}
           initialData={selectedDemand}
