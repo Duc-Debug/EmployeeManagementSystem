@@ -93,6 +93,23 @@ export function AssignTaskModal({
         );
     });
 
+    const sortedFilteredEmployees = [...filteredEmployees].sort((a, b) => {
+        const empIdA = a.employeeId ?? parseInt(a.id.replace(/\D/g, ''), 10);
+        const empIdB = b.employeeId ?? parseInt(b.id.replace(/\D/g, ''), 10);
+
+        const indexA = selectedEmployeeIds.indexOf(empIdA);
+        const indexB = selectedEmployeeIds.indexOf(empIdB);
+
+        const isSelectedA = indexA !== -1;
+        const isSelectedB = indexB !== -1;
+
+        if (isSelectedA && !isSelectedB) return -1;
+        if (!isSelectedA && isSelectedB) return 1;
+        if (isSelectedA && isSelectedB) return indexA - indexB;
+
+        return 0;
+    });
+
     const toggleEmployee = (empId: number) => {
         setSelectedEmployeeIds((prev) => {
             if (prev.includes(empId)) {
@@ -240,12 +257,12 @@ export function AssignTaskModal({
                             </div>
 
                             <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 max-h-56 overflow-y-auto bg-white">
-                                {filteredEmployees.length === 0 ? (
+                                {sortedFilteredEmployees.length === 0 ? (
                                     <div className="p-4 text-center text-xs text-slate-400 italic">
                                         Không tìm thấy nhân sự phù hợp (đã ẩn nhân sự nghỉ việc hoặc hết hạn hợp đồng).
                                     </div>
                                 ) : (
-                                    filteredEmployees.map((emp) => {
+                                    sortedFilteredEmployees.map((emp) => {
                                         const empId = emp.employeeId ?? parseInt(emp.id.replace(/\D/g, ''), 10);
                                         const isSelected = selectedEmployeeIds.includes(empId);
                                         const isPrimary = selectedEmployeeIds.length > 0 && selectedEmployeeIds[0] === empId;
