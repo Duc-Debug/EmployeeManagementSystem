@@ -455,7 +455,13 @@ public class ScheduleConflictService implements
             return Collections.emptyList();
         }
 
-        return saveConflictPort.saveAll(resultConflicts);
+        int batchSize = 500;
+        List<ScheduleConflict> savedConflicts = new ArrayList<>(resultConflicts.size());
+        for (int i = 0; i < resultConflicts.size(); i += batchSize) {
+            List<ScheduleConflict> batch = resultConflicts.subList(i, Math.min(i + batchSize, resultConflicts.size()));
+            savedConflicts.addAll(saveConflictPort.saveAll(batch));
+        }
+        return savedConflicts;
     }
 
     private record ConflictKey(Long employeeId, Integer weekNumber, ConflictType conflictType) {}
