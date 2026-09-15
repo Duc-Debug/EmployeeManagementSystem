@@ -4,4 +4,5 @@ import com.hrm.employeemanagement.domain.timesheet.TimesheetHistory;
 
 public interface SaveTimesheetHistoryPort {
     void save(TimesheetHistory history);
+    void saveAll(java.util.List<TimesheetHistory> histories);
 }
