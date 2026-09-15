@@ -689,4 +689,67 @@ class ScheduleConflictServiceTest {
         assertEquals("Trần Văn Notifier", result.notifiedByName());
         verify(loadEmployeePort).findAllByUserIdIn(List.of(new UserId(1L)));
     }
+
+    @Test
+    @DisplayName("Multi-cycle lifecycle: OPEN -> NOTIFIED -> RESOLVED -> REOPENED -> RESOLVED -> REOPENED")
+    void testMultiCycleConflictLifecycle() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Xung đột phân bổ"
+        );
+        assertEquals(ScheduleConflictStatus.OPEN, conflict.getStatus());
+
+        // Cycle 1: Notify & Resolve
+        conflict.markAsNotified(100L);
+        assertEquals(ScheduleConflictStatus.NOTIFIED, conflict.getStatus());
+
+        conflict.resolveWithNote(100L, 20L, "Cách xử lý đợt 1");
+        assertEquals(ScheduleConflictStatus.RESOLVED, conflict.getStatus());
+        assertEquals("Cách xử lý đợt 1", conflict.getResolutionNote());
+
+        // Scan detects conflict still exists -> Reopen
+        conflict.reopenAsRecurrent("Nguyên nhân gây xung đột vẫn còn sau khi rà soát lại.");
+        assertEquals(ScheduleConflictStatus.REOPENED, conflict.getStatus());
+        assertTrue(conflict.getIsRecurrent());
+        org.junit.jupiter.api.Assertions.assertNull(conflict.getResolvedBy());
+        org.junit.jupiter.api.Assertions.assertNull(conflict.getResolutionNote());
+
+        // Cycle 2: Resolve again from REOPENED status
+        conflict.resolveWithNote(101L, 25L, "Cách xử lý đợt 2 sau khi mở lại");
+        assertEquals(ScheduleConflictStatus.RESOLVED, conflict.getStatus());
+        assertEquals("Cách xử lý đợt 2 sau khi mở lại", conflict.getResolutionNote());
+        assertEquals(25L, conflict.getAssignedHandlerId());
+
+        // Scan detects conflict still exists -> Reopen again
+        conflict.reopenAsRecurrent("Nguyên nhân vẫn chưa triệt để.");
+        assertEquals(ScheduleConflictStatus.REOPENED, conflict.getStatus());
+        assertTrue(conflict.getIsRecurrent());
+        org.junit.jupiter.api.Assertions.assertNull(conflict.getResolutionNote());
+    }
+
+    @Test
+    @DisplayName("Assigning null handler unassigns the assigned handler")
+    void testAssignHandlerNullUnassignsHandler() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Trùng lịch"
+        );
+        conflict.setId(5001L);
+        conflict.assignHandler(20L);
+        assertEquals(20L, conflict.getAssignedHandlerId());
+
+        when(loadConflictPort.findById(5001L)).thenReturn(Optional.of(conflict));
+        when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(Collections.emptyList());
+
+        AssignScheduleConflictHandlerCommand command = new AssignScheduleConflictHandlerCommand(5001L, null);
+        ScheduleConflictResult result = service.assignScheduleConflictHandler(command);
+
+        assertNotNull(result);
+        org.junit.jupiter.api.Assertions.assertNull(conflict.getAssignedHandlerId());
+    }
 }

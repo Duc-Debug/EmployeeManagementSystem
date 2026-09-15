@@ -24,6 +24,8 @@ import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveSched
 import com.hrm.employeemanagement.application.port.inbound.conflict.ScanScheduleConflictsUseCase;
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.conflict.dto.AssignScheduleConflictHandlerRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.conflict.dto.ResolveScheduleConflictWithNoteRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 @RestController
@@ -101,14 +103,14 @@ public class ScheduleConflictWarningController {
     @PreAuthorize("hasAuthority('RESOURCE_CONFLICT_HANDLE')")
     public ResponseEntity<ApiResponse<ScheduleConflictResult>> resolveScheduleConflictWithNote(
             @PathVariable Long id,
-            @RequestBody ResolveScheduleConflictWithNoteCommand command
+            @RequestBody ResolveScheduleConflictWithNoteRequest request
     ) {
-        ResolveScheduleConflictWithNoteCommand targetCommand = new ResolveScheduleConflictWithNoteCommand(
+        ResolveScheduleConflictWithNoteCommand command = new ResolveScheduleConflictWithNoteCommand(
                 id,
-                command.assignedHandlerId(),
-                command.resolutionNote()
+                request != null ? request.assignedHandlerId() : null,
+                request != null ? request.resolutionNote() : null
         );
-        ScheduleConflictResult result = resolveWithNoteUseCase.resolveScheduleConflictWithNote(targetCommand);
+        ScheduleConflictResult result = resolveWithNoteUseCase.resolveScheduleConflictWithNote(command);
         return ResponseEntity.ok(ApiResponse.success("Đánh dấu đã xử lý xung đột lịch kèm cách xử lý thành công", result));
     }
 
@@ -116,13 +118,13 @@ public class ScheduleConflictWarningController {
     @PreAuthorize("hasAuthority('RESOURCE_CONFLICT_HANDLE')")
     public ResponseEntity<ApiResponse<ScheduleConflictResult>> assignScheduleConflictHandler(
             @PathVariable Long id,
-            @RequestBody AssignScheduleConflictHandlerCommand command
+            @RequestBody AssignScheduleConflictHandlerRequest request
     ) {
-        AssignScheduleConflictHandlerCommand targetCommand = new AssignScheduleConflictHandlerCommand(
+        AssignScheduleConflictHandlerCommand command = new AssignScheduleConflictHandlerCommand(
                 id,
-                command.assignedHandlerId()
+                request != null ? request.assignedHandlerId() : null
         );
-        ScheduleConflictResult result = assignHandlerUseCase.assignScheduleConflictHandler(targetCommand);
+        ScheduleConflictResult result = assignHandlerUseCase.assignScheduleConflictHandler(command);
         return ResponseEntity.ok(ApiResponse.success("Gán người xử lý xung đột lịch thành công", result));
     }
 }

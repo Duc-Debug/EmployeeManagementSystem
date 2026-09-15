@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V88: CREATE CONFLICT HANDLING SCHEMA
+-- FLYWAY MIGRATION V92: CREATE CONFLICT HANDLING SCHEMA
 -- Epic: NCL-07 (Quản lý & Theo dõi Phân bổ)
 -- Story: NCL-07-CN-005 (Danh sách xung đột cần xử lý)
 -- ============================================================

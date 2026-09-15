@@ -171,6 +171,11 @@ public class ScheduleConflict {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void unassignHandler() {
+        this.assignedHandlerId = null;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void reopenAsRecurrent(String note) {
         this.status = ScheduleConflictStatus.REOPENED;
         this.isRecurrent = true;

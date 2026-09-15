@@ -30,7 +30,7 @@ export default function ConflictResolutionModal({
     const loadEmployeeList = useCallback(async () => {
         try {
             setLoadingEmployees(true);
-            const res = await getEmployees(1, 100);
+            const res = await getEmployees(1, 1000);
             if (res && res.content) {
                 setEmployees(res.content);
             }

@@ -29,6 +29,8 @@ import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveSched
 import com.hrm.employeemanagement.application.port.inbound.conflict.ScanScheduleConflictsUseCase;
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.conflict.dto.AssignScheduleConflictHandlerRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.conflict.dto.ResolveScheduleConflictWithNoteRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 class ScheduleConflictWarningControllerTest {
@@ -141,11 +143,11 @@ class ScheduleConflictWarningControllerTest {
     @DisplayName("POST /api/v1/schedule-conflicts/{id}/resolve-with-note returns HTTP 200 with note")
     void testResolveScheduleConflictWithNote() {
         ScheduleConflictResult mockResult = createMockResult(ScheduleConflictStatus.RESOLVED);
-        ResolveScheduleConflictWithNoteCommand command = new ResolveScheduleConflictWithNoteCommand(1001L, 20L, "Đã xử lý xong");
+        ResolveScheduleConflictWithNoteRequest request = new ResolveScheduleConflictWithNoteRequest(20L, "Đã xử lý xong");
 
         when(resolveWithNoteUseCase.resolveScheduleConflictWithNote(any())).thenReturn(mockResult);
 
-        ResponseEntity<ApiResponse<ScheduleConflictResult>> response = controller.resolveScheduleConflictWithNote(1001L, command);
+        ResponseEntity<ApiResponse<ScheduleConflictResult>> response = controller.resolveScheduleConflictWithNote(1001L, request);
 
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -157,11 +159,11 @@ class ScheduleConflictWarningControllerTest {
     @DisplayName("POST /api/v1/schedule-conflicts/{id}/assign-handler returns HTTP 200")
     void testAssignScheduleConflictHandler() {
         ScheduleConflictResult mockResult = createMockResult(ScheduleConflictStatus.OPEN);
-        AssignScheduleConflictHandlerCommand command = new AssignScheduleConflictHandlerCommand(1001L, 20L);
+        AssignScheduleConflictHandlerRequest request = new AssignScheduleConflictHandlerRequest(20L);
 
         when(assignHandlerUseCase.assignScheduleConflictHandler(any())).thenReturn(mockResult);
 
-        ResponseEntity<ApiResponse<ScheduleConflictResult>> response = controller.assignScheduleConflictHandler(1001L, command);
+        ResponseEntity<ApiResponse<ScheduleConflictResult>> response = controller.assignScheduleConflictHandler(1001L, request);
 
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());

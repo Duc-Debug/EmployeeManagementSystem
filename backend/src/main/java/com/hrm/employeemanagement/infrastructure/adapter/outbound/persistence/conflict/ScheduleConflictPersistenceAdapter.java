@@ -68,7 +68,7 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
             return java.util.Collections.emptyList();
         }
         List<ScheduleConflictJpaEntity> entities = conflicts.stream().map(this::toEntity).collect(Collectors.toList());
-        List<ScheduleConflictJpaEntity> savedEntities = repository.saveAllAndFlush(entities);
+        List<ScheduleConflictJpaEntity> savedEntities = repository.saveAll(entities);
         return savedEntities.stream().map(this::toDomain).collect(Collectors.toList());
     }
 

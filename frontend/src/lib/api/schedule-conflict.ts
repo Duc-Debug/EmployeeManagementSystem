@@ -92,17 +92,17 @@ export async function resolveScheduleConflictWithNote(
 ): Promise<ScheduleConflict> {
     return apiRequest<ScheduleConflict>(`/schedule-conflicts/${id}/resolve-with-note`, {
         method: "POST",
-        body: JSON.stringify({ conflictId: id, ...payload }),
+        body: JSON.stringify(payload),
     });
 }
 
 export async function assignScheduleConflictHandler(
     id: number,
-    assignedHandlerId: number
+    assignedHandlerId?: number
 ): Promise<ScheduleConflict> {
     return apiRequest<ScheduleConflict>(`/schedule-conflicts/${id}/assign-handler`, {
         method: "POST",
-        body: JSON.stringify({ conflictId: id, assignedHandlerId }),
+        body: JSON.stringify({ assignedHandlerId }),
     });
 }
 export interface ReplacementCandidate {
