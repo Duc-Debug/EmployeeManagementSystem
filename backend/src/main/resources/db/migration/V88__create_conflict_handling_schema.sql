@@ -24,13 +24,12 @@ WHERE r.code IN ('VT-03', 'VT-06')
   );
 
 -- 3. Bổ sung các cột xử lý xung đột vào bảng schedule_conflict_warnings
-ALTER TABLE schedule_conflict_warnings
-    ADD COLUMN assigned_handler_id BIGINT NULL,
-    ADD COLUMN resolution_note TEXT NULL,
-    ADD COLUMN is_recurrent BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN recurrent_note TEXT NULL,
-    ADD COLUMN resolved_at TIMESTAMP NULL,
-    ADD COLUMN resolved_by BIGINT NULL;
+ALTER TABLE schedule_conflict_warnings ADD COLUMN assigned_handler_id BIGINT NULL;
+ALTER TABLE schedule_conflict_warnings ADD COLUMN resolution_note TEXT NULL;
+ALTER TABLE schedule_conflict_warnings ADD COLUMN is_recurrent BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE schedule_conflict_warnings ADD COLUMN recurrent_note TEXT NULL;
+ALTER TABLE schedule_conflict_warnings ADD COLUMN resolved_at TIMESTAMP NULL;
+ALTER TABLE schedule_conflict_warnings ADD COLUMN resolved_by BIGINT NULL;
 
 -- 4. Tạo ngoại khóa cho người chịu trách nhiệm xử lý
 ALTER TABLE schedule_conflict_warnings
