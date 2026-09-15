@@ -1,11 +1,11 @@
 package com.hrm.employeemanagement.domain.availability;
 
-import com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException;
-
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.time.temporal.WeekFields;
+
+import com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException;
 
 public record YearWeek(int year, int weekNumber) implements Comparable<YearWeek> {
 
@@ -28,10 +28,12 @@ public record YearWeek(int year, int weekNumber) implements Comparable<YearWeek>
     }
 
     public boolean isBefore(YearWeek other) {
+        if (other == null) return false;
         return compareTo(other) < 0;
     }
 
     public boolean isAfter(YearWeek other) {
+        if (other == null) return false;
         return compareTo(other) > 0;
     }
 

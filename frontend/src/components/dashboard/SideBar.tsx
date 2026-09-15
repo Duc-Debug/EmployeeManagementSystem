@@ -34,6 +34,7 @@ const SIDEBAR_WORKSPACE = [
     { name: "Dự án", icon: FolderKanban, id: "project" },
     { name: "Mô phỏng kịch bản", icon: Sparkles, id: "simulation-scenarios" },
     { name: "Nhu cầu tuyển dụng", icon: TrendingUp, id: "recruitment-demand" },
+    { name: "Dự báo năng lực", icon: TrendingUp, id: "capacity-forecast" },
 ];
 
 const SIDEBAR_SETTINGS = [
@@ -43,8 +44,13 @@ const SIDEBAR_SETTINGS = [
 export function canAccessTab(
     roleCode: string | undefined | null,
     tabId: string,
-    dataScope?: string | null
+    dataScope?: string | null,
+    permissions?: readonly string[] | null
 ): boolean {
+    if (tabId === "capacity-forecast") {
+        return permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
+    }
+
     if (!roleCode && !dataScope) return true;
     const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
 
@@ -152,7 +158,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
     const isEmployeeOnly = normalizedRole === "VT-04";
 
     const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) =>
-        canAccessTab(roleCode, item.id, dataScope)
+        canAccessTab(roleCode, item.id, dataScope, user?.permissions)
     ).map((item) => {
         if (item.id === "skills") {
             return {
@@ -168,7 +174,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
         }
         return item;
     });
-    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope));
+    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope, user?.permissions));
 
     return (
         <aside

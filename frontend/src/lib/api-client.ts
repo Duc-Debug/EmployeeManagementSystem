@@ -87,6 +87,10 @@ export async function apiRequest<T = unknown>(
     if (error instanceof ApiError) {
       throw error;
     }
+    // Preserve request cancellation so callers can silently ignore stale requests.
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new ApiError(
         "Không thể kết nối đến máy chủ Backend (http://localhost:8080). Vui lòng kiểm tra máy chủ đã được khởi động chưa.",
