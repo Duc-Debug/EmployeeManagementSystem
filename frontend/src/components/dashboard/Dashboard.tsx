@@ -15,6 +15,7 @@ import LeaveManagementView from "../leave/LeaveManagementView";
 import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
+import CapacityForecastReportView from "../reports/CapacityForecastReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWarningView";
@@ -42,6 +43,7 @@ export default function Dashboard() {
     // Đồng bộ URL trình duyệt với tab tương ứng
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
+        if (path.includes("capacity-forecast") || path.includes("du-bao-nang-luc") || path.includes("forecast")) return "capacity-forecast";
         if (path.includes("capacity") || path.includes("nang-luc")) return "capacity";
         if (
             path.includes("roles") ||
@@ -262,6 +264,8 @@ export default function Dashboard() {
                                 {activeTab === "leave" && <LeaveManagementView />}
 
                                 {activeTab === "recruitment-demand" && <RecruitmentDemandReportView />}
+
+                                {activeTab === "capacity-forecast" && <CapacityForecastReportView />}
 
                                 {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
 
