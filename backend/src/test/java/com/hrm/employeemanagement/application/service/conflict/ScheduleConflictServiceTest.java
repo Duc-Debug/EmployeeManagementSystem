@@ -408,7 +408,7 @@ class ScheduleConflictServiceTest {
                 "Có đơn nghỉ phép trùng tuần được phân bổ"
         );
         createdLeaveConflict.setId(1005L);
-        when(saveConflictPort.save(any(ScheduleConflict.class))).thenReturn(createdLeaveConflict);
+        when(saveConflictPort.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
         List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
 
@@ -479,7 +479,7 @@ class ScheduleConflictServiceTest {
 
         when(loadConflictPort.findConflicts(2026, 37, 37, null, null, null))
                 .thenReturn(List.of(resolvedConflict));
-        when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(saveConflictPort.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
         List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
 
@@ -488,7 +488,7 @@ class ScheduleConflictServiceTest {
         assertEquals(ScheduleConflictStatus.REOPENED, scanned.get(0).status());
         assertTrue(scanned.get(0).isRecurrent());
         assertNotNull(scanned.get(0).recurrentNote());
-        verify(saveConflictPort).save(resolvedConflict);
+        verify(saveConflictPort).saveAll(any());
     }
 
     @Test

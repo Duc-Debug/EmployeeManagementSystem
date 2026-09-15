@@ -16,5 +16,6 @@ CREATE TABLE IF NOT EXISTS notifications (
         FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_notifications_sender
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_notifications_recipient_read (recipient_id, is_read, created_at)
+    INDEX idx_notifications_recipient_read (recipient_id, is_read, created_at),
+    INDEX idx_notifications_recipient_type_target (recipient_id, type, target_id)
 );

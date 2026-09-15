@@ -382,8 +382,7 @@ public class ScheduleConflictService implements
                         existing.setExcessHours(excessHours);
                         existing.setDetails("Phân bổ trên " + projectIdsSet.size() + " dự án (" + projectNamesStr + ") với tổng " + totalAllocatedHours + "h/tuần");
 
-                        ScheduleConflict saved = saveConflictPort.save(existing);
-                        resultConflicts.add(saved);
+                        resultConflicts.add(existing);
                     } else {
                         ScheduleConflict newConflict = ScheduleConflict.create(
                                 empId,
@@ -399,8 +398,7 @@ public class ScheduleConflictService implements
                                 excessHours,
                                 "Phân bổ trên " + projectIdsSet.size() + " dự án (" + projectNamesStr + ") với tổng " + totalAllocatedHours + "h/tuần"
                         );
-                        ScheduleConflict saved = saveConflictPort.save(newConflict);
-                        resultConflicts.add(saved);
+                        resultConflicts.add(newConflict);
                     }
                 }
 
@@ -432,8 +430,7 @@ public class ScheduleConflictService implements
                         existingLeaveConflict.setExcessHours(excessHours);
                         existingLeaveConflict.setDetails("Có đơn nghỉ phép đã duyệt (" + approvedLeaveHours + "h) trùng tuần được phân bổ vào các dự án: " + projectNamesStr);
 
-                        ScheduleConflict saved = saveConflictPort.save(existingLeaveConflict);
-                        resultConflicts.add(saved);
+                        resultConflicts.add(existingLeaveConflict);
                     } else {
                         ScheduleConflict newLeaveConflict = ScheduleConflict.create(
                                 empId,
@@ -449,14 +446,17 @@ public class ScheduleConflictService implements
                                 excessHours,
                                 "Có đơn nghỉ phép đã duyệt (" + approvedLeaveHours + "h) trùng tuần được phân bổ vào các dự án: " + projectNamesStr
                         );
-                        ScheduleConflict saved = saveConflictPort.save(newLeaveConflict);
-                        resultConflicts.add(saved);
+                        resultConflicts.add(newLeaveConflict);
                     }
                 }
             }
         }
 
-        return resultConflicts;
+        if (resultConflicts.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return saveConflictPort.saveAll(resultConflicts);
     }
 
     private record ConflictKey(Long employeeId, Integer weekNumber, ConflictType conflictType) {}

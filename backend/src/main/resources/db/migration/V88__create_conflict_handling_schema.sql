@@ -35,3 +35,8 @@ ALTER TABLE schedule_conflict_warnings ADD COLUMN resolved_by BIGINT NULL;
 ALTER TABLE schedule_conflict_warnings
     ADD CONSTRAINT fk_conflict_assigned_handler
     FOREIGN KEY (assigned_handler_id) REFERENCES employees (id) ON DELETE SET NULL;
+
+-- 5. Bổ sung index phục vụ truy vấn cho bảng schedule_conflict_warnings
+CREATE INDEX idx_schedule_conflict_year_week ON schedule_conflict_warnings(year_number, week_number);
+CREATE INDEX idx_schedule_conflict_existing ON schedule_conflict_warnings(employee_id, year_number, week_number, conflict_type);
+
