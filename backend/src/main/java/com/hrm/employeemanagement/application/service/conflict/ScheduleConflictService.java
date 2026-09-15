@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import com.hrm.employeemanagement.application.dto.conflict.AssignScheduleConflictHandlerCommand;
@@ -44,6 +45,7 @@ import com.hrm.employeemanagement.domain.conflict.ScheduleConflict;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
@@ -135,8 +137,9 @@ public class ScheduleConflictService implements
         );
 
         Integer year = yearNumber != null ? yearNumber : LocalDate.now().getYear();
-        Integer startW = startWeek != null ? startWeek : LocalDate.now().get(WeekFields.of(Locale.getDefault()).weekOfWeekBasedYear());
-        Integer endW = endWeek != null ? endWeek : Math.min(startW + 4, 52);
+        Integer startW = startWeek != null ? startWeek : LocalDate.now().get(WeekFields.ISO.weekOfWeekBasedYear());
+        int maxIsoWeeks = YearWeek.maxWeeksInYear(year);
+        Integer endW = endWeek != null ? endWeek : Math.min(startW + 4, maxIsoWeeks);
 
         List<ScheduleConflict> scanned = scanInternal(year, startW, endW);
         return mapToResults(scanned);
@@ -215,6 +218,8 @@ public class ScheduleConflictService implements
                 PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
         );
 
+        validateAssignedHandler(command.assignedHandlerId());
+
         ScheduleConflict conflict = loadConflictPort.findById(command.conflictId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cảnh báo xung đột lịch với ID: " + command.conflictId()));
 
@@ -240,6 +245,8 @@ public class ScheduleConflictService implements
                 PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
         );
 
+        validateAssignedHandler(command.assignedHandlerId());
+
         ScheduleConflict conflict = loadConflictPort.findById(command.conflictId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cảnh báo xung đột lịch với ID: " + command.conflictId()));
 
@@ -258,44 +265,64 @@ public class ScheduleConflictService implements
         return mapToResult(saved);
     }
 
+    private void validateAssignedHandler(Long handlerId) {
+        if (handlerId != null) {
+            Employee handler = loadEmployeePort.findById(new EmployeeId(handlerId))
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người xử lý (Employee) với ID: " + handlerId));
+            if (handler.getStatus() != EmployeeStatus.ACTIVE) {
+                throw new IllegalStateException("Người xử lý được gán không ở trạng thái đang hoạt động (ACTIVE)");
+            }
+        }
+    }
+
     private List<ScheduleConflict> scanInternal(Integer year, Integer startWeek, Integer endWeek) {
         List<Employee> activeEmployees = loadEmployeePort.findAllActive();
         Map<Long, Employee> activeEmpMap = activeEmployees.stream()
                 .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
 
+        // 1. Bulk query allocations across the entire week range [startWeek, endWeek]
+        List<WeeklyProjectAllocation> allAllocations = loadAllocationPort
+                .loadAllocationsForEmployeesInWeekRange(null, year, startWeek, endWeek);
+
+        Set<Long> candidateEmpIds = new HashSet<>(activeEmpMap.keySet());
+        allAllocations.forEach(a -> candidateEmpIds.add(a.getEmployeeId()));
+
+        if (candidateEmpIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 2. Load project names once for all allocations across the range
+        Set<ProjectId> allProjectIds = allAllocations.stream()
+                .map(WeeklyProjectAllocation::getProjectId)
+                .filter(Objects::nonNull)
+                .map(ProjectId::new)
+                .collect(Collectors.toSet());
+
+        Map<Long, String> projectNameMap = allProjectIds.isEmpty() ? Collections.emptyMap() :
+                loadProjectPort.findAllById(new ArrayList<>(allProjectIds)).stream()
+                        .collect(Collectors.toMap(p -> p.getId().value(), Project::getProjectName, (p1, p2) -> p1));
+
+        // 3. Bulk query approved leaves across all candidate employees and all weeks in range
+        List<YearWeek> allWeekRange = IntStream.rangeClosed(startWeek, endWeek)
+                .mapToObj(w -> new YearWeek(year, w))
+                .collect(Collectors.toList());
+
+        Map<Long, Map<YearWeek, BigDecimal>> approvedLeavesMap = loadApprovedLeavesPort
+                .loadApprovedLeaveHoursForEmployeesAndWeeks(new ArrayList<>(candidateEmpIds), allWeekRange);
+
+        // Group allocations by week number and employeeId
+        Map<Integer, Map<Long, List<WeeklyProjectAllocation>>> allocationsByWeekAndEmp = allAllocations.stream()
+                .collect(Collectors.groupingBy(
+                        a -> a.getYearWeek().weekNumber(),
+                        Collectors.groupingBy(WeeklyProjectAllocation::getEmployeeId)
+                ));
+
         List<ScheduleConflict> resultConflicts = new ArrayList<>();
 
         for (int week = startWeek; week <= endWeek; week++) {
             final int currentWeekNum = week;
-
-            List<WeeklyProjectAllocation> allocations = loadAllocationPort
-                    .loadAllocationsForEmployeesInWeekRange(null, year, currentWeekNum, currentWeekNum);
-
-            Map<Long, List<WeeklyProjectAllocation>> allocationsByEmp = allocations.stream()
-                    .collect(Collectors.groupingBy(WeeklyProjectAllocation::getEmployeeId));
-
-            Set<Long> candidateEmpIds = new HashSet<>(activeEmpMap.keySet());
-            candidateEmpIds.addAll(allocationsByEmp.keySet());
-
-            if (candidateEmpIds.isEmpty()) {
-                continue;
-            }
-
-            Set<ProjectId> allProjectIds = allocations.stream()
-                    .map(WeeklyProjectAllocation::getProjectId)
-                    .filter(Objects::nonNull)
-                    .map(ProjectId::new)
-                    .collect(Collectors.toSet());
-
-            Map<Long, String> projectNameMap = allProjectIds.isEmpty() ? Collections.emptyMap() :
-                    loadProjectPort.findAllById(new ArrayList<>(allProjectIds)).stream()
-                            .collect(Collectors.toMap(p -> p.getId().value(), Project::getProjectName, (p1, p2) -> p1));
-
-            List<Long> candidateList = new ArrayList<>(candidateEmpIds);
-
             YearWeek yw = new YearWeek(year, currentWeekNum);
-            Map<Long, Map<YearWeek, BigDecimal>> approvedLeavesMap = loadApprovedLeavesPort
-                    .loadApprovedLeaveHoursForEmployeesAndWeeks(candidateList, List.of(yw));
+            Map<Long, List<WeeklyProjectAllocation>> allocationsByEmp = allocationsByWeekAndEmp.getOrDefault(currentWeekNum, Collections.emptyMap());
 
             for (Long empId : candidateEmpIds) {
                 Employee emp = activeEmpMap.get(empId);
@@ -337,8 +364,10 @@ public class ScheduleConflictService implements
                             .findExistingConflict(empId, year, currentWeekNum, ConflictType.MULTI_PROJECT_ALLOCATION)
                             .orElse(null);
 
-                    if (existing != null && existing.getStatus() != ScheduleConflictStatus.RESOLVED) {
-                        // Preserve an explicit resolution when a user scans again.
+                    if (existing != null) {
+                        if (existing.getStatus() == ScheduleConflictStatus.RESOLVED) {
+                            existing.reopenAsRecurrent("Nguyên nhân gây xung đột vẫn còn sau khi rà soát lại.");
+                        }
                         existing.setProjectIds(projectIdsStr);
                         existing.setProjectNames(projectNamesStr);
                         existing.setTotalAllocatedHours(totalAllocatedHours);
@@ -346,9 +375,9 @@ public class ScheduleConflictService implements
                         existing.setExcessHours(excessHours);
                         existing.setDetails("Phân bổ trên " + projectIdsSet.size() + " dự án (" + projectNamesStr + ") với tổng " + totalAllocatedHours + "h/tuần");
 
-                        saveConflictPort.save(existing);
-                        resultConflicts.add(existing);
-                    } else if (existing == null) {
+                        ScheduleConflict saved = saveConflictPort.save(existing);
+                        resultConflicts.add(saved);
+                    } else {
                         ScheduleConflict newConflict = ScheduleConflict.create(
                                 empId,
                                 year,
@@ -386,8 +415,10 @@ public class ScheduleConflictService implements
                             .findExistingConflict(empId, year, currentWeekNum, ConflictType.LEAVE_ALLOCATION_CONFLICT)
                             .orElse(null);
 
-                    if (existingLeaveConflict != null && existingLeaveConflict.getStatus() != ScheduleConflictStatus.RESOLVED) {
-                        // Preserve an explicit resolution when a user scans again.
+                    if (existingLeaveConflict != null) {
+                        if (existingLeaveConflict.getStatus() == ScheduleConflictStatus.RESOLVED) {
+                            existingLeaveConflict.reopenAsRecurrent("Nguyên nhân gây xung đột vẫn còn sau khi rà soát lại.");
+                        }
                         existingLeaveConflict.setProjectIds(projectIdsStr);
                         existingLeaveConflict.setProjectNames(projectNamesStr);
                         existingLeaveConflict.setLeaveInfo(leaveInfoStr);
@@ -396,9 +427,9 @@ public class ScheduleConflictService implements
                         existingLeaveConflict.setExcessHours(excessHours);
                         existingLeaveConflict.setDetails("Có đơn nghỉ phép đã duyệt (" + approvedLeaveHours + "h) trùng tuần được phân bổ vào các dự án: " + projectNamesStr);
 
-                        saveConflictPort.save(existingLeaveConflict);
-                        resultConflicts.add(existingLeaveConflict);
-                    } else if (existingLeaveConflict == null) {
+                        ScheduleConflict saved = saveConflictPort.save(existingLeaveConflict);
+                        resultConflicts.add(saved);
+                    } else {
                         ScheduleConflict newLeaveConflict = ScheduleConflict.create(
                                 empId,
                                 year,

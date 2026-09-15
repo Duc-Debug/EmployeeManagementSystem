@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -426,6 +427,8 @@ class ScheduleConflictServiceTest {
         );
         conflict.setId(2001L);
 
+        Employee handler = new Employee(new EmployeeId(20L), new UserId(200L), 1L, "NV020", "Phạm Văn Handler", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findById(new EmployeeId(20L))).thenReturn(Optional.of(handler));
         when(loadConflictPort.findById(2001L)).thenReturn(Optional.of(conflict));
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -444,7 +447,7 @@ class ScheduleConflictServiceTest {
 
     @Test
     @DisplayName("NCL-07-CN-005-TC-02: Ngoại lệ - Nguyên nhân gây xung đột vẫn còn sau khi đánh dấu đã xử lý -> Tự động mở lại và ghi chú tái phát")
-    void testResolvedConflictIsNotReopenedOnScan() {
+    void testResolvedConflictIsReopenedAsRecurrentOnScan() {
         Employee emp = new Employee(
                 new EmployeeId(10L),
                 new UserId(100L),
@@ -480,9 +483,12 @@ class ScheduleConflictServiceTest {
 
         List<ScheduleConflictResult> scanned = service.scanScheduleConflicts(2026, 37, 37);
 
-        assertTrue(scanned.isEmpty());
-        assertEquals(ScheduleConflictStatus.RESOLVED, resolvedConflict.getStatus());
-        verify(saveConflictPort, never()).save(any(ScheduleConflict.class));
+        assertFalse(scanned.isEmpty());
+        assertEquals(1, scanned.size());
+        assertEquals(ScheduleConflictStatus.REOPENED, scanned.get(0).status());
+        assertTrue(scanned.get(0).isRecurrent());
+        assertNotNull(scanned.get(0).recurrentNote());
+        verify(saveConflictPort).save(resolvedConflict);
     }
 
     @Test
@@ -520,6 +526,8 @@ class ScheduleConflictServiceTest {
         );
         conflict.setId(2003L);
 
+        Employee handler = new Employee(new EmployeeId(25L), new UserId(250L), 1L, "NV025", "Lê Văn Handler", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findById(new EmployeeId(25L))).thenReturn(Optional.of(handler));
         when(loadConflictPort.findById(2003L)).thenReturn(Optional.of(conflict));
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -530,5 +538,29 @@ class ScheduleConflictServiceTest {
         assertNotNull(result);
         assertEquals(25L, result.assignedHandlerId());
         verify(auditLogPort).save(any());
+    }
+
+    @Test
+    @DisplayName("Validate assignedHandlerId: Báo lỗi khi nhân viên không tồn tại hoặc không ở trạng thái ACTIVE")
+    void testAssignHandlerValidationFailsForInvalidOrInactiveEmployee() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trên 2 dự án"
+        );
+        conflict.setId(2004L);
+        when(loadConflictPort.findById(2004L)).thenReturn(Optional.of(conflict));
+
+        when(loadEmployeePort.findById(new EmployeeId(999L))).thenReturn(Optional.empty());
+
+        AssignScheduleConflictHandlerCommand invalidIdCommand = new AssignScheduleConflictHandlerCommand(2004L, 999L);
+        assertThrows(IllegalArgumentException.class, () -> service.assignScheduleConflictHandler(invalidIdCommand));
+
+        Employee inactiveHandler = new Employee(new EmployeeId(888L), new UserId(880L), 1L, "NV888", "Inactive User", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.TERMINATED);
+        when(loadEmployeePort.findById(new EmployeeId(888L))).thenReturn(Optional.of(inactiveHandler));
+
+        AssignScheduleConflictHandlerCommand inactiveCommand = new AssignScheduleConflictHandlerCommand(2004L, 888L);
+        assertThrows(IllegalStateException.class, () -> service.assignScheduleConflictHandler(inactiveCommand));
     }
 }
