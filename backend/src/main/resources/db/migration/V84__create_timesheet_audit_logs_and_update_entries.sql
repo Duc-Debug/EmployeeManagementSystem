@@ -42,12 +42,12 @@ INSERT INTO permissions (code, name, description)
 SELECT 'WORK_LOG_APPROVE', 'Duyệt giờ công', 'Cho phép quản lý dự án duyệt hoặc từ chối các dòng giờ công thuộc dự án phụ trách'
 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'WORK_LOG_APPROVE');
 
--- 4. Gán quyền cho vai trò VT-02 (Quản trị dự án) và VT-06 (Quản trị viên)
+-- 4. Gán quyền cho vai trò VT-02 (Quản trị dự án)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.code IN ('VT-02', 'VT-06')
+WHERE r.code = 'VT-02'
   AND p.code = 'WORK_LOG_APPROVE'
   AND NOT EXISTS (
       SELECT 1 FROM role_permissions rp 
