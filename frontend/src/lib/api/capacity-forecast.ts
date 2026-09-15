@@ -55,3 +55,4 @@ export async function getCapacityForecastReport(params?: CapacityForecastQueryPa
   const qs = query.toString() ? `?${query.toString()}` : "";
   return apiRequest<CapacityForecastReportData>(`/reports/capacity-forecast${qs}`);
 }
+

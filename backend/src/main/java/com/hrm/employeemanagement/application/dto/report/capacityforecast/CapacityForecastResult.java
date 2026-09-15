@@ -62,3 +62,4 @@ public record CapacityForecastResult(
         OVER_CAPACITY
     }
 }
+

@@ -1,9 +1,5 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.report.capacityforecast;
 
-import com.hrm.employeemanagement.application.dto.report.capacityforecast.CapacityForecastQuery;
-import com.hrm.employeemanagement.application.dto.report.capacityforecast.CapacityForecastResult;
-import com.hrm.employeemanagement.application.port.inbound.report.capacityforecast.GetCapacityForecastUseCase;
-import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -11,6 +7,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.hrm.employeemanagement.application.dto.report.capacityforecast.CapacityForecastQuery;
+import com.hrm.employeemanagement.application.dto.report.capacityforecast.CapacityForecastResult;
+import com.hrm.employeemanagement.application.port.inbound.report.capacityforecast.GetCapacityForecastUseCase;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 
 /**
  * REST Controller cung cấp API Báo cáo dự báo năng lực các tuần tới (NCL-10-CN-004).
@@ -43,3 +44,4 @@ public class CapacityForecastReportController {
         return ResponseEntity.ok(ApiResponse.success("Lấy báo cáo dự báo năng lực thành công", result));
     }
 }
+

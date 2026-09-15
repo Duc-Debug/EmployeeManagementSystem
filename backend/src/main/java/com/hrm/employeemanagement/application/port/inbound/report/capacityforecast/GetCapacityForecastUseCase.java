@@ -9,3 +9,4 @@ import com.hrm.employeemanagement.application.dto.report.capacityforecast.Capaci
 public interface GetCapacityForecastUseCase {
     CapacityForecastResult execute(CapacityForecastQuery query);
 }
+

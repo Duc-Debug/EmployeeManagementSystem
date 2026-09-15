@@ -84,3 +84,4 @@ describe("Capacity Forecast Report Logic Tests (NCL-10-CN-004)", () => {
     assert.equal(canAccessCapacityForecastTab("VT-05"), false);
   });
 });
+

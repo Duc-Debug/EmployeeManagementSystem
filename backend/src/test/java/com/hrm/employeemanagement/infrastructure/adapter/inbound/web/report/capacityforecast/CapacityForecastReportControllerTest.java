@@ -97,3 +97,4 @@ class CapacityForecastReportControllerTest {
                 .andExpect(jsonPath("$.status").value(403));
     }
 }
+

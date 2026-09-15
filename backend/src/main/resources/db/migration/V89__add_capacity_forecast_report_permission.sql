@@ -19,3 +19,4 @@ WHERE p.code = 'CAPACITY_FORECAST_REPORT_READ'
   AND NOT EXISTS (
       SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_id = p.id
   );
+
