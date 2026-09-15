@@ -7,7 +7,7 @@ import java.time.temporal.WeekFields;
 
 import com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException;
 
-public record YearWeek(int year, int weekNumber) {
+public record YearWeek(int year, int weekNumber) implements Comparable<YearWeek> {
 
     public YearWeek {
         if (year < 2000 || year > 2100) {
@@ -17,6 +17,24 @@ public record YearWeek(int year, int weekNumber) {
         if (weekNumber < 1 || weekNumber > maxWeeks) {
             throw new InvalidWeekNumberException("Số tuần không hợp lệ: " + weekNumber + ". Năm " + year + " chỉ có " + maxWeeks + " tuần");
         }
+    }
+
+    @Override
+    public int compareTo(YearWeek o) {
+        if (o == null) return 1;
+        int yearCompare = Integer.compare(this.year, o.year);
+        if (yearCompare != 0) return yearCompare;
+        return Integer.compare(this.weekNumber, o.weekNumber);
+    }
+
+    public boolean isBefore(YearWeek other) {
+        if (other == null) return false;
+        return compareTo(other) < 0;
+    }
+
+    public boolean isAfter(YearWeek other) {
+        if (other == null) return false;
+        return compareTo(other) > 0;
     }
 
     /**
@@ -53,15 +71,5 @@ public record YearWeek(int year, int weekNumber) {
      */
     public LocalDate getEndDate() {
         return getStartDate().plusDays(6);
-    }
-
-    public boolean isBefore(YearWeek other) {
-        if (other == null) return false;
-        return this.getStartDate().isBefore(other.getStartDate());
-    }
-
-    public boolean isAfter(YearWeek other) {
-        if (other == null) return false;
-        return this.getStartDate().isAfter(other.getStartDate());
     }
 }
