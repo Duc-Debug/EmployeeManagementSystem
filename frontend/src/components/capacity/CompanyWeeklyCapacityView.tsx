@@ -43,6 +43,7 @@ import { AllocationPeriodManagementModal } from "@/components/capacity/period/Al
 import { AllocationNotificationsModal } from "@/components/capacity/AllocationNotificationsModal";
 import { RoleAllocationTemplateManagementModal } from "@/components/allocation/RoleAllocationTemplateManagementModal";
 import { CapacityThresholdConfigModal } from "@/components/capacity/CapacityThresholdConfigModal";
+import { ProlongedIdlenessWarningModal } from "@/components/capacity/ProlongedIdlenessWarningModal";
 
 export default function CompanyWeeklyCapacityView() {
   const currentUser = useAuthUser();
@@ -54,9 +55,13 @@ export default function CompanyWeeklyCapacityView() {
     normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
   const canAccessAllocationNotifications = normalizedRole === "VT-02" || normalizedRole === "VT-03";
   const canConfigureThresholds = normalizedRole === "VT-01";
+  const canViewProlongedIdleness =
+    normalizedRole === "VT-01" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
 
   // NCL-07-CN-004: State cho Modal Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23)
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
+  // NCL-07-CN-006: State cho Modal Cảnh báo nhân sự nhàn rỗi kéo dài (QTN-23)
+  const [isProlongedIdlenessModalOpen, setIsProlongedIdlenessModalOpen] = useState<boolean>(false);
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -573,6 +578,19 @@ export default function CompanyWeeklyCapacityView() {
               <span>Cấu hình ngưỡng (QTN-23)</span>
             </button>
           )}
+
+          {/* NCL-07-CN-006: Nút Cảnh báo nhân sự nhàn rỗi kéo dài (QTN-23) */}
+          {canViewProlongedIdleness && (
+            <button
+              type="button"
+              onClick={() => setIsProlongedIdlenessModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50/80 px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition shadow-2xs"
+              title="Cảnh báo nhân sự nhàn rỗi kéo dài nhiều tuần liên tiếp (NCL-07-CN-006 / QTN-23)"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+              <span>Cảnh báo nhàn rỗi (QTN-23)</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -985,6 +1003,15 @@ export default function CompanyWeeklyCapacityView() {
         onSuccess={() => {
           fetchMatrix();
         }}
+      />
+
+      {/* NCL-07-CN-006: Prolonged Idleness Warning Modal (QTN-23) */}
+      <ProlongedIdlenessWarningModal
+        open={isProlongedIdlenessModalOpen}
+        onClose={() => setIsProlongedIdlenessModalOpen(false)}
+        initialYear={selectedYear}
+        initialWeek={selectedWeek}
+        initialOrgUnitId={selectedOrgUnitId}
       />
     </div>
   );
