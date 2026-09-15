@@ -98,7 +98,7 @@ public class ScheduleConflictWarningController {
     }
 
     @PostMapping("/{id}/resolve-with-note")
-    @PreAuthorize("hasAnyAuthority('RESOURCE_CONFLICT_HANDLE', 'RESOURCE_SCHEDULE_CONFLICT_NOTIFY')")
+    @PreAuthorize("hasAuthority('RESOURCE_CONFLICT_HANDLE')")
     public ResponseEntity<ApiResponse<ScheduleConflictResult>> resolveScheduleConflictWithNote(
             @PathVariable Long id,
             @RequestBody ResolveScheduleConflictWithNoteCommand command
@@ -113,7 +113,7 @@ public class ScheduleConflictWarningController {
     }
 
     @PostMapping("/{id}/assign-handler")
-    @PreAuthorize("hasAnyAuthority('RESOURCE_CONFLICT_HANDLE', 'RESOURCE_SCHEDULE_CONFLICT_NOTIFY')")
+    @PreAuthorize("hasAuthority('RESOURCE_CONFLICT_HANDLE')")
     public ResponseEntity<ApiResponse<ScheduleConflictResult>> assignScheduleConflictHandler(
             @PathVariable Long id,
             @RequestBody AssignScheduleConflictHandlerCommand command

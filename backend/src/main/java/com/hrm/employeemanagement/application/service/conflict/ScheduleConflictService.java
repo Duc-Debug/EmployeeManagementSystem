@@ -136,8 +136,10 @@ public class ScheduleConflictService implements
                 PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
 
-        Integer year = yearNumber != null ? yearNumber : LocalDate.now().getYear();
-        Integer startW = startWeek != null ? startWeek : LocalDate.now().get(WeekFields.ISO.weekOfWeekBasedYear());
+        LocalDate today = LocalDate.now();
+        WeekFields iso = WeekFields.ISO;
+        Integer year = yearNumber != null ? yearNumber : today.get(iso.weekBasedYear());
+        Integer startW = startWeek != null ? startWeek : today.get(iso.weekOfWeekBasedYear());
         int maxIsoWeeks = YearWeek.maxWeeksInYear(year);
         Integer endW = endWeek != null ? endWeek : Math.min(startW + 4, maxIsoWeeks);
 
@@ -214,8 +216,7 @@ public class ScheduleConflictService implements
     @Override
     public ScheduleConflictResult resolveScheduleConflictWithNote(ResolveScheduleConflictWithNoteCommand command) {
         Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_CONFLICT_HANDLE,
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
 
         validateAssignedHandler(command.assignedHandlerId());
@@ -241,8 +242,7 @@ public class ScheduleConflictService implements
     @Override
     public ScheduleConflictResult assignScheduleConflictHandler(AssignScheduleConflictHandlerCommand command) {
         Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_CONFLICT_HANDLE,
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
+                PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
 
         validateAssignedHandler(command.assignedHandlerId());
