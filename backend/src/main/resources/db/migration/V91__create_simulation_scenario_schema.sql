@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS scenario_demands (
 
     CONSTRAINT fk_demand_scenario FOREIGN KEY (scenario_id) REFERENCES resource_scenarios(id) ON DELETE CASCADE,
     CONSTRAINT chk_demand_headcount CHECK (headcount > 0),
-    CONSTRAINT chk_demand_hours CHECK (hours_per_week_per_person >= 0),
+    CONSTRAINT chk_demand_hours CHECK (hours_per_week_per_person > 0),
     CONSTRAINT chk_demand_start_week CHECK (start_week BETWEEN 1 AND 53),
     CONSTRAINT chk_demand_end_week CHECK (end_week BETWEEN 1 AND 53),
     CONSTRAINT chk_demand_year_week CHECK (

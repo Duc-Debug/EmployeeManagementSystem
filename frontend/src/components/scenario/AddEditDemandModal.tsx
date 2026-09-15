@@ -158,8 +158,8 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
       setError("Số lượng nhân sự phải là số nguyên lớn hơn 0");
       return;
     }
-    if (hoursPerWeekPerPerson < 0) {
-      setError("Số giờ/tuần không được là số âm");
+    if (hoursPerWeekPerPerson <= 0) {
+      setError("Số giờ/tuần/người phải lớn hơn 0");
       return;
     }
 
@@ -273,7 +273,7 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
               </label>
               <input
                 type="number"
-                min={0}
+                min={0.5}
                 max={168}
                 step={0.5}
                 value={hoursPerWeekPerPerson}

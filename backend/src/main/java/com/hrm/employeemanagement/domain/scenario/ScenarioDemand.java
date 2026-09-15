@@ -129,8 +129,8 @@ public class ScenarioDemand {
         if (headcount == null || headcount <= 0) {
             throw new InvalidScenarioDemandException("Số lượng nhân sự cần phải lớn hơn 0");
         }
-        if (hoursPerWeekPerPerson == null || hoursPerWeekPerPerson.compareTo(BigDecimal.ZERO) < 0) {
-            throw new InvalidScenarioDemandException("Số giờ/tuần/người không được âm");
+        if (hoursPerWeekPerPerson == null || hoursPerWeekPerPerson.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidScenarioDemandException("Số giờ/tuần/người phải lớn hơn 0");
         }
         if (startYear == null || startWeek == null || endYear == null || endWeek == null) {
             throw new InvalidScenarioDemandException("Năm và tuần bắt đầu/kết thúc không được để trống");

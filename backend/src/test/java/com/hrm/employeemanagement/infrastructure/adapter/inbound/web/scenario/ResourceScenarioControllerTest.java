@@ -189,6 +189,21 @@ class ResourceScenarioControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/resource-scenarios/{id}/demands: hoursPerWeekPerPerson = 0 -> 400 BAD_REQUEST")
+    void testAddDemand_ZeroHours_Returns400() throws Exception {
+        AddScenarioDemandRequest request = new AddScenarioDemandRequest(
+                "Java Senior", 2, 2026, 1, 2026, 6, BigDecimal.ZERO, "Spring Boot"
+        );
+
+        mockMvc.perform(post("/api/v1/resource-scenarios/1/demands")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Số giờ/tuần/người phải lớn hơn 0")));
+    }
+
+    @Test
     @DisplayName("DELETE /api/v1/resource-scenarios/{id}/demands/{demandId}: Xóa nhu cầu thành công -> 200 OK")
     void testDeleteDemand_Success() throws Exception {
         doNothing().when(deleteDemandUseCase).deleteDemand(1L, 10L);

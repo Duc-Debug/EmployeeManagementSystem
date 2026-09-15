@@ -25,8 +25,12 @@ class ScenarioDemandTest {
     }
 
     @Test
-    @DisplayName("Validation: hoursPerWeekPerPerson < 0 ném InvalidScenarioDemandException")
-    void testNegativeHours_ThrowsException() {
+    @DisplayName("Validation: hoursPerWeekPerPerson <= 0 ném InvalidScenarioDemandException")
+    void testHoursLessThanOrEqualZero_ThrowsException() {
+        assertThrows(InvalidScenarioDemandException.class, () ->
+                ScenarioDemand.create(1L, "Demand 1", 2, 2026, 1, 2026, 4, BigDecimal.ZERO, "Java")
+        );
+
         assertThrows(InvalidScenarioDemandException.class, () ->
                 ScenarioDemand.create(1L, "Demand 1", 2, 2026, 1, 2026, 4, BigDecimal.valueOf(-5), "Java")
         );

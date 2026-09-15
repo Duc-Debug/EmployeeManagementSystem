@@ -34,7 +34,7 @@ public record UpdateScenarioDemandRequest(
         Integer endWeek,
 
         @NotNull(message = "Số giờ/tuần/người không được để trống")
-        @DecimalMin(value = "0.0", message = "Số giờ/tuần/người không được âm")
+        @DecimalMin(value = "0.01", message = "Số giờ/tuần/người phải lớn hơn 0")
         BigDecimal hoursPerWeekPerPerson,
 
         String skillRequirement
