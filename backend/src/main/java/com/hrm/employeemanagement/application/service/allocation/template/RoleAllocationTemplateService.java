@@ -417,9 +417,7 @@ public class RoleAllocationTemplateService implements
 
         Set<Long> affectedEmployees = new HashSet<>(desiredHoursByEmployee.keySet());
         for (WeeklyProjectAllocation existing : existingAllocMap.values()) {
-            if (extractTemplateHours(existing.getVarianceNote(), template.getId()).compareTo(BigDecimal.ZERO) > 0) {
-                affectedEmployees.add(existing.getEmployeeId());
-            }
+            affectedEmployees.add(existing.getEmployeeId());
         }
 
         for (Long employeeId : affectedEmployees) {
@@ -427,16 +425,6 @@ public class RoleAllocationTemplateService implements
 
             for (YearWeek yw : targetWeeks) {
                 WeeklyProjectAllocation existingAlloc = getExistingAllocation(employeeId, targetProject, yw, existingAllocMap);
-
-                BigDecimal existingTotalHours = existingAlloc != null ? existingAlloc.getAllocatedHours() : BigDecimal.ZERO;
-                BigDecimal oldTemplateHours = existingAlloc != null ? extractTemplateHours(existingAlloc.getVarianceNote(), template.getId()) : BigDecimal.ZERO;
-
-                BigDecimal nonTemplateHours = existingTotalHours.subtract(oldTemplateHours);
-                if (nonTemplateHours.compareTo(BigDecimal.ZERO) < 0) {
-                    nonTemplateHours = BigDecimal.ZERO;
-                }
-
-                BigDecimal newTotalHours = nonTemplateHours.add(desiredTemplateHours);
                 String newVarianceNote = buildVarianceNoteWithTemplateTag(
                         existingAlloc != null ? existingAlloc.getVarianceNote() : null,
                         template.getId(),
@@ -444,15 +432,15 @@ public class RoleAllocationTemplateService implements
                 );
 
                 if (existingAlloc != null) {
-                    existingAlloc.updateAllocation(newTotalHours, null, currentUserId);
+                    existingAlloc.updateAllocation(desiredTemplateHours, null, currentUserId);
                     existingAlloc.updateVarianceNote(newVarianceNote, currentUserId);
                     saveAllocationPort.save(existingAlloc);
-                } else if (newTotalHours.compareTo(BigDecimal.ZERO) > 0) {
+                } else if (desiredTemplateHours.compareTo(BigDecimal.ZERO) > 0) {
                     WeeklyProjectAllocation newAlloc = WeeklyProjectAllocation.createNew(
                             employeeId,
                             targetProject.getId().value(),
                             yw,
-                            newTotalHours
+                            desiredTemplateHours
                     );
                     newAlloc.updateVarianceNote(newVarianceNote, currentUserId);
                     saveAllocationPort.save(newAlloc);
@@ -530,20 +518,12 @@ public class RoleAllocationTemplateService implements
 
             for (YearWeek yw : targetWeeks) {
                 BigDecimal available = resolveAvailableHours(employee, yw);
-                WeeklyProjectAllocation existingAlloc = getExistingAllocation(employeeId, targetProject, yw, existingAllocMap);
-                BigDecimal existingTotalOnTarget = existingAlloc != null ? existingAlloc.getAllocatedHours() : BigDecimal.ZERO;
-                BigDecimal oldTemplateHours = existingAlloc != null ? extractTemplateHours(existingAlloc.getVarianceNote(), templateId) : BigDecimal.ZERO;
-                BigDecimal nonTemplateHoursOnTarget = existingTotalOnTarget.subtract(oldTemplateHours);
-                if (nonTemplateHoursOnTarget.compareTo(BigDecimal.ZERO) < 0) {
-                    nonTemplateHoursOnTarget = BigDecimal.ZERO;
-                }
-
                 BigDecimal allocatedToOtherProjects = loadAllocationPort.loadAllocationsForEmployee(employeeId, yw).stream()
                         .filter(allocation -> !targetProject.getId().value().equals(allocation.getProjectId()))
                         .map(WeeklyProjectAllocation::getAllocatedHours)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                BigDecimal totalProjectedHours = allocatedToOtherProjects.add(nonTemplateHoursOnTarget).add(desiredTemplateHours);
+                BigDecimal totalProjectedHours = allocatedToOtherProjects.add(desiredTemplateHours);
                 if (totalProjectedHours.compareTo(available) > 0) {
                     throw new InvalidRoleAllocationTemplateException(
                             "Nhân viên " + employeeId + " không đủ năng lực trong tuần " + yw.weekNumber());

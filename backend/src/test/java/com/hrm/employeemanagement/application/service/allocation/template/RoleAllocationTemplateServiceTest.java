@@ -385,8 +385,8 @@ class RoleAllocationTemplateServiceTest {
     }
 
     @Test
-    @DisplayName("Case A: Áp template bảo tồn allocation thủ công hiện hữu của nhân sự")
-    void applyTemplate_ExistingManualAllocation_ShouldPreserveManualHoursAndAddTemplateHours() {
+    @DisplayName("Hướng A: Áp template thay thế hoàn toàn (replace) allocation cũ của nhân sự trên dự án")
+    void applyTemplate_ExistingAllocation_ShouldReplaceWithTemplateHours() {
         when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(99L);
         ProjectRoleAllocationTemplate template = new ProjectRoleAllocationTemplate(
                 1L, "TPL_DEV", "Dev", null, null, 99L, null, null, 0L,
@@ -411,7 +411,7 @@ class RoleAllocationTemplateServiceTest {
 
         service.applyTemplate(command);
 
-        assertThat(manualAllocation.getAllocatedHours()).isEqualByComparingTo("40");
+        assertThat(manualAllocation.getAllocatedHours()).isEqualByComparingTo("10");
         assertThat(manualAllocation.getVarianceNote()).contains("[ROLE_TEMPLATE:1:10.00]");
     }
 
