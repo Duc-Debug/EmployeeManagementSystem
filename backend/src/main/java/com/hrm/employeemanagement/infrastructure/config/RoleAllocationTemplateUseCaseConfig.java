@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
+import com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.template.LoadProjectRoleAllocationStructurePort;
@@ -40,6 +41,7 @@ public class RoleAllocationTemplateUseCaseConfig {
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             SaveWeeklyProjectAllocationPort saveAllocationPort,
+            DeleteWeeklyProjectAllocationPort deleteAllocationPort,
             LoadProjectResourceDemandPort loadDemandPort,
             SaveProjectResourceDemandPort saveDemandPort,
             SaveAuditLogInNewTransactionPort saveAuditLogPort) {
@@ -57,6 +59,7 @@ public class RoleAllocationTemplateUseCaseConfig {
                 loadWeeklyAvailabilityPort,
                 loadAllocationPort,
                 saveAllocationPort,
+                deleteAllocationPort,
                 loadDemandPort,
                 saveDemandPort,
                 saveAuditLogPort);

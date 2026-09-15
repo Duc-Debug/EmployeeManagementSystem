@@ -27,6 +27,7 @@ import com.hrm.employeemanagement.application.port.inbound.allocation.template.C
 import com.hrm.employeemanagement.application.port.inbound.allocation.template.GetProjectRoleAllocationStructureUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.template.GetRoleAllocationTemplatesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.template.PreviewRoleAllocationSuggestionUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.template.LoadProjectRoleAllocationStructurePort;
@@ -87,6 +88,7 @@ public class RoleAllocationTemplateService implements
     private final LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
     private final LoadWeeklyProjectAllocationPort loadAllocationPort;
     private final SaveWeeklyProjectAllocationPort saveAllocationPort;
+    private final DeleteWeeklyProjectAllocationPort deleteAllocationPort;
     private final LoadProjectResourceDemandPort loadDemandPort;
     private final SaveProjectResourceDemandPort saveDemandPort;
     private final SaveAuditLogInNewTransactionPort saveAuditLogPort;
@@ -108,6 +110,29 @@ public class RoleAllocationTemplateService implements
             SaveProjectResourceDemandPort saveDemandPort,
             SaveAuditLogInNewTransactionPort saveAuditLogPort
     ) {
+        this(authorizationService, loadUserPort, saveTemplatePort, loadTemplatePort, loadStructurePort,
+                loadProjectPort, loadOrgUnitPort, loadRolePort, loadEmployeePort, loadWeeklyAvailabilityPort,
+                loadAllocationPort, saveAllocationPort, null, loadDemandPort, saveDemandPort, saveAuditLogPort);
+    }
+
+    public RoleAllocationTemplateService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            SaveRoleAllocationTemplatePort saveTemplatePort,
+            LoadRoleAllocationTemplatePort loadTemplatePort,
+            LoadProjectRoleAllocationStructurePort loadStructurePort,
+            LoadProjectPort loadProjectPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadProjectRolePort loadRolePort,
+            LoadEmployeePort loadEmployeePort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            DeleteWeeklyProjectAllocationPort deleteAllocationPort,
+            LoadProjectResourceDemandPort loadDemandPort,
+            SaveProjectResourceDemandPort saveDemandPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort
+    ) {
         this.authorizationService = authorizationService;
         this.loadUserPort = loadUserPort;
         this.saveTemplatePort = saveTemplatePort;
@@ -120,6 +145,7 @@ public class RoleAllocationTemplateService implements
         this.loadWeeklyAvailabilityPort = loadWeeklyAvailabilityPort;
         this.loadAllocationPort = loadAllocationPort;
         this.saveAllocationPort = saveAllocationPort;
+        this.deleteAllocationPort = deleteAllocationPort;
         this.loadDemandPort = loadDemandPort;
         this.saveDemandPort = saveDemandPort;
         this.saveAuditLogPort = saveAuditLogPort;
@@ -371,12 +397,17 @@ public class RoleAllocationTemplateService implements
         Map<Long, Employee> employees = loadEmployeePort.findAllActive().stream()
                 .collect(Collectors.toMap(Employee::getIdValue, employee -> employee, (a, b) -> a));
         Map<Long, BigDecimal> desiredHoursByEmployee = new HashMap<>();
+        Map<Long, Map<Long, BigDecimal>> roleHoursByEmployeeMap = new HashMap<>();
+
         for (ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand item : assignments) {
             if (item.employeeId() != null) {
                 Employee employee = employees.get(item.employeeId());
                 ProjectRole role = roleMap.get(item.roleId());
                 validateEmployeeAssignment(currentUser, employee, role, item.employeeId());
                 desiredHoursByEmployee.merge(item.employeeId(), item.hoursPerWeek(), BigDecimal::add);
+
+                roleHoursByEmployeeMap.computeIfAbsent(item.employeeId(), k -> new HashMap<>())
+                        .merge(item.roleId(), item.hoursPerWeek(), BigDecimal::add);
             }
         }
         Map<String, WeeklyProjectAllocation> existingAllocMap = new HashMap<>();
@@ -422,28 +453,42 @@ public class RoleAllocationTemplateService implements
 
         for (Long employeeId : affectedEmployees) {
             BigDecimal desiredTemplateHours = desiredHoursByEmployee.getOrDefault(employeeId, BigDecimal.ZERO);
+            Map<Long, BigDecimal> empRoleHours = roleHoursByEmployeeMap.get(employeeId);
 
             for (YearWeek yw : targetWeeks) {
                 WeeklyProjectAllocation existingAlloc = getExistingAllocation(employeeId, targetProject, yw, existingAllocMap);
-                String newVarianceNote = buildVarianceNoteWithTemplateTag(
-                        existingAlloc != null ? existingAlloc.getVarianceNote() : null,
-                        template.getId(),
-                        desiredTemplateHours
-                );
 
-                if (existingAlloc != null) {
-                    existingAlloc.updateAllocation(desiredTemplateHours, null, currentUserId);
-                    existingAlloc.updateVarianceNote(newVarianceNote, currentUserId);
-                    saveAllocationPort.save(existingAlloc);
-                } else if (desiredTemplateHours.compareTo(BigDecimal.ZERO) > 0) {
-                    WeeklyProjectAllocation newAlloc = WeeklyProjectAllocation.createNew(
-                            employeeId,
-                            targetProject.getId().value(),
-                            yw,
-                            desiredTemplateHours
+                if (desiredTemplateHours.compareTo(BigDecimal.ZERO) > 0) {
+                    String newVarianceNote = buildVarianceNoteWithRoleTags(
+                            existingAlloc != null ? existingAlloc.getVarianceNote() : null,
+                            template.getId(),
+                            empRoleHours
                     );
-                    newAlloc.updateVarianceNote(newVarianceNote, currentUserId);
-                    saveAllocationPort.save(newAlloc);
+
+                    if (existingAlloc != null) {
+                        existingAlloc.updateAllocation(desiredTemplateHours, null, currentUserId);
+                        existingAlloc.updateVarianceNote(newVarianceNote, currentUserId);
+                        saveAllocationPort.save(existingAlloc);
+                    } else {
+                        WeeklyProjectAllocation newAlloc = WeeklyProjectAllocation.createNew(
+                                employeeId,
+                                targetProject.getId().value(),
+                                yw,
+                                desiredTemplateHours
+                        );
+                        newAlloc.updateVarianceNote(newVarianceNote, currentUserId);
+                        saveAllocationPort.save(newAlloc);
+                    }
+                } else {
+                    if (existingAlloc != null) {
+                        if (deleteAllocationPort != null) {
+                            deleteAllocationPort.delete(existingAlloc);
+                        } else {
+                            existingAlloc.updateAllocation(BigDecimal.ZERO, null, currentUserId);
+                            existingAlloc.updateVarianceNote(removeTemplateTag(existingAlloc.getVarianceNote(), template.getId()), currentUserId);
+                            saveAllocationPort.save(existingAlloc);
+                        }
+                    }
                 }
             }
         }
@@ -551,32 +596,41 @@ public class RoleAllocationTemplateService implements
         return null;
     }
 
-    private static final Pattern TEMPLATE_TAG_PATTERN = Pattern.compile("\\[ROLE_TEMPLATE:(\\d+):([0-9]+(?:\\.[0-9]+)?)\\]");
+    private static final Pattern TEMPLATE_TAG_PATTERN = Pattern.compile("\\[ROLE_TEMPLATE:(\\d+)(?::ROLE:(\\d+))?:([0-9]+(?:\\.[0-9]+)?)\\]");
 
     private BigDecimal extractTemplateHours(String varianceNote, Long templateId) {
         if (varianceNote == null || varianceNote.isEmpty()) {
             return BigDecimal.ZERO;
         }
         Matcher matcher = TEMPLATE_TAG_PATTERN.matcher(varianceNote);
+        BigDecimal sum = BigDecimal.ZERO;
         while (matcher.find()) {
             Long tid = Long.valueOf(matcher.group(1));
             if (tid.equals(templateId)) {
-                return new BigDecimal(matcher.group(2));
+                sum = sum.add(new BigDecimal(matcher.group(3)));
             }
         }
-        return BigDecimal.ZERO;
+        return sum;
     }
 
-    private String buildVarianceNoteWithTemplateTag(String existingNote, Long templateId, BigDecimal templateHours) {
+    private String buildVarianceNoteWithRoleTags(String existingNote, Long templateId, Map<Long, BigDecimal> roleHoursForEmployee) {
         String cleanNote = removeTemplateTag(existingNote, templateId);
-        if (templateHours == null || templateHours.compareTo(BigDecimal.ZERO) <= 0) {
+        if (roleHoursForEmployee == null || roleHoursForEmployee.isEmpty()) {
             return cleanNote.isEmpty() ? null : cleanNote;
         }
-        String tag = String.format(Locale.ROOT, "[ROLE_TEMPLATE:%d:%.2f]", templateId, templateHours);
-        if (cleanNote.isEmpty()) {
-            return tag;
+        List<String> tags = new ArrayList<>();
+        for (Map.Entry<Long, BigDecimal> entry : roleHoursForEmployee.entrySet()) {
+            Long roleId = entry.getKey();
+            BigDecimal hours = entry.getValue();
+            if (hours != null && hours.compareTo(BigDecimal.ZERO) > 0) {
+                tags.add(String.format(Locale.ROOT, "[ROLE_TEMPLATE:%d:ROLE:%d:%.2f]", templateId, roleId, hours));
+            }
         }
-        return cleanNote + " " + tag;
+        if (tags.isEmpty()) {
+            return cleanNote.isEmpty() ? null : cleanNote;
+        }
+        String tagString = String.join(" ", tags);
+        return cleanNote.isEmpty() ? tagString : cleanNote + " " + tagString;
     }
 
     private String removeTemplateTag(String varianceNote, Long templateId) {

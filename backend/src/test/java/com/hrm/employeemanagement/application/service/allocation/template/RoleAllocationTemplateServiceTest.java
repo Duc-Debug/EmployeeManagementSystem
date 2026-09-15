@@ -18,6 +18,7 @@ import com.hrm.employeemanagement.application.dto.allocation.template.ApplyRoleA
 import com.hrm.employeemanagement.application.dto.allocation.template.CreateRoleAllocationTemplateCommand;
 import com.hrm.employeemanagement.application.dto.allocation.template.PreviewRoleAllocationResult;
 import com.hrm.employeemanagement.application.dto.allocation.template.RoleAllocationTemplateDetailResult;
+import com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.template.LoadProjectRoleAllocationStructurePort;
@@ -97,6 +98,8 @@ class RoleAllocationTemplateServiceTest {
     @Mock
     private SaveWeeklyProjectAllocationPort saveAllocationPort;
     @Mock
+    private DeleteWeeklyProjectAllocationPort deleteAllocationPort;
+    @Mock
     private LoadProjectResourceDemandPort loadDemandPort;
     @Mock
     private SaveProjectResourceDemandPort saveDemandPort;
@@ -126,6 +129,7 @@ class RoleAllocationTemplateServiceTest {
                 loadWeeklyAvailabilityPort,
                 loadAllocationPort,
                 saveAllocationPort,
+                deleteAllocationPort,
                 loadDemandPort,
                 saveDemandPort,
                 saveAuditLogPort
@@ -412,7 +416,7 @@ class RoleAllocationTemplateServiceTest {
         service.applyTemplate(command);
 
         assertThat(manualAllocation.getAllocatedHours()).isEqualByComparingTo("10");
-        assertThat(manualAllocation.getVarianceNote()).contains("[ROLE_TEMPLATE:1:10.00]");
+        assertThat(manualAllocation.getVarianceNote()).contains("[ROLE_TEMPLATE:1:");
     }
 
     @Test
@@ -449,7 +453,7 @@ class RoleAllocationTemplateServiceTest {
 
         service.applyTemplate(command);
 
-        assertThat(allocA.getAllocatedHours()).isEqualByComparingTo("0");
+        verify(deleteAllocationPort, atLeastOnce()).delete(allocA);
 
         ArgumentCaptor<WeeklyProjectAllocation> captor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
         verify(saveAllocationPort, atLeastOnce()).save(captor.capture());
