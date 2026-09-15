@@ -172,4 +172,23 @@ public class TimesheetUseCaseConfig {
         );
         return new TransactionalSubmitWeeklyTimesheetUseCase(pureService);
     }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.timesheet.SendTimesheetRemindersUseCase sendTimesheetRemindersUseCase(
+            LoadTimesheetPort loadTimesheetPort,
+            SaveTimesheetPort saveTimesheetPort,
+            LoadEmployeePort loadEmployeePort,
+            com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort saveNotificationPort,
+            com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetHistoryPort saveTimesheetHistoryPort,
+            com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort) {
+        return new com.hrm.employeemanagement.application.service.timesheet.SendTimesheetRemindersService(
+                loadTimesheetPort,
+                saveTimesheetPort,
+                loadEmployeePort,
+                saveNotificationPort,
+                saveTimesheetHistoryPort,
+                loadWorkingCalendarPort,
+                java.time.Clock.systemDefaultZone()
+        );
+    }
 }
