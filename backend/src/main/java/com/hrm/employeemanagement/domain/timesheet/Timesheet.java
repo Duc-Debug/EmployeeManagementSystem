@@ -158,6 +158,33 @@ public class Timesheet {
         recalculateTotalHours();
     }
 
+    public void syncStatusFromEntries() {
+        if (this.entries.isEmpty()) {
+            return;
+        }
+        boolean hasRejected = false;
+        boolean allApproved = true;
+
+        for (TimesheetEntry entry : this.entries) {
+            if (entry.getStatus() == TimesheetStatus.REJECTED) {
+                hasRejected = true;
+            }
+            if (entry.getStatus() != TimesheetStatus.APPROVED) {
+                allApproved = false;
+            }
+        }
+
+        if (hasRejected) {
+            this.status = TimesheetStatus.REJECTED;
+        } else if (allApproved) {
+            this.status = TimesheetStatus.APPROVED;
+            this.approvedAt = LocalDateTime.now();
+        } else {
+            this.status = TimesheetStatus.SUBMITTED;
+        }
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getters
     public TimesheetId getId() { return id; }
     public Long getIdValue() { return id != null ? id.value() : null; }
