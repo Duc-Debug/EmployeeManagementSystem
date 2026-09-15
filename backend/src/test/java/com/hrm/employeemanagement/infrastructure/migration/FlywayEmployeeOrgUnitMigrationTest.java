@@ -256,6 +256,79 @@ class FlywayEmployeeOrgUnitMigrationTest {
     }
 
     @Test
+    void v93DeduplicatesScheduleConflictWarningsBeforeCreatingUniqueIndex()
+            throws Exception {
+        String url = jdbcUrl("v93_dedup");
+
+        try (Connection keepAlive = connect(url)) {
+            migrateTo(url, "92");
+
+            try (Connection connection = connect(url);
+                 Statement statement = connection.createStatement()) {
+                statement.executeUpdate(
+                        """
+                                INSERT INTO employees (
+                                    employee_code,
+                                    full_name,
+                                    standard_hours_per_week
+                                ) VALUES (
+                                    'EMP-V93-DEDUP',
+                                    'V93 Test Employee',
+                                    40
+                                )
+                                """
+                );
+                long empId = queryLong(
+                        connection,
+                        "SELECT id FROM employees WHERE employee_code = ?",
+                        "EMP-V93-DEDUP"
+                );
+                statement.executeUpdate(
+                        "ALTER TABLE schedule_conflict_warnings DROP CONSTRAINT IF EXISTS uk_conflict_emp_year_week_type"
+                );
+                statement.executeUpdate(
+                        String.format(
+                                """
+                                        INSERT INTO schedule_conflict_warnings (
+                                            employee_id, year_number, week_number, conflict_type,
+                                            total_allocated_hours, net_available_hours, excess_hours, status
+                                        ) VALUES
+                                        (%d, 2026, 37, 'MULTI_PROJECT_ALLOCATION', 80.00, 40.00, 40.00, 'OPEN'),
+                                        (%d, 2026, 37, 'MULTI_PROJECT_ALLOCATION', 80.00, 40.00, 40.00, 'RESOLVED')
+                                        """,
+                                empId,
+                                empId
+                        )
+                );
+            }
+
+            migrateToLatest(url);
+
+            try (Connection connection = connect(url)) {
+                long count = queryLong(
+                        connection,
+                        """
+                                SELECT COUNT(*)
+                                FROM schedule_conflict_warnings
+                                WHERE year_number = 2026 AND week_number = 37
+                                """
+                );
+                assertEquals(1L, count);
+
+                String status = queryString(
+                        connection,
+                        """
+                                SELECT status
+                                FROM schedule_conflict_warnings
+                                WHERE year_number = 2026 AND week_number = 37
+                                """
+                );
+                assertEquals("RESOLVED", status);
+            }
+        }
+    }
+
+    @Test
     void v15BackfillsNullStandardHoursBeforeMakingColumnNotNull()
             throws Exception {
         String url = jdbcUrl("v15_null_standard_hours");

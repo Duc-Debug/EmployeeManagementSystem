@@ -37,7 +37,29 @@ ALTER TABLE schedule_conflict_warnings
     ADD CONSTRAINT fk_conflict_assigned_handler
     FOREIGN KEY (assigned_handler_id) REFERENCES employees (id) ON DELETE SET NULL;
 
--- 5. Bổ sung index phục vụ truy vấn cho bảng schedule_conflict_warnings
+-- 5. Xử lý làm sạch bản ghi trùng lặp (nếu có) trước khi tạo UNIQUE INDEX
+DELETE FROM schedule_conflict_warnings
+WHERE id NOT IN (
+    SELECT canonical_id FROM (
+        SELECT id AS canonical_id,
+               ROW_NUMBER() OVER (
+                   PARTITION BY employee_id, year_number, week_number, conflict_type
+                   ORDER BY 
+                       CASE status
+                           WHEN 'RESOLVED' THEN 1
+                           WHEN 'NOTIFIED' THEN 2
+                           WHEN 'REOPENED' THEN 3
+                           ELSE 4
+                       END,
+                       updated_at DESC,
+                       id DESC
+               ) AS rn
+        FROM schedule_conflict_warnings
+    ) AS ranked
+    WHERE rn = 1
+);
+
+-- 6. Bổ sung index phục vụ truy vấn cho bảng schedule_conflict_warnings
 CREATE INDEX idx_schedule_conflict_year_week ON schedule_conflict_warnings(year_number, week_number);
 CREATE UNIQUE INDEX uk_schedule_conflict_existing ON schedule_conflict_warnings(employee_id, year_number, week_number, conflict_type);
 
