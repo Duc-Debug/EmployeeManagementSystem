@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS resource_scenarios (
 
     CONSTRAINT uk_scenario_code UNIQUE (code),
     CONSTRAINT chk_scenario_status CHECK (status IN ('draft', 'applied', 'discarded')),
+    -- Note: chk_scenario_weeks kiem tra gioi han so hoc (1..53). Tinh hop le so tuan ISO thuc te theo tung nam duoc dam bao boi Domain (YearWeek) va JPA Entity Lifecycle (@PrePersist/@PreUpdate).
     CONSTRAINT chk_scenario_weeks CHECK (from_week BETWEEN 1 AND 53 AND duration_weeks BETWEEN 1 AND 16),
     CONSTRAINT fk_scenario_org_unit FOREIGN KEY (org_unit_id) REFERENCES org_units(id) ON DELETE RESTRICT,
     CONSTRAINT fk_scenario_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT

@@ -99,4 +99,15 @@ public class ScenarioDemandJpaEntity {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    @PrePersist
+    @PreUpdate
+    protected void validateYearWeeks() {
+        if (startYear != null && startWeek != null) {
+            com.hrm.employeemanagement.domain.availability.YearWeek.of(startYear, startWeek);
+        }
+        if (endYear != null && endWeek != null) {
+            com.hrm.employeemanagement.domain.availability.YearWeek.of(endYear, endWeek);
+        }
+    }
 }

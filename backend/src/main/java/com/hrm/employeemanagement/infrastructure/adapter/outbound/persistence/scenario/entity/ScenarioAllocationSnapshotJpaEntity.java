@@ -64,4 +64,12 @@ public class ScenarioAllocationSnapshotJpaEntity {
     public void setAllocatedHours(BigDecimal allocatedHours) { this.allocatedHours = allocatedHours; }
     public BigDecimal getAvailableHours() { return availableHours; }
     public void setAvailableHours(BigDecimal availableHours) { this.availableHours = availableHours; }
+
+    @PrePersist
+    @PreUpdate
+    protected void validateYearWeek() {
+        if (yearNumber != null && weekNumber != null) {
+            com.hrm.employeemanagement.domain.availability.YearWeek.of(yearNumber, weekNumber);
+        }
+    }
 }
