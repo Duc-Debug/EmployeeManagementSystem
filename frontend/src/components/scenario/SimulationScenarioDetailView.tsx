@@ -372,23 +372,23 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {demands.map((demand) => (
                   <tr key={demand.id} className="hover:bg-slate-50/70 transition">
-                    <td className="px-4 py-3 font-medium text-slate-900">{demand.roleName}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{demand.demandName || demand.roleName}</td>
                     <td className="px-4 py-3 text-center">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
                         {demand.headcount} người
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center font-mono">
-                      Tuần {demand.weekStart} → Tuần {demand.weekEnd}
+                      W{demand.startWeek ?? demand.weekStart}/{demand.startYear ?? scenario.startYear} → W{demand.endWeek ?? demand.weekEnd}/{demand.endYear ?? scenario.startYear}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono">{demand.hoursPerWeek}h</td>
+                    <td className="px-4 py-3 text-right font-mono">{demand.hoursPerWeekPerPerson ?? demand.hoursPerWeek}h</td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-indigo-600">
-                      {(demand.headcount * demand.hoursPerWeek).toLocaleString()}h
+                      {(demand.headcount * (demand.hoursPerWeekPerPerson ?? demand.hoursPerWeek ?? 0)).toLocaleString()}h
                     </td>
                     <td className="px-4 py-3 text-slate-500">
-                      {demand.requiredSkill ? (
+                      {demand.skillRequirement || demand.requiredSkill ? (
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px]">
-                          {demand.requiredSkill}
+                          {demand.skillRequirement || demand.requiredSkill}
                         </span>
                       ) : (
                         "—"
@@ -557,8 +557,10 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
         <AddEditDemandModal
           isOpen={isDemandModalOpen}
           scenarioId={scenarioId}
+          scenarioStartYear={scenario.startYear}
           scenarioStartWeek={scenario.startWeek}
           scenarioDurationWeeks={scenario.durationWeeks}
+          availableWeeks={simulation?.weeklyMetrics}
           initialData={selectedDemand}
           onClose={() => {
             setIsDemandModalOpen(false);

@@ -25,13 +25,22 @@ export interface ScenarioResult {
 export interface ScenarioDemandResult {
   id: number;
   scenarioId: number;
-  roleName: string;
+  demandName: string;
+  roleName?: string;
   headcount: number;
-  weekStart: number;
-  weekEnd: number;
-  hoursPerWeek: number;
-  requiredSkill: string | null;
+  startYear: number;
+  startWeek: number;
+  endYear: number;
+  endWeek: number;
+  weekStart?: number;
+  weekEnd?: number;
+  hoursPerWeekPerPerson: number;
+  hoursPerWeek?: number;
+  totalHoursPerWeek: number;
+  skillRequirement: string | null;
+  requiredSkill?: string | null;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface ScenarioDetailResult {
@@ -84,20 +93,34 @@ export interface CreateScenarioPayload {
 }
 
 export interface AddDemandPayload {
-  roleName: string;
+  demandName: string;
+  roleName?: string;
   headcount: number;
-  weekStart: number;
-  weekEnd: number;
-  hoursPerWeek: number;
+  startYear: number;
+  startWeek: number;
+  endYear: number;
+  endWeek: number;
+  weekStart?: number;
+  weekEnd?: number;
+  hoursPerWeekPerPerson: number;
+  hoursPerWeek?: number;
+  skillRequirement?: string;
   requiredSkill?: string;
 }
 
 export interface UpdateDemandPayload {
-  roleName: string;
+  demandName: string;
+  roleName?: string;
   headcount: number;
-  weekStart: number;
-  weekEnd: number;
-  hoursPerWeek: number;
+  startYear: number;
+  startWeek: number;
+  endYear: number;
+  endWeek: number;
+  weekStart?: number;
+  weekEnd?: number;
+  hoursPerWeekPerPerson: number;
+  hoursPerWeek?: number;
+  skillRequirement?: string;
   requiredSkill?: string;
 }
 

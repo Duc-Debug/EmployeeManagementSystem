@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, Plus, AlertCircle, Edit3 } from "lucide-react";
 import {
   addScenarioDemand,
@@ -10,63 +10,147 @@ import {
   type UpdateDemandPayload,
 } from "@/lib/api/simulation-scenarios";
 
+interface WeekOption {
+  year: number;
+  week: number;
+  label: string;
+}
+
 interface AddEditDemandModalProps {
   isOpen: boolean;
   scenarioId: number;
+  scenarioStartYear: number;
   scenarioStartWeek: number;
   scenarioDurationWeeks: number;
+  availableWeeks?: { year: number; weekNumber: number }[];
   initialData?: ScenarioDemandResult | null;
   onClose: () => void;
   onSuccess: (demand: ScenarioDemandResult) => void;
 }
 
+function buildTargetWeeks(
+  startYear: number,
+  startWeek: number,
+  durationWeeks: number,
+  availableWeeks?: { year: number; weekNumber: number }[]
+): WeekOption[] {
+  if (availableWeeks && availableWeeks.length > 0) {
+    return availableWeeks.map((w) => ({
+      year: w.year,
+      week: w.weekNumber,
+      label: `Tuần ${w.weekNumber}/${w.year} (${w.year}-W${String(w.weekNumber).padStart(2, "0")})`,
+    }));
+  }
+
+  const jan4 = new Date(Date.UTC(startYear, 0, 4));
+  const dayOfWeek = jan4.getUTCDay() || 7;
+  const startMonday = new Date(jan4.getTime() + ((startWeek - 1) * 7 + 1 - dayOfWeek) * 86400000);
+
+  const result: WeekOption[] = [];
+  for (let i = 0; i < durationWeeks; i++) {
+    const d = new Date(startMonday.getTime() + i * 7 * 86400000);
+    const target = new Date(d.valueOf());
+    const dayNr = (d.getUTCDay() + 6) % 7;
+    target.setUTCDate(target.getUTCDate() - dayNr + 3);
+    const firstThursday = target.valueOf();
+    target.setUTCMonth(0, 1);
+    if (target.getUTCDay() !== 4) {
+      target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
+    }
+    const w = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+    const y = new Date(firstThursday).getUTCFullYear();
+    result.push({
+      year: y,
+      week: w,
+      label: `Tuần ${w}/${y} (${y}-W${String(w).padStart(2, "0")})`,
+    });
+  }
+  return result;
+}
+
 export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
   isOpen,
   scenarioId,
+  scenarioStartYear,
   scenarioStartWeek,
   scenarioDurationWeeks,
+  availableWeeks,
   initialData,
   onClose,
   onSuccess,
 }) => {
-  const [roleName, setRoleName] = useState("");
+  const [demandName, setDemandName] = useState("");
   const [headcount, setHeadcount] = useState<number>(1);
-  const [weekStart, setWeekStart] = useState<number>(scenarioStartWeek);
-  const [weekEnd, setWeekEnd] = useState<number>(scenarioStartWeek + scenarioDurationWeeks - 1);
-  const [hoursPerWeek, setHoursPerWeek] = useState<number>(40);
-  const [requiredSkill, setRequiredSkill] = useState("");
+  const [startIndex, setStartIndex] = useState<number>(0);
+  const [endIndex, setEndIndex] = useState<number>(0);
+  const [hoursPerWeekPerPerson, setHoursPerWeekPerPerson] = useState<number>(40);
+  const [skillRequirement, setSkillRequirement] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const scenarioEndWeek = scenarioStartWeek + scenarioDurationWeeks - 1;
+  const scenarioWeeks = useMemo(() => {
+    return buildTargetWeeks(
+      scenarioStartYear,
+      scenarioStartWeek,
+      scenarioDurationWeeks,
+      availableWeeks
+    );
+  }, [scenarioStartYear, scenarioStartWeek, scenarioDurationWeeks, availableWeeks]);
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+
+    const maxIdx = Math.max(0, scenarioWeeks.length - 1);
+
     if (initialData) {
-      setRoleName(initialData.roleName);
-      setHeadcount(initialData.headcount);
-      setWeekStart(initialData.weekStart);
-      setWeekEnd(initialData.weekEnd);
-      setHoursPerWeek(initialData.hoursPerWeek);
-      setRequiredSkill(initialData.requiredSkill || "");
+      setDemandName(initialData.demandName || initialData.roleName || "");
+      setHeadcount(initialData.headcount || 1);
+      setHoursPerWeekPerPerson(
+        initialData.hoursPerWeekPerPerson ?? initialData.hoursPerWeek ?? 40
+      );
+      setSkillRequirement(
+        initialData.skillRequirement || initialData.requiredSkill || ""
+      );
+
+      const targetStartYear = initialData.startYear ?? scenarioStartYear;
+      const targetStartWeek = initialData.startWeek ?? initialData.weekStart ?? scenarioStartWeek;
+      const targetEndYear = initialData.endYear ?? scenarioStartYear;
+      const targetEndWeek = initialData.endWeek ?? initialData.weekEnd ?? scenarioStartWeek;
+
+      const foundStartIdx = scenarioWeeks.findIndex(
+        (w) => w.year === targetStartYear && w.week === targetStartWeek
+      );
+      const foundEndIdx = scenarioWeeks.findIndex(
+        (w) => w.year === targetEndYear && w.week === targetEndWeek
+      );
+
+      setStartIndex(foundStartIdx >= 0 ? foundStartIdx : 0);
+      setEndIndex(foundEndIdx >= 0 ? foundEndIdx : maxIdx);
     } else {
-      setRoleName("");
+      setDemandName("");
       setHeadcount(1);
-      setWeekStart(scenarioStartWeek);
-      setWeekEnd(Math.min(53, scenarioStartWeek + scenarioDurationWeeks - 1));
-      setHoursPerWeek(40);
-      setRequiredSkill("");
+      setStartIndex(0);
+      setEndIndex(maxIdx);
+      setHoursPerWeekPerPerson(40);
+      setSkillRequirement("");
     }
-  }, [isOpen, initialData, scenarioStartWeek, scenarioDurationWeeks]);
+  }, [isOpen, initialData, scenarioWeeks, scenarioStartYear, scenarioStartWeek]);
 
   if (!isOpen) return null;
+
+  const handleStartChange = (newIdx: number) => {
+    setStartIndex(newIdx);
+    if (endIndex < newIdx) {
+      setEndIndex(newIdx);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!roleName.trim()) {
+    if (!demandName.trim()) {
       setError("Vui lòng nhập tên vai trò hoặc vị trí");
       return;
     }
@@ -74,22 +158,15 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
       setError("Số lượng nhân sự phải là số nguyên lớn hơn 0");
       return;
     }
-    if (hoursPerWeek < 0) {
+    if (hoursPerWeekPerPerson < 0) {
       setError("Số giờ/tuần không được là số âm");
       return;
     }
-    if (weekStart < 1 || weekStart > 53 || weekEnd < 1 || weekEnd > 53) {
-      setError("Tuần phải nằm trong khoảng từ 1 đến 53");
-      return;
-    }
-    if (weekStart > weekEnd) {
-      setError(`Tuần bắt đầu (W${weekStart}) không thể lớn hơn tuần kết thúc (W${weekEnd})`);
-      return;
-    }
-    if (weekStart < scenarioStartWeek || weekEnd > scenarioEndWeek) {
-      setError(
-        `Nhu cầu phải nằm trong phạm vi kịch bản (Tuần ${scenarioStartWeek} đến Tuần ${scenarioEndWeek})`
-      );
+
+    const startOption = scenarioWeeks[startIndex];
+    const endOption = scenarioWeeks[endIndex];
+    if (!startOption || !endOption) {
+      setError("Phạm vi tuần không hợp lệ");
       return;
     }
 
@@ -97,32 +174,33 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
     setError(null);
 
     try {
+      const payload: AddDemandPayload = {
+        demandName: demandName.trim(),
+        headcount,
+        startYear: startOption.year,
+        startWeek: startOption.week,
+        endYear: endOption.year,
+        endWeek: endOption.week,
+        hoursPerWeekPerPerson,
+        skillRequirement: skillRequirement.trim() || undefined,
+      };
+
       if (initialData) {
-        const payload: UpdateDemandPayload = {
-          roleName: roleName.trim(),
-          headcount,
-          weekStart,
-          weekEnd,
-          hoursPerWeek,
-          requiredSkill: requiredSkill.trim() || undefined,
-        };
-        const updated = await updateScenarioDemand(scenarioId, initialData.id, payload);
+        const updated = await updateScenarioDemand(
+          scenarioId,
+          initialData.id,
+          payload as UpdateDemandPayload
+        );
         onSuccess(updated);
       } else {
-        const payload: AddDemandPayload = {
-          roleName: roleName.trim(),
-          headcount,
-          weekStart,
-          weekEnd,
-          hoursPerWeek,
-          requiredSkill: requiredSkill.trim() || undefined,
-        };
         const created = await addScenarioDemand(scenarioId, payload);
         onSuccess(created);
       }
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra khi lưu nhu cầu giả định.");
+      setError(
+        err instanceof Error ? err.message : "Đã có lỗi xảy ra khi lưu nhu cầu giả định."
+      );
     } finally {
       setLoading(false);
     }
@@ -141,7 +219,7 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
               <h3 className="text-base font-bold text-slate-900">
                 {initialData ? "Chỉnh sửa Nhu cầu Giả định" : "Thêm Nhu cầu Giả định"}
               </h3>
-              <p className="text-xs text-slate-500">Khai báo nhân sự cần bổ sung cho dự án</p>
+              <p className="text-xs text-slate-500">Khai báo nhân sự cần bổ sung cho kịch bản</p>
             </div>
           </div>
           <button
@@ -167,8 +245,8 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
             </label>
             <input
               type="text"
-              value={roleName}
-              onChange={(e) => setRoleName(e.target.value)}
+              value={demandName}
+              onChange={(e) => setDemandName(e.target.value)}
               required
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10"
               placeholder="VD: Senior Backend Developer, QC Lead..."
@@ -198,8 +276,8 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
                 min={0}
                 max={168}
                 step={0.5}
-                value={hoursPerWeek}
-                onChange={(e) => setHoursPerWeek(parseFloat(e.target.value) || 0)}
+                value={hoursPerWeekPerPerson}
+                onChange={(e) => setHoursPerWeekPerPerson(parseFloat(e.target.value) || 0)}
                 required
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10"
               />
@@ -209,33 +287,38 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Tuần bắt đầu <span className="text-rose-500">*</span>
+                Thời điểm bắt đầu <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="number"
-                min={scenarioStartWeek}
-                max={scenarioEndWeek}
-                value={weekStart}
-                onChange={(e) => setWeekStart(parseInt(e.target.value, 10) || scenarioStartWeek)}
-                required
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10"
-              />
-              <span className="text-[10px] text-slate-400">Tối thiểu: W{scenarioStartWeek}</span>
+              <select
+                value={startIndex}
+                onChange={(e) => handleStartChange(parseInt(e.target.value, 10))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10 bg-white"
+              >
+                {scenarioWeeks.map((w, idx) => (
+                  <option key={`${w.year}-${w.week}`} value={idx}>
+                    {w.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Tuần kết thúc <span className="text-rose-500">*</span>
+                Thời điểm kết thúc <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="number"
-                min={weekStart}
-                max={scenarioEndWeek}
-                value={weekEnd}
-                onChange={(e) => setWeekEnd(parseInt(e.target.value, 10) || scenarioEndWeek)}
-                required
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10"
-              />
-              <span className="text-[10px] text-slate-400">Tối đa: W{scenarioEndWeek}</span>
+              <select
+                value={endIndex}
+                onChange={(e) => setEndIndex(parseInt(e.target.value, 10))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10 bg-white"
+              >
+                {scenarioWeeks.slice(startIndex).map((w, sliceIdx) => {
+                  const actualIdx = startIndex + sliceIdx;
+                  return (
+                    <option key={`${w.year}-${w.week}`} value={actualIdx}>
+                      {w.label}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
           </div>
 
@@ -245,8 +328,8 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
             </label>
             <input
               type="text"
-              value={requiredSkill}
-              onChange={(e) => setRequiredSkill(e.target.value)}
+              value={skillRequirement}
+              onChange={(e) => setSkillRequirement(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10"
               placeholder="VD: Java, Spring Boot, React..."
             />
@@ -256,7 +339,7 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
           <div className="rounded-xl bg-slate-50 p-3 border border-slate-200 text-xs text-slate-600 flex justify-between items-center">
             <span>Tổng giờ bổ sung mỗi tuần:</span>
             <span className="font-bold text-indigo-600 text-sm">
-              {(headcount * hoursPerWeek).toLocaleString()} giờ/tuần
+              {(headcount * hoursPerWeekPerPerson).toLocaleString()} giờ/tuần
             </span>
           </div>
 
