@@ -22,7 +22,7 @@ import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
 import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
-import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
@@ -31,7 +31,6 @@ import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundExce
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
-import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
 import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
 import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
@@ -48,7 +47,26 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
     private final LoadScenarioDemandPort loadDemandPort;
     private final LoadScenarioSnapshotPort loadSnapshotPort;
     private final LoadCapacityThresholdPort loadCapacityThresholdPort;
-    private final SaveAuditLogPort saveAuditLogPort;
+
+    public ScenarioSimulationCalculationService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadResourceScenarioPort loadScenarioPort,
+            LoadScenarioDemandPort loadDemandPort,
+            LoadScenarioSnapshotPort loadSnapshotPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
+    ) {
+        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
+        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
+        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
+        this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
+        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
+    }
 
     public ScenarioSimulationCalculationService(
             AuthorizationService authorizationService,
@@ -61,15 +79,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             LoadCapacityThresholdPort loadCapacityThresholdPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
-        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
-        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
-        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
-        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
-        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
-        this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
-        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
-        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+        this(authorizationService, loadUserPort, loadOrgUnitPort, loadEmployeePort, loadScenarioPort, loadDemandPort, loadSnapshotPort, loadCapacityThresholdPort);
     }
 
     @Override
@@ -78,37 +88,10 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        RoleCode roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : null;
-        if (roleCode != RoleCode.VT_01 && roleCode != RoleCode.VT_03) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "ACCESS_DENIED_SCENARIO_SIMULATION",
-                    "resource_scenarios",
-                    scenarioId,
-                    null,
-                    "user_id=" + currentUserId + ";role=" + (roleCode != null ? roleCode.getCode() : "NONE")
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-        }
-
         ResourceScenario scenario = loadScenarioPort.findById(scenarioId)
                 .orElseThrow(() -> new ScenarioNotFoundException(scenarioId));
 
-        // Kiểm tra DataScope cho VT-03
-        if (roleCode == RoleCode.VT_03) {
-            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (userScopeOrgUnitId == null || !loadOrgUnitPort.existsInOrgUnitBranch(scenario.getOrgUnitId(), userScopeOrgUnitId)) {
-                saveAuditLogPort.save(AuditLog.createChange(
-                        currentUserId,
-                        "ACCESS_DENIED_SCENARIO_SIMULATION",
-                        "resource_scenarios",
-                        scenarioId,
-                        null,
-                        "user_id=" + currentUserId + ";denied_reason=SCENARIO_OUT_OF_SCOPE"
-                ));
-                throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-            }
-        }
+        validateReadScope(currentUser, scenario.getOrgUnitId());
 
         OrgUnit orgUnit = loadOrgUnitPort.findById(new OrgUnitId(scenario.getOrgUnitId())).orElse(null);
         String orgUnitName = orgUnit != null ? orgUnit.getUnitName() : "Không xác định";
@@ -248,5 +231,19 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             monday = monday.plusWeeks(1);
         }
         return list;
+    }
+
+    private void validateReadScope(User currentUser, Long targetOrgUnitId) {
+        DataScope dataScope = currentUser.getDataScope();
+        if (dataScope == DataScope.COMPANY) {
+            return;
+        }
+        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
+            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)) {
+                return;
+            }
+        }
+        throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
     }
 }

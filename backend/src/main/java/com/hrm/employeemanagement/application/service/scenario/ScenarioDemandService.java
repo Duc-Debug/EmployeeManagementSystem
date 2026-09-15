@@ -17,6 +17,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -24,7 +25,6 @@ import com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDeman
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandNotFoundException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
-import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
 import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
 import com.hrm.employeemanagement.domain.user.User;
@@ -70,24 +70,11 @@ public class ScenarioDemandService implements
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        // Chỉ VT-03 được quản lý nhu cầu giả định
-        if (currentUser.getRole() == null || currentUser.getRole().getCode() != RoleCode.VT_03) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "ACCESS_DENIED_DEMAND_ADD",
-                    "scenario_demands",
-                    null,
-                    null,
-                    "user_id=" + currentUserId + ";denied_reason=ROLE_NOT_VT_03"
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
-        }
-
         ResourceScenario scenario = loadScenarioPort.findById(command.scenarioId())
                 .orElseThrow(() -> new ScenarioNotFoundException(command.scenarioId()));
 
         // Kiểm tra DataScope
-        verifyScenarioInUserBranch(currentUser, scenario);
+        verifyScenarioInUserScope(currentUser, scenario);
 
         // Kiểm tra trạng thái kịch bản phải là draft
         scenario.assertModifiable();
@@ -139,22 +126,10 @@ public class ScenarioDemandService implements
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        if (currentUser.getRole() == null || currentUser.getRole().getCode() != RoleCode.VT_03) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "ACCESS_DENIED_DEMAND_UPDATE",
-                    "scenario_demands",
-                    command.demandId(),
-                    null,
-                    "user_id=" + currentUserId + ";denied_reason=ROLE_NOT_VT_03"
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
-        }
-
         ResourceScenario scenario = loadScenarioPort.findById(command.scenarioId())
                 .orElseThrow(() -> new ScenarioNotFoundException(command.scenarioId()));
 
-        verifyScenarioInUserBranch(currentUser, scenario);
+        verifyScenarioInUserScope(currentUser, scenario);
         scenario.assertModifiable();
 
         // Kiểm tra phạm vi tuần của nhu cầu phải nằm trong phạm vi kịch bản
@@ -215,22 +190,10 @@ public class ScenarioDemandService implements
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        if (currentUser.getRole() == null || currentUser.getRole().getCode() != RoleCode.VT_03) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "ACCESS_DENIED_DEMAND_DELETE",
-                    "scenario_demands",
-                    demandId,
-                    null,
-                    "user_id=" + currentUserId + ";denied_reason=ROLE_NOT_VT_03"
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
-        }
-
         ResourceScenario scenario = loadScenarioPort.findById(scenarioId)
                 .orElseThrow(() -> new ScenarioNotFoundException(scenarioId));
 
-        verifyScenarioInUserBranch(currentUser, scenario);
+        verifyScenarioInUserScope(currentUser, scenario);
         scenario.assertModifiable();
 
         ScenarioDemand demand = loadDemandPort.findById(demandId)
@@ -256,19 +219,18 @@ public class ScenarioDemandService implements
         ));
     }
 
-    private void verifyScenarioInUserBranch(User currentUser, ResourceScenario scenario) {
-        Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-        if (userScopeOrgUnitId == null || !loadOrgUnitPort.existsInOrgUnitBranch(scenario.getOrgUnitId(), userScopeOrgUnitId)) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUser.getIdValue(),
-                    "ACCESS_DENIED_DEMAND_MANAGE",
-                    "scenario_demands",
-                    null,
-                    null,
-                    "user_id=" + currentUser.getIdValue() + ";denied_reason=SCENARIO_OUT_OF_SCOPE;scenarioOrgUnit=" + scenario.getOrgUnitId()
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+    private void verifyScenarioInUserScope(User currentUser, ResourceScenario scenario) {
+        DataScope dataScope = currentUser.getDataScope();
+        if (dataScope == DataScope.COMPANY) {
+            return;
         }
+        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
+            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(scenario.getOrgUnitId(), userScopeOrgUnitId)) {
+                return;
+            }
+        }
+        throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
     }
 
     private ScenarioDemandResult toDemandResult(ScenarioDemand demand) {

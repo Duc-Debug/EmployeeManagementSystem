@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
@@ -255,5 +256,27 @@ class ScenarioSimulationCalculationTest {
         assertEquals(2, m4.weekNumber());
         assertEquals(BigDecimal.valueOf(40), m4.demandHours(), "Tuần 2027-W02 phải có demand = 40");
         assertEquals(BigDecimal.valueOf(40), m4.scenarioWorkloadHours());
+    }
+
+    @Test
+    @DisplayName("Không có quyền RESOURCE_SCENARIO_READ -> Ném PermissionDeniedException")
+    void testSimulation_NoPermission_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ))
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ));
+
+        assertThrows(PermissionDeniedException.class, () -> service.getSimulationResult(1L));
+        verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Kịch bản ngoài phạm vi branch -> Ném PermissionDeniedException")
+    void testSimulation_OutOfScope_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ)).thenReturn(103L);
+        when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
+        when(loadScenarioPort.findById(1L)).thenReturn(Optional.of(scenario));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(false);
+
+        assertThrows(PermissionDeniedException.class, () -> service.getSimulationResult(1L));
+        verify(saveAuditLogPort, never()).save(any());
     }
 }

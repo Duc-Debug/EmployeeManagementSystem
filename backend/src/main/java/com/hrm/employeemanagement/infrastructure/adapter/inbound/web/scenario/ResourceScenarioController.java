@@ -48,7 +48,7 @@ public class ResourceScenarioController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('VT-03', 'ROLE_VT-03', 'RESOURCE_SCENARIO_MANAGE')")
+    @PreAuthorize("hasAuthority('RESOURCE_SCENARIO_MANAGE')")
     public ResponseEntity<ApiResponse<ScenarioResult>> createScenario(
             @Valid @RequestBody CreateScenarioRequest request
     ) {
@@ -66,7 +66,7 @@ public class ResourceScenarioController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('VT-01', 'VT-03', 'ROLE_VT-01', 'ROLE_VT-03', 'RESOURCE_SCENARIO_READ')")
+    @PreAuthorize("hasAuthority('RESOURCE_SCENARIO_READ')")
     public ResponseEntity<ApiResponse<List<ScenarioResult>>> listScenarios(
             @RequestParam(required = false) Long orgUnitId
     ) {
@@ -75,7 +75,7 @@ public class ResourceScenarioController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('VT-01', 'VT-03', 'ROLE_VT-01', 'ROLE_VT-03', 'RESOURCE_SCENARIO_READ')")
+    @PreAuthorize("hasAuthority('RESOURCE_SCENARIO_READ')")
     public ResponseEntity<ApiResponse<ScenarioDetailResult>> getScenarioById(
             @PathVariable("id") Long id
     ) {
@@ -84,7 +84,7 @@ public class ResourceScenarioController {
     }
 
     @PostMapping("/{id}/demands")
-    @PreAuthorize("hasAnyAuthority('VT-03', 'ROLE_VT-03', 'RESOURCE_SCENARIO_MANAGE')")
+    @PreAuthorize("hasAuthority('RESOURCE_SCENARIO_MANAGE')")
     public ResponseEntity<ApiResponse<ScenarioDemandResult>> addDemand(
             @PathVariable("id") Long id,
             @Valid @RequestBody AddScenarioDemandRequest request
@@ -105,7 +105,7 @@ public class ResourceScenarioController {
     }
 
     @PutMapping("/{id}/demands/{demandId}")
-    @PreAuthorize("hasAnyAuthority('VT-03', 'ROLE_VT-03', 'RESOURCE_SCENARIO_MANAGE')")
+    @PreAuthorize("hasAuthority('RESOURCE_SCENARIO_MANAGE')")
     public ResponseEntity<ApiResponse<ScenarioDemandResult>> updateDemand(
             @PathVariable("id") Long id,
             @PathVariable("demandId") Long demandId,
@@ -128,7 +128,7 @@ public class ResourceScenarioController {
     }
 
     @DeleteMapping("/{id}/demands/{demandId}")
-    @PreAuthorize("hasAnyAuthority('VT-03', 'ROLE_VT-03', 'RESOURCE_SCENARIO_MANAGE')")
+    @PreAuthorize("hasAuthority('RESOURCE_SCENARIO_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> deleteDemand(
             @PathVariable("id") Long id,
             @PathVariable("demandId") Long demandId
@@ -138,7 +138,7 @@ public class ResourceScenarioController {
     }
 
     @GetMapping("/{id}/simulation")
-    @PreAuthorize("hasAnyAuthority('VT-01', 'VT-03', 'ROLE_VT-01', 'ROLE_VT-03', 'RESOURCE_SCENARIO_READ')")
+    @PreAuthorize("hasAuthority('RESOURCE_SCENARIO_READ')")
     public ResponseEntity<ApiResponse<ScenarioSimulationResult>> getSimulationResult(
             @PathVariable("id") Long id
     ) {

@@ -31,6 +31,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.Holiday;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
@@ -43,7 +44,6 @@ import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundExce
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
-import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
 import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
 import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
@@ -107,24 +107,12 @@ public class ResourceScenarioService implements
 
     @Override
     public ScenarioResult createScenario(CreateScenarioCommand command) {
-        // 1. Kiểm tra quyền hạn: Chỉ VT-03 (RESOURCE_SCENARIO_MANAGE) được phép tạo kịch bản
+        // 1. Kiểm tra quyền hạn: Dùng AuthorizationService làm nguồn sự thật duy nhất (RESOURCE_SCENARIO_MANAGE)
         Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE);
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        if (currentUser.getRole() == null || currentUser.getRole().getCode() != RoleCode.VT_03) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "ACCESS_DENIED_SCENARIO_CREATE",
-                    "resource_scenarios",
-                    null,
-                    null,
-                    "user_id=" + currentUserId + ";denied_reason=ROLE_NOT_VT_03"
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
-        }
-
-        // 2. Kiểm tra DataScope: VT-03 chỉ được thao tác trong branch của mình
+        // 2. Xác định đơn vị mục tiêu và kiểm tra DataScope
         Long targetOrgUnitId = command.orgUnitId();
         if (targetOrgUnitId == null) {
             targetOrgUnitId = currentUser.getScopeOrgUnitId();
@@ -133,20 +121,7 @@ public class ResourceScenarioService implements
             throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
         }
 
-        if (currentUser.getScopeOrgUnitId() != null) {
-            boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, currentUser.getScopeOrgUnitId());
-            if (!inScope) {
-                saveAuditLogPort.save(AuditLog.createChange(
-                        currentUserId,
-                        "ACCESS_DENIED_SCENARIO_CREATE",
-                        "resource_scenarios",
-                        null,
-                        null,
-                        "user_id=" + currentUserId + ";denied_reason=ORG_UNIT_OUT_OF_SCOPE;targetOrgUnit=" + targetOrgUnitId
-                ));
-                throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
-            }
-        }
+        validateManageScope(currentUser, targetOrgUnitId);
 
         OrgUnit orgUnit = loadOrgUnitPort.findById(new OrgUnitId(targetOrgUnitId))
                 .orElseThrow(() -> new OrgUnitNotFoundException("Không tìm thấy bộ phận với ID: " + command.orgUnitId()));
@@ -285,30 +260,19 @@ public class ResourceScenarioService implements
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        RoleCode roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : null;
-        if (roleCode != RoleCode.VT_01 && roleCode != RoleCode.VT_03) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "ACCESS_DENIED_SCENARIO_LIST",
-                    "resource_scenarios",
-                    null,
-                    null,
-                    "user_id=" + currentUserId + ";role=" + (roleCode != null ? roleCode.getCode() : "NONE")
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-        }
-
+        DataScope dataScope = currentUser.getDataScope();
         List<ResourceScenario> scenarios;
-        if (roleCode == RoleCode.VT_01) {
-            // VT-01 có phạm vi COMPANY: Xem toàn bộ công ty hoặc lọc theo orgUnitId
+
+        if (dataScope == DataScope.COMPANY) {
+            // Phạm vi COMPANY: Xem toàn bộ công ty hoặc lọc theo orgUnitId
             if (orgUnitId != null) {
                 List<Long> branchIds = resolveScopeBranchOrgUnitIds(orgUnitId);
                 scenarios = loadScenarioPort.findAllByOrgUnitIds(branchIds);
             } else {
                 scenarios = loadScenarioPort.findAll();
             }
-        } else {
-            // VT-03 có phạm vi ORGANIZATION_BRANCH: Chỉ được xem kịch bản trong branch của mình
+        } else if (dataScope == DataScope.ORGANIZATION_BRANCH) {
+            // Phạm vi ORGANIZATION_BRANCH: Chỉ được xem kịch bản trong branch của mình
             Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
             if (userScopeOrgUnitId == null) {
                 return List.of();
@@ -316,14 +280,6 @@ public class ResourceScenarioService implements
             if (orgUnitId != null) {
                 boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, userScopeOrgUnitId);
                 if (!inScope) {
-                    saveAuditLogPort.save(AuditLog.createChange(
-                            currentUserId,
-                            "ACCESS_DENIED_SCENARIO_LIST",
-                            "resource_scenarios",
-                            null,
-                            null,
-                            "user_id=" + currentUserId + ";denied_reason=ORG_UNIT_OUT_OF_SCOPE;targetOrgUnit=" + orgUnitId
-                    ));
                     throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
                 }
                 List<Long> branchIds = resolveScopeBranchOrgUnitIds(orgUnitId);
@@ -332,6 +288,8 @@ public class ResourceScenarioService implements
                 List<Long> branchIds = resolveScopeBranchOrgUnitIds(userScopeOrgUnitId);
                 scenarios = loadScenarioPort.findAllByOrgUnitIds(branchIds);
             }
+        } else {
+            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
         }
 
         return scenarios.stream()
@@ -345,37 +303,10 @@ public class ResourceScenarioService implements
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-        RoleCode roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : null;
-        if (roleCode != RoleCode.VT_01 && roleCode != RoleCode.VT_03) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "ACCESS_DENIED_SCENARIO_VIEW",
-                    "resource_scenarios",
-                    scenarioId,
-                    null,
-                    "user_id=" + currentUserId + ";role=" + (roleCode != null ? roleCode.getCode() : "NONE")
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-        }
-
         ResourceScenario scenario = loadScenarioPort.findById(scenarioId)
                 .orElseThrow(() -> new ScenarioNotFoundException(scenarioId));
 
-        // Kiểm tra DataScope cho VT-03
-        if (roleCode == RoleCode.VT_03) {
-            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (userScopeOrgUnitId == null || !loadOrgUnitPort.existsInOrgUnitBranch(scenario.getOrgUnitId(), userScopeOrgUnitId)) {
-                saveAuditLogPort.save(AuditLog.createChange(
-                        currentUserId,
-                        "ACCESS_DENIED_SCENARIO_VIEW",
-                        "resource_scenarios",
-                        scenarioId,
-                        null,
-                        "user_id=" + currentUserId + ";denied_reason=SCENARIO_OUT_OF_SCOPE;scenarioOrgUnit=" + scenario.getOrgUnitId()
-                ));
-                throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-            }
-        }
+        validateReadScope(currentUser, scenario.getOrgUnitId());
 
         List<ScenarioDemand> demands = loadDemandPort.findByScenarioId(scenarioId);
         List<ScenarioDemandResult> demandResults = demands.stream()
@@ -492,5 +423,33 @@ public class ResourceScenarioService implements
     private String generateScenarioCode(int year) {
         String uuid = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         return "SCN-" + year + "-" + uuid;
+    }
+
+    private void validateManageScope(User currentUser, Long targetOrgUnitId) {
+        DataScope dataScope = currentUser.getDataScope();
+        if (dataScope == DataScope.COMPANY) {
+            return;
+        }
+        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
+            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)) {
+                return;
+            }
+        }
+        throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+    }
+
+    private void validateReadScope(User currentUser, Long targetOrgUnitId) {
+        DataScope dataScope = currentUser.getDataScope();
+        if (dataScope == DataScope.COMPANY) {
+            return;
+        }
+        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
+            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)) {
+                return;
+            }
+        }
+        throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
     }
 }

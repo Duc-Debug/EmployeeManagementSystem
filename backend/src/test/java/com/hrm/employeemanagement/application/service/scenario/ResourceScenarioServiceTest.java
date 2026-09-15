@@ -225,10 +225,10 @@ class ResourceScenarioServiceTest {
     }
 
     @Test
-    @DisplayName("AC-03: VT-01 không được phép tạo kịch bản -> Bị từ chối PermissionDeniedException")
-    void testCreateScenario_VT01_ThrowsPermissionDenied() {
-        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(101L);
-        when(loadUserPort.findById(new UserId(101L))).thenReturn(Optional.of(vt01User));
+    @DisplayName("AC-03: Người dùng không có quyền RESOURCE_SCENARIO_MANAGE -> Bị từ chối PermissionDeniedException")
+    void testCreateScenario_NoPermission_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE))
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE));
 
         CreateScenarioCommand command = new CreateScenarioCommand(
                 "SCN-01", "Kịch bản test", "Mô tả", 10L, 2026, 38, 8
@@ -236,14 +236,12 @@ class ResourceScenarioServiceTest {
 
         assertThrows(PermissionDeniedException.class, () -> service.createScenario(command));
 
-        verify(saveAuditLogPort, times(1)).save(argThat(log ->
-                "ACCESS_DENIED_SCENARIO_CREATE".equals(log.getAction())
-        ));
+        verify(saveAuditLogPort, never()).save(any());
     }
 
     @Test
-    @DisplayName("AC-05: VT-03 tạo kịch bản ngoài phạm vi branch -> Bị từ chối PermissionDeniedException")
-    void testCreateScenario_VT03_OutOfBranchScope_ThrowsPermissionDenied() {
+    @DisplayName("AC-05: User với scope ORGANIZATION_BRANCH tạo kịch bản ngoài phạm vi branch -> Bị từ chối PermissionDeniedException")
+    void testCreateScenario_OutOfBranchScope_ThrowsPermissionDenied() {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(103L);
         when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
         when(loadOrgUnitPort.existsInOrgUnitBranch(99L, 10L)).thenReturn(false);
@@ -254,15 +252,12 @@ class ResourceScenarioServiceTest {
 
         assertThrows(PermissionDeniedException.class, () -> service.createScenario(command));
 
-        verify(saveAuditLogPort, times(1)).save(argThat(log ->
-                "ACCESS_DENIED_SCENARIO_CREATE".equals(log.getAction()) &&
-                log.getNewValue().contains("ORG_UNIT_OUT_OF_SCOPE")
-        ));
+        verify(saveAuditLogPort, never()).save(any());
     }
 
     @Test
-    @DisplayName("AC-05: VT-03 xem chi tiết kịch bản ngoài branch -> Bị từ chối PermissionDeniedException")
-    void testGetScenarioById_VT03_OutOfBranchScope_ThrowsPermissionDenied() {
+    @DisplayName("AC-05: User với scope ORGANIZATION_BRANCH xem chi tiết kịch bản ngoài branch -> Bị từ chối PermissionDeniedException")
+    void testGetScenarioById_OutOfBranchScope_ThrowsPermissionDenied() {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ)).thenReturn(103L);
         when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
 
@@ -275,10 +270,7 @@ class ResourceScenarioServiceTest {
 
         assertThrows(PermissionDeniedException.class, () -> service.getScenarioById(99L));
 
-        verify(saveAuditLogPort, times(1)).save(argThat(log ->
-                "ACCESS_DENIED_SCENARIO_VIEW".equals(log.getAction()) &&
-                log.getNewValue().contains("SCENARIO_OUT_OF_SCOPE")
-        ));
+        verify(saveAuditLogPort, never()).save(any());
     }
 
     @Test

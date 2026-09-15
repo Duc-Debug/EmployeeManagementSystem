@@ -191,10 +191,10 @@ class ScenarioDemandServiceTest {
     }
 
     @Test
-    @DisplayName("VT-01 cố thêm nhu cầu giả định -> Bị từ chối PermissionDeniedException")
-    void testAddDemand_VT01_ThrowsPermissionDenied() {
-        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(101L);
-        when(loadUserPort.findById(new UserId(101L))).thenReturn(Optional.of(vt01User));
+    @DisplayName("Người dùng không có quyền RESOURCE_SCENARIO_MANAGE cố thêm nhu cầu giả định -> Bị từ chối PermissionDeniedException")
+    void testAddDemand_NoPermission_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE))
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE));
 
         AddScenarioDemandCommand command = new AddScenarioDemandCommand(
                 1L, "Java Dev", 1, 2026, 38, 2026, 40, BigDecimal.valueOf(40), "Java"
@@ -202,9 +202,21 @@ class ScenarioDemandServiceTest {
 
         assertThrows(PermissionDeniedException.class, () -> service.addDemand(command));
 
-        verify(saveAuditLogPort, times(1)).save(argThat(log ->
-                "ACCESS_DENIED_DEMAND_ADD".equals(log.getAction())
-        ));
+        verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Thêm nhu cầu cho kịch bản ngoài phạm vi branch -> Bị từ chối PermissionDeniedException")
+    void testAddDemand_OutOfScope_ThrowsPermissionDenied() {
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(false);
+
+        AddScenarioDemandCommand command = new AddScenarioDemandCommand(
+                1L, "Java Dev", 1, 2026, 38, 2026, 40, BigDecimal.valueOf(40), "Java"
+        );
+
+        assertThrows(PermissionDeniedException.class, () -> service.addDemand(command));
+
+        verify(saveAuditLogPort, never()).save(any());
     }
 
     @Test
