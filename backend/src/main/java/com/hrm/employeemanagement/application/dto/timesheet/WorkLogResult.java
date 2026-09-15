@@ -22,6 +22,7 @@ public record WorkLogResult(
         boolean isBillable,
         String description,
         String status,
+        String rejectionReason,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         Long version

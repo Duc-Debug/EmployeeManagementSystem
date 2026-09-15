@@ -27,6 +27,7 @@ public class TimesheetEntry {
     private boolean billable;
     private String description;
     private TimesheetStatus status;
+    private String rejectionReason;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long version;
@@ -121,7 +122,11 @@ public class TimesheetEntry {
         this.billable = billable;
         validateDescription(description);
         this.description = description.trim();
-        this.updatedAt = LocalDateTime.now();
+        if (this.status == TimesheetStatus.REJECTED) {
+            this.status = TimesheetStatus.DRAFT;
+            this.rejectionReason = null;
+        }
+        touch();
     }
 
     public void assignTimesheetId(TimesheetId timesheetId) {
@@ -133,16 +138,44 @@ public class TimesheetEntry {
     }
 
     public void assertModifiable() {
-        if (this.status != TimesheetStatus.DRAFT) {
+        if (this.status != TimesheetStatus.DRAFT && this.status != TimesheetStatus.REJECTED) {
             throw new TimesheetImmutableException("Dòng ghi giờ công ở trạng thái [" + this.status + "] không thể sửa hoặc xóa.");
         }
     }
 
     public void markSubmitted() {
+        if (this.status != TimesheetStatus.DRAFT && this.status != TimesheetStatus.REJECTED) {
+            throw new TimesheetImmutableException("Chỉ có thể nộp dòng giờ công ở trạng thái nháp hoặc bị từ chối.");
+        }
         this.status = TimesheetStatus.SUBMITTED;
-        this.updatedAt = LocalDateTime.now();
+        this.rejectionReason = null;
+        touch();
     }
 
+    public void approve() {
+        if (this.status != TimesheetStatus.SUBMITTED) {
+            throw new TimesheetImmutableException("Chỉ có thể duyệt dòng giờ công đang ở trạng thái chờ duyệt (SUBMITTED).");
+        }
+        this.status = TimesheetStatus.APPROVED;
+        this.rejectionReason = null;
+        touch();
+    }
+
+    public void reject(String reason) {
+        if (this.status != TimesheetStatus.SUBMITTED) {
+            throw new TimesheetImmutableException("Chỉ có thể từ chối dòng giờ công đang ở trạng thái chờ duyệt (SUBMITTED).");
+        }
+        if (reason == null || reason.trim().isBlank()) {
+            throw new IllegalArgumentException("Lý do từ chối không được để trống.");
+        }
+        this.status = TimesheetStatus.REJECTED;
+        this.rejectionReason = reason.trim();
+        touch();
+    }
+
+    private void touch() {
+        this.updatedAt = LocalDateTime.now();
+    }
     // Getters
     public TimesheetEntryId getId() { return id; }
     public Long getIdValue() { return id != null ? id.value() : null; }
@@ -159,6 +192,8 @@ public class TimesheetEntry {
     public boolean isBillable() { return billable; }
     public String getDescription() { return description; }
     public TimesheetStatus getStatus() { return status; }
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public Long getVersion() { return version; }
