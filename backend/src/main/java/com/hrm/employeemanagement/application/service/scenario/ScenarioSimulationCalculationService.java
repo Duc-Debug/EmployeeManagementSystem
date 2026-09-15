@@ -47,6 +47,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
     private final LoadScenarioDemandPort loadDemandPort;
     private final LoadScenarioSnapshotPort loadSnapshotPort;
     private final LoadCapacityThresholdPort loadCapacityThresholdPort;
+    private final SaveAuditLogPort saveAuditLogPort;
 
     public ScenarioSimulationCalculationService(
             AuthorizationService authorizationService,
@@ -58,14 +59,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             LoadScenarioSnapshotPort loadSnapshotPort,
             LoadCapacityThresholdPort loadCapacityThresholdPort
     ) {
-        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
-        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
-        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
-        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
-        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
-        this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
-        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
+        this(authorizationService, loadUserPort, loadOrgUnitPort, loadEmployeePort, loadScenarioPort, loadDemandPort, loadSnapshotPort, loadCapacityThresholdPort, null);
     }
 
     public ScenarioSimulationCalculationService(
@@ -79,7 +73,15 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             LoadCapacityThresholdPort loadCapacityThresholdPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
-        this(authorizationService, loadUserPort, loadOrgUnitPort, loadEmployeePort, loadScenarioPort, loadDemandPort, loadSnapshotPort, loadCapacityThresholdPort);
+        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
+        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
+        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
+        this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
+        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
+        this.saveAuditLogPort = saveAuditLogPort;
     }
 
     @Override
@@ -204,6 +206,15 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
 
         // Sắp xếp danh sách nhân sự theo tên
         employeeSnapshots.sort(Comparator.comparing(EmployeeSnapshotRowResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+
+        if (saveAuditLogPort != null) {
+            saveAuditLogPort.save(com.hrm.employeemanagement.domain.audit.AuditLog.create(
+                    currentUser.getIdValue(),
+                    "SIMULATE_SCENARIO",
+                    "resource_scenarios",
+                    scenario.getId()
+            ));
+        }
 
         return new ScenarioSimulationResult(
                 scenario.getId(),

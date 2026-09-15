@@ -181,6 +181,42 @@ class ScenarioSimulationCalculationTest {
         assertEquals(1, result.employeeSnapshots().size());
         assertEquals("EMP100", result.employeeSnapshots().get(0).employeeCode());
         assertEquals("Lê Văn B", result.employeeSnapshots().get(0).fullName());
+
+        // Kiểm tra Audit Log được lưu (NCL-08-CN-002-TC-04)
+        verify(saveAuditLogPort, times(1)).save(any(com.hrm.employeemanagement.domain.audit.AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("NCL-08-CN-002-TC-02: Năng lực còn lại đủ cho nhu cầu mới -> Không nhân sự nào vỡ kế hoạch, hiện số giờ dư")
+    void testSimulationCalculation_SufficientCapacity_ReportsNoOverload() {
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 1L, 100L, 2026, 38, BigDecimal.valueOf(10), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(1L)).thenReturn(snapshots);
+
+        // Nhu cầu giả định 15h -> Workload = 25h <= 40h Available -> Tối ưu / dư 15h
+        ScenarioDemand demand = ScenarioDemand.create(1L, "Nhu cầu nhẹ", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(15), "Tester");
+        demand.setId(11L);
+        when(loadDemandPort.findByScenarioId(1L)).thenReturn(List.of(demand));
+
+        Employee emp = new Employee(
+                new EmployeeId(100L), new UserId(200L), 10L, "EMP100", "Lê Văn B", "Backend",
+                LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp));
+
+        ScenarioSimulationResult result = service.getSimulationResult(1L);
+
+        assertNotNull(result);
+        assertEquals(4, result.weeklyMetrics().size());
+        // Kiểm tra tuần 38 (có demand 15h) không bị quá tải
+        WeeklySimulationMetricResult metric = result.weeklyMetrics().get(0);
+        assertFalse(metric.isOverloaded());
+        assertEquals(CapacityStatus.OPTIMAL, metric.status());
+        assertEquals(BigDecimal.valueOf(15.0).setScale(2), metric.remainingHours());
+        assertEquals(BigDecimal.ZERO.setScale(2), metric.excessHours());
+        // Tất cả 4 tuần đều không bị vỡ kế hoạch / quá tải
+        assertTrue(result.weeklyMetrics().stream().noneMatch(WeeklySimulationMetricResult::isOverloaded));
     }
 
     @Test
