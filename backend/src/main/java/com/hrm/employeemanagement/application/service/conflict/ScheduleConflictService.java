@@ -191,7 +191,6 @@ public class ScheduleConflictService implements
     @Override
     public ScheduleConflictResult resolveScheduleConflict(Long conflictId) {
         Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
                 PermissionCode.RESOURCE_CONFLICT_HANDLE
         );
 

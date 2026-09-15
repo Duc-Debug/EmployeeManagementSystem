@@ -289,9 +289,8 @@ class ScheduleConflictServiceTest {
         when(loadConflictPort.findById(1001L)).thenReturn(Optional.of(conflict));
 
         when(authorizationService.requireAny(
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY,
                 PermissionCode.RESOURCE_CONFLICT_HANDLE
-        )).thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY));
+        )).thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_CONFLICT_HANDLE));
 
         assertThrows(PermissionDeniedException.class, () -> service.resolveScheduleConflict(1001L));
     }

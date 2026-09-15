@@ -91,7 +91,7 @@ public class ScheduleConflictWarningController {
     }
 
     @PostMapping("/{id}/resolve")
-    @PreAuthorize("hasAnyAuthority('RESOURCE_SCHEDULE_CONFLICT_NOTIFY', 'RESOURCE_CONFLICT_HANDLE')")
+    @PreAuthorize("hasAuthority('RESOURCE_CONFLICT_HANDLE')")
     public ResponseEntity<ApiResponse<ScheduleConflictResult>> resolveScheduleConflict(@PathVariable Long id) {
         ScheduleConflictResult result = resolveUseCase.resolveScheduleConflict(id);
         return ResponseEntity.ok(ApiResponse.success("Xác nhận đã xử lý xung đột lịch thành công", result));
