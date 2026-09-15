@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, CheckCircle2, UserCheck, AlertCircle, FileText } from "lucide-react";
 import { resolveScheduleConflictWithNote } from "@/lib/api/schedule-conflict";
 import type { ScheduleConflict } from "@/lib/api/schedule-conflict";
@@ -27,16 +27,7 @@ export default function ConflictResolutionModal({
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (conflict && isOpen) {
-            setAssignedHandlerId(conflict.assignedHandlerId ? String(conflict.assignedHandlerId) : "");
-            setResolutionNote(conflict.resolutionNote || "");
-            setError(null);
-            loadEmployeeList();
-        }
-    }, [conflict, isOpen]);
-
-    const loadEmployeeList = async () => {
+    const loadEmployeeList = useCallback(async () => {
         try {
             setLoadingEmployees(true);
             const res = await getEmployees(1, 100);
@@ -48,7 +39,16 @@ export default function ConflictResolutionModal({
         } finally {
             setLoadingEmployees(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        if (conflict && isOpen) {
+            setAssignedHandlerId(conflict.assignedHandlerId ? String(conflict.assignedHandlerId) : "");
+            setResolutionNote(conflict.resolutionNote || "");
+            setError(null);
+            loadEmployeeList();
+        }
+    }, [conflict, isOpen, loadEmployeeList]);
 
     if (!isOpen || !conflict) return null;
 
