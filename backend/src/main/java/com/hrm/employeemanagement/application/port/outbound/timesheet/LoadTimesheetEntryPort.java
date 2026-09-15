@@ -14,5 +14,8 @@ public interface LoadTimesheetEntryPort {
     Optional<TimesheetEntry> findById(TimesheetEntryId id);
     List<TimesheetEntry> findByTimesheetId(TimesheetId timesheetId);
     List<TimesheetEntry> findByEmployeeAndDateRange(EmployeeId employeeId, LocalDate startDate, LocalDate endDate);
+    
+    List<TimesheetEntry> findPendingApprovals(EmployeeId managerId);
+
     BigDecimal sumHoursByEmployeeAndDate(EmployeeId employeeId, LocalDate workDate, TimesheetEntryId excludeEntryId);
 }
