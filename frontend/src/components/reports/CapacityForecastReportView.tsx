@@ -75,7 +75,7 @@ export default function CapacityForecastReportView() {
       }
     }
     loadOrgUnitsData();
-  }, [user?.roleCode, user?.scopeOrgUnitId]);
+  }, [user?.dataScope, user?.scopeOrgUnitId]);
 
   const fetchReport = async (signal?: AbortSignal) => {
     setIsLoading(true);

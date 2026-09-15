@@ -69,9 +69,7 @@ class CapacityForecastAuthorizationAuditIntegrationTest {
     void tearDown() {
         SecurityContextHolder.clearContext();
         if (deniedUser != null && deniedUser.getId() != null) {
-            auditLogRepository.deleteAll(auditLogRepository.findAll().stream()
-                    .filter(log -> deniedUser.getId().equals(log.getUserId()))
-                    .toList());
+            auditLogRepository.deleteByUserId(deniedUser.getId());
             userRepository.deleteById(deniedUser.getId());
         }
     }
@@ -82,9 +80,7 @@ class CapacityForecastAuthorizationAuditIntegrationTest {
                         .with(authentication(authenticationFor(deniedUser))))
                 .andExpect(status().isForbidden());
 
-        List<AuditLogJpaEntity> userLogs = auditLogRepository.findAll().stream()
-                .filter(log -> deniedUser.getId().equals(log.getUserId()))
-                .toList();
+        List<AuditLogJpaEntity> userLogs = auditLogRepository.findByUserId(deniedUser.getId());
 
         assertThat(userLogs).hasSize(1);
         assertThat(userLogs.getFirst().getAction()).isEqualTo("PERMISSION_DENIED");
