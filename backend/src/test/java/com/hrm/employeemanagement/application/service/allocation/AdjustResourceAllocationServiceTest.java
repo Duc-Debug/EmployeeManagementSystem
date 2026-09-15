@@ -196,7 +196,6 @@ class AdjustResourceAllocationServiceTest {
             when(loadAllocationPort.loadAllocationsForEmployee(employeeId, new YearWeek(year, weekNumber)))
                     .thenReturn(List.of(allocation));
             when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            when(notificationPort.notifyAllocationAdjusted(eq(projectId), eq(managerId), any())).thenReturn(String.valueOf(managerId));
 
             AdjustAllocationCommand command = new AdjustAllocationCommand(
                     AdjustmentAction.EDIT_HOURS,
@@ -219,8 +218,8 @@ class AdjustResourceAllocationServiceTest {
             assertTrue(savedLog.getNewValue().contains("10"));
             assertEquals(currentUserId, savedLog.getChangedBy());
 
-            // Verify PM notification
-            verify(notificationPort).notifyAllocationAdjusted(eq(projectId), eq(managerId), any());
+            // Verify notification sent
+            verify(notificationPort).notifyAllocationChanged(eq(projectId), eq(employeeId), eq(currentUserId), any(), any());
         }
     }
 
@@ -254,13 +253,12 @@ class AdjustResourceAllocationServiceTest {
             when(loadAllocationPort.findById(allocationId)).thenReturn(Optional.of(allocation));
             when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
             when(checkActualHoursPort.hasActualHours(eq(employeeId), eq(projectId), any(YearWeek.class))).thenReturn(false);
-            when(notificationPort.notifyAllocationAdjusted(eq(projectId), eq(managerId), any())).thenReturn(String.valueOf(managerId));
 
             service.removeAllocation(allocationId);
 
             verify(deleteAllocationPort).delete(allocation);
             verify(saveChangeLogPort).save(any(AllocationChangeLog.class));
-            verify(notificationPort).notifyAllocationAdjusted(eq(projectId), eq(managerId), any());
+            verify(notificationPort).notifyAllocationChanged(eq(projectId), eq(employeeId), eq(currentUserId), any(), any());
         }
     }
 
@@ -405,7 +403,7 @@ class AdjustResourceAllocationServiceTest {
             assertNotNull(result);
             assertEquals(targetWeek, allocation.getYearWeek());
             verify(saveChangeLogPort).save(argThat(log -> log.getAction() == AdjustmentAction.MOVE_WEEK));
-            verify(notificationPort).notifyAllocationAdjusted(eq(projectId), eq(managerId), any());
+            verify(notificationPort).notifyAllocationChanged(eq(projectId), eq(employeeId), eq(currentUserId), any(), any());
         }
     }
 }
