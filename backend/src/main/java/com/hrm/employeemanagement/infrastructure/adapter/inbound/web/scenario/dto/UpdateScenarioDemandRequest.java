@@ -17,15 +17,21 @@ public record UpdateScenarioDemandRequest(
         @Min(value = 1, message = "Số lượng người cần phải lớn hơn 0")
         Integer headcount,
 
+        @NotNull(message = "Năm bắt đầu không được để trống")
+        Integer startYear,
+
         @NotNull(message = "Tuần bắt đầu không được để trống")
         @Min(value = 1, message = "Tuần bắt đầu phải từ 1 đến 53")
         @Max(value = 53, message = "Tuần bắt đầu phải từ 1 đến 53")
-        Integer weekStart,
+        Integer startWeek,
+
+        @NotNull(message = "Năm kết thúc không được để trống")
+        Integer endYear,
 
         @NotNull(message = "Tuần kết thúc không được để trống")
         @Min(value = 1, message = "Tuần kết thúc phải từ 1 đến 53")
         @Max(value = 53, message = "Tuần kết thúc phải từ 1 đến 53")
-        Integer weekEnd,
+        Integer endWeek,
 
         @NotNull(message = "Số giờ/tuần/người không được để trống")
         @DecimalMin(value = "0.0", message = "Số giờ/tuần/người không được âm")

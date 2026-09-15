@@ -7,8 +7,10 @@ public record UpdateScenarioDemandCommand(
         Long demandId,
         String demandName,
         Integer headcount,
-        Integer weekStart,
-        Integer weekEnd,
+        Integer startYear,
+        Integer startWeek,
+        Integer endYear,
+        Integer endWeek,
         BigDecimal hoursPerWeekPerPerson,
         String skillRequirement
 ) {

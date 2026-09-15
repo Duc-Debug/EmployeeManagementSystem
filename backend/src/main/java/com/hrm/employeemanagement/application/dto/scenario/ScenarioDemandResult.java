@@ -8,12 +8,16 @@ public record ScenarioDemandResult(
         Long scenarioId,
         String demandName,
         Integer headcount,
-        Integer weekStart,
-        Integer weekEnd,
+        Integer startYear,
+        Integer startWeek,
+        Integer endYear,
+        Integer endWeek,
         BigDecimal hoursPerWeekPerPerson,
         BigDecimal totalHoursPerWeek,
         String skillRequirement,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
+    public Integer weekStart() { return startWeek; }
+    public Integer weekEnd() { return endWeek; }
 }

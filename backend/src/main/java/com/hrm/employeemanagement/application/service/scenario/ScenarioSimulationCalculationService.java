@@ -159,7 +159,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             // Tính tổng nhu cầu giả định có hiệu lực trong tuần này
             BigDecimal demandHours = BigDecimal.ZERO;
             for (ScenarioDemand d : demands) {
-                if (d.isActiveInWeek(yw.weekNumber())) {
+                if (d.isActiveInWeek(yw)) {
                     demandHours = demandHours.add(d.getTotalHoursPerWeek());
                 }
             }

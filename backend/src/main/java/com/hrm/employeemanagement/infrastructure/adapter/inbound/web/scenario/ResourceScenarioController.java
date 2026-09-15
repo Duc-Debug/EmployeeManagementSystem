@@ -93,8 +93,10 @@ public class ResourceScenarioController {
                 id,
                 request.demandName(),
                 request.headcount(),
-                request.weekStart(),
-                request.weekEnd(),
+                request.startYear(),
+                request.startWeek(),
+                request.endYear(),
+                request.endWeek(),
                 request.hoursPerWeekPerPerson(),
                 request.skillRequirement()
         );
@@ -114,8 +116,10 @@ public class ResourceScenarioController {
                 demandId,
                 request.demandName(),
                 request.headcount(),
-                request.weekStart(),
-                request.weekEnd(),
+                request.startYear(),
+                request.startWeek(),
+                request.endYear(),
+                request.endWeek(),
                 request.hoursPerWeekPerPerson(),
                 request.skillRequirement()
         );

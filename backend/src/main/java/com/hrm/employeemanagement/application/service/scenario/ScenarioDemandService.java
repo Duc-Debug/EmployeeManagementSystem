@@ -18,7 +18,9 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandNotFoundException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
@@ -90,13 +92,25 @@ public class ScenarioDemandService implements
         // Kiểm tra trạng thái kịch bản phải là draft
         scenario.assertModifiable();
 
+        // Kiểm tra phạm vi tuần của nhu cầu phải nằm trong phạm vi kịch bản
+        YearWeek demandStart = YearWeek.of(command.startYear(), command.startWeek());
+        YearWeek demandEnd = YearWeek.of(command.endYear(), command.endWeek());
+        if (demandStart.isBefore(scenario.getStartYearWeek()) || demandEnd.isAfter(scenario.getEndYearWeek())) {
+            throw new InvalidScenarioDemandException(
+                    "Thời gian nhu cầu (" + demandStart + " đến " + demandEnd +
+                    ") phải nằm trong phạm vi kịch bản (" + scenario.getStartYearWeek() + " đến " + scenario.getEndYearWeek() + ")"
+            );
+        }
+
         // Tạo nhu cầu mới (tự động validate headcount, week, hours)
         ScenarioDemand demand = ScenarioDemand.create(
                 scenario.getId(),
                 command.demandName(),
                 command.headcount(),
-                command.weekStart(),
-                command.weekEnd(),
+                command.startYear(),
+                command.startWeek(),
+                command.endYear(),
+                command.endWeek(),
                 command.hoursPerWeekPerPerson(),
                 command.skillRequirement()
         );
@@ -111,7 +125,8 @@ public class ScenarioDemandService implements
                 saved.getId(),
                 null,
                 "scenarioId=" + scenario.getId() + ";demandName=" + saved.getDemandName() +
-                        ";headcount=" + saved.getHeadcount() + ";weeks=" + saved.getWeekStart() + "-" + saved.getWeekEnd() +
+                        ";headcount=" + saved.getHeadcount() + ";start=" + saved.getStartYear() + "-W" + saved.getStartWeek() +
+                        ";end=" + saved.getEndYear() + "-W" + saved.getEndWeek() +
                         ";hours=" + saved.getHoursPerWeekPerPerson()
         ));
 
@@ -142,6 +157,16 @@ public class ScenarioDemandService implements
         verifyScenarioInUserBranch(currentUser, scenario);
         scenario.assertModifiable();
 
+        // Kiểm tra phạm vi tuần của nhu cầu phải nằm trong phạm vi kịch bản
+        YearWeek demandStart = YearWeek.of(command.startYear(), command.startWeek());
+        YearWeek demandEnd = YearWeek.of(command.endYear(), command.endWeek());
+        if (demandStart.isBefore(scenario.getStartYearWeek()) || demandEnd.isAfter(scenario.getEndYearWeek())) {
+            throw new InvalidScenarioDemandException(
+                    "Thời gian nhu cầu (" + demandStart + " đến " + demandEnd +
+                    ") phải nằm trong phạm vi kịch bản (" + scenario.getStartYearWeek() + " đến " + scenario.getEndYearWeek() + ")"
+            );
+        }
+
         ScenarioDemand demand = loadDemandPort.findById(command.demandId())
                 .orElseThrow(() -> new ScenarioDemandNotFoundException(command.demandId()));
 
@@ -150,14 +175,17 @@ public class ScenarioDemandService implements
         }
 
         String oldValue = "demandName=" + demand.getDemandName() + ";headcount=" + demand.getHeadcount() +
-                ";weeks=" + demand.getWeekStart() + "-" + demand.getWeekEnd() +
+                ";start=" + demand.getStartYear() + "-W" + demand.getStartWeek() +
+                ";end=" + demand.getEndYear() + "-W" + demand.getEndWeek() +
                 ";hours=" + demand.getHoursPerWeekPerPerson();
 
         demand.update(
                 command.demandName(),
                 command.headcount(),
-                command.weekStart(),
-                command.weekEnd(),
+                command.startYear(),
+                command.startWeek(),
+                command.endYear(),
+                command.endWeek(),
                 command.hoursPerWeekPerPerson(),
                 command.skillRequirement()
         );
@@ -165,7 +193,8 @@ public class ScenarioDemandService implements
         ScenarioDemand updated = saveDemandPort.save(demand);
 
         String newValue = "demandName=" + updated.getDemandName() + ";headcount=" + updated.getHeadcount() +
-                ";weeks=" + updated.getWeekStart() + "-" + updated.getWeekEnd() +
+                ";start=" + updated.getStartYear() + "-W" + updated.getStartWeek() +
+                ";end=" + updated.getEndYear() + "-W" + updated.getEndWeek() +
                 ";hours=" + updated.getHoursPerWeekPerPerson();
 
         saveAuditLogPort.save(AuditLog.createChange(
@@ -212,7 +241,8 @@ public class ScenarioDemandService implements
         }
 
         String oldValue = "demandName=" + demand.getDemandName() + ";headcount=" + demand.getHeadcount() +
-                ";weeks=" + demand.getWeekStart() + "-" + demand.getWeekEnd();
+                ";start=" + demand.getStartYear() + "-W" + demand.getStartWeek() +
+                ";end=" + demand.getEndYear() + "-W" + demand.getEndWeek();
 
         deleteDemandPort.deleteById(demandId);
 
@@ -247,8 +277,10 @@ public class ScenarioDemandService implements
                 demand.getScenarioId(),
                 demand.getDemandName(),
                 demand.getHeadcount(),
-                demand.getWeekStart(),
-                demand.getWeekEnd(),
+                demand.getStartYear(),
+                demand.getStartWeek(),
+                demand.getEndYear(),
+                demand.getEndWeek(),
                 demand.getHoursPerWeekPerPerson(),
                 demand.getTotalHoursPerWeek(),
                 demand.getSkillRequirement(),

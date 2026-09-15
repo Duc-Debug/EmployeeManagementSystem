@@ -6,8 +6,10 @@ public record AddScenarioDemandCommand(
         Long scenarioId,
         String demandName,
         Integer headcount,
-        Integer weekStart,
-        Integer weekEnd,
+        Integer startYear,
+        Integer startWeek,
+        Integer endYear,
+        Integer endWeek,
         BigDecimal hoursPerWeekPerPerson,
         String skillRequirement
 ) {
