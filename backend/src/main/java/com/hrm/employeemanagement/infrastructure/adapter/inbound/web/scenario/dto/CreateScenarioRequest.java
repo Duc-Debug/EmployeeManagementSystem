@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.scenario.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -30,4 +31,8 @@ public record CreateScenarioRequest(
         @Max(value = 16, message = "Số tuần mô phỏng tối đa là 16 tuần")
         Integer durationWeeks
 ) {
+    @AssertTrue(message = "fromYear và fromWeek phải cùng được cung cấp hoặc cùng để trống")
+    public boolean isYearWeekPairValid() {
+        return (fromYear == null && fromWeek == null) || (fromYear != null && fromWeek != null);
+    }
 }

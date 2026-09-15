@@ -113,6 +113,13 @@ public class ResourceScenarioService implements
         if (command.durationWeeks() == null || command.durationWeeks() < 1 || command.durationWeeks() > 16) {
             throw new IllegalArgumentException("Số tuần mô phỏng phải từ 1 đến 16 tuần");
         }
+        if ((command.fromYear() == null && command.fromWeek() != null)
+                || (command.fromYear() != null && command.fromWeek() == null)) {
+            throw new IllegalArgumentException("Năm bắt đầu (fromYear) và tuần bắt đầu (fromWeek) phải cùng được cung cấp hoặc cùng để trống");
+        }
+        if (command.fromYear() != null && (command.fromYear() < 2000 || command.fromYear() > 2100)) {
+            throw new IllegalArgumentException("Năm bắt đầu không hợp lệ (2000 - 2100)");
+        }
         if (command.fromWeek() != null && (command.fromWeek() < 1 || command.fromWeek() > 53)) {
             throw new IllegalArgumentException("Tuần bắt đầu phải từ 1 đến 53");
         }
@@ -221,12 +228,15 @@ public class ResourceScenarioService implements
                     String key = makeKey(emp.getIdValue(), yw.year(), yw.weekNumber());
 
                     WeeklyAvailability savedAvail = availabilityMap.get(key);
-                    int standardHours = savedAvail != null
-                            ? savedAvail.getStandardHours()
-                            : (emp.getStandardHoursPerWeek() != null ? emp.getStandardHoursPerWeek() : 40);
-                    int holidayHours = holidayHoursByWeek.getOrDefault(yw, 0);
-                    BigDecimal leaveHours = leaveHoursMap.getOrDefault(emp.getIdValue(), Map.of()).getOrDefault(yw, BigDecimal.ZERO);
-                    BigDecimal baseAvailable = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
+                    BigDecimal baseAvailable;
+                    if (savedAvail != null) {
+                        baseAvailable = savedAvail.getNetAvailableHours();
+                    } else {
+                        int standardHours = emp.getStandardHoursPerWeek() != null ? emp.getStandardHoursPerWeek() : 40;
+                        int holidayHours = holidayHoursByWeek.getOrDefault(yw, 0);
+                        BigDecimal leaveHours = leaveHoursMap.getOrDefault(emp.getIdValue(), Map.of()).getOrDefault(yw, BigDecimal.ZERO);
+                        baseAvailable = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
+                    }
 
                     BigDecimal availableHours = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
                             baseAvailable,

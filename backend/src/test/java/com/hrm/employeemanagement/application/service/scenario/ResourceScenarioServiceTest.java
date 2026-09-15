@@ -29,6 +29,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
@@ -323,5 +324,97 @@ class ResourceScenarioServiceTest {
                 "SCN-INVALID", "Tuần 60", "Mô tả", 10L, 2026, 60, 8
         );
         assertThrows(IllegalArgumentException.class, () -> service.createScenario(cmdInvalidWeek));
+    }
+
+    @Test
+    @DisplayName("Tạo kịch bản khi chỉ truyền fromWeek mà thiếu fromYear -> ném IllegalArgumentException")
+    void testCreateScenario_MissingFromYear_ThrowsException() {
+        CreateScenarioCommand cmd = new CreateScenarioCommand(
+                "SCN-01", "Thiếu fromYear", "Mô tả", 10L, null, 38, 8
+        );
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.createScenario(cmd));
+        assertTrue(ex.getMessage().contains("phải cùng được cung cấp hoặc cùng để trống"));
+    }
+
+    @Test
+    @DisplayName("Tạo kịch bản khi chỉ truyền fromYear mà thiếu fromWeek -> ném IllegalArgumentException")
+    void testCreateScenario_MissingFromWeek_ThrowsException() {
+        CreateScenarioCommand cmd = new CreateScenarioCommand(
+                "SCN-01", "Thiếu fromWeek", "Mô tả", 10L, 2026, null, 8
+        );
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.createScenario(cmd));
+        assertTrue(ex.getMessage().contains("phải cùng được cung cấp hoặc cùng để trống"));
+    }
+
+    @Test
+    @DisplayName("Regression Test: WeeklyAvailability đã tồn tại với netAvailableHours = 24h -> Snapshot lưu 24h thay vì 40h standard")
+    void testCreateScenario_WeeklyAvailabilityExists_UsesNetAvailableHoursAsSourceOfTruth() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(103L);
+        when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(branchUnit));
+        when(loadOrgUnitPort.findSubTree(any())).thenReturn(List.of(branchUnit));
+
+        Employee emp = new Employee(
+                new EmployeeId(1L),
+                new UserId(201L),
+                10L,
+                "EMP001",
+                "Nguyễn Văn A",
+                "Dev",
+                LocalDate.of(2025, 1, 1),
+                null,
+                false,
+                40,
+                com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of(emp));
+
+        // WeeklyAvailability đã tồn tại với standardHours = 40, netAvailableHours = 24h (do điều chỉnh/nghỉ đặc biệt)
+        WeeklyAvailability savedAvail = new WeeklyAvailability(
+                101L,
+                1L,
+                YearWeek.of(2026, 38),
+                40,
+                0,
+                BigDecimal.ZERO,
+                BigDecimal.valueOf(24)
+        );
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(List.of(savedAvail));
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+
+        when(saveScenarioPort.save(any(ResourceScenario.class))).thenAnswer(invocation -> {
+            ResourceScenario s = invocation.getArgument(0);
+            s.setId(1L);
+            return s;
+        });
+
+        CreateScenarioCommand command = new CreateScenarioCommand(
+                "SCN-2026-AVAIL",
+                "Kịch bản test availability",
+                "Mô tả",
+                10L,
+                2026,
+                38,
+                1
+        );
+
+        ScenarioResult result = service.createScenario(command);
+        assertNotNull(result);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ScenarioAllocationSnapshotItem>> snapshotCaptor = ArgumentCaptor.forClass(List.class);
+        verify(saveSnapshotPort).saveAll(snapshotCaptor.capture());
+
+        List<ScenarioAllocationSnapshotItem> snapshots = snapshotCaptor.getValue();
+        assertEquals(1, snapshots.size());
+        ScenarioAllocationSnapshotItem snapshotItem = snapshots.get(0);
+        // Verify snapshot lưu chính xác 24h từ netAvailableHours của WeeklyAvailability
+        assertEquals(0, BigDecimal.valueOf(24).compareTo(snapshotItem.getAvailableHours()),
+                "Snapshot phải lưu 24h từ WeeklyAvailability.netAvailableHours thay vì 40h standard");
     }
 }

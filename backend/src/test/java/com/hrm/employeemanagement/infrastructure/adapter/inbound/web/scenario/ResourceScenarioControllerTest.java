@@ -314,4 +314,44 @@ class ResourceScenarioControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Số tuần mô phỏng không được để trống")));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios: Chỉ truyền fromYear mà thiếu fromWeek -> 400 Bad Request")
+    void testCreateScenario_OnlyFromYearProvided_Returns400() throws Exception {
+        String jsonPayload = """
+                {
+                    "code": "SCN-01",
+                    "name": "Kịch bản chỉ có fromYear",
+                    "fromYear": 2026,
+                    "durationWeeks": 8
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("fromYear và fromWeek phải cùng được cung cấp hoặc cùng để trống")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios: Chỉ truyền fromWeek mà thiếu fromYear -> 400 Bad Request")
+    void testCreateScenario_OnlyFromWeekProvided_Returns400() throws Exception {
+        String jsonPayload = """
+                {
+                    "code": "SCN-01",
+                    "name": "Kịch bản chỉ có fromWeek",
+                    "fromWeek": 38,
+                    "durationWeeks": 8
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("fromYear và fromWeek phải cùng được cung cấp hoặc cùng để trống")));
+    }
 }
