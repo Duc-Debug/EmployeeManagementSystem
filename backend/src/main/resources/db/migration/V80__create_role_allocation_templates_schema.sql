@@ -1,4 +1,4 @@
--- V83: Create project role allocation templates and items schema
+-- V80: Create project role allocation templates and items schema
 
 CREATE TABLE IF NOT EXISTS project_role_allocation_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
