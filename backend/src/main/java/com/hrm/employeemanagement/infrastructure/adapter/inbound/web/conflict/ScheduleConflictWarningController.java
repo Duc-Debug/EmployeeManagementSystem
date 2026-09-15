@@ -19,7 +19,6 @@ import com.hrm.employeemanagement.application.dto.conflict.ScheduleConflictResul
 import com.hrm.employeemanagement.application.port.inbound.conflict.AssignScheduleConflictHandlerUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.GetScheduleConflictsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.NotifyScheduleConflictUseCase;
-import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictWithNoteUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ScanScheduleConflictsUseCase;
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
@@ -35,7 +34,6 @@ public class ScheduleConflictWarningController {
     private final GetScheduleConflictsUseCase getUseCase;
     private final ScanScheduleConflictsUseCase scanUseCase;
     private final NotifyScheduleConflictUseCase notifyUseCase;
-    private final ResolveScheduleConflictUseCase resolveUseCase;
     private final ResolveScheduleConflictWithNoteUseCase resolveWithNoteUseCase;
     private final AssignScheduleConflictHandlerUseCase assignHandlerUseCase;
 
@@ -43,14 +41,12 @@ public class ScheduleConflictWarningController {
             GetScheduleConflictsUseCase getUseCase,
             ScanScheduleConflictsUseCase scanUseCase,
             NotifyScheduleConflictUseCase notifyUseCase,
-            ResolveScheduleConflictUseCase resolveUseCase,
             ResolveScheduleConflictWithNoteUseCase resolveWithNoteUseCase,
             AssignScheduleConflictHandlerUseCase assignHandlerUseCase
     ) {
         this.getUseCase = getUseCase;
         this.scanUseCase = scanUseCase;
         this.notifyUseCase = notifyUseCase;
-        this.resolveUseCase = resolveUseCase;
         this.resolveWithNoteUseCase = resolveWithNoteUseCase;
         this.assignHandlerUseCase = assignHandlerUseCase;
     }
@@ -90,13 +86,6 @@ public class ScheduleConflictWarningController {
     public ResponseEntity<ApiResponse<ScheduleConflictResult>> notifyScheduleConflict(@PathVariable Long id) {
         ScheduleConflictResult result = notifyUseCase.notifyScheduleConflict(id);
         return ResponseEntity.ok(ApiResponse.success("Gửi thông báo cảnh báo xung đột lịch thành công", result));
-    }
-
-    @PostMapping("/{id}/resolve")
-    @PreAuthorize("hasAuthority('RESOURCE_CONFLICT_HANDLE')")
-    public ResponseEntity<ApiResponse<ScheduleConflictResult>> resolveScheduleConflict(@PathVariable Long id) {
-        ScheduleConflictResult result = resolveUseCase.resolveScheduleConflict(id);
-        return ResponseEntity.ok(ApiResponse.success("Xác nhận đã xử lý xung đột lịch thành công", result));
     }
 
     @PostMapping("/{id}/resolve-with-note")

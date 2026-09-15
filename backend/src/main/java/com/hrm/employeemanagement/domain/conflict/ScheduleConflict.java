@@ -157,9 +157,7 @@ public class ScheduleConflict {
             throw new IllegalArgumentException("Ghi chú cách xử lý xung đột không được để trống");
         }
         this.status = ScheduleConflictStatus.RESOLVED;
-        if (handlerId != null) {
-            this.assignedHandlerId = handlerId;
-        }
+        this.assignedHandlerId = handlerId;
         this.resolutionNote = note.trim();
         this.resolvedBy = userId;
         this.resolvedAt = LocalDateTime.now();

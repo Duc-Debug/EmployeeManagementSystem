@@ -23,7 +23,6 @@ import com.hrm.employeemanagement.application.dto.conflict.ScheduleConflictResul
 import com.hrm.employeemanagement.application.port.inbound.conflict.AssignScheduleConflictHandlerUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.GetScheduleConflictsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.NotifyScheduleConflictUseCase;
-import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictWithNoteUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ScanScheduleConflictsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
@@ -55,7 +54,6 @@ public class ScheduleConflictService implements
         GetScheduleConflictsUseCase,
         ScanScheduleConflictsUseCase,
         NotifyScheduleConflictUseCase,
-        ResolveScheduleConflictUseCase,
         ResolveScheduleConflictWithNoteUseCase,
         AssignScheduleConflictHandlerUseCase {
 
@@ -190,30 +188,6 @@ public class ScheduleConflictService implements
     }
 
     @Override
-    public ScheduleConflictResult resolveScheduleConflict(Long conflictId) {
-        Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_CONFLICT_HANDLE
-        );
-
-        ScheduleConflict conflict = loadConflictPort.findById(conflictId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cảnh báo xung đột lịch với ID: " + conflictId));
-
-        conflict.markAsResolved(currentUserId);
-        ScheduleConflict saved = saveConflictPort.save(conflict);
-
-        auditLogPort.save(AuditLog.createChange(
-                currentUserId,
-                "RESOLVE_SCHEDULE_CONFLICT",
-                "schedule_conflict_warnings",
-                conflictId,
-                null,
-                "employee_id=" + conflict.getEmployeeId() + ";status=RESOLVED"
-        ));
-
-        return mapToResult(saved);
-    }
-
-    @Override
     public ScheduleConflictResult resolveScheduleConflictWithNote(ResolveScheduleConflictWithNoteCommand command) {
         Long currentUserId = authorizationService.requireAny(
                 PermissionCode.RESOURCE_CONFLICT_HANDLE
@@ -257,7 +231,11 @@ public class ScheduleConflictService implements
         ScheduleConflict conflict = loadConflictPort.findById(command.conflictId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cảnh báo xung đột lịch với ID: " + command.conflictId()));
 
-        conflict.assignHandler(command.assignedHandlerId());
+        if (command.assignedHandlerId() == null) {
+            conflict.unassignHandler();
+        } else {
+            conflict.assignHandler(command.assignedHandlerId());
+        }
         ScheduleConflict saved = saveConflictPort.save(conflict);
 
         auditLogPort.save(AuditLog.createChange(

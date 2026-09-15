@@ -292,7 +292,7 @@ class ScheduleConflictServiceTest {
                 PermissionCode.RESOURCE_CONFLICT_HANDLE
         )).thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_CONFLICT_HANDLE));
 
-        assertThrows(PermissionDeniedException.class, () -> service.resolveScheduleConflict(1001L));
+        assertThrows(PermissionDeniedException.class, () -> service.resolveScheduleConflictWithNote(new ResolveScheduleConflictWithNoteCommand(1001L, 20L, "Cách xử lý")));
     }
 
     @Test
@@ -590,10 +590,12 @@ class ScheduleConflictServiceTest {
         );
         conflict.setId(3001L);
 
+        Employee handler = new Employee(new EmployeeId(20L), new UserId(200L), 1L, "NV020", "Handler", false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findById(new EmployeeId(20L))).thenReturn(Optional.of(handler));
         when(loadConflictPort.findById(3001L)).thenReturn(Optional.of(conflict));
         when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ScheduleConflictResult result = service.resolveScheduleConflict(3001L);
+        ScheduleConflictResult result = service.resolveScheduleConflictWithNote(new ResolveScheduleConflictWithNoteCommand(3001L, 20L, "Đã xử lý xong"));
 
         assertNotNull(result);
         assertEquals(ScheduleConflictStatus.RESOLVED, result.status());
@@ -614,8 +616,6 @@ class ScheduleConflictServiceTest {
         conflict.markAsResolved(100L);
 
         when(loadConflictPort.findById(3002L)).thenReturn(Optional.of(conflict));
-
-        assertThrows(IllegalStateException.class, () -> service.resolveScheduleConflict(3002L));
 
         ResolveScheduleConflictWithNoteCommand command = new ResolveScheduleConflictWithNoteCommand(3002L, null, "Note");
         assertThrows(IllegalStateException.class, () -> service.resolveScheduleConflictWithNote(command));
@@ -638,6 +638,30 @@ class ScheduleConflictServiceTest {
 
         ResolveScheduleConflictWithNoteCommand nullNoteCmd = new ResolveScheduleConflictWithNoteCommand(3003L, null, null);
         assertThrows(IllegalArgumentException.class, () -> service.resolveScheduleConflictWithNote(nullNoteCmd));
+    }
+
+    @Test
+    @DisplayName("resolveWithNote unassigns handler when handlerId is null even if handler was previously assigned")
+    void testResolveWithNoteUnassignsHandlerWhenHandlerIdIsNull() {
+        ScheduleConflict conflict = ScheduleConflict.create(
+                10L, 2026, 37, ConflictType.MULTI_PROJECT_ALLOCATION,
+                "1,2", "Dự án Alpha, Dự án Beta", null, null,
+                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
+                "Phân bổ trên 2 dự án"
+        );
+        conflict.setId(3004L);
+        conflict.assignHandler(20L);
+        assertEquals(20L, conflict.getAssignedHandlerId());
+
+        when(loadConflictPort.findById(3004L)).thenReturn(Optional.of(conflict));
+        when(saveConflictPort.save(any(ScheduleConflict.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ResolveScheduleConflictWithNoteCommand command = new ResolveScheduleConflictWithNoteCommand(3004L, null, "Đã giải quyết và gỡ bỏ người xử lý");
+        ScheduleConflictResult result = service.resolveScheduleConflictWithNote(command);
+
+        assertNotNull(result);
+        assertEquals(ScheduleConflictStatus.RESOLVED, conflict.getStatus());
+        org.junit.jupiter.api.Assertions.assertNull(conflict.getAssignedHandlerId());
     }
 
     @Test

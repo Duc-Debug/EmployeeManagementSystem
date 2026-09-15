@@ -38,5 +38,5 @@ ALTER TABLE schedule_conflict_warnings
 
 -- 5. Bổ sung index phục vụ truy vấn cho bảng schedule_conflict_warnings
 CREATE INDEX idx_schedule_conflict_year_week ON schedule_conflict_warnings(year_number, week_number);
-CREATE INDEX idx_schedule_conflict_existing ON schedule_conflict_warnings(employee_id, year_number, week_number, conflict_type);
+CREATE UNIQUE INDEX uk_schedule_conflict_existing ON schedule_conflict_warnings(employee_id, year_number, week_number, conflict_type);
 

@@ -24,7 +24,6 @@ import com.hrm.employeemanagement.application.dto.conflict.ScheduleConflictResul
 import com.hrm.employeemanagement.application.port.inbound.conflict.AssignScheduleConflictHandlerUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.GetScheduleConflictsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.NotifyScheduleConflictUseCase;
-import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ResolveScheduleConflictWithNoteUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.ScanScheduleConflictsUseCase;
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
@@ -42,8 +41,6 @@ class ScheduleConflictWarningControllerTest {
     @Mock
     private NotifyScheduleConflictUseCase notifyUseCase;
     @Mock
-    private ResolveScheduleConflictUseCase resolveUseCase;
-    @Mock
     private ResolveScheduleConflictWithNoteUseCase resolveWithNoteUseCase;
     @Mock
     private AssignScheduleConflictHandlerUseCase assignHandlerUseCase;
@@ -54,7 +51,7 @@ class ScheduleConflictWarningControllerTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         controller = new ScheduleConflictWarningController(
-                getUseCase, scanUseCase, notifyUseCase, resolveUseCase, resolveWithNoteUseCase, assignHandlerUseCase
+                getUseCase, scanUseCase, notifyUseCase, resolveWithNoteUseCase, assignHandlerUseCase
         );
     }
 
@@ -121,22 +118,6 @@ class ScheduleConflictWarningControllerTest {
         assertEquals(ScheduleConflictStatus.NOTIFIED, response.getBody().getData().status());
 
         verify(notifyUseCase).notifyScheduleConflict(1001L);
-    }
-
-    @Test
-    @DisplayName("POST /api/v1/schedule-conflicts/{id}/resolve returns HTTP 200 with resolved result")
-    void testResolveScheduleConflict() {
-        ScheduleConflictResult mockResult = createMockResult(ScheduleConflictStatus.RESOLVED);
-
-        when(resolveUseCase.resolveScheduleConflict(1001L)).thenReturn(mockResult);
-
-        ResponseEntity<ApiResponse<ScheduleConflictResult>> response = controller.resolveScheduleConflict(1001L);
-
-        assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(ScheduleConflictStatus.RESOLVED, response.getBody().getData().status());
-
-        verify(resolveUseCase).resolveScheduleConflict(1001L);
     }
 
     @Test
