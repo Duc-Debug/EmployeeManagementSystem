@@ -83,4 +83,14 @@ public class CompanyWorkingCalendar {
     public Map<DayOfWeek, Boolean> getSchedule() {
         return Collections.unmodifiableMap(schedule);
     }
+
+    public DayOfWeek getLastWorkingDayOfWeek() {
+        for (int i = 7; i >= 1; i--) {
+            DayOfWeek dow = DayOfWeek.of(i);
+            if (isWorkingDay(dow)) {
+                return dow;
+            }
+        }
+        return DayOfWeek.SUNDAY; // Fallback
+    }
 }
