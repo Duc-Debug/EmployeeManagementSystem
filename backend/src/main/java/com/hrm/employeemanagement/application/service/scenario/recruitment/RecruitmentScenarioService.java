@@ -10,10 +10,12 @@ import com.hrm.employeemanagement.application.dto.scenario.recruitment.AddSimula
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.RecruitmentScenarioEvaluationResult;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.RemoveSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.SimulatedEmployeeResult;
+import com.hrm.employeemanagement.application.dto.scenario.recruitment.UpdateSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.AddSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.GetScenarioSimulatedEmployeesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RemoveSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RerunRecruitmentScenarioUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.UpdateSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.recruitment.DeleteSimulatedEmployeePort;
@@ -26,6 +28,7 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.scenario.recruitment.InvalidSimulatedEmployeeException;
 import com.hrm.employeemanagement.domain.exception.scenario.recruitment.ScenarioNotFoundException;
 import com.hrm.employeemanagement.domain.exception.scenario.recruitment.SimulatedEmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
@@ -40,6 +43,7 @@ import com.hrm.employeemanagement.domain.skill.SkillId;
 
 public class RecruitmentScenarioService implements
         AddSimulatedEmployeeUseCase,
+        UpdateSimulatedEmployeeUseCase,
         RemoveSimulatedEmployeeUseCase,
         GetScenarioSimulatedEmployeesUseCase,
         RerunRecruitmentScenarioUseCase {
@@ -113,11 +117,24 @@ public class RecruitmentScenarioService implements
         }
     }
 
+    private void validateRoleAndSkill(Long projectRoleId, Long primarySkillId) {
+        if (projectRoleId == null) {
+            throw new InvalidSimulatedEmployeeException("Vai trò dự án không được để trống");
+        }
+        if (loadRolePort.findById(new ProjectRoleId(projectRoleId)).isEmpty()) {
+            throw new InvalidSimulatedEmployeeException("Vai trò dự án không tồn tại: " + projectRoleId);
+        }
+        if (primarySkillId != null && loadSkillPort.findById(new SkillId(primarySkillId)).isEmpty()) {
+            throw new InvalidSimulatedEmployeeException("Kỹ năng chính không tồn tại: " + primarySkillId);
+        }
+    }
+
     @Override
     public RecruitmentScenarioEvaluationResult addSimulatedEmployee(AddSimulatedEmployeeCommand command) {
         Objects.requireNonNull(command, "AddSimulatedEmployeeCommand must not be null");
         Long currentUserId = requireManagePermission(command.scenarioId());
         validateScenarioExists(command.scenarioId());
+        validateRoleAndSkill(command.projectRoleId(), command.primarySkillId());
 
         ScenarioSimulatedEmployee candidate = ScenarioSimulatedEmployee.create(
                 command.scenarioId(),
@@ -140,6 +157,48 @@ public class RecruitmentScenarioService implements
                 saved.getIdValue(),
                 null,
                 String.format("Thêm nhân sự giả định '%s' vai trò ID %d cho kịch bản %d (%s h/tuần, %d tuần)",
+                        saved.getCandidateName(), saved.getProjectRoleId(), saved.getScenarioId(),
+                        saved.getStandardHoursPerWeek(), saved.getWeeksCount())
+        ));
+
+        // Chạy lại kịch bản tuyển dụng để cập nhật đánh giá mới nhất
+        return evaluateScenarioInternal(command.scenarioId());
+    }
+
+    @Override
+    public RecruitmentScenarioEvaluationResult updateSimulatedEmployee(UpdateSimulatedEmployeeCommand command) {
+        Objects.requireNonNull(command, "UpdateSimulatedEmployeeCommand must not be null");
+        Long currentUserId = requireManagePermission(command.scenarioId());
+        validateScenarioExists(command.scenarioId());
+
+        ScenarioSimulatedEmployee employee = loadEmployeePort.findById(new SimulatedEmployeeId(command.employeeId()))
+                .orElseThrow(() -> new SimulatedEmployeeNotFoundException(command.employeeId()));
+
+        if (!Objects.equals(employee.getScenarioId(), command.scenarioId())) {
+            throw new SimulatedEmployeeNotFoundException("Nhân sự giả định không thuộc kịch bản này");
+        }
+
+        validateRoleAndSkill(command.projectRoleId(), command.primarySkillId());
+
+        employee.updateDetails(
+                command.candidateName(),
+                command.projectRoleId(),
+                command.primarySkillId(),
+                command.standardHoursPerWeek(),
+                command.weeksCount(),
+                command.notes()
+        );
+
+        ScenarioSimulatedEmployee saved = saveEmployeePort.save(employee);
+
+        // [TC-04] Ghi nhận lịch sử kiểm toán thao tác cập nhật thành công
+        saveAuditLogPort.save(AuditLog.createChange(
+                currentUserId,
+                "UPDATE_SIMULATED_EMPLOYEE",
+                "scenario_simulated_employees",
+                saved.getIdValue(),
+                null,
+                String.format("Cập nhật nhân sự giả định '%s' vai trò ID %d cho kịch bản %d (%s h/tuần, %d tuần)",
                         saved.getCandidateName(), saved.getProjectRoleId(), saved.getScenarioId(),
                         saved.getStandardHoursPerWeek(), saved.getWeeksCount())
         ));

@@ -18,12 +18,17 @@ import com.hrm.employeemanagement.application.dto.scenario.recruitment.AddSimula
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.RecruitmentScenarioEvaluationResult;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.RemoveSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.SimulatedEmployeeResult;
+import com.hrm.employeemanagement.application.dto.scenario.recruitment.UpdateSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.AddSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.GetScenarioSimulatedEmployeesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RemoveSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RerunRecruitmentScenarioUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.UpdateSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.scenario.recruitment.InvalidSimulatedEmployeeException;
+import com.hrm.employeemanagement.domain.exception.scenario.recruitment.ScenarioNotFoundException;
+import com.hrm.employeemanagement.domain.exception.scenario.recruitment.SimulatedEmployeeNotFoundException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -31,6 +36,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,6 +49,8 @@ class RecruitmentScenarioControllerTest {
     @Mock
     private AddSimulatedEmployeeUseCase addUseCase;
     @Mock
+    private UpdateSimulatedEmployeeUseCase updateUseCase;
+    @Mock
     private RemoveSimulatedEmployeeUseCase removeUseCase;
     @Mock
     private GetScenarioSimulatedEmployeesUseCase getUseCase;
@@ -52,7 +60,7 @@ class RecruitmentScenarioControllerTest {
     @BeforeEach
     void setUp() {
         RecruitmentScenarioController controller = new RecruitmentScenarioController(
-                addUseCase, removeUseCase, getUseCase, rerunUseCase
+                addUseCase, updateUseCase, removeUseCase, getUseCase, rerunUseCase
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -165,5 +173,77 @@ class RecruitmentScenarioControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.isPlanBroken").value(false));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/scenarios/{scenarioId}/simulated-employees/{employeeId} - Cập nhật thành công")
+    void testUpdateSimulatedEmployee_Success() throws Exception {
+        RecruitmentScenarioEvaluationResult evaluation = new RecruitmentScenarioEvaluationResult(
+                100L, new BigDecimal("160.00"), new BigDecimal("160.00"), BigDecimal.ZERO,
+                false, 0, 1, 0, List.of()
+        );
+        when(updateUseCase.updateSimulatedEmployee(any(UpdateSimulatedEmployeeCommand.class))).thenReturn(evaluation);
+
+        String json = """
+                {
+                    "candidateName": "Dev Cập Nhật",
+                    "projectRoleId": 10,
+                    "primarySkillId": 2,
+                    "standardHoursPerWeek": 40.0,
+                    "weeksCount": 4,
+                    "notes": "Cập nhật ghi chú"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/scenarios/100/simulated-employees/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.isPlanBroken").value(false));
+    }
+
+    @Test
+    @DisplayName("ScenarioNotFoundException trả về HTTP 404 NOT_FOUND")
+    void testScenarioNotFound_Returns404() throws Exception {
+        when(rerunUseCase.rerunRecruitmentScenario(999L)).thenThrow(new ScenarioNotFoundException(999L));
+
+        mockMvc.perform(get("/api/v1/scenarios/999/recruitment-evaluation"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("SimulatedEmployeeNotFoundException trả về HTTP 404 NOT_FOUND")
+    void testSimulatedEmployeeNotFound_Returns404() throws Exception {
+        when(removeUseCase.removeSimulatedEmployee(any())).thenThrow(new SimulatedEmployeeNotFoundException(888L));
+
+        mockMvc.perform(delete("/api/v1/scenarios/100/simulated-employees/888"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("InvalidSimulatedEmployeeException trả về HTTP 400 BAD_REQUEST")
+    void testInvalidSimulatedEmployee_Returns400() throws Exception {
+        when(addUseCase.addSimulatedEmployee(any())).thenThrow(new InvalidSimulatedEmployeeException("Dữ liệu không hợp lệ"));
+
+        String json = """
+                {
+                    "candidateName": "Dev",
+                    "projectRoleId": 10,
+                    "standardHoursPerWeek": 40.0,
+                    "weeksCount": 4
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/scenarios/100/simulated-employees")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("BAD_REQUEST"));
     }
 }

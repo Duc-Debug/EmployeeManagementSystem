@@ -97,6 +97,24 @@ public class ScenarioSimulatedEmployee {
         return standardHoursPerWeek.multiply(BigDecimal.valueOf(weeksCount));
     }
 
+    public void updateDetails(
+            String candidateName,
+            Long projectRoleId,
+            Long primarySkillId,
+            BigDecimal standardHoursPerWeek,
+            Integer weeksCount,
+            String notes
+    ) {
+        this.candidateName = candidateName;
+        this.projectRoleId = projectRoleId;
+        this.primarySkillId = primarySkillId;
+        this.standardHoursPerWeek = standardHoursPerWeek != null ? standardHoursPerWeek : this.standardHoursPerWeek;
+        this.weeksCount = (weeksCount != null && weeksCount > 0) ? weeksCount : this.weeksCount;
+        this.notes = notes;
+        this.updatedAt = LocalDateTime.now();
+        validate();
+    }
+
     public SimulatedEmployeeId getId() {
         return id;
     }

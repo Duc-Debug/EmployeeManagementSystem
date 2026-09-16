@@ -56,4 +56,33 @@ class ScenarioSimulatedEmployeeTest {
                 ScenarioSimulatedEmployee.create(1L, "Dev", 10L, null, new BigDecimal("40.00"), 0, null, 1L)
         );
     }
+
+    @Test
+    @DisplayName("Cập nhật thông tin nhân sự giả định thành công")
+    void testUpdateDetails_Valid() {
+        ScenarioSimulatedEmployee emp = ScenarioSimulatedEmployee.create(
+                1L, "Dev Cũ", 10L, null, new BigDecimal("40.00"), 4, null, 1L
+        );
+        emp.updateDetails("Dev Mới", 20L, 5L, new BigDecimal("35.00"), 6, "Ghi chú mới");
+
+        assertEquals("Dev Mới", emp.getCandidateName());
+        assertEquals(20L, emp.getProjectRoleId());
+        assertEquals(5L, emp.getPrimarySkillId());
+        assertEquals(0, new BigDecimal("35.00").compareTo(emp.getStandardHoursPerWeek()));
+        assertEquals(6, emp.getWeeksCount());
+        assertEquals("Ghi chú mới", emp.getNotes());
+        assertNotNull(emp.getUpdatedAt());
+        assertEquals(0, new BigDecimal("210.00").compareTo(emp.calculateSimulatedCapacityHours()));
+    }
+
+    @Test
+    @DisplayName("Cập nhật với tên trống ném InvalidSimulatedEmployeeException")
+    void testUpdateDetails_BlankName_ShouldThrow() {
+        ScenarioSimulatedEmployee emp = ScenarioSimulatedEmployee.create(
+                1L, "Dev Cũ", 10L, null, new BigDecimal("40.00"), 4, null, 1L
+        );
+        assertThrows(InvalidSimulatedEmployeeException.class, () ->
+                emp.updateDetails("   ", 10L, null, new BigDecimal("40.00"), 4, null)
+        );
+    }
 }

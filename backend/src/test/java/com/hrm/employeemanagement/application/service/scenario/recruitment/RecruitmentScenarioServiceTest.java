@@ -17,6 +17,7 @@ import com.hrm.employeemanagement.application.dto.scenario.recruitment.AddSimula
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.RecruitmentScenarioEvaluationResult;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.RemoveSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.SimulatedEmployeeResult;
+import com.hrm.employeemanagement.application.dto.scenario.recruitment.UpdateSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.recruitment.DeleteSimulatedEmployeePort;
@@ -29,12 +30,16 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.scenario.recruitment.InvalidSimulatedEmployeeException;
 import com.hrm.employeemanagement.domain.exception.scenario.recruitment.ScenarioNotFoundException;
+import com.hrm.employeemanagement.domain.exception.scenario.recruitment.SimulatedEmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.domain.scenario.recruitment.RoleShortfallDemand;
 import com.hrm.employeemanagement.domain.scenario.recruitment.ScenarioSimulatedEmployee;
 import com.hrm.employeemanagement.domain.scenario.recruitment.SimulatedEmployeeId;
+import com.hrm.employeemanagement.domain.skill.Skill;
+import com.hrm.employeemanagement.domain.skill.SkillId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -98,6 +103,9 @@ class RecruitmentScenarioServiceTest {
         // Given: Kịch bản đang thiếu 160 giờ vai trò lập trình (DEVELOPER)
         when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadRolePort.findById(new ProjectRoleId(devRoleId))).thenReturn(
+                Optional.of(new ProjectRole(new ProjectRoleId(devRoleId), "DEV", "Developer", "Mô tả"))
+        );
 
         RoleShortfallDemand devDemand = new RoleShortfallDemand(devRoleId, "DEV", "Developer", new BigDecimal("160.00"));
         when(loadShortfallPort.loadShortfallDemands(scenarioId)).thenReturn(List.of(devDemand));
@@ -219,6 +227,9 @@ class RecruitmentScenarioServiceTest {
         // Given
         when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadRolePort.findById(new ProjectRoleId(devRoleId))).thenReturn(
+                Optional.of(new ProjectRole(new ProjectRoleId(devRoleId), "DEV", "Developer", "Mô tả"))
+        );
 
         ScenarioSimulatedEmployee savedCandidate = new ScenarioSimulatedEmployee(
                 new SimulatedEmployeeId(101L), scenarioId, "Dev Cần Tuyển", devRoleId, null,
@@ -254,6 +265,9 @@ class RecruitmentScenarioServiceTest {
     void qtn14_SimulationDataOnly_EnsureNoRealEmployeeOrAllocationModified() {
         when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadRolePort.findById(new ProjectRoleId(devRoleId))).thenReturn(
+                Optional.of(new ProjectRole(new ProjectRoleId(devRoleId), "DEV", "Developer", "Mô tả"))
+        );
 
         ScenarioSimulatedEmployee savedCandidate = new ScenarioSimulatedEmployee(
                 new SimulatedEmployeeId(55L), scenarioId, "Candidate nháp", devRoleId, null,
@@ -329,5 +343,103 @@ class RecruitmentScenarioServiceTest {
         assertEquals(1, list.size());
         assertEquals("DEV", list.getFirst().projectRoleCode());
         assertEquals("Developer", list.getFirst().projectRoleName());
+    }
+
+    @Test
+    @DisplayName("Cập nhật nhân sự giả định thành công và ghi nhận nhật ký kiểm toán UPDATE_SIMULATED_EMPLOYEE")
+    void updateSimulatedEmployee_Success() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadRolePort.findById(new ProjectRoleId(devRoleId))).thenReturn(
+                Optional.of(new ProjectRole(new ProjectRoleId(devRoleId), "DEV", "Developer", "Mô tả"))
+        );
+
+        ScenarioSimulatedEmployee existing = new ScenarioSimulatedEmployee(
+                new SimulatedEmployeeId(10L), scenarioId, "Cũ", devRoleId, null, new BigDecimal("20.00"), 4, null, rmUserId, null, null, 0L
+        );
+        when(loadEmployeePort.findById(new SimulatedEmployeeId(10L))).thenReturn(Optional.of(existing));
+        when(saveEmployeePort.save(any(ScenarioSimulatedEmployee.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(loadShortfallPort.loadShortfallDemands(scenarioId)).thenReturn(
+                List.of(new RoleShortfallDemand(devRoleId, "DEV", "Developer", new BigDecimal("160.00")))
+        );
+        when(loadEmployeePort.findByScenarioId(scenarioId)).thenReturn(List.of(existing));
+
+        UpdateSimulatedEmployeeCommand command = new UpdateSimulatedEmployeeCommand(
+                scenarioId, 10L, "Mới", devRoleId, null, new BigDecimal("40.00"), 4, "Ghi chú mới"
+        );
+
+        RecruitmentScenarioEvaluationResult result = service.updateSimulatedEmployee(command);
+
+        assertNotNull(result);
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.totalRemainingShortfallHours()));
+        assertFalse(result.isPlanBroken());
+
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(auditCaptor.capture());
+        assertEquals("UPDATE_SIMULATED_EMPLOYEE", auditCaptor.getValue().getAction());
+        assertEquals(10L, auditCaptor.getValue().getRecordId());
+    }
+
+    @Test
+    @DisplayName("Cập nhật nhân sự giả định không tồn tại -> Ném SimulatedEmployeeNotFoundException")
+    void updateSimulatedEmployee_NotFound_ShouldThrow() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadEmployeePort.findById(new SimulatedEmployeeId(999L))).thenReturn(Optional.empty());
+
+        UpdateSimulatedEmployeeCommand command = new UpdateSimulatedEmployeeCommand(
+                scenarioId, 999L, "Mới", devRoleId, null, new BigDecimal("40.00"), 4, null
+        );
+
+        assertThrows(SimulatedEmployeeNotFoundException.class, () -> service.updateSimulatedEmployee(command));
+    }
+
+    @Test
+    @DisplayName("Cập nhật nhân sự giả định thuộc kịch bản khác -> Ném SimulatedEmployeeNotFoundException")
+    void updateSimulatedEmployee_WrongScenario_ShouldThrow() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+
+        ScenarioSimulatedEmployee otherScenarioEmp = new ScenarioSimulatedEmployee(
+                new SimulatedEmployeeId(10L), 999L, "Khác", devRoleId, null, new BigDecimal("40.00"), 4, null, rmUserId, null, null, 0L
+        );
+        when(loadEmployeePort.findById(new SimulatedEmployeeId(10L))).thenReturn(Optional.of(otherScenarioEmp));
+
+        UpdateSimulatedEmployeeCommand command = new UpdateSimulatedEmployeeCommand(
+                scenarioId, 10L, "Mới", devRoleId, null, new BigDecimal("40.00"), 4, null
+        );
+
+        assertThrows(SimulatedEmployeeNotFoundException.class, () -> service.updateSimulatedEmployee(command));
+    }
+
+    @Test
+    @DisplayName("Thêm nhân sự giả định với vai trò không tồn tại -> Ném InvalidSimulatedEmployeeException")
+    void addSimulatedEmployee_NonExistentRole_ShouldThrow() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadRolePort.findById(new ProjectRoleId(888L))).thenReturn(Optional.empty());
+
+        AddSimulatedEmployeeCommand command = new AddSimulatedEmployeeCommand(
+                scenarioId, "Dev", 888L, null, new BigDecimal("40.00"), 4, null
+        );
+
+        assertThrows(InvalidSimulatedEmployeeException.class, () -> service.addSimulatedEmployee(command));
+    }
+
+    @Test
+    @DisplayName("Thêm nhân sự giả định với kỹ năng không tồn tại -> Ném InvalidSimulatedEmployeeException")
+    void addSimulatedEmployee_NonExistentSkill_ShouldThrow() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadRolePort.findById(new ProjectRoleId(devRoleId))).thenReturn(
+                Optional.of(new ProjectRole(new ProjectRoleId(devRoleId), "DEV", "Developer", "Mô tả"))
+        );
+        when(loadSkillPort.findById(new SkillId(777L))).thenReturn(Optional.empty());
+
+        AddSimulatedEmployeeCommand command = new AddSimulatedEmployeeCommand(
+                scenarioId, "Dev", devRoleId, 777L, new BigDecimal("40.00"), 4, null
+        );
+
+        assertThrows(InvalidSimulatedEmployeeException.class, () -> service.addSimulatedEmployee(command));
     }
 }
