@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS scenario_simulated_employees (
     updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     version BIGINT NOT NULL DEFAULT 0,
 
+    INDEX idx_sim_emp_scenario (scenario_id),
+    INDEX idx_sim_emp_role (project_role_id),
+
     CONSTRAINT fk_sim_emp_scenario FOREIGN KEY (scenario_id) REFERENCES simulation_scenarios(id) ON DELETE CASCADE,
     CONSTRAINT fk_sim_emp_role FOREIGN KEY (project_role_id) REFERENCES project_roles(id) ON DELETE RESTRICT,
     CONSTRAINT fk_sim_emp_skill FOREIGN KEY (primary_skill_id) REFERENCES skills(id) ON DELETE SET NULL,
@@ -60,6 +63,3 @@ CREATE TABLE IF NOT EXISTS scenario_simulated_employees (
     CONSTRAINT chk_sim_emp_hours CHECK (standard_hours_per_week > 0 AND standard_hours_per_week <= 80),
     CONSTRAINT chk_sim_emp_weeks CHECK (weeks_count > 0 AND weeks_count <= 52)
 );
-
-CREATE INDEX idx_sim_emp_scenario ON scenario_simulated_employees(scenario_id);
-CREATE INDEX idx_sim_emp_role ON scenario_simulated_employees(project_role_id);
