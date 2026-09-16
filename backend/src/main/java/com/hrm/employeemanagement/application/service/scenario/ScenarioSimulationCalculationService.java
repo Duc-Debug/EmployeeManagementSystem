@@ -72,19 +72,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             LoadResourceScenarioPort loadScenarioPort,
             LoadScenarioDemandPort loadDemandPort,
             LoadScenarioSnapshotPort loadSnapshotPort,
-            LoadCapacityThresholdPort loadCapacityThresholdPort
-    ) {
-        this(authorizationService, loadUserPort, loadOrgUnitPort, loadEmployeePort, loadScenarioPort, loadDemandPort, loadSnapshotPort, loadCapacityThresholdPort, null);
-    }
-
-    public ScenarioSimulationCalculationService(
-            AuthorizationService authorizationService,
-            LoadUserPort loadUserPort,
-            LoadOrgUnitPort loadOrgUnitPort,
-            LoadEmployeePort loadEmployeePort,
-            LoadResourceScenarioPort loadScenarioPort,
-            LoadScenarioDemandPort loadDemandPort,
-            LoadScenarioSnapshotPort loadSnapshotPort,
             LoadCapacityThresholdPort loadCapacityThresholdPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
@@ -96,7 +83,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
         this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
         this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
-        this.saveAuditLogPort = saveAuditLogPort;
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
     }
 
@@ -191,7 +177,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             ));
         }
 
-        // 4. Xây dựng danh sách nhân sự snapshot (baseline breakdown)
         // 4. Xây dựng danh sách nhân sự snapshot & danh sách nhân sự vượt năng lực (Personnel level overload)
         List<Long> empIds = new ArrayList<>(snapshotByEmpAndWeek.keySet());
         List<com.hrm.employeemanagement.domain.employee.EmployeeId> employeeIds = empIds.stream()
@@ -229,7 +214,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 ScenarioAllocationSnapshotItem item = empWeeks.get(weekKey);
                 BigDecimal alloc = item != null ? item.getAllocatedHours() : BigDecimal.ZERO;
                 BigDecimal avail = item != null ? item.getAvailableHours() : BigDecimal.ZERO;
-                cells.add(new EmployeeSnapshotCellResult(yw.year(), yw.weekNumber(), alloc, avail));
 
                 CapacityStatus empStatus = WeeklyCapacityMatrixPolicy.determineStatus(alloc, avail, overloadThreshold, idleThreshold);
                 boolean isEmpOverloaded = (empStatus == CapacityStatus.OVERLOADED);
@@ -268,20 +252,11 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             employeeSnapshots.add(new EmployeeSnapshotRowResult(empId, empCode, fullName, profRole, cells));
         }
 
-        // Sắp xếp danh sách nhân sự theo tên
         // Sắp xếp danh sách nhân sự theo tên và danh sách vượt năng lực theo tuần + tên
         employeeSnapshots.sort(Comparator.comparing(EmployeeSnapshotRowResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
         overloadedEmployees.sort(Comparator.comparing(OverloadedEmployeeResult::weekNumber)
                 .thenComparing(OverloadedEmployeeResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
 
-        if (saveAuditLogPort != null) {
-            saveAuditLogPort.save(com.hrm.employeemanagement.domain.audit.AuditLog.create(
-                    currentUser.getIdValue(),
-                    "SIMULATE_SCENARIO",
-                    "resource_scenarios",
-                    scenario.getId()
-            ));
-        }
         saveAuditLogPort.save(com.hrm.employeemanagement.domain.audit.AuditLog.create(
                 currentUser.getIdValue(),
                 "SIMULATE_SCENARIO",
