@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -26,20 +27,34 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioDemandResult;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioResult;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioShareResult;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
+import com.hrm.employeemanagement.application.dto.scenario.ShareCandidateResult;
 import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
 import com.hrm.employeemanagement.application.port.inbound.scenario.AddScenarioDemandUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.CreateSimulationScenarioUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.DeleteScenarioDemandUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioSharesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioSimulationResultUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.GetShareCandidatesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.GetSimulationScenarioUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.ListSimulationScenariosUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.PatchSimulationScenarioUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.SaveSimulationScenarioUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.ShareSimulationScenarioUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.UnshareSimulationScenarioUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.UpdateScenarioDemandUseCase;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException;
+import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioShareException;
+import com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException;
+import com.hrm.employeemanagement.domain.exception.scenario.InvalidShareRecipientException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandNotFoundException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotModifiableException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.scenario.dto.AddScenarioDemandRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.scenario.dto.CreateScenarioRequest;
@@ -72,6 +87,24 @@ class ResourceScenarioControllerTest {
     @Mock
     private GetScenarioSimulationResultUseCase simulationResultUseCase;
 
+    @Mock
+    private SaveSimulationScenarioUseCase saveScenarioUseCase;
+
+    @Mock
+    private PatchSimulationScenarioUseCase patchScenarioUseCase;
+
+    @Mock
+    private ShareSimulationScenarioUseCase shareScenarioUseCase;
+
+    @Mock
+    private UnshareSimulationScenarioUseCase unshareScenarioUseCase;
+
+    @Mock
+    private GetShareCandidatesUseCase getShareCandidatesUseCase;
+
+    @Mock
+    private GetScenarioSharesUseCase getScenarioSharesUseCase;
+
     @BeforeEach
     void setUp() {
         ResourceScenarioController controller = new ResourceScenarioController(
@@ -81,7 +114,13 @@ class ResourceScenarioControllerTest {
                 addDemandUseCase,
                 updateDemandUseCase,
                 deleteDemandUseCase,
-                simulationResultUseCase
+                simulationResultUseCase,
+                saveScenarioUseCase,
+                patchScenarioUseCase,
+                shareScenarioUseCase,
+                unshareScenarioUseCase,
+                getShareCandidatesUseCase,
+                getScenarioSharesUseCase
         );
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -398,5 +437,171 @@ class ResourceScenarioControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("fromYear và fromWeek phải cùng được cung cấp hoặc cùng để trống")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios/{id}/save: Lưu snapshot kịch bản thành công -> 200 OK")
+    void testSaveScenario_Success_Returns200() throws Exception {
+        ScenarioResult savedResult = new ScenarioResult(
+                1L, "SCN-001", "Kịch bản đã lưu", "Mô tả", "Ghi chú lưu kịch bản",
+                10L, "Phòng IT", "saved", 2026, 38, 8, LocalDateTime.now(),
+                100L, "User VT-03", LocalDateTime.now(), LocalDateTime.now(),
+                2, 5, "EDIT"
+        );
+        when(saveScenarioUseCase.saveScenario(1L)).thenReturn(savedResult);
+
+        mockMvc.perform(post("/api/v1/resource-scenarios/1/save"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("saved"))
+                .andExpect(jsonPath("$.data.note").value("Ghi chú lưu kịch bản"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/resource-scenarios/{id}: Cập nhật tên và ghi chú thành công -> 200 OK")
+    void testPatchScenario_Success_Returns200() throws Exception {
+        ScenarioResult patchedResult = new ScenarioResult(
+                1L, "SCN-001", "Tên mới", "Mô tả", "Ghi chú mới",
+                10L, "Phòng IT", "draft", 2026, 38, 8, LocalDateTime.now(),
+                100L, "User VT-03", LocalDateTime.now(), LocalDateTime.now(),
+                2, 5, "EDIT"
+        );
+        when(patchScenarioUseCase.patchScenario(any())).thenReturn(patchedResult);
+
+        String json = """
+                {
+                    "name": "Tên mới",
+                    "note": "Ghi chú mới"
+                }
+                """;
+
+        mockMvc.perform(patch("/api/v1/resource-scenarios/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("Tên mới"))
+                .andExpect(jsonPath("$.data.note").value("Ghi chú mới"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/resource-scenarios/{id}/share-candidates: Lấy danh sách candidate hợp lệ -> 200 OK")
+    void testGetShareCandidates_Success_Returns200() throws Exception {
+        ShareCandidateResult candidate = new ShareCandidateResult(
+                200L, "vt01_user", "Giám Đốc", "EMP-001", "vt01@company.com",
+                "VT-01", "Lãnh đạo", 10L, "Phòng IT", List.of()
+        );
+        when(getShareCandidatesUseCase.getShareCandidates(1L, "vt01")).thenReturn(List.of(candidate));
+
+        mockMvc.perform(get("/api/v1/resource-scenarios/1/share-candidates?query=vt01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].userId").value(200))
+                .andExpect(jsonPath("$.data[0].username").value("vt01_user"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios/{id}/shares: Chia sẻ kịch bản thành công -> 200 OK")
+    void testShareScenario_Success_Returns200() throws Exception {
+        ScenarioShareResult shareResult = new ScenarioShareResult(
+                10L, 1L, 200L, "vt01_user", "Giám Đốc", "VT-01", "Lãnh đạo",
+                100L, "VIEW_ONLY", LocalDateTime.now(), null, true
+        );
+        when(shareScenarioUseCase.shareScenario(any())).thenReturn(List.of(shareResult));
+
+        String json = """
+                {
+                    "userIds": [200]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios/1/shares")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].sharedWithUserId").value(200));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios/{id}/shares: Kịch bản chưa lưu (DRAFT) -> 400 Bad Request")
+    void testShareScenario_NotSaved_Returns400() throws Exception {
+        when(shareScenarioUseCase.shareScenario(any()))
+                .thenThrow(new ScenarioNotSavedException("Chỉ có thể chia sẻ kịch bản đã lưu"));
+
+        String json = """
+                {
+                    "userIds": [200]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios/1/shares")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SCENARIO_NOT_SAVED"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios/{id}/shares: Recipient không hợp lệ -> 400 Bad Request")
+    void testShareScenario_InvalidRecipient_Returns400() throws Exception {
+        when(shareScenarioUseCase.shareScenario(any()))
+                .thenThrow(new InvalidShareRecipientException("Người nhận không hợp lệ"));
+
+        String json = """
+                {
+                    "userIds": [300]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios/1/shares")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_SHARE_RECIPIENT"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/resource-scenarios/{id}/shares: Trùng lặp chia sẻ -> 409 Conflict")
+    void testShareScenario_DuplicateShare_Returns409() throws Exception {
+        when(shareScenarioUseCase.shareScenario(any()))
+                .thenThrow(new DuplicateScenarioShareException("Kịch bản đã được chia sẻ cho người dùng này"));
+
+        String json = """
+                {
+                    "userIds": [200]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/resource-scenarios/1/shares")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_SCENARIO_SHARE"));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/resource-scenarios/{id}/shares/{userId}: Thu hồi chia sẻ thành công -> 200 OK")
+    void testUnshareScenario_Success_Returns200() throws Exception {
+        doNothing().when(unshareScenarioUseCase).unshareScenario(1L, 200L);
+
+        mockMvc.perform(delete("/api/v1/resource-scenarios/1/shares/200"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/resource-scenarios/{id}/shares: Lấy danh sách chia sẻ đang active -> 200 OK")
+    void testGetScenarioShares_Success_Returns200() throws Exception {
+        ScenarioShareResult shareResult = new ScenarioShareResult(
+                10L, 1L, 200L, "vt01_user", "Giám Đốc", "VT-01", "Lãnh đạo",
+                100L, "VIEW_ONLY", LocalDateTime.now(), null, true
+        );
+        when(getScenarioSharesUseCase.getActiveShares(1L)).thenReturn(List.of(shareResult));
+
+        mockMvc.perform(get("/api/v1/resource-scenarios/1/shares"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].id").value(10));
     }
 }
