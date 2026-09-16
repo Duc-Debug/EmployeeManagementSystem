@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS simulation_scenarios (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT fk_scenario_created_by FOREIGN KEY (created_by) REFERENCES users(id)
+    CONSTRAINT fk_sim_scenario_created_by FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
 -- 4. Tạo bảng kịch bản nhân sự giả định (tuân thủ tuyệt đối QTN-14 - hoàn toàn tách biệt với employees thật)

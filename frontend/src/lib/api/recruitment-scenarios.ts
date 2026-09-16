@@ -58,6 +58,39 @@ export interface UpdateSimulatedEmployeePayload {
 }
 
 /**
+ * Tính tỷ lệ % bù đắp thiếu hụt công suất (0% - 100%)
+ */
+export function calculateCoveragePercentage(
+  originalShortfall: number,
+  simulatedCapacity: number
+): number {
+  if (!originalShortfall || originalShortfall <= 0) return 100;
+  if (!simulatedCapacity || simulatedCapacity <= 0) return 0;
+  const pct = (simulatedCapacity / originalShortfall) * 100;
+  return Math.min(100, Math.round(pct * 10) / 10);
+}
+
+/**
+ * Format số giờ đẹp mắt (VD: "40.0h", "120.5h")
+ */
+export function formatHoursDisplay(hours?: number | null): string {
+  if (hours === undefined || hours === null) return "0h";
+  return `${Number(hours).toLocaleString("vi-VN", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  })}h`;
+}
+
+/**
+ * Tính số FTE (Full-time Equivalent) tương đương dựa trên 40h/tuần
+ */
+export function calculateFteEquivalent(hoursPerWeek: number): string {
+  if (!hoursPerWeek || hoursPerWeek <= 0) return "0.0 FTE";
+  const fte = hoursPerWeek / 40;
+  return `${fte.toFixed(1)} FTE`;
+}
+
+/**
  * Lấy tổng quan đánh giá tuyển dụng kịch bản (NCL-08-CN-005)
  */
 export async function getRecruitmentEvaluation(
