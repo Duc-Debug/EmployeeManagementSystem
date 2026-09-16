@@ -7,9 +7,11 @@ export interface ScenarioResult {
   code: string;
   name: string;
   description: string | null;
+  note?: string | null;
   orgUnitId: number;
   orgUnitName: string;
-  status: "draft" | "applied" | "discarded" | string;
+  status: "draft" | "saved" | "applied" | "discarded" | string;
+  viewMode?: "EDIT" | "VIEW_ONLY";
   fromYear: number;
   fromWeek: number;
   durationWeeks: number;
@@ -233,3 +235,89 @@ export async function deleteScenarioDemand(
 export async function getScenarioSimulation(id: number): Promise<ScenarioSimulationResult> {
   return apiRequest<ScenarioSimulationResult>(`/resource-scenarios/${id}/simulation`);
 }
+
+export interface PatchScenarioPayload {
+  name?: string;
+  note?: string;
+}
+
+export interface ShareCandidateResult {
+  userId: number;
+  username: string;
+  fullName: string;
+  roleCode: string;
+  roleName: string;
+  orgUnitId: number | null;
+  orgUnitName: string | null;
+  managedProjectIds: number[];
+  managedProjectNames: string[];
+}
+
+export interface ScenarioShareResult {
+  id: number;
+  scenarioId: number;
+  userId: number;
+  username: string;
+  fullName: string;
+  roleCode: string;
+  permission: string;
+  sharedBy: number;
+  sharedByName: string;
+  sharedAt: string;
+  revokedAt: string | null;
+  isActive: boolean;
+}
+
+export interface ShareScenarioPayload {
+  userIds?: number[];
+  recipientUserIds?: number[];
+}
+
+export async function patchScenario(
+  id: number,
+  payload: PatchScenarioPayload
+): Promise<ScenarioResult> {
+  return apiRequest<ScenarioResult>(`/resource-scenarios/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function saveScenario(id: number): Promise<ScenarioResult> {
+  return apiRequest<ScenarioResult>(`/resource-scenarios/${id}/save`, {
+    method: "POST",
+  });
+}
+
+export async function getShareCandidates(
+  id: number,
+  query?: string
+): Promise<ShareCandidateResult[]> {
+  const q = query ? `?query=${encodeURIComponent(query)}` : "";
+  return apiRequest<ShareCandidateResult[]>(`/resource-scenarios/${id}/share-candidates${q}`);
+}
+
+export async function shareScenario(
+  id: number,
+  payload: ShareScenarioPayload
+): Promise<ScenarioShareResult[]> {
+  const ids = payload.userIds ?? payload.recipientUserIds ?? [];
+  return apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`, {
+    method: "POST",
+    body: JSON.stringify({
+      userIds: ids,
+      recipientUserIds: ids,
+    }),
+  });
+}
+
+export async function unshareScenario(id: number, userId: number): Promise<void> {
+  return apiRequest<void>(`/resource-scenarios/${id}/shares/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getScenarioShares(id: number): Promise<ScenarioShareResult[]> {
+  return apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`);
+}
+

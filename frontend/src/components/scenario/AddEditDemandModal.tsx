@@ -80,10 +80,10 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
   onSuccess,
 }) => {
   const [demandName, setDemandName] = useState("");
-  const [headcount, setHeadcount] = useState<number>(1);
+  const [headcount, setHeadcount] = useState<number | "">(1);
   const [startIndex, setStartIndex] = useState<number>(0);
   const [endIndex, setEndIndex] = useState<number>(0);
-  const [hoursPerWeekPerPerson, setHoursPerWeekPerPerson] = useState<number>(40);
+  const [hoursPerWeekPerPerson, setHoursPerWeekPerPerson] = useState<number | "">(40);
   const [skillRequirement, setSkillRequirement] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -154,11 +154,15 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
       setError("Vui lòng nhập tên vai trò hoặc vị trí");
       return;
     }
-    if (!Number.isInteger(headcount) || headcount <= 0) {
+
+    const parsedHeadcount = typeof headcount === "number" ? headcount : parseInt(headcount, 10);
+    if (isNaN(parsedHeadcount) || !Number.isInteger(parsedHeadcount) || parsedHeadcount <= 0) {
       setError("Số lượng nhân sự phải là số nguyên lớn hơn 0");
       return;
     }
-    if (hoursPerWeekPerPerson <= 0) {
+
+    const parsedHours = typeof hoursPerWeekPerPerson === "number" ? hoursPerWeekPerPerson : parseFloat(String(hoursPerWeekPerPerson));
+    if (isNaN(parsedHours) || parsedHours <= 0) {
       setError("Số giờ/tuần/người phải lớn hơn 0");
       return;
     }
@@ -176,12 +180,12 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
     try {
       const payload: AddDemandPayload = {
         demandName: demandName.trim(),
-        headcount,
+        headcount: parsedHeadcount,
         startYear: startOption.year,
         startWeek: startOption.week,
         endYear: endOption.year,
         endWeek: endOption.week,
-        hoursPerWeekPerPerson,
+        hoursPerWeekPerPerson: parsedHours,
         skillRequirement: skillRequirement.trim() || undefined,
       };
 
@@ -262,7 +266,21 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
                 type="number"
                 min={1}
                 value={headcount}
-                onChange={(e) => setHeadcount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") {
+                    setHeadcount("");
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    setHeadcount(isNaN(parsed) ? "" : parsed);
+                  }
+                }}
+                onBlur={() => {
+                  if (headcount === "" || headcount < 1) {
+                    setHeadcount(1);
+                  }
+                }}
+                placeholder="Nhập số lượng..."
                 required
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10"
               />
@@ -277,7 +295,21 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
                 max={168}
                 step={0.5}
                 value={hoursPerWeekPerPerson}
-                onChange={(e) => setHoursPerWeekPerPerson(parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") {
+                    setHoursPerWeekPerPerson("");
+                  } else {
+                    const parsed = parseFloat(val);
+                    setHoursPerWeekPerPerson(isNaN(parsed) ? "" : parsed);
+                  }
+                }}
+                onBlur={() => {
+                  if (hoursPerWeekPerPerson === "" || hoursPerWeekPerPerson <= 0) {
+                    setHoursPerWeekPerPerson(40);
+                  }
+                }}
+                placeholder="VD: 40"
                 required
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10"
               />
@@ -339,7 +371,7 @@ export const AddEditDemandModal: React.FC<AddEditDemandModalProps> = ({
           <div className="rounded-xl bg-slate-50 p-3 border border-slate-200 text-xs text-slate-600 flex justify-between items-center">
             <span>Tổng giờ bổ sung mỗi tuần:</span>
             <span className="font-bold text-indigo-600 text-sm">
-              {(headcount * hoursPerWeekPerPerson).toLocaleString()} giờ/tuần
+              {(((typeof headcount === "number" ? headcount : 0) * (typeof hoursPerWeekPerPerson === "number" ? hoursPerWeekPerPerson : 0))).toLocaleString()} giờ/tuần
             </span>
           </div>
 
