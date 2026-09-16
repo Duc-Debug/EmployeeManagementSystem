@@ -10,6 +10,7 @@ import com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesh
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.timesheet.Timesheet;
 import com.hrm.employeemanagement.domain.timesheet.TimesheetId;
+import com.hrm.employeemanagement.domain.timesheet.ReminderStatus;
 import com.hrm.employeemanagement.domain.timesheet.TimesheetStatus;
 import com.hrm.employeemanagement.infrastructure.persistence.timesheet.SpringDataTimesheetRepository;
 import com.hrm.employeemanagement.infrastructure.persistence.timesheet.TimesheetJpaEntity;
@@ -36,6 +37,14 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
     }
 
     @Override
+    public java.util.List<Timesheet> findDraftTimesheetsForReminderUpTo(LocalDate targetDate, java.time.LocalDateTime now, int limit) {
+        return repository.findReminderCandidates(targetDate, TimesheetStatus.DRAFT.name(), now, org.springframework.data.domain.PageRequest.of(0, limit))
+                .stream()
+                .map(this::toDomain)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
     public Timesheet save(Timesheet timesheet) {
         TimesheetJpaEntity entity = toJpaEntity(timesheet);
         TimesheetJpaEntity saved = repository.save(entity);
@@ -43,7 +52,7 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
     }
 
     private Timesheet toDomain(TimesheetJpaEntity entity) {
-        return new Timesheet(
+        Timesheet domain = new Timesheet(
                 new TimesheetId(entity.getId()),
                 new EmployeeId(entity.getEmployeeId()),
                 entity.getWeekStartDate(),
@@ -59,6 +68,10 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
                 entity.getVersion(),
                 null
         );
+        domain.setRemindedAt(entity.getRemindedAt());
+        domain.restoreReminderState(ReminderStatus.valueOf(entity.getReminderStatus()), entity.getReminderAttemptCount(),
+                entity.getLastReminderError(), entity.getNextReminderAt());
+        return domain;
     }
 
     private TimesheetJpaEntity toJpaEntity(Timesheet domain) {
@@ -75,6 +88,11 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
         entity.setApprovedBy(domain.getApprovedBy());
         entity.setApprovedAt(domain.getApprovedAt());
         entity.setRejectionReason(domain.getRejectionReason());
+        entity.setRemindedAt(domain.getRemindedAt());
+        entity.setReminderStatus(domain.getReminderStatus().name());
+        entity.setReminderAttemptCount(domain.getReminderAttemptCount());
+        entity.setLastReminderError(domain.getLastReminderError());
+        entity.setNextReminderAt(domain.getNextReminderAt());
         if (domain.getCreatedAt() != null) {
             entity.setCreatedAt(domain.getCreatedAt());
         }
@@ -83,5 +101,13 @@ public class JpaTimesheetRepositoryAdapter implements LoadTimesheetPort, SaveTim
             entity.setVersion(domain.getVersion());
         }
         return entity;
+    }
+
+    @Override
+    public void saveAll(java.util.List<Timesheet> timesheets) {
+        java.util.List<TimesheetJpaEntity> entities = timesheets.stream()
+                .map(this::toJpaEntity)
+                .collect(java.util.stream.Collectors.toList());
+        repository.saveAll(entities);
     }
 }

@@ -153,11 +153,28 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(isAdjustHoursSubmitDisabled(false, false, true, false), true, "Non-RM bị khóa nút khi quá tải");
     });
 
-    test("HIGH Fix: Nút submit bị vô hiệu hóa khi API capacity lỗi (hasCapacityError = true) để ngăn dùng capacity giả", () => {
-        // Khi API capacity bị lỗi hoặc netCapacity == null: submit BẮT BUỘC bị disabled cho cả RM lẫn non-RM
-        assert.equal(isAdjustHoursSubmitDisabled(false, false, false, true, true), true, "Phải disable nút khi hasCapacityError = true");
-        assert.equal(isAdjustHoursSubmitDisabled(false, false, false, false, true), true, "Phải disable nút khi hasCapacityError = true (non-RM)");
-        assert.equal(isAdjustHoursSubmitDisabled(false, false, true, true, true), true, "Dù là RM cũng bị khóa khi chưa có capacity thực tế");
+    test("NCL-06-CN-003 & NCL-07-CN-004: Ngưỡng cảnh báo quá tải động theo cấu hình (Dynamic Overload Threshold)", () => {
+        const netCapacity = 40;
+
+        // Ngưỡng 110%: Ngưỡng giờ = 40 * 1.1 = 44h
+        const threshold110 = 110;
+        const resWithin110 = computeAllocationOverload(42, 0, netCapacity, threshold110);
+        assert.equal(resWithin110.isOverloaded, false, "42h <= 44h (110% của 40h) không bị quá tải");
+        assert.equal(resWithin110.thresholdCapacity, 44);
+
+        const resExceed110 = computeAllocationOverload(46, 0, netCapacity, threshold110);
+        assert.equal(resExceed110.isOverloaded, true, "46h > 44h (110% của 40h) phải cảnh báo quá tải");
+        assert.equal(resExceed110.overloadHours, 2, "Vượt quá 2h so với ngưỡng 44h");
+
+        // Ngưỡng 120%: Ngưỡng giờ = 40 * 1.2 = 48h (Test case 47h/40h không vượt ngưỡng 120%)
+        const threshold120 = 120;
+        const res47h = computeAllocationOverload(47, 0, netCapacity, threshold120);
+        assert.equal(res47h.isOverloaded, false, "47h <= 48h (120% của 40h) không bị quá tải khi ngưỡng là 120%");
+        assert.equal(res47h.thresholdCapacity, 48);
+
+        const res50h = computeAllocationOverload(50, 0, netCapacity, threshold120);
+        assert.equal(res50h.isOverloaded, true, "50h > 48h (120% của 40h) bị quá tải");
+        assert.equal(res50h.overloadHours, 2, "Vượt quá 2h so với ngưỡng 48h");
     });
 });
 

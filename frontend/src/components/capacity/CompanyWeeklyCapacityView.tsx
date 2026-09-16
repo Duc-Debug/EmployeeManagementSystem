@@ -1017,6 +1017,7 @@ export default function CompanyWeeklyCapacityView() {
       <CapacityThresholdConfigModal
         open={isThresholdModalOpen}
         onClose={() => setIsThresholdModalOpen(false)}
+        orgUnitId={selectedOrgUnitId}
         onSuccess={() => {
           fetchMatrix();
         }}

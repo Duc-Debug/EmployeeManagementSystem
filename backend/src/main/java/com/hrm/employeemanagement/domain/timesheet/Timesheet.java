@@ -33,6 +33,11 @@ public class Timesheet {
     private Long approvedBy;
     private LocalDateTime approvedAt;
     private String rejectionReason;
+    private LocalDateTime remindedAt;
+    private ReminderStatus reminderStatus = ReminderStatus.PENDING;
+    private int reminderAttemptCount;
+    private String lastReminderError;
+    private LocalDateTime nextReminderAt;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long version;
@@ -196,71 +201,56 @@ public class Timesheet {
     }
 
     // Getters
-    public TimesheetId getId() {
-        return id;
+    public TimesheetId getId() { return id; }
+    public Long getIdValue() { return id != null ? id.value() : null; }
+    public void setId(TimesheetId id) { this.id = id; }
+    public EmployeeId getEmployeeId() { return employeeId; }
+    public Long getEmployeeIdValue() { return employeeId != null ? employeeId.value() : null; }
+    public LocalDate getWeekStartDate() { return weekStartDate; }
+    public LocalDate getWeekEndDate() { return weekEndDate; }
+    public BigDecimal getTotalHours() { return totalHours; }
+    public TimesheetStatus getStatus() { return status; }
+    public LocalDateTime getSubmittedAt() { return submittedAt; }
+    public Long getApprovedBy() { return approvedBy; }
+    public LocalDateTime getApprovedAt() { return approvedAt; }
+    public String getRejectionReason() { return rejectionReason; }
+    public LocalDateTime getRemindedAt() { return remindedAt; }
+    public void setRemindedAt(LocalDateTime remindedAt) { this.remindedAt = remindedAt; }
+    public ReminderStatus getReminderStatus() { return reminderStatus; }
+    public int getReminderAttemptCount() { return reminderAttemptCount; }
+    public String getLastReminderError() { return lastReminderError; }
+    public LocalDateTime getNextReminderAt() { return nextReminderAt; }
+
+    public void restoreReminderState(ReminderStatus status, int attemptCount, String lastError, LocalDateTime nextAttemptAt) {
+        this.reminderStatus = status != null ? status : (remindedAt != null ? ReminderStatus.SENT : ReminderStatus.PENDING);
+        this.reminderAttemptCount = Math.max(0, attemptCount);
+        this.lastReminderError = lastError;
+        this.nextReminderAt = nextAttemptAt;
     }
 
-    public Long getIdValue() {
-        return id != null ? id.value() : null;
+    public void markReminderSent(LocalDateTime sentAt) {
+        remindedAt = Objects.requireNonNull(sentAt, "sentAt must not be null");
+        reminderStatus = ReminderStatus.SENT;
+        reminderAttemptCount++;
+        lastReminderError = null;
+        nextReminderAt = null;
     }
 
-    public void setId(TimesheetId id) {
-        this.id = id;
+    public void scheduleReminderRetry(LocalDateTime nextAttemptAt, String error) {
+        reminderStatus = ReminderStatus.RETRY_PENDING;
+        reminderAttemptCount++;
+        lastReminderError = error;
+        nextReminderAt = Objects.requireNonNull(nextAttemptAt, "nextAttemptAt must not be null");
     }
 
-    public EmployeeId getEmployeeId() {
-        return employeeId;
+    public void markReminderFailed(String error) {
+        reminderStatus = ReminderStatus.FAILED;
+        reminderAttemptCount++;
+        lastReminderError = error;
+        nextReminderAt = null;
     }
-
-    public Long getEmployeeIdValue() {
-        return employeeId != null ? employeeId.value() : null;
-    }
-
-    public LocalDate getWeekStartDate() {
-        return weekStartDate;
-    }
-
-    public LocalDate getWeekEndDate() {
-        return weekEndDate;
-    }
-
-    public BigDecimal getTotalHours() {
-        return totalHours;
-    }
-
-    public TimesheetStatus getStatus() {
-        return status;
-    }
-
-    public LocalDateTime getSubmittedAt() {
-        return submittedAt;
-    }
-
-    public Long getApprovedBy() {
-        return approvedBy;
-    }
-
-    public LocalDateTime getApprovedAt() {
-        return approvedAt;
-    }
-
-    public String getRejectionReason() {
-        return rejectionReason;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public List<TimesheetEntry> getEntries() {
-        return Collections.unmodifiableList(entries);
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Long getVersion() { return version; }
+    public List<TimesheetEntry> getEntries() { return Collections.unmodifiableList(entries); }
 }

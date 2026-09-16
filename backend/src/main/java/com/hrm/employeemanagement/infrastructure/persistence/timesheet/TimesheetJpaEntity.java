@@ -47,6 +47,21 @@ public class TimesheetJpaEntity {
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 
+    @Column(name = "reminded_at")
+    private LocalDateTime remindedAt;
+
+    @Column(name = "reminder_status", nullable = false, length = 30)
+    private String reminderStatus = "PENDING";
+
+    @Column(name = "reminder_attempt_count", nullable = false)
+    private int reminderAttemptCount;
+
+    @Column(name = "last_reminder_error", columnDefinition = "TEXT")
+    private String lastReminderError;
+
+    @Column(name = "next_reminder_at")
+    private LocalDateTime nextReminderAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -81,6 +96,16 @@ public class TimesheetJpaEntity {
     public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public LocalDateTime getRemindedAt() { return remindedAt; }
+    public void setRemindedAt(LocalDateTime remindedAt) { this.remindedAt = remindedAt; }
+    public String getReminderStatus() { return reminderStatus; }
+    public void setReminderStatus(String reminderStatus) { this.reminderStatus = reminderStatus; }
+    public int getReminderAttemptCount() { return reminderAttemptCount; }
+    public void setReminderAttemptCount(int reminderAttemptCount) { this.reminderAttemptCount = reminderAttemptCount; }
+    public String getLastReminderError() { return lastReminderError; }
+    public void setLastReminderError(String lastReminderError) { this.lastReminderError = lastReminderError; }
+    public LocalDateTime getNextReminderAt() { return nextReminderAt; }
+    public void setNextReminderAt(LocalDateTime nextReminderAt) { this.nextReminderAt = nextReminderAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
