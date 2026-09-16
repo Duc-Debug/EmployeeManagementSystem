@@ -220,17 +220,22 @@ public class ScenarioDemandService implements
     }
 
     private void verifyScenarioInUserScope(User currentUser, ResourceScenario scenario) {
-        DataScope dataScope = currentUser.getDataScope();
-        if (dataScope == DataScope.COMPANY) {
+        if (isOrgUnitInUserScope(currentUser, scenario.getOrgUnitId())) {
             return;
         }
-        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
-            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(scenario.getOrgUnitId(), userScopeOrgUnitId)) {
-                return;
-            }
-        }
         throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+    }
+
+    private boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId) {
+        if (currentUser.getDataScope() == DataScope.COMPANY) {
+            return true;
+        }
+        Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+        if (userScopeOrgUnitId == null || userScopeOrgUnitId.equals(targetOrgUnitId)) {
+            return true;
+        }
+        return loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)
+                || loadOrgUnitPort.existsInOrgUnitBranch(userScopeOrgUnitId, targetOrgUnitId);
     }
 
     private ScenarioDemandResult toDemandResult(ScenarioDemand demand) {

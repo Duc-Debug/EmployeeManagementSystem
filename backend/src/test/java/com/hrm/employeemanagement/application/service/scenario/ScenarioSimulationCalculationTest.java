@@ -1,11 +1,25 @@
 package com.hrm.employeemanagement.application.service.scenario;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
 import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
@@ -19,28 +33,21 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
-import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
-import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
-import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
 import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
 import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
-import java.time.LocalDate;
-import com.hrm.employeemanagement.domain.authorization.DataScope;
-import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.UserStatus;
-import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 class ScenarioSimulationCalculationTest {
 

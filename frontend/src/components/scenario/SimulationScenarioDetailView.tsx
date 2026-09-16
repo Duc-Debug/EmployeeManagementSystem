@@ -157,13 +157,23 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
           <AlertTriangle className="h-6 w-6" />
         </div>
         <h3 className="text-base font-bold text-slate-900">Không thể tải kịch bản</h3>
-        <p className="text-xs text-slate-500">{error || "Kịch bản không tồn tại hoặc đã bị xóa."}</p>
-        <button
-          onClick={onBack}
-          className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition"
-        >
-          Quay lại danh sách
-        </button>
+        <p className="text-xs font-medium text-slate-600 bg-rose-50/50 p-3 rounded-xl border border-rose-100 max-w-md mx-auto">
+          {error || "Kịch bản không tồn tại hoặc đã bị xóa khỏi hệ thống."}
+        </p>
+        <div className="flex items-center justify-center space-x-3 pt-2">
+          <button
+            onClick={loadData}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+          >
+            Thử tải lại
+          </button>
+          <button
+            onClick={onBack}
+            className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs"
+          >
+            Quay lại danh sách
+          </button>
+        </div>
       </div>
     );
   }

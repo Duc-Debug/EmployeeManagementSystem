@@ -4,10 +4,19 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.IsoFields;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-import com.hrm.employeemanagement.application.dto.scenario.*;
+import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotCellResult;
+import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotRowResult;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
+import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
 import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioSimulationResultUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -245,16 +254,21 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
     }
 
     private void validateReadScope(User currentUser, Long targetOrgUnitId) {
-        DataScope dataScope = currentUser.getDataScope();
-        if (dataScope == DataScope.COMPANY) {
+        if (isOrgUnitInUserScope(currentUser, targetOrgUnitId)) {
             return;
         }
-        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
-            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)) {
-                return;
-            }
-        }
         throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+    }
+
+    private boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId) {
+        if (currentUser.getDataScope() == DataScope.COMPANY) {
+            return true;
+        }
+        Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+        if (userScopeOrgUnitId == null || userScopeOrgUnitId.equals(targetOrgUnitId)) {
+            return true;
+        }
+        return loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)
+                || loadOrgUnitPort.existsInOrgUnitBranch(userScopeOrgUnitId, targetOrgUnitId);
     }
 }
