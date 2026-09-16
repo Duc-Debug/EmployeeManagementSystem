@@ -18,9 +18,14 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.co
 public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictPort, SaveScheduleConflictPort {
 
     private final SpringDataScheduleConflictRepository repository;
+    private final TransactionalConflictSaveHelper transactionalHelper;
 
-    public ScheduleConflictPersistenceAdapter(SpringDataScheduleConflictRepository repository) {
+    public ScheduleConflictPersistenceAdapter(
+            SpringDataScheduleConflictRepository repository,
+            TransactionalConflictSaveHelper transactionalHelper
+    ) {
         this.repository = repository;
+        this.transactionalHelper = transactionalHelper;
     }
 
     @Override
@@ -58,14 +63,66 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
     @Override
     public ScheduleConflict save(ScheduleConflict conflict) {
         ScheduleConflictJpaEntity entity = toEntity(conflict);
-        ScheduleConflictJpaEntity saved = repository.save(entity);
-        return toDomain(saved);
+        try {
+            ScheduleConflictJpaEntity saved = transactionalHelper.saveAndFlushRequiresNew(entity);
+            return toDomain(saved);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            if (!isUniqueKeyViolation(e)) {
+                throw e;
+            }
+            ScheduleConflictJpaEntity updated = transactionalHelper.updateExistingRequiresNew(
+                    conflict.getEmployeeId(), conflict.getYearNumber(), conflict.getWeekNumber(), conflict.getConflictType(),
+                    entity
+            );
+            return toDomain(updated);
+        }
+    }
+
+    private boolean isUniqueKeyViolation(org.springframework.dao.DataIntegrityViolationException e) {
+        Throwable current = e;
+
+        while (current != null) {
+            if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                String constraintName = cve.getConstraintName();
+                if (constraintName != null) {
+                    String lowerName = constraintName.toLowerCase();
+                    if (lowerName.contains("uk_schedule_conflict_existing")
+                            || lowerName.contains("uk_conflict_emp_year_week_type")) {
+                        return true;
+                    }
+                }
+            }
+
+            current = current.getCause();
+        }
+
+        return false;
     }
 
     @Override
     public List<ScheduleConflict> saveAll(List<ScheduleConflict> conflicts) {
-        List<ScheduleConflictJpaEntity> entities = conflicts.stream().map(this::toEntity).collect(Collectors.toList());
-        return repository.saveAll(entities).stream().map(this::toDomain).collect(Collectors.toList());
+        if (conflicts == null || conflicts.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        List<ScheduleConflictJpaEntity> entities = conflicts.stream()
+                .map(this::toEntity)
+                .collect(Collectors.toList());
+
+        try {
+            List<ScheduleConflictJpaEntity> savedEntities = transactionalHelper.saveAllAndFlushRequiresNew(entities);
+            return savedEntities.stream()
+                    .map(this::toDomain)
+                    .collect(Collectors.toList());
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            if (!isUniqueKeyViolation(e)) {
+                throw e;
+            }
+            // Fallback: Khi xảy ra race condition UNIQUE collision trong batch, fallback xử lý an toàn từng record
+            return conflicts.stream()
+                    .map(this::save)
+                    .collect(Collectors.toList());
+        }
     }
 
     @Override
@@ -92,8 +149,15 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
                 entity.getDetails(),
                 entity.getNotifiedAt(),
                 entity.getNotifiedBy(),
+                entity.getAssignedHandlerId(),
+                entity.getResolutionNote(),
+                entity.getIsRecurrent(),
+                entity.getRecurrentNote(),
+                entity.getResolvedAt(),
+                entity.getResolvedBy(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getVersion()
         );
     }
 
@@ -116,8 +180,15 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
         entity.setDetails(domain.getDetails());
         entity.setNotifiedAt(domain.getNotifiedAt());
         entity.setNotifiedBy(domain.getNotifiedBy());
+        entity.setAssignedHandlerId(domain.getAssignedHandlerId());
+        entity.setResolutionNote(domain.getResolutionNote());
+        entity.setIsRecurrent(domain.getIsRecurrent());
+        entity.setRecurrentNote(domain.getRecurrentNote());
+        entity.setResolvedAt(domain.getResolvedAt());
+        entity.setResolvedBy(domain.getResolvedBy());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
+        entity.setVersion(domain.getVersion());
         return entity;
     }
 }
