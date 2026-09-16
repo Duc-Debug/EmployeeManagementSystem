@@ -389,7 +389,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
             </span>
           </div>
           <span className="text-[11px] text-slate-500 font-medium">
-            Phân tích nhân sự quá tải từ phân bổ hiện trạng (Baseline Snapshot)
+            Phân tích nhân sự bị vỡ kế hoạch / vượt năng lực khi áp dụng kịch bản mô phỏng
           </span>
         </div>
 
@@ -399,10 +399,10 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <p className="text-xs font-bold text-emerald-800">
-              Không có nhân sự nào bị vỡ kế hoạch / vượt năng lực theo phân bổ hiện trạng (Baseline)
+              Không có nhân sự nào bị vỡ kế hoạch / vượt năng lực trong kịch bản mô phỏng
             </p>
             <p className="text-[11px] text-slate-500">
-              Tất cả nhân sự trong đơn vị đều có khối lượng phân bổ gốc nằm trong định mức chuẩn. (Lưu ý: Nhu cầu kịch bản được mô phỏng ở cấp độ tổng thể kịch bản/tuần).
+              Khối lượng công việc mô phỏng của tất cả nhân sự trong đơn vị (Phân bổ gốc + Nhu cầu kịch bản) đều nằm trong định mức chuẩn.
             </p>
           </div>
         ) : (

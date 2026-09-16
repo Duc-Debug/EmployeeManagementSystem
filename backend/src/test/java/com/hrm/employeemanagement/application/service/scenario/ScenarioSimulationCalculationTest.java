@@ -435,4 +435,53 @@ class ScenarioSimulationCalculationTest {
         assertEquals(2027, second.year());
         assertEquals(1, second.weekNumber());
     }
+
+    @Test
+    @DisplayName("NCL-08-CN-002: Nhu cầu kịch bản (Scenario Demand) được phân bổ khiến nhân sự cụ thể bị overload (A: 35+20=55h/40h, B: 10h/40h)")
+    void testSimulationCalculation_DemandCausesSpecificEmployeeOverload() {
+        ResourceScenario demandScenario = ResourceScenario.createNew(
+                "SCN-DEMAND", "Kịch bản test demand overload", "Mô tả", 10L, 2026, 38, 1, 100L
+        );
+        demandScenario.setId(77L);
+        when(loadScenarioPort.findById(77L)).thenReturn(Optional.of(demandScenario));
+
+        // Snapshot: Employee A (101L) baseline = 35h / 40h, Employee B (102L) baseline = 10h / 40h
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 77L, 101L, 2026, 38, BigDecimal.valueOf(35), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 77L, 102L, 2026, 38, BigDecimal.valueOf(10), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(77L)).thenReturn(snapshots);
+
+        // Demand: +20h/tuần cho vị trí "Senior Java" (khớp với Employee A)
+        ScenarioDemand demand = ScenarioDemand.create(
+                77L, "Nhu cầu Backend", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(20), "Senior Java"
+        );
+        demand.setId(701L);
+        when(loadDemandPort.findByScenarioId(77L)).thenReturn(List.of(demand));
+
+        Employee empA = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "Nguyễn Văn A", "Senior Java",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee empB = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Trần Văn B", "Frontend",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(empA, empB));
+
+        ScenarioSimulationResult result = service.getSimulationResult(77L);
+
+        assertNotNull(result);
+        assertEquals(1, result.overloadedEmployees().size(), "Chỉ duy nhất Employee A bị overload do được nhận 20h demand");
+
+        com.hrm.employeemanagement.application.dto.scenario.OverloadedEmployeeResult overloaded = result.overloadedEmployees().get(0);
+        assertEquals(101L, overloaded.employeeId());
+        assertEquals("EMP101", overloaded.employeeCode());
+        assertEquals("Nguyễn Văn A", overloaded.fullName());
+        assertEquals(38, overloaded.weekNumber());
+        assertEquals(BigDecimal.valueOf(55.0).setScale(2), overloaded.allocatedHours(), "Allocated của Employee A phải là 35h baseline + 20h demand = 55h");
+        assertEquals(BigDecimal.valueOf(40), overloaded.availableHours());
+        assertEquals(BigDecimal.valueOf(15.0).setScale(2), overloaded.excessHours(), "Vượt định mức 15h");
+        assertEquals(CapacityStatus.OVERLOADED, overloaded.status());
+    }
 }

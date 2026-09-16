@@ -196,6 +196,46 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                     scenarioId, missingEmployeeIds);
         }
 
+        // 4.1. Phân bổ Nhu cầu kịch bản (ScenarioDemand) xuống từng nhân sự theo Chức danh / Kỹ năng
+        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = new HashMap<>();
+        for (YearWeek yw : targetWeeks) {
+            String weekKey = yw.year() + "_" + yw.weekNumber();
+            List<ScenarioDemand> activeDemandsInWeek = demands.stream()
+                    .filter(d -> d.isActiveInWeek(yw))
+                    .toList();
+
+            for (ScenarioDemand d : activeDemandsInWeek) {
+                BigDecimal totalDemandHours = d.getTotalHoursPerWeek();
+                if (totalDemandHours.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                String req = d.getSkillRequirement();
+                List<Long> matchingEmpIds = empIds.stream()
+                        .filter(empId -> {
+                            Employee emp = employeeMap.get(empId);
+                            if (emp == null) return false;
+                            if (req == null || req.trim().isEmpty()) return true;
+                            String role = emp.getProfessionalRole();
+                            return role != null && role.toLowerCase().contains(req.trim().toLowerCase());
+                        })
+                        .toList();
+
+                if (matchingEmpIds.isEmpty()) {
+                    matchingEmpIds = empIds;
+                }
+
+                if (!matchingEmpIds.isEmpty()) {
+                    BigDecimal demandPerEmp = totalDemandHours.divide(
+                            BigDecimal.valueOf(matchingEmpIds.size()), 2, java.math.RoundingMode.HALF_UP
+                    );
+                    for (Long empId : matchingEmpIds) {
+                        empDemandHoursMap
+                                .computeIfAbsent(empId, k -> new HashMap<>())
+                                .merge(weekKey, demandPerEmp, BigDecimal::add);
+                    }
+                }
+            }
+        }
+
         List<EmployeeSnapshotRowResult> employeeSnapshots = new ArrayList<>();
         List<OverloadedEmployeeResult> overloadedEmployees = new ArrayList<>();
 
@@ -212,18 +252,24 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 String weekKey = yw.year() + "_" + yw.weekNumber();
                 String weekLabel = "T" + yw.weekNumber() + " (" + yw.getStartDate().format(dtf) + " - " + yw.getEndDate().format(dtf) + ")";
                 ScenarioAllocationSnapshotItem item = empWeeks.get(weekKey);
-                BigDecimal alloc = item != null ? item.getAllocatedHours() : BigDecimal.ZERO;
+                BigDecimal baseAlloc = item != null ? item.getAllocatedHours() : BigDecimal.ZERO;
                 BigDecimal avail = item != null ? item.getAvailableHours() : BigDecimal.ZERO;
 
-                CapacityStatus empStatus = WeeklyCapacityMatrixPolicy.determineStatus(alloc, avail, overloadThreshold, idleThreshold);
+                BigDecimal empDemandHours = empDemandHoursMap
+                        .getOrDefault(empId, Map.of())
+                        .getOrDefault(weekKey, BigDecimal.ZERO);
+
+                BigDecimal simulatedAlloc = baseAlloc.add(empDemandHours);
+
+                CapacityStatus empStatus = WeeklyCapacityMatrixPolicy.determineStatus(simulatedAlloc, avail, overloadThreshold, idleThreshold);
                 boolean isEmpOverloaded = (empStatus == CapacityStatus.OVERLOADED);
-                BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(alloc, avail);
-                BigDecimal utilizationPercentage = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(alloc, avail);
+                BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(simulatedAlloc, avail);
+                BigDecimal utilizationPercentage = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(simulatedAlloc, avail);
 
                 cells.add(new EmployeeSnapshotCellResult(
                         yw.year(),
                         yw.weekNumber(),
-                        alloc,
+                        simulatedAlloc,
                         avail,
                         excessHours,
                         utilizationPercentage,
@@ -240,7 +286,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                             yw.year(),
                             yw.weekNumber(),
                             weekLabel,
-                            alloc,
+                            simulatedAlloc,
                             avail,
                             excessHours,
                             utilizationPercentage,
