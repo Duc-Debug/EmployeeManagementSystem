@@ -12,13 +12,16 @@ import org.mockito.ArgumentCaptor;
 import com.hrm.employeemanagement.application.dto.scenario.CreateScenarioCommand;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioResult;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSharePort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSnapshotPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.SaveResourceScenarioPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.SaveScenarioSnapshotPort;
@@ -70,6 +73,9 @@ class ResourceScenarioServiceTest {
     private LoadScenarioSnapshotPort loadSnapshotPort;
     private LoadScenarioDemandPort loadDemandPort;
     private SaveAuditLogPort saveAuditLogPort;
+    private LoadScenarioSharePort loadScenarioSharePort;
+    private LoadProjectPort loadProjectPort;
+    private SaveAuditLogInNewTransactionPort deniedAuditLogPort;
 
     private ResourceScenarioService service;
 
@@ -95,6 +101,9 @@ class ResourceScenarioServiceTest {
         loadSnapshotPort = mock(LoadScenarioSnapshotPort.class);
         loadDemandPort = mock(LoadScenarioDemandPort.class);
         saveAuditLogPort = mock(SaveAuditLogPort.class);
+        loadScenarioSharePort = mock(LoadScenarioSharePort.class);
+        loadProjectPort = mock(LoadProjectPort.class);
+        deniedAuditLogPort = mock(SaveAuditLogInNewTransactionPort.class);
 
         service = new ResourceScenarioService(
                 authorizationService,
@@ -111,7 +120,11 @@ class ResourceScenarioServiceTest {
                 saveSnapshotPort,
                 loadSnapshotPort,
                 loadDemandPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                loadScenarioSharePort,
+                loadProjectPort,
+                null,
+                deniedAuditLogPort
         );
 
         vt03User = new User(
@@ -281,6 +294,7 @@ class ResourceScenarioServiceTest {
     void testGetScenarioById_VT01_Success() {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ)).thenReturn(101L);
         when(loadUserPort.findById(new UserId(101L))).thenReturn(Optional.of(vt01User));
+        when(loadScenarioSharePort.hasActiveShare(10L, 101L)).thenReturn(true);
 
         ResourceScenario scenario = ResourceScenario.createNew(
                 "SCN-10", "Kịch bản bộ phận 10", "Mô tả", 10L, 2026, 38, 8, 103L
