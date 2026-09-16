@@ -7,7 +7,7 @@
 -- ============================================================
 
 ALTER TABLE weekly_project_allocations 
-DROP CHECK chk_wpa_allocation_percentage;
+DROP CONSTRAINT chk_wpa_allocation_percentage;
 
 ALTER TABLE weekly_project_allocations 
 ADD CONSTRAINT chk_wpa_allocation_percentage 
