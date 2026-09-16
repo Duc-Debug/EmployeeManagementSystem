@@ -27,6 +27,10 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.co
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.context.annotation.Import;
 
 @SpringBootTest
@@ -46,6 +50,19 @@ class ScheduleConflictConcurrentScanTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    private final List<Long> createdEmployeeIds = new CopyOnWriteArrayList<>();
+
+    @AfterEach
+    void tearDown() {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            repository.deleteAll();
+            for (Long id : createdEmployeeIds) {
+                employeeRepository.deleteById(id);
+            }
+        });
+        createdEmployeeIds.clear();
+    }
+
     @Test
     @DisplayName("Concurrent Scan trong @Transactional: Quét đồng thời 2 thread không gây UnexpectedRollbackException hay HTTP 500")
     void testConcurrentScansInsideTransactionalServiceHandledGracefully() throws Exception {
@@ -62,6 +79,7 @@ class ScheduleConflictConcurrentScanTest {
         });
 
         assertNotNull(employeeId);
+        createdEmployeeIds.add(employeeId);
 
         int numberOfThreads = 2;
         ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);

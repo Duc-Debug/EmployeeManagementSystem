@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflict;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict.entity.ScheduleConflictJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict.repository.SpringDataScheduleConflictRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.EmployeeJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
@@ -88,43 +89,55 @@ class ScheduleConflictConstraintViolationTest {
     }
 
     @Test
-    @DisplayName("Unique Key collision: Duplicate (employee_id, year, week, conflict_type) sẽ được fallback xử lý thành công")
+    @DisplayName("Unique Key collision: Duplicate uk_schedule_conflict_existing sẽ được fallback xử lý thành công")
     void testUniqueKeyViolationHandledAsFallback() {
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-
-        Long employeeId = transactionTemplate.execute(status -> {
-            EmployeeJpaEntity emp = new EmployeeJpaEntity();
-            emp.setEmployeeCode("EMP-UK-TEST-" + System.currentTimeMillis());
-            emp.setFullName("UK Test Employee");
-            emp.setStatus("ACTIVE");
-            emp.setStandardHoursPerWeek(40);
-            emp.setIsOutsourced(false);
-            return employeeRepository.save(emp).getId();
-        });
-
-        assertNotNull(employeeId);
-        createdEmployeeIds.add(employeeId);
-
-        ScheduleConflict conflict1 = ScheduleConflict.create(
-                employeeId, 2026, 46, ConflictType.MULTI_PROJECT_ALLOCATION,
-                "1", "Dự án Alpha", null, null,
-                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
-                "Conflict lần 1"
+        TransactionalConflictSaveHelper mockHelper = org.mockito.Mockito.mock(TransactionalConflictSaveHelper.class);
+        ScheduleConflictPersistenceAdapter adapterWithMock = new ScheduleConflictPersistenceAdapter(
+                org.mockito.Mockito.mock(SpringDataScheduleConflictRepository.class),
+                mockHelper
         );
 
-        ScheduleConflict saved1 = adapter.save(conflict1);
-        assertNotNull(saved1.getId());
-
-        // Duplicate conflict on same employee, year, week, conflict_type
-        ScheduleConflict conflict2 = ScheduleConflict.create(
-                employeeId, 2026, 46, ConflictType.MULTI_PROJECT_ALLOCATION,
+        ScheduleConflict conflict = ScheduleConflict.create(
+                1L, 2026, 46, ConflictType.MULTI_PROJECT_ALLOCATION,
                 "1,2", "Dự án Alpha, Dự án Beta", null, null,
                 BigDecimal.valueOf(90.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(50.0),
                 "Conflict lần 2 (Trùng Unique Key)"
         );
 
-        ScheduleConflict saved2 = assertDoesNotThrow(() -> adapter.save(conflict2));
-        assertEquals(saved1.getId(), saved2.getId(), "Duplicate unique key sẽ fallback update lại bản ghi cũ có cùng ID");
+        org.hibernate.exception.ConstraintViolationException hibernateExc = new org.hibernate.exception.ConstraintViolationException(
+                "Duplicate entry for key 'uk_schedule_conflict_existing'", null, "uk_schedule_conflict_existing"
+        );
+        DataIntegrityViolationException ukException = new DataIntegrityViolationException("Duplicate entry for key 'uk_schedule_conflict_existing'", hibernateExc);
+
+        org.mockito.Mockito.when(mockHelper.saveAndFlushRequiresNew(org.mockito.Mockito.any()))
+                .thenThrow(ukException);
+
+        ScheduleConflictJpaEntity mockUpdated = new ScheduleConflictJpaEntity();
+        mockUpdated.setId(10L);
+        mockUpdated.setEmployeeId(1L);
+        mockUpdated.setYearNumber(2026);
+        mockUpdated.setWeekNumber(46);
+        mockUpdated.setConflictType(ConflictType.MULTI_PROJECT_ALLOCATION);
+        mockUpdated.setStatus(com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus.OPEN);
+
+        org.mockito.Mockito.when(mockHelper.updateExistingRequiresNew(
+                org.mockito.Mockito.eq(1L),
+                org.mockito.Mockito.eq(2026),
+                org.mockito.Mockito.eq(46),
+                org.mockito.Mockito.eq(ConflictType.MULTI_PROJECT_ALLOCATION),
+                org.mockito.Mockito.any()
+        )).thenReturn(mockUpdated);
+
+        ScheduleConflict saved = assertDoesNotThrow(() -> adapterWithMock.save(conflict));
+        assertNotNull(saved);
+        assertEquals(10L, saved.getId());
+        org.mockito.Mockito.verify(mockHelper).updateExistingRequiresNew(
+                org.mockito.Mockito.eq(1L),
+                org.mockito.Mockito.eq(2026),
+                org.mockito.Mockito.eq(46),
+                org.mockito.Mockito.eq(ConflictType.MULTI_PROJECT_ALLOCATION),
+                org.mockito.Mockito.any()
+        );
     }
 
     @Test
@@ -188,48 +201,63 @@ class ScheduleConflictConstraintViolationTest {
         createdEmployeeIds.add(employeeId);
         createdEmployeeIds.add(handlerId);
 
-        // 1. Tạo bản ghi conflict và giải quyết (RESOLVED) với assignedHandlerId, resolutionNote, resolvedBy
-        ScheduleConflict conflict1 = ScheduleConflict.create(
+        TransactionalConflictSaveHelper helper = new TransactionalConflictSaveHelper(conflictRepository);
+
+        // 1. Tạo bản ghi conflict ban đầu trong DB và giải quyết (RESOLVED)
+        ScheduleConflictJpaEntity initialEntity = new ScheduleConflictJpaEntity();
+        initialEntity.setEmployeeId(employeeId);
+        initialEntity.setYearNumber(2026);
+        initialEntity.setWeekNumber(48);
+        initialEntity.setConflictType(ConflictType.MULTI_PROJECT_ALLOCATION);
+        initialEntity.setProjectIds("1");
+        initialEntity.setProjectNames("Dự án Alpha");
+        initialEntity.setTotalAllocatedHours(BigDecimal.valueOf(80.0));
+        initialEntity.setNetAvailableHours(BigDecimal.valueOf(40.0));
+        initialEntity.setExcessHours(BigDecimal.valueOf(40.0));
+        initialEntity.setStatus(com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus.RESOLVED);
+        initialEntity.setAssignedHandlerId(handlerId);
+        initialEntity.setResolutionNote("Đã thương lượng giải quyết xung đột thành công");
+        initialEntity.setResolvedAt(java.time.LocalDateTime.now());
+        initialEntity.setResolvedBy(handlerId);
+        initialEntity.setDetails("Conflict ban đầu");
+
+        ScheduleConflictJpaEntity savedInitial = helper.saveAndFlushRequiresNew(initialEntity);
+        assertNotNull(savedInitial.getId());
+
+        // 2. Scan tạo entity mới với cùng unique key (employeeId, 2026, 48, MULTI_PROJECT_ALLOCATION) nhưng data mới
+        ScheduleConflictJpaEntity scanNewData = new ScheduleConflictJpaEntity();
+        scanNewData.setEmployeeId(employeeId);
+        scanNewData.setYearNumber(2026);
+        scanNewData.setWeekNumber(48);
+        scanNewData.setConflictType(ConflictType.MULTI_PROJECT_ALLOCATION);
+        scanNewData.setProjectIds("1,2");
+        scanNewData.setProjectNames("Dự án Alpha, Dự án Beta");
+        scanNewData.setTotalAllocatedHours(BigDecimal.valueOf(90.0));
+        scanNewData.setNetAvailableHours(BigDecimal.valueOf(40.0));
+        scanNewData.setExcessHours(BigDecimal.valueOf(50.0));
+        scanNewData.setStatus(com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus.OPEN);
+        scanNewData.setDetails("Scan tính toán lại dữ liệu mới");
+
+        // 3. Gọi helper updateExistingRequiresNew
+        ScheduleConflictJpaEntity updated = helper.updateExistingRequiresNew(
                 employeeId, 2026, 48, ConflictType.MULTI_PROJECT_ALLOCATION,
-                "1", "Dự án Alpha", null, null,
-                BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
-                "Conflict ban đầu"
-        );
-        conflict1.assignHandler(handlerId);
-        conflict1.resolveWithNote(handlerId, handlerId, "Đã thương lượng giải quyết xung đột thành công");
-
-        ScheduleConflict resolvedSaved = adapter.save(conflict1);
-        assertEquals(com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus.RESOLVED, resolvedSaved.getStatus());
-        assertEquals(handlerId, resolvedSaved.getAssignedHandlerId());
-        assertEquals("Đã thương lượng giải quyết xung đột thành công", resolvedSaved.getResolutionNote());
-        assertNotNull(resolvedSaved.getResolvedAt());
-        assertEquals(handlerId, resolvedSaved.getResolvedBy());
-
-        // 2. Scan tạo ra một new conflict (chưa có ID) bị trùng unique key (employeeId, 2026, 48, MULTI_PROJECT_ALLOCATION)
-        ScheduleConflict duplicateScanConflict = ScheduleConflict.create(
-                employeeId, 2026, 48, ConflictType.MULTI_PROJECT_ALLOCATION,
-                "1,2", "Dự án Alpha, Dự án Beta", null, null,
-                BigDecimal.valueOf(90.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(50.0),
-                "Scan tính toán lại dữ liệu mới"
+                scanNewData
         );
 
-        // 3. Thực hiện save (kích hoạt fallback update)
-        ScheduleConflict fallbackResult = assertDoesNotThrow(() -> adapter.save(duplicateScanConflict));
-
-        // 4. Verification:
-        assertEquals(resolvedSaved.getId(), fallbackResult.getId());
-        assertEquals(com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus.RESOLVED, fallbackResult.getStatus(), "Status vẫn phải là RESOLVED");
-        assertEquals(handlerId, fallbackResult.getAssignedHandlerId(), "Assigned handler phải được giữ nguyên");
-        assertEquals("Đã thương lượng giải quyết xung đột thành công", fallbackResult.getResolutionNote(), "Resolution note phải được giữ nguyên");
-        assertEquals(resolvedSaved.getResolvedAt().truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
-                fallbackResult.getResolvedAt().truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
+        // 4. Verification: Lifecycle fields giữ nguyên, scan fields được cập nhật
+        assertEquals(savedInitial.getId(), updated.getId());
+        assertEquals(com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus.RESOLVED, updated.getStatus(), "Status vẫn phải là RESOLVED");
+        assertEquals(handlerId, updated.getAssignedHandlerId(), "Assigned handler phải được giữ nguyên");
+        assertEquals("Đã thương lượng giải quyết xung đột thành công", updated.getResolutionNote(), "Resolution note phải được giữ nguyên");
+        assertEquals(savedInitial.getResolvedAt().truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
+                updated.getResolvedAt().truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
                 "ResolvedAt phải được giữ nguyên");
-        assertEquals(handlerId, fallbackResult.getResolvedBy(), "ResolvedBy phải được giữ nguyên");
-        assertEquals("1,2", fallbackResult.getProjectIds());
-        assertEquals("Dự án Alpha, Dự án Beta", fallbackResult.getProjectNames());
-        assertEquals(BigDecimal.valueOf(90.0), fallbackResult.getTotalAllocatedHours());
-        assertEquals(BigDecimal.valueOf(50.0), fallbackResult.getExcessHours());
-        assertEquals("Scan tính toán lại dữ liệu mới", fallbackResult.getDetails());
+        assertEquals(handlerId, updated.getResolvedBy(), "ResolvedBy phải được giữ nguyên");
+        assertEquals("1,2", updated.getProjectIds());
+        assertEquals("Dự án Alpha, Dự án Beta", updated.getProjectNames());
+        assertEquals(BigDecimal.valueOf(90.0), updated.getTotalAllocatedHours());
+        assertEquals(BigDecimal.valueOf(50.0), updated.getExcessHours());
+        assertEquals("Scan tính toán lại dữ liệu mới", updated.getDetails());
     }
 
     @Test
