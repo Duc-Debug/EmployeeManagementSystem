@@ -84,8 +84,8 @@ public final class AllocationAdjustmentPolicy {
         if (percentage.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidAllocationAdjustmentException("Tỷ lệ phần trăm phân bổ mới phải lớn hơn 0%");
         }
-        if (percentage.compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new InvalidAllocationAdjustmentException("Tỷ lệ phần trăm phân bổ không được vượt quá 100%");
+        if (percentage.compareTo(BigDecimal.valueOf(200)) > 0) {
+            throw new InvalidAllocationAdjustmentException("Tỷ lệ phần trăm phân bổ không được vượt quá 200%");
         }
     }
 
