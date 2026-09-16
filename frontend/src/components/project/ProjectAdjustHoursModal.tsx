@@ -3,6 +3,7 @@ import { X, Sliders, AlertTriangle, ShieldAlert, CheckCircle, Percent, Clock } f
 import type { ProjectMember } from './projectData';
 import { useAuthUser } from '@/lib/auth-session';
 import { getWeeklyCapacities } from '@/lib/api/allocations';
+import { getCapacityThreshold } from '@/lib/api/capacity-thresholds';
 import {
     canBypassResourceOverload,
     computeAllocationOverload,
@@ -56,6 +57,7 @@ export function ProjectAdjustHoursModal({
     const [netCapacity, setNetCapacity] = useState<number | null>(null);
     const [standardHours, setStandardHours] = useState<number | null>(null);
     const [otherProjectsHours, setOtherProjectsHours] = useState<number>(0);
+    const [overloadThreshold, setOverloadThreshold] = useState<number>(100);
     const [isLoadingCapacity, setIsLoadingCapacity] = useState(false);
     const [capacityFetchError, setCapacityFetchError] = useState(false);
 
@@ -65,6 +67,16 @@ export function ProjectAdjustHoursModal({
         if (empId && year && weekNumber) {
             setIsLoadingCapacity(true);
             setCapacityFetchError(false);
+
+            // NCL-07-CN-004: Lấy cấu hình ngưỡng quá tải hiệu lực
+            getCapacityThreshold("COMPANY")
+                .then((cfg) => {
+                    if (cfg && cfg.overloadThreshold) {
+                        setOverloadThreshold(Number(cfg.overloadThreshold));
+                    }
+                })
+                .catch(() => {});
+
             getWeeklyCapacities([empId], year, weekNumber)
                 .then((capacities) => {
                     if (capacities && capacities.length > 0) {
@@ -119,11 +131,11 @@ export function ProjectAdjustHoursModal({
     const capacity = netCapacity ?? (member.capacity || 40);
     const { totalWeeklyHours, isOverloaded, overloadHours, utilizationPercentage: pct } =
         hasValidCapacity
-            ? computeAllocationOverload(hours, otherProjectsHours, capacity)
+            ? computeAllocationOverload(hours, otherProjectsHours, capacity, overloadThreshold)
             : { totalWeeklyHours: hours + otherProjectsHours, isOverloaded: false, overloadHours: 0, utilizationPercentage: 0 };
 
     const handlePercentageChange = (newPct: number) => {
-        const clampedPct = Math.max(0, Math.min(100, newPct));
+        const clampedPct = Math.max(0, Math.min(200, newPct));
         setPercentage(clampedPct);
         const baseCap = hasValidCapacity ? capacity : (member.capacity || 40);
         const calculatedHours = Number(((baseCap * clampedPct) / 100).toFixed(2));
@@ -294,8 +306,8 @@ export function ProjectAdjustHoursModal({
                         /* Percentage Mode UI (NCL-06-CN-007) */
                         <div className="space-y-3">
                             {/* Preset Buttons */}
-                            <div className="grid grid-cols-4 gap-1.5">
-                                {[25, 50, 75, 100].map((preset) => (
+                            <div className="grid grid-cols-6 gap-1">
+                                {[25, 50, 75, 100, 125, 150].map((preset) => (
                                     <button
                                         key={preset}
                                         type="button"
@@ -321,7 +333,7 @@ export function ProjectAdjustHoursModal({
                                 <input
                                     type="range"
                                     min="0"
-                                    max="100"
+                                    max="200"
                                     step="5"
                                     value={percentage}
                                     onChange={(e) => handlePercentageChange(Number(e.target.value))}
@@ -329,10 +341,10 @@ export function ProjectAdjustHoursModal({
                                 />
                                 <div className="mt-1 flex justify-between text-[10px] text-slate-400">
                                     <span>0%</span>
-                                    <span>25%</span>
                                     <span>50%</span>
-                                    <span>75%</span>
                                     <span>100%</span>
+                                    <span>150%</span>
+                                    <span>200%</span>
                                 </div>
                             </div>
 
@@ -390,10 +402,10 @@ export function ProjectAdjustHoursModal({
                                 <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
                                 <div>
                                     <p className="text-rose-900 font-bold">
-                                        Cảnh báo quá tải: Vượt {overloadHours} giờ so với khả dụng!
+                                        Cảnh báo quá tải: Vượt {overloadHours} giờ so với ngưỡng{overloadThreshold !== 100 ? ` (${overloadThreshold}% = ${Number(((capacity * overloadThreshold) / 100).toFixed(1))}h)` : ' khả dụng'}!
                                     </p>
                                     <p className="text-[10px] font-normal text-rose-700 mt-0.5">
-                                        Tổng giờ phân bổ tuần này ({totalWeeklyHours}h{otherProjectsHours > 0 ? ` gồm ${otherProjectsHours}h dự án khác` : ''}) vượt quá năng lực khả dụng thực tế ({capacity}h) của tuần {weekLabel || weekKey}.
+                                        Tổng giờ phân bổ tuần này ({totalWeeklyHours}h{otherProjectsHours > 0 ? ` gồm ${otherProjectsHours}h dự án khác` : ''}) vượt quá ngưỡng quá tải ({Number(((capacity * overloadThreshold) / 100).toFixed(1))}h) tính trên năng lực khả dụng thực tế ({capacity}h) của tuần {weekLabel || weekKey}.
                                     </p>
                                 </div>
                             </div>

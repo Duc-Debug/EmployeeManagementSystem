@@ -13,6 +13,7 @@ import {
   Loader2,
   RotateCcw,
   Clock,
+  Building2,
 } from "lucide-react";
 import {
   getCapacityThreshold,
@@ -22,6 +23,8 @@ import {
   type CapacityThresholdHistoryResult,
   type CapacityThresholdScope,
 } from "@/lib/api/capacity-thresholds";
+import { getOrgTree } from "@/lib/api/org-units";
+import type { OrgUnitTreeNode } from "@/types/hrm";
 
 interface CapacityThresholdConfigModalProps {
   open: boolean;
@@ -38,12 +41,18 @@ export function CapacityThresholdConfigModal({
   scopeType = "COMPANY",
   orgUnitId,
 }: CapacityThresholdConfigModalProps) {
-  const [activeTab, setActiveTab] = useState<"CONFIG" | "HISTORY">("CONFIG");
+  // Scope & Org Unit states (NCL-07-CN-004)
+  const [selectedScope, setSelectedScope] = useState<CapacityThresholdScope>(orgUnitId ? "ORG_UNIT" : scopeType);
+  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(orgUnitId);
+  const [orgUnits, setOrgUnits] = useState<{ id: number; name: string }[]>([]);
 
   // Form states
   const [overloadThreshold, setOverloadThreshold] = useState<number>(100);
   const [idleThreshold, setIdleThreshold] = useState<number>(50);
   const [currentConfig, setCurrentConfig] = useState<CapacityThresholdResult | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"CONFIG" | "HISTORY">("CONFIG");
 
   // History states
   const [historyList, setHistoryList] = useState<CapacityThresholdHistoryResult[]>([]);
@@ -55,12 +64,51 @@ export function CapacityThresholdConfigModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Load Org Units tree for selector
+  useEffect(() => {
+    if (!open) return;
+    let isMounted = true;
+    getOrgTree().then((tree) => {
+      if (!isMounted) return;
+      const flat: { id: number; name: string }[] = [];
+      function traverse(nodes: readonly OrgUnitTreeNode[]) {
+        for (const node of nodes) {
+          flat.push({ id: node.id, name: node.unitName });
+          if (node.children && node.children.length > 0) {
+            traverse(node.children);
+          }
+        }
+      }
+      traverse(tree);
+      setOrgUnits(flat);
+      if (!selectedOrgUnitId && flat.length > 0) {
+        setSelectedOrgUnitId(flat[0].id);
+      }
+    }).catch((err) => {
+      console.warn("Không thể tải danh sách phòng ban:", err);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [open, selectedOrgUnitId]);
+
+  useEffect(() => {
+    if (open) {
+      if (orgUnitId) {
+        setSelectedScope("ORG_UNIT");
+        setSelectedOrgUnitId(orgUnitId);
+      } else if (scopeType) {
+        setSelectedScope(scopeType);
+      }
+    }
+  }, [open, orgUnitId, scopeType]);
+
   // Load config data
-  const loadConfig = useCallback(async () => {
+  const loadConfig = useCallback(async (scope: CapacityThresholdScope, unitId?: number) => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const data = await getCapacityThreshold(scopeType, orgUnitId);
+      const data = await getCapacityThreshold(scope, scope === "ORG_UNIT" ? unitId : undefined);
       setCurrentConfig(data);
       setOverloadThreshold(Number(data.overloadThreshold));
       setIdleThreshold(Number(data.idleThreshold));
@@ -71,34 +119,33 @@ export function CapacityThresholdConfigModal({
     } finally {
       setIsLoading(false);
     }
-  }, [scopeType, orgUnitId]);
+  }, []);
 
   // Load history data
-  const loadHistory = useCallback(async () => {
+  const loadHistory = useCallback(async (scope: CapacityThresholdScope, unitId?: number) => {
     setIsLoadingHistory(true);
     try {
-      const history = await getCapacityThresholdHistory(scopeType, orgUnitId);
+      const history = await getCapacityThresholdHistory(scope, scope === "ORG_UNIT" ? unitId : undefined);
       setHistoryList(history);
     } catch (err) {
       console.warn("Không thể tải lịch sử cấu hình ngưỡng:", err);
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [scopeType, orgUnitId]);
+  }, []);
 
   useEffect(() => {
     if (open) {
-      loadConfig();
+      loadConfig(selectedScope, selectedOrgUnitId);
       setSuccessMessage(null);
-      setActiveTab("CONFIG");
     }
-  }, [open, loadConfig]);
+  }, [open, selectedScope, selectedOrgUnitId, loadConfig]);
 
   useEffect(() => {
     if (open && activeTab === "HISTORY") {
-      loadHistory();
+      loadHistory(selectedScope, selectedOrgUnitId);
     }
-  }, [open, activeTab, loadHistory]);
+  }, [open, activeTab, selectedScope, selectedOrgUnitId, loadHistory]);
 
   // Keyboard Escape listener
   useEffect(() => {
@@ -150,8 +197,8 @@ export function CapacityThresholdConfigModal({
 
     try {
       const updated = await configureCapacityThreshold({
-        scopeType,
-        orgUnitId: orgUnitId ?? null,
+        scopeType: selectedScope,
+        orgUnitId: selectedScope === "ORG_UNIT" ? (selectedOrgUnitId ?? null) : null,
         overloadThreshold,
         idleThreshold,
         version: currentConfig?.version ?? null,
@@ -294,6 +341,64 @@ export function CapacityThresholdConfigModal({
                   <span>{successMessage}</span>
                 </div>
               )}
+
+              {/* Scope Selector (QTN-23 / NCL-07-CN-004: Hỗ trợ cấu hình theo đơn vị) */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3 dark:border-slate-800 dark:bg-slate-800/50">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Phạm vi áp dụng ngưỡng:
+                  </span>
+                  <div className="flex items-center gap-1.5 bg-slate-200/70 p-0.5 rounded-lg dark:bg-slate-700/60">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedScope("COMPANY")}
+                      className={`px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
+                        selectedScope === "COMPANY"
+                          ? "bg-white text-indigo-600 shadow-xs dark:bg-slate-900 dark:text-indigo-400"
+                          : "text-slate-600 hover:text-slate-900 dark:text-slate-300"
+                      }`}
+                    >
+                      Toàn công ty
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedScope("ORG_UNIT")}
+                      className={`px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
+                        selectedScope === "ORG_UNIT"
+                          ? "bg-white text-indigo-600 shadow-xs dark:bg-slate-900 dark:text-indigo-400"
+                          : "text-slate-600 hover:text-slate-900 dark:text-slate-300"
+                      }`}
+                    >
+                      Theo Đơn vị / Phòng ban
+                    </button>
+                  </div>
+                </div>
+
+                {selectedScope === "ORG_UNIT" && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-200/80 dark:border-slate-700">
+                    <Building2 className="h-4 w-4 text-indigo-600 shrink-0 dark:text-indigo-400" />
+                    <label htmlFor="org-unit-select" className="text-xs text-slate-600 dark:text-slate-300 font-medium shrink-0">
+                      Chọn đơn vị:
+                    </label>
+                    <select
+                      id="org-unit-select"
+                      value={selectedOrgUnitId ?? ""}
+                      onChange={(e) => setSelectedOrgUnitId(Number(e.target.value))}
+                      className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                      {orgUnits.length === 0 ? (
+                        <option value="">Đang tải danh sách đơn vị...</option>
+                      ) : (
+                        orgUnits.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
+              </div>
 
               {/* Status banner */}
               <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3.5 dark:bg-slate-800/60">

@@ -44,9 +44,12 @@ import com.hrm.employeemanagement.domain.user.UserId;
 
 import com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
 import com.hrm.employeemanagement.domain.allocation.AdjustmentAction;
 import com.hrm.employeemanagement.domain.allocation.AllocationChangeLog;
 import com.hrm.employeemanagement.domain.allocation.AllocationNotificationPolicy;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
 
 public class ResourceAllocationService implements AllocateResourceUseCase {
 
@@ -61,6 +64,7 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final SaveAllocationChangeLogPort saveChangeLogPort;
     private final AllocationNotificationPort notificationPort;
+    private final LoadCapacityThresholdPort loadCapacityThresholdPort;
 
     public ResourceAllocationService(
             AuthorizationService authorizationService,
@@ -75,7 +79,24 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
     ) {
         this(authorizationService, loadEmployeePort, loadProjectPort, loadWeeklyAvailabilityPort,
                 saveAllocationPort, loadAllocationPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort,
-                null, null);
+                null, null, null);
+    }
+
+    public ResourceAllocationService(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
+    ) {
+        this(authorizationService, loadEmployeePort, loadProjectPort, loadWeeklyAvailabilityPort,
+                saveAllocationPort, loadAllocationPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort,
+                null, null, loadCapacityThresholdPort);
     }
 
     public ResourceAllocationService(
@@ -91,6 +112,25 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             SaveAllocationChangeLogPort saveChangeLogPort,
             AllocationNotificationPort notificationPort
     ) {
+        this(authorizationService, loadEmployeePort, loadProjectPort, loadWeeklyAvailabilityPort,
+                saveAllocationPort, loadAllocationPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort,
+                saveChangeLogPort, notificationPort, null);
+    }
+
+    public ResourceAllocationService(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAllocationChangeLogPort saveChangeLogPort,
+            AllocationNotificationPort notificationPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
@@ -102,6 +142,7 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
         this.saveChangeLogPort = saveChangeLogPort;
         this.notificationPort = notificationPort;
+        this.loadCapacityThresholdPort = loadCapacityThresholdPort;
     }
 
     @Override
@@ -180,16 +221,21 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
 
         BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(effectiveAllocatedHours);
 
-        // [QTN-11 / NCL-06-CN-003] Phát hiện quá tải khi phân bổ theo tuần
-        boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalRequestedAllocated, netAvailableHours);
-        BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalRequestedAllocated, netAvailableHours);
+        // [QTN-11 / NCL-06-CN-003 & NCL-07-CN-004] Phát hiện quá tải khi phân bổ theo tuần
+        BigDecimal overloadThreshold = resolveOverloadThreshold(employee.getOrgUnitId());
+        BigDecimal thresholdHours = WeeklyCapacityMatrixPolicy.calculateOverloadThresholdHours(netAvailableHours, overloadThreshold);
+        boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalRequestedAllocated, netAvailableHours, overloadThreshold);
+        BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalRequestedAllocated, netAvailableHours, overloadThreshold);
 
         if (isOverloaded) {
             String reason = command.overloadReason();
             if (reason == null || reason.trim().isEmpty()) {
                 // TC-01, TC-03: Cảnh báo quá tải và yêu cầu xác nhận kèm lý do
+                String thresholdDetail = overloadThreshold.compareTo(WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD) != 0
+                        ? " (ngưỡng " + overloadThreshold + "% = " + thresholdHours + "h)"
+                        : "";
                 throw new AllocationOverloadWarningException(
-                        "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ". Số giờ vượt: " + excessHours + "h. Yêu cầu Quản lý nguồn lực xác nhận có ghi rõ lý do.",
+                        "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng" + thresholdDetail + " (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ". Số giờ vượt: " + excessHours + "h. Yêu cầu Quản lý nguồn lực xác nhận có ghi rõ lý do.",
                         netAvailableHours,
                         totalRequestedAllocated,
                         excessHours
@@ -446,6 +492,21 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 isOverAllocated,
                 warningMessage
         );
+    }
+
+    private BigDecimal resolveOverloadThreshold(Long orgUnitId) {
+        if (loadCapacityThresholdPort == null) {
+            return WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD;
+        }
+        java.util.Optional<CapacityThresholdConfig> configOpt = java.util.Optional.empty();
+        if (orgUnitId != null) {
+            configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.ORG_UNIT, orgUnitId);
+        }
+        if (configOpt.isEmpty()) {
+            configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.COMPANY, null);
+        }
+        return configOpt.map(CapacityThresholdConfig::getOverloadThreshold)
+                .orElse(WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD);
     }
 
     private String notifyStakeholders(

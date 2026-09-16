@@ -120,9 +120,9 @@ public class WeeklyProjectAllocation {
             return;
         }
 
-        if (percentage.compareTo(BigDecimal.ZERO) < 0 || percentage.compareTo(BigDecimal.valueOf(100)) > 0) {
+        if (percentage.compareTo(BigDecimal.ZERO) < 0 || percentage.compareTo(BigDecimal.valueOf(200)) > 0) {
             throw new com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationPercentageException(
-                    "Tỷ lệ phần trăm phân bổ phải nằm trong khoảng từ 0% đến 100%: " + percentage
+                    "Tỷ lệ phần trăm phân bổ phải nằm trong khoảng từ 0% đến 200%: " + percentage
             );
         }
 
