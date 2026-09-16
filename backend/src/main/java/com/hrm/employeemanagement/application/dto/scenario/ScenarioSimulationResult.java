@@ -13,8 +13,24 @@ public record ScenarioSimulationResult(
         String status,
         LocalDateTime baseSnapshotAt,
         List<WeeklySimulationMetricResult> weeklyMetrics,
+        List<OverloadedEmployeeResult> overloadedEmployees,
         List<EmployeeSnapshotRowResult> employeeSnapshots,
         BigDecimal overloadThreshold,
         BigDecimal idleThreshold
 ) {
+    public ScenarioSimulationResult(
+            Long scenarioId,
+            String scenarioCode,
+            String scenarioName,
+            Long orgUnitId,
+            String orgUnitName,
+            String status,
+            LocalDateTime baseSnapshotAt,
+            List<WeeklySimulationMetricResult> weeklyMetrics,
+            List<EmployeeSnapshotRowResult> employeeSnapshots,
+            BigDecimal overloadThreshold,
+            BigDecimal idleThreshold
+    ) {
+        this(scenarioId, scenarioCode, scenarioName, orgUnitId, orgUnitName, status, baseSnapshotAt, weeklyMetrics, List.of(), employeeSnapshots, overloadThreshold, idleThreshold);
+    }
 }

@@ -15,8 +15,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -345,5 +345,44 @@ class ScenarioSimulationCalculationTest {
         assertEquals(1, result.employeeSnapshots().size());
         assertEquals("EMP-999", result.employeeSnapshots().get(0).employeeCode());
         assertEquals("Nhân viên 999", result.employeeSnapshots().get(0).fullName());
+    }
+
+    @Test
+    @DisplayName("Bổ sung NCL-08-CN-002: Kiểm tra trả về danh sách nhân sự vượt năng lực/vỡ kế hoạch (Overloaded Employees)")
+    void testSimulationCalculation_IdentifiesOverloadedPersonnel_ReturnsOverloadedEmployeesList() {
+        // Employee 101: Allocated 45h / Available 40h (Overloaded 5h at week 38)
+        // Employee 102: Allocated 30h / Available 40h (Optimal at week 38)
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 1L, 101L, 2026, 38, BigDecimal.valueOf(45), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 1L, 102L, 2026, 38, BigDecimal.valueOf(30), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(1L)).thenReturn(snapshots);
+        when(loadDemandPort.findByScenarioId(1L)).thenReturn(List.of());
+
+        Employee emp1 = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "Nguyễn Văn Overload", "Senior Java",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee emp2 = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Trần Văn Normal", "Frontend",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp1, emp2));
+
+        ScenarioSimulationResult result = service.getSimulationResult(1L);
+
+        assertNotNull(result);
+        assertNotNull(result.overloadedEmployees());
+        assertEquals(1, result.overloadedEmployees().size(), "Phải trả về đúng 1 nhân sự bị vượt năng lực");
+        
+        com.hrm.employeemanagement.application.dto.scenario.OverloadedEmployeeResult overloaded = result.overloadedEmployees().get(0);
+        assertEquals(101L, overloaded.employeeId());
+        assertEquals("EMP101", overloaded.employeeCode());
+        assertEquals("Nguyễn Văn Overload", overloaded.fullName());
+        assertEquals(38, overloaded.weekNumber());
+        assertEquals(BigDecimal.valueOf(45), overloaded.allocatedHours());
+        assertEquals(BigDecimal.valueOf(40), overloaded.availableHours());
+        assertEquals(BigDecimal.valueOf(5.0).setScale(2), overloaded.excessHours());
+        assertEquals(CapacityStatus.OVERLOADED, overloaded.status());
     }
 }

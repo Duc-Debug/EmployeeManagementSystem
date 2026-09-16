@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotCellResult;
 import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotRowResult;
+import com.hrm.employeemanagement.application.dto.scenario.OverloadedEmployeeResult;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
 import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
 import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioSimulationResultUseCase;
@@ -190,6 +191,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         }
 
         // 4. Xây dựng danh sách nhân sự snapshot (baseline breakdown)
+        // 4. Xây dựng danh sách nhân sự snapshot & danh sách nhân sự vượt năng lực (Personnel level overload)
         List<Long> empIds = new ArrayList<>(snapshotByEmpAndWeek.keySet());
         List<com.hrm.employeemanagement.domain.employee.EmployeeId> employeeIds = empIds.stream()
                 .map(com.hrm.employeemanagement.domain.employee.EmployeeId::new)
@@ -209,6 +211,8 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         }
 
         List<EmployeeSnapshotRowResult> employeeSnapshots = new ArrayList<>();
+        List<OverloadedEmployeeResult> overloadedEmployees = new ArrayList<>();
+
         for (Long empId : empIds) {
             Employee emp = employeeMap.get(empId);
             String empCode = emp != null ? emp.getEmployeeCode() : "EMP-" + empId;
@@ -220,17 +224,54 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
 
             for (YearWeek yw : targetWeeks) {
                 String weekKey = yw.year() + "_" + yw.weekNumber();
+                String weekLabel = "T" + yw.weekNumber() + " (" + yw.getStartDate().format(dtf) + " - " + yw.getEndDate().format(dtf) + ")";
                 ScenarioAllocationSnapshotItem item = empWeeks.get(weekKey);
                 BigDecimal alloc = item != null ? item.getAllocatedHours() : BigDecimal.ZERO;
                 BigDecimal avail = item != null ? item.getAvailableHours() : BigDecimal.ZERO;
                 cells.add(new EmployeeSnapshotCellResult(yw.year(), yw.weekNumber(), alloc, avail));
+
+                CapacityStatus empStatus = WeeklyCapacityMatrixPolicy.determineStatus(alloc, avail, overloadThreshold, idleThreshold);
+                boolean isEmpOverloaded = (empStatus == CapacityStatus.OVERLOADED);
+                BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(alloc, avail);
+                BigDecimal utilizationPercentage = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(alloc, avail);
+
+                cells.add(new EmployeeSnapshotCellResult(
+                        yw.year(),
+                        yw.weekNumber(),
+                        alloc,
+                        avail,
+                        excessHours,
+                        utilizationPercentage,
+                        empStatus,
+                        isEmpOverloaded
+                ));
+
+                if (isEmpOverloaded) {
+                    overloadedEmployees.add(new OverloadedEmployeeResult(
+                            empId,
+                            empCode,
+                            fullName,
+                            profRole,
+                            yw.year(),
+                            yw.weekNumber(),
+                            weekLabel,
+                            alloc,
+                            avail,
+                            excessHours,
+                            utilizationPercentage,
+                            empStatus
+                    ));
+                }
             }
 
             employeeSnapshots.add(new EmployeeSnapshotRowResult(empId, empCode, fullName, profRole, cells));
         }
 
         // Sắp xếp danh sách nhân sự theo tên
+        // Sắp xếp danh sách nhân sự theo tên và danh sách vượt năng lực theo tuần + tên
         employeeSnapshots.sort(Comparator.comparing(EmployeeSnapshotRowResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+        overloadedEmployees.sort(Comparator.comparing(OverloadedEmployeeResult::weekNumber)
+                .thenComparing(OverloadedEmployeeResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
 
         if (saveAuditLogPort != null) {
             saveAuditLogPort.save(com.hrm.employeemanagement.domain.audit.AuditLog.create(
@@ -250,6 +291,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 scenario.getStatus().getValue(),
                 scenario.getBaseSnapshotAt(),
                 weeklyMetrics,
+                overloadedEmployees,
                 employeeSnapshots,
                 overloadThreshold,
                 idleThreshold

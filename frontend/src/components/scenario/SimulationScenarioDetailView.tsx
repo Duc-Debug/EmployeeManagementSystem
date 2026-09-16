@@ -61,8 +61,8 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
     setError(null);
     setSimulationError(null);
     const [detailResult, simulationResult] = await Promise.allSettled([
-        getScenarioById(scenarioId),
-        getScenarioSimulation(scenarioId),
+      getScenarioById(scenarioId),
+      getScenarioSimulation(scenarioId),
     ]);
 
     if (detailResult.status === "fulfilled") {
@@ -367,6 +367,84 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
             </span>
           </div>
         </div>
+      </div>
+
+      {/* FEATURE NCL-08-CN-002: Danh sách Nhân sự Vượt Năng Lực / Vỡ Kế Hoạch */}
+      <div className="bg-white rounded-2xl border border-rose-200 shadow-xs overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-rose-100 bg-rose-50/40">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
+            <h3 className="text-sm font-bold text-slate-900">
+              Danh Sách Nhân Sự Vượt Năng Lực / Vỡ Kế Hoạch (NCL-08-CN-002)
+            </h3>
+            <span
+              className={cn(
+                "text-xs px-2 py-0.5 rounded-full font-bold",
+                (simulation?.overloadedEmployees ?? []).length > 0
+                  ? "bg-rose-100 text-rose-700 border border-rose-200"
+                  : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+              )}
+            >
+              {(simulation?.overloadedEmployees ?? []).length} nhân sự
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500 font-medium">
+            Phân tích quá tải chi tiết từng nhân sự theo tuần
+          </span>
+        </div>
+
+        {(simulation?.overloadedEmployees ?? []).length === 0 ? (
+          <div className="p-6 text-center space-y-2 bg-emerald-50/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 mx-auto">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <p className="text-xs font-bold text-emerald-800">
+              Không có nhân sự nào bị vỡ kế hoạch / vượt năng lực
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Tất cả nhân sự trong đơn vị đều có khối lượng công việc nằm trong giới hạn định mức năng lực chuẩn.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-rose-100 bg-rose-50/30 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="px-4 py-3">Mã NV</th>
+                  <th className="px-4 py-3">Họ và Tên</th>
+                  <th className="px-4 py-3">Chức danh</th>
+                  <th className="px-4 py-3 text-center">Tuần vi phạm</th>
+                  <th className="px-4 py-3 text-right">Phân bổ / Chuẩn</th>
+                  <th className="px-4 py-3 text-right font-bold text-rose-700">Giờ vượt</th>
+                  <th className="px-4 py-3 text-right">Tỷ lệ</th>
+                  <th className="px-4 py-3 text-center">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rose-100/60 text-slate-700">
+                {(simulation?.overloadedEmployees ?? []).map((emp, index) => (
+                  <tr key={`${emp.employeeId}-${emp.year}-${emp.weekNumber}-${index}`} className="hover:bg-rose-50/40 transition">
+                    <td className="px-4 py-3 font-mono font-semibold text-slate-700">{emp.employeeCode}</td>
+                    <td className="px-4 py-3 font-bold text-slate-900">{emp.fullName}</td>
+                    <td className="px-4 py-3 text-slate-500">{emp.professionalRole || "—"}</td>
+                    <td className="px-4 py-3 text-center font-semibold text-slate-800">
+                      Tuần {emp.weekNumber} <span className="text-[10px] text-slate-400 font-normal">({emp.year})</span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-700">
+                      <span className="font-semibold text-rose-700">{emp.allocatedHours}h</span> / {emp.availableHours}h
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-rose-600">
+                      +{emp.excessHours}h
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-rose-600">
+                      {emp.utilizationPercentage != null ? `${emp.utilizationPercentage.toFixed(1)}%` : "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-center">{getStatusBadge(emp.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* SECTION 1: Nhu cầu nhân sự giả định (Demands) */}
