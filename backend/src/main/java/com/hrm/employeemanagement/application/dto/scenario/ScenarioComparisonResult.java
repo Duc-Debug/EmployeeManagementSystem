@@ -5,6 +5,8 @@ import java.util.List;
 
 public record ScenarioComparisonResult(
         List<ScenarioComparisonItemResult> scenarios,
+        boolean isTimeframeAligned,
+        boolean isOrgUnitAligned,
         LocalDateTime comparedAt
 ) {
 }

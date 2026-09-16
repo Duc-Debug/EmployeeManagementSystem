@@ -24,7 +24,7 @@ public class ScenarioComparisonUseCaseConfig {
             GetScenarioSimulationResultUseCase simulationResultUseCase,
             SaveAuditLogPort saveAuditLogPort
     ) {
-        return new ScenarioComparisonService(
+        ScenarioComparisonService service = new ScenarioComparisonService(
                 authorizationService,
                 loadUserPort,
                 loadScenarioPort,
@@ -32,5 +32,6 @@ public class ScenarioComparisonUseCaseConfig {
                 simulationResultUseCase,
                 saveAuditLogPort
         );
+        return new com.hrm.employeemanagement.infrastructure.transaction.scenario.TransactionalScenarioComparisonUseCaseDecorator(service);
     }
 }

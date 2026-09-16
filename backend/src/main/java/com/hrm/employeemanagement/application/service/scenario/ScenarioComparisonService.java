@@ -94,6 +94,9 @@ public class ScenarioComparisonService implements CompareSimulationScenariosUseC
         if (distinctScenarioIds.size() < 2) {
             throw new InsufficientScenariosForComparisonException("Cần ít nhất hai kịch bản để so sánh");
         }
+        if (distinctScenarioIds.size() > 10) {
+            throw new IllegalArgumentException("Chỉ được so sánh tối đa 10 kịch bản cùng lúc");
+        }
 
         // 3. Kiểm tra sự tồn tại của tất cả kịch bản trước khi tính toán
         Map<Long, ResourceScenario> scenarioMap = new java.util.LinkedHashMap<>();
@@ -194,6 +197,7 @@ public class ScenarioComparisonService implements CompareSimulationScenariosUseC
                     scenario.getDurationWeeks(),
                     overloadedEmployeesCount,
                     totalShortfallHours,
+                    totalShortfallHours, // totalRequiredAdditionalHours: Tổng giờ cần bổ sung
                     totalDemandHours,
                     totalWorkloadHours,
                     totalAvailableHours,
@@ -206,7 +210,19 @@ public class ScenarioComparisonService implements CompareSimulationScenariosUseC
 
         LocalDateTime comparedAt = LocalDateTime.now();
 
-        // 4. Ghi Audit Log lưu vết lịch sử thao tác so sánh kịch bản (NCL-08-CN-004-TC-04)
+        // 5. Tính toán metadata căn chỉnh kịch bản
+        boolean isTimeframeAligned = comparisonItems.stream()
+                .map(item -> item.fromYear() + "_" + item.fromWeek() + "_" + item.durationWeeks())
+                .distinct()
+                .count() <= 1;
+
+        boolean isOrgUnitAligned = comparisonItems.stream()
+                .map(ScenarioComparisonItemResult::orgUnitId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count() <= 1;
+
+        // 6. Ghi Audit Log lưu vết lịch sử thao tác so sánh kịch bản (NCL-08-CN-004-TC-04)
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "COMPARE_SCENARIOS",
@@ -216,6 +232,6 @@ public class ScenarioComparisonService implements CompareSimulationScenariosUseC
                 "scenarioIds=" + distinctScenarioIds + ";scenariosCount=" + distinctScenarioIds.size()
         ));
 
-        return new ScenarioComparisonResult(comparisonItems, comparedAt);
+        return new ScenarioComparisonResult(comparisonItems, isTimeframeAligned, isOrgUnitAligned, comparedAt);
     }
 }

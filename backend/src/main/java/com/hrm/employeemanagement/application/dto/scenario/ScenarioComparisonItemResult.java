@@ -16,6 +16,7 @@ public record ScenarioComparisonItemResult(
         int durationWeeks,
         int overloadedEmployeesCount,
         BigDecimal totalShortfallHours,
+        BigDecimal totalRequiredAdditionalHours,
         BigDecimal totalDemandHours,
         BigDecimal totalWorkloadHours,
         BigDecimal totalAvailableHours,
