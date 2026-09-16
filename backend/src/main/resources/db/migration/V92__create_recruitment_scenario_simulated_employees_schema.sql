@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V91: CREATE RECRUITMENT SCENARIO SIMULATED EMPLOYEES SCHEMA
+-- FLYWAY MIGRATION V92: CREATE RECRUITMENT SCENARIO SIMULATED EMPLOYEES SCHEMA
 -- Epic: NCL-08 (Mô phỏng kịch bản nhận thêm dự án)
 -- Story: NCL-08-CN-005 (Kịch bản tuyển thêm nhân sự - QTN-14)
 -- ============================================================
