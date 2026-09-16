@@ -33,6 +33,7 @@ import com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflict;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
@@ -504,7 +505,10 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
                     Employee emp = employeeMap.get(c.getEmployeeId());
                     String empCode = emp != null ? emp.getEmployeeCode() : "NV" + c.getEmployeeId();
                     String empName = emp != null ? emp.getFullName() : "Nhân viên #" + c.getEmployeeId();
-                    int projCount = c.getConflictingProjectIds() != null ? c.getConflictingProjectIds().size() : 0;
+                    int projCount = 0;
+                    if (c.getProjectIds() != null && !c.getProjectIds().isBlank()) {
+                        projCount = c.getProjectIds().split(",").length;
+                    }
                     BigDecimal allocHours = c.getTotalAllocatedHours() != null ? c.getTotalAllocatedHours().setScale(1, RoundingMode.HALF_UP) : BigDecimal.ZERO;
                     return new UnresolvedConflictItem(
                             c.getId(),
@@ -517,7 +521,7 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
                             projCount,
                             allocHours,
                             c.getStatus() != null ? c.getStatus().name() : "OPEN",
-                            c.getConflictDetails()
+                            c.getDetails()
                     );
                 })
                 .sorted(Comparator.comparingInt(UnresolvedConflictItem::yearNumber)
@@ -556,9 +560,13 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
                 loadOrgUnitPort.findAllByIdIn(orgUnitIds).stream()
                         .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (e1, e2) -> e1));
 
-        List<Long> managerIds = projects.stream().map(Project::getManagerIdValue).filter(Objects::nonNull).distinct().toList();
+        List<EmployeeId> managerIds = projects.stream()
+                .map(Project::getManagerId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
         Map<Long, String> managerNameMap = managerIds.isEmpty() ? Map.of() :
-                loadEmployeePort.findAllById(managerIds).stream()
+                loadEmployeePort.findAllByIdIn(managerIds).stream()
                         .collect(Collectors.toMap(Employee::getIdValue, Employee::getFullName, (e1, e2) -> e1));
 
         return projects.stream()
@@ -566,9 +574,9 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
                     String orgName = p.getOrgUnitId() != null ? orgNameMap.getOrDefault(p.getOrgUnitId(), "Chưa gán") : "Chưa gán";
                     String pmName = p.getManagerIdValue() != null ? managerNameMap.getOrDefault(p.getManagerIdValue(), "Chưa bổ nhiệm") : "Chưa bổ nhiệm";
                     int memberCount = 0;
-                    if (loadProjectMemberPort != null && p.getId() != null) {
+                    if (loadProjectMemberPort != null && p.getIdValue() != null) {
                         try {
-                            memberCount = (int) loadProjectMemberPort.countMembers(p.getId());
+                            memberCount = loadProjectMemberPort.findMembersByProjectId(p.getIdValue()).size();
                         } catch (Exception ignored) {}
                     }
                     Integer estHours = p.getEstimatedHours() != null ? p.getEstimatedHours().intValue() : null;
