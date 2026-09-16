@@ -173,25 +173,34 @@ public class TimesheetUseCaseConfig {
     }
 
     @Bean
-    public com.hrm.employeemanagement.application.port.inbound.timesheet.SendTimesheetRemindersUseCase sendTimesheetRemindersUseCase(
+    public com.hrm.employeemanagement.application.port.inbound.timesheet.ProcessReminderBatchUseCase processReminderBatchUseCase(
             LoadTimesheetPort loadTimesheetPort,
             SaveTimesheetPort saveTimesheetPort,
             LoadEmployeePort loadEmployeePort,
             com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort saveNotificationPort,
-            com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetHistoryPort saveTimesheetHistoryPort,
-            com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort,
-            com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort loadHolidaysPort) {
-        com.hrm.employeemanagement.application.service.timesheet.SendTimesheetRemindersService pureService = new com.hrm.employeemanagement.application.service.timesheet.SendTimesheetRemindersService(
+            com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetHistoryPort saveTimesheetHistoryPort) {
+        com.hrm.employeemanagement.application.service.timesheet.ProcessReminderBatchService pureService = new com.hrm.employeemanagement.application.service.timesheet.ProcessReminderBatchService(
                 loadTimesheetPort,
                 saveTimesheetPort,
                 loadEmployeePort,
                 saveNotificationPort,
                 saveTimesheetHistoryPort,
+                java.time.Clock.systemDefaultZone()
+        );
+        return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalProcessReminderBatchUseCase(pureService);
+    }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.timesheet.SendTimesheetRemindersUseCase sendTimesheetRemindersUseCase(
+            com.hrm.employeemanagement.application.port.inbound.timesheet.ProcessReminderBatchUseCase processReminderBatchUseCase,
+            com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort loadWorkingCalendarPort,
+            com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort loadHolidaysPort) {
+        return new com.hrm.employeemanagement.application.service.timesheet.SendTimesheetRemindersService(
+                processReminderBatchUseCase,
                 loadWorkingCalendarPort,
                 loadHolidaysPort,
                 java.time.Clock.systemDefaultZone()
         );
-        return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalSendTimesheetRemindersUseCase(pureService);
     }
 
     @Bean
