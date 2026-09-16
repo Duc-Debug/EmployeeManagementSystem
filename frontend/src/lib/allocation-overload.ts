@@ -33,19 +33,23 @@ export interface OverloadCalculationResult {
     isOverloaded: boolean;
     overloadHours: number;
     utilizationPercentage: number;
+    thresholdCapacity?: number;
 }
 
 /**
- * Tính toán tổng số giờ phân bổ trong tuần, trạng thái quá tải và số giờ vượt.
+ * Tính toán tổng số giờ phân bổ trong tuần, trạng thái quá tải và số giờ vượt theo ngưỡng cấu hình động (QTN-23 / NCL-07-CN-004).
  */
 export function computeAllocationOverload(
     hours: number,
     otherProjectsHours: number,
-    capacity: number
+    capacity: number,
+    overloadThresholdPercentage: number = 100
 ): OverloadCalculationResult {
     const totalWeeklyHours = otherProjectsHours + hours;
-    const isOverloaded = totalWeeklyHours > capacity;
-    const overloadHours = isOverloaded ? Math.max(0, totalWeeklyHours - capacity) : 0;
+    const thresholdPercentage = overloadThresholdPercentage > 0 ? overloadThresholdPercentage : 100;
+    const thresholdCapacity = (capacity * thresholdPercentage) / 100;
+    const isOverloaded = totalWeeklyHours > thresholdCapacity;
+    const overloadHours = isOverloaded ? Math.max(0, Number((totalWeeklyHours - thresholdCapacity).toFixed(2))) : 0;
     const utilizationPercentage = capacity > 0
         ? Math.round((totalWeeklyHours / capacity) * 100)
         : (hours > 0 ? 100 : 0);
@@ -55,6 +59,7 @@ export function computeAllocationOverload(
         isOverloaded,
         overloadHours,
         utilizationPercentage,
+        thresholdCapacity,
     };
 }
 

@@ -21,25 +21,50 @@ public class WeeklyCapacityMatrixPolicy {
     public static final BigDecimal UNDERUTILIZED_THRESHOLD = BigDecimal.valueOf(50.0);
 
     /**
-     * Kiểm tra nhân sự có bị phân bổ quá tải trong tuần không theo QTN-12.
+     * Tính ngưỡng giờ khả dụng tối đa trước khi bị coi là quá tải theo ngưỡng cấu hình động (NCL-07-CN-004 / QTN-23).
+     * thresholdHours = availableHours * (overloadThreshold / 100).
      */
-    public static boolean isOverloaded(BigDecimal allocatedHours, BigDecimal availableHours) {
-        BigDecimal safeAllocated = allocatedHours != null ? allocatedHours : BigDecimal.ZERO;
+    public static BigDecimal calculateOverloadThresholdHours(BigDecimal availableHours, BigDecimal overloadThreshold) {
         BigDecimal safeAvailable = availableHours != null ? availableHours : BigDecimal.ZERO;
-        return safeAllocated.compareTo(safeAvailable) > 0;
+        BigDecimal activeThreshold = overloadThreshold != null ? overloadThreshold : DEFAULT_OVERLOAD_THRESHOLD;
+        return safeAvailable.multiply(activeThreshold)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
     }
 
     /**
-     * Tính số giờ phân bổ vượt quá giờ khả dụng (excessHours) theo QTN-12.
+     * Kiểm tra nhân sự có bị phân bổ quá tải trong tuần theo ngưỡng cấu hình động (QTN-23 / NCL-07-CN-004).
      */
-    public static BigDecimal calculateExcessHours(BigDecimal allocatedHours, BigDecimal availableHours) {
+    public static boolean isOverloaded(BigDecimal allocatedHours, BigDecimal availableHours, BigDecimal overloadThreshold) {
         BigDecimal safeAllocated = allocatedHours != null ? allocatedHours : BigDecimal.ZERO;
-        BigDecimal safeAvailable = availableHours != null ? availableHours : BigDecimal.ZERO;
+        BigDecimal thresholdHours = calculateOverloadThresholdHours(availableHours, overloadThreshold);
+        return safeAllocated.compareTo(thresholdHours) > 0;
+    }
 
-        if (safeAllocated.compareTo(safeAvailable) > 0) {
-            return safeAllocated.subtract(safeAvailable).setScale(2, RoundingMode.HALF_UP);
+    /**
+     * Kiểm tra nhân sự có bị phân bổ quá tải trong tuần không theo QTN-12 (ngưỡng mặc định 100%).
+     */
+    public static boolean isOverloaded(BigDecimal allocatedHours, BigDecimal availableHours) {
+        return isOverloaded(allocatedHours, availableHours, DEFAULT_OVERLOAD_THRESHOLD);
+    }
+
+    /**
+     * Tính số giờ phân bổ vượt quá ngưỡng quá tải hiệu lực (excessHours) theo QTN-23 / NCL-07-CN-004.
+     */
+    public static BigDecimal calculateExcessHours(BigDecimal allocatedHours, BigDecimal availableHours, BigDecimal overloadThreshold) {
+        BigDecimal safeAllocated = allocatedHours != null ? allocatedHours : BigDecimal.ZERO;
+        BigDecimal thresholdHours = calculateOverloadThresholdHours(availableHours, overloadThreshold);
+
+        if (safeAllocated.compareTo(thresholdHours) > 0) {
+            return safeAllocated.subtract(thresholdHours).setScale(2, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Tính số giờ phân bổ vượt quá giờ khả dụng (excessHours) theo QTN-12 (ngưỡng mặc định 100%).
+     */
+    public static BigDecimal calculateExcessHours(BigDecimal allocatedHours, BigDecimal availableHours) {
+        return calculateExcessHours(allocatedHours, availableHours, DEFAULT_OVERLOAD_THRESHOLD);
     }
 
     /**

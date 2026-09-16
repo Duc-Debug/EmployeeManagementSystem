@@ -10,6 +10,9 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
@@ -81,6 +84,9 @@ class AllocationOverloadUseCaseTest {
     private LoadOrgUnitPort loadOrgUnitPort;
 
     @Mock
+    private LoadCapacityThresholdPort loadCapacityThresholdPort;
+
+    @Mock
     private Project projectMock;
 
     private ResourceAllocationService service;
@@ -109,7 +115,8 @@ class AllocationOverloadUseCaseTest {
                 loadAllocationPort,
                 saveAuditLogPort,
                 loadUserPort,
-                loadOrgUnitPort
+                loadOrgUnitPort,
+                loadCapacityThresholdPort
         );
 
         // VT-03: Resource Manager with ORGANIZATION_BRANCH DataScope
@@ -580,5 +587,67 @@ class AllocationOverloadUseCaseTest {
         assertTrue(ex instanceof com.hrm.employeemanagement.domain.exception.DomainException);
         assertTrue(com.hrm.employeemanagement.domain.exception.DomainException.class.isAssignableFrom(AllocationOverloadWarningException.class));
         assertFalse(com.hrm.employeemanagement.domain.exception.allocation.AllocationCapacityExceededException.class.isAssignableFrom(AllocationOverloadWarningException.class));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-003 & NCL-07-CN-004: Ngưỡng quá tải động 120% cho phép phân bổ 47h trên 40h mà không cảnh báo (47h <= 48h)")
+    void testDynamicThreshold_AllowsUpToThresholdWithoutWarning() {
+        setupMocksForRM();
+
+        CapacityThresholdConfig config120 = CapacityThresholdConfig.createNew(
+                CapacityThresholdScope.COMPANY, null, BigDecimal.valueOf(120), BigDecimal.valueOf(50), 1L);
+        when(loadCapacityThresholdPort.findByScope(CapacityThresholdScope.ORG_UNIT, 1L)).thenReturn(Optional.empty());
+        when(loadCapacityThresholdPort.findByScope(CapacityThresholdScope.COMPANY, null)).thenReturn(Optional.of(config120));
+
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek)).thenReturn(List.of());
+        when(saveAllocationPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Phân bổ 47h: với threshold 120%, ngưỡng giờ là 40 * 1.2 = 48h. 47h <= 48h => Không cảnh báo quá tải!
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(47));
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertFalse(result.isOverAllocated());
+        verify(saveAllocationPort).save(any());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-003 & NCL-07-CN-004: Phân bổ vượt tải có reason cho phép allocationPercentage > 100% (47h/40h = 117.5%)")
+    void testOverloadBypass_AllowsAllocationPercentageGreaterThan100Percent() {
+        setupMocksForRM();
+
+        // Mặc định threshold 100%
+        when(loadCapacityThresholdPort.findByScope(any(), any())).thenReturn(Optional.empty());
+
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        WeeklyProjectAllocation newAllocation = new WeeklyProjectAllocation(
+                1L, employeeId, projectIdB, yearWeek, BigDecimal.valueOf(47), true, "Khẩn cấp hoàn thành tiến độ", rmUserId, null, 0L);
+
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek))
+                .thenReturn(List.of())
+                .thenReturn(List.of(newAllocation));
+        when(saveAllocationPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Phân bổ 47h trên 40h có reason -> Overload bypass thành công, percentage = 117.50%
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectIdB, year, weekNumber, BigDecimal.valueOf(47), "Khẩn cấp hoàn thành tiến độ");
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertTrue(result.isOverAllocated());
+
+        ArgumentCaptor<WeeklyProjectAllocation> captor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
+        verify(saveAllocationPort).save(captor.capture());
+        WeeklyProjectAllocation saved = captor.getValue();
+        assertEquals(0, new BigDecimal("117.50").compareTo(saved.getAllocationPercentage()));
+        assertTrue(saved.isOverloaded());
+        assertEquals("Khẩn cấp hoàn thành tiến độ", saved.getOverloadReason());
     }
 }

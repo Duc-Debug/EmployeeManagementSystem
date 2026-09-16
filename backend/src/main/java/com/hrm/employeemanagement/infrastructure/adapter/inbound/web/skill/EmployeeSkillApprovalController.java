@@ -43,7 +43,7 @@ public class EmployeeSkillApprovalController {
      * API xem các kỹ năng đang chờ xác nhận (Dành cho Quản lý nguồn lực VT-03)
      */
     @GetMapping("/pending")
-    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_APPROVE') or hasAuthority('VT-06') or hasRole('VT-06')")
+    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_APPROVE')")
     public ResponseEntity<ApiResponse<?>> getPendingSkills(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer page,
@@ -64,7 +64,7 @@ public class EmployeeSkillApprovalController {
      * API xác nhận giữ nguyên hoặc điều chỉnh mức thành thạo kèm ghi chú (NCL-02-CN-006)
      */
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_APPROVE') or hasAuthority('VT-06') or hasRole('VT-06')")
+    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_APPROVE')")
     public ResponseEntity<ApiResponse<EmployeeSkillResponse>> approveSkill(
             @PathVariable Long id,
             @Valid @RequestBody ApproveEmployeeSkillRequest request
@@ -84,7 +84,7 @@ public class EmployeeSkillApprovalController {
      * API từ chối yêu cầu khai báo kỹ năng kèm lý do (NCL-02-CN-006)
      */
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_APPROVE') or hasAuthority('VT-06') or hasRole('VT-06')")
+    @PreAuthorize("hasAuthority('VT-03') or hasRole('VT-03') or hasAuthority('EMPLOYEE_SKILL_APPROVE')")
     public ResponseEntity<ApiResponse<EmployeeSkillResponse>> rejectSkill(
             @PathVariable Long id,
             @RequestBody(required = false) com.hrm.employeemanagement.infrastructure.adapter.inbound.web.skill.dto.RejectEmployeeSkillRequest request
