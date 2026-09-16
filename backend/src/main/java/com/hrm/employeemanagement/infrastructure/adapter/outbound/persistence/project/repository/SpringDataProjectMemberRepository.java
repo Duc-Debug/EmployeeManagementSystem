@@ -18,6 +18,8 @@ public interface SpringDataProjectMemberRepository
 
     List<ProjectMemberJpaEntity> findByProjectId(Long projectId);
 
+    List<ProjectMemberJpaEntity> findByProjectIdIn(List<Long> projectIds);
+
     boolean existsByProjectIdAndEmployeeId(Long projectId, Long employeeId);
 
     @Modifying

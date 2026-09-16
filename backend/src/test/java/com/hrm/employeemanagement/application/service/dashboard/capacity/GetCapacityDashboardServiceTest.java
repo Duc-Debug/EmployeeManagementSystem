@@ -157,7 +157,8 @@ class GetCapacityDashboardServiceTest {
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), BigDecimal.valueOf(1000), "Mô tả",
                 ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L
         );
-        when(loadProjectPort.findAll(anyInt(), anyInt())).thenReturn(List.of(activeProject));
+        when(loadProjectPort.findActiveProjects()).thenReturn(List.of(activeProject));
+        when(loadProjectMemberPort.countMembersByProjectIds(anyList())).thenReturn(Map.of(1L, 5));
 
         // When
         CapacityDashboardQuery query = new CapacityDashboardQuery(null, 2026, 38, 8);
@@ -181,6 +182,7 @@ class GetCapacityDashboardServiceTest {
         assertThat(result.overloadedEmployees().get(0).employeeCode()).isEqualTo("EMP001");
         assertThat(result.unresolvedConflicts()).hasSize(1);
         assertThat(result.activeProjects()).hasSize(1);
+        assertThat(result.activeProjects().get(0).memberCount()).isEqualTo(5);
 
         // Verify audit log được ghi nhận (TC-04)
         verify(saveAuditLogPort, times(1)).save(argThat(log ->
@@ -194,7 +196,7 @@ class GetCapacityDashboardServiceTest {
         // Given
         when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
         when(loadEmployeePort.findAllActive()).thenReturn(List.of());
-        when(loadProjectPort.findAll(anyInt(), anyInt())).thenReturn(List.of());
+        when(loadProjectPort.findActiveProjects()).thenReturn(List.of());
 
         // When
         CapacityDashboardQuery query = new CapacityDashboardQuery(null, 2026, 38, 8);
@@ -243,8 +245,8 @@ class GetCapacityDashboardServiceTest {
         when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
         lenient().when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of());
         lenient().when(loadEmployeePort.findAllActive()).thenReturn(List.of());
-        lenient().when(loadProjectPort.findByOrgUnitBranch(anyLong(), anyInt(), anyInt())).thenReturn(List.of());
-        lenient().when(loadProjectPort.findAll(anyInt(), anyInt())).thenReturn(List.of());
+        lenient().when(loadProjectPort.findActiveProjectsByOrgUnitBranch(anyLong())).thenReturn(List.of());
+        lenient().when(loadProjectPort.findActiveProjects()).thenReturn(List.of());
 
         // When
         CapacityDashboardQuery query = new CapacityDashboardQuery(10L, 2026, 40, 4);
@@ -258,6 +260,56 @@ class GetCapacityDashboardServiceTest {
         assertThat(savedLog.getUserId()).isEqualTo(1L);
         assertThat(savedLog.getNewValue()).contains("4 tuần");
         assertThat(savedLog.getNewValue()).contains("Phòng Phần mềm");
+    }
+
+    @Test
+    @DisplayName("TC-05: Sắp xếp nhân sự quá tải - Số tuần quá tải giảm dần, sau đó tỷ lệ sử dụng giảm dần (tie-breaker)")
+    void shouldSortOverloadedEmployeesWithCorrectTieBreaker() {
+        // Given
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+
+        Employee empA = createEmployee(101L, "EMP_A", "Nhân viên A", 10L, 40);
+        Employee empB = createEmployee(102L, "EMP_B", "Nhân viên B", 10L, 40);
+        Employee empC = createEmployee(103L, "EMP_C", "Nhân viên C", 10L, 40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(empA, empB, empC));
+
+        // Emp A: 2 tuần quá tải (60h, 60h) -> 2 tuần, avg utilization = 150%
+        // Emp B: 2 tuần quá tải (50h, 50h) -> 2 tuần, avg utilization = 125%
+        // Emp C: 3 tuần quá tải (45h, 45h, 45h) -> 3 tuần, avg utilization = 112.5%
+        List<WeeklyProjectAllocation> allocations = new ArrayList<>();
+        allocations.add(new WeeklyProjectAllocation(1L, 101L, 1L, YearWeek.of(2026, 38), BigDecimal.valueOf(60.0)));
+        allocations.add(new WeeklyProjectAllocation(2L, 101L, 1L, YearWeek.of(2026, 39), BigDecimal.valueOf(60.0)));
+
+        allocations.add(new WeeklyProjectAllocation(3L, 102L, 1L, YearWeek.of(2026, 38), BigDecimal.valueOf(50.0)));
+        allocations.add(new WeeklyProjectAllocation(4L, 102L, 1L, YearWeek.of(2026, 39), BigDecimal.valueOf(50.0)));
+
+        allocations.add(new WeeklyProjectAllocation(5L, 103L, 1L, YearWeek.of(2026, 38), BigDecimal.valueOf(45.0)));
+        allocations.add(new WeeklyProjectAllocation(6L, 103L, 1L, YearWeek.of(2026, 39), BigDecimal.valueOf(45.0)));
+        allocations.add(new WeeklyProjectAllocation(7L, 103L, 1L, YearWeek.of(2026, 40), BigDecimal.valueOf(45.0)));
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(allocations);
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadScheduleConflictPort.findConflicts(anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(List.of());
+        when(loadProjectPort.findActiveProjects()).thenReturn(List.of());
+
+        // When
+        CapacityDashboardQuery query = new CapacityDashboardQuery(null, 2026, 38, 4);
+        CapacityDashboardResult result = service.execute(query);
+
+        // Then
+        assertThat(result.overloadedEmployees()).hasSize(3);
+        // Emp C (3 tuần) phải đứng đầu
+        assertThat(result.overloadedEmployees().get(0).employeeCode()).isEqualTo("EMP_C");
+        assertThat(result.overloadedEmployees().get(0).overloadedWeeksCount()).isEqualTo(3);
+
+        // Emp A (2 tuần, 150%) phải đứng trước Emp B (2 tuần, 125%)
+        assertThat(result.overloadedEmployees().get(1).employeeCode()).isEqualTo("EMP_A");
+        assertThat(result.overloadedEmployees().get(1).overloadedWeeksCount()).isEqualTo(2);
+
+        assertThat(result.overloadedEmployees().get(2).employeeCode()).isEqualTo("EMP_B");
+        assertThat(result.overloadedEmployees().get(2).overloadedWeeksCount()).isEqualTo(2);
     }
 
     private Employee createEmployee(Long id, String code, String name, Long orgUnitId, int standardHours) {

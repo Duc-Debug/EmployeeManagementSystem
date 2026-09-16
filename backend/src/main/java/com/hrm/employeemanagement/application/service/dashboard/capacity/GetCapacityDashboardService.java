@@ -382,10 +382,11 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
             totalAvailableHours = totalAvailableHours.add(empTotalAvailable);
         }
 
-        // Sắp xếp danh sách nhân sự quá tải theo số tuần quá tải giảm dần, sau đó tỷ lệ sử dụng
-        overloadedEmployeesList.sort(Comparator.comparingInt(OverloadedEmployeeItem::overloadedWeeksCount)
-                .thenComparing(OverloadedEmployeeItem::averageUtilizationRate, Comparator.nullsLast(Comparator.reverseOrder()))
-                .reversed());
+        // Sắp xếp danh sách nhân sự quá tải theo số tuần quá tải giảm dần, sau đó tỷ lệ sử dụng giảm dần
+        overloadedEmployeesList.sort(
+                Comparator.comparingInt(OverloadedEmployeeItem::overloadedWeeksCount).reversed()
+                        .thenComparing(OverloadedEmployeeItem::averageUtilizationRate, Comparator.nullsLast(Comparator.reverseOrder()))
+        );
 
         // 10. Tổng hợp Weekly Metrics
         List<WeeklyCapacityDashboardItem> weeklyMetrics = new ArrayList<>();
@@ -410,7 +411,7 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
             ));
         }
 
-        // 11. Tổng hợp Department Breakdown
+        // 11. Tổng hợp Department Breakdown (sắp xếp theo tỷ lệ sử dụng giảm dần)
         List<DepartmentCapacityItem> departmentBreakdown = deptMap.values().stream()
                 .map(d -> {
                     BigDecimal alloc = d.totalAllocated.setScale(1, RoundingMode.HALF_UP);
@@ -428,7 +429,7 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
                             d.overloadedEmployeesCount
                     );
                 })
-                .sorted(Comparator.comparing(DepartmentCapacityItem::utilizationRate, Comparator.nullsLast(Comparator.reverseOrder())).reversed())
+                .sorted(Comparator.comparing(DepartmentCapacityItem::utilizationRate, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
         // 12. Tải và tổng hợp xung đột lịch chưa xử lý (unresolved schedule conflicts)
@@ -534,20 +535,18 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
             return List.of();
         }
 
-        List<Project> allProjects;
+        List<Project> activeProjects;
         if (effectiveOrgUnitId != null) {
-            allProjects = loadProjectPort.findByOrgUnitBranch(effectiveOrgUnitId, 0, 500);
+            activeProjects = loadProjectPort.findActiveProjectsByOrgUnitBranch(effectiveOrgUnitId);
         } else {
-            allProjects = loadProjectPort.findAll(0, 500);
+            activeProjects = loadProjectPort.findActiveProjects();
         }
 
-        if (allProjects == null) {
+        if (activeProjects == null) {
             return List.of();
         }
 
-        return allProjects.stream()
-                .filter(p -> p.getStatus() == ProjectStatus.ACTIVE)
-                .toList();
+        return activeProjects;
     }
 
     private List<ActiveProjectSummaryItem> mapActiveProjectItems(List<Project> projects) {
@@ -569,16 +568,16 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
                 loadEmployeePort.findAllByIdIn(managerIds).stream()
                         .collect(Collectors.toMap(Employee::getIdValue, Employee::getFullName, (e1, e2) -> e1));
 
+        List<Long> projectIds = projects.stream().map(Project::getIdValue).filter(Objects::nonNull).toList();
+        Map<Long, Integer> memberCountMap = (loadProjectMemberPort != null && !projectIds.isEmpty())
+                ? loadProjectMemberPort.countMembersByProjectIds(projectIds)
+                : Map.of();
+
         return projects.stream()
                 .map(p -> {
                     String orgName = p.getOrgUnitId() != null ? orgNameMap.getOrDefault(p.getOrgUnitId(), "Chưa gán") : "Chưa gán";
                     String pmName = p.getManagerIdValue() != null ? managerNameMap.getOrDefault(p.getManagerIdValue(), "Chưa bổ nhiệm") : "Chưa bổ nhiệm";
-                    int memberCount = 0;
-                    if (loadProjectMemberPort != null && p.getIdValue() != null) {
-                        try {
-                            memberCount = loadProjectMemberPort.findMembersByProjectId(p.getIdValue()).size();
-                        } catch (Exception ignored) {}
-                    }
+                    int memberCount = (p.getIdValue() != null) ? memberCountMap.getOrDefault(p.getIdValue(), 0) : 0;
                     Integer estHours = p.getEstimatedHours() != null ? p.getEstimatedHours().intValue() : null;
                     return new ActiveProjectSummaryItem(
                             p.getIdValue(),

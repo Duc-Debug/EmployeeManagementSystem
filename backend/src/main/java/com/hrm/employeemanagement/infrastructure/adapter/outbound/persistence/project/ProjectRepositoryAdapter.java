@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectP
 import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.entity.ProjectJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository.SpringDataProjectRepository;
 
@@ -219,5 +220,35 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
                         return List.of();
                 }
                 return projectRepository.findAllManagedProjectIds(employeeId);
+        }
+
+        @Override
+        public List<Project> findActiveProjects() {
+                return projectRepository.findAllByStatus(ProjectStatus.ACTIVE.name()).stream()
+                                .map(mapper::toDomain)
+                                .toList();
+        }
+
+        @Override
+        public List<Project> findActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId) {
+                if (scopeOrgUnitId == null) {
+                        return findActiveProjects();
+                }
+                return projectRepository.findByOrgUnitBranchAndStatus(scopeOrgUnitId, ProjectStatus.ACTIVE.name()).stream()
+                                .map(mapper::toDomain)
+                                .toList();
+        }
+
+        @Override
+        public long countActiveProjects() {
+                return projectRepository.countByStatus(ProjectStatus.ACTIVE.name());
+        }
+
+        @Override
+        public long countActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId) {
+                if (scopeOrgUnitId == null) {
+                        return countActiveProjects();
+                }
+                return projectRepository.countByOrgUnitBranchAndStatus(scopeOrgUnitId, ProjectStatus.ACTIVE.name());
         }
 }
