@@ -1,4 +1,4 @@
-﻿package com.hrm.employeemanagement.application.dto.dashboard.capacity;
+package com.hrm.employeemanagement.application.dto.dashboard.capacity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

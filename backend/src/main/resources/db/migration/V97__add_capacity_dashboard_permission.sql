@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- FLYWAY MIGRATION V97: ADD CAPACITY DASHBOARD PERMISSION
 -- Epic: NCL-10 (Báo cáo năng lực và bảng điều khiển)
 -- Story: NCL-10-CN-001 (Bảng điều khiển năng lực)
