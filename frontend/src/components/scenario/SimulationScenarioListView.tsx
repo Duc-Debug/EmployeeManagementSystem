@@ -50,6 +50,7 @@ export const SimulationScenarioListView: React.FC = () => {
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<number[]>([]);
   const [isViewingComparison, setIsViewingComparison] = useState(false);
+  const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
 
   // Load OrgUnits tree
   useEffect(() => {
@@ -308,7 +309,8 @@ export const SimulationScenarioListView: React.FC = () => {
                       setSelectedScenarioIds((prev) => prev.filter((id) => id !== scn.id));
                     } else {
                       if (selectedScenarioIds.length >= 10) {
-                        alert("Chỉ được chọn tối đa 10 kịch bản để so sánh.");
+                        setSelectionWarning("Chỉ được chọn tối đa 10 kịch bản cùng lúc.");
+                        setTimeout(() => setSelectionWarning(null), 3500);
                         return;
                       }
                       setSelectedScenarioIds((prev) => [...prev, scn.id]);
@@ -393,13 +395,20 @@ export const SimulationScenarioListView: React.FC = () => {
 
       {/* Sticky Compare Action Bar */}
       {isCompareMode && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur text-white px-5 py-3 rounded-2xl shadow-xl border border-slate-700 flex items-center space-x-4 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur text-white px-5 py-3 rounded-2xl shadow-xl border border-slate-700 flex flex-col sm:flex-row items-center gap-3 animate-in slide-in-from-bottom-5">
           <div className="flex items-center space-x-2 text-xs">
             <span className="font-bold text-indigo-400">
               Đã chọn: {selectedScenarioIds.length}/10
             </span>
             <span className="text-slate-300">(Cần tối thiểu 2 kịch bản)</span>
           </div>
+
+          {selectionWarning && (
+            <span className="text-amber-300 font-medium text-xs bg-amber-950/70 px-2.5 py-1 rounded-lg border border-amber-500/40 animate-in fade-in">
+              {selectionWarning}
+            </span>
+          )}
+
           <div className="flex items-center space-x-2">
             <button
               onClick={() => {
@@ -416,6 +425,7 @@ export const SimulationScenarioListView: React.FC = () => {
               onClick={() => {
                 setIsCompareMode(false);
                 setSelectedScenarioIds([]);
+                setSelectionWarning(null);
               }}
               className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition"
               title="Đóng chế độ so sánh"

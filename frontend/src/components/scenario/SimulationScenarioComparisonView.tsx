@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Briefcase,
   Layers,
+  Download,
 } from "lucide-react";
 import {
   compareScenarios,
@@ -82,13 +83,17 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
         return a.peakUtilizationPercentage - b.peakUtilizationPercentage;
       }
       // 4. Giờ làm thêm cần thiết ít hơn
-      return a.totalRequiredAdditionalHours - b.totalRequiredAdditionalHours;
+      if (a.totalRequiredAdditionalHours !== b.totalRequiredAdditionalHours) {
+        return a.totalRequiredAdditionalHours - b.totalRequiredAdditionalHours;
+      }
+      // 5. Tỷ lệ tải trung bình tối ưu hơn
+      return (a.averageUtilizationPercentage ?? 0) - (b.averageUtilizationPercentage ?? 0);
     });
     return sorted[0]?.scenarioId ?? null;
   }, [data]);
 
   const formatNumber = (num: number | undefined | null, decimals = 1) => {
-    if (num === undefined || num === null) return "0";
+    if (num === undefined || num === null || Number.isNaN(Number(num))) return "0";
     return Number(num).toLocaleString("vi-VN", {
       minimumFractionDigits: 0,
       maximumFractionDigits: decimals,
@@ -96,7 +101,7 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
   };
 
   const formatPercent = (num: number | undefined | null) => {
-    if (num === undefined || num === null) return "0%";
+    if (num === undefined || num === null || Number.isNaN(Number(num))) return "0%";
     return `${Number(num).toFixed(1)}%`;
   };
 
@@ -147,6 +152,128 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
     return Array.from(set).sort();
   }, [data]);
 
+  // Xuất bảng tổng hợp so sánh ra file CSV chuẩn UTF-8 BOM cho Ban Giám Đốc (VT-01)
+  const handleExportCsv = useCallback(() => {
+    if (!data || data.scenarios.length === 0) return;
+
+    const rows: string[][] = [
+      ["BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC (NCL-08-CN-004)"],
+      [`Thời gian đối chiếu: ${formatDateTime(data.comparedAt)}`],
+      ["Nguyên tắc QTN-14 Sandbox: Dữ liệu mô phỏng độc lập, không làm thay đổi phân bổ thật."],
+      [],
+      [
+        "Mã kịch bản",
+        "Tên kịch bản",
+        "Đơn vị / Phòng ban",
+        "Trạng thái",
+        "Tuần bắt đầu",
+        "Năm",
+        "Số tuần",
+        "Số nhân sự quá tải",
+        "Tổng giờ thiếu hụt (h)",
+        "Giờ làm thêm cần thiết (h)",
+        "Giờ nhu cầu giả định (h)",
+        "Tổng khối lượng (h)",
+        "Giờ khả dụng (h)",
+        "Tải trung bình (%)",
+        "Đỉnh tải (%)",
+        "Khuyến nghị",
+      ],
+    ];
+
+    for (const scn of data.scenarios) {
+      const isRec = scn.scenarioId === recommendedScenarioId;
+      rows.push([
+        `"${(scn.scenarioCode || "").replace(/"/g, '""')}"`,
+        `"${(scn.scenarioName || "").replace(/"/g, '""')}"`,
+        `"${(scn.orgUnitName || "").replace(/"/g, '""')}"`,
+        `"${scn.status || ""}"`,
+        `${scn.fromWeek}`,
+        `${scn.fromYear}`,
+        `${scn.durationWeeks}`,
+        `${scn.overloadedEmployeesCount}`,
+        `${scn.totalShortfallHours ?? 0}`,
+        `${scn.totalRequiredAdditionalHours ?? 0}`,
+        `${scn.totalDemandHours ?? 0}`,
+        `${scn.totalWorkloadHours ?? 0}`,
+        `${scn.totalAvailableHours ?? 0}`,
+        `${Number(scn.averageUtilizationPercentage ?? 0).toFixed(1)}%`,
+        `${Number(scn.peakUtilizationPercentage ?? 0).toFixed(1)}%`,
+        isRec ? "Tối ưu nhất" : "Phương án",
+      ]);
+    }
+
+    // Weekly metrics section
+    rows.push([]);
+    rows.push(["CHI TIẾT TIẾN ĐỘ TẢI TỪNG TUẦN"]);
+    const weeklyHeader = ["Tuần / Năm"];
+    for (const scn of data.scenarios) {
+      weeklyHeader.push(`${scn.scenarioCode} - Khối lượng (h)`);
+      weeklyHeader.push(`${scn.scenarioCode} - Tải (%)`);
+    }
+    rows.push(weeklyHeader);
+
+    for (const weekKey of allWeekKeys) {
+      const [yearStr, weekStr] = weekKey.split("-W");
+      const yr = Number(yearStr);
+      const wk = Number(weekStr);
+      const weekRow = [`Tuần ${wk}, ${yr}`];
+
+      for (const scn of data.scenarios) {
+        const wm = scn.weeklyMetrics.find((m) => m.year === yr && m.weekNumber === wk);
+        if (wm) {
+          weekRow.push(`${wm.scenarioWorkloadHours ?? wm.totalWorkloadHours ?? 0}`);
+          weekRow.push(`${Number(wm.utilizationPercentage ?? 0).toFixed(1)}%`);
+        } else {
+          weekRow.push("--");
+          weekRow.push("--");
+        }
+      }
+      rows.push(weekRow);
+    }
+
+    // Overloaded employee section
+    rows.push([]);
+    rows.push(["DANH SÁCH NHÂN SỰ QUÁ TẢI GIỮA CÁC KỊCH BẢN"]);
+    rows.push([
+      "Mã kịch bản",
+      "Mã NV",
+      "Họ và tên",
+      "Chức danh",
+      "Số tuần quá tải",
+      "Giờ vượt tối đa (h)",
+      "Đỉnh tải (%)",
+    ]);
+
+    for (const scn of data.scenarios) {
+      if (scn.overloadedEmployees && scn.overloadedEmployees.length > 0) {
+        for (const emp of scn.overloadedEmployees) {
+          rows.push([
+            `"${scn.scenarioCode}"`,
+            `"${emp.employeeCode || ""}"`,
+            `"${(emp.fullName || "").replace(/"/g, '""')}"`,
+            `"${(emp.professionalRole || "Chuyên viên").replace(/"/g, '""')}"`,
+            `${emp.overloadedWeeksCount}`,
+            `${emp.maxExcessHours ?? 0}`,
+            `${Number(emp.peakUtilizationPercentage ?? 0).toFixed(1)}%`,
+          ]);
+        }
+      }
+    }
+
+    const csvContent = "\uFEFF" + rows.map((r) => r.join(",")).join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `so_sanh_kich_ban_${timestamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [data, recommendedScenarioId, allWeekKeys]);
+
   return (
     <div className="space-y-6 pb-16 animate-in fade-in duration-150">
       {/* Top Header */}
@@ -181,9 +308,18 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
 
         <div className="flex items-center space-x-2 self-start md:self-auto">
           <button
+            onClick={handleExportCsv}
+            disabled={loading || !data}
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
+            title="Xuất bảng đối chiếu ra file CSV"
+          >
+            <Download className="h-3.5 w-3.5 text-indigo-600" />
+            <span>Xuất CSV</span>
+          </button>
+          <button
             onClick={loadComparison}
             disabled={loading}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs flex items-center space-x-1.5 disabled:opacity-50"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             <span>Làm mới</span>
@@ -445,7 +581,7 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
                                   : "bg-emerald-500"
                               )}
                               style={{
-                                width: `${Math.min(scn.averageUtilizationPercentage, 100)}%`,
+                                width: `${Math.max(0, Math.min(Number(scn.averageUtilizationPercentage || 0), 100))}%`,
                               }}
                             />
                           </div>
