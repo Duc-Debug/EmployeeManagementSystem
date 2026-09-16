@@ -130,7 +130,7 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
     setSuccessMessage(null);
 
     try {
-      await shareScenario(scenarioId, { recipientUserIds: selectedUserIds });
+      await shareScenario(scenarioId, { userIds: selectedUserIds, recipientUserIds: selectedUserIds });
       setSuccessMessage(`Đã chia sẻ thành công cho ${selectedUserIds.length} người.`);
       setSelectedUserIds([]);
       await Promise.all([loadActiveShares(), loadCandidates(searchQuery)]);

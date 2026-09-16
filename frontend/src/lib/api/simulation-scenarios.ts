@@ -249,7 +249,8 @@ export interface ScenarioShareResult {
 }
 
 export interface ShareScenarioPayload {
-  recipientUserIds: number[];
+  userIds?: number[];
+  recipientUserIds?: number[];
 }
 
 export async function patchScenario(
@@ -280,9 +281,13 @@ export async function shareScenario(
   id: number,
   payload: ShareScenarioPayload
 ): Promise<ScenarioShareResult[]> {
+  const ids = payload.userIds ?? payload.recipientUserIds ?? [];
   return apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      userIds: ids,
+      recipientUserIds: ids,
+    }),
   });
 }
 
