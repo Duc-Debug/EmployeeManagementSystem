@@ -233,8 +233,7 @@ public class ScenarioDemandService implements
         Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
         if (userScopeOrgUnitId == null) return false;
         if (userScopeOrgUnitId.equals(targetOrgUnitId)) return true;
-        return loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)
-                || loadOrgUnitPort.existsInOrgUnitBranch(userScopeOrgUnitId, targetOrgUnitId);
+        return loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId);
     }
 
     private ScenarioDemandResult toDemandResult(ScenarioDemand demand) {

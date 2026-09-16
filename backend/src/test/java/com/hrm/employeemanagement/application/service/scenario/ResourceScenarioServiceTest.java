@@ -248,6 +248,7 @@ class ResourceScenarioServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(103L);
         when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
         when(loadOrgUnitPort.existsInOrgUnitBranch(99L, 10L)).thenReturn(false);
+        lenient().when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 99L)).thenReturn(true);
 
         CreateScenarioCommand command = new CreateScenarioCommand(
                 "SCN-01", "Kịch bản test", "Mô tả", 99L, 2026, 38, 8
@@ -255,6 +256,7 @@ class ResourceScenarioServiceTest {
 
         assertThrows(PermissionDeniedException.class, () -> service.createScenario(command));
 
+        verify(loadOrgUnitPort, never()).existsInOrgUnitBranch(10L, 99L);
         verify(saveAuditLogPort, never()).save(any());
     }
 
@@ -270,9 +272,11 @@ class ResourceScenarioServiceTest {
         outsideScenario.setId(99L);
         when(loadScenarioPort.findById(99L)).thenReturn(Optional.of(outsideScenario));
         when(loadOrgUnitPort.existsInOrgUnitBranch(99L, 10L)).thenReturn(false);
+        lenient().when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 99L)).thenReturn(true);
 
         assertThrows(PermissionDeniedException.class, () -> service.getScenarioById(99L));
 
+        verify(loadOrgUnitPort, never()).existsInOrgUnitBranch(10L, 99L);
         verify(saveAuditLogPort, never()).save(any());
     }
 

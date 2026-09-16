@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -322,9 +323,10 @@ class ScenarioSimulationCalculationTest {
         when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
         when(loadScenarioPort.findById(1L)).thenReturn(Optional.of(outOfScopeScenario));
         when(loadOrgUnitPort.existsInOrgUnitBranch(20L, 10L)).thenReturn(false);
-        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 20L)).thenReturn(false);
+        lenient().when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 20L)).thenReturn(true);
 
         assertThrows(PermissionDeniedException.class, () -> service.getSimulationResult(1L));
+        verify(loadOrgUnitPort, never()).existsInOrgUnitBranch(10L, 20L);
         verify(saveAuditLogPort, never()).save(any());
     }
 
