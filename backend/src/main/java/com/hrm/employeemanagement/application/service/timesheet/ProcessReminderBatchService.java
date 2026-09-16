@@ -75,8 +75,8 @@ public class ProcessReminderBatchService implements ProcessReminderBatchUseCase 
             try {
                 Employee employee = employeeMap.get(timesheet.getEmployeeId());
                 if (employee != null && employee.getUserId() != null) {
-                    String title = "Nh?c n?p b?ng ch?m c�ng";
-                    String content = "B?n chua n?p b?ng ch?m c�ng cho tu?n b?t d?u t? " + timesheet.getWeekStartDate() + ". Vui l�ng n?p s?m.";
+                    String title = "Nhắc nộp bảng chấm công";
+                    String content = "Bạn chưa nộp bảng chấm công cho tuần bắt đầu từ " + timesheet.getWeekStartDate() + ". Vui lòng nộp sớm.";
 
                     Notification notification = Notification.create(
                             employee.getUserId(),
@@ -97,10 +97,10 @@ public class ProcessReminderBatchService implements ProcessReminderBatchUseCase 
                     );
                     historiesToSave.add(history);
                 } else {
-                    log.warn("Kh�ng th? g?i nh?c nh? cho timesheet ID: {} v� employee ho?c userId b? null", timesheet.getIdValue());
+                    log.warn("Không thể gửi nhắc nhở cho timesheet ID: {} vì employee hoặc userId bị null", timesheet.getIdValue());
                 }
             } catch (Exception e) {
-                log.error("L?i khi t?o nh?c nh? cho timesheet ID: {}", timesheet.getIdValue(), e);
+                log.error("Lỗi khi tạo nhắc nhở cho timesheet ID: {}", timesheet.getIdValue(), e);
             } finally {
                 // ALWAYS mark as reminded to prevent infinite loops (Issue #1)
                 timesheet.setRemindedAt(now);
@@ -118,7 +118,7 @@ public class ProcessReminderBatchService implements ProcessReminderBatchUseCase 
             saveTimesheetHistoryPort.saveAll(historiesToSave);
         }
 
-        log.info("�� x? l� batch {} timesheets, g?i {} th�ng b�o", timesheetsToSave.size(), notificationsToSave.size());
+        log.info("Đã xử lý batch {} timesheets, gửi {} thông báo", timesheetsToSave.size(), notificationsToSave.size());
         return timesheetsToSave.size();
     }
 }
