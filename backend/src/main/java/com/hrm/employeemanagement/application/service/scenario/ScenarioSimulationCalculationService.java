@@ -219,10 +219,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                         })
                         .toList();
 
-                if (matchingEmpIds.isEmpty()) {
-                    matchingEmpIds = empIds;
-                }
-
                 if (!matchingEmpIds.isEmpty()) {
                     BigDecimal demandPerEmp = totalDemandHours.divide(
                             BigDecimal.valueOf(matchingEmpIds.size()), 2, java.math.RoundingMode.HALF_UP
@@ -253,7 +249,10 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 String weekLabel = "T" + yw.weekNumber() + " (" + yw.getStartDate().format(dtf) + " - " + yw.getEndDate().format(dtf) + ")";
                 ScenarioAllocationSnapshotItem item = empWeeks.get(weekKey);
                 BigDecimal baseAlloc = item != null ? item.getAllocatedHours() : BigDecimal.ZERO;
-                BigDecimal avail = item != null ? item.getAvailableHours() : BigDecimal.ZERO;
+                BigDecimal defaultAvail = (emp != null && emp.getStandardHoursPerWeek() != null)
+                        ? BigDecimal.valueOf(emp.getStandardHoursPerWeek())
+                        : BigDecimal.valueOf(40);
+                BigDecimal avail = item != null ? item.getAvailableHours() : defaultAvail;
 
                 BigDecimal empDemandHours = empDemandHoursMap
                         .getOrDefault(empId, Map.of())
@@ -304,13 +303,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 .thenComparing(OverloadedEmployeeResult::weekNumber)
                 .thenComparing(OverloadedEmployeeResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
 
-        saveAuditLogPort.save(com.hrm.employeemanagement.domain.audit.AuditLog.create(
-                currentUser.getIdValue(),
-                "SIMULATE_SCENARIO",
-                "resource_scenarios",
-                scenario.getId()
-        ));
-
         return new ScenarioSimulationResult(
                 scenario.getId(),
                 scenario.getCode(),
@@ -348,12 +340,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
     }
 
     private boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId) {
-        if (currentUser.getDataScope() == DataScope.COMPANY) {
-            return true;
-        }
-        Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-        if (userScopeOrgUnitId == null) return false;
-        if (userScopeOrgUnitId.equals(targetOrgUnitId)) return true;
-        return loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId);
+        return AuthorizationService.isOrgUnitInUserScope(currentUser, targetOrgUnitId, loadOrgUnitPort);
     }
 }

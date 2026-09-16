@@ -227,13 +227,7 @@ public class ScenarioDemandService implements
     }
 
     private boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId) {
-        if (currentUser.getDataScope() == DataScope.COMPANY) {
-            return true;
-        }
-        Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-        if (userScopeOrgUnitId == null) return false;
-        if (userScopeOrgUnitId.equals(targetOrgUnitId)) return true;
-        return loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId);
+        return AuthorizationService.isOrgUnitInUserScope(currentUser, targetOrgUnitId, loadOrgUnitPort);
     }
 
     private ScenarioDemandResult toDemandResult(ScenarioDemand demand) {
