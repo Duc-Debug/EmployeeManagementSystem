@@ -271,6 +271,7 @@ export default function ProjectView() {
     // Quy định RBAC theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md:
     const canManageAllocations = isRm;
     const canManageProject = isPm;
+    const canManageProjectMembers = isPm || isRm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
     const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
     const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones' | 'board' | 'tracking'>(() => {
         return canReadAllocations ? 'split' : 'wbs';
@@ -1615,7 +1616,7 @@ export default function ProjectView() {
                             isClosed={isProjectClosed}
                             onNavigateMonth={handleNavigateMonth}
                             onOpenAdjustModal={handleOpenAdjustModal}
-                            onOpenSkillSearchModal={canManageAllocations ? () => setSkillSearchModalOpen(true) : undefined}
+                            onOpenSkillSearchModal={canManageProjectMembers ? () => setSkillSearchModalOpen(true) : undefined}
                         />
                     </div>
                 )}

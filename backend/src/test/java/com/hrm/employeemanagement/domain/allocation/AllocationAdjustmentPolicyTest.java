@@ -129,7 +129,7 @@ class AllocationAdjustmentPolicyTest {
     class ValidateAllocationPercentageTests {
 
         @Test
-        @DisplayName("Should throw when percentage is null, zero, negative or > 100")
+        @DisplayName("Should throw when percentage is null, zero, negative or > 200")
         void invalidPercentageShouldThrow() {
             assertThrows(InvalidAllocationAdjustmentException.class,
                     () -> AllocationAdjustmentPolicy.validateAllocationPercentage(null));
@@ -138,15 +138,16 @@ class AllocationAdjustmentPolicyTest {
             assertThrows(InvalidAllocationAdjustmentException.class,
                     () -> AllocationAdjustmentPolicy.validateAllocationPercentage(BigDecimal.valueOf(-10)));
             assertThrows(InvalidAllocationAdjustmentException.class,
-                    () -> AllocationAdjustmentPolicy.validateAllocationPercentage(BigDecimal.valueOf(101)));
+                    () -> AllocationAdjustmentPolicy.validateAllocationPercentage(BigDecimal.valueOf(201)));
         }
 
         @Test
-        @DisplayName("Should pass when percentage is valid (> 0 and <= 100)")
+        @DisplayName("Should pass when percentage is valid (> 0 and <= 200)")
         void validPercentageShouldPass() {
             assertDoesNotThrow(() -> AllocationAdjustmentPolicy.validateAllocationPercentage(BigDecimal.valueOf(0.01)));
             assertDoesNotThrow(() -> AllocationAdjustmentPolicy.validateAllocationPercentage(BigDecimal.valueOf(50)));
             assertDoesNotThrow(() -> AllocationAdjustmentPolicy.validateAllocationPercentage(BigDecimal.valueOf(100)));
+            assertDoesNotThrow(() -> AllocationAdjustmentPolicy.validateAllocationPercentage(BigDecimal.valueOf(200)));
         }
     }
 
