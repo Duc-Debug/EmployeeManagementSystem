@@ -35,12 +35,16 @@ import com.hrm.employeemanagement.domain.scenario.ScenarioShare;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.UserStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ScenarioShareService implements
         ShareSimulationScenarioUseCase,
         UnshareSimulationScenarioUseCase,
         GetShareCandidatesUseCase,
         GetScenarioSharesUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(ScenarioShareService.class);
 
     private final AuthorizationService authorizationService;
     private final LoadUserPort loadUserPort;
@@ -76,7 +80,9 @@ public class ScenarioShareService implements
         this.saveScenarioSharePort = Objects.requireNonNull(saveScenarioSharePort, "SaveScenarioSharePort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
         this.deniedAuditLogPort = Objects.requireNonNull(deniedAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
-        this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        this.objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     @Override
@@ -101,6 +107,7 @@ public class ScenarioShareService implements
 
         List<User> allUsers = loadUserPort.findAll(0, 1000);
         List<ShareCandidateResult> candidates = new ArrayList<>();
+        Map<Long, String> orgUnitCache = new HashMap<>();
 
         String lowerQuery = (query != null && !query.trim().isEmpty()) ? query.trim().toLowerCase() : null;
 
@@ -180,9 +187,10 @@ public class ScenarioShareService implements
             String orgUnitName = "";
             Long targetOrgId = u.getScopeOrgUnitId() != null ? u.getScopeOrgUnitId() : (emp != null ? emp.getOrgUnitId() : null);
             if (targetOrgId != null) {
-                orgUnitName = loadOrgUnitPort.findById(new OrgUnitId(targetOrgId))
-                        .map(OrgUnit::getUnitName)
-                        .orElse("");
+                orgUnitName = orgUnitCache.computeIfAbsent(targetOrgId, id ->
+                        loadOrgUnitPort.findById(new OrgUnitId(id))
+                                .map(OrgUnit::getUnitName)
+                                .orElse(""));
             }
 
             candidates.add(new ShareCandidateResult(
@@ -294,7 +302,13 @@ public class ScenarioShareService implements
             sharesToSave.add(ScenarioShare.create(scenario.getId(), recipient.getIdValue(), currentUserId));
         }
 
-        List<ScenarioShare> savedShares = saveScenarioSharePort.saveAll(sharesToSave);
+        List<ScenarioShare> savedShares;
+        try {
+            savedShares = saveScenarioSharePort.saveAll(sharesToSave);
+        } catch (org.springframework.dao.DataIntegrityViolationException dive) {
+            log.warn("Concurrent duplicate share detected for scenario {}: {}", scenario.getId(), dive.getMessage());
+            throw new DuplicateScenarioShareException("Kịch bản đã được chia sẻ cho người dùng trong danh sách này");
+        }
 
         // BR-11: Ghi Audit log SCENARIO_SHARED
         for (ScenarioShare share : savedShares) {

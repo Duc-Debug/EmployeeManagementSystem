@@ -161,7 +161,9 @@ public class ResourceScenarioService implements
         this.loadProjectPort = loadProjectPort;
         this.simulationResultUseCase = simulationResultUseCase;
         this.deniedAuditLogPort = deniedAuditLogPort;
-        this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        this.objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     @Override

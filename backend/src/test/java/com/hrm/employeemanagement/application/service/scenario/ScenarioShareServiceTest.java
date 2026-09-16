@@ -324,4 +324,19 @@ class ScenarioShareServiceTest {
         assertThrows(DuplicateScenarioShareException.class, () -> shareService.shareScenario(command));
         verify(saveScenarioSharePort, never()).saveAll(any());
     }
+
+    @Test
+    @DisplayName("Đồng thời chia sẻ vi phạm database constraint -> Bắt DataIntegrityViolationException và throw DuplicateScenarioShareException")
+    void shareScenario_ConcurrentDataIntegrityViolation_ThrowsDuplicateException() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(ownerUserId);
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(savedScenario));
+
+        User vt01 = createUser(201L, "director", RoleCode.VT_01, null, 2001L);
+        when(loadUserPort.findById(new UserId(201L))).thenReturn(Optional.of(vt01));
+        when(loadScenarioSharePort.hasActiveShare(scenarioId, 201L)).thenReturn(false);
+        when(saveScenarioSharePort.saveAll(any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate entry"));
+
+        ShareScenarioCommand command = new ShareScenarioCommand(scenarioId, List.of(201L));
+        assertThrows(DuplicateScenarioShareException.class, () -> shareService.shareScenario(command));
+    }
 }

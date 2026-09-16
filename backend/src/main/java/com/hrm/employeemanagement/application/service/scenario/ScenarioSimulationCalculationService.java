@@ -127,7 +127,9 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         this.loadScenarioSharePort = loadScenarioSharePort;
         this.loadProjectPort = loadProjectPort;
         this.deniedAuditLogPort = deniedAuditLogPort;
-        this.objectMapper = new com.fasterxml.jackson.databind.ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        this.objectMapper = new com.fasterxml.jackson.databind.ObjectMapper()
+                .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     @Override
@@ -140,12 +142,14 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 .orElseThrow(() -> new ScenarioNotFoundException(scenarioId));
 
         boolean isOwner = scenario.getCreatedBy().equals(currentUserId);
+        com.hrm.employeemanagement.domain.role.RoleCode roleCode = currentUser.getRole().getCode();
+
+        // BR-02: Quyền truy cập
         if (!isOwner) {
-            com.hrm.employeemanagement.domain.role.RoleCode roleCode = currentUser.getRole().getCode();
-            if (roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_01
-                    && roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_02
-                    && roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_03) {
-                logDenied(currentUserId, scenarioId, "INVALID_ROLE_" + roleCode.getCode());
+            if (roleCode == com.hrm.employeemanagement.domain.role.RoleCode.VT_01) {
+                // VT-01 có toàn quyền đọc
+            } else if (roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_02 && roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_03) {
+                logDenied(currentUserId, scenarioId, "ROLE_NOT_AUTHORIZED");
                 throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
             }
 
@@ -157,7 +161,11 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             // BR-08: Re-check scope tại thời điểm mở
             List<Long> projectIds = extractProjectIds(scenario.getSnapshotData());
             if (roleCode == com.hrm.employeemanagement.domain.role.RoleCode.VT_02) {
-                if (loadProjectPort != null && currentUser.getEmployeeId() != null) {
+                if (currentUser.getEmployeeId() == null) {
+                    logDenied(currentUserId, scenarioId, "VT02_NO_EMPLOYEE_PROFILE");
+                    throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+                }
+                if (loadProjectPort != null) {
                     List<Long> managed = loadProjectPort.findAllManagedProjectIds(currentUser.getEmployeeId().value());
                     boolean overlap = managed.stream().anyMatch(projectIds::contains);
                     if (!overlap) {
