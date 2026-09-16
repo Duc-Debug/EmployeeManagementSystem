@@ -128,7 +128,7 @@ class ScheduleConflictConstraintViolationTest {
     }
 
     @Test
-    @DisplayName("Regression Test: Unique constraint khác không thuộc uk_conflict_emp_year_week_type phải được rethrow, không được kích hoạt fallback")
+    @DisplayName("Regression Test: Unique constraint khác không thuộc uk_schedule_conflict_existing phải được rethrow, không được kích hoạt fallback")
     void testUnrelatedUniqueConstraintViolationRethrown() {
         TransactionalConflictSaveHelper mockHelper = org.mockito.Mockito.mock(TransactionalConflictSaveHelper.class);
         ScheduleConflictPersistenceAdapter adapterWithMock = new ScheduleConflictPersistenceAdapter(

@@ -93,6 +93,15 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
                 }
             }
 
+            String msg = current.getMessage();
+            if (msg != null) {
+                String lowerMsg = msg.toLowerCase();
+                if (lowerMsg.contains("uk_schedule_conflict_existing")
+                        || lowerMsg.contains("uk_conflict_emp_year_week_type")) {
+                    return true;
+                }
+            }
+
             current = current.getCause();
         }
 
