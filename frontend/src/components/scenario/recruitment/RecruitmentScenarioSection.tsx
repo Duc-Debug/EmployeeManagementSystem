@@ -373,22 +373,26 @@ export const RecruitmentScenarioSection: React.FC<RecruitmentScenarioSectionProp
                 </tr>
               ) : (
                 evaluation.roleEvaluations.map((item: RoleEvaluationItem) => {
+                  const roleId = item.roleId ?? item.projectRoleId;
+                  const roleCode = item.roleCode ?? item.projectRoleCode ?? "-";
+                  const roleName = item.roleName ?? item.projectRoleName ?? "-";
+                  const isRoleBroken = item.isRoleBroken ?? (item.remainingShortfallHours > 0);
                   const coveragePct = calculateCoveragePercentage(
                     item.originalShortfallHours,
                     item.simulatedCapacityHours
                   );
                   return (
                     <tr
-                      key={item.projectRoleId}
+                      key={roleId}
                       className={`hover:bg-slate-50/70 transition ${
-                        item.isRoleBroken ? "bg-rose-50/15" : ""
+                        isRoleBroken ? "bg-rose-50/15" : ""
                       }`}
                     >
                       <td className="px-4 py-3 font-mono font-semibold text-slate-700">
-                        {item.projectRoleCode}
+                        {roleCode}
                       </td>
                       <td className="px-4 py-3 font-medium text-slate-900">
-                        {item.projectRoleName}
+                        {roleName}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-slate-600">
                         {formatHoursDisplay(item.originalShortfallHours)}
@@ -442,7 +446,7 @@ export const RecruitmentScenarioSection: React.FC<RecruitmentScenarioSectionProp
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {item.isRoleBroken ? (
+                        {isRoleBroken ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 border border-rose-200">
                             <AlertTriangle className="h-3 w-3 mr-1 text-rose-600" />
                             Thiếu hụt
@@ -458,7 +462,7 @@ export const RecruitmentScenarioSection: React.FC<RecruitmentScenarioSectionProp
                         <td className="px-4 py-3 text-center">
                           {item.remainingShortfallHours > 0 && (
                             <button
-                              onClick={() => handleOpenAddModal(item.projectRoleId)}
+                              onClick={() => handleOpenAddModal(roleId)}
                               className="inline-flex items-center space-x-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-medium rounded-lg border border-indigo-200 transition shadow-2xs hover:shadow-xs"
                             >
                               <UserPlus className="h-3 w-3" />

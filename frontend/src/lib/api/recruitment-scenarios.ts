@@ -3,22 +3,29 @@
 import { apiRequest } from "../api-client";
 
 export interface RoleEvaluationItem {
-  projectRoleId: number;
-  projectRoleCode: string;
-  projectRoleName: string;
+  roleId: number;
+  roleCode: string;
+  roleName: string;
+  // Backward-compatibility aliases
+  projectRoleId?: number;
+  projectRoleCode?: string;
+  projectRoleName?: string;
   originalShortfallHours: number;
   simulatedCapacityHours: number;
   remainingShortfallHours: number;
+  simulatedEmployeesCount: number;
   suggestedRecruitsNeeded: number;
-  isRoleBroken: boolean;
+  isRoleBroken?: boolean;
 }
 
 export interface RecruitmentEvaluationResponse {
+  scenarioId?: number;
   totalOriginalShortfallHours: number;
   totalSimulatedCapacityHours: number;
   totalRemainingShortfallHours: number;
   isPlanBroken: boolean;
   overloadedRoleCount: number;
+  totalSimulatedEmployeesCount?: number;
   totalSuggestedRecruitsNeeded: number;
   roleEvaluations: RoleEvaluationItem[];
 }
@@ -119,8 +126,8 @@ export async function getSimulatedEmployees(
 export async function createSimulatedEmployee(
   scenarioId: number,
   payload: CreateSimulatedEmployeePayload
-): Promise<SimulatedEmployeeResponse> {
-  return await apiRequest<SimulatedEmployeeResponse>(
+): Promise<RecruitmentEvaluationResponse> {
+  return await apiRequest<RecruitmentEvaluationResponse>(
     `/scenarios/${scenarioId}/simulated-employees`,
     {
       method: "POST",
@@ -136,8 +143,8 @@ export async function updateSimulatedEmployee(
   scenarioId: number,
   employeeId: number,
   payload: UpdateSimulatedEmployeePayload
-): Promise<SimulatedEmployeeResponse> {
-  return await apiRequest<SimulatedEmployeeResponse>(
+): Promise<RecruitmentEvaluationResponse> {
+  return await apiRequest<RecruitmentEvaluationResponse>(
     `/scenarios/${scenarioId}/simulated-employees/${employeeId}`,
     {
       method: "PUT",
@@ -152,8 +159,8 @@ export async function updateSimulatedEmployee(
 export async function deleteSimulatedEmployee(
   scenarioId: number,
   employeeId: number
-): Promise<void> {
-  await apiRequest<void>(
+): Promise<RecruitmentEvaluationResponse> {
+  return await apiRequest<RecruitmentEvaluationResponse>(
     `/scenarios/${scenarioId}/simulated-employees/${employeeId}`,
     {
       method: "DELETE",
