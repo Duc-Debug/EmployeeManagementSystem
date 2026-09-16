@@ -14,6 +14,7 @@ import {
     CalendarRange,
     Briefcase,
     AlertTriangle,
+    Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -31,7 +32,9 @@ const SIDEBAR_WORKSPACE = [
     { name: "Phòng ban", icon: Building2, id: "departments" },
     { name: "Quản lý Năng lực & Kỹ năng", icon: ClipboardList, id: "skills" },
     { name: "Dự án", icon: FolderKanban, id: "project" },
+    { name: "Mô phỏng kịch bản", icon: Sparkles, id: "simulation-scenarios" },
     { name: "Nhu cầu tuyển dụng", icon: TrendingUp, id: "recruitment-demand" },
+    { name: "Dự báo năng lực", icon: TrendingUp, id: "capacity-forecast" },
 ];
 
 const SIDEBAR_SETTINGS = [
@@ -41,8 +44,13 @@ const SIDEBAR_SETTINGS = [
 export function canAccessTab(
     roleCode: string | undefined | null,
     tabId: string,
-    dataScope?: string | null
+    dataScope?: string | null,
+    permissions?: readonly string[] | null
 ): boolean {
+    if (tabId === "capacity-forecast") {
+        return permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
+    }
+
     if (!roleCode && !dataScope) return true;
     const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
 
@@ -60,6 +68,12 @@ export function canAccessTab(
             // NCL-06 / NCL-06-CN-002: Bảng năng lực chỉ dành cho VT-01 (Ban giám đốc), VT-02 (Quản lý dự án), VT-03 (Quản lý nguồn lực).
             // VT-04 (Nhân viên), VT-05 (Nhân sự), VT-06 (Admin) KHÔNG có quyền truy cập.
             return ["VT-01", "VT-02", "VT-03"].includes(normalized);
+
+        case "simulation-scenarios":
+        case "simulation-scenario":
+        case "scenarios":
+            // NCL-08-CN-001: Mô phỏng kịch bản nhận dự án chỉ dành cho VT-01 (Ban giám đốc) và VT-03 (Quản lý nguồn lực).
+            return ["VT-01", "VT-03"].includes(normalized);
 
         case "schedule-conflict":
         case "conflict-warning":
@@ -144,7 +158,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
     const isEmployeeOnly = normalizedRole === "VT-04";
 
     const visibleWorkspace = SIDEBAR_WORKSPACE.filter((item) =>
-        canAccessTab(roleCode, item.id, dataScope)
+        canAccessTab(roleCode, item.id, dataScope, user?.permissions)
     ).map((item) => {
         if (item.id === "skills") {
             return {
@@ -160,7 +174,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
         }
         return item;
     });
-    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope));
+    const visibleSettings = SIDEBAR_SETTINGS.filter((item) => canAccessTab(roleCode, item.id, dataScope, user?.permissions));
 
     return (
         <aside

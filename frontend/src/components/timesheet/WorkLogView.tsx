@@ -515,10 +515,25 @@ export default function WorkLogView() {
                                     Nội bộ
                                   </span>
                                 )}
+                                {entry.status === "APPROVED" && (
+                                  <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                                    Đã duyệt
+                                  </span>
+                                )}
+                                {entry.status === "REJECTED" && (
+                                  <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
+                                    Bị từ chối
+                                  </span>
+                                )}
                               </div>
                               <p className="text-xs text-slate-600 font-normal leading-relaxed pl-1">
                                 {entry.description}
                               </p>
+                              {entry.status === "REJECTED" && entry.rejectionReason && (
+                                <div className="mt-1.5 p-2 rounded bg-rose-50 border border-rose-100 text-xs font-medium text-rose-700">
+                                  Lý do từ chối: {entry.rejectionReason}
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex items-center justify-between sm:justify-end gap-3 flex-none">
@@ -526,7 +541,7 @@ export default function WorkLogView() {
                                 {Number(entry.hours || 0).toFixed(1)} hrs
                               </div>
 
-                              {isTimesheetEditable && (
+                              {isTimesheetEditable && (entry.status === "DRAFT" || entry.status === "REJECTED") && (
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"

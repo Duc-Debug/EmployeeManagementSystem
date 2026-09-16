@@ -224,6 +224,7 @@ public class CreateWorkLogService implements CreateWorkLogUseCase {
                 savedEntry.isBillable(),
                 savedEntry.getDescription(),
                 savedEntry.getStatus().name(),
+                savedEntry.getRejectionReason(),
                 savedEntry.getCreatedAt(),
                 savedEntry.getUpdatedAt(),
                 savedEntry.getVersion()
