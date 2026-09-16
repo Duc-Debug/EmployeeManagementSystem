@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +22,8 @@ import com.hrm.employeemanagement.domain.scenario.recruitment.RoleShortfallDeman
 
 @Component
 public class DefaultScenarioShortfallAdapter implements LoadScenarioShortfallPort {
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultScenarioShortfallAdapter.class);
 
     private final LoadProjectRolePort loadProjectRolePort;
     private final LoadScenarioDemandPort loadScenarioDemandPort;
@@ -55,9 +59,8 @@ public class DefaultScenarioShortfallAdapter implements LoadScenarioShortfallPor
                         Long roleId = matchedRole.getId().value();
                         shortfallByRoleId.merge(roleId, demandHours, BigDecimal::add);
                     } else {
-                        // Fallback vào vai trò đầu tiên nếu không khớp cụ thể
-                        Long defaultRoleId = activeRoles.get(0).getId().value();
-                        shortfallByRoleId.merge(defaultRoleId, demandHours, BigDecimal::add);
+                        log.warn("Bỏ qua nhu cầu kịch bản ID={} (demandName='{}', skillRequirement='{}') do không khớp với bất kỳ vai trò dự án nào trong hệ thống.",
+                                demand.getId(), demand.getDemandName(), demand.getSkillRequirement());
                     }
                 }
             }

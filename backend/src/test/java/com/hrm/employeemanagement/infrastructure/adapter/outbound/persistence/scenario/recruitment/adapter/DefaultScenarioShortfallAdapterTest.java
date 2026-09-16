@@ -128,4 +128,37 @@ class DefaultScenarioShortfallAdapterTest {
         assertEquals(1, result.size());
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getFirst().shortfallHours()));
     }
+
+    @Test
+    @DisplayName("Nhu cầu không khớp với bất kỳ vai trò nào (Unmatched Demand) -> Bỏ qua, không fallback vào vai trò khác và không làm sai lệch số giờ thiếu")
+    void loadShortfallDemands_UnmatchedDemand_ShouldNotFallbackToFirstRole() {
+        when(loadProjectRolePort.findAllActive()).thenReturn(List.of(devRole, testerRole));
+
+        // Demand 1: DEV role (160h)
+        ScenarioDemand devDemand = new ScenarioDemand(
+                1L, 100L, "DEV Senior", 2, 2026, 10, 2026, 11,
+                new BigDecimal("40.00"), "Java", LocalDateTime.now(), null
+        );
+
+        // Demand 2: Business Analyst (không tồn tại trong active roles DEV, TESTER)
+        ScenarioDemand baDemand = new ScenarioDemand(
+                2L, 100L, "Business Analyst", 1, 2026, 1, 2026, 2,
+                new BigDecimal("40.00"), "BPMN", LocalDateTime.now(), null
+        );
+
+        when(loadScenarioDemandPort.findByScenarioId(100L)).thenReturn(List.of(devDemand, baDemand));
+
+        List<RoleShortfallDemand> result = adapter.loadShortfallDemands(100L);
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+
+        // DEV vẫn chỉ có 160h, không bị cộng dồn thêm 80h của BA
+        RoleShortfallDemand devResult = result.stream().filter(r -> r.roleId().equals(1L)).findFirst().orElseThrow();
+        assertEquals(0, new BigDecimal("160.00").compareTo(devResult.shortfallHours()), "DEV role không được nhận giờ của BA do fallback");
+
+        // TESTER là 0h
+        RoleShortfallDemand testerResult = result.stream().filter(r -> r.roleId().equals(2L)).findFirst().orElseThrow();
+        assertEquals(0, BigDecimal.ZERO.compareTo(testerResult.shortfallHours()));
+    }
 }
