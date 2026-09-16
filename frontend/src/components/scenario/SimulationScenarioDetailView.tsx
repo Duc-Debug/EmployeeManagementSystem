@@ -26,6 +26,7 @@ import {
   type ScenarioDemandResult,
 } from "@/lib/api/simulation-scenarios";
 import { AddEditDemandModal } from "./AddEditDemandModal";
+import { RecruitmentScenarioSection } from "./recruitment/RecruitmentScenarioSection";
 import { useAuthUser } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
 
@@ -551,6 +552,13 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
           </div>
         )}
       </div>
+
+      {/* Section 4: Kịch bản tuyển thêm nhân sự (NCL-08-CN-005) */}
+      <RecruitmentScenarioSection
+        scenarioId={scenarioId}
+        isVT03={canEdit}
+        durationWeeks={scenario.durationWeeks}
+      />
 
       {/* Demand Add/Edit Modal */}
       {isDemandModalOpen && (
