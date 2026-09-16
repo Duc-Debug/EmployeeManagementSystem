@@ -19,7 +19,7 @@ public record CapacityDashboardResult(
         int overloadedEmployeesCount,              // KPI 2: Số người quá tải
         BigDecimal departmentFreeHours,            // KPI 3: Số giờ còn rảnh của bộ phận/toàn công ty
         int unresolvedScheduleConflictsCount,      // KPI 4: Số xung đột lịch chưa xử lý
-        int activeProjectsCount,                   // KPI 5: Số dự án đang chạy
+        long activeProjectsCount,                  // KPI 5: Số dự án đang chạy
         BigDecimal totalAvailableHours,            // Tổng giờ khả dụng ròng trong kỳ
         BigDecimal totalAllocatedHours,            // Tổng giờ phân bổ cam kết trong kỳ
         List<WeeklyCapacityDashboardItem> weeklyMetrics,

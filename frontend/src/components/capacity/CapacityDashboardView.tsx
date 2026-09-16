@@ -715,15 +715,22 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                     <div className="flex items-center gap-2">
                         <FolderKanban className="h-4 w-4 text-indigo-600" />
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                            Danh mục Dự án Chiến lược Đang Hoạt động ({data?.activeProjects?.length || 0})
+                            Danh mục Dự án Chiến lược Đang Hoạt động
                         </h3>
+                        {data && (
+                            <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                {data.activeProjects.length < data.activeProjectsCount
+                                    ? `Hiển thị ${data.activeProjects.length} dự án gần nhất / Tổng ${data.activeProjectsCount} dự án`
+                                    : `${data.activeProjectsCount} dự án`}
+                            </span>
+                        )}
                     </div>
                     <button
                         type="button"
                         onClick={() => handleNavigate("project")}
-                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer flex items-center gap-1"
                     >
-                        Quản lý dự án →
+                        Quản lý tất cả dự án ({data?.activeProjectsCount || 0}) →
                     </button>
                 </div>
 
@@ -748,7 +755,7 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                                     </td>
                                 </tr>
                             ) : (
-                                data.activeProjects.slice(0, 6).map((prj) => (
+                                data.activeProjects.map((prj) => (
                                     <tr key={prj.projectId} className="hover:bg-slate-50/70 transition">
                                         <td className="px-4 py-2.5">
                                             <div className="flex items-center gap-2">
@@ -793,6 +800,21 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                         </tbody>
                     </table>
                 </div>
+
+                {data && data.activeProjects && data.activeProjects.length < data.activeProjectsCount && (
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                        <span>
+                            Đang hiển thị <strong>{data.activeProjects.length}</strong> dự án gần nhất trên tổng số <strong>{data.activeProjectsCount}</strong> dự án đang chạy.
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => handleNavigate("project")}
+                            className="font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                        >
+                            Xem tất cả dự án →
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

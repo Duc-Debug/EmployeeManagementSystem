@@ -196,7 +196,7 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
         List<Employee> targetEmployees = loadEmployeesInScope(effectiveOrgUnitId);
 
         // 5. Đếm chính xác số lượng dự án hoạt động và tải danh sách tóm tắt (preview giới hạn) cho bảng điều khiển
-        int activeProjectsCount = countActiveProjectsInScope(effectiveOrgUnitId);
+        long activeProjectsCount = countActiveProjectsInScope(effectiveOrgUnitId);
         List<Project> activeProjectsPreview = loadActiveProjectsPreviewInScope(effectiveOrgUnitId, currentUser);
 
         // 6. Xử lý trường hợp dữ liệu rỗng (TC-02)
@@ -532,14 +532,14 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
 
     private static final int DEFAULT_DASHBOARD_ACTIVE_PROJECTS_PREVIEW_LIMIT = 50;
 
-    private int countActiveProjectsInScope(Long effectiveOrgUnitId) {
+    private long countActiveProjectsInScope(Long effectiveOrgUnitId) {
         if (loadProjectPort == null) {
-            return 0;
+            return 0L;
         }
         if (effectiveOrgUnitId != null) {
-            return (int) loadProjectPort.countActiveProjectsByOrgUnitBranch(effectiveOrgUnitId);
+            return loadProjectPort.countActiveProjectsByOrgUnitBranch(effectiveOrgUnitId);
         }
-        return (int) loadProjectPort.countActiveProjects();
+        return loadProjectPort.countActiveProjects();
     }
 
     private List<Project> loadActiveProjectsPreviewInScope(Long effectiveOrgUnitId, User currentUser) {
