@@ -244,7 +244,7 @@ class ResourceScenarioControllerTest {
 
         ScenarioSimulationResult result = new ScenarioSimulationResult(
                 1L, "SCN-01", "Kịch bản 1", 10L, "Phòng Kỹ Thuật",
-                "draft", LocalDateTime.now(), List.of(w1), List.of(),
+                "draft", LocalDateTime.now(), List.of(w1), List.of(), List.of(),
                 BigDecimal.valueOf(100), BigDecimal.valueOf(50)
         );
 
