@@ -190,6 +190,12 @@ class ScenarioSimulationCalculationTest {
         assertEquals("EMP100", result.employeeSnapshots().get(0).employeeCode());
         assertEquals("Lê Văn B", result.employeeSnapshots().get(0).fullName());
 
+        // Regression Check (#1): Mỗi nhân sự có đúng 1 cell per week, không duplicate
+        var empSnapshot = result.employeeSnapshots().get(0);
+        assertEquals(4, empSnapshot.cells().size(), "Mỗi nhân sự chỉ có đúng 4 cells tương ứng 4 tuần mục tiêu, không trùng lặp");
+        var weekNumbers = empSnapshot.cells().stream().map(c -> c.weekNumber()).toList();
+        assertEquals(List.of(38, 39, 40, 41), weekNumbers, "Danh sách tuần trong cells phải duy nhất và theo thứ tự");
+
         // Kiểm tra Audit Log được lưu (NCL-08-CN-002-TC-04)
         verify(saveAuditLogPort, times(1)).save(any(com.hrm.employeemanagement.domain.audit.AuditLog.class));
     }

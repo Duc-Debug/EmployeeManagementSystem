@@ -97,6 +97,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
         this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
         this.saveAuditLogPort = saveAuditLogPort;
+        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
     }
 
     @Override
@@ -281,6 +282,12 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                     scenario.getId()
             ));
         }
+        saveAuditLogPort.save(com.hrm.employeemanagement.domain.audit.AuditLog.create(
+                currentUser.getIdValue(),
+                "SIMULATE_SCENARIO",
+                "resource_scenarios",
+                scenario.getId()
+        ));
 
         return new ScenarioSimulationResult(
                 scenario.getId(),
