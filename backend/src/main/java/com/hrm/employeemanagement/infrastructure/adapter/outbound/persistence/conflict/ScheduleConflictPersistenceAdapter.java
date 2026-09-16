@@ -61,6 +61,27 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
     }
 
     @Override
+    public List<ScheduleConflict> findUnresolvedConflictsForEmployees(
+            List<Long> employeeIds,
+            Integer startYear,
+            Integer startWeek,
+            Integer endYear,
+            Integer endWeek
+    ) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        return repository.findUnresolvedConflictsForEmployees(
+                employeeIds,
+                ScheduleConflictStatus.RESOLVED,
+                startYear,
+                startWeek,
+                endYear,
+                endWeek
+        ).stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
     public ScheduleConflict save(ScheduleConflict conflict) {
         ScheduleConflictJpaEntity entity = toEntity(conflict);
         try {

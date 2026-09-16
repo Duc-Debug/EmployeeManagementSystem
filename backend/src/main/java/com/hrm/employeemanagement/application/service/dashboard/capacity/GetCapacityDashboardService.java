@@ -197,7 +197,7 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
 
         // 5. Đếm chính xác số lượng dự án hoạt động và tải danh sách tóm tắt (preview giới hạn) cho bảng điều khiển
         long activeProjectsCount = countActiveProjectsInScope(effectiveOrgUnitId);
-        List<Project> activeProjectsPreview = loadActiveProjectsPreviewInScope(effectiveOrgUnitId, currentUser);
+        List<Project> activeProjectsPreview = loadActiveProjectsPreviewInScope(effectiveOrgUnitId);
 
         // 6. Xử lý trường hợp dữ liệu rỗng (TC-02)
         if (targetEmployees.isEmpty()) {
@@ -477,31 +477,22 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
             return List.of();
         }
 
-        Set<Long> empIdSet = new HashSet<>(employeeIds);
-        Set<String> targetWeekKeys = targetWeeks.stream()
-                .map(yw -> yw.year() + "_" + yw.weekNumber())
-                .collect(Collectors.toSet());
+        YearWeek firstWeek = targetWeeks.get(0);
+        YearWeek lastWeek = targetWeeks.get(targetWeeks.size() - 1);
 
-        // Nhóm các tuần theo năm để truy vấn
-        Map<Integer, List<YearWeek>> weeksByYear = targetWeeks.stream()
-                .collect(Collectors.groupingBy(YearWeek::year));
+        List<ScheduleConflict> conflicts = loadScheduleConflictPort.findUnresolvedConflictsForEmployees(
+                employeeIds,
+                firstWeek.year(),
+                firstWeek.weekNumber(),
+                lastWeek.year(),
+                lastWeek.weekNumber()
+        );
 
-        List<ScheduleConflict> allConflicts = new ArrayList<>();
-        for (Map.Entry<Integer, List<YearWeek>> entry : weeksByYear.entrySet()) {
-            int year = entry.getKey();
-            int minWeek = entry.getValue().stream().mapToInt(YearWeek::weekNumber).min().orElse(1);
-            int maxWeek = entry.getValue().stream().mapToInt(YearWeek::weekNumber).max().orElse(52);
-
-            List<ScheduleConflict> list = loadScheduleConflictPort.findConflicts(year, minWeek, maxWeek, null, null, null);
-            if (list != null) {
-                allConflicts.addAll(list);
-            }
+        if (conflicts == null || conflicts.isEmpty()) {
+            return List.of();
         }
 
-        return allConflicts.stream()
-                .filter(c -> c.getStatus() != ScheduleConflictStatus.RESOLVED)
-                .filter(c -> empIdSet.contains(c.getEmployeeId()))
-                .filter(c -> targetWeekKeys.contains(c.getYearNumber() + "_" + c.getWeekNumber()))
+        return conflicts.stream()
                 .map(c -> {
                     Employee emp = employeeMap.get(c.getEmployeeId());
                     String empCode = emp != null ? emp.getEmployeeCode() : "NV" + c.getEmployeeId();
@@ -542,7 +533,7 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
         return loadProjectPort.countActiveProjects();
     }
 
-    private List<Project> loadActiveProjectsPreviewInScope(Long effectiveOrgUnitId, User currentUser) {
+    private List<Project> loadActiveProjectsPreviewInScope(Long effectiveOrgUnitId) {
         if (loadProjectPort == null) {
             return List.of();
         }

@@ -26,4 +26,12 @@ public interface LoadScheduleConflictPort {
             Integer weekNumber,
             ConflictType conflictType
     );
+
+    List<ScheduleConflict> findUnresolvedConflictsForEmployees(
+            List<Long> employeeIds,
+            Integer startYear,
+            Integer startWeek,
+            Integer endYear,
+            Integer endWeek
+    );
 }

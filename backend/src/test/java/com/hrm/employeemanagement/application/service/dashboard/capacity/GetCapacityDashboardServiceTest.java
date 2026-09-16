@@ -148,7 +148,7 @@ class GetCapacityDashboardServiceTest {
                 BigDecimal.valueOf(50.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(10.0), "Xung đột lịch"
         );
         conflict.setId(1L);
-        when(loadScheduleConflictPort.findConflicts(anyInt(), anyInt(), anyInt(), any(), any(), any()))
+        when(loadScheduleConflictPort.findUnresolvedConflictsForEmployees(anyList(), anyInt(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(List.of(conflict));
 
         // 1 active project
@@ -294,7 +294,7 @@ class GetCapacityDashboardServiceTest {
         when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
         when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
         when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
-        when(loadScheduleConflictPort.findConflicts(anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(List.of());
+        when(loadScheduleConflictPort.findUnresolvedConflictsForEmployees(anyList(), anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(List.of());
         lenient().when(loadProjectPort.countActiveProjects()).thenReturn(0L);
         lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
 
@@ -329,15 +329,15 @@ class GetCapacityDashboardServiceTest {
     }
 
     @Test
-    @DisplayName("TC-07: Query Validation - fromWeek ngoài phạm vi 1..53 phải bị từ chối")
-    void shouldRejectInvalidWeekNumbers() {
+    @DisplayName("TC-07: Query Validation - fromWeek = 53 trong năm 2025 (chỉ có 52 tuần) phải bị từ chối")
+    void shouldRejectWeek53InYearWith52Weeks() {
+        assertThatThrownBy(() -> new CapacityDashboardQuery(null, 2025, 53, 8))
+                .isInstanceOf(com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException.class)
+                .hasMessageContaining("Năm 2025 chỉ có 52 tuần");
+
         assertThatThrownBy(() -> new CapacityDashboardQuery(null, 2026, 999, 8))
                 .isInstanceOf(com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException.class)
-                .hasMessageContaining("Số tuần bắt đầu phải nằm trong khoảng từ 1 đến 53");
-
-        assertThatThrownBy(() -> new CapacityDashboardQuery(null, 2026, 0, 8))
-                .isInstanceOf(com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException.class)
-                .hasMessageContaining("Số tuần bắt đầu phải nằm trong khoảng từ 1 đến 53");
+                .hasMessageContaining("Số tuần không hợp lệ");
     }
 
     private Employee createEmployee(Long id, String code, String name, Long orgUnitId, int standardHours) {
