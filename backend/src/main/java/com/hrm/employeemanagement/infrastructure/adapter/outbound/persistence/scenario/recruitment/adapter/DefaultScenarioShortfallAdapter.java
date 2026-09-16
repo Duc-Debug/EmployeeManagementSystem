@@ -6,10 +6,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
@@ -30,10 +30,10 @@ public class DefaultScenarioShortfallAdapter implements LoadScenarioShortfallPor
 
     public DefaultScenarioShortfallAdapter(
             LoadProjectRolePort loadProjectRolePort,
-            @Autowired(required = false) LoadScenarioDemandPort loadScenarioDemandPort
+            LoadScenarioDemandPort loadScenarioDemandPort
     ) {
         this.loadProjectRolePort = Objects.requireNonNull(loadProjectRolePort, "LoadProjectRolePort must not be null");
-        this.loadScenarioDemandPort = loadScenarioDemandPort;
+        this.loadScenarioDemandPort = Objects.requireNonNull(loadScenarioDemandPort, "LoadScenarioDemandPort must not be null");
     }
 
     @Override
@@ -45,7 +45,7 @@ public class DefaultScenarioShortfallAdapter implements LoadScenarioShortfallPor
 
         Map<Long, BigDecimal> shortfallByRoleId = new HashMap<>();
 
-        if (scenarioId != null && loadScenarioDemandPort != null) {
+        if (scenarioId != null) {
             List<ScenarioDemand> demands = loadScenarioDemandPort.findByScenarioId(scenarioId);
             if (demands != null) {
                 for (ScenarioDemand demand : demands) {
@@ -122,33 +122,66 @@ public class DefaultScenarioShortfallAdapter implements LoadScenarioShortfallPor
     }
 
     private ProjectRole findMatchingRole(ScenarioDemand demand, List<ProjectRole> roles) {
-        String demandName = demand.getDemandName() != null ? demand.getDemandName().trim().toLowerCase() : "";
-        String skillReq = demand.getSkillRequirement() != null ? demand.getSkillRequirement().trim().toLowerCase() : "";
+        if (demand == null || roles == null || roles.isEmpty()) {
+            return null;
+        }
 
-        // 1. Khớp chính xác code hoặc name
-        for (ProjectRole role : roles) {
-            String code = role.getCode() != null ? role.getCode().trim().toLowerCase() : "";
-            String name = role.getName() != null ? role.getName().trim().toLowerCase() : "";
-            if (!code.isEmpty() && (demandName.equalsIgnoreCase(code) || demandName.startsWith(code + " ") || demandName.contains("-" + code))) {
-                return role;
-            }
-            if (!name.isEmpty() && demandName.equalsIgnoreCase(name)) {
-                return role;
+        String demandName = demand.getDemandName() != null ? demand.getDemandName().trim() : "";
+        String skillReq = demand.getSkillRequirement() != null ? demand.getSkillRequirement().trim() : "";
+
+        // Sắp xếp danh sách vai trò theo độ dài tên/mã giảm dần (longest match first)
+        // để vai trò đặc hiệu nhất (ví dụ "Senior Developer") luôn được ưu tiên kiểm tra trước vai trò chung ("Developer")
+        List<ProjectRole> sortedRoles = new ArrayList<>(roles);
+        sortedRoles.sort((r1, r2) -> {
+            int len1 = Math.max(r1.getName() != null ? r1.getName().length() : 0, r1.getCode() != null ? r1.getCode().length() : 0);
+            int len2 = Math.max(r2.getName() != null ? r2.getName().length() : 0, r2.getCode() != null ? r2.getCode().length() : 0);
+            return Integer.compare(len2, len1);
+        });
+
+        // 1. Tầng 1: Khớp chính xác 100% demandName với code hoặc name
+        if (!demandName.isEmpty()) {
+            for (ProjectRole role : sortedRoles) {
+                if (role.getCode() != null && demandName.equalsIgnoreCase(role.getCode().trim())) {
+                    return role;
+                }
+                if (role.getName() != null && demandName.equalsIgnoreCase(role.getName().trim())) {
+                    return role;
+                }
             }
         }
 
-        // 2. Khớp chứa từ khóa
-        for (ProjectRole role : roles) {
-            String code = role.getCode() != null ? role.getCode().trim().toLowerCase() : "";
-            String name = role.getName() != null ? role.getName().trim().toLowerCase() : "";
-            if (!name.isEmpty() && (demandName.contains(name) || skillReq.contains(name))) {
-                return role;
+        // 2. Tầng 2: Khớp demandName theo ranh giới từ hoàn chỉnh (word boundary)
+        if (!demandName.isEmpty()) {
+            for (ProjectRole role : sortedRoles) {
+                if (role.getCode() != null && matchesWordBoundary(demandName, role.getCode().trim())) {
+                    return role;
+                }
+                if (role.getName() != null && matchesWordBoundary(demandName, role.getName().trim())) {
+                    return role;
+                }
             }
-            if (!code.isEmpty() && (demandName.contains(code) || skillReq.contains(code))) {
-                return role;
+        }
+
+        // 3. Tầng 3: Chỉ khi demandName không khớp bất kỳ vai trò nào mới xét đến skillRequirement
+        if (!skillReq.isEmpty()) {
+            for (ProjectRole role : sortedRoles) {
+                if (role.getCode() != null && matchesWordBoundary(skillReq, role.getCode().trim())) {
+                    return role;
+                }
+                if (role.getName() != null && matchesWordBoundary(skillReq, role.getName().trim())) {
+                    return role;
+                }
             }
         }
 
         return null;
+    }
+
+    private boolean matchesWordBoundary(String text, String target) {
+        if (text == null || target == null || target.trim().isEmpty()) {
+            return false;
+        }
+        String regex = "(?i)\\b" + Pattern.quote(target.trim()) + "\\b";
+        return Pattern.compile(regex).matcher(text).find();
     }
 }

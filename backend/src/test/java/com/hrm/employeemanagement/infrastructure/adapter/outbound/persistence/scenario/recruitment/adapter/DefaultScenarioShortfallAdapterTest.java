@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.domain.scenario.recruitment.RoleShortfallDeman
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
@@ -117,16 +118,61 @@ class DefaultScenarioShortfallAdapterTest {
     }
 
     @Test
-    @DisplayName("Adapter với LoadScenarioDemandPort là null -> Hoạt động an toàn và trả về shortfall = 0")
-    void loadShortfallDemands_NullDemandPort_HandlesGracefully() {
-        DefaultScenarioShortfallAdapter nullPortAdapter = new DefaultScenarioShortfallAdapter(loadProjectRolePort, null);
-        when(loadProjectRolePort.findAllActive()).thenReturn(List.of(devRole));
+    @DisplayName("Khởi tạo DefaultScenarioShortfallAdapter với null port -> Ném NullPointerException fail-fast")
+    void constructor_NullDependencies_ThrowsNullPointerException() {
+        assertThrows(NullPointerException.class, () -> new DefaultScenarioShortfallAdapter(null, loadScenarioDemandPort));
+        assertThrows(NullPointerException.class, () -> new DefaultScenarioShortfallAdapter(loadProjectRolePort, null));
+    }
 
-        List<RoleShortfallDemand> result = nullPortAdapter.loadShortfallDemands(100L);
+    @Test
+    @DisplayName("Hai vai trò có tên/mã gần giống nhau (Senior Developer vs Developer) -> Khớp chính xác vai trò đặc hiệu nhất")
+    void loadShortfallDemands_OverlappingRoles_ShouldMatchMostSpecificRole() {
+        ProjectRole generalDevRole = new ProjectRole(new ProjectRoleId(1L), "DEV", "Developer", "General Dev");
+        ProjectRole seniorDevRole = new ProjectRole(new ProjectRoleId(3L), "SR_DEV", "Senior Developer", "Senior Dev");
+        when(loadProjectRolePort.findAllActive()).thenReturn(List.of(generalDevRole, seniorDevRole));
+
+        // Demand yêu cầu "Senior Developer" (40h x 4 tuần = 160h)
+        ScenarioDemand seniorDemand = new ScenarioDemand(
+                1L, 100L, "Senior Developer", 1, 2026, 1, 2026, 4,
+                new BigDecimal("40.00"), "Java", LocalDateTime.now(), null
+        );
+        when(loadScenarioDemandPort.findByScenarioId(100L)).thenReturn(List.of(seniorDemand));
+
+        List<RoleShortfallDemand> result = adapter.loadShortfallDemands(100L);
 
         assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals(0, BigDecimal.ZERO.compareTo(result.getFirst().shortfallHours()));
+        // Senior Developer phải nhận đủ 160h
+        RoleShortfallDemand seniorResult = result.stream().filter(r -> r.roleId().equals(3L)).findFirst().orElseThrow();
+        assertEquals(0, new BigDecimal("160.00").compareTo(seniorResult.shortfallHours()), "Nhu cầu Senior Developer phải khớp vào vai trò Senior Developer");
+
+        // General Developer phải là 0h (không bị nhận nhầm do contains)
+        RoleShortfallDemand generalResult = result.stream().filter(r -> r.roleId().equals(1L)).findFirst().orElseThrow();
+        assertEquals(0, BigDecimal.ZERO.compareTo(generalResult.shortfallHours()), "General Developer không được nhận giờ của Senior Developer");
+    }
+
+    @Test
+    @DisplayName("skillRequirement chứa tên của vai trò khác -> Ưu tiên demandName, không để skill quyết định sai vai trò")
+    void loadShortfallDemands_SkillContainsOtherRoleName_ShouldPrioritizeDemandName() {
+        when(loadProjectRolePort.findAllActive()).thenReturn(List.of(devRole, testerRole));
+
+        // Demand tên là "Automated QA Tester" (thuộc Tester), nhưng skillRequirement lại ghi "Knowledge of Java Developer tools" (chứa chữ Developer)
+        ScenarioDemand testerDemandWithDevSkill = new ScenarioDemand(
+                1L, 100L, "Automated QA Tester", 1, 2026, 1, 2026, 2,
+                new BigDecimal("40.00"), "Knowledge of Java Developer tools", LocalDateTime.now(), null
+        );
+        when(loadScenarioDemandPort.findByScenarioId(100L)).thenReturn(List.of(testerDemandWithDevSkill));
+
+        List<RoleShortfallDemand> result = adapter.loadShortfallDemands(100L);
+
+        assertNotNull(result);
+
+        // TESTER phải nhận 80h vì demandName là Tester
+        RoleShortfallDemand testerResult = result.stream().filter(r -> r.roleId().equals(2L)).findFirst().orElseThrow();
+        assertEquals(0, new BigDecimal("80.00").compareTo(testerResult.shortfallHours()), "Phải khớp vào TESTER theo demandName");
+
+        // DEV phải là 0h, không bị skillRequirement làm gán nhầm
+        RoleShortfallDemand devResult = result.stream().filter(r -> r.roleId().equals(1L)).findFirst().orElseThrow();
+        assertEquals(0, BigDecimal.ZERO.compareTo(devResult.shortfallHours()), "DEV không được nhận giờ do skillRequirement đề cập chéo");
     }
 
     @Test
