@@ -56,7 +56,7 @@ class ScenarioComparisonControllerTest {
                 1L, "SCN-01", "Kịch bản A", "Mô tả A",
                 10L, "Phòng Công nghệ", "DRAFT",
                 2026, 38, 8,
-                2, new BigDecimal("20.00"), new BigDecimal("80.00"),
+                2, new BigDecimal("20.00"), new BigDecimal("20.00"), new BigDecimal("80.00"),
                 new BigDecimal("280.00"), new BigDecimal("300.00"),
                 new BigDecimal("93.3"), new BigDecimal("110.0"),
                 List.of(), List.of()
@@ -65,12 +65,12 @@ class ScenarioComparisonControllerTest {
                 2L, "SCN-02", "Kịch bản B", "Mô tả B",
                 10L, "Phòng Công nghệ", "DRAFT",
                 2026, 38, 8,
-                0, BigDecimal.ZERO, new BigDecimal("40.00"),
+                0, BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("40.00"),
                 new BigDecimal("220.00"), new BigDecimal("300.00"),
                 new BigDecimal("73.3"), new BigDecimal("85.0"),
                 List.of(), List.of()
         );
-        return new ScenarioComparisonResult(List.of(item1, item2), LocalDateTime.now());
+        return new ScenarioComparisonResult(List.of(item1, item2), true, true, LocalDateTime.now());
     }
 
     @Test
@@ -99,6 +99,19 @@ class ScenarioComparisonControllerTest {
     @DisplayName("TC-02: Báo lỗi 400 Bad Request khi truyền ít hơn 2 ID kịch bản (Bean Validation)")
     void shouldReturn400BadRequest_WhenLessThanTwoIds_BeanValidation_TC02() throws Exception {
         CompareScenariosRequest request = new CompareScenariosRequest(List.of(1L));
+
+        mockMvc.perform(post("/api/v1/resource-scenarios/compare")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("TC-02: Báo lỗi 400 Bad Request khi truyền nhiều hơn 10 ID kịch bản (Bean Validation)")
+    void shouldReturn400BadRequest_WhenMoreThanTenIds_BeanValidation_TC02() throws Exception {
+        List<Long> elevenIds = List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L);
+        CompareScenariosRequest request = new CompareScenariosRequest(elevenIds);
 
         mockMvc.perform(post("/api/v1/resource-scenarios/compare")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -190,9 +190,12 @@ class ScenarioComparisonServiceTest {
         assertEquals("SCN-01", item1.scenarioCode());
         assertEquals(1, item1.overloadedEmployeesCount());
         assertEquals(new BigDecimal("10.00"), item1.totalShortfallHours());
+        assertEquals(new BigDecimal("10.00"), item1.totalRequiredAdditionalHours());
         assertEquals(new BigDecimal("70.00"), item1.totalDemandHours());
         assertEquals(new BigDecimal("290.00"), item1.totalWorkloadHours());
         assertEquals(new BigDecimal("300.00"), item1.totalAvailableHours());
+        assertTrue(result.isTimeframeAligned());
+        assertTrue(result.isOrgUnitAligned());
         assertFalse(item1.overloadedEmployees().isEmpty());
 
         ScenarioComparisonItemResult item2 = result.scenarios().get(1);
@@ -235,6 +238,16 @@ class ScenarioComparisonServiceTest {
 
         // Case duplicate ID resulting in only 1 unique scenario
         assertThrows(InsufficientScenariosForComparisonException.class, () -> service.compareScenarios(new CompareScenariosCommand(List.of(1L, 1L))));
+    }
+
+    @Test
+    @DisplayName("Báo lỗi IllegalArgumentException khi cung cấp hơn 10 kịch bản để so sánh (DOS protection)")
+    void shouldThrowExceptionWhenMoreThanTenScenariosProvided() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_COMPARE)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(executiveUser));
+
+        List<Long> elevenScenarios = List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L);
+        assertThrows(IllegalArgumentException.class, () -> service.compareScenarios(new CompareScenariosCommand(elevenScenarios)));
     }
 
     @Test
