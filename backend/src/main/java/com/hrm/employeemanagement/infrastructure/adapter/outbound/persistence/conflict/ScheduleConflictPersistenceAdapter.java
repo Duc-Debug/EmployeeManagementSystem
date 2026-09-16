@@ -84,12 +84,8 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
         while (current != null) {
             if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
                 String constraintName = cve.getConstraintName();
-                if (constraintName != null) {
-                    String lowerName = constraintName.toLowerCase();
-                    if (lowerName.contains("uk_schedule_conflict_existing")
-                            || lowerName.contains("uk_conflict_emp_year_week_type")) {
-                        return true;
-                    }
+                if ("uk_schedule_conflict_existing".equalsIgnoreCase(constraintName)) {
+                    return true;
                 }
             }
 

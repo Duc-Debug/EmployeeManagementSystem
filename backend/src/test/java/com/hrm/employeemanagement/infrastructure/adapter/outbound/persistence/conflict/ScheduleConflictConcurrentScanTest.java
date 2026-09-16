@@ -97,7 +97,7 @@ class ScheduleConflictConcurrentScanTest {
                 try {
                     startLatch.await();
                     ScheduleConflict conflict = ScheduleConflict.create(
-                            employeeId, 2026, 42, ConflictType.MULTI_PROJECT_ALLOCATION,
+                            employeeId, 2026, 42 + threadNum, ConflictType.MULTI_PROJECT_ALLOCATION,
                             "1,2", "Dự án Alpha, Dự án Beta", null, null,
                             BigDecimal.valueOf(80.0), BigDecimal.valueOf(40.0), BigDecimal.valueOf(40.0),
                             "Phân bổ bởi Thread " + threadNum
@@ -124,9 +124,9 @@ class ScheduleConflictConcurrentScanTest {
         assertEquals(2, successCount.get(), "Cả 2 thread đều hoàn thành thành công nhờ cơ chế REQUIRES_NEW sub-transaction");
 
         long countInDb = (long) transactionTemplate.execute(status ->
-                repository.findConflicts(2026, 42, 42, employeeId, ConflictType.MULTI_PROJECT_ALLOCATION, null).size()
+                repository.findConflicts(2026, 42, 43, employeeId, ConflictType.MULTI_PROJECT_ALLOCATION, null).size()
         );
-        assertEquals(1L, countInDb, "DB chỉ lưu đúng 1 bản ghi duy nhất cho employeeId + year + week + conflictType");
+        assertEquals(2L, countInDb, "DB lưu đúng 2 bản ghi cho 2 tuần khác nhau được scan đồng thời");
     }
 
     @Component
