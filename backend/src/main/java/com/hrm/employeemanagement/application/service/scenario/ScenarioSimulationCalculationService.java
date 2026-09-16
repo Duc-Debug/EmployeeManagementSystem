@@ -190,7 +190,10 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 .map(com.hrm.employeemanagement.domain.employee.EmployeeId::new)
                 .toList();
         List<Employee> employees = employeeIds.isEmpty() ? List.of() : loadEmployeePort.findAllByIdIn(employeeIds);
-        Map<Long, Employee> employeeMap = employees.stream().collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
+        Map<Long, Employee> employeeMap = employees.stream()
+                .filter(Objects::nonNull)
+                .filter(e -> e.getIdValue() != null)
+                .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
 
         List<EmployeeSnapshotRowResult> employeeSnapshots = new ArrayList<>();
         for (Long empId : empIds) {

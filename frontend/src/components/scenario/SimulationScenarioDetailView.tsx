@@ -311,7 +311,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                   : "text-emerald-600"
               )}
             >
-              {avgUtilization.toFixed(1)}%
+              {Number.isFinite(avgUtilization) ? `${avgUtilization.toFixed(1)}%` : "0.0%"}
             </span>
             <span className="text-[10px] text-slate-400">
               Ngưỡng: &gt;{simulation?.overloadThreshold || 100}%
@@ -494,7 +494,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                           : "text-slate-700"
                       )}
                     >
-                      {metric.utilizationPercentage.toFixed(1)}%
+                      {metric.utilizationPercentage != null ? `${metric.utilizationPercentage.toFixed(1)}%` : "N/A"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">{getStatusBadge(metric.status)}</td>
