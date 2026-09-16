@@ -1,14 +1,17 @@
 package com.hrm.employeemanagement.domain.scenario;
 
 import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotModifiableException;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class ScenarioDemandTest {
 
@@ -111,5 +114,22 @@ class ScenarioDemandTest {
 
         scenario.setStatus(ScenarioStatus.DISCARDED);
         assertThrows(ScenarioNotModifiableException.class, scenario::assertModifiable);
+    }
+
+    @Test
+    @DisplayName("Nhu cầu của 2026-W10 không bao giờ active ở 2027-W10 (Đảm bảo Year boundary độc lập)")
+    void testDemand_DoesNotActiveInSameWeekOfDifferentYear() {
+        ScenarioDemand demand = ScenarioDemand.create(
+                1L, "Demand năm 2026", 1, 2026, 10, 2026, 15, BigDecimal.valueOf(40), "Tester"
+        );
+
+        // Active ở 2026-W10
+        assertTrue(demand.isActiveInWeek(YearWeek.of(2026, 10)));
+        assertTrue(demand.isActiveInWeek(YearWeek.of(2026, 15)));
+
+        // Tuyệt đối KHÔNG active ở 2027-W10 hay 2025-W10 dù cùng weekNumber = 10
+        assertFalse(demand.isActiveInWeek(YearWeek.of(2027, 10)));
+        assertFalse(demand.isActiveInWeek(YearWeek.of(2025, 10)));
+        assertFalse(demand.isActiveInWeek(YearWeek.of(2027, 12)));
     }
 }

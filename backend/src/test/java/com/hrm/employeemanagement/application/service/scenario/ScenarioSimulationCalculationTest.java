@@ -18,7 +18,6 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -570,5 +569,94 @@ class ScenarioSimulationCalculationTest {
         assertEquals(39, emp1Snapshot.cells().get(1).weekNumber());
         assertEquals(BigDecimal.valueOf(40), emp1Snapshot.cells().get(1).availableHours(), "Khi thiếu snapshot item ở W39, availableHours phải fallback về 40h");
         assertFalse(emp1Snapshot.cells().get(1).isOverloaded(), "Không bị đánh dấu overload do sẵn sàng năng lực fallback 40h");
+    }
+
+    @Test
+    @DisplayName("HIGH Fix: Word-boundary role matching - 'Java' khớp 'Java Developer' nhưng KHÔNG khớp 'JavaScript Developer'")
+    void testSimulation_RoleMatching_WordBoundary_ExcludesJavaScriptForJavaRequirement() {
+        ResourceScenario scenario = ResourceScenario.createNew(
+                "SCN-ROLE", "Kịch bản test word boundary", "Mô tả", 10L, 2026, 38, 1, 100L
+        );
+        scenario.setId(44L);
+        when(loadScenarioPort.findById(44L)).thenReturn(Optional.of(scenario));
+
+        // Snapshot có 2 nhân sự: Java Dev (101L) và JavaScript Dev (102L), mỗi người baseline 20h/40h
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 44L, 101L, 2026, 38, BigDecimal.valueOf(20), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 44L, 102L, 2026, 38, BigDecimal.valueOf(20), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(44L)).thenReturn(snapshots);
+
+        // Demand: Cần 1 người 20h/tuần với yêu cầu "Java"
+        ScenarioDemand demand = ScenarioDemand.create(
+                44L, "Nhu cầu Java Backend", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(20), "Java"
+        );
+        demand.setId(401L);
+        when(loadDemandPort.findByScenarioId(44L)).thenReturn(List.of(demand));
+
+        Employee empJava = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "Nguyễn Java", "Java Developer",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee empJS = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Trần JS", "JavaScript Developer",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(empJava, empJS));
+
+        ScenarioSimulationResult result = service.getSimulationResult(44L);
+
+        assertNotNull(result);
+        assertEquals(2, result.employeeSnapshots().size());
+
+        // Employee Java (101L): Được nhận toàn bộ 20h demand -> 20 + 20 = 40h
+        var javaSnapshot = result.employeeSnapshots().stream().filter(e -> e.employeeId().equals(101L)).findFirst().orElseThrow();
+        assertEquals(BigDecimal.valueOf(40.0).setScale(2), javaSnapshot.cells().get(0).allocatedHours());
+
+        // Employee JS (102L): KHÔNG được nhận demand Java -> giữ nguyên 20h
+        var jsSnapshot = result.employeeSnapshots().stream().filter(e -> e.employeeId().equals(102L)).findFirst().orElseThrow();
+        assertEquals(BigDecimal.valueOf(20), jsSnapshot.cells().get(0).allocatedHours(), "JavaScript Developer không được dính demand Java");
+    }
+
+    @Test
+    @DisplayName("MEDIUM Fix: Remainder Distribution - Chia 10h cho 3 nhân sự bảo toàn chính xác tổng 10.00h (3.34h + 3.33h + 3.33h)")
+    void testSimulation_DemandAllocation_PreservesTotalWithRemainder() {
+        ResourceScenario scenario = ResourceScenario.createNew(
+                "SCN-REMAINDER", "Kịch bản test remainder", "Mô tả", 10L, 2026, 38, 1, 100L
+        );
+        scenario.setId(33L);
+        when(loadScenarioPort.findById(33L)).thenReturn(Optional.of(scenario));
+
+        // 3 nhân sự cùng role Backend, baseline 0h
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 33L, 101L, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 33L, 102L, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(3L, 33L, 103L, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(33L)).thenReturn(snapshots);
+
+        // Demand: 1 người 10h/tuần cho role "Backend" -> Chia cho 3 nhân sự Backend
+        ScenarioDemand demand = ScenarioDemand.create(
+                33L, "Nhu cầu Backend", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(10), "Backend"
+        );
+        demand.setId(301L);
+        when(loadDemandPort.findByScenarioId(33L)).thenReturn(List.of(demand));
+
+        Employee emp1 = new Employee(new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "A", "Backend", LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "B", "Backend", LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp3 = new Employee(new EmployeeId(103L), new UserId(203L), 10L, "EMP103", "C", "Backend", LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp1, emp2, emp3));
+
+        ScenarioSimulationResult result = service.getSimulationResult(33L);
+
+        assertNotNull(result);
+        assertEquals(3, result.employeeSnapshots().size());
+
+        // Tổng số giờ mô phỏng của 3 nhân viên phải bằng đúng 10.00h (3.34 + 3.33 + 3.33)
+        BigDecimal totalSimulatedAlloc = result.employeeSnapshots().stream()
+                .map(e -> e.cells().get(0).allocatedHours())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        assertEquals(new BigDecimal("10.00"), totalSimulatedAlloc, "Tổng demand phân bổ cho các nhân sự phải bảo toàn chính xác 10.00h");
     }
 }

@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.service.scenario;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.IsoFields;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -186,7 +188,14 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         Map<Long, Employee> employeeMap = employees.stream()
                 .filter(Objects::nonNull)
                 .filter(e -> e.getIdValue() != null)
-                .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
+                .collect(Collectors.toMap(
+                        Employee::getIdValue,
+                        e -> e,
+                        (e1, e2) -> {
+                            log.warn("Duplicate employee ID detected in scenario snapshot resolution: id={}", e1.getIdValue());
+                            return e1;
+                        }
+                ));
 
         List<Long> missingEmployeeIds = empIds.stream()
                 .filter(id -> !employeeMap.containsKey(id))
@@ -213,20 +222,24 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                         .filter(empId -> {
                             Employee emp = employeeMap.get(empId);
                             if (emp == null) return false;
-                            if (req == null || req.trim().isEmpty()) return true;
-                            String role = emp.getProfessionalRole();
-                            return role != null && role.toLowerCase().contains(req.trim().toLowerCase());
+                            return isRoleMatching(emp.getProfessionalRole(), req);
                         })
                         .toList();
 
                 if (!matchingEmpIds.isEmpty()) {
-                    BigDecimal demandPerEmp = totalDemandHours.divide(
-                            BigDecimal.valueOf(matchingEmpIds.size()), 2, java.math.RoundingMode.HALF_UP
-                    );
-                    for (Long empId : matchingEmpIds) {
+                    int count = matchingEmpIds.size();
+                    BigDecimal basePerEmp = totalDemandHours.divide(BigDecimal.valueOf(count), 2, RoundingMode.FLOOR);
+                    BigDecimal allocatedSoFar = basePerEmp.multiply(BigDecimal.valueOf(count));
+                    int remainderCents = totalDemandHours.subtract(allocatedSoFar).movePointRight(2).intValue();
+
+                    for (int i = 0; i < count; i++) {
+                        Long empId = matchingEmpIds.get(i);
+                        BigDecimal empHours = (i < remainderCents)
+                                ? basePerEmp.add(new BigDecimal("0.01"))
+                                : basePerEmp;
                         empDemandHoursMap
                                 .computeIfAbsent(empId, k -> new HashMap<>())
-                                .merge(weekKey, demandPerEmp, BigDecimal::add);
+                                .merge(weekKey, empHours, BigDecimal::add);
                     }
                 }
             }
@@ -341,5 +354,21 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
 
     private boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId) {
         return AuthorizationService.isOrgUnitInUserScope(currentUser, targetOrgUnitId, loadOrgUnitPort);
+    }
+
+    private boolean isRoleMatching(String employeeRole, String requirement) {
+        if (requirement == null || requirement.trim().isEmpty()) {
+            return true;
+        }
+        if (employeeRole == null || employeeRole.trim().isEmpty()) {
+            return false;
+        }
+        String trimmedReq = requirement.trim().toLowerCase();
+        String trimmedRole = employeeRole.trim().toLowerCase();
+        if (trimmedRole.equals(trimmedReq)) {
+            return true;
+        }
+        String regex = "(?i)(^|[^a-zA-Z0-9_#+])" + Pattern.quote(trimmedReq) + "([^a-zA-Z0-9_#+]|$)";
+        return Pattern.compile(regex).matcher(trimmedRole).find();
     }
 }
