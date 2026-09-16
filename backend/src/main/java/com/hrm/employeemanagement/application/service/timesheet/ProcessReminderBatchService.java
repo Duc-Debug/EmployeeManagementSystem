@@ -96,15 +96,16 @@ public class ProcessReminderBatchService implements ProcessReminderBatchUseCase 
                             "System sent a reminder to submit timesheet"
                     );
                     historiesToSave.add(history);
+
+                    // Only mark the timesheet after its reminder and audit history
+                    // have both been created. Otherwise it remains eligible for retry.
+                    timesheet.setRemindedAt(now);
+                    timesheetsToSave.add(timesheet);
                 } else {
                     log.warn("Không thể gửi nhắc nhở cho timesheet ID: {} vì employee hoặc userId bị null", timesheet.getIdValue());
                 }
             } catch (Exception e) {
                 log.error("Lỗi khi tạo nhắc nhở cho timesheet ID: {}", timesheet.getIdValue(), e);
-            } finally {
-                // ALWAYS mark as reminded to prevent infinite loops (Issue #1)
-                timesheet.setRemindedAt(now);
-                timesheetsToSave.add(timesheet);
             }
         }
 
