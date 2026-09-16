@@ -314,12 +314,34 @@ class ScenarioSimulationCalculationTest {
     @Test
     @DisplayName("Kịch bản ngoài phạm vi branch -> Ném PermissionDeniedException")
     void testSimulation_OutOfScope_ThrowsPermissionDenied() {
+        ResourceScenario outOfScopeScenario = ResourceScenario.createNew(
+                "SCN-OUT", "Kịch bản ngoài phạm vi", "Mô tả", 20L, 2026, 38, 4, 103L
+        );
+        outOfScopeScenario.setId(1L);
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ)).thenReturn(103L);
         when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
-        when(loadScenarioPort.findById(1L)).thenReturn(Optional.of(scenario));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(false);
+        when(loadScenarioPort.findById(1L)).thenReturn(Optional.of(outOfScopeScenario));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(20L, 10L)).thenReturn(false);
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 20L)).thenReturn(false);
 
         assertThrows(PermissionDeniedException.class, () -> service.getSimulationResult(1L));
         verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Snapshot tham chiếu nhân sự không còn tồn tại -> vẫn trả kết quả dự phòng")
+    void testSimulation_MissingEmployee_UsesSnapshotFallback() {
+        when(loadSnapshotPort.findByScenarioId(1L)).thenReturn(List.of(
+                new ScenarioAllocationSnapshotItem(1L, 1L, 999L, 2026, 38,
+                        BigDecimal.valueOf(8), BigDecimal.valueOf(40))
+        ));
+        when(loadDemandPort.findByScenarioId(1L)).thenReturn(List.of());
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of());
+
+        ScenarioSimulationResult result = service.getSimulationResult(1L);
+
+        assertEquals(1, result.employeeSnapshots().size());
+        assertEquals("EMP-999", result.employeeSnapshots().get(0).employeeCode());
+        assertEquals("Nhân viên 999", result.employeeSnapshots().get(0).fullName());
     }
 }

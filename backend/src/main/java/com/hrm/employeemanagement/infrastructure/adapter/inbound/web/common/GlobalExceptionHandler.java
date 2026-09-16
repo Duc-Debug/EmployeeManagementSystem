@@ -628,7 +628,7 @@ public class GlobalExceptionHandler {
 
         ErrorResponse response = ErrorResponse.of(
                 "INTERNAL_SERVER_ERROR",
-                "An unexpected error occurred.",
+                "Máy chủ gặp lỗi khi xử lý dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị viên.",
                 HttpStatus.INTERNAL_SERVER_ERROR.value());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }

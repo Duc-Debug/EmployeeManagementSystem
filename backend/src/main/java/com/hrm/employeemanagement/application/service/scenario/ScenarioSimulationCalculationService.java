@@ -13,6 +13,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotCellResult;
 import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotRowResult;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
@@ -47,6 +50,8 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 public class ScenarioSimulationCalculationService implements GetScenarioSimulationResultUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(ScenarioSimulationCalculationService.class);
 
     private final AuthorizationService authorizationService;
     private final LoadUserPort loadUserPort;
@@ -195,6 +200,14 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 .filter(e -> e.getIdValue() != null)
                 .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
 
+        List<Long> missingEmployeeIds = empIds.stream()
+                .filter(id -> !employeeMap.containsKey(id))
+                .toList();
+        if (!missingEmployeeIds.isEmpty()) {
+            log.warn("Scenario simulation contains snapshot references to missing employees: scenarioId={}, employeeIds={}",
+                    scenarioId, missingEmployeeIds);
+        }
+
         List<EmployeeSnapshotRowResult> employeeSnapshots = new ArrayList<>();
         for (Long empId : empIds) {
             Employee emp = employeeMap.get(empId);
@@ -268,9 +281,8 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             return true;
         }
         Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-        if (userScopeOrgUnitId == null || userScopeOrgUnitId.equals(targetOrgUnitId)) {
-            return true;
-        }
+        if (userScopeOrgUnitId == null) return false;
+        if (userScopeOrgUnitId.equals(targetOrgUnitId)) return true;
         return loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)
                 || loadOrgUnitPort.existsInOrgUnitBranch(userScopeOrgUnitId, targetOrgUnitId);
     }

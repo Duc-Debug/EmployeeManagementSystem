@@ -93,6 +93,11 @@ export async function apiRequest<T = unknown>(
       if (response.status === 403 && errorMessage === "Access Denied") {
         errorMessage = "Tài khoản hiện tại không có quyền xem hoặc thao tác trên kịch bản này.";
       }
+      if (errorMessage === "An unexpected error occurred.") {
+        errorMessage = response.status >= 500
+          ? "Máy chủ gặp lỗi khi xử lý dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị viên."
+          : `Yêu cầu thất bại với mã lỗi ${response.status}`;
+      }
 
       throw new ApiError(errorMessage, response.status, payload);
     }

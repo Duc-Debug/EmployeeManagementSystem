@@ -231,9 +231,8 @@ public class ScenarioDemandService implements
             return true;
         }
         Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-        if (userScopeOrgUnitId == null || userScopeOrgUnitId.equals(targetOrgUnitId)) {
-            return true;
-        }
+        if (userScopeOrgUnitId == null) return false;
+        if (userScopeOrgUnitId.equals(targetOrgUnitId)) return true;
         return loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)
                 || loadOrgUnitPort.existsInOrgUnitBranch(userScopeOrgUnitId, targetOrgUnitId);
     }

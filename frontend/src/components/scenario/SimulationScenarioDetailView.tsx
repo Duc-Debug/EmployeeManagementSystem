@@ -46,6 +46,8 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   const [simulation, setSimulation] = useState<ScenarioSimulationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [simulationError, setSimulationError] = useState<string | null>(null);
+  const [simulationLoading, setSimulationLoading] = useState(false);
 
   // Demand modal state
   const [isDemandModalOpen, setIsDemandModalOpen] = useState(false);
@@ -57,21 +59,47 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const [detailData, simData] = await Promise.all([
+    setSimulationError(null);
+    const [detailResult, simulationResult] = await Promise.allSettled([
         getScenarioById(scenarioId),
         getScenarioSimulation(scenarioId),
-      ]);
-      setDetail(detailData);
-      setSimulation(simData);
+    ]);
+
+    if (detailResult.status === "fulfilled") {
+      setDetail(detailResult.value);
+    } else {
+      setDetail(null);
+      setError(detailResult.reason instanceof Error ? detailResult.reason.message : "Không thể tải dữ liệu kịch bản.");
+    }
+
+    if (simulationResult.status === "fulfilled") {
+      setSimulation(simulationResult.value);
+    } else {
+      setSimulation(null);
+      setSimulationError(
+        simulationResult.reason instanceof Error
+          ? simulationResult.reason.message
+          : "Không thể tải kết quả mô phỏng."
+      );
+    }
+    setLoading(false);
+  }, [scenarioId]);
+
+  const retrySimulation = useCallback(async () => {
+    setSimulationLoading(true);
+    setSimulationError(null);
+    try {
+      setSimulation(await getScenarioSimulation(scenarioId));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Không thể tải dữ liệu kịch bản.");
+      setSimulationError(err instanceof Error ? err.message : "Không thể tải kết quả mô phỏng.");
     } finally {
-      setLoading(false);
+      setSimulationLoading(false);
     }
   }, [scenarioId]);
 
   useEffect(() => {
+    // Initial remote-data synchronization; state updates happen inside the async loader.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
@@ -263,6 +291,27 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
           </p>
         </div>
       </div>
+
+      {simulationError && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 flex items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold">Không thể tải kết quả mô phỏng</p>
+              <p className="mt-1 text-[11px]">{simulationError}</p>
+              <p className="mt-1 text-[11px] text-amber-700">Thông tin kịch bản và nhu cầu vẫn có thể xem hoặc chỉnh sửa.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={retrySimulation}
+            disabled={simulationLoading}
+            className="shrink-0 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {simulationLoading ? "Đang tải..." : "Tải lại mô phỏng"}
+          </button>
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
