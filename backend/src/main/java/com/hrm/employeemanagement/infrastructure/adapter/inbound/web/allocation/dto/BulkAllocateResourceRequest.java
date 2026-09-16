@@ -36,7 +36,7 @@ public record BulkAllocateResourceRequest(
         @DecimalMax(value = "168.0", message = "Số giờ phân bổ mỗi tuần không được vượt quá 168 giờ")
         BigDecimal allocatedHoursPerWeek,
         @DecimalMin(value = "0.0", message = "Tỷ lệ phần trăm phân bổ mỗi tuần không được là số âm")
-        @DecimalMax(value = "100.0", message = "Tỷ lệ phần trăm phân bổ mỗi tuần tối đa là 100%")
+        @DecimalMax(value = "200.0", message = "Tỷ lệ phần trăm phân bổ mỗi tuần tối đa là 200%")
         BigDecimal allocationPercentagePerWeek
 ) {
     public BulkAllocateResourceRequest(
