@@ -22,8 +22,15 @@ public class ScheduleConflict {
     private String details;
     private LocalDateTime notifiedAt;
     private Long notifiedBy;
+    private Long assignedHandlerId;
+    private String resolutionNote;
+    private Boolean isRecurrent = false;
+    private String recurrentNote;
+    private LocalDateTime resolvedAt;
+    private Long resolvedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long version;
 
     public ScheduleConflict() {
     }
@@ -45,8 +52,47 @@ public class ScheduleConflict {
             String details,
             LocalDateTime notifiedAt,
             Long notifiedBy,
+            Long assignedHandlerId,
+            String resolutionNote,
+            Boolean isRecurrent,
+            String recurrentNote,
+            LocalDateTime resolvedAt,
+            Long resolvedBy,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
+    ) {
+        this(id, employeeId, yearNumber, weekNumber, conflictType, projectIds, projectNames,
+                leaveRequestId, leaveInfo, totalAllocatedHours, netAvailableHours, excessHours,
+                status, details, notifiedAt, notifiedBy, assignedHandlerId, resolutionNote,
+                isRecurrent, recurrentNote, resolvedAt, resolvedBy, createdAt, updatedAt, 0L);
+    }
+
+    public ScheduleConflict(
+            Long id,
+            Long employeeId,
+            Integer yearNumber,
+            Integer weekNumber,
+            ConflictType conflictType,
+            String projectIds,
+            String projectNames,
+            Long leaveRequestId,
+            String leaveInfo,
+            BigDecimal totalAllocatedHours,
+            BigDecimal netAvailableHours,
+            BigDecimal excessHours,
+            ScheduleConflictStatus status,
+            String details,
+            LocalDateTime notifiedAt,
+            Long notifiedBy,
+            Long assignedHandlerId,
+            String resolutionNote,
+            Boolean isRecurrent,
+            String recurrentNote,
+            LocalDateTime resolvedAt,
+            Long resolvedBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
     ) {
         this.id = id;
         this.employeeId = Objects.requireNonNull(employeeId, "employeeId must not be null");
@@ -64,8 +110,15 @@ public class ScheduleConflict {
         this.details = details;
         this.notifiedAt = notifiedAt;
         this.notifiedBy = notifiedBy;
+        this.assignedHandlerId = assignedHandlerId;
+        this.resolutionNote = resolutionNote;
+        this.isRecurrent = isRecurrent != null ? isRecurrent : false;
+        this.recurrentNote = recurrentNote;
+        this.resolvedAt = resolvedAt;
+        this.resolvedBy = resolvedBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.version = version;
     }
 
     public static ScheduleConflict create(
@@ -99,6 +152,12 @@ public class ScheduleConflict {
                 details,
                 null,
                 null,
+                null,
+                null,
+                false,
+                null,
+                null,
+                null,
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
@@ -112,7 +171,51 @@ public class ScheduleConflict {
     }
 
     public void markAsResolved() {
+        markAsResolved(null);
+    }
+
+    public void markAsResolved(Long userId) {
+        if (this.status == ScheduleConflictStatus.RESOLVED) {
+            throw new IllegalStateException("Cảnh báo xung đột lịch đã được đánh dấu là đã xử lý (RESOLVED)");
+        }
         this.status = ScheduleConflictStatus.RESOLVED;
+        this.resolvedBy = userId;
+        this.resolvedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void resolveWithNote(Long userId, Long handlerId, String note) {
+        if (this.status == ScheduleConflictStatus.RESOLVED) {
+            throw new IllegalStateException("Cảnh báo xung đột lịch đã được đánh dấu là đã xử lý (RESOLVED)");
+        }
+        if (note == null || note.trim().isEmpty()) {
+            throw new IllegalArgumentException("Ghi chú cách xử lý xung đột không được để trống");
+        }
+        this.status = ScheduleConflictStatus.RESOLVED;
+        this.assignedHandlerId = handlerId;
+        this.resolutionNote = note.trim();
+        this.resolvedBy = userId;
+        this.resolvedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void assignHandler(Long handlerId) {
+        this.assignedHandlerId = handlerId;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void unassignHandler() {
+        this.assignedHandlerId = null;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void reopenAsRecurrent(String note) {
+        this.status = ScheduleConflictStatus.REOPENED;
+        this.isRecurrent = true;
+        this.recurrentNote = note;
+        this.resolvedAt = null;
+        this.resolvedBy = null;
+        this.resolutionNote = null;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -245,6 +348,54 @@ public class ScheduleConflict {
         this.notifiedBy = notifiedBy;
     }
 
+    public Long getAssignedHandlerId() {
+        return assignedHandlerId;
+    }
+
+    public void setAssignedHandlerId(Long assignedHandlerId) {
+        this.assignedHandlerId = assignedHandlerId;
+    }
+
+    public String getResolutionNote() {
+        return resolutionNote;
+    }
+
+    public void setResolutionNote(String resolutionNote) {
+        this.resolutionNote = resolutionNote;
+    }
+
+    public Boolean getIsRecurrent() {
+        return isRecurrent;
+    }
+
+    public void setIsRecurrent(Boolean isRecurrent) {
+        this.isRecurrent = isRecurrent != null ? isRecurrent : false;
+    }
+
+    public String getRecurrentNote() {
+        return recurrentNote;
+    }
+
+    public void setRecurrentNote(String recurrentNote) {
+        this.recurrentNote = recurrentNote;
+    }
+
+    public LocalDateTime getResolvedAt() {
+        return resolvedAt;
+    }
+
+    public void setResolvedAt(LocalDateTime resolvedAt) {
+        this.resolvedAt = resolvedAt;
+    }
+
+    public Long getResolvedBy() {
+        return resolvedBy;
+    }
+
+    public void setResolvedBy(Long resolvedBy) {
+        this.resolvedBy = resolvedBy;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -259,5 +410,13 @@ public class ScheduleConflict {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }
