@@ -3,36 +3,46 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.scenario;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import org.mockito.Mock;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hrm.employeemanagement.application.dto.scenario.*;
-import com.hrm.employeemanagement.application.port.inbound.scenario.*;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioDemandResult;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioResult;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
+import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
+import com.hrm.employeemanagement.application.port.inbound.scenario.AddScenarioDemandUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.CreateSimulationScenarioUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.DeleteScenarioDemandUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioSimulationResultUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.GetSimulationScenarioUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.ListSimulationScenariosUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.UpdateScenarioDemandUseCase;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException;
-import com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException;
-import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandNotFoundException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
-import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotModifiableException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.scenario.dto.AddScenarioDemandRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.scenario.dto.CreateScenarioRequest;
-import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.scenario.dto.UpdateScenarioDemandRequest;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ResourceScenarioController Web API Tests (NCL-08-CN-001)")
