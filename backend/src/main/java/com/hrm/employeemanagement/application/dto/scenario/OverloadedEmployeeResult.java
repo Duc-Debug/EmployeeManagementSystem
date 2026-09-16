@@ -1,19 +1,22 @@
 package com.hrm.employeemanagement.application.dto.scenario;
 
 import java.math.BigDecimal;
+
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 
-public record EmployeeSnapshotCellResult(
+public record OverloadedEmployeeResult(
+        Long employeeId,
+        String employeeCode,
+        String fullName,
+        String professionalRole,
         int year,
         int weekNumber,
+        String weekLabel,
         BigDecimal allocatedHours,
         BigDecimal availableHours,
         BigDecimal excessHours,
         BigDecimal utilizationPercentage,
-        CapacityStatus status,
-        boolean isOverloaded
+        CapacityStatus status
 ) {
-    public EmployeeSnapshotCellResult(int year, int weekNumber, BigDecimal allocatedHours, BigDecimal availableHours) {
-        this(year, weekNumber, allocatedHours, availableHours, BigDecimal.ZERO, null, CapacityStatus.OPTIMAL, false);
-    }
 }
+

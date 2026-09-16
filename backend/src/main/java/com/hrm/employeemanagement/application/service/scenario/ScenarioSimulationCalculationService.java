@@ -1,13 +1,28 @@
 package com.hrm.employeemanagement.application.service.scenario;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.IsoFields;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import com.hrm.employeemanagement.application.dto.scenario.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotCellResult;
+import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotRowResult;
+import com.hrm.employeemanagement.application.dto.scenario.OverloadedEmployeeResult;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
+import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
 import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioSimulationResultUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -39,6 +54,8 @@ import com.hrm.employeemanagement.domain.user.UserId;
 
 public class ScenarioSimulationCalculationService implements GetScenarioSimulationResultUseCase {
 
+    private static final Logger log = LoggerFactory.getLogger(ScenarioSimulationCalculationService.class);
+
     private final AuthorizationService authorizationService;
     private final LoadUserPort loadUserPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
@@ -47,26 +64,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
     private final LoadScenarioDemandPort loadDemandPort;
     private final LoadScenarioSnapshotPort loadSnapshotPort;
     private final LoadCapacityThresholdPort loadCapacityThresholdPort;
-
-    public ScenarioSimulationCalculationService(
-            AuthorizationService authorizationService,
-            LoadUserPort loadUserPort,
-            LoadOrgUnitPort loadOrgUnitPort,
-            LoadEmployeePort loadEmployeePort,
-            LoadResourceScenarioPort loadScenarioPort,
-            LoadScenarioDemandPort loadDemandPort,
-            LoadScenarioSnapshotPort loadSnapshotPort,
-            LoadCapacityThresholdPort loadCapacityThresholdPort
-    ) {
-        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
-        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
-        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
-        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
-        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
-        this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
-        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
-    }
+    private final SaveAuditLogPort saveAuditLogPort;
 
     public ScenarioSimulationCalculationService(
             AuthorizationService authorizationService,
@@ -79,7 +77,15 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             LoadCapacityThresholdPort loadCapacityThresholdPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
-        this(authorizationService, loadUserPort, loadOrgUnitPort, loadEmployeePort, loadScenarioPort, loadDemandPort, loadSnapshotPort, loadCapacityThresholdPort);
+        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
+        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
+        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
+        this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
+        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
+        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
     }
 
     @Override
@@ -173,15 +179,75 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             ));
         }
 
-        // 4. Xây dựng danh sách nhân sự snapshot (baseline breakdown)
+        // 4. Xây dựng danh sách nhân sự snapshot & danh sách nhân sự vượt năng lực (Personnel level overload)
         List<Long> empIds = new ArrayList<>(snapshotByEmpAndWeek.keySet());
         List<com.hrm.employeemanagement.domain.employee.EmployeeId> employeeIds = empIds.stream()
                 .map(com.hrm.employeemanagement.domain.employee.EmployeeId::new)
                 .toList();
         List<Employee> employees = employeeIds.isEmpty() ? List.of() : loadEmployeePort.findAllByIdIn(employeeIds);
-        Map<Long, Employee> employeeMap = employees.stream().collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
+        Map<Long, Employee> employeeMap = employees.stream()
+                .filter(Objects::nonNull)
+                .filter(e -> e.getIdValue() != null)
+                .collect(Collectors.toMap(
+                        Employee::getIdValue,
+                        e -> e,
+                        (e1, e2) -> {
+                            log.warn("Duplicate employee ID detected in scenario snapshot resolution: id={}", e1.getIdValue());
+                            return e1;
+                        }
+                ));
+
+        List<Long> missingEmployeeIds = empIds.stream()
+                .filter(id -> !employeeMap.containsKey(id))
+                .toList();
+        if (!missingEmployeeIds.isEmpty()) {
+            log.warn("Scenario simulation contains snapshot references to missing employees: scenarioId={}, employeeIds={}",
+                    scenarioId, missingEmployeeIds);
+        }
+
+        // 4.1. Phân bổ Nhu cầu kịch bản (ScenarioDemand) xuống từng nhân sự theo Chức danh / Kỹ năng
+        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = new HashMap<>();
+        for (YearWeek yw : targetWeeks) {
+            String weekKey = yw.year() + "_" + yw.weekNumber();
+            List<ScenarioDemand> activeDemandsInWeek = demands.stream()
+                    .filter(d -> d.isActiveInWeek(yw))
+                    .toList();
+
+            for (ScenarioDemand d : activeDemandsInWeek) {
+                BigDecimal totalDemandHours = d.getTotalHoursPerWeek();
+                if (totalDemandHours.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                String req = d.getSkillRequirement();
+                List<Long> matchingEmpIds = empIds.stream()
+                        .filter(empId -> {
+                            Employee emp = employeeMap.get(empId);
+                            if (emp == null) return false;
+                            return isRoleMatching(emp.getProfessionalRole(), req);
+                        })
+                        .toList();
+
+                if (!matchingEmpIds.isEmpty()) {
+                    int count = matchingEmpIds.size();
+                    BigDecimal basePerEmp = totalDemandHours.divide(BigDecimal.valueOf(count), 2, RoundingMode.FLOOR);
+                    BigDecimal allocatedSoFar = basePerEmp.multiply(BigDecimal.valueOf(count));
+                    int remainderCents = totalDemandHours.subtract(allocatedSoFar).movePointRight(2).intValue();
+
+                    for (int i = 0; i < count; i++) {
+                        Long empId = matchingEmpIds.get(i);
+                        BigDecimal empHours = (i < remainderCents)
+                                ? basePerEmp.add(new BigDecimal("0.01"))
+                                : basePerEmp;
+                        empDemandHoursMap
+                                .computeIfAbsent(empId, k -> new HashMap<>())
+                                .merge(weekKey, empHours, BigDecimal::add);
+                    }
+                }
+            }
+        }
 
         List<EmployeeSnapshotRowResult> employeeSnapshots = new ArrayList<>();
+        List<OverloadedEmployeeResult> overloadedEmployees = new ArrayList<>();
+
         for (Long empId : empIds) {
             Employee emp = employeeMap.get(empId);
             String empCode = emp != null ? emp.getEmployeeCode() : "EMP-" + empId;
@@ -193,17 +259,62 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
 
             for (YearWeek yw : targetWeeks) {
                 String weekKey = yw.year() + "_" + yw.weekNumber();
+                String weekLabel = "T" + yw.weekNumber() + " (" + yw.getStartDate().format(dtf) + " - " + yw.getEndDate().format(dtf) + ")";
                 ScenarioAllocationSnapshotItem item = empWeeks.get(weekKey);
-                BigDecimal alloc = item != null ? item.getAllocatedHours() : BigDecimal.ZERO;
-                BigDecimal avail = item != null ? item.getAvailableHours() : BigDecimal.ZERO;
-                cells.add(new EmployeeSnapshotCellResult(yw.year(), yw.weekNumber(), alloc, avail));
+                BigDecimal baseAlloc = item != null ? item.getAllocatedHours() : BigDecimal.ZERO;
+                BigDecimal defaultAvail = (emp != null && emp.getStandardHoursPerWeek() != null)
+                        ? BigDecimal.valueOf(emp.getStandardHoursPerWeek())
+                        : BigDecimal.valueOf(40);
+                BigDecimal avail = item != null ? item.getAvailableHours() : defaultAvail;
+
+                BigDecimal empDemandHours = empDemandHoursMap
+                        .getOrDefault(empId, Map.of())
+                        .getOrDefault(weekKey, BigDecimal.ZERO);
+
+                BigDecimal simulatedAlloc = baseAlloc.add(empDemandHours);
+
+                CapacityStatus empStatus = WeeklyCapacityMatrixPolicy.determineStatus(simulatedAlloc, avail, overloadThreshold, idleThreshold);
+                boolean isEmpOverloaded = (empStatus == CapacityStatus.OVERLOADED);
+                BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(simulatedAlloc, avail);
+                BigDecimal utilizationPercentage = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(simulatedAlloc, avail);
+
+                cells.add(new EmployeeSnapshotCellResult(
+                        yw.year(),
+                        yw.weekNumber(),
+                        simulatedAlloc,
+                        avail,
+                        excessHours,
+                        utilizationPercentage,
+                        empStatus,
+                        isEmpOverloaded
+                ));
+
+                if (isEmpOverloaded) {
+                    overloadedEmployees.add(new OverloadedEmployeeResult(
+                            empId,
+                            empCode,
+                            fullName,
+                            profRole,
+                            yw.year(),
+                            yw.weekNumber(),
+                            weekLabel,
+                            simulatedAlloc,
+                            avail,
+                            excessHours,
+                            utilizationPercentage,
+                            empStatus
+                    ));
+                }
             }
 
             employeeSnapshots.add(new EmployeeSnapshotRowResult(empId, empCode, fullName, profRole, cells));
         }
 
-        // Sắp xếp danh sách nhân sự theo tên
+        // Sắp xếp danh sách nhân sự theo tên và danh sách vượt năng lực theo năm + tuần + tên
         employeeSnapshots.sort(Comparator.comparing(EmployeeSnapshotRowResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+        overloadedEmployees.sort(Comparator.comparing(OverloadedEmployeeResult::year)
+                .thenComparing(OverloadedEmployeeResult::weekNumber)
+                .thenComparing(OverloadedEmployeeResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
 
         return new ScenarioSimulationResult(
                 scenario.getId(),
@@ -214,6 +325,7 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 scenario.getStatus().getValue(),
                 scenario.getBaseSnapshotAt(),
                 weeklyMetrics,
+                overloadedEmployees,
                 employeeSnapshots,
                 overloadThreshold,
                 idleThreshold
@@ -234,16 +346,29 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
     }
 
     private void validateReadScope(User currentUser, Long targetOrgUnitId) {
-        DataScope dataScope = currentUser.getDataScope();
-        if (dataScope == DataScope.COMPANY) {
+        if (isOrgUnitInUserScope(currentUser, targetOrgUnitId)) {
             return;
         }
-        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
-            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)) {
-                return;
-            }
-        }
         throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+    }
+
+    private boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId) {
+        return AuthorizationService.isOrgUnitInUserScope(currentUser, targetOrgUnitId, loadOrgUnitPort);
+    }
+
+    private boolean isRoleMatching(String employeeRole, String requirement) {
+        if (requirement == null || requirement.trim().isEmpty()) {
+            return true;
+        }
+        if (employeeRole == null || employeeRole.trim().isEmpty()) {
+            return false;
+        }
+        String trimmedReq = requirement.trim().toLowerCase();
+        String trimmedRole = employeeRole.trim().toLowerCase();
+        if (trimmedRole.equals(trimmedReq)) {
+            return true;
+        }
+        String regex = "(?i)(^|[^a-zA-Z0-9_#+])" + Pattern.quote(trimmedReq) + "([^a-zA-Z0-9_#+]|$)";
+        return Pattern.compile(regex).matcher(trimmedRole).find();
     }
 }
