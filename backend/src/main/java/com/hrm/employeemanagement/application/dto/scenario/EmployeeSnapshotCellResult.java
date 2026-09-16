@@ -7,7 +7,6 @@ public record EmployeeSnapshotCellResult(
         int year,
         int weekNumber,
         BigDecimal allocatedHours,
-        BigDecimal availableHours
         BigDecimal availableHours,
         BigDecimal excessHours,
         BigDecimal utilizationPercentage,
