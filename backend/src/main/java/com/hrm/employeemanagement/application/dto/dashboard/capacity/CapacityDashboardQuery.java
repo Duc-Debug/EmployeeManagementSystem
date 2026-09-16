@@ -1,4 +1,4 @@
-﻿package com.hrm.employeemanagement.application.dto.dashboard.capacity;
+package com.hrm.employeemanagement.application.dto.dashboard.capacity;
 
 public record CapacityDashboardQuery(
         Long orgUnitId,
