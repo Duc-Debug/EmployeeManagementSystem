@@ -200,10 +200,13 @@ public interface SpringDataProjectRepository
         FROM projects p
         WHERE p.status = :status
         ORDER BY p.id DESC
+        LIMIT :size OFFSET :offset
         """,
         nativeQuery = true)
     List<ProjectJpaEntity> findAllByStatus(
-            @Param("status") String status
+            @Param("status") String status,
+            @Param("size") int size,
+            @Param("offset") int offset
     );
 
     @Query(value = """
@@ -226,11 +229,14 @@ public interface SpringDataProjectRepository
         WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
           AND p.status = :status
         ORDER BY p.id DESC
+        LIMIT :size OFFSET :offset
         """,
         nativeQuery = true)
     List<ProjectJpaEntity> findByOrgUnitBranchAndStatus(
             @Param("scopeOrgUnitId") Long scopeOrgUnitId,
-            @Param("status") String status
+            @Param("status") String status,
+            @Param("size") int size,
+            @Param("offset") int offset
     );
 
     @Query(value = """
@@ -247,5 +253,15 @@ public interface SpringDataProjectRepository
     long countByOrgUnitBranchAndStatus(
             @Param("scopeOrgUnitId") Long scopeOrgUnitId,
             @Param("status") String status
+    );
+
+    @Query(value = """
+        SELECT p.id, p.manager_id
+        FROM projects p
+        WHERE p.id IN :projectIds
+        """,
+        nativeQuery = true)
+    List<Object[]> findManagerIdsByProjectIds(
+            @Param("projectIds") List<Long> projectIds
     );
 }

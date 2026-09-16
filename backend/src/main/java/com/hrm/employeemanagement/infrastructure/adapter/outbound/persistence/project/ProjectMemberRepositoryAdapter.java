@@ -184,10 +184,15 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
             return Collections.emptyMap();
         }
 
-        List<ProjectJpaEntity> projects = projectRepository.findAllById(projectIds);
-        Map<Long, Long> projectManagerMap = projects.stream()
-                .filter(p -> p.getManagerId() != null)
-                .collect(Collectors.toMap(ProjectJpaEntity::getId, ProjectJpaEntity::getManagerId, (a, b) -> a));
+        List<Object[]> managerRows = projectRepository.findManagerIdsByProjectIds(projectIds);
+        Map<Long, Long> projectManagerMap = new HashMap<>();
+        for (Object[] row : managerRows) {
+            Long pid = ((Number) row[0]).longValue();
+            Long mid = row[1] != null ? ((Number) row[1]).longValue() : null;
+            if (mid != null) {
+                projectManagerMap.put(pid, mid);
+            }
+        }
 
         List<ProjectMemberJpaEntity> allMembers = projectMemberRepository.findByProjectIdIn(projectIds);
         Map<Long, Set<Long>> projectMembersSetMap = new HashMap<>();

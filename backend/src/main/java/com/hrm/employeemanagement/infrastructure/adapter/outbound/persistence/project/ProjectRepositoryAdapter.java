@@ -223,18 +223,18 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
         }
 
         @Override
-        public List<Project> findActiveProjects() {
-                return projectRepository.findAllByStatus(ProjectStatus.ACTIVE.name()).stream()
+        public List<Project> findActiveProjects(int page, int size) {
+                return projectRepository.findAllByStatus(ProjectStatus.ACTIVE.name(), size, offset(page, size)).stream()
                                 .map(mapper::toDomain)
                                 .toList();
         }
 
         @Override
-        public List<Project> findActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId) {
+        public List<Project> findActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId, int page, int size) {
                 if (scopeOrgUnitId == null) {
-                        return findActiveProjects();
+                        return findActiveProjects(page, size);
                 }
-                return projectRepository.findByOrgUnitBranchAndStatus(scopeOrgUnitId, ProjectStatus.ACTIVE.name()).stream()
+                return projectRepository.findByOrgUnitBranchAndStatus(scopeOrgUnitId, ProjectStatus.ACTIVE.name(), size, offset(page, size)).stream()
                                 .map(mapper::toDomain)
                                 .toList();
         }

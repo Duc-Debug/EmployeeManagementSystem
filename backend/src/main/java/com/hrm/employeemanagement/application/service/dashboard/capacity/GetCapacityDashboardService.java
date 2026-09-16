@@ -195,9 +195,9 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
         // 4. Tải danh sách nhân sự trong scope
         List<Employee> targetEmployees = loadEmployeesInScope(effectiveOrgUnitId);
 
-        // 5. Tải danh sách dự án hoạt động (ACTIVE) trong scope
-        List<Project> activeProjectsInScope = loadActiveProjectsInScope(effectiveOrgUnitId, currentUser);
-        int activeProjectsCount = activeProjectsInScope.size();
+        // 5. Đếm chính xác số lượng dự án hoạt động và tải danh sách tóm tắt (preview giới hạn) cho bảng điều khiển
+        int activeProjectsCount = countActiveProjectsInScope(effectiveOrgUnitId);
+        List<Project> activeProjectsPreview = loadActiveProjectsPreviewInScope(effectiveOrgUnitId, currentUser);
 
         // 6. Xử lý trường hợp dữ liệu rỗng (TC-02)
         if (targetEmployees.isEmpty()) {
@@ -216,7 +216,7 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
                     ))
                     .toList();
 
-            List<ActiveProjectSummaryItem> activeProjectItems = mapActiveProjectItems(activeProjectsInScope);
+            List<ActiveProjectSummaryItem> activeProjectItems = mapActiveProjectItems(activeProjectsPreview);
 
             recordSuccessAuditLog(currentUserId, orgUnitName, fromYear, fromWeek, durationWeeks);
 
@@ -437,7 +437,7 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
         int unresolvedScheduleConflictsCount = unresolvedConflictItems.size();
 
         // 13. Danh mục dự án đang chạy
-        List<ActiveProjectSummaryItem> activeProjectItems = mapActiveProjectItems(activeProjectsInScope);
+        List<ActiveProjectSummaryItem> activeProjectItems = mapActiveProjectItems(activeProjectsPreview);
 
         // 14. Tính 5 chỉ số cốt lõi (KPIs)
         BigDecimal averageCapacityUtilization = WeeklyCapacityMatrixPolicy.calculateAverageUtilization(totalAllocatedHours, totalAvailableHours);
@@ -530,16 +530,28 @@ public class GetCapacityDashboardService implements GetCapacityDashboardUseCase 
                 .toList();
     }
 
-    private List<Project> loadActiveProjectsInScope(Long effectiveOrgUnitId, User currentUser) {
+    private static final int DEFAULT_DASHBOARD_ACTIVE_PROJECTS_PREVIEW_LIMIT = 50;
+
+    private int countActiveProjectsInScope(Long effectiveOrgUnitId) {
+        if (loadProjectPort == null) {
+            return 0;
+        }
+        if (effectiveOrgUnitId != null) {
+            return (int) loadProjectPort.countActiveProjectsByOrgUnitBranch(effectiveOrgUnitId);
+        }
+        return (int) loadProjectPort.countActiveProjects();
+    }
+
+    private List<Project> loadActiveProjectsPreviewInScope(Long effectiveOrgUnitId, User currentUser) {
         if (loadProjectPort == null) {
             return List.of();
         }
 
         List<Project> activeProjects;
         if (effectiveOrgUnitId != null) {
-            activeProjects = loadProjectPort.findActiveProjectsByOrgUnitBranch(effectiveOrgUnitId);
+            activeProjects = loadProjectPort.findActiveProjectsByOrgUnitBranch(effectiveOrgUnitId, 0, DEFAULT_DASHBOARD_ACTIVE_PROJECTS_PREVIEW_LIMIT);
         } else {
-            activeProjects = loadProjectPort.findActiveProjects();
+            activeProjects = loadProjectPort.findActiveProjects(0, DEFAULT_DASHBOARD_ACTIVE_PROJECTS_PREVIEW_LIMIT);
         }
 
         if (activeProjects == null) {

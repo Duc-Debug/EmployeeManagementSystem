@@ -39,9 +39,9 @@ public interface LoadProjectPort {
 
     List<Long> findAllManagedProjectIds(Long employeeId);
 
-    List<Project> findActiveProjects();
+    List<Project> findActiveProjects(int page, int size);
 
-    List<Project> findActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId);
+    List<Project> findActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId, int page, int size);
 
     long countActiveProjects();
 

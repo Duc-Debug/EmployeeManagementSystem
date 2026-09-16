@@ -157,7 +157,8 @@ class GetCapacityDashboardServiceTest {
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), BigDecimal.valueOf(1000), "Mô tả",
                 ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L
         );
-        when(loadProjectPort.findActiveProjects()).thenReturn(List.of(activeProject));
+        when(loadProjectPort.countActiveProjects()).thenReturn(1L);
+        when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of(activeProject));
         when(loadProjectMemberPort.countMembersByProjectIds(anyList())).thenReturn(Map.of(1L, 5));
 
         // When
@@ -196,7 +197,8 @@ class GetCapacityDashboardServiceTest {
         // Given
         when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
         when(loadEmployeePort.findAllActive()).thenReturn(List.of());
-        when(loadProjectPort.findActiveProjects()).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjects()).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
 
         // When
         CapacityDashboardQuery query = new CapacityDashboardQuery(null, 2026, 38, 8);
@@ -245,8 +247,9 @@ class GetCapacityDashboardServiceTest {
         when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
         lenient().when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of());
         lenient().when(loadEmployeePort.findAllActive()).thenReturn(List.of());
-        lenient().when(loadProjectPort.findActiveProjectsByOrgUnitBranch(anyLong())).thenReturn(List.of());
-        lenient().when(loadProjectPort.findActiveProjects()).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjectsByOrgUnitBranch(anyLong())).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjectsByOrgUnitBranch(anyLong(), anyInt(), anyInt())).thenReturn(List.of());
+        lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
 
         // When
         CapacityDashboardQuery query = new CapacityDashboardQuery(10L, 2026, 40, 4);
@@ -292,7 +295,8 @@ class GetCapacityDashboardServiceTest {
         when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
         when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
         when(loadScheduleConflictPort.findConflicts(anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(List.of());
-        when(loadProjectPort.findActiveProjects()).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjects()).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
 
         // When
         CapacityDashboardQuery query = new CapacityDashboardQuery(null, 2026, 38, 4);
@@ -310,6 +314,30 @@ class GetCapacityDashboardServiceTest {
 
         assertThat(result.overloadedEmployees().get(2).employeeCode()).isEqualTo("EMP_B");
         assertThat(result.overloadedEmployees().get(2).overloadedWeeksCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("TC-06: Query Validation - fromYear và fromWeek phải cùng truyền hoặc cùng null")
+    void shouldRejectPartialYearOrWeekParameters() {
+        assertThatThrownBy(() -> new CapacityDashboardQuery(null, 2026, null, 8))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("fromYear và fromWeek phải được cung cấp đồng thời");
+
+        assertThatThrownBy(() -> new CapacityDashboardQuery(null, null, 38, 8))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("fromYear và fromWeek phải được cung cấp đồng thời");
+    }
+
+    @Test
+    @DisplayName("TC-07: Query Validation - fromWeek ngoài phạm vi 1..53 phải bị từ chối")
+    void shouldRejectInvalidWeekNumbers() {
+        assertThatThrownBy(() -> new CapacityDashboardQuery(null, 2026, 999, 8))
+                .isInstanceOf(com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException.class)
+                .hasMessageContaining("Số tuần bắt đầu phải nằm trong khoảng từ 1 đến 53");
+
+        assertThatThrownBy(() -> new CapacityDashboardQuery(null, 2026, 0, 8))
+                .isInstanceOf(com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException.class)
+                .hasMessageContaining("Số tuần bắt đầu phải nằm trong khoảng từ 1 đến 53");
     }
 
     private Employee createEmployee(Long id, String code, String name, Long orgUnitId, int standardHours) {
