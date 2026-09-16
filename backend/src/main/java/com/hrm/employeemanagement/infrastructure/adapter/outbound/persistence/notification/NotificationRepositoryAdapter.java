@@ -58,5 +58,13 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
             notificationRepository.markAllAsReadByRecipientId(recipientId.value());
         }
     }
+
+    @Override
+    public void saveAll(List<Notification> notifications) {
+        List<NotificationJpaEntity> entities = notifications.stream()
+                .map(mapper::toJpaEntity)
+                .toList();
+        notificationRepository.saveAll(entities);
+    }
 }
 
