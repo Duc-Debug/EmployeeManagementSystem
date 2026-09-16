@@ -22,6 +22,7 @@ import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotCellR
 import com.hrm.employeemanagement.application.dto.scenario.EmployeeSnapshotRowResult;
 import com.hrm.employeemanagement.application.dto.scenario.OverloadedEmployeeResult;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioSnapshotData;
 import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
 import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioSimulationResultUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
@@ -31,6 +32,9 @@ import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenari
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSnapshotPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSharePort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
@@ -65,6 +69,23 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
     private final LoadScenarioSnapshotPort loadSnapshotPort;
     private final LoadCapacityThresholdPort loadCapacityThresholdPort;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final LoadScenarioSharePort loadScenarioSharePort;
+    private final LoadProjectPort loadProjectPort;
+    private final SaveAuditLogInNewTransactionPort deniedAuditLogPort;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    public ScenarioSimulationCalculationService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadResourceScenarioPort loadScenarioPort,
+            LoadScenarioDemandPort loadDemandPort,
+            LoadScenarioSnapshotPort loadSnapshotPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
+    ) {
+        this(authorizationService, loadUserPort, loadOrgUnitPort, loadEmployeePort, loadScenarioPort, loadDemandPort, loadSnapshotPort, loadCapacityThresholdPort, null, null, null, null);
+    }
 
     public ScenarioSimulationCalculationService(
             AuthorizationService authorizationService,
@@ -77,6 +98,23 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             LoadCapacityThresholdPort loadCapacityThresholdPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
+        this(authorizationService, loadUserPort, loadOrgUnitPort, loadEmployeePort, loadScenarioPort, loadDemandPort, loadSnapshotPort, loadCapacityThresholdPort, null, null, null, saveAuditLogPort);
+    }
+
+    public ScenarioSimulationCalculationService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadResourceScenarioPort loadScenarioPort,
+            LoadScenarioDemandPort loadDemandPort,
+            LoadScenarioSnapshotPort loadSnapshotPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort,
+            LoadScenarioSharePort loadScenarioSharePort,
+            LoadProjectPort loadProjectPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort,
+            SaveAuditLogPort saveAuditLogPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
@@ -85,7 +123,11 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
         this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
         this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
-        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+        this.saveAuditLogPort = saveAuditLogPort;
+        this.loadScenarioSharePort = loadScenarioSharePort;
+        this.loadProjectPort = loadProjectPort;
+        this.deniedAuditLogPort = deniedAuditLogPort;
+        this.objectMapper = new com.fasterxml.jackson.databind.ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
     }
 
     @Override
@@ -97,7 +139,52 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         ResourceScenario scenario = loadScenarioPort.findById(scenarioId)
                 .orElseThrow(() -> new ScenarioNotFoundException(scenarioId));
 
-        validateReadScope(currentUser, scenario.getOrgUnitId());
+        boolean isOwner = scenario.getCreatedBy().equals(currentUserId);
+        if (!isOwner) {
+            com.hrm.employeemanagement.domain.role.RoleCode roleCode = currentUser.getRole().getCode();
+            if (roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_01
+                    && roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_02
+                    && roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_03) {
+                logDenied(currentUserId, scenarioId, "INVALID_ROLE_" + roleCode.getCode());
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+            }
+
+            if (loadScenarioSharePort != null && !loadScenarioSharePort.hasActiveShare(scenarioId, currentUserId)) {
+                logDenied(currentUserId, scenarioId, "NO_ACTIVE_SHARE");
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+            }
+
+            // BR-08: Re-check scope tại thời điểm mở
+            List<Long> projectIds = extractProjectIds(scenario.getSnapshotData());
+            if (roleCode == com.hrm.employeemanagement.domain.role.RoleCode.VT_02) {
+                if (loadProjectPort != null && currentUser.getEmployeeId() != null) {
+                    List<Long> managed = loadProjectPort.findAllManagedProjectIds(currentUser.getEmployeeId().value());
+                    boolean overlap = managed.stream().anyMatch(projectIds::contains);
+                    if (!overlap) {
+                        logDenied(currentUserId, scenarioId, "VT02_SCOPE_LOST_NO_PROJECT_MANAGED");
+                        throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+                    }
+                }
+            } else if (roleCode == com.hrm.employeemanagement.domain.role.RoleCode.VT_03) {
+                Long userOrgUnitId = currentUser.getScopeOrgUnitId();
+                if (userOrgUnitId == null || !userOrgUnitId.equals(scenario.getOrgUnitId())) {
+                    logDenied(currentUserId, scenarioId, "VT03_SCOPE_LOST_WRONG_ORG_UNIT");
+                    throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+                }
+            }
+        } else {
+            validateReadScope(currentUser, scenario.getOrgUnitId());
+        }
+
+        // BR-06: Snapshot isolation - Nếu kịch bản đã lưu và có snapshot_data (hoặc người xem VIEW_ONLY), đọc trực tiếp từ snapshot
+        if ((!isOwner || scenario.isSaved()) && scenario.getSnapshotData() != null && !scenario.getSnapshotData().trim().isEmpty()) {
+            try {
+                ScenarioSnapshotData snapshotData = objectMapper.readValue(scenario.getSnapshotData(), ScenarioSnapshotData.class);
+                if (snapshotData != null && snapshotData.simulationResult() != null) {
+                    return snapshotData.simulationResult();
+                }
+            } catch (Exception ignored) {}
+        }
 
         OrgUnit orgUnit = loadOrgUnitPort.findById(new OrgUnitId(scenario.getOrgUnitId())).orElse(null);
         String orgUnitName = orgUnit != null ? orgUnit.getUnitName() : "Không xác định";
@@ -370,5 +457,32 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         }
         String regex = "(?i)(^|[^a-zA-Z0-9_#+])" + Pattern.quote(trimmedReq) + "([^a-zA-Z0-9_#+]|$)";
         return Pattern.compile(regex).matcher(trimmedRole).find();
+    }
+
+    private void logDenied(Long userId, Long scenarioId, String reason) {
+        if (deniedAuditLogPort != null) {
+            deniedAuditLogPort.save(com.hrm.employeemanagement.domain.audit.AuditLog.createChange(
+                    userId,
+                    "SCENARIO_ACCESS_DENIED",
+                    "resource_scenarios",
+                    scenarioId,
+                    null,
+                    "action=GET_SIMULATION;reason=" + reason
+            ));
+        }
+    }
+
+    private List<Long> extractProjectIds(String snapshotJson) {
+        if (snapshotJson == null || snapshotJson.trim().isEmpty()) {
+            return List.of();
+        }
+        try {
+            Map<String, Object> map = objectMapper.readValue(snapshotJson, new com.fasterxml.jackson.core.type.TypeReference<>() {});
+            Object projectIdsObj = map.get("projectIds");
+            if (projectIdsObj instanceof List<?> list) {
+                return list.stream().map(o -> Long.valueOf(o.toString())).toList();
+            }
+        } catch (Exception ignored) {}
+        return List.of();
     }
 }
