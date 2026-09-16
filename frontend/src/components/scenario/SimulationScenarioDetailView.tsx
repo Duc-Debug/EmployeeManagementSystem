@@ -46,6 +46,8 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   const [simulation, setSimulation] = useState<ScenarioSimulationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [simulationError, setSimulationError] = useState<string | null>(null);
+  const [simulationLoading, setSimulationLoading] = useState(false);
 
   // Demand modal state
   const [isDemandModalOpen, setIsDemandModalOpen] = useState(false);
@@ -57,21 +59,47 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setSimulationError(null);
+    const [detailResult, simulationResult] = await Promise.allSettled([
+      getScenarioById(scenarioId),
+      getScenarioSimulation(scenarioId),
+    ]);
+
+    if (detailResult.status === "fulfilled") {
+      setDetail(detailResult.value);
+    } else {
+      setDetail(null);
+      setError(detailResult.reason instanceof Error ? detailResult.reason.message : "Không thể tải dữ liệu kịch bản.");
+    }
+
+    if (simulationResult.status === "fulfilled") {
+      setSimulation(simulationResult.value);
+    } else {
+      setSimulation(null);
+      setSimulationError(
+        simulationResult.reason instanceof Error
+          ? simulationResult.reason.message
+          : "Không thể tải kết quả mô phỏng."
+      );
+    }
+    setLoading(false);
+  }, [scenarioId]);
+
+  const retrySimulation = useCallback(async () => {
+    setSimulationLoading(true);
+    setSimulationError(null);
     try {
-      const [detailData, simData] = await Promise.all([
-        getScenarioById(scenarioId),
-        getScenarioSimulation(scenarioId),
-      ]);
-      setDetail(detailData);
-      setSimulation(simData);
+      setSimulation(await getScenarioSimulation(scenarioId));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Không thể tải dữ liệu kịch bản.");
+      setSimulationError(err instanceof Error ? err.message : "Không thể tải kết quả mô phỏng.");
     } finally {
-      setLoading(false);
+      setSimulationLoading(false);
     }
   }, [scenarioId]);
 
   useEffect(() => {
+    // Initial remote-data synchronization; state updates happen inside the async loader.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
@@ -157,13 +185,23 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
           <AlertTriangle className="h-6 w-6" />
         </div>
         <h3 className="text-base font-bold text-slate-900">Không thể tải kịch bản</h3>
-        <p className="text-xs text-slate-500">{error || "Kịch bản không tồn tại hoặc đã bị xóa."}</p>
-        <button
-          onClick={onBack}
-          className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition"
-        >
-          Quay lại danh sách
-        </button>
+        <p className="text-xs font-medium text-slate-600 bg-rose-50/50 p-3 rounded-xl border border-rose-100 max-w-md mx-auto">
+          {error || "Kịch bản không tồn tại hoặc đã bị xóa khỏi hệ thống."}
+        </p>
+        <div className="flex items-center justify-center space-x-3 pt-2">
+          <button
+            onClick={loadData}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+          >
+            Thử tải lại
+          </button>
+          <button
+            onClick={onBack}
+            className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs"
+          >
+            Quay lại danh sách
+          </button>
+        </div>
       </div>
     );
   }
@@ -254,6 +292,27 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
         </div>
       </div>
 
+      {simulationError && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 flex items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold">Không thể tải kết quả mô phỏng</p>
+              <p className="mt-1 text-[11px]">{simulationError}</p>
+              <p className="mt-1 text-[11px] text-amber-700">Thông tin kịch bản và nhu cầu vẫn có thể xem hoặc chỉnh sửa.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={retrySimulation}
+            disabled={simulationLoading}
+            className="shrink-0 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {simulationLoading ? "Đang tải..." : "Tải lại mô phỏng"}
+          </button>
+        </div>
+      )}
+
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
@@ -301,13 +360,91 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                   : "text-emerald-600"
               )}
             >
-              {avgUtilization.toFixed(1)}%
+              {Number.isFinite(avgUtilization) ? `${avgUtilization.toFixed(1)}%` : "0.0%"}
             </span>
             <span className="text-[10px] text-slate-400">
               Ngưỡng: &gt;{simulation?.overloadThreshold || 100}%
             </span>
           </div>
         </div>
+      </div>
+
+      {/* FEATURE NCL-08-CN-002: Danh sách Nhân sự Vượt Năng Lực / Vỡ Kế Hoạch */}
+      <div className="bg-white rounded-2xl border border-rose-200 shadow-xs overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-rose-100 bg-rose-50/40">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
+            <h3 className="text-sm font-bold text-slate-900">
+              Danh Sách Nhân Sự Vượt Năng Lực / Vỡ Kế Hoạch (NCL-08-CN-002)
+            </h3>
+            <span
+              className={cn(
+                "text-xs px-2 py-0.5 rounded-full font-bold",
+                (simulation?.overloadedEmployees ?? []).length > 0
+                  ? "bg-rose-100 text-rose-700 border border-rose-200"
+                  : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+              )}
+            >
+              {(simulation?.overloadedEmployees ?? []).length} nhân sự
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500 font-medium">
+            Phân tích nhân sự bị vỡ kế hoạch / vượt năng lực khi áp dụng kịch bản mô phỏng
+          </span>
+        </div>
+
+        {(simulation?.overloadedEmployees ?? []).length === 0 ? (
+          <div className="p-6 text-center space-y-2 bg-emerald-50/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 mx-auto">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <p className="text-xs font-bold text-emerald-800">
+              Không có nhân sự nào bị vỡ kế hoạch / vượt năng lực trong kịch bản mô phỏng
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Khối lượng công việc mô phỏng của tất cả nhân sự trong đơn vị (Phân bổ gốc + Nhu cầu kịch bản) đều nằm trong định mức chuẩn.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-rose-100 bg-rose-50/30 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="px-4 py-3">Mã NV</th>
+                  <th className="px-4 py-3">Họ và Tên</th>
+                  <th className="px-4 py-3">Chức danh</th>
+                  <th className="px-4 py-3 text-center">Tuần vi phạm</th>
+                  <th className="px-4 py-3 text-right">Phân bổ / Chuẩn</th>
+                  <th className="px-4 py-3 text-right font-bold text-rose-700">Giờ vượt</th>
+                  <th className="px-4 py-3 text-right">Tỷ lệ</th>
+                  <th className="px-4 py-3 text-center">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rose-100/60 text-slate-700">
+                {(simulation?.overloadedEmployees ?? []).map((emp, index) => (
+                  <tr key={`${emp.employeeId}-${emp.year}-${emp.weekNumber}-${index}`} className="hover:bg-rose-50/40 transition">
+                    <td className="px-4 py-3 font-mono font-semibold text-slate-700">{emp.employeeCode}</td>
+                    <td className="px-4 py-3 font-bold text-slate-900">{emp.fullName}</td>
+                    <td className="px-4 py-3 text-slate-500">{emp.professionalRole || "—"}</td>
+                    <td className="px-4 py-3 text-center font-semibold text-slate-800">
+                      {emp.weekLabel || `Tuần ${emp.weekNumber} (${emp.year})`}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-700">
+                      <span className="font-semibold text-rose-700">{emp.allocatedHours}h</span> / {emp.availableHours}h
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-rose-600">
+                      +{emp.excessHours}h
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-rose-600">
+                      {emp.utilizationPercentage != null ? `${emp.utilizationPercentage.toFixed(1)}%` : "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-center">{getStatusBadge(emp.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* SECTION 1: Nhu cầu nhân sự giả định (Demands) */}
@@ -484,7 +621,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                           : "text-slate-700"
                       )}
                     >
-                      {metric.utilizationPercentage.toFixed(1)}%
+                      {metric.utilizationPercentage != null ? `${metric.utilizationPercentage.toFixed(1)}%` : "N/A"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">{getStatusBadge(metric.status)}</td>

@@ -71,9 +71,34 @@ export async function apiRequest<T = unknown>(
 
     if (!response.ok) {
       let errorMessage = `Yêu cầu thất bại với mã lỗi ${response.status}`;
-      if (payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string") {
-        errorMessage = payload.message;
+      if (payload && typeof payload === "object") {
+        const p = payload as Record<string, unknown>;
+        if (typeof p.message === "string" && p.message.trim().length > 0) {
+          errorMessage = p.message;
+        } else if (typeof p.error === "string" && p.error.trim().length > 0) {
+          errorMessage = p.error;
+        } else if (typeof p.code === "string" && p.code.trim().length > 0) {
+          errorMessage = `[${p.code}] ${errorMessage}`;
+        }
+      } else if (typeof payload === "string" && payload.trim().length > 0) {
+        if (payload.includes("<!DOCTYPE") || payload.includes("<html")) {
+          if (response.status === 403) errorMessage = "Bạn không có quyền truy cập dữ liệu này (403 Forbidden).";
+          else if (response.status === 404) errorMessage = "Không tìm thấy dữ liệu yêu cầu (404 Not Found).";
+          else if (response.status === 500) errorMessage = "Máy chủ xảy ra lỗi nội bộ (500 Internal Server Error).";
+        } else {
+          errorMessage = payload;
+        }
       }
+
+      if (response.status === 403 && errorMessage === "Access Denied") {
+        errorMessage = "Tài khoản hiện tại không có quyền xem hoặc thao tác trên kịch bản này.";
+      }
+      if (errorMessage === "An unexpected error occurred.") {
+        errorMessage = response.status >= 500
+          ? "Máy chủ gặp lỗi khi xử lý dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị viên."
+          : `Yêu cầu thất bại với mã lỗi ${response.status}`;
+      }
+
       throw new ApiError(errorMessage, response.status, payload);
     }
 
@@ -97,8 +122,9 @@ export async function apiRequest<T = unknown>(
         0
       );
     }
+    const msg = error instanceof Error ? error.message : String(error);
     throw new ApiError(
-      error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định.",
+      msg && msg !== "An unexpected error occurred." ? msg : "Đã xảy ra lỗi không xác định khi tải dữ liệu.",
       500
     );
   }

@@ -489,30 +489,20 @@ public class ResourceScenarioService implements
     }
 
     private void validateManageScope(User currentUser, Long targetOrgUnitId) {
-        DataScope dataScope = currentUser.getDataScope();
-        if (dataScope == DataScope.COMPANY) {
+        if (isOrgUnitInUserScope(currentUser, targetOrgUnitId)) {
             return;
-        }
-        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
-            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)) {
-                return;
-            }
         }
         throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
     }
 
     private void validateReadScope(User currentUser, Long targetOrgUnitId) {
-        DataScope dataScope = currentUser.getDataScope();
-        if (dataScope == DataScope.COMPANY) {
+        if (isOrgUnitInUserScope(currentUser, targetOrgUnitId)) {
             return;
         }
-        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
-            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId)) {
-                return;
-            }
-        }
         throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+    }
+
+    private boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId) {
+        return AuthorizationService.isOrgUnitInUserScope(currentUser, targetOrgUnitId, loadOrgUnitPort);
     }
 }

@@ -208,7 +208,13 @@ class ScenarioDemandServiceTest {
     @Test
     @DisplayName("Thêm nhu cầu cho kịch bản ngoài phạm vi branch -> Bị từ chối PermissionDeniedException")
     void testAddDemand_OutOfScope_ThrowsPermissionDenied() {
-        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(false);
+        ResourceScenario outOfScopeScenario = ResourceScenario.createNew(
+                "SCN-OUT", "Kịch bản ngoài phạm vi", "Mô tả", 20L, 2026, 38, 4, 103L
+        );
+        outOfScopeScenario.setId(1L);
+        when(loadScenarioPort.findById(1L)).thenReturn(Optional.of(outOfScopeScenario));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(20L, 10L)).thenReturn(false);
+        lenient().when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 20L)).thenReturn(true);
 
         AddScenarioDemandCommand command = new AddScenarioDemandCommand(
                 1L, "Java Dev", 1, 2026, 38, 2026, 40, BigDecimal.valueOf(40), "Java"
@@ -216,6 +222,7 @@ class ScenarioDemandServiceTest {
 
         assertThrows(PermissionDeniedException.class, () -> service.addDemand(command));
 
+        verify(loadOrgUnitPort, never()).existsInOrgUnitBranch(10L, 20L);
         verify(saveAuditLogPort, never()).save(any());
     }
 

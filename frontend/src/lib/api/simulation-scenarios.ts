@@ -73,11 +73,30 @@ export interface WeeklySimulationMetricResult {
   availableCapacityHours?: number;
 }
 
+export interface OverloadedEmployeeResult {
+  employeeId: number;
+  employeeCode: string;
+  fullName: string;
+  professionalRole: string;
+  year: number;
+  weekNumber: number;
+  weekLabel?: string;
+  allocatedHours: number;
+  availableHours: number;
+  excessHours: number;
+  utilizationPercentage: number;
+  status: string;
+}
+
 export interface EmployeeSnapshotCellResult {
   year: number;
   weekNumber: number;
   allocatedHours: number;
   availableHours: number;
+  excessHours?: number;
+  utilizationPercentage?: number;
+  status?: string;
+  isOverloaded?: boolean;
   // Aliases for compatibility
   snapshotAllocatedHours?: number;
   snapshotAvailableHours?: number;
@@ -103,6 +122,7 @@ export interface ScenarioSimulationResult {
   status?: string;
   baseSnapshotAt?: string;
   weeklyMetrics: WeeklySimulationMetricResult[];
+  overloadedEmployees: OverloadedEmployeeResult[];
   employeeSnapshots: EmployeeSnapshotRowResult[];
   overloadThreshold: number;
   idleThreshold: number;
