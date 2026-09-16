@@ -24,7 +24,7 @@ public record AllocateResourceRequest(
         @DecimalMin(value = "0.0", message = "Số giờ phân bổ không được là số âm")
         BigDecimal allocatedHours,
         @DecimalMin(value = "0.0", message = "Tỷ lệ phần trăm phân bổ không được là số âm")
-        @DecimalMax(value = "100.0", message = "Tỷ lệ phần trăm phân bổ tối đa là 100%")
+        @DecimalMax(value = "200.0", message = "Tỷ lệ phần trăm phân bổ tối đa là 200%")
         BigDecimal allocationPercentage,
         String overloadReason
 ) {

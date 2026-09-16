@@ -91,7 +91,8 @@ public class ResourceAllocationUseCaseConfig {
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort,
             SaveAllocationChangeLogPort saveChangeLogPort,
-            AllocationNotificationPort notificationPort) {
+            AllocationNotificationPort notificationPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort loadCapacityThresholdPort) {
 
         return new ResourceAllocationService(
                 authorizationService,
@@ -104,7 +105,8 @@ public class ResourceAllocationUseCaseConfig {
                 loadUserPort,
                 loadOrgUnitPort,
                 saveChangeLogPort,
-                notificationPort
+                notificationPort,
+                loadCapacityThresholdPort
         );
     }
 
