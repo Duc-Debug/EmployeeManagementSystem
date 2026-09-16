@@ -11,6 +11,7 @@ import com.hrm.employeemanagement.application.dto.scenario.recruitment.RemoveSim
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.SimulatedEmployeeResult;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.UpdateSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.AddSimulatedEmployeeUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.GetRecruitmentEvaluationUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.GetScenarioSimulatedEmployeesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RemoveSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RerunRecruitmentScenarioUseCase;
@@ -22,7 +23,8 @@ public class TransactionalRecruitmentScenarioUseCaseDecorator implements
         UpdateSimulatedEmployeeUseCase,
         RemoveSimulatedEmployeeUseCase,
         GetScenarioSimulatedEmployeesUseCase,
-        RerunRecruitmentScenarioUseCase {
+        RerunRecruitmentScenarioUseCase,
+        GetRecruitmentEvaluationUseCase {
 
     private final RecruitmentScenarioService delegate;
 
@@ -52,6 +54,12 @@ public class TransactionalRecruitmentScenarioUseCaseDecorator implements
     @Transactional(readOnly = true)
     public List<SimulatedEmployeeResult> getSimulatedEmployees(Long scenarioId) {
         return delegate.getSimulatedEmployees(scenarioId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RecruitmentScenarioEvaluationResult getRecruitmentEvaluation(Long scenarioId) {
+        return delegate.getRecruitmentEvaluation(scenarioId);
     }
 
     @Override

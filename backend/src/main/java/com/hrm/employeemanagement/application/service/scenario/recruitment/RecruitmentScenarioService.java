@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.application.dto.scenario.recruitment.RemoveSim
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.SimulatedEmployeeResult;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.UpdateSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.AddSimulatedEmployeeUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.GetRecruitmentEvaluationUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.GetScenarioSimulatedEmployeesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RemoveSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RerunRecruitmentScenarioUseCase;
@@ -46,7 +47,8 @@ public class RecruitmentScenarioService implements
         UpdateSimulatedEmployeeUseCase,
         RemoveSimulatedEmployeeUseCase,
         GetScenarioSimulatedEmployeesUseCase,
-        RerunRecruitmentScenarioUseCase {
+        RerunRecruitmentScenarioUseCase,
+        GetRecruitmentEvaluationUseCase {
 
     private final AuthorizationService authorizationService;
     private final LoadSimulationScenarioPort loadScenarioPort;
@@ -117,6 +119,16 @@ public class RecruitmentScenarioService implements
         }
     }
 
+    private void validateScenarioIsDraft(Long scenarioId) {
+        LoadSimulationScenarioPort.SimulationScenarioInfo scenario = loadScenarioPort.findById(scenarioId)
+                .orElseThrow(() -> new ScenarioNotFoundException(scenarioId));
+        if (scenario.status() != null && !"DRAFT".equalsIgnoreCase(scenario.status())) {
+            throw new InvalidSimulatedEmployeeException(
+                    String.format("Không thể thao tác nhân sự giả định khi kịch bản không ở trạng thái Bản nháp (DRAFT). Trạng thái hiện tại: %s", scenario.status())
+            );
+        }
+    }
+
     private void validateRoleAndSkill(Long projectRoleId, Long primarySkillId) {
         if (projectRoleId == null) {
             throw new InvalidSimulatedEmployeeException("Vai trò dự án không được để trống");
@@ -134,6 +146,7 @@ public class RecruitmentScenarioService implements
         Objects.requireNonNull(command, "AddSimulatedEmployeeCommand must not be null");
         Long currentUserId = requireManagePermission(command.scenarioId());
         validateScenarioExists(command.scenarioId());
+        validateScenarioIsDraft(command.scenarioId());
         validateRoleAndSkill(command.projectRoleId(), command.primarySkillId());
 
         ScenarioSimulatedEmployee candidate = ScenarioSimulatedEmployee.create(
@@ -170,6 +183,7 @@ public class RecruitmentScenarioService implements
         Objects.requireNonNull(command, "UpdateSimulatedEmployeeCommand must not be null");
         Long currentUserId = requireManagePermission(command.scenarioId());
         validateScenarioExists(command.scenarioId());
+        validateScenarioIsDraft(command.scenarioId());
 
         ScenarioSimulatedEmployee employee = loadEmployeePort.findById(new SimulatedEmployeeId(command.employeeId()))
                 .orElseThrow(() -> new SimulatedEmployeeNotFoundException(command.employeeId()));
@@ -180,6 +194,10 @@ public class RecruitmentScenarioService implements
 
         validateRoleAndSkill(command.projectRoleId(), command.primarySkillId());
 
+        String oldInfo = String.format("name=%s, roleId=%d, skillId=%s, hours=%s, weeks=%d",
+                employee.getCandidateName(), employee.getProjectRoleId(), employee.getPrimarySkillId(),
+                employee.getStandardHoursPerWeek(), employee.getWeeksCount());
+
         employee.updateDetails(
                 command.candidateName(),
                 command.projectRoleId(),
@@ -189,21 +207,22 @@ public class RecruitmentScenarioService implements
                 command.notes()
         );
 
-        ScenarioSimulatedEmployee saved = saveEmployeePort.save(employee);
+        ScenarioSimulatedEmployee updated = saveEmployeePort.save(employee);
 
-        // [TC-04] Ghi nhận lịch sử kiểm toán thao tác cập nhật thành công
+        String newInfo = String.format("name=%s, roleId=%d, skillId=%s, hours=%s, weeks=%d",
+                updated.getCandidateName(), updated.getProjectRoleId(), updated.getPrimarySkillId(),
+                updated.getStandardHoursPerWeek(), updated.getWeeksCount());
+
+        // [TC-04] Ghi nhận lịch sử kiểm toán thao tác cập nhật
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
                 "UPDATE_SIMULATED_EMPLOYEE",
                 "scenario_simulated_employees",
-                saved.getIdValue(),
-                null,
-                String.format("Cập nhật nhân sự giả định '%s' vai trò ID %d cho kịch bản %d (%s h/tuần, %d tuần)",
-                        saved.getCandidateName(), saved.getProjectRoleId(), saved.getScenarioId(),
-                        saved.getStandardHoursPerWeek(), saved.getWeeksCount())
+                updated.getIdValue(),
+                oldInfo,
+                newInfo
         ));
 
-        // Chạy lại kịch bản tuyển dụng để cập nhật đánh giá mới nhất
         return evaluateScenarioInternal(command.scenarioId());
     }
 
@@ -212,6 +231,7 @@ public class RecruitmentScenarioService implements
         Objects.requireNonNull(command, "RemoveSimulatedEmployeeCommand must not be null");
         Long currentUserId = requireManagePermission(command.scenarioId());
         validateScenarioExists(command.scenarioId());
+        validateScenarioIsDraft(command.scenarioId());
 
         ScenarioSimulatedEmployee employee = loadEmployeePort.findById(new SimulatedEmployeeId(command.employeeId()))
                 .orElseThrow(() -> new SimulatedEmployeeNotFoundException(command.employeeId()));
@@ -280,8 +300,15 @@ public class RecruitmentScenarioService implements
     }
 
     @Override
+    public RecruitmentScenarioEvaluationResult getRecruitmentEvaluation(Long scenarioId) {
+        requireReadPermission(scenarioId);
+        validateScenarioExists(scenarioId);
+        return evaluateScenarioInternal(scenarioId);
+    }
+
+    @Override
     public RecruitmentScenarioEvaluationResult rerunRecruitmentScenario(Long scenarioId) {
-        Long currentUserId = requireReadPermission(scenarioId);
+        Long currentUserId = requireManagePermission(scenarioId);
         validateScenarioExists(scenarioId);
 
         RecruitmentScenarioEvaluationResult result = evaluateScenarioInternal(scenarioId);

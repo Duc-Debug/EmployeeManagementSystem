@@ -47,6 +47,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -94,6 +96,10 @@ class RecruitmentScenarioServiceTest {
                 loadRolePort,
                 loadSkillPort,
                 saveAuditLogPort
+        );
+
+        lenient().when(loadScenarioPort.findById(anyLong())).thenReturn(
+                Optional.of(new LoadSimulationScenarioPort.SimulationScenarioInfo(scenarioId, "SCN-01", "Kịch bản tuyển dụng", "DRAFT"))
         );
     }
 
@@ -161,10 +167,7 @@ class RecruitmentScenarioServiceTest {
     @DisplayName("NCL-08-CN-005-TC-02: Luồng thành công - Đã thêm đủ nhân sự giả định, chạy lại kịch bản báo không còn ai vỡ kế hoạch và nêu tổng số người cần tuyển")
     void scenario2_Success_AllCandidatesAdded_RerunScenario_ShouldReportNoBrokenPlanAndSummary() {
         // Given: Kịch bản có 2 vai trò thiếu giờ: DEV (160h) và TESTER (80h)
-        when(authorizationService.requireAny(
-                PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_READ,
-                PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE
-        )).thenReturn(rmUserId);
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
 
         RoleShortfallDemand devDemand = new RoleShortfallDemand(devRoleId, "DEV", "Developer", new BigDecimal("160.00"));
@@ -441,5 +444,81 @@ class RecruitmentScenarioServiceTest {
         );
 
         assertThrows(InvalidSimulatedEmployeeException.class, () -> service.addSimulatedEmployee(command));
+    }
+
+    @Test
+    @DisplayName("Thêm nhân sự giả định khi kịch bản đã APPLIED -> Từ chối ném InvalidSimulatedEmployeeException")
+    void addSimulatedEmployee_AppliedScenario_ShouldThrow() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(
+                Optional.of(new LoadSimulationScenarioPort.SimulationScenarioInfo(scenarioId, "SCN-01", "Kịch bản đã áp dụng", "APPLIED"))
+        );
+
+        AddSimulatedEmployeeCommand command = new AddSimulatedEmployeeCommand(
+                scenarioId, "Dev", devRoleId, null, new BigDecimal("40.00"), 4, null
+        );
+
+        InvalidSimulatedEmployeeException ex = assertThrows(
+                InvalidSimulatedEmployeeException.class,
+                () -> service.addSimulatedEmployee(command)
+        );
+        assertTrue(ex.getMessage().contains("DRAFT"));
+    }
+
+    @Test
+    @DisplayName("Cập nhật nhân sự giả định khi kịch bản đã DISCARDED -> Từ chối ném InvalidSimulatedEmployeeException")
+    void updateSimulatedEmployee_DiscardedScenario_ShouldThrow() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(
+                Optional.of(new LoadSimulationScenarioPort.SimulationScenarioInfo(scenarioId, "SCN-01", "Kịch bản đã hủy", "DISCARDED"))
+        );
+
+        UpdateSimulatedEmployeeCommand command = new UpdateSimulatedEmployeeCommand(
+                scenarioId, 1L, "Dev", devRoleId, null, new BigDecimal("40.00"), 4, null
+        );
+
+        InvalidSimulatedEmployeeException ex = assertThrows(
+                InvalidSimulatedEmployeeException.class,
+                () -> service.updateSimulatedEmployee(command)
+        );
+        assertTrue(ex.getMessage().contains("DRAFT"));
+    }
+
+    @Test
+    @DisplayName("Xóa nhân sự giả định khi kịch bản đã APPLIED -> Từ chối ném InvalidSimulatedEmployeeException")
+    void removeSimulatedEmployee_AppliedScenario_ShouldThrow() {
+        when(authorizationService.require(PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(
+                Optional.of(new LoadSimulationScenarioPort.SimulationScenarioInfo(scenarioId, "SCN-01", "Kịch bản đã áp dụng", "APPLIED"))
+        );
+
+        RemoveSimulatedEmployeeCommand command = new RemoveSimulatedEmployeeCommand(scenarioId, 1L);
+
+        InvalidSimulatedEmployeeException ex = assertThrows(
+                InvalidSimulatedEmployeeException.class,
+                () -> service.removeSimulatedEmployee(command)
+        );
+        assertTrue(ex.getMessage().contains("DRAFT"));
+    }
+
+    @Test
+    @DisplayName("Lấy đánh giá tuyển dụng (getRecruitmentEvaluation) chỉ yêu cầu quyền READ/MANAGE và không ghi audit log rerun")
+    void getRecruitmentEvaluation_RequiresReadPermission() {
+        when(authorizationService.requireAny(
+                PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_READ,
+                PermissionCode.RESOURCE_RECRUITMENT_SCENARIO_MANAGE
+        )).thenReturn(rmUserId);
+        when(loadScenarioPort.existsById(scenarioId)).thenReturn(true);
+        when(loadShortfallPort.loadShortfallDemands(scenarioId)).thenReturn(List.of());
+        when(loadEmployeePort.findByScenarioId(scenarioId)).thenReturn(List.of());
+
+        RecruitmentScenarioEvaluationResult result = service.getRecruitmentEvaluation(scenarioId);
+
+        assertNotNull(result);
+        assertEquals(scenarioId, result.scenarioId());
+        verify(saveAuditLogPort, never()).save(any());
     }
 }

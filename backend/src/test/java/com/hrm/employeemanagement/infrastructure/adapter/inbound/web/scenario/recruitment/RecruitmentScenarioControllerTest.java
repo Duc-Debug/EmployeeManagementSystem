@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.dto.scenario.recruitment.RemoveSim
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.SimulatedEmployeeResult;
 import com.hrm.employeemanagement.application.dto.scenario.recruitment.UpdateSimulatedEmployeeCommand;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.AddSimulatedEmployeeUseCase;
+import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.GetRecruitmentEvaluationUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.GetScenarioSimulatedEmployeesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RemoveSimulatedEmployeeUseCase;
 import com.hrm.employeemanagement.application.port.inbound.scenario.recruitment.RerunRecruitmentScenarioUseCase;
@@ -56,11 +57,13 @@ class RecruitmentScenarioControllerTest {
     private GetScenarioSimulatedEmployeesUseCase getUseCase;
     @Mock
     private RerunRecruitmentScenarioUseCase rerunUseCase;
+    @Mock
+    private GetRecruitmentEvaluationUseCase getEvaluationUseCase;
 
     @BeforeEach
     void setUp() {
         RecruitmentScenarioController controller = new RecruitmentScenarioController(
-                addUseCase, updateUseCase, removeUseCase, getUseCase, rerunUseCase
+                addUseCase, updateUseCase, removeUseCase, getUseCase, rerunUseCase, getEvaluationUseCase
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -161,7 +164,22 @@ class RecruitmentScenarioControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/scenarios/{scenarioId}/recruitment-evaluation - Chạy lại kịch bản thành công")
+    @DisplayName("GET /api/v1/scenarios/{scenarioId}/recruitment-evaluation - Lấy kết quả đánh giá kịch bản thành công")
+    void testGetEvaluation_Success() throws Exception {
+        RecruitmentScenarioEvaluationResult evaluation = new RecruitmentScenarioEvaluationResult(
+                100L, new BigDecimal("160.00"), new BigDecimal("160.00"), BigDecimal.ZERO,
+                false, 0, 1, 0, List.of()
+        );
+        when(getEvaluationUseCase.getRecruitmentEvaluation(100L)).thenReturn(evaluation);
+
+        mockMvc.perform(get("/api/v1/scenarios/100/recruitment-evaluation"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.isPlanBroken").value(false));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/scenarios/{scenarioId}/recruitment-evaluation/rerun - Chạy lại kịch bản thành công")
     void testRerunEvaluation_Success() throws Exception {
         RecruitmentScenarioEvaluationResult evaluation = new RecruitmentScenarioEvaluationResult(
                 100L, new BigDecimal("160.00"), new BigDecimal("160.00"), BigDecimal.ZERO,
@@ -169,7 +187,7 @@ class RecruitmentScenarioControllerTest {
         );
         when(rerunUseCase.rerunRecruitmentScenario(100L)).thenReturn(evaluation);
 
-        mockMvc.perform(get("/api/v1/scenarios/100/recruitment-evaluation"))
+        mockMvc.perform(post("/api/v1/scenarios/100/recruitment-evaluation/rerun"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.isPlanBroken").value(false));
@@ -206,7 +224,7 @@ class RecruitmentScenarioControllerTest {
     @Test
     @DisplayName("ScenarioNotFoundException trả về HTTP 404 NOT_FOUND")
     void testScenarioNotFound_Returns404() throws Exception {
-        when(rerunUseCase.rerunRecruitmentScenario(999L)).thenThrow(new ScenarioNotFoundException(999L));
+        when(getEvaluationUseCase.getRecruitmentEvaluation(999L)).thenThrow(new ScenarioNotFoundException(999L));
 
         mockMvc.perform(get("/api/v1/scenarios/999/recruitment-evaluation"))
                 .andExpect(status().isNotFound())
