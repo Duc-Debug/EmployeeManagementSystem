@@ -10,5 +10,5 @@ import com.hrm.employeemanagement.domain.timesheet.TimesheetId;
 public interface LoadTimesheetPort {
     Optional<Timesheet> findById(TimesheetId id);
     Optional<Timesheet> findByEmployeeAndWeekStart(EmployeeId employeeId, LocalDate weekStartDate);
-    java.util.List<Timesheet> findDraftTimesheetsForReminderUpTo(LocalDate targetDate, int limit);
+    java.util.List<Timesheet> findDraftTimesheetsForReminderUpTo(LocalDate targetDate, java.time.LocalDateTime now, int limit);
 }

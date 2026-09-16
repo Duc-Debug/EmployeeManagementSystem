@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.service.timesheet;
 
 import com.hrm.employeemanagement.application.port.inbound.timesheet.ProcessReminderBatchUseCase;
+import com.hrm.employeemanagement.application.port.inbound.timesheet.ReminderBatchResult;
 import com.hrm.employeemanagement.application.port.inbound.timesheet.SendTimesheetRemindersUseCase;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
@@ -60,11 +61,11 @@ public class SendTimesheetRemindersService implements SendTimesheetRemindersUseC
 
         while (true) {
             try {
-                int processed = processReminderBatchUseCase.processBatch(today, BATCH_SIZE);
-                if (processed == 0) {
+                ReminderBatchResult result = processReminderBatchUseCase.processBatch(today, BATCH_SIZE);
+                if (result.loaded() == 0) {
                     break;
                 }
-                totalProcessed += processed;
+                totalProcessed += result.sent();
             } catch (Exception e) {
                 log.error("Lỗi/Rollback khi xử lý batch nhắc nhở. Dừng tiến trình cron để tránh lặp vô hạn.", e);
                 break;
@@ -72,7 +73,7 @@ public class SendTimesheetRemindersService implements SendTimesheetRemindersUseC
         }
 
         if (totalProcessed > 0) {
-            log.info("Hoàn tất duyệt tổng cộng {} timesheets", totalProcessed);
+            log.info("Hoàn tất gửi tổng cộng {} nhắc nhở", totalProcessed);
         }
     }
 }

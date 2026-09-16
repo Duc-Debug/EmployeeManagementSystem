@@ -10,6 +10,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.timesheet.Timesheet;
 import com.hrm.employeemanagement.domain.timesheet.TimesheetId;
+import com.hrm.employeemanagement.domain.timesheet.ReminderStatus;
 import com.hrm.employeemanagement.domain.timesheet.TimesheetStatus;
 import com.hrm.employeemanagement.domain.user.UserId;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,7 +29,6 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -59,13 +59,15 @@ class ProcessReminderBatchServiceTest {
     @Test
     void processBatch_createsReminderHistoryAndMarksEligibleTimesheetAsReminded() {
         Timesheet timesheet = draftTimesheet();
-        when(loadTimesheetPort.findDraftTimesheetsForReminderUpTo(TODAY, 500)).thenReturn(List.of(timesheet));
+        when(loadTimesheetPort.findDraftTimesheetsForReminderUpTo(TODAY, REMINDED_AT, 500)).thenReturn(List.of(timesheet));
         when(loadEmployeePort.findAllByIdIn(List.of(EMPLOYEE_ID))).thenReturn(List.of(employeeWithUser()));
 
-        int processed = service.processBatch(TODAY, 500);
+        var result = service.processBatch(TODAY, 500);
 
-        assertEquals(1, processed);
+        assertEquals(1, result.loaded());
+        assertEquals(1, result.sent());
         assertEquals(REMINDED_AT, timesheet.getRemindedAt());
+        assertEquals(ReminderStatus.SENT, timesheet.getReminderStatus());
         ArgumentCaptor<List> notifications = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List> histories = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List> timesheets = ArgumentCaptor.forClass(List.class);
@@ -78,18 +80,19 @@ class ProcessReminderBatchServiceTest {
     }
 
     @Test
-    void processBatch_doesNotMarkTimesheetWhenEmployeeIsMissing_soItCanBeRetried() {
+    void processBatch_marksMissingEmployeeAsFailed_soItCannotBlockThePendingQueue() {
         Timesheet timesheet = draftTimesheet();
-        when(loadTimesheetPort.findDraftTimesheetsForReminderUpTo(TODAY, 500)).thenReturn(List.of(timesheet));
+        when(loadTimesheetPort.findDraftTimesheetsForReminderUpTo(TODAY, REMINDED_AT, 500)).thenReturn(List.of(timesheet));
         when(loadEmployeePort.findAllByIdIn(List.of(EMPLOYEE_ID))).thenReturn(List.of());
 
-        int processed = service.processBatch(TODAY, 500);
+        var result = service.processBatch(TODAY, 500);
 
-        assertEquals(0, processed);
-        assertNull(timesheet.getRemindedAt());
+        assertEquals(1, result.loaded());
+        assertEquals(1, result.permanentlyFailed());
+        assertEquals(ReminderStatus.FAILED, timesheet.getReminderStatus());
         verify(saveNotificationPort, never()).saveAll(anyList());
         verify(saveTimesheetHistoryPort, never()).saveAll(anyList());
-        verify(saveTimesheetPort, never()).saveAll(anyList());
+        verify(saveTimesheetPort).saveAll(List.of(timesheet));
     }
 
     private Timesheet draftTimesheet() {

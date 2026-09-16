@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.service.timesheet;
 
 import com.hrm.employeemanagement.application.port.inbound.timesheet.ProcessReminderBatchUseCase;
+import com.hrm.employeemanagement.application.port.inbound.timesheet.ReminderBatchResult;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetHistoryPort;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class ProcessReminderBatchService implements ProcessReminderBatchUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(ProcessReminderBatchService.class);
+    private static final int MAX_RETRY_ATTEMPTS = 3;
 
     private final LoadTimesheetPort loadTimesheetPort;
     private final SaveTimesheetPort saveTimesheetPort;
@@ -51,10 +53,11 @@ public class ProcessReminderBatchService implements ProcessReminderBatchUseCase 
     }
 
     @Override
-    public int processBatch(LocalDate today, int batchSize) {
-        List<Timesheet> draftTimesheets = loadTimesheetPort.findDraftTimesheetsForReminderUpTo(today, batchSize);
+    public ReminderBatchResult processBatch(LocalDate today, int batchSize) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        List<Timesheet> draftTimesheets = loadTimesheetPort.findDraftTimesheetsForReminderUpTo(today, now, batchSize);
         if (draftTimesheets.isEmpty()) {
-            return 0;
+            return ReminderBatchResult.empty();
         }
 
         List<EmployeeId> employeeIds = draftTimesheets.stream()
@@ -69,7 +72,9 @@ public class ProcessReminderBatchService implements ProcessReminderBatchUseCase 
         List<Timesheet> timesheetsToSave = new ArrayList<>();
         List<TimesheetHistory> historiesToSave = new ArrayList<>();
 
-        LocalDateTime now = LocalDateTime.now(clock);
+        int sent = 0;
+        int retryScheduled = 0;
+        int permanentlyFailed = 0;
 
         for (Timesheet timesheet : draftTimesheets) {
             try {
@@ -97,15 +102,27 @@ public class ProcessReminderBatchService implements ProcessReminderBatchUseCase 
                     );
                     historiesToSave.add(history);
 
-                    // Only mark the timesheet after its reminder and audit history
-                    // have both been created. Otherwise it remains eligible for retry.
-                    timesheet.setRemindedAt(now);
+                    timesheet.markReminderSent(now);
                     timesheetsToSave.add(timesheet);
+                    sent++;
                 } else {
-                    log.warn("Không thể gửi nhắc nhở cho timesheet ID: {} vì employee hoặc userId bị null", timesheet.getIdValue());
+                    String error = "Employee or linked user is missing";
+                    log.warn("Không thể gửi nhắc nhở cho timesheet ID: {} vì {}", timesheet.getIdValue(), error);
+                    timesheet.markReminderFailed(error);
+                    timesheetsToSave.add(timesheet);
+                    permanentlyFailed++;
                 }
             } catch (Exception e) {
                 log.error("Lỗi khi tạo nhắc nhở cho timesheet ID: {}", timesheet.getIdValue(), e);
+                String error = messageFor(e);
+                if (timesheet.getReminderAttemptCount() + 1 >= MAX_RETRY_ATTEMPTS) {
+                    timesheet.markReminderFailed("Retry limit reached: " + error);
+                    permanentlyFailed++;
+                } else {
+                    timesheet.scheduleReminderRetry(now.plusDays(1), error);
+                    retryScheduled++;
+                }
+                timesheetsToSave.add(timesheet);
             }
         }
 
@@ -119,7 +136,12 @@ public class ProcessReminderBatchService implements ProcessReminderBatchUseCase 
             saveTimesheetHistoryPort.saveAll(historiesToSave);
         }
 
-        log.info("Đã xử lý batch {} timesheets, gửi {} thông báo", timesheetsToSave.size(), notificationsToSave.size());
-        return timesheetsToSave.size();
+        log.info("Đã quét {} timesheets: sent={}, retry={}, failed={}", draftTimesheets.size(), sent, retryScheduled, permanentlyFailed);
+        return new ReminderBatchResult(draftTimesheets.size(), sent, retryScheduled, permanentlyFailed);
+    }
+
+    private String messageFor(Exception exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank() ? exception.getClass().getSimpleName() : message;
     }
 }

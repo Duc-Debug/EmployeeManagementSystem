@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.transaction.timesheet;
 
 import com.hrm.employeemanagement.application.port.inbound.timesheet.ProcessReminderBatchUseCase;
+import com.hrm.employeemanagement.application.port.inbound.timesheet.ReminderBatchResult;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 
@@ -14,7 +15,7 @@ public class TransactionalProcessReminderBatchUseCase implements ProcessReminder
 
     @Override
     @Transactional
-    public int processBatch(LocalDate today, int batchSize) {
+    public ReminderBatchResult processBatch(LocalDate today, int batchSize) {
         return delegate.processBatch(today, batchSize);
     }
 }
