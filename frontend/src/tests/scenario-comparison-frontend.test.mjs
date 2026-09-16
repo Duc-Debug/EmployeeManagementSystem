@@ -20,7 +20,11 @@ function findRecommendedScenario(scenarios) {
       return a.peakUtilizationPercentage - b.peakUtilizationPercentage;
     }
     // 4. Giờ làm thêm cần thiết ít hơn
-    return a.totalRequiredAdditionalHours - b.totalRequiredAdditionalHours;
+    if (a.totalRequiredAdditionalHours !== b.totalRequiredAdditionalHours) {
+      return a.totalRequiredAdditionalHours - b.totalRequiredAdditionalHours;
+    }
+    // 5. Tỷ lệ tải trung bình tối ưu hơn
+    return (a.averageUtilizationPercentage ?? 0) - (b.averageUtilizationPercentage ?? 0);
   });
   return sorted[0]?.scenarioId ?? null;
 }
@@ -72,6 +76,67 @@ function checkScenariosAlignment(scenarios) {
   return { isTimeframeAligned, isOrgUnitAligned };
 }
 
+/**
+ * Helper generating comparison CSV string
+ */
+function buildComparisonCsv(data, recommendedId) {
+  const rows = [
+    ["BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC (NCL-08-CN-004)"],
+    [`Thời gian đối chiếu: ${data.comparedAt}`],
+    ["Nguyên tắc QTN-14 Sandbox: Dữ liệu mô phỏng độc lập, không làm thay đổi phân bổ thật."],
+    [],
+    [
+      "Mã kịch bản",
+      "Tên kịch bản",
+      "Đơn vị / Phòng ban",
+      "Trạng thái",
+      "Tuần bắt đầu",
+      "Năm",
+      "Số tuần",
+      "Số nhân sự quá tải",
+      "Tổng giờ thiếu hụt (h)",
+      "Giờ làm thêm cần thiết (h)",
+      "Giờ nhu cầu giả định (h)",
+      "Tổng khối lượng (h)",
+      "Giờ khả dụng (h)",
+      "Tải trung bình (%)",
+      "Đỉnh tải (%)",
+      "Khuyến nghị",
+    ],
+  ];
+
+  for (const scn of data.scenarios) {
+    const isRec = scn.scenarioId === recommendedId;
+    rows.push([
+      `"${scn.scenarioCode}"`,
+      `"${scn.scenarioName}"`,
+      `"${scn.orgUnitName}"`,
+      `"${scn.status}"`,
+      `${scn.fromWeek}`,
+      `${scn.fromYear}`,
+      `${scn.durationWeeks}`,
+      `${scn.overloadedEmployeesCount}`,
+      `${scn.totalShortfallHours ?? 0}`,
+      `${scn.totalRequiredAdditionalHours ?? 0}`,
+      `${scn.totalDemandHours ?? 0}`,
+      `${scn.totalWorkloadHours ?? 0}`,
+      `${scn.totalAvailableHours ?? 0}`,
+      `${Number(scn.averageUtilizationPercentage ?? 0).toFixed(1)}%`,
+      `${Number(scn.peakUtilizationPercentage ?? 0).toFixed(1)}%`,
+      isRec ? "Tối ưu nhất" : "Phương án",
+    ]);
+  }
+
+  return "\uFEFF" + rows.map((r) => r.join(",")).join("\r\n");
+}
+
+/**
+ * Safe clamping helper for progress bar
+ */
+function clampUtilization(val) {
+  return Math.max(0, Math.min(Number(val || 0), 100));
+}
+
 test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async (t) => {
   await t.test("TC-01: Validation rule on number of scenarios (min 2, max 10)", () => {
     assert.equal(validateScenarioSelection([]).valid, false);
@@ -97,6 +162,7 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
         totalShortfallHours: 45.0,
         peakUtilizationPercentage: 125.0,
         totalRequiredAdditionalHours: 50.0,
+        averageUtilizationPercentage: 110.0,
       },
       {
         scenarioId: 2,
@@ -105,6 +171,7 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
         totalShortfallHours: 0.0,
         peakUtilizationPercentage: 92.5,
         totalRequiredAdditionalHours: 0.0,
+        averageUtilizationPercentage: 85.0,
       },
       {
         scenarioId: 3,
@@ -113,6 +180,7 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
         totalShortfallHours: 10.0,
         peakUtilizationPercentage: 108.0,
         totalRequiredAdditionalHours: 12.0,
+        averageUtilizationPercentage: 98.0,
       },
     ];
 
@@ -169,5 +237,93 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
     assert.equal(canUserCompareScenarios("VT-02"), false);
     assert.equal(canUserCompareScenarios("VT-04"), false);
     assert.equal(canUserCompareScenarios("VT-05"), false);
+  });
+
+  await t.test("TC-07: CSV export generates UTF-8 BOM and correct columns with recommendation tag", () => {
+    const mockData = {
+      comparedAt: "2026-09-16T10:00:00Z",
+      scenarios: [
+        {
+          scenarioId: 10,
+          scenarioCode: "SCN-10",
+          scenarioName: "Kịch bản A",
+          orgUnitName: "Phòng Phần mềm 1",
+          status: "draft",
+          fromWeek: 10,
+          fromYear: 2026,
+          durationWeeks: 4,
+          overloadedEmployeesCount: 0,
+          totalShortfallHours: 0,
+          totalRequiredAdditionalHours: 0,
+          totalDemandHours: 160,
+          totalWorkloadHours: 640,
+          totalAvailableHours: 800,
+          averageUtilizationPercentage: 80.0,
+          peakUtilizationPercentage: 90.0,
+        },
+        {
+          scenarioId: 20,
+          scenarioCode: "SCN-20",
+          scenarioName: "Kịch bản B",
+          orgUnitName: "Phòng Phần mềm 1",
+          status: "draft",
+          fromWeek: 10,
+          fromYear: 2026,
+          durationWeeks: 4,
+          overloadedEmployeesCount: 2,
+          totalShortfallHours: 40,
+          totalRequiredAdditionalHours: 40,
+          totalDemandHours: 240,
+          totalWorkloadHours: 880,
+          totalAvailableHours: 800,
+          averageUtilizationPercentage: 110.0,
+          peakUtilizationPercentage: 125.0,
+        },
+      ],
+    };
+
+    const csvStr = buildComparisonCsv(mockData, 10);
+    assert.ok(csvStr.startsWith("\uFEFF"), "CSV must begin with UTF-8 BOM");
+    assert.ok(csvStr.includes("BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC"));
+    assert.ok(csvStr.includes("QTN-14 Sandbox"));
+    assert.ok(csvStr.includes('"SCN-10"'));
+    assert.ok(csvStr.includes('"Kịch bản A"'));
+    assert.ok(csvStr.includes("Tối ưu nhất"));
+    assert.ok(csvStr.includes("Phương án"));
+  });
+
+  await t.test("TC-08: Utilization clamp protects against NaN, null, and negative values", () => {
+    assert.equal(clampUtilization(null), 0);
+    assert.equal(clampUtilization(undefined), 0);
+    assert.equal(clampUtilization(NaN), 0);
+    assert.equal(clampUtilization(-15), 0);
+    assert.equal(clampUtilization(85.5), 85.5);
+    assert.equal(clampUtilization(120), 100);
+  });
+
+  await t.test("TC-09: Tie-breaker with averageUtilizationPercentage when all other metrics are equal", () => {
+    const mockScenarios = [
+      {
+        scenarioId: 100,
+        scenarioCode: "SCN-100",
+        overloadedEmployeesCount: 0,
+        totalShortfallHours: 0.0,
+        peakUtilizationPercentage: 95.0,
+        totalRequiredAdditionalHours: 0.0,
+        averageUtilizationPercentage: 90.0,
+      },
+      {
+        scenarioId: 200,
+        scenarioCode: "SCN-200",
+        overloadedEmployeesCount: 0,
+        totalShortfallHours: 0.0,
+        peakUtilizationPercentage: 95.0,
+        totalRequiredAdditionalHours: 0.0,
+        averageUtilizationPercentage: 80.0,
+      },
+    ];
+
+    const recommendedId = findRecommendedScenario(mockScenarios);
+    assert.equal(recommendedId, 200); // SCN-200 has 80% avg util vs SCN-100 with 90%
   });
 });
