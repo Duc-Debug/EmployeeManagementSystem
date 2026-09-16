@@ -391,4 +391,48 @@ class ScenarioSimulationCalculationTest {
         assertEquals(BigDecimal.valueOf(5.0).setScale(2), overloaded.excessHours());
         assertEquals(CapacityStatus.OVERLOADED, overloaded.status());
     }
+
+    @Test
+    @DisplayName("NCL-08-CN-002: Kiểm tra sắp xếp overloadedEmployees đúng theo Năm -> Tuần -> Tên khi vắt qua năm")
+    void testSimulationCalculation_SortsOverloadedEmployeesByYearAndWeekChronologically() {
+        ResourceScenario crossYearScenario = ResourceScenario.createNew(
+                "SCN-SORT", "Kịch bản test sort", "Mô tả", 10L, 2026, 53, 2, 100L
+        );
+        crossYearScenario.setId(88L);
+        when(loadScenarioPort.findById(88L)).thenReturn(Optional.of(crossYearScenario));
+
+        // Employee 101: Overloaded ở 2027-W01
+        // Employee 102: Overloaded ở 2026-W53
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 88L, 101L, 2027, 1, BigDecimal.valueOf(50), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 88L, 102L, 2026, 53, BigDecimal.valueOf(45), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(88L)).thenReturn(snapshots);
+        when(loadDemandPort.findByScenarioId(88L)).thenReturn(List.of());
+
+        Employee emp1 = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "An B", "Senior Java",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee emp2 = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Bình C", "Frontend",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp1, emp2));
+
+        ScenarioSimulationResult result = service.getSimulationResult(88L);
+
+        assertNotNull(result);
+        assertEquals(2, result.overloadedEmployees().size());
+
+        // Bản ghi 1 phải là 2026-W53 (Bình C)
+        var first = result.overloadedEmployees().get(0);
+        assertEquals(2026, first.year());
+        assertEquals(53, first.weekNumber());
+
+        // Bản ghi 2 phải là 2027-W01 (An B)
+        var second = result.overloadedEmployees().get(1);
+        assertEquals(2027, second.year());
+        assertEquals(1, second.weekNumber());
+    }
 }

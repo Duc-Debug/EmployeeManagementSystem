@@ -389,7 +389,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
             </span>
           </div>
           <span className="text-[11px] text-slate-500 font-medium">
-            Phân tích quá tải chi tiết từng nhân sự theo tuần
+            Phân tích nhân sự quá tải từ phân bổ hiện trạng (Baseline Snapshot)
           </span>
         </div>
 
@@ -399,10 +399,10 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <p className="text-xs font-bold text-emerald-800">
-              Không có nhân sự nào bị vỡ kế hoạch / vượt năng lực
+              Không có nhân sự nào bị vỡ kế hoạch / vượt năng lực theo phân bổ hiện trạng (Baseline)
             </p>
             <p className="text-[11px] text-slate-500">
-              Tất cả nhân sự trong đơn vị đều có khối lượng công việc nằm trong giới hạn định mức năng lực chuẩn.
+              Tất cả nhân sự trong đơn vị đều có khối lượng phân bổ gốc nằm trong định mức chuẩn. (Lưu ý: Nhu cầu kịch bản được mô phỏng ở cấp độ tổng thể kịch bản/tuần).
             </p>
           </div>
         ) : (
@@ -427,7 +427,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                     <td className="px-4 py-3 font-bold text-slate-900">{emp.fullName}</td>
                     <td className="px-4 py-3 text-slate-500">{emp.professionalRole || "—"}</td>
                     <td className="px-4 py-3 text-center font-semibold text-slate-800">
-                      Tuần {emp.weekNumber} <span className="text-[10px] text-slate-400 font-normal">({emp.year})</span>
+                      {emp.weekLabel || `Tuần ${emp.weekNumber} (${emp.year})`}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-slate-700">
                       <span className="font-semibold text-rose-700">{emp.allocatedHours}h</span> / {emp.availableHours}h

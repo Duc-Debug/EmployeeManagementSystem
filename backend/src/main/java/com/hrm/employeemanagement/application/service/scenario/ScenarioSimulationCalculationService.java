@@ -252,9 +252,10 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             employeeSnapshots.add(new EmployeeSnapshotRowResult(empId, empCode, fullName, profRole, cells));
         }
 
-        // Sắp xếp danh sách nhân sự theo tên và danh sách vượt năng lực theo tuần + tên
+        // Sắp xếp danh sách nhân sự theo tên và danh sách vượt năng lực theo năm + tuần + tên
         employeeSnapshots.sort(Comparator.comparing(EmployeeSnapshotRowResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
-        overloadedEmployees.sort(Comparator.comparing(OverloadedEmployeeResult::weekNumber)
+        overloadedEmployees.sort(Comparator.comparing(OverloadedEmployeeResult::year)
+                .thenComparing(OverloadedEmployeeResult::weekNumber)
                 .thenComparing(OverloadedEmployeeResult::fullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
 
         saveAuditLogPort.save(com.hrm.employeemanagement.domain.audit.AuditLog.create(
