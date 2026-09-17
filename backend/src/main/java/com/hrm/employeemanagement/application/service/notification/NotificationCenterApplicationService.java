@@ -154,10 +154,11 @@ public class NotificationCenterApplicationService implements
             item.markAsRead(LocalDateTime.now());
             recipientRepositoryPort.save(item);
 
-            String detail = String.format("{\"notificationRecipientId\":%d,\"notificationEventId\":%d,\"previousIsRead\":%s}",
-                    item.getId().value(),
-                    item.getEventId().value(),
-                    previousIsRead);
+            String detail = jsonSerializerPort.toJson(java.util.Map.of(
+                    "notificationRecipientId", item.getId().value(),
+                    "notificationEventId", item.getEventId().value(),
+                    "previousIsRead", previousIsRead
+            ));
 
             NotificationAuditLog auditLog = NotificationAuditLog.create(
                     new UserId(currentUserId),
