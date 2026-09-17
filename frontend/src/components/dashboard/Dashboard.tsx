@@ -65,11 +65,11 @@ export default function Dashboard() {
         if (path.includes("attendance") || path.includes("cham-cong") || path.includes("timesheet") || path.includes("work-log") || path.includes("gio-lam")) return "attendance";
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
+        if (path.includes("project-allocation") || path.includes("phan-bo-du-an") || path.includes("project-report")) return "project-allocation-report";
         if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("recruitment") || path.includes("tuyen-dung")) return "recruitment-demand";
         if (path.includes("simulation-scenario") || path.includes("mo-phong-kich-ban") || path.includes("scenarios")) return "simulation-scenarios";
         if (path.includes("schedule-conflict") || path.includes("xung-dot-lich") || path.includes("conflict")) return "schedule-conflict";
-        if (path.includes("project-allocation") || path.includes("phan-bo-du-an") || path.includes("project-report")) return "project-allocation-report";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         return "overview";
     }, [location.pathname]);
