@@ -222,4 +222,12 @@ public class ResourceScenarioJpaEntity {
     public void setAppliedAt(LocalDateTime appliedAt) { this.appliedAt = appliedAt; }
     public Long getAppliedBy() { return appliedBy; }
     public void setAppliedBy(Long appliedBy) { this.appliedBy = appliedBy; }
+
+    @PrePersist
+    @PreUpdate
+    protected void validateYearWeek() {
+        if (fromYear != null && fromWeek != null) {
+            com.hrm.employeemanagement.domain.availability.YearWeek.of(fromYear, fromWeek);
+        }
+    }
 }
