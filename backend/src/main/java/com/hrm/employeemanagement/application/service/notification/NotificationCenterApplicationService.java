@@ -21,6 +21,7 @@ import com.hrm.employeemanagement.application.port.inbound.notification.MarkAllN
 import com.hrm.employeemanagement.application.port.inbound.notification.MarkNotificationItemReadUseCase;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationAuditLogRepositoryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationEventRepositoryPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.NotificationJsonSerializerPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationRecipientRepositoryPort;
 import com.hrm.employeemanagement.domain.exception.notification.NotificationAccessDeniedException;
 import com.hrm.employeemanagement.domain.exception.notification.NotificationNotFoundException;
@@ -43,13 +44,13 @@ public class NotificationCenterApplicationService implements
     private final NotificationRecipientRepositoryPort recipientRepositoryPort;
     private final NotificationEventRepositoryPort eventRepositoryPort;
     private final NotificationAuditLogRepositoryPort auditLogRepositoryPort;
-    private final com.hrm.employeemanagement.application.port.outbound.notification.NotificationJsonSerializerPort jsonSerializerPort;
+    private final NotificationJsonSerializerPort jsonSerializerPort;
 
     public NotificationCenterApplicationService(
             NotificationRecipientRepositoryPort recipientRepositoryPort,
             NotificationEventRepositoryPort eventRepositoryPort,
             NotificationAuditLogRepositoryPort auditLogRepositoryPort,
-            com.hrm.employeemanagement.application.port.outbound.notification.NotificationJsonSerializerPort jsonSerializerPort
+            NotificationJsonSerializerPort jsonSerializerPort
     ) {
         this.recipientRepositoryPort = Objects.requireNonNull(recipientRepositoryPort, "recipientRepositoryPort must not be null");
         this.eventRepositoryPort = Objects.requireNonNull(eventRepositoryPort, "eventRepositoryPort must not be null");
