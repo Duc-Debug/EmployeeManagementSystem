@@ -43,15 +43,18 @@ public class NotificationCenterApplicationService implements
     private final NotificationRecipientRepositoryPort recipientRepositoryPort;
     private final NotificationEventRepositoryPort eventRepositoryPort;
     private final NotificationAuditLogRepositoryPort auditLogRepositoryPort;
+    private final com.hrm.employeemanagement.application.port.outbound.notification.NotificationJsonSerializerPort jsonSerializerPort;
 
     public NotificationCenterApplicationService(
             NotificationRecipientRepositoryPort recipientRepositoryPort,
             NotificationEventRepositoryPort eventRepositoryPort,
-            NotificationAuditLogRepositoryPort auditLogRepositoryPort
+            NotificationAuditLogRepositoryPort auditLogRepositoryPort,
+            com.hrm.employeemanagement.application.port.outbound.notification.NotificationJsonSerializerPort jsonSerializerPort
     ) {
         this.recipientRepositoryPort = Objects.requireNonNull(recipientRepositoryPort, "recipientRepositoryPort must not be null");
         this.eventRepositoryPort = Objects.requireNonNull(eventRepositoryPort, "eventRepositoryPort must not be null");
         this.auditLogRepositoryPort = Objects.requireNonNull(auditLogRepositoryPort, "auditLogRepositoryPort must not be null");
+        this.jsonSerializerPort = Objects.requireNonNull(jsonSerializerPort, "jsonSerializerPort must not be null");
     }
 
     @Override
@@ -75,9 +78,9 @@ public class NotificationCenterApplicationService implements
                 .distinct()
                 .toList();
 
-        Map<NotificationEventId, NotificationEvent> eventsMap = eventIds.stream()
-                .map(eventRepositoryPort::findById)
-                .flatMap(java.util.Optional::stream)
+        // Batch fetch events tránh lỗi N+1 queries
+        Map<NotificationEventId, NotificationEvent> eventsMap = eventRepositoryPort.findAllByIds(eventIds)
+                .stream()
                 .collect(Collectors.toMap(NotificationEvent::getId, Function.identity()));
 
         List<NotificationCenterItemResult> items = new ArrayList<>();
@@ -175,15 +178,18 @@ public class NotificationCenterApplicationService implements
 
         int affectedCount = recipientRepositoryPort.markAllAsRead(userId, now);
 
-        String detail = String.format("{\"affectedCount\":%d}", affectedCount);
-        NotificationAuditLog auditLog = NotificationAuditLog.create(
-                userId,
-                NotificationAuditAction.MARK_ALL_READ,
-                "NOTIFICATION_CENTER",
-                null,
-                detail
-        );
-        auditLogRepositoryPort.save(auditLog);
+        // Chỉ tạo audit record khi thực sự có ít nhất 1 dòng thay đổi (tránh audit noise)
+        if (affectedCount > 0) {
+            String detail = jsonSerializerPort.toJson(java.util.Map.of("affectedCount", affectedCount));
+            NotificationAuditLog auditLog = NotificationAuditLog.create(
+                    userId,
+                    NotificationAuditAction.MARK_ALL_READ,
+                    "NOTIFICATION_CENTER",
+                    null,
+                    detail
+            );
+            auditLogRepositoryPort.save(auditLog);
+        }
     }
 
     @Override
@@ -194,22 +200,21 @@ public class NotificationCenterApplicationService implements
         NotificationEvent event = eventRepositoryPort.findById(item.getEventId())
                 .orElseThrow(() -> new NotificationNotFoundException("Không tìm thấy sự kiện thông báo tương ứng"));
 
-        // Tạo snapshot chi tiết phục vụ tra cứu sau khi xóa mềm
+        // Tạo snapshot chi tiết bằng Jackson serializer phục vụ tra cứu sau khi xóa mềm
         DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
         String receivedAtStr = item.getCreatedAt() != null ? item.getCreatedAt().format(formatter) : "";
-        String snapshotJson = String.format(
-                "{\"notificationRecipientId\":%d,\"notificationEventId\":%d,\"eventType\":\"%s\",\"level\":\"%s\",\"title\":\"%s\",\"message\":\"%s\",\"relatedEntityType\":%s,\"relatedEntityId\":%s,\"wasRead\":%s,\"receivedAt\":\"%s\"}",
-                item.getId().value(),
-                event.getId().value(),
-                escapeJson(event.getEventType()),
-                event.getLevel().name(),
-                escapeJson(event.getTitle()),
-                escapeJson(event.getMessage()),
-                event.getRelatedEntityType() != null ? "\"" + escapeJson(event.getRelatedEntityType()) + "\"" : "null",
-                event.getRelatedEntityId() != null ? "\"" + escapeJson(event.getRelatedEntityId()) + "\"" : "null",
-                item.isRead(),
-                receivedAtStr
-        );
+        java.util.Map<String, Object> snapshotMap = new java.util.LinkedHashMap<>();
+        snapshotMap.put("notificationRecipientId", item.getId().value());
+        snapshotMap.put("notificationEventId", event.getId().value());
+        snapshotMap.put("eventType", event.getEventType());
+        snapshotMap.put("level", event.getLevel().name());
+        snapshotMap.put("title", event.getTitle());
+        snapshotMap.put("message", event.getMessage());
+        snapshotMap.put("relatedEntityType", event.getRelatedEntityType());
+        snapshotMap.put("relatedEntityId", event.getRelatedEntityId());
+        snapshotMap.put("wasRead", item.isRead());
+        snapshotMap.put("receivedAt", receivedAtStr);
+        String snapshotJson = jsonSerializerPort.toJson(snapshotMap);
 
         item.softDelete(LocalDateTime.now());
         recipientRepositoryPort.save(item);
@@ -251,16 +256,5 @@ public class NotificationCenterApplicationService implements
         if (recipientId == null) {
             throw new IllegalArgumentException("Notification Recipient ID không được để trống");
         }
-    }
-
-    private String escapeJson(String input) {
-        if (input == null) {
-            return "";
-        }
-        return input.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
     }
 }

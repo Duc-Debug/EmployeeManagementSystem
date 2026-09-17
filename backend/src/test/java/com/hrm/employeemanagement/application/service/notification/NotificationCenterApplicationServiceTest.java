@@ -48,7 +48,11 @@ class NotificationCenterApplicationServiceTest {
         recipientRepo = mock(NotificationRecipientRepositoryPort.class);
         eventRepo = mock(NotificationEventRepositoryPort.class);
         auditRepo = mock(NotificationAuditLogRepositoryPort.class);
-        service = new NotificationCenterApplicationService(recipientRepo, eventRepo, auditRepo);
+        com.hrm.employeemanagement.application.port.outbound.notification.NotificationJsonSerializerPort jsonSerializerPort =
+                new com.hrm.employeemanagement.infrastructure.adapter.outbound.serializer.notification.JacksonNotificationJsonSerializerAdapter(
+                        new com.fasterxml.jackson.databind.ObjectMapper()
+                );
+        service = new NotificationCenterApplicationService(recipientRepo, eventRepo, auditRepo, jsonSerializerPort);
     }
 
     @Test
@@ -82,7 +86,7 @@ class NotificationCenterApplicationServiceTest {
                 .thenReturn(List.of(recipient));
         when(recipientRepo.countRecipients(new UserId(currentUserId), "ALL", "ALL")).thenReturn(1L);
         when(recipientRepo.countUnread(new UserId(currentUserId))).thenReturn(1L);
-        when(eventRepo.findById(new NotificationEventId(1L))).thenReturn(Optional.of(event));
+        when(eventRepo.findAllByIds(List.of(new NotificationEventId(1L)))).thenReturn(List.of(event));
 
         NotificationCenterPageResult result = service.getNotifications(currentUserId, query);
 
@@ -195,6 +199,17 @@ class NotificationCenterApplicationServiceTest {
         assertEquals("NOTIFICATION_CENTER", audit.getTargetType());
         assertNull(audit.getTargetId()); // Semantics chuẩn xác NULL cho toàn inbox
         assertTrue(audit.getDetail().contains("\"affectedCount\":5"));
+    }
+
+    @Test
+    @DisplayName("TC-03: Đánh dấu tất cả đã đọc khi affectedCount = 0 thì không ghi audit record (tránh noise)")
+    void tc03_markAllAsRead_zeroAffected_noAuditLog() {
+        when(recipientRepo.markAllAsRead(eq(new UserId(currentUserId)), any())).thenReturn(0);
+
+        service.markAllAsRead(currentUserId);
+
+        verify(recipientRepo, times(1)).markAllAsRead(eq(new UserId(currentUserId)), any());
+        verify(auditRepo, never()).save(any());
     }
 
     @Test

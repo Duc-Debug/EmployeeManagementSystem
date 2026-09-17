@@ -20,12 +20,14 @@ public class NotificationCenterUseCaseConfig {
     public TransactionalNotificationCenterDecorator transactionalNotificationCenterDecorator(
             NotificationRecipientRepositoryPort recipientRepositoryPort,
             NotificationEventRepositoryPort eventRepositoryPort,
-            NotificationAuditLogRepositoryPort auditLogRepositoryPort
+            NotificationAuditLogRepositoryPort auditLogRepositoryPort,
+            com.hrm.employeemanagement.application.port.outbound.notification.NotificationJsonSerializerPort jsonSerializerPort
     ) {
         NotificationCenterApplicationService pureService = new NotificationCenterApplicationService(
                 recipientRepositoryPort,
                 eventRepositoryPort,
-                auditLogRepositoryPort
+                auditLogRepositoryPort,
+                jsonSerializerPort
         );
         return new TransactionalNotificationCenterDecorator(pureService);
     }
