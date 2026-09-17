@@ -27,6 +27,8 @@ export interface ScenarioResult {
   demandCount?: number;
   totalSnapshotEmployees?: number;
   appliedAt?: string | null;
+  targetProjectId?: number | null;
+  appliedBy?: number | null;
 }
 
 export interface ScenarioDemandResult {
@@ -233,3 +235,87 @@ export async function deleteScenarioDemand(
 export async function getScenarioSimulation(id: number): Promise<ScenarioSimulationResult> {
   return apiRequest<ScenarioSimulationResult>(`/resource-scenarios/${id}/simulation`);
 }
+
+export interface WeeklyComparisonCellResult {
+  year: number;
+  weekNumber: number;
+  currentProjectHours: number;
+  currentTotalAllocatedHours: number;
+  scenarioAdditionalHours: number;
+  newProjectHours: number;
+  newTotalAllocatedHours: number;
+  availableHours: number;
+  isOverloaded: boolean;
+}
+
+export interface EmployeeComparisonRowResult {
+  employeeId: number;
+  employeeCode: string;
+  employeeName: string;
+  professionalRole: string;
+  weeklyCells: WeeklyComparisonCellResult[];
+  totalScenarioHours: number;
+}
+
+export interface WeeklyHeaderResult {
+  year: number;
+  weekNumber: number;
+  weekLabel: string;
+}
+
+export interface ApplyScenarioPreviewResult {
+  scenarioId: number;
+  scenarioCode: string;
+  scenarioName: string;
+  targetProjectId: number;
+  targetProjectName: string;
+  isBaselineStale: boolean;
+  staleReasons: string[];
+  weeks: WeeklyHeaderResult[];
+  employeeComparisons: EmployeeComparisonRowResult[];
+  affectedEmployeesCount: number;
+  totalAdditionalHours: number;
+}
+
+export interface ApplyScenarioPayload {
+  targetProjectId: number;
+  note?: string;
+}
+
+export interface ApplyScenarioResult {
+  scenarioId: number;
+  scenarioCode: string;
+  targetProjectId: number;
+  targetProjectName: string;
+  status: string;
+  appliedAllocationsCount: number;
+  affectedEmployeesCount: number;
+  appliedAt: string;
+  message: string;
+}
+
+export async function getScenarioApplyPreview(
+  scenarioId: number,
+  targetProjectId: number
+): Promise<ApplyScenarioPreviewResult> {
+  return apiRequest<ApplyScenarioPreviewResult>(
+    `/resource-scenarios/${scenarioId}/apply-preview?targetProjectId=${targetProjectId}`
+  );
+}
+
+export async function applyScenarioToRealAllocations(
+  scenarioId: number,
+  payload: ApplyScenarioPayload
+): Promise<ApplyScenarioResult> {
+  return apiRequest<ApplyScenarioResult>(`/resource-scenarios/${scenarioId}/apply`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function refreshScenarioBaseline(scenarioId: number): Promise<ScenarioResult> {
+  return apiRequest<ScenarioResult>(`/resource-scenarios/${scenarioId}/refresh-baseline`, {
+    method: "POST",
+  });
+}
+
