@@ -620,6 +620,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.InsufficientScenariosForComparisonException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientScenariosForComparison(com.hrm.employeemanagement.domain.exception.scenario.InsufficientScenariosForComparisonException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INSUFFICIENT_SCENARIOS_FOR_COMPARISON",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
 
     @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException.class)
     public ResponseEntity<ErrorResponse> handleScenarioNotSaved(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException ex) {

@@ -97,6 +97,7 @@ public class CreateProjectService implements CreateProjectUseCase {
                 command.endDate(),
                 command.estimatedHours(),
                 command.description(),
+                command.status(),
                 new UserId(currentUserId));
 
         Project savedProject = saveProjectPort.save(project);

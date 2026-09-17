@@ -31,6 +31,7 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
 import com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException;
@@ -155,6 +156,9 @@ public class SaveWeeklyTimesheetGridService implements SaveWeeklyTimesheetGridUs
 
                 if (project.getStatus() == ProjectStatus.CLOSED) {
                     throw new WorkLogInClosedProjectException("Không thể ghi giờ làm việc cho dự án đã đóng theo quy tắc QTN-08.");
+                }
+                if (project.getStatus() != ProjectStatus.ACTIVE) {
+                    throw new InvalidProjectDataException("Chỉ có thể ghi giờ làm việc cho dự án đang ở trạng thái hoạt động (Trạng thái hiện tại: " + project.getStatus() + ").");
                 }
 
                 // Validate Task & Assignment

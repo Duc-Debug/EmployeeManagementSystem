@@ -122,6 +122,7 @@ public class CreateProjectFromTemplateService implements CreateProjectFromTempla
                 command.endDate(),
                 totalEstimatedHours,
                 command.description(),
+                command.status(),
                 new UserId(currentUserId));
 
         Project savedProject = saveProjectPort.save(project);
