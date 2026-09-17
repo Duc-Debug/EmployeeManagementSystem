@@ -17,6 +17,14 @@ import com.hrm.employeemanagement.infrastructure.transaction.notification.Transa
 public class NotificationCenterUseCaseConfig {
 
     @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+    public com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        return mapper;
+    }
+
+    @Bean
     public TransactionalNotificationCenterDecorator transactionalNotificationCenterDecorator(
             NotificationRecipientRepositoryPort recipientRepositoryPort,
             NotificationEventRepositoryPort eventRepositoryPort,

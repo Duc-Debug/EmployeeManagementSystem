@@ -2,22 +2,31 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.serializer.no
 
 import java.util.Objects;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationJsonSerializerPort;
 
 /**
- * Adapter triển khai NotificationJsonSerializerPort sử dụng Jackson ObjectMapper đã được Spring Boot cấu hình.
+ * Adapter triển khai NotificationJsonSerializerPort sử dụng Jackson ObjectMapper.
+ * Tự động cấu hình JavaTimeModule và fallback an toàn nếu Spring container chưa đăng ký ObjectMapper bean.
  */
 @Component
 public class JacksonNotificationJsonSerializerAdapter implements NotificationJsonSerializerPort {
 
     private final ObjectMapper objectMapper;
 
-    public JacksonNotificationJsonSerializerAdapter(ObjectMapper objectMapper) {
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+    public JacksonNotificationJsonSerializerAdapter(@Autowired(required = false) ObjectMapper objectMapper) {
+        if (objectMapper != null) {
+            this.objectMapper = objectMapper;
+        } else {
+            ObjectMapper defaultMapper = new ObjectMapper();
+            defaultMapper.registerModule(new JavaTimeModule());
+            this.objectMapper = defaultMapper;
+        }
     }
 
     @Override
