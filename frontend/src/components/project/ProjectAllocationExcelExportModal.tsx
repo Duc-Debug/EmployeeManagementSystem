@@ -99,8 +99,8 @@ export function ProjectAllocationExcelExportModal({
       const params = {
         projectId,
         ...(mode === "CUSTOM"
-          ? { fromYear, fromWeek, toYear, toWeek }
-          : {}),
+          ? { fromYear, fromWeek, toYear, toWeek, all: false }
+          : { all: true }),
       };
 
       const result = await exportProjectAllocationExcel(params, true);

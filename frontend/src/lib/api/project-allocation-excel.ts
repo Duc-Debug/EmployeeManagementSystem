@@ -13,6 +13,7 @@ export interface ExportProjectAllocationExcelParams {
   fromWeek?: number;
   toYear?: number;
   toWeek?: number;
+  all?: boolean;
 }
 
 /**
@@ -29,17 +30,21 @@ export interface ExportProjectAllocationExcelResult {
 export function buildExportProjectAllocationUrl(params: ExportProjectAllocationExcelParams): string {
   const query = new URLSearchParams();
   query.append("projectId", String(params.projectId));
-  if (params.fromYear !== undefined && params.fromYear !== null) {
-    query.append("fromYear", String(params.fromYear));
-  }
-  if (params.fromWeek !== undefined && params.fromWeek !== null) {
-    query.append("fromWeek", String(params.fromWeek));
-  }
-  if (params.toYear !== undefined && params.toYear !== null) {
-    query.append("toYear", String(params.toYear));
-  }
-  if (params.toWeek !== undefined && params.toWeek !== null) {
-    query.append("toWeek", String(params.toWeek));
+  if (params.all) {
+    query.append("all", "true");
+  } else {
+    if (params.fromYear !== undefined && params.fromYear !== null) {
+      query.append("fromYear", String(params.fromYear));
+    }
+    if (params.fromWeek !== undefined && params.fromWeek !== null) {
+      query.append("fromWeek", String(params.fromWeek));
+    }
+    if (params.toYear !== undefined && params.toYear !== null) {
+      query.append("toYear", String(params.toYear));
+    }
+    if (params.toWeek !== undefined && params.toWeek !== null) {
+      query.append("toWeek", String(params.toWeek));
+    }
   }
   return `${API_BASE_URL}/reports/export/excel/project-allocation?${query.toString()}`;
 }
@@ -115,27 +120,36 @@ export function validateExportPeriod(
 }
 
 /**
- * Kiểm tra quyền hạn của người dùng đối với chức năng xuất báo cáo Excel (VT-01, VT-02).
+ * Kiểm tra quyền hạn của người dùng đối với chức năng xuất báo cáo Excel.
+ * Bắt buộc thuộc vai trò Ban Giám Đốc (VT-01) hoặc Quản lý dự án (VT-02)
+ * VÀ phải có quyền RESOURCE_ALLOCATION_READ.
  */
 export function canExportProjectAllocationExcel(
   roleCode?: string | null,
-  permissions?: readonly string[] | null
+  permissions?: readonly string[] | null,
+  currentEmployeeId?: number | string | null,
+  projectManagerId?: number | string | null
 ): boolean {
-  if (permissions && permissions.includes("RESOURCE_ALLOCATION_READ")) {
-    return true;
+  if (permissions && !permissions.includes("RESOURCE_ALLOCATION_READ")) {
+    return false;
   }
   if (!roleCode) return false;
   const normalized = roleCode.toUpperCase().replace(/_/g, "-");
-  return [
-    "VT-01",
-    "VT-02",
-    "ROLE-PM",
-    "PM",
-    "PROJECT-MANAGER",
-    "ROLE-EXECUTIVE",
-    "EXECUTIVE",
-    "DIRECTOR",
-  ].includes(normalized);
+
+  // Ban Giám đốc (VT-01) có toàn quyền xuất
+  if (["VT-01", "ROLE-EXECUTIVE", "EXECUTIVE", "DIRECTOR"].includes(normalized)) {
+    return true;
+  }
+
+  // Quản lý dự án (VT-02): Nếu có thông tin PM và Employee ID thì phải đúng là PM của dự án đó
+  if (["VT-02", "ROLE-PM", "PM", "PROJECT-MANAGER"].includes(normalized)) {
+    if (currentEmployeeId != null && projectManagerId != null) {
+      return String(currentEmployeeId) === String(projectManagerId);
+    }
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -149,9 +163,11 @@ export async function exportProjectAllocationExcel(
     throw new ApiError("Mã dự án (projectId) là bắt buộc.", 400);
   }
 
-  const validation = validateExportPeriod(params.fromYear, params.fromWeek, params.toYear, params.toWeek);
-  if (!validation.isValid) {
-    throw new ApiError(validation.error || "Khoảng thời gian không hợp lệ.", 400);
+  if (!params.all) {
+    const validation = validateExportPeriod(params.fromYear, params.fromWeek, params.toYear, params.toWeek);
+    if (!validation.isValid) {
+      throw new ApiError(validation.error || "Khoảng thời gian không hợp lệ.", 400);
+    }
   }
 
   const url = buildExportProjectAllocationUrl(params);

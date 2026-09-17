@@ -17,6 +17,13 @@ describe("Project Allocation Excel Report Logic & Validation Tests (NCL-10-CN-00
       assert.ok(!url.includes("toWeek"));
     });
 
+    test("Xây dựng URL chính xác khi chọn all=true (chế độ toàn bộ dự án)", () => {
+      const url = buildExportProjectAllocationUrl({ projectId: 12, all: true });
+      assert.ok(url.includes("/reports/export/excel/project-allocation?projectId=12&all=true"));
+      assert.ok(!url.includes("fromYear"));
+      assert.ok(!url.includes("toWeek"));
+    });
+
     test("Xây dựng URL đầy đủ với dải tuần bắt đầu và kết thúc", () => {
       const url = buildExportProjectAllocationUrl({
         projectId: 99,
@@ -114,29 +121,30 @@ describe("Project Allocation Excel Report Logic & Validation Tests (NCL-10-CN-00
   });
 
   describe("TC-04: Phân quyền RBAC (Role Based Access Control)", () => {
-    test("VT-01 (Ban Giám Đốc) có quyền xuất báo cáo Excel", () => {
-      assert.equal(canExportProjectAllocationExcel("VT-01"), true);
-      assert.equal(canExportProjectAllocationExcel("DIRECTOR"), true);
-      assert.equal(canExportProjectAllocationExcel("ROLE-EXECUTIVE"), true);
+    test("VT-01 (Ban Giám Đốc) có quyền xuất báo cáo Excel khi có quyền RESOURCE_ALLOCATION_READ", () => {
+      assert.equal(canExportProjectAllocationExcel("VT-01", ["RESOURCE_ALLOCATION_READ"]), true);
+      assert.equal(canExportProjectAllocationExcel("DIRECTOR", ["RESOURCE_ALLOCATION_READ"]), true);
+      assert.equal(canExportProjectAllocationExcel("ROLE-EXECUTIVE", ["RESOURCE_ALLOCATION_READ"]), true);
     });
 
-    test("VT-02 (Quản lý dự án) có quyền xuất báo cáo Excel", () => {
-      assert.equal(canExportProjectAllocationExcel("VT-02"), true);
-      assert.equal(canExportProjectAllocationExcel("PM"), true);
-      assert.equal(canExportProjectAllocationExcel("ROLE-PM"), true);
+    test("VT-02 (Quản lý dự án) có quyền xuất báo cáo khi đúng là PM của dự án", () => {
+      assert.equal(canExportProjectAllocationExcel("VT-02", ["RESOURCE_ALLOCATION_READ"], 10, 10), true);
+      assert.equal(canExportProjectAllocationExcel("VT-02", ["RESOURCE_ALLOCATION_READ"], 10, 99), false);
+      assert.equal(canExportProjectAllocationExcel("PM", ["RESOURCE_ALLOCATION_READ"]), true);
     });
 
-    test("Người dùng có quyền RESOURCE_ALLOCATION_READ được phép xuất", () => {
-      assert.equal(canExportProjectAllocationExcel("VT-04", ["RESOURCE_ALLOCATION_READ"]), true);
-      assert.equal(canExportProjectAllocationExcel(null, ["RESOURCE_ALLOCATION_READ"]), true);
-    });
-
-    test("Các vai trò không có thẩm quyền bị chặn truy cập", () => {
-      assert.equal(canExportProjectAllocationExcel("VT-04"), false); // Nhân viên
-      assert.equal(canExportProjectAllocationExcel("VT-05"), false); // Nhân sự HR
-      assert.equal(canExportProjectAllocationExcel("EMPLOYEE"), false);
-      assert.equal(canExportProjectAllocationExcel(null, []), false);
+    test("Các vai trò không có thẩm quyền (VT-03, VT-04, VT-05) dù có permission vẫn bị từ chối", () => {
+      assert.equal(canExportProjectAllocationExcel("VT-03", ["RESOURCE_ALLOCATION_READ"]), false); // Quản lý nguồn lực (RM)
+      assert.equal(canExportProjectAllocationExcel("VT-04", ["RESOURCE_ALLOCATION_READ"]), false); // Nhân viên
+      assert.equal(canExportProjectAllocationExcel("VT-05", ["RESOURCE_ALLOCATION_READ"]), false); // Nhân sự HR
+      assert.equal(canExportProjectAllocationExcel("EMPLOYEE", ["RESOURCE_ALLOCATION_READ"]), false);
+      assert.equal(canExportProjectAllocationExcel(null, ["RESOURCE_ALLOCATION_READ"]), false);
       assert.equal(canExportProjectAllocationExcel(undefined, undefined), false);
+    });
+
+    test("Người dùng thiếu quyền RESOURCE_ALLOCATION_READ luôn bị chặn", () => {
+      assert.equal(canExportProjectAllocationExcel("VT-01", ["OTHER_PERMISSION"]), false);
+      assert.equal(canExportProjectAllocationExcel("VT-02", []), false);
     });
   });
 
