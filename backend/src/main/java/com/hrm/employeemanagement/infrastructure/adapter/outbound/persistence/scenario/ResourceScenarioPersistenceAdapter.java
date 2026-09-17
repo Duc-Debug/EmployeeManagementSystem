@@ -59,6 +59,11 @@ public class ResourceScenarioPersistenceAdapter implements SaveResourceScenarioP
     }
 
     @Override
+    public Optional<ResourceScenario> findByIdForUpdate(Long id) {
+        return repository.findByIdForUpdate(id).map(this::toDomain);
+    }
+
+    @Override
     public Optional<ResourceScenario> findByCode(String code) {
         return repository.findByCode(code).map(this::toDomain);
     }

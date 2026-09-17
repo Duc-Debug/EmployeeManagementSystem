@@ -24,6 +24,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.scenario.ApplyResourceScenarioService;
+import com.hrm.employeemanagement.application.service.scenario.ScenarioBaselineValidator;
 import com.hrm.employeemanagement.infrastructure.transaction.scenario.TransactionalApplyResourceScenarioServiceDecorator;
 
 @Configuration
@@ -49,7 +50,8 @@ public class ApplyResourceScenarioUseCaseConfig {
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             @Autowired(required = false) LoadWorkingCalendarPort loadWorkingCalendarPort,
-            SaveAuditLogPort saveAuditLogPort
+            SaveAuditLogPort saveAuditLogPort,
+            ScenarioBaselineValidator scenarioBaselineValidator
     ) {
         ApplyResourceScenarioService service = new ApplyResourceScenarioService(
                 authorizationService,
@@ -69,7 +71,8 @@ public class ApplyResourceScenarioUseCaseConfig {
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
                 loadWorkingCalendarPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                scenarioBaselineValidator
         );
 
         return new TransactionalApplyResourceScenarioServiceDecorator(service);

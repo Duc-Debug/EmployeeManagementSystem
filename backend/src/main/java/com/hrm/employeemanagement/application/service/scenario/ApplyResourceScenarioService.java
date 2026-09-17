@@ -1,14 +1,11 @@
 package com.hrm.employeemanagement.application.service.scenario;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.IsoFields;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -42,13 +39,9 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
-import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
-import com.hrm.employeemanagement.domain.availability.Holiday;
-import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
-import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
@@ -67,6 +60,7 @@ import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
 import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
 import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
+import com.hrm.employeemanagement.domain.scenario.ScenarioDemandDistributionPolicy;
 import com.hrm.employeemanagement.domain.scenario.ScenarioStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -96,6 +90,51 @@ public class ApplyResourceScenarioService implements
     private final LoadApprovedLeavesPort loadApprovedLeavesPort;
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final ScenarioBaselineValidator scenarioBaselineValidator;
+
+    public ApplyResourceScenarioService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadProjectPort loadProjectPort,
+            LoadResourceScenarioPort loadScenarioPort,
+            SaveResourceScenarioPort saveScenarioPort,
+            LoadScenarioDemandPort loadDemandPort,
+            LoadScenarioSnapshotPort loadSnapshotPort,
+            SaveScenarioSnapshotPort saveSnapshotPort,
+            DeleteScenarioSnapshotPort deleteSnapshotPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            SaveAuditLogPort saveAuditLogPort,
+            ScenarioBaselineValidator scenarioBaselineValidator
+    ) {
+        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
+        this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
+        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
+        this.saveScenarioPort = Objects.requireNonNull(saveScenarioPort, "SaveResourceScenarioPort must not be null");
+        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
+        this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
+        this.saveSnapshotPort = Objects.requireNonNull(saveSnapshotPort, "SaveScenarioSnapshotPort must not be null");
+        this.deleteSnapshotPort = Objects.requireNonNull(deleteSnapshotPort, "DeleteScenarioSnapshotPort must not be null");
+        this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "LoadWeeklyProjectAllocationPort must not be null");
+        this.saveAllocationPort = Objects.requireNonNull(saveAllocationPort, "SaveWeeklyProjectAllocationPort must not be null");
+        this.loadWeeklyAvailabilityPort = Objects.requireNonNull(loadWeeklyAvailabilityPort, "LoadWeeklyAvailabilityPort must not be null");
+        this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "LoadHolidaysPort must not be null");
+        this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "LoadApprovedLeavesPort must not be null");
+        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
+        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+        this.scenarioBaselineValidator = scenarioBaselineValidator != null
+                ? scenarioBaselineValidator
+                : new ScenarioBaselineValidator(loadAllocationPort, loadWeeklyAvailabilityPort, loadHolidaysPort, loadApprovedLeavesPort, loadWorkingCalendarPort);
+    }
 
     public ApplyResourceScenarioService(
             AuthorizationService authorizationService,
@@ -117,24 +156,10 @@ public class ApplyResourceScenarioService implements
             LoadWorkingCalendarPort loadWorkingCalendarPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
-        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
-        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
-        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
-        this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
-        this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
-        this.saveScenarioPort = Objects.requireNonNull(saveScenarioPort, "SaveResourceScenarioPort must not be null");
-        this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
-        this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
-        this.saveSnapshotPort = Objects.requireNonNull(saveSnapshotPort, "SaveScenarioSnapshotPort must not be null");
-        this.deleteSnapshotPort = Objects.requireNonNull(deleteSnapshotPort, "DeleteScenarioSnapshotPort must not be null");
-        this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "LoadWeeklyProjectAllocationPort must not be null");
-        this.saveAllocationPort = Objects.requireNonNull(saveAllocationPort, "SaveWeeklyProjectAllocationPort must not be null");
-        this.loadWeeklyAvailabilityPort = Objects.requireNonNull(loadWeeklyAvailabilityPort, "LoadWeeklyAvailabilityPort must not be null");
-        this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "LoadHolidaysPort must not be null");
-        this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "LoadApprovedLeavesPort must not be null");
-        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
-        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+        this(authorizationService, loadUserPort, loadEmployeePort, loadOrgUnitPort, loadProjectPort,
+                loadScenarioPort, saveScenarioPort, loadDemandPort, loadSnapshotPort, saveSnapshotPort,
+                deleteSnapshotPort, loadAllocationPort, saveAllocationPort, loadWeeklyAvailabilityPort,
+                loadHolidaysPort, loadApprovedLeavesPort, loadWorkingCalendarPort, saveAuditLogPort, null);
     }
 
     @Override
@@ -163,18 +188,16 @@ public class ApplyResourceScenarioService implements
         Map<Long, Employee> employeeMap = loadEmployeeMap(snapshotEmpIds);
 
         // 1. Kiểm tra tính toàn vẹn của baseline snapshot (TC-02)
-        List<String> staleReasons = checkBaselineStale(snapshotItems, targetWeeks, employeeMap);
+        List<String> staleReasons = scenarioBaselineValidator.checkBaselineStale(snapshotItems, targetWeeks, employeeMap);
         boolean isBaselineStale = !staleReasons.isEmpty();
 
         // 2. Tính toán phân bổ nhu cầu kịch bản xuống nhân sự
-        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = calculateDemandDistribution(demands, snapshotEmpIds, employeeMap, targetWeeks);
+        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = ScenarioDemandDistributionPolicy.calculateDistribution(demands, snapshotEmpIds, employeeMap, targetWeeks);
 
-        // 3. Nạp phân bổ hiện tại trên dự án mục tiêu
-        List<WeeklyProjectAllocation> targetProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeekRange(
+        // 3. Nạp phân bổ hiện tại trên dự án mục tiêu (hỗ trợ vắt năm)
+        List<WeeklyProjectAllocation> targetProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeeks(
                 targetProjectId,
-                scenario.getFromYear(),
-                targetWeeks.get(0).weekNumber(),
-                targetWeeks.get(targetWeeks.size() - 1).weekNumber()
+                targetWeeks
         );
         Map<String, BigDecimal> currentProjectAllocMap = targetProjectAllocations.stream()
                 .collect(Collectors.toMap(
@@ -293,7 +316,7 @@ public class ApplyResourceScenarioService implements
         User currentUser = requireResourceManagerUser();
         Long currentUserId = currentUser.getIdValue();
 
-        ResourceScenario scenario = loadScenarioPort.findById(command.scenarioId())
+        ResourceScenario scenario = loadScenarioPort.findByIdForUpdate(command.scenarioId())
                 .orElseThrow(() -> new ScenarioNotFoundException(command.scenarioId()));
 
         if (scenario.getStatus() == ScenarioStatus.APPLIED) {
@@ -322,7 +345,7 @@ public class ApplyResourceScenarioService implements
         Map<Long, Employee> employeeMap = loadEmployeeMap(snapshotEmpIds);
 
         // 1. Kiểm tra tính tươi mới của baseline snapshot (TC-02)
-        List<String> staleReasons = checkBaselineStale(snapshotItems, targetWeeks, employeeMap);
+        List<String> staleReasons = scenarioBaselineValidator.checkBaselineStale(snapshotItems, targetWeeks, employeeMap);
         if (!staleReasons.isEmpty()) {
             throw new ScenarioBaselineStaleException(
                     "Dữ liệu phân bổ thật đã thay đổi sau khi kịch bản được tạo. Vui lòng làm mới kịch bản trước khi áp dụng."
@@ -330,20 +353,23 @@ public class ApplyResourceScenarioService implements
         }
 
         // 2. Tính toán phân bổ số giờ kịch bản cho từng nhân sự
-        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = calculateDemandDistribution(demands, snapshotEmpIds, employeeMap, targetWeeks);
+        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = ScenarioDemandDistributionPolicy.calculateDistribution(demands, snapshotEmpIds, employeeMap, targetWeeks);
 
-        // 3. Nạp phân bổ hiện tại trên dự án mục tiêu
-        List<WeeklyProjectAllocation> existingProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeekRange(
+        // 3. Nạp phân bổ hiện tại trên dự án mục tiêu (hỗ trợ vắt năm)
+        List<WeeklyProjectAllocation> existingProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeeks(
                 command.targetProjectId(),
-                scenario.getFromYear(),
-                targetWeeks.get(0).weekNumber(),
-                targetWeeks.get(targetWeeks.size() - 1).weekNumber()
+                targetWeeks
         );
         Map<String, WeeklyProjectAllocation> existingAllocMap = existingProjectAllocations.stream()
                 .collect(Collectors.toMap(
                         a -> makeKey(a.getEmployeeId(), a.getYear(), a.getWeekNumber()),
                         a -> a,
-                        (a, b) -> a
+                        (a, b) -> {
+                            throw new IllegalStateException(String.format(
+                                    "Dữ liệu phân bổ trên dự án ID %d có bản ghi trùng lặp vi phạm ràng buộc cho nhân sự ID %d ở tuần %d/%d",
+                                    command.targetProjectId(), a.getEmployeeId(), a.getWeekNumber(), a.getYear()
+                            ));
+                        }
                 ));
 
         // 4. Cập nhật hoặc tạo mới weekly_project_allocations cho dự án mục tiêu (TC-01 & QTN-14)
@@ -439,6 +465,7 @@ public class ApplyResourceScenarioService implements
         List<ScenarioAllocationSnapshotItem> newSnapshotItems = new ArrayList<>();
         if (!branchEmployees.isEmpty()) {
             List<Long> empIds = branchEmployees.stream().map(Employee::getIdValue).toList();
+            Map<Long, Employee> employeeMap = branchEmployees.stream().collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
 
             List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployeesAndWeeks(empIds, targetWeeks);
             Map<String, BigDecimal> allocationMap = allocations.stream()
@@ -447,51 +474,12 @@ public class ApplyResourceScenarioService implements
                             Collectors.reducing(BigDecimal.ZERO, WeeklyProjectAllocation::getAllocatedHours, BigDecimal::add)
                     ));
 
-            List<WeeklyAvailability> availabilities = loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(empIds, targetWeeks);
-            Map<String, WeeklyAvailability> availabilityMap = availabilities.stream()
-                    .collect(Collectors.toMap(
-                            a -> makeKey(a.getEmployeeId(), a.getYear(), a.getWeekNumber()),
-                            a -> a,
-                            (e1, e2) -> e1
-                    ));
-
-            Map<Long, Map<YearWeek, BigDecimal>> leaveHoursMap = loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(empIds, targetWeeks);
-
-            LocalDate minStart = targetWeeks.get(0).getStartDate();
-            LocalDate maxEnd = targetWeeks.get(targetWeeks.size() - 1).getEndDate();
-            List<Holiday> holidays = loadHolidaysPort.getHolidaysBetween(minStart, maxEnd);
-            Set<DayOfWeek> workingDays = resolveWorkingDays();
-            Map<YearWeek, Integer> holidayHoursByWeek = targetWeeks.stream()
-                    .collect(Collectors.toMap(
-                            yw -> yw,
-                            yw -> WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yw, holidays, workingDays)
-                    ));
-
-            int weekWorkingDaysCount = workingDays.isEmpty() ? 5 : workingDays.size();
+            Map<String, BigDecimal> availableMap = scenarioBaselineValidator.calculateCurrentAvailableHours(empIds, targetWeeks, employeeMap);
 
             for (Employee emp : branchEmployees) {
                 for (YearWeek yw : targetWeeks) {
                     String key = makeKey(emp.getIdValue(), yw.year(), yw.weekNumber());
-
-                    WeeklyAvailability savedAvail = availabilityMap.get(key);
-                    BigDecimal baseAvailable;
-                    if (savedAvail != null) {
-                        baseAvailable = savedAvail.getNetAvailableHours();
-                    } else {
-                        int standardHours = emp.getStandardHoursPerWeek() != null ? emp.getStandardHoursPerWeek() : 40;
-                        int holidayHours = holidayHoursByWeek.getOrDefault(yw, 0);
-                        BigDecimal leaveHours = leaveHoursMap.getOrDefault(emp.getIdValue(), Map.of()).getOrDefault(yw, BigDecimal.ZERO);
-                        baseAvailable = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
-                    }
-
-                    BigDecimal availableHours = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
-                            baseAvailable,
-                            emp.getContractEndDate(),
-                            yw.getStartDate(),
-                            yw.getEndDate(),
-                            weekWorkingDaysCount
-                    );
-
+                    BigDecimal availableHours = availableMap.getOrDefault(key, BigDecimal.valueOf(40));
                     BigDecimal allocatedHours = allocationMap.getOrDefault(key, BigDecimal.ZERO);
 
                     newSnapshotItems.add(ScenarioAllocationSnapshotItem.create(
@@ -556,94 +544,6 @@ public class ApplyResourceScenarioService implements
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
     }
 
-    private List<String> checkBaselineStale(
-            List<ScenarioAllocationSnapshotItem> snapshotItems,
-            List<YearWeek> targetWeeks,
-            Map<Long, Employee> employeeMap
-    ) {
-        List<Long> snapshotEmpIds = snapshotItems.stream()
-                .map(ScenarioAllocationSnapshotItem::getEmployeeId)
-                .distinct()
-                .toList();
-
-        List<WeeklyProjectAllocation> currentAllocations = loadAllocationPort.loadAllocationsForEmployeesAndWeeks(snapshotEmpIds, targetWeeks);
-        Map<String, BigDecimal> currentAllocMap = currentAllocations.stream()
-                .collect(Collectors.toMap(
-                        a -> makeKey(a.getEmployeeId(), a.getYear(), a.getWeekNumber()),
-                        WeeklyProjectAllocation::getAllocatedHours,
-                        BigDecimal::add
-                ));
-
-        List<String> staleReasons = new ArrayList<>();
-        for (ScenarioAllocationSnapshotItem item : snapshotItems) {
-            String key = makeKey(item.getEmployeeId(), item.getYearNumber(), item.getWeekNumber());
-            BigDecimal currentAllocated = currentAllocMap.getOrDefault(key, BigDecimal.ZERO);
-
-            if (currentAllocated.compareTo(item.getAllocatedHours()) != 0) {
-                Employee emp = employeeMap.get(item.getEmployeeId());
-                String empName = emp != null ? emp.getFullName() : "ID " + item.getEmployeeId();
-                staleReasons.add(String.format(
-                        "Nhân sự %s: phân bổ tuần %d/%d gốc đã đổi từ %s giờ sang %s giờ",
-                        empName,
-                        item.getWeekNumber(),
-                        item.getYearNumber(),
-                        item.getAllocatedHours().stripTrailingZeros().toPlainString(),
-                        currentAllocated.stripTrailingZeros().toPlainString()
-                ));
-            }
-        }
-        return staleReasons;
-    }
-
-    private Map<Long, Map<String, BigDecimal>> calculateDemandDistribution(
-            List<ScenarioDemand> demands,
-            List<Long> empIds,
-            Map<Long, Employee> employeeMap,
-            List<YearWeek> targetWeeks
-    ) {
-        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = new HashMap<>();
-
-        for (YearWeek yw : targetWeeks) {
-            String weekKey = makeKey(yw.year(), yw.weekNumber());
-            List<ScenarioDemand> activeDemands = demands.stream()
-                    .filter(d -> d.isActiveInWeek(yw))
-                    .toList();
-
-            for (ScenarioDemand d : activeDemands) {
-                BigDecimal totalDemandHours = d.getTotalHoursPerWeek();
-                if (totalDemandHours.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-                String req = d.getSkillRequirement();
-                List<Long> matchingEmpIds = empIds.stream()
-                        .filter(id -> {
-                            Employee emp = employeeMap.get(id);
-                            return emp != null && isRoleMatching(emp.getProfessionalRole(), req);
-                        })
-                        .toList();
-
-                if (!matchingEmpIds.isEmpty()) {
-                    int count = matchingEmpIds.size();
-                    BigDecimal basePerEmp = totalDemandHours.divide(BigDecimal.valueOf(count), 2, RoundingMode.FLOOR);
-                    BigDecimal allocatedSoFar = basePerEmp.multiply(BigDecimal.valueOf(count));
-                    int remainderCents = totalDemandHours.subtract(allocatedSoFar).movePointRight(2).intValue();
-
-                    for (int i = 0; i < count; i++) {
-                        Long empId = matchingEmpIds.get(i);
-                        BigDecimal empHours = (i < remainderCents)
-                                ? basePerEmp.add(new BigDecimal("0.01"))
-                                : basePerEmp;
-                        String mapKey = makeKey(empId, yw.year(), yw.weekNumber());
-                        empDemandHoursMap
-                                .computeIfAbsent(empId, k -> new HashMap<>())
-                                .merge(mapKey, empHours, BigDecimal::add);
-                    }
-                }
-            }
-        }
-
-        return empDemandHoursMap;
-    }
-
     private Map<Long, Employee> loadEmployeeMap(List<Long> empIds) {
         List<EmployeeId> employeeIds = empIds.stream().map(EmployeeId::new).toList();
         List<Employee> employees = employeeIds.isEmpty() ? List.of() : loadEmployeePort.findAllByIdIn(employeeIds);
@@ -651,22 +551,6 @@ public class ApplyResourceScenarioService implements
                 .filter(Objects::nonNull)
                 .filter(e -> e.getIdValue() != null)
                 .collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
-    }
-
-    private boolean isRoleMatching(String employeeRole, String requirement) {
-        if (requirement == null || requirement.trim().isEmpty()) {
-            return true;
-        }
-        if (employeeRole == null || employeeRole.trim().isEmpty()) {
-            return false;
-        }
-        String trimmedReq = requirement.trim().toLowerCase();
-        String trimmedRole = employeeRole.trim().toLowerCase();
-        if (trimmedRole.equals(trimmedReq)) {
-            return true;
-        }
-        String regex = "(?i)(^|[^a-zA-Z0-9_#+])" + Pattern.quote(trimmedReq) + "([^a-zA-Z0-9_#+]|$)";
-        return Pattern.compile(regex).matcher(trimmedRole).find();
     }
 
     private List<YearWeek> buildTargetWeeks(int fromYear, int fromWeek, int durationWeeks) {
@@ -692,22 +576,6 @@ public class ApplyResourceScenarioService implements
             return List.of(orgUnitId);
         }
         return List.of();
-    }
-
-    private Set<DayOfWeek> resolveWorkingDays() {
-        if (loadWorkingCalendarPort != null) {
-            com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar calendar = loadWorkingCalendarPort.loadCompanyCalendar();
-            if (calendar != null && calendar.getWorkingDays() != null && !calendar.getWorkingDays().isEmpty()) {
-                return calendar.getWorkingDays();
-            }
-        }
-        return Set.of(
-                DayOfWeek.MONDAY,
-                DayOfWeek.TUESDAY,
-                DayOfWeek.WEDNESDAY,
-                DayOfWeek.THURSDAY,
-                DayOfWeek.FRIDAY
-        );
     }
 
     private String makeKey(Long employeeId, int year, int weekNumber) {

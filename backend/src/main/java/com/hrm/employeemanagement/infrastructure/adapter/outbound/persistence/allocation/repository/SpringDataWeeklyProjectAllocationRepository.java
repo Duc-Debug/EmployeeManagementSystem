@@ -30,6 +30,9 @@ public interface SpringDataWeeklyProjectAllocationRepository extends JpaReposito
     List<WeeklyProjectAllocationJpaEntity> findByProjectIdAndYearAndWeekNumberBetween(
             Long projectId, Integer year, Integer startWeek, Integer endWeek);
 
+    List<WeeklyProjectAllocationJpaEntity> findByProjectIdAndYearAndWeekNumberIn(
+            Long projectId, Integer year, List<Integer> weekNumbers);
+
     List<WeeklyProjectAllocationJpaEntity> findByYearAndWeekNumberBetween(
             Integer year, Integer startWeek, Integer endWeek);
 }
