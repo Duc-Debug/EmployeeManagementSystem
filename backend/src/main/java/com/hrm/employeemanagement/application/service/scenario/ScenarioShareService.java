@@ -302,13 +302,7 @@ public class ScenarioShareService implements
             sharesToSave.add(ScenarioShare.create(scenario.getId(), recipient.getIdValue(), currentUserId));
         }
 
-        List<ScenarioShare> savedShares;
-        try {
-            savedShares = saveScenarioSharePort.saveAll(sharesToSave);
-        } catch (org.springframework.dao.DataIntegrityViolationException dive) {
-            log.warn("Concurrent duplicate share detected for scenario {}: {}", scenario.getId(), dive.getMessage());
-            throw new DuplicateScenarioShareException("Kịch bản đã được chia sẻ cho người dùng trong danh sách này");
-        }
+        List<ScenarioShare> savedShares = saveScenarioSharePort.saveAll(sharesToSave);
 
         // BR-11: Ghi Audit log SCENARIO_SHARED
         for (ScenarioShare share : savedShares) {

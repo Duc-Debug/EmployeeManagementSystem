@@ -10,6 +10,9 @@ import com.hrm.employeemanagement.application.port.outbound.scenario.SaveScenari
 import com.hrm.employeemanagement.domain.scenario.ScenarioShare;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.scenario.entity.ScenarioShareJpaEntity;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioShareException;
+
 @Component
 public class JpaScenarioShareRepositoryAdapter implements SaveScenarioSharePort, LoadScenarioSharePort {
 
@@ -21,9 +24,16 @@ public class JpaScenarioShareRepositoryAdapter implements SaveScenarioSharePort,
 
     @Override
     public ScenarioShare save(ScenarioShare share) {
-        ScenarioShareJpaEntity entity = toEntity(share);
-        ScenarioShareJpaEntity saved = repository.save(entity);
-        return toDomain(saved);
+        try {
+            ScenarioShareJpaEntity entity = toEntity(share);
+            ScenarioShareJpaEntity saved = repository.saveAndFlush(entity);
+            return toDomain(saved);
+        } catch (DataIntegrityViolationException ex) {
+            if (isUniqueShareViolation(ex)) {
+                throw new DuplicateScenarioShareException("Kịch bản đã được chia sẻ cho người dùng này");
+            }
+            throw ex;
+        }
     }
 
     @Override
@@ -31,9 +41,36 @@ public class JpaScenarioShareRepositoryAdapter implements SaveScenarioSharePort,
         if (shares == null || shares.isEmpty()) {
             return List.of();
         }
-        List<ScenarioShareJpaEntity> entities = shares.stream().map(this::toEntity).toList();
-        List<ScenarioShareJpaEntity> saved = repository.saveAll(entities);
-        return saved.stream().map(this::toDomain).toList();
+        try {
+            List<ScenarioShareJpaEntity> entities = shares.stream().map(this::toEntity).toList();
+            List<ScenarioShareJpaEntity> saved = repository.saveAllAndFlush(entities);
+            return saved.stream().map(this::toDomain).toList();
+        } catch (DataIntegrityViolationException ex) {
+            if (isUniqueShareViolation(ex)) {
+                throw new DuplicateScenarioShareException("Kịch bản đã được chia sẻ cho người dùng trong danh sách này");
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isUniqueShareViolation(DataIntegrityViolationException ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                String constraintName = cve.getConstraintName();
+                if (constraintName != null && (constraintName.toLowerCase().contains("uk_scenario_active_share")
+                        || constraintName.toLowerCase().contains("scenario_shares"))) {
+                    return true;
+                }
+            }
+            String message = current.getMessage();
+            if (message != null && (message.toLowerCase().contains("uk_scenario_active_share")
+                    || message.toLowerCase().contains("duplicate entry"))) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     @Override

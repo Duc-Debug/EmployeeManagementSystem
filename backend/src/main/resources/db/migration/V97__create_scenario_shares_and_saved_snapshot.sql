@@ -11,9 +11,8 @@ ALTER TABLE resource_scenarios
     CHECK (status IN ('draft', 'saved', 'applied', 'discarded'));
 
 -- 2. Thêm cột snapshot_data lưu toàn bộ kết quả mô phỏng khi Save và cột note ghi chú kịch bản
-ALTER TABLE resource_scenarios 
-    ADD COLUMN snapshot_data LONGTEXT NULL AFTER status,
-    ADD COLUMN note TEXT NULL AFTER description;
+ALTER TABLE resource_scenarios ADD COLUMN snapshot_data LONGTEXT NULL AFTER status;
+ALTER TABLE resource_scenarios ADD COLUMN note TEXT NULL AFTER description;
 
 -- 3. Tạo bảng scenario_shares lưu trữ quyền chia sẻ kịch bản ở chế độ VIEW_ONLY
 CREATE TABLE IF NOT EXISTS scenario_shares (
@@ -24,7 +23,7 @@ CREATE TABLE IF NOT EXISTS scenario_shares (
     access_level VARCHAR(30) NOT NULL DEFAULT 'VIEW_ONLY',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     revoked_at TIMESTAMP NULL,
-    is_active TINYINT(1) GENERATED ALWAYS AS (IF(revoked_at IS NULL, 1, NULL)) VIRTUAL,
+    is_active TINYINT GENERATED ALWAYS AS (CASE WHEN revoked_at IS NULL THEN 1 ELSE NULL END),
     version BIGINT NOT NULL DEFAULT 0,
 
     CONSTRAINT fk_share_scenario FOREIGN KEY (scenario_id) REFERENCES resource_scenarios(id) ON DELETE CASCADE,
