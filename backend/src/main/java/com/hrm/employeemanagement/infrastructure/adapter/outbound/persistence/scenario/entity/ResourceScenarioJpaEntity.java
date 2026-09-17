@@ -20,6 +20,12 @@ public class ResourceScenarioJpaEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "note", columnDefinition = "TEXT")
+    private String note;
+
+    @Column(name = "snapshot_data", columnDefinition = "LONGTEXT")
+    private String snapshotData;
+
     @Column(name = "org_unit_id", nullable = false)
     private Long orgUnitId;
 
@@ -62,6 +68,9 @@ public class ResourceScenarioJpaEntity {
 
     public ResourceScenarioJpaEntity() {}
 
+    /**
+     * Constructor 14 tham số cơ bản (legacy)
+     */
     public ResourceScenarioJpaEntity(
             Long id,
             String code,
@@ -78,9 +87,36 @@ public class ResourceScenarioJpaEntity {
             LocalDateTime updatedAt,
             Long version
     ) {
-        this(id, code, name, description, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, null, null, null);
+        this(id, code, name, description, null, null, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, null, null, null);
     }
 
+    /**
+     * Constructor 16 tham số (hỗ trợ develop có note và snapshotData)
+     */
+    public ResourceScenarioJpaEntity(
+            Long id,
+            String code,
+            String name,
+            String description,
+            String note,
+            String snapshotData,
+            Long orgUnitId,
+            String status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
+        this(id, code, name, description, note, snapshotData, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, null, null, null);
+    }
+
+    /**
+     * Constructor 17 tham số (hỗ trợ feat có targetProjectId, appliedAt, appliedBy)
+     */
     public ResourceScenarioJpaEntity(
             Long id,
             String code,
@@ -100,10 +136,39 @@ public class ResourceScenarioJpaEntity {
             LocalDateTime appliedAt,
             Long appliedBy
     ) {
+        this(id, code, name, description, null, null, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, targetProjectId, appliedAt, appliedBy);
+    }
+
+    /**
+     * Constructor đầy đủ 19 tham số (phù hợp với ResourceScenarioPersistenceAdapter toEntity)
+     */
+    public ResourceScenarioJpaEntity(
+            Long id,
+            String code,
+            String name,
+            String description,
+            String note,
+            String snapshotData,
+            Long orgUnitId,
+            String status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Long targetProjectId,
+            LocalDateTime appliedAt,
+            Long appliedBy
+    ) {
         this.id = id;
         this.code = code;
         this.name = name;
         this.description = description;
+        this.note = note;
+        this.snapshotData = snapshotData;
         this.orgUnitId = orgUnitId;
         this.status = status;
         this.fromYear = fromYear;
@@ -127,6 +192,10 @@ public class ResourceScenarioJpaEntity {
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getNote() { return note; }
+    public void setNote(String note) { this.note = note; }
+    public String getSnapshotData() { return snapshotData; }
+    public void setSnapshotData(String snapshotData) { this.snapshotData = snapshotData; }
     public Long getOrgUnitId() { return orgUnitId; }
     public void setOrgUnitId(Long orgUnitId) { this.orgUnitId = orgUnitId; }
     public String getStatus() { return status; }
@@ -153,12 +222,4 @@ public class ResourceScenarioJpaEntity {
     public void setAppliedAt(LocalDateTime appliedAt) { this.appliedAt = appliedAt; }
     public Long getAppliedBy() { return appliedBy; }
     public void setAppliedBy(Long appliedBy) { this.appliedBy = appliedBy; }
-
-    @PrePersist
-    @PreUpdate
-    protected void validateYearWeek() {
-        if (fromYear != null && fromWeek != null) {
-            com.hrm.employeemanagement.domain.availability.YearWeek.of(fromYear, fromWeek);
-        }
-    }
 }

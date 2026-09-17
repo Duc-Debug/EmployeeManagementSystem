@@ -48,6 +48,8 @@ import {
     Edit3,
     MoreHorizontal,
     ClipboardCheck,
+    Sparkles,
+    Ban,
 } from 'lucide-react';
 import { TaskDependencyModal } from '../task/TaskDependencyModal';
 import {
@@ -88,6 +90,8 @@ import {
 } from '@/lib/api/resource-demands';
 import { ProjectCloseModal } from './ProjectCloseModal';
 import { ProjectReopenModal } from './ProjectReopenModal';
+import { ProjectApproveModal } from './ProjectApproveModal';
+import { ProjectCancelModal } from './ProjectCancelModal';
 import { MilestoneListView } from './milestone/MilestoneListView';
 import TaskBoardView from '../task/TaskBoardView';
 import { ProjectTaskTrackingView } from './ProjectTaskTrackingView';
@@ -303,6 +307,8 @@ export default function ProjectView() {
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
     const [closeModalOpen, setCloseModalOpen] = useState<boolean>(false);
     const [reopenModalOpen, setReopenModalOpen] = useState<boolean>(false);
+    const [approveModalOpen, setApproveModalOpen] = useState<boolean>(false);
+    const [cancelModalOpen, setCancelModalOpen] = useState<boolean>(false);
     const [moreActionsOpen, setMoreActionsOpen] = useState<boolean>(false);
     const moreActionsRef = useRef<HTMLDivElement>(null);
     const [skillSearchModalOpen, setSkillSearchModalOpen] = useState<boolean>(false);
@@ -326,13 +332,16 @@ export default function ProjectView() {
     const [editingDemandRole, setEditingDemandRole] = useState<RoleResourceDemand | null>(null);
     const [roleToDelete, setRoleToDelete] = useState<RoleResourceDemand | null>(null);
 
-    // Selected project object & Closed status (QTN-08)
+    // Selected project object & Closed/Planned status (QTN-08)
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
     const isProjectClosed = selectedProject?.status === 'CLOSED';
+    const isProjectPlanned = selectedProject?.status === 'PLANNED';
 
-    // Quyền đóng và mở lại dự án (NCL-03-CN-004)
-    const canCloseProject = (isExecutive || isPm) && !isProjectClosed && selectedProject !== null;
+    // Quyền thao tác trạng thái dự án (NCL-03-CN-004)
+    const canCloseProject = (isExecutive || isPm) && selectedProject?.status === 'ACTIVE';
     const canReopenProject = (isExecutive || isPm) && isProjectClosed && selectedProject !== null;
+    const canApproveProject = (isExecutive || isPm) && isProjectPlanned && selectedProject !== null;
+    const canCancelProject = (isExecutive || isPm) && isProjectPlanned && selectedProject !== null;
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -343,6 +352,25 @@ export default function ProjectView() {
             setToast(null);
         }, 3200);
     }, []);
+
+    const handleProjectApproved = (approvedProject: ProjectResult) => {
+        setProjectsList((prev) =>
+            prev.map((p) => (p.id === approvedProject.id ? approvedProject : p))
+        );
+        if (selectedProjectId) {
+            loadWbsForProject(selectedProjectId);
+            loadProjectAllocations();
+            loadProjectDemands(selectedProjectId);
+        }
+        showToast(`Dự án "${approvedProject.projectName}" đã được phê duyệt & khởi động thành công!`, 'success');
+    };
+
+    const handleProjectCancelled = (cancelledProject: ProjectResult) => {
+        setProjectsList((prev) =>
+            prev.map((p) => (p.id === cancelledProject.id ? cancelledProject : p))
+        );
+        showToast(`Dự án "${cancelledProject.projectName}" đã được hủy bỏ.`, 'info');
+    };
 
     const handleCloneSuccess = async (result: CloneProjectWbsResult) => {
         if (selectedProjectId) {
@@ -955,7 +983,7 @@ export default function ProjectView() {
     };
 
     const handleProjectClosed = async (closedProj: ProjectResult) => {
-        showToast(`Đã đóng dự án ${closedProj.projectName} thành công. Toàn bộ công việc và phân bổ đã được khóa (QTN-08)!`, 'info');
+        showToast(`Đã đóng dự án ${closedProj.projectName} thành công. Toàn bộ công việc và phân bổ đã được khóa!`, 'info');
         await loadProjects();
         if (selectedProjectId) {
             await loadWbsForProject(selectedProjectId);
@@ -1084,6 +1112,16 @@ export default function ProjectView() {
                                             <Lock className="h-3 w-3 text-rose-600" />
                                             <span>Đã đóng</span>
                                         </span>
+                                    ) : selectedProject.status === 'CANCELLED' ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 shadow-2xs">
+                                            <Ban className="h-3 w-3 text-slate-500" />
+                                            <span>Đã hủy</span>
+                                        </span>
+                                    ) : selectedProject.status === 'PLANNED' ? (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 shadow-2xs">
+                                            <Sparkles className="h-3 w-3 text-blue-600" />
+                                            <span>Dự kiến</span>
+                                        </span>
                                     ) : selectedProject.status === 'ACTIVE' ? (
                                         <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 shadow-2xs">
                                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
@@ -1110,7 +1148,7 @@ export default function ProjectView() {
                                             >
                                                 {projectsList.map((p) => (
                                                     <option key={p.id} value={p.id}>
-                                                        {p.projectName} ({p.projectCode}) {p.status === 'CLOSED' ? '— [ĐÃ ĐÓNG]' : ''}
+                                                        {p.projectName} ({p.projectCode}) {p.status === 'CLOSED' ? '— [ĐÃ ĐÓNG]' : p.status === 'PLANNED' ? '— [DỰ KIẾN]' : p.status === 'CANCELLED' ? '— [ĐÃ HỦY]' : ''}
                                                     </option>
                                                 ))}
                                             </select>
@@ -1139,7 +1177,7 @@ export default function ProjectView() {
                                     </span>
                                 )}
 
-                                {canManageProject && selectedProject && (
+                                {canManageProject && selectedProject && !isProjectClosed && selectedProject.status !== 'CANCELLED' && (
                                     <button
                                         type="button"
                                         onClick={() => setProjectEditModalOpen(true)}
@@ -1162,13 +1200,25 @@ export default function ProjectView() {
 
                     {/* Top Actions: Streamlined with More Actions Dropdown */}
                     <div className="flex items-center gap-2 self-start lg:self-auto">
+                        {canApproveProject && (
+                            <button
+                                type="button"
+                                onClick={() => setApproveModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs shadow-emerald-200 hover:bg-emerald-700 transition active:scale-95 cursor-pointer"
+                                title="Phê duyệt và chuyển dự án sang trạng thái Đang thực hiện"
+                            >
+                                <Sparkles className="h-4 w-4 stroke-[2.2]" />
+                                <span>Phê duyệt dự án</span>
+                            </button>
+                        )}
+
                         {canManageProject && (
                             <button
                                 type="button"
-                                disabled={isProjectClosed}
-                                onClick={() => !isProjectClosed && handleQuickAddTask()}
+                                disabled={isProjectClosed || selectedProject?.status === 'CANCELLED'}
+                                onClick={() => !isProjectClosed && selectedProject?.status !== 'CANCELLED' && handleQuickAddTask()}
                                 className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition ${
-                                    isProjectClosed
+                                    isProjectClosed || selectedProject?.status === 'CANCELLED'
                                         ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
                                         : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700 active:scale-95 cursor-pointer'
                                 }`}
@@ -1206,6 +1256,34 @@ export default function ProjectView() {
 
                             {moreActionsOpen && (
                                 <div className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                                    {canApproveProject && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMoreActionsOpen(false);
+                                                setApproveModalOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                                        >
+                                            <Sparkles className="h-4 w-4 text-emerald-500" />
+                                            <span>Phê duyệt & Khởi động</span>
+                                        </button>
+                                    )}
+
+                                    {canCancelProject && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMoreActionsOpen(false);
+                                                setCancelModalOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                        >
+                                            <Ban className="h-4 w-4 text-rose-500" />
+                                            <span>Hủy dự án dự kiến</span>
+                                        </button>
+                                    )}
+
                                     {canManageProject && (
                                         <button
                                             type="button"
@@ -1223,15 +1301,15 @@ export default function ProjectView() {
                                     {canManageWbs && (
                                         <button
                                             type="button"
-                                            disabled={isProjectClosed}
+                                            disabled={isProjectClosed || selectedProject?.status === 'CANCELLED'}
                                             onClick={() => {
-                                                if (!isProjectClosed) {
+                                                if (!isProjectClosed && selectedProject?.status !== 'CANCELLED') {
                                                     setMoreActionsOpen(false);
                                                     setCloneModalOpen(true);
                                                 }
                                             }}
                                             className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition ${
-                                                isProjectClosed
+                                                isProjectClosed || selectedProject?.status === 'CANCELLED'
                                                     ? 'opacity-40 cursor-not-allowed text-slate-400'
                                                     : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer'
                                             }`}
@@ -1253,7 +1331,7 @@ export default function ProjectView() {
                                         <span>Xuất báo cáo Excel</span>
                                     </button>
 
-                                    {(canCloseProject || canReopenProject) && (
+                                    {(canCloseProject || canReopenProject || canCancelProject) && (
                                         <div className="my-1 border-t border-slate-100" />
                                     )}
 
@@ -1328,11 +1406,11 @@ export default function ProjectView() {
                                     Dự án đã đóng ({selectedProject.projectCode})
                                 </h3>
                                 <span className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700">
-                                    Khóa QTN-08
+                                    Đã khóa
                                 </span>
                             </div>
                             <p className="text-rose-700 mt-0.5 leading-relaxed text-[11px]">
-                                Theo quy tắc <strong>QTN-08</strong>, toàn bộ công việc và phân bổ nguồn lực đã được chốt. Hệ thống không cho phép tạo thêm công việc mới hoặc thay đổi giờ phân bổ.
+                                Toàn bộ công việc và phân bổ nguồn lực của dự án đã được chốt. Hệ thống không cho phép tạo thêm công việc mới hoặc thay đổi giờ phân bổ.
                             </p>
                             {selectedProject.closureReason && (
                                 <p className="mt-1 text-[11px] text-rose-800 bg-white/70 p-1.5 rounded-md border border-rose-200/60">
@@ -1350,6 +1428,52 @@ export default function ProjectView() {
                             <Unlock className="h-3.5 w-3.5" />
                             <span>Mở lại dự án</span>
                         </button>
+                    )}
+                </div>
+            )}
+
+            {/* Banner thông báo khi dự án đang ở trạng thái Dự kiến (PLANNED) */}
+            {isProjectPlanned && selectedProject && (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50/90 p-3.5 text-xs text-blue-900 shadow-2xs flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                            <Sparkles className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-blue-950 text-xs sm:text-sm">
+                                    Dự án đang ở giai đoạn Dự kiến ({selectedProject.projectCode})
+                                </h3>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                    PLANNED
+                                </span>
+                            </div>
+                            <p className="text-blue-700 mt-0.5 leading-relaxed text-[11px]">
+                                Dự án đang trong giai đoạn lập kế hoạch, ước lượng nhu cầu nhân lực và giữ chỗ nguồn lực. Khi được phê duyệt, các giữ chỗ nguồn lực sẽ tự động được chuyển thành phân bổ tuần chính thức.
+                            </p>
+                        </div>
+                    </div>
+                    {canApproveProject && (
+                        <div className="flex items-center gap-2">
+                            {canCancelProject && (
+                                <button
+                                    type="button"
+                                    onClick={() => setCancelModalOpen(true)}
+                                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-rose-600 shadow-2xs hover:bg-rose-50 transition shrink-0 cursor-pointer"
+                                >
+                                    <Ban className="h-3.5 w-3.5" />
+                                    <span>Hủy dự án</span>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setApproveModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition shrink-0 cursor-pointer"
+                            >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                <span>Phê duyệt dự án</span>
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
@@ -1835,6 +1959,22 @@ export default function ProjectView() {
                 isExecutive={isExecutive}
                 onClose={() => setReopenModalOpen(false)}
                 onSuccess={handleProjectReopened}
+            />
+
+            {/* Modal Phê duyệt dự án (PLANNED -> ACTIVE) */}
+            <ProjectApproveModal
+                open={approveModalOpen}
+                project={selectedProject}
+                onClose={() => setApproveModalOpen(false)}
+                onSuccess={handleProjectApproved}
+            />
+
+            {/* Modal Hủy dự án (PLANNED -> CANCELLED) */}
+            <ProjectCancelModal
+                open={cancelModalOpen}
+                project={selectedProject}
+                onClose={() => setCancelModalOpen(false)}
+                onSuccess={handleProjectCancelled}
             />
 
             {/* Modal Lọc & Chọn Nhân Sự Theo Kỹ Năng */}

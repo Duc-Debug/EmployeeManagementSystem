@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.hrm.employeemanagement.application.dto.project.CancelProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.CloseProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.CreateProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
@@ -22,6 +23,8 @@ import com.hrm.employeemanagement.application.dto.projecttemplate.CreateProjectF
 import com.hrm.employeemanagement.application.dto.projecttemplate.ProjectTemplateDetailResult;
 import com.hrm.employeemanagement.application.dto.projecttemplate.ProjectTemplateSummaryResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
+import com.hrm.employeemanagement.application.port.inbound.project.ApproveProjectUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.CancelProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.CloseProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.CreateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
@@ -30,6 +33,7 @@ import com.hrm.employeemanagement.application.port.inbound.project.ReopenProject
 import com.hrm.employeemanagement.application.port.inbound.project.UpdateProjectUseCase;
 import com.hrm.employeemanagement.application.port.inbound.projecttemplate.CreateProjectFromTemplateUseCase;
 import com.hrm.employeemanagement.application.port.inbound.projecttemplate.GetProjectTemplatesUseCase;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.CancelProjectRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.CloseProjectRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.CreateProjectFromTemplateRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.project.dto.CreateProjectRequest;
@@ -54,6 +58,8 @@ public class ProjectController {
         private final GetProjectTemplatesUseCase getProjectTemplatesUseCase;
         private final CloseProjectUseCase closeProjectUseCase;
         private final ReopenProjectUseCase reopenProjectUseCase;
+        private final ApproveProjectUseCase approveProjectUseCase;
+        private final CancelProjectUseCase cancelProjectUseCase;
         private final com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase;
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -66,6 +72,8 @@ public class ProjectController {
             GetProjectTemplatesUseCase getProjectTemplatesUseCase,
             CloseProjectUseCase closeProjectUseCase,
             ReopenProjectUseCase reopenProjectUseCase,
+            ApproveProjectUseCase approveProjectUseCase,
+            CancelProjectUseCase cancelProjectUseCase,
             com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase) {
         this.getProjectListUseCase = getProjectListUseCase;
         this.getProjectDetailUseCase = getProjectDetailUseCase;
@@ -75,6 +83,8 @@ public class ProjectController {
         this.getProjectTemplatesUseCase = getProjectTemplatesUseCase;
         this.closeProjectUseCase = closeProjectUseCase;
         this.reopenProjectUseCase = reopenProjectUseCase;
+        this.approveProjectUseCase = approveProjectUseCase;
+        this.cancelProjectUseCase = cancelProjectUseCase;
         this.getAssignableEmployeesUseCase = getAssignableEmployeesUseCase;
     }
 
@@ -123,7 +133,8 @@ public class ProjectController {
                                 request.startDate(),
                                 request.endDate(),
                                 request.estimatedHours(),
-                                request.description());
+                                request.description(),
+                                request.status());
                 ProjectResult result = createProjectUseCase.createProject(command);
                 return ResponseEntity.status(HttpStatus.CREATED)
                                 .body(ApiResponse.success("Tạo dự án thành công", result));
@@ -139,7 +150,8 @@ public class ProjectController {
                                 request.managerId(),
                                 request.startDate(),
                                 request.endDate(),
-                                request.description());
+                                request.description(),
+                                request.status());
                 ProjectResult result = createProjectFromTemplateUseCase.createProjectFromTemplate(command);
                 return ResponseEntity.status(HttpStatus.CREATED)
                                 .body(ApiResponse.success("Tạo dự án từ mẫu thành công", result));
@@ -178,6 +190,23 @@ public class ProjectController {
                                 ApiResponse.success(
                                                 "Lấy chi tiết mẫu dự án thành công",
                                                 detail));
+        }
+
+        @PostMapping("/{id}/approve")
+        public ResponseEntity<ApiResponse<ProjectResult>> approveProject(
+                        @PathVariable Long id) {
+                ProjectResult result = approveProjectUseCase.approveProject(id);
+                return ResponseEntity.ok(ApiResponse.success("Phê duyệt và khởi động dự án thành công", result));
+        }
+
+        @PostMapping("/{id}/cancel")
+        public ResponseEntity<ApiResponse<ProjectResult>> cancelProject(
+                        @PathVariable Long id,
+                        @Valid @RequestBody(required = false) CancelProjectRequest request) {
+                String reason = request != null ? request.cancelReason() : null;
+                CancelProjectCommand command = new CancelProjectCommand(id, reason);
+                ProjectResult result = cancelProjectUseCase.cancelProject(command);
+                return ResponseEntity.ok(ApiResponse.success("Hủy dự án dự kiến thành công", result));
         }
 
         @PostMapping("/{id}/close")

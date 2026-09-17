@@ -61,6 +61,7 @@ export function ProjectCreateModal({
     const [endDate, setEndDate] = useState('');
     const [estimatedHours, setEstimatedHours] = useState<number>(200);
     const [description, setDescription] = useState('');
+    const [status, setStatus] = useState<'PLANNED' | 'ACTIVE'>('PLANNED');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
@@ -273,6 +274,7 @@ export function ProjectCreateModal({
                     startDate: startDate || undefined,
                     endDate: endDate || undefined,
                     description: description.trim() || undefined,
+                    status: status,
                 };
 
                 const created = await createProjectFromTemplate(payload);
@@ -287,6 +289,7 @@ export function ProjectCreateModal({
                     endDate: endDate || undefined,
                     estimatedHours: Number(estimatedHours) || undefined,
                     description: description.trim() || undefined,
+                    status: status,
                 };
 
                 const created = await createProject(payload);
@@ -626,6 +629,63 @@ export function ProjectCreateModal({
                             placeholder="Mô tả phạm vi và mục tiêu chính của dự án..."
                             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                         />
+                    </div>
+
+                    {/* Initial Status Selector */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2">
+                        <label className="block font-semibold text-slate-700">Trạng thái khởi tạo dự án</label>
+                        <div className="grid grid-cols-2 gap-2.5">
+                            <label
+                                className={`flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 transition ${
+                                    status === 'PLANNED'
+                                        ? 'border-blue-500 bg-blue-50/70 text-blue-950 shadow-2xs'
+                                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                }`}
+                            >
+                                <input
+                                    type="radio"
+                                    name="projectStatus"
+                                    value="PLANNED"
+                                    checked={status === 'PLANNED'}
+                                    onChange={() => setStatus('PLANNED')}
+                                    className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                                />
+                                <div>
+                                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                                        <span>Dự kiến (PLANNED)</span>
+                                        <span className="rounded bg-blue-100 px-1 py-0.2 text-[9px] font-semibold text-blue-700">Khuyên dùng</span>
+                                    </div>
+                                    <p className="mt-0.5 text-[10px] text-slate-500 leading-tight">
+                                        Cho phép lập kế hoạch nhu cầu và giữ chỗ nguồn lực trước khi khởi động.
+                                    </p>
+                                </div>
+                            </label>
+
+                            <label
+                                className={`flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 transition ${
+                                    status === 'ACTIVE'
+                                        ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950 shadow-2xs'
+                                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                }`}
+                            >
+                                <input
+                                    type="radio"
+                                    name="projectStatus"
+                                    value="ACTIVE"
+                                    checked={status === 'ACTIVE'}
+                                    onChange={() => setStatus('ACTIVE')}
+                                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <div>
+                                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                                        <span>Đang thực hiện (ACTIVE)</span>
+                                    </div>
+                                    <p className="mt-0.5 text-[10px] text-slate-500 leading-tight">
+                                        Khởi động dự án ngay, cho phép phân bổ chính thức và log công việc.
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     {/* Footer Actions */}

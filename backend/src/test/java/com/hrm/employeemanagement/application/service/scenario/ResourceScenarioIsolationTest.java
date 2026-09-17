@@ -31,6 +31,10 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.application.dto.scenario.PatchScenarioCommand;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSharePort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
@@ -75,6 +79,9 @@ class ResourceScenarioIsolationTest {
     private DeleteScenarioDemandPort deleteDemandPort;
     private LoadCapacityThresholdPort loadCapacityThresholdPort;
     private SaveAuditLogPort saveAuditLogPort;
+    private LoadScenarioSharePort loadScenarioSharePort;
+    private LoadProjectPort loadProjectPort;
+    private SaveAuditLogInNewTransactionPort deniedAuditLogPort;
 
     // Mock ports for real allocation write methods to prove they are NEVER called
     private SaveWeeklyProjectAllocationPort realSaveAllocationPort;
@@ -94,6 +101,8 @@ class ResourceScenarioIsolationTest {
     private List<ScenarioAllocationSnapshotItem> storedSnapshots;
     // Simulated scenario demands state
     private List<ScenarioDemand> storedDemands;
+    // Stored scenario state
+    private ResourceScenario storedScenario;
 
     @BeforeEach
     void setUp() {
@@ -115,27 +124,12 @@ class ResourceScenarioIsolationTest {
         deleteDemandPort = mock(DeleteScenarioDemandPort.class);
         loadCapacityThresholdPort = mock(LoadCapacityThresholdPort.class);
         saveAuditLogPort = mock(SaveAuditLogPort.class);
+        loadScenarioSharePort = mock(LoadScenarioSharePort.class);
+        loadProjectPort = mock(LoadProjectPort.class);
+        deniedAuditLogPort = mock(SaveAuditLogInNewTransactionPort.class);
 
         realSaveAllocationPort = mock(SaveWeeklyProjectAllocationPort.class);
         realDeleteAllocationPort = mock(DeleteWeeklyProjectAllocationPort.class);
-
-        scenarioService = new ResourceScenarioService(
-                authorizationService,
-                loadUserPort,
-                loadEmployeePort,
-                loadOrgUnitPort,
-                loadAllocationPort,
-                loadWeeklyAvailabilityPort,
-                loadHolidaysPort,
-                loadApprovedLeavesPort,
-                loadWorkingCalendarPort,
-                saveScenarioPort,
-                loadScenarioPort,
-                saveSnapshotPort,
-                loadSnapshotPort,
-                loadDemandPort,
-                saveAuditLogPort
-        );
 
         demandService = new ScenarioDemandService(
                 authorizationService,
@@ -157,7 +151,32 @@ class ResourceScenarioIsolationTest {
                 loadDemandPort,
                 loadSnapshotPort,
                 loadCapacityThresholdPort,
+                loadScenarioSharePort,
+                loadProjectPort,
+                deniedAuditLogPort,
                 saveAuditLogPort
+        );
+
+        scenarioService = new ResourceScenarioService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort,
+                saveScenarioPort,
+                loadScenarioPort,
+                saveSnapshotPort,
+                loadSnapshotPort,
+                loadDemandPort,
+                saveAuditLogPort,
+                loadScenarioSharePort,
+                loadProjectPort,
+                simulationService,
+                deniedAuditLogPort
         );
 
         vt03User = new User(
@@ -230,16 +249,18 @@ class ResourceScenarioIsolationTest {
             return storedDemands.stream().filter(d -> d.getId().equals(id)).findFirst();
         });
 
+        storedScenario = ResourceScenario.createNew("SCN-01", "Kịch bản", "", 10L, 2026, 38, 8, 103L);
+        storedScenario.setId(1L);
+
         when(saveScenarioPort.save(any(ResourceScenario.class))).thenAnswer(inv -> {
             ResourceScenario s = inv.getArgument(0);
-            s.setId(1L);
+            if (s.getId() == null) {
+                s.setId(1L);
+            }
+            storedScenario = s;
             return s;
         });
-        when(loadScenarioPort.findById(1L)).thenAnswer(inv -> {
-            ResourceScenario s = ResourceScenario.createNew("SCN-01", "Kịch bản", "", 10L, 2026, 38, 8, 103L);
-            s.setId(1L);
-            return Optional.of(s);
-        });
+        when(loadScenarioPort.findById(anyLong())).thenAnswer(inv -> Optional.ofNullable(storedScenario));
     }
 
     @Test
@@ -293,5 +314,47 @@ class ResourceScenarioIsolationTest {
                 simResult.weeklyMetrics().get(0).snapshotAllocatedHours(),
                 "Kịch bản sandbox phải đọc từ snapshot tại thời điểm tạo, không bị ảnh hưởng khi allocation thật thay đổi"
         );
+    }
+
+    @Test
+    @DisplayName("QTN-14 & BR-06 & BR-07: Lưu kịch bản (SAVED) đóng băng snapshot_data; thay đổi phân bổ thật không làm đổi kết quả xem; sửa kịch bản chuyển về DRAFT")
+    void testSavedScenarioSnapshotIsolation_AndTransitionToDraftOnEdit() {
+        // 1. Tạo scenario DRAFT
+        CreateScenarioCommand createCmd = new CreateScenarioCommand(
+                "SCN-01", "Kịch bản mô phỏng", "Mô tả", 10L, 2026, 38, 8
+        );
+        ScenarioResult scenario = scenarioService.createScenario(createCmd);
+        assertEquals("draft", scenario.status());
+
+        // Thêm demand 40h
+        demandService.addDemand(new AddScenarioDemandCommand(
+                scenario.id(), "Nhu cầu A", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(40), "Backend"
+        ));
+
+        // 2. Lưu kịch bản (Save snapshot)
+        ScenarioResult savedResult = scenarioService.saveScenario(scenario.id());
+        assertEquals("saved", savedResult.status());
+        assertNotNull(storedScenario.getSnapshotData(), "snapshot_data phải được lưu");
+
+        // Đọc simulation tại thời điểm SAVED: 32h allocation thật + 40h demand = 72h
+        ScenarioSimulationResult savedSim = simulationService.getSimulationResult(scenario.id());
+        assertEquals(BigDecimal.valueOf(72), savedSim.weeklyMetrics().get(0).scenarioWorkloadHours());
+
+        // 3. Giả lập biến động bên ngoài: Thay đổi dữ liệu phân bổ thật lên 100h
+        realAllocations.get(0).updateAllocatedHours(BigDecimal.valueOf(100));
+
+        // Khi gọi getSimulationResult trên kịch bản SAVED, BR-06 đảm bảo đọc trực tiếp từ snapshot_data
+        ScenarioSimulationResult simAfterLiveChange = simulationService.getSimulationResult(scenario.id());
+        assertEquals(BigDecimal.valueOf(72), simAfterLiveChange.weeklyMetrics().get(0).scenarioWorkloadHours(),
+                "Kịch bản SAVED phải đọc trực tiếp từ snapshot_data, bảo đảm tuyệt đối không bị ảnh hưởng bởi biến động dữ liệu");
+
+        // 4. BR-07: Khi chủ sở hữu chỉnh sửa kịch bản (patch name/note), kịch bản tự động chuyển về DRAFT
+        PatchScenarioCommand patchCmd = new PatchScenarioCommand(
+                scenario.id(), "Kịch bản đã sửa", "Ghi chú mới"
+        );
+        ScenarioResult patchedResult = scenarioService.patchScenario(patchCmd);
+        assertEquals("draft", patchedResult.status(), "Sau khi sửa thông tin, trạng thái phải chuyển về DRAFT");
+        assertEquals("Kịch bản đã sửa", patchedResult.name());
+        assertEquals("Ghi chú mới", patchedResult.note());
     }
 }

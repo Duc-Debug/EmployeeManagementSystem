@@ -68,6 +68,12 @@ class ProjectControllerTest {
     private ReopenProjectUseCase reopenProjectUseCase;
 
     @Mock
+    private com.hrm.employeemanagement.application.port.inbound.project.ApproveProjectUseCase approveProjectUseCase;
+
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.project.CancelProjectUseCase cancelProjectUseCase;
+
+    @Mock
     private com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase;
 
     @BeforeEach
@@ -82,6 +88,8 @@ class ProjectControllerTest {
                         getProjectTemplatesUseCase,
                         closeProjectUseCase,
                         reopenProjectUseCase,
+                        approveProjectUseCase,
+                        cancelProjectUseCase,
                         getAssignableEmployeesUseCase
                 );
 
@@ -329,7 +337,8 @@ class ProjectControllerTest {
             {
                 "templateId": 1,
                 "projectName": "Dự án mới từ mẫu",
-                "orgUnitId": 5
+                "orgUnitId": 5,
+                "status": "ACTIVE"
             }
             """;
 
@@ -349,7 +358,8 @@ class ProjectControllerTest {
         String jsonPayload = """
             {
                 "projectName": "Dự án thiếu template",
-                "orgUnitId": 5
+                "orgUnitId": 5,
+                "status": "ACTIVE"
             }
             """;
 
@@ -372,7 +382,8 @@ class ProjectControllerTest {
             {
                 "templateId": 999,
                 "projectName": "Dự án mẫu không tồn tại",
-                "orgUnitId": 5
+                "orgUnitId": 5,
+                "status": "ACTIVE"
             }
             """;
 
