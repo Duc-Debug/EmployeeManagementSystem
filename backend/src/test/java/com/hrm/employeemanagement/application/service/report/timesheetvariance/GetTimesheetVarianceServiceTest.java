@@ -201,4 +201,74 @@ class GetTimesheetVarianceServiceTest {
         assertThrows(PermissionDeniedException.class, () -> service.execute(query));
         verify(saveAuditLogPort).save(any(AuditLog.class));
     }
+
+    @Test
+    @DisplayName("TC-04: Giờ phân bổ = 0h, Thực tế duyệt = 20h -> variancePercentage = null (N/A), trạng thái POSITIVE_VARIANCE")
+    void testVariancePercentage_WhenAllocatedIsZero_ReturnsNull() {
+        // Given: Tuần 35/2026, Phân bổ 0h (hoặc không có bản ghi phân bổ), Thực tế duyệt 20h
+        int year = 2026;
+        int week = 35;
+
+        Employee emp = mock(Employee.class);
+        when(emp.getIdValue()).thenReturn(EMPLOYEE_ID);
+        when(emp.getEmployeeCode()).thenReturn("EMP001");
+        when(emp.getFullName()).thenReturn("Nguyen Van A");
+        when(emp.getOrgUnitId()).thenReturn(ORG_UNIT_ID);
+        when(loadEmployeePort.findActiveByOrgUnitIds(List.of(ORG_UNIT_ID))).thenReturn(List.of(emp));
+
+        // Không có bản ghi phân bổ (allocated = 0h)
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(eq(List.of(EMPLOYEE_ID)), any())).thenReturn(List.of());
+
+        Project project = mock(Project.class);
+        when(project.getId()).thenReturn(new ProjectId(PROJECT_ID));
+        when(project.getProjectName()).thenReturn("Hệ thống HRM");
+        when(loadProjectPort.findAllById(any())).thenReturn(List.of(project));
+
+        String key = EMPLOYEE_ID + "_" + PROJECT_ID + "_" + year + "_" + week;
+        when(loadTimesheetVariancePort.loadApprovedActualHours(eq(List.of(EMPLOYEE_ID)), any(), any()))
+                .thenReturn(Map.of(key, BigDecimal.valueOf(20.0)));
+
+        // When
+        TimesheetVarianceQuery query = new TimesheetVarianceQuery(ORG_UNIT_ID, null, null, year, week, year, week);
+        TimesheetVarianceResult result = service.execute(query);
+
+        // Then
+        assertNotNull(result);
+        assertTrue(result.hasAnyActualData());
+        assertEquals(1, result.items().size());
+
+        TimesheetVarianceItem item = result.items().get(0);
+        assertEquals(BigDecimal.ZERO.setScale(1), item.allocatedHours());
+        assertEquals(BigDecimal.valueOf(20.0).setScale(1), item.actualApprovedHours());
+        assertEquals(BigDecimal.valueOf(20.0).setScale(1), item.varianceHours());
+        org.junit.jupiter.api.Assertions.assertNull(item.variancePercentage(), "variancePercentage phải là null khi allocated = 0 để tránh chia cho 0");
+        assertEquals("POSITIVE_VARIANCE", item.varianceStatus());
+    }
+
+    @Test
+    @DisplayName("TC-05: Query có employeeId cụ thể -> Tải trực tiếp nhân viên đó mà không load toàn bộ danh sách bộ phận")
+    void testExecute_WithSpecificEmployeeId_LoadsDirectly() {
+        int year = 2026;
+        int week = 35;
+
+        Employee emp = mock(Employee.class);
+        when(emp.getIdValue()).thenReturn(EMPLOYEE_ID);
+        when(emp.getEmployeeCode()).thenReturn("EMP001");
+        when(emp.getFullName()).thenReturn("Nguyen Van A");
+        when(emp.getOrgUnitId()).thenReturn(ORG_UNIT_ID);
+        when(loadEmployeePort.findById(new com.hrm.employeemanagement.domain.employee.EmployeeId(EMPLOYEE_ID))).thenReturn(Optional.of(emp));
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(eq(List.of(EMPLOYEE_ID)), any())).thenReturn(List.of());
+        when(loadTimesheetVariancePort.loadApprovedActualHours(eq(List.of(EMPLOYEE_ID)), any(), any())).thenReturn(Map.of());
+
+        // When
+        TimesheetVarianceQuery query = new TimesheetVarianceQuery(ORG_UNIT_ID, EMPLOYEE_ID, null, year, week, year, week);
+        TimesheetVarianceResult result = service.execute(query);
+
+        // Then
+        assertNotNull(result);
+        verify(loadEmployeePort).findById(new com.hrm.employeemanagement.domain.employee.EmployeeId(EMPLOYEE_ID));
+        verify(loadEmployeePort, org.mockito.Mockito.never()).findActiveByOrgUnitIds(any());
+        verify(loadEmployeePort, org.mockito.Mockito.never()).findAllActive();
+    }
 }

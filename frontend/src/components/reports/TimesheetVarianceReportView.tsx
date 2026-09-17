@@ -157,7 +157,9 @@ export default function TimesheetVarianceReportView() {
       item.allocatedHours,
       item.actualApprovedHours,
       item.varianceHours,
-      `${item.variancePercentage}%`,
+      item.variancePercentage !== null && item.variancePercentage !== undefined
+        ? `${item.variancePercentage}%`
+        : "N/A",
       `"${getVarianceStatusLabel(item.varianceStatus)}"`,
     ]);
 
@@ -493,8 +495,14 @@ export default function TimesheetVarianceReportView() {
                       {item.varianceHours}h
                     </td>
                     <td className="py-3.5 px-4 text-right text-xs font-mono font-medium text-gray-600">
-                      {item.variancePercentage > 0 ? "+" : ""}
-                      {item.variancePercentage}%
+                      {item.variancePercentage !== null && item.variancePercentage !== undefined ? (
+                        <>
+                          {item.variancePercentage > 0 ? "+" : ""}
+                          {item.variancePercentage}%
+                        </>
+                      ) : (
+                        <span className="text-gray-400 italic">N/A</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       {renderStatusBadge(item)}

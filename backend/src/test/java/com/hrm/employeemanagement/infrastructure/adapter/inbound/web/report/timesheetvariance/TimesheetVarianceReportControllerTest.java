@@ -94,4 +94,16 @@ class TimesheetVarianceReportControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403));
     }
+
+    @Test
+    @DisplayName("TC-04: Đảm bảo Controller được bảo vệ bởi @PreAuthorize('hasAuthority(\\'TIMESHEET_VARIANCE_READ\\')')")
+    void getTimesheetVarianceReport_SecurityAnnotationPresent() throws NoSuchMethodException {
+        var method = TimesheetVarianceReportController.class.getMethod(
+                "getTimesheetVarianceReport",
+                Long.class, Long.class, Long.class, Integer.class, Integer.class, Integer.class, Integer.class
+        );
+        var preAuthorize = method.getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        org.junit.jupiter.api.Assertions.assertNotNull(preAuthorize, "Method getTimesheetVarianceReport must have @PreAuthorize");
+        org.junit.jupiter.api.Assertions.assertEquals("hasAuthority('TIMESHEET_VARIANCE_READ')", preAuthorize.value());
+    }
 }

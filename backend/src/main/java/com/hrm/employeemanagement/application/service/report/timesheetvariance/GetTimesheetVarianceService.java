@@ -154,19 +154,8 @@ public class GetTimesheetVarianceService implements GetTimesheetVarianceUseCase 
 
         List<YearWeek> targetWeeks = buildTargetWeeks(startWeek, endWeek);
 
-        // 4. Lấy danh sách nhân viên trong Scope
-        List<Employee> targetEmployees = loadEmployeesInScope(effectiveOrgUnitId);
-
-        // Nếu có lọc theo employeeId
-        if (query != null && query.employeeId() != null) {
-            Long filterEmpId = query.employeeId();
-            targetEmployees = targetEmployees.stream()
-                    .filter(e -> e.getIdValue().equals(filterEmpId))
-                    .toList();
-            if (targetEmployees.isEmpty()) {
-                throw new EmployeeNotFoundException("Không tìm thấy nhân viên hoặc nhân viên nằm ngoài phạm vi quản lý: " + filterEmpId);
-            }
-        }
+        // 4. Lấy danh sách nhân viên trong Scope (tối ưu nạp trực tiếp 1 nhân viên nếu query.employeeId() != null)
+        List<Employee> targetEmployees = loadEmployeesInScope(effectiveOrgUnitId, query != null ? query.employeeId() : null);
 
         if (targetEmployees.isEmpty()) {
             TimesheetVarianceSummary emptySummary = new TimesheetVarianceSummary(
@@ -372,8 +361,9 @@ public class GetTimesheetVarianceService implements GetTimesheetVarianceUseCase 
     }
 
     private BigDecimal calculateVariancePercentage(BigDecimal variance, BigDecimal allocated) {
-        if (allocated.compareTo(BigDecimal.ZERO) == 0) {
-            return variance.compareTo(BigDecimal.ZERO) > 0 ? BigDecimal.valueOf(100.0) : BigDecimal.ZERO;
+        if (allocated == null || allocated.compareTo(BigDecimal.ZERO) == 0) {
+            // Khi giờ phân bổ = 0, phép tính (actual - allocated) / allocated có mẫu số bằng 0 -> trả về null (N/A)
+            return null;
         }
         return variance.multiply(BigDecimal.valueOf(100))
                 .divide(allocated, 1, RoundingMode.HALF_UP);
@@ -391,7 +381,19 @@ public class GetTimesheetVarianceService implements GetTimesheetVarianceUseCase 
         return null;
     }
 
-    private List<Employee> loadEmployeesInScope(Long effectiveOrgUnitId) {
+    private List<Employee> loadEmployeesInScope(Long effectiveOrgUnitId, Long filterEmployeeId) {
+        if (filterEmployeeId != null) {
+            Employee emp = loadEmployeePort.findById(new EmployeeId(filterEmployeeId))
+                    .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên: " + filterEmployeeId));
+            if (effectiveOrgUnitId != null) {
+                List<Long> branchIds = resolveScopeBranchOrgUnitIds(effectiveOrgUnitId);
+                if (emp.getOrgUnitId() == null || (branchIds != null && !branchIds.contains(emp.getOrgUnitId()))) {
+                    throw new EmployeeNotFoundException("Nhân viên nằm ngoài phạm vi quản lý: " + filterEmployeeId);
+                }
+            }
+            return List.of(emp);
+        }
+
         List<Long> branchIds = resolveScopeBranchOrgUnitIds(effectiveOrgUnitId);
         if (branchIds != null) {
             return loadEmployeePort.findActiveByOrgUnitIds(branchIds);

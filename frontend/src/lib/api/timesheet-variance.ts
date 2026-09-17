@@ -15,7 +15,7 @@ export interface TimesheetVarianceItem {
   allocatedHours: number;
   actualApprovedHours: number;
   varianceHours: number;
-  variancePercentage: number;
+  variancePercentage: number | null;
   hasActualData: boolean;
   varianceStatus: "POSITIVE_VARIANCE" | "NEGATIVE_VARIANCE" | "ON_TRACK" | "NO_ACTUAL_DATA";
 }
