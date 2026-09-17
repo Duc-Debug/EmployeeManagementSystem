@@ -14,7 +14,6 @@ import com.hrm.employeemanagement.application.port.inbound.report.projectallocat
 import com.hrm.employeemanagement.application.port.inbound.report.projectallocation.GetProjectAllocationReportUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
-import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
@@ -57,7 +56,6 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
     private final LoadProjectResourceDemandPort loadDemandPort;
     private final LoadWeeklyProjectAllocationPort loadAllocationPort;
     private final LoadProjectRolePort loadProjectRolePort;
-    private final LoadProjectMemberPort loadProjectMemberPort;
     private final SaveAuditLogPort saveAuditLogPort;
 
     public GetProjectAllocationReportService(
@@ -69,7 +67,6 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
             LoadProjectResourceDemandPort loadDemandPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             LoadProjectRolePort loadProjectRolePort,
-            LoadProjectMemberPort loadProjectMemberPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
@@ -80,7 +77,6 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
         this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadProjectResourceDemandPort must not be null");
         this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "LoadWeeklyProjectAllocationPort must not be null");
         this.loadProjectRolePort = Objects.requireNonNull(loadProjectRolePort, "LoadProjectRolePort must not be null");
-        this.loadProjectMemberPort = loadProjectMemberPort;
         this.saveAuditLogPort = saveAuditLogPort;
     }
 
@@ -184,6 +180,20 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
         Map<YearWeek, BigDecimal> weeklyTotalDemand = new HashMap<>();
         Map<YearWeek, BigDecimal> weeklyTotalAllocated = new HashMap<>();
 
+        for (YearWeek yw : targetWeeks) {
+            BigDecimal totalDemandForWeek = demands.stream()
+                    .filter(d -> d.getYear() == yw.year() && d.getWeekNumber() == yw.weekNumber())
+                    .map(ProjectResourceDemand::getRequiredHours)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            weeklyTotalDemand.put(yw, totalDemandForWeek);
+
+            BigDecimal totalAllocatedForWeek = allocations.stream()
+                    .filter(a -> a.getYear() == yw.year() && a.getWeekNumber() == yw.weekNumber())
+                    .map(a -> a.getAllocatedHours() != null ? a.getAllocatedHours() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            weeklyTotalAllocated.put(yw, totalAllocatedForWeek);
+        }
+
         for (Long roleId : involvedRoleIds) {
             ProjectRole role = roleMap.get(roleId);
             String roleName = role != null ? role.getName() : "Vai trò #" + roleId;
@@ -212,12 +222,12 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
                             BigDecimal hours = alloc.getAllocatedHours() != null ? alloc.getAllocatedHours().setScale(1, RoundingMode.HALF_UP) : BigDecimal.ZERO;
                             weekRoleAllocated = weekRoleAllocated.add(hours);
                             memberDetails.add(new AllocatedMemberDetailItem(
-                                    alloc.getEmployeeId(),
-                                    emp != null ? emp.getEmployeeCode() : "NV" + alloc.getEmployeeId(),
-                                    emp != null ? emp.getFullName() : "Nhân viên #" + alloc.getEmployeeId(),
-                                    emp != null ? emp.getProfessionalRole() : roleName,
-                                    hours,
-                                    alloc.getAllocationPercentage()
+                                     alloc.getEmployeeId(),
+                                     emp != null ? emp.getEmployeeCode() : "NV" + alloc.getEmployeeId(),
+                                     emp != null ? emp.getFullName() : "Nhân viên #" + alloc.getEmployeeId(),
+                                     emp != null ? emp.getProfessionalRole() : roleName,
+                                     hours,
+                                     alloc.getAllocationPercentage()
                             ));
                         }
                     }
@@ -267,9 +277,6 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
                 roleTotalAllocated = roleTotalAllocated.add(weekRoleAllocated);
                 roleTotalShortfall = roleTotalShortfall.add(shortfallHours);
                 roleTotalSurplus = roleTotalSurplus.add(surplusHours);
-
-                weeklyTotalDemand.put(yw, weeklyTotalDemand.getOrDefault(yw, BigDecimal.ZERO).add(demandHours));
-                weeklyTotalAllocated.put(yw, weeklyTotalAllocated.getOrDefault(yw, BigDecimal.ZERO).add(weekRoleAllocated));
             }
 
             BigDecimal roleFulfillment = roleTotalDemand.compareTo(BigDecimal.ZERO) > 0
@@ -534,14 +541,17 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
             throw new IllegalArgumentException("Tuần bắt đầu không được lớn hơn tuần kết thúc");
         }
 
-        List<YearWeek> list = new ArrayList<>();
         LocalDate monday = start.getStartDate();
         LocalDate endMonday = end.getStartDate();
-        int count = 0;
-        while (!monday.isAfter(endMonday) && count < 104) {
+        long weeksCount = java.time.temporal.ChronoUnit.WEEKS.between(monday, endMonday) + 1;
+        if (weeksCount > 104) {
+            throw new IllegalArgumentException("Khoảng thời gian tra cứu tối đa là 104 tuần (2 năm)");
+        }
+
+        List<YearWeek> list = new ArrayList<>();
+        while (!monday.isAfter(endMonday)) {
             list.add(YearWeek.from(monday));
             monday = monday.plusWeeks(1);
-            count++;
         }
         return list;
     }
@@ -578,23 +588,26 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
         if (employee == null || employee.getProfessionalRole() == null || employee.getProfessionalRole().isBlank()) {
             return null;
         }
-        String profRole = employee.getProfessionalRole().trim().toLowerCase();
+        String profRole = employee.getProfessionalRole().trim();
 
+        // 1. Khớp chính xác (case-insensitive) theo Name hoặc Code
         for (ProjectRole r : allRoles) {
             if (r.getName().equalsIgnoreCase(profRole) || r.getCode().equalsIgnoreCase(profRole)) {
                 return r;
             }
         }
 
+        // 2. Khớp chuẩn hóa bỏ khoảng trắng, dấu gạch dưới, gạch ngang
+        String normalizedProf = profRole.replaceAll("[\\s_-]+", "").toLowerCase();
         for (ProjectRole r : allRoles) {
-            String rName = r.getName().toLowerCase();
-            String rCode = r.getCode().toLowerCase();
-            if (profRole.contains(rName) || rName.contains(profRole) || profRole.contains(rCode)) {
+            String normName = r.getName().replaceAll("[\\s_-]+", "").toLowerCase();
+            String normCode = r.getCode().replaceAll("[\\s_-]+", "").toLowerCase();
+            if (normalizedProf.equals(normName) || normalizedProf.equals(normCode)) {
                 return r;
             }
         }
 
-        // Không tự ý fallback về role đầu tiên để tránh làm sai lệch báo cáo phân bổ
+        // Không tự ý fallback về role khác để tránh làm sai lệch báo cáo phân bổ
         return null;
     }
 

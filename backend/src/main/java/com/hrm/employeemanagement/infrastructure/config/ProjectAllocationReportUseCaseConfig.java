@@ -9,7 +9,6 @@ import com.hrm.employeemanagement.application.port.inbound.report.projectallocat
 import com.hrm.employeemanagement.application.port.inbound.report.projectallocation.GetProjectAllocationReportUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
-import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
@@ -32,7 +31,6 @@ public class ProjectAllocationReportUseCaseConfig {
             LoadProjectResourceDemandPort loadDemandPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             LoadProjectRolePort loadProjectRolePort,
-            Optional<LoadProjectMemberPort> loadProjectMemberPort,
             Optional<SaveAuditLogPort> saveAuditLogPort
     ) {
         return new GetProjectAllocationReportService(
@@ -44,7 +42,6 @@ public class ProjectAllocationReportUseCaseConfig {
                 loadDemandPort,
                 loadAllocationPort,
                 loadProjectRolePort,
-                loadProjectMemberPort.orElse(null),
                 saveAuditLogPort.orElse(null)
         );
     }

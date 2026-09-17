@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.dto.report.projectallocation;
 
+import java.time.temporal.ChronoUnit;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 
 public record ProjectAllocationReportQuery(
@@ -33,8 +34,14 @@ public record ProjectAllocationReportQuery(
             end = YearWeek.of(toYear, toWeek);
         }
 
-        if (start != null && end != null && end.isBefore(start)) {
-            throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian bắt đầu");
+        if (start != null && end != null) {
+            if (end.isBefore(start)) {
+                throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian bắt đầu");
+            }
+            long weeks = ChronoUnit.WEEKS.between(start.getStartDate(), end.getStartDate()) + 1;
+            if (weeks > 104) {
+                throw new IllegalArgumentException("Khoảng thời gian tra cứu tối đa là 104 tuần (2 năm)");
+            }
         }
     }
 }

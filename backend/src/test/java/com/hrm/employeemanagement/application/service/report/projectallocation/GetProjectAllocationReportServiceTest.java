@@ -26,7 +26,6 @@ import com.hrm.employeemanagement.application.dto.report.projectallocation.Proje
 import com.hrm.employeemanagement.application.dto.report.projectallocation.RoleAllocationBreakdownItem;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
-import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectResourceDemandPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectRolePort;
@@ -70,7 +69,6 @@ class GetProjectAllocationReportServiceTest {
     private LoadProjectResourceDemandPort loadDemandPort;
     private LoadWeeklyProjectAllocationPort loadAllocationPort;
     private LoadProjectRolePort loadProjectRolePort;
-    private LoadProjectMemberPort loadProjectMemberPort;
     private SaveAuditLogPort saveAuditLogPort;
 
     private GetProjectAllocationReportService service;
@@ -85,7 +83,6 @@ class GetProjectAllocationReportServiceTest {
         loadDemandPort = mock(LoadProjectResourceDemandPort.class);
         loadAllocationPort = mock(LoadWeeklyProjectAllocationPort.class);
         loadProjectRolePort = mock(LoadProjectRolePort.class);
-        loadProjectMemberPort = mock(LoadProjectMemberPort.class);
         saveAuditLogPort = mock(SaveAuditLogPort.class);
 
         service = new GetProjectAllocationReportService(
@@ -97,7 +94,6 @@ class GetProjectAllocationReportServiceTest {
                 loadDemandPort,
                 loadAllocationPort,
                 loadProjectRolePort,
-                loadProjectMemberPort,
                 saveAuditLogPort
         );
     }
@@ -467,5 +463,13 @@ class GetProjectAllocationReportServiceTest {
     @DisplayName("Validation: Từ chối khi thời gian kết thúc trước thời gian bắt đầu")
     void shouldRejectEndWeekBeforeStartWeek() {
         assertThrows(IllegalArgumentException.class, () -> new ProjectAllocationReportQuery(1L, 2026, 40, 2026, 38));
+    }
+
+    @Test
+    @DisplayName("Validation: Từ chối khi khoảng thời gian vượt quá 104 tuần")
+    void shouldRejectQueryExceeding104Weeks() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> new ProjectAllocationReportQuery(1L, 2024, 1, 2026, 52));
+        assertTrue(ex.getMessage().contains("104 tuần"));
     }
 }
