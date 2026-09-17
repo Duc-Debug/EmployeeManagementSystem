@@ -110,4 +110,18 @@ class InternalNotificationControllerTest {
 
         verify(createNotificationEventUseCase, times(1)).execute(any());
     }
+
+    @Test
+    @DisplayName("Khởi tạo InternalNotificationController không có token hoặc token rỗng -> Bắn lỗi IllegalStateException (Fail-fast)")
+    void initController_withoutToken_throwsIllegalStateException() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> new InternalNotificationController(createNotificationEventUseCase, null)
+        );
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> new InternalNotificationController(createNotificationEventUseCase, "   ")
+        );
+    }
 }

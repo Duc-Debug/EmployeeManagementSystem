@@ -41,10 +41,13 @@ public class InternalNotificationController {
 
     public InternalNotificationController(
             CreateNotificationEventUseCase createNotificationEventUseCase,
-            @Value("${app.security.internal-token:hrm-internal-service-secret-2026}") String expectedInternalToken
+            @Value("${app.security.internal-token:#{null}}") String expectedInternalToken
     ) {
         this.createNotificationEventUseCase = Objects.requireNonNull(createNotificationEventUseCase, "createNotificationEventUseCase must not be null");
-        this.expectedInternalToken = expectedInternalToken != null ? expectedInternalToken.trim() : "hrm-internal-service-secret-2026";
+        if (expectedInternalToken == null || expectedInternalToken.trim().isEmpty()) {
+            throw new IllegalStateException("Cấu hình 'app.security.internal-token' là bắt buộc và không được phép để trống hoặc dùng default credential trong source.");
+        }
+        this.expectedInternalToken = expectedInternalToken.trim();
     }
 
     @PostMapping
