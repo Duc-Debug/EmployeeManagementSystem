@@ -67,7 +67,7 @@ export function ProjectDemandView({
     };
 
     const hasDates = Boolean(project?.startDate && project?.endDate);
-    const isProjectActive = project?.status === 'ACTIVE';
+    const isProjectActive = project?.status === 'ACTIVE' || project?.status === 'PLANNED';
 
     // Lọc danh sách vai trò theo từ khóa tìm kiếm
     const filteredRoles = useMemo(() => {
