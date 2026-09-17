@@ -198,9 +198,11 @@ export async function exportProjectAllocationExcel(
   }
 
   const blob = await response.blob();
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const fallbackFilename = `Bao_Cao_Phan_Bo_Du_An_${params.projectId}_${dateStr}.xlsx`;
   const filename = extractFilenameFromContentDisposition(
     response.headers.get("Content-Disposition"),
-    `Bao_Cao_Phan_Bo_Du_An_${params.projectId}.xlsx`
+    fallbackFilename
   );
 
   if (triggerBrowserDownload && typeof window !== "undefined" && typeof document !== "undefined") {
