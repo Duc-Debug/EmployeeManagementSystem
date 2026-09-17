@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.hrm.employeemanagement.application.port.inbound.report.excel.ExportProjectAllocationReportExcelUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.report.excel.GenerateExcelWorkbookPort;
@@ -36,7 +37,8 @@ public class ReportExcelExportUseCaseConfig {
             LoadProjectMemberPort loadProjectMemberPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             GenerateExcelWorkbookPort generateExcelWorkbookPort,
-            SaveAuditLogPort saveAuditLogPort
+            SaveAuditLogPort saveAuditLogPort,
+            LoadOrgUnitPort loadOrgUnitPort
     ) {
         return new ExportProjectAllocationReportExcelService(
                 authorizationService,
@@ -46,7 +48,8 @@ public class ReportExcelExportUseCaseConfig {
                 loadProjectMemberPort,
                 loadAllocationPort,
                 generateExcelWorkbookPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                loadOrgUnitPort
         );
     }
 }

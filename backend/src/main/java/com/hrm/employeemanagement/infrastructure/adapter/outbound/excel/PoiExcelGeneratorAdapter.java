@@ -186,7 +186,7 @@ public class PoiExcelGeneratorAdapter implements GenerateExcelWorkbookPort {
             for (int c = 0; c < totalColumns; c++) {
                 sheet.autoSizeColumn(c);
                 int currentWidth = sheet.getColumnWidth(c);
-                sheet.setColumnWidth(c, Math.max(currentWidth + 1024, 3000));
+                sheet.setColumnWidth(c, Math.min(Math.max(currentWidth + 1024, 3000), 65280));
             }
 
             workbook.write(out);

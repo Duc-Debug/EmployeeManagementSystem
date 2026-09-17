@@ -18,9 +18,11 @@ import com.hrm.employeemanagement.application.dto.report.excel.ExportReportExcel
 import com.hrm.employeemanagement.application.dto.report.excel.ExportReportExcelResult;
 import com.hrm.employeemanagement.application.port.inbound.report.excel.ExportProjectAllocationReportExcelUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.report.excel.GenerateExcelWorkbookPort;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
@@ -62,6 +64,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
     private final LoadWeeklyProjectAllocationPort loadAllocationPort;
     private final GenerateExcelWorkbookPort generateExcelWorkbookPort;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
 
     public ExportProjectAllocationReportExcelService(
             AuthorizationService authorizationService,
@@ -73,6 +76,21 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
             GenerateExcelWorkbookPort generateExcelWorkbookPort,
             SaveAuditLogPort saveAuditLogPort
     ) {
+        this(authorizationService, loadUserPort, loadEmployeePort, loadProjectPort, loadProjectMemberPort,
+                loadAllocationPort, generateExcelWorkbookPort, saveAuditLogPort, null);
+    }
+
+    public ExportProjectAllocationReportExcelService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadProjectMemberPort loadProjectMemberPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            GenerateExcelWorkbookPort generateExcelWorkbookPort,
+            SaveAuditLogPort saveAuditLogPort,
+            LoadOrgUnitPort loadOrgUnitPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
@@ -81,6 +99,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
         this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "LoadWeeklyProjectAllocationPort must not be null");
         this.generateExcelWorkbookPort = Objects.requireNonNull(generateExcelWorkbookPort, "GenerateExcelWorkbookPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+        this.loadOrgUnitPort = loadOrgUnitPort;
     }
 
     @Override
@@ -143,6 +162,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
         ).stream().collect(Collectors.toMap(Employee::getIdValue, e -> e, (e1, e2) -> e1));
 
         Map<Long, String> projectRoleMap = loadProjectRoles(project.getIdValue(), employeeIds);
+        Map<Long, String> orgUnitNameMap = loadOrgUnitNames(employeeMap.values());
 
         // 8. Gom nhóm phân bổ theo nhân viên và áp dụng Masking Policy
         Map<Long, Map<YearWeek, BigDecimal>> hoursByEmpAndWeek = new HashMap<>();
@@ -156,8 +176,18 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
             Employee emp = employeeMap.get(empId);
             String empCode = emp != null ? emp.getEmployeeCode() : "NV" + empId;
             String fullName = emp != null ? emp.getFullName() : "Nhân viên #" + empId;
-            String roleInProj = projectRoleMap.getOrDefault(empId, "Thành viên dự án");
+
+            String roleInProj = projectRoleMap.get(empId);
+            if (roleInProj == null || roleInProj.isBlank()) {
+                roleInProj = (emp != null && emp.getProfessionalRole() != null && !emp.getProfessionalRole().isBlank())
+                        ? emp.getProfessionalRole()
+                        : "Thành viên dự án";
+            }
+
             String orgUnitName = "Phòng ban";
+            if (emp != null && emp.getOrgUnitId() != null) {
+                orgUnitName = orgUnitNameMap.getOrDefault(emp.getOrgUnitId(), "Phòng ban");
+            }
 
             Map<YearWeek, BigDecimal> empWeekly = hoursByEmpAndWeek.getOrDefault(empId, Map.of());
             BigDecimal empTotal = empWeekly.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -294,6 +324,35 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
             }
         } catch (Exception e) {
             // Không làm gián đoạn báo cáo nếu nạp vai trò phụ bị lỗi
+        }
+        return Map.of();
+    }
+
+    private Map<Long, String> loadOrgUnitNames(java.util.Collection<Employee> employees) {
+        if (loadOrgUnitPort == null || employees == null || employees.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            List<Long> orgUnitIds = employees.stream()
+                    .map(Employee::getOrgUnitId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (orgUnitIds.isEmpty()) {
+                return Map.of();
+            }
+            List<OrgUnit> orgUnits = loadOrgUnitPort.findAllByIdIn(orgUnitIds);
+            if (orgUnits != null) {
+                return orgUnits.stream()
+                        .filter(u -> u.getId() != null && u.getId().getValue() != null && u.getUnitName() != null)
+                        .collect(Collectors.toMap(
+                                u -> u.getId().getValue(),
+                                OrgUnit::getUnitName,
+                                (n1, n2) -> n1
+                        ));
+            }
+        } catch (Exception e) {
+            // Không làm gián đoạn báo cáo nếu nạp tên phòng ban bị lỗi
         }
         return Map.of();
     }
