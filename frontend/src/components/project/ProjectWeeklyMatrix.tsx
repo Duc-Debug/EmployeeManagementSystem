@@ -106,7 +106,7 @@ export function ProjectWeeklyMatrix({
                             <h2 className="text-sm font-bold text-slate-900">Phân Bổ Nhân Lực Các Tuần Trong Tháng</h2>
                             {isClosed && (
                                 <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
-                                    <Lock className="h-3 w-3" /> Khóa phân bổ (QTN-08)
+                                    <Lock className="h-3 w-3" /> Đã khóa phân bổ
                                 </span>
                             )}
                             {/* Month Navigator Controls */}
@@ -279,7 +279,7 @@ export function ProjectWeeklyMatrix({
                                                         onClick={() => !isClosed && onOpenAdjustModal(member.id, w.key, w.label)}
                                                         title={
                                                             isClosed
-                                                                ? 'Dự án đã đóng, không thể điều chỉnh phân bổ nguồn lực (QTN-08)'
+                                                                ? 'Dự án đã đóng, không thể điều chỉnh phân bổ nguồn lực'
                                                                 : hasExpiredAllocationWarning
                                                                 ? `Cảnh báo: Nhân sự đã nghỉ việc / hết hạn HĐ (${member.contractEndDate || 'Đã nghỉ'}), phân bổ ${hours}h này vắt qua ngày nghỉ việc!`
                                                                 : 'Bấm để điều chỉnh giờ phân bổ'

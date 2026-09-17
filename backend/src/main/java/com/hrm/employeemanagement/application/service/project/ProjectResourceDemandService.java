@@ -101,8 +101,8 @@ public class ProjectResourceDemandService implements
         Project project = loadProjectPort.findById(new ProjectId(command.projectId()))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
 
-        if (project.getStatus() != ProjectStatus.ACTIVE) {
-            throw new InvalidProjectDataException("Chỉ có thể ước lượng nhu cầu nhân sự cho dự án đang ở trạng thái hoạt động");
+        if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNED) {
+            throw new InvalidProjectDataException("Chỉ có thể ước lượng nhu cầu nhân sự cho dự án đang ở trạng thái hoạt động hoặc dự kiến");
         }
 
         if (!canAccessProject(currentUser, currentUserId, project)) {
@@ -196,8 +196,8 @@ public class ProjectResourceDemandService implements
         Project project = loadProjectPort.findById(new ProjectId(projectId))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + projectId));
 
-        if (project.getStatus() != ProjectStatus.ACTIVE) {
-            throw new InvalidProjectDataException("Chỉ có thể xóa ước lượng nhu cầu nhân sự cho dự án đang ở trạng thái hoạt động");
+        if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNED) {
+            throw new InvalidProjectDataException("Chỉ có thể xóa ước lượng nhu cầu nhân sự cho dự án đang ở trạng thái hoạt động hoặc dự kiến");
         }
 
         if (!canAccessProject(currentUser, currentUserId, project)) {

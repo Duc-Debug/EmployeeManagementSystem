@@ -236,6 +236,67 @@ export async function getScenarioSimulation(id: number): Promise<ScenarioSimulat
   return apiRequest<ScenarioSimulationResult>(`/resource-scenarios/${id}/simulation`);
 }
 
+// ============================================================================
+// NCL.08.CN.004: So sánh đa kịch bản (Scenario Comparison)
+// ============================================================================
+
+export interface CompareScenariosPayload {
+  scenarioIds: number[];
+}
+
+export interface OverloadedEmployeeSummaryResult {
+  employeeId: number;
+  employeeCode: string;
+  fullName: string;
+  professionalRole: string;
+  overloadedWeeksCount: number;
+  maxExcessHours: number;
+  peakUtilizationPercentage: number;
+}
+
+export interface ScenarioComparisonItemResult {
+  scenarioId: number;
+  scenarioCode: string;
+  scenarioName: string;
+  description: string | null;
+  orgUnitId: number;
+  orgUnitName: string;
+  status: string;
+  fromYear: number;
+  fromWeek: number;
+  durationWeeks: number;
+  overloadedEmployeesCount: number;
+  totalShortfallHours: number;
+  totalRequiredAdditionalHours: number;
+  totalDemandHours: number;
+  totalWorkloadHours: number;
+  totalAvailableHours: number;
+  averageUtilizationPercentage: number;
+  peakUtilizationPercentage: number;
+  weeklyMetrics: WeeklySimulationMetricResult[];
+  overloadedEmployees: OverloadedEmployeeSummaryResult[];
+}
+
+export interface ScenarioComparisonResult {
+  scenarios: ScenarioComparisonItemResult[];
+  isTimeframeAligned: boolean;
+  isOrgUnitAligned: boolean;
+  comparedAt: string;
+}
+
+export async function compareScenarios(
+  payload: CompareScenariosPayload
+): Promise<ScenarioComparisonResult> {
+  return apiRequest<ScenarioComparisonResult>("/resource-scenarios/compare", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// ============================================================================
+// NCL.08.CN.006: Lưu & Chia sẻ kịch bản (Save & Share Scenario)
+// ============================================================================
+
 export interface PatchScenarioPayload {
   name?: string;
   note?: string;
