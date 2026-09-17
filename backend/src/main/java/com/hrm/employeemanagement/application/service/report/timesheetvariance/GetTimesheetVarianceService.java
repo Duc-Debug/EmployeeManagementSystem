@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.IsoFields;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -126,30 +127,40 @@ public class GetTimesheetVarianceService implements GetTimesheetVarianceUseCase 
         YearWeek startWeek;
         YearWeek endWeek;
 
-        if (query == null || (query.fromYear() == null && query.fromWeek() == null)) {
+        boolean hasFrom = query != null && (query.fromYear() != null || query.fromWeek() != null);
+        boolean hasTo = query != null && (query.toYear() != null || query.toWeek() != null);
+
+        if (!hasFrom && !hasTo) {
             LocalDate now = LocalDate.now();
             int currentYear = now.get(IsoFields.WEEK_BASED_YEAR);
             int currentWeek = now.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
             startWeek = YearWeek.of(currentYear, currentWeek);
             endWeek = startWeek;
+        } else if (!hasFrom && hasTo) {
+            throw new IllegalArgumentException("Phải cung cấp đồng thời fromYear và fromWeek khi chỉ định toYear/toWeek");
         } else {
             if (query.fromYear() == null || query.fromWeek() == null) {
                 throw new IllegalArgumentException("fromYear và fromWeek phải được cung cấp cùng nhau");
             }
             startWeek = YearWeek.of(query.fromYear(), query.fromWeek());
 
-            if ((query.toYear() != null && query.toWeek() == null) || (query.toYear() == null && query.toWeek() != null)) {
-                throw new IllegalArgumentException("toYear và toWeek phải được cung cấp cùng nhau");
-            }
-
-            if (query.toYear() != null && query.toWeek() != null) {
-                endWeek = YearWeek.of(query.toYear(), query.toWeek());
-                if (startWeek.isAfter(endWeek)) {
-                    throw new IllegalArgumentException("Tuần bắt đầu không được lớn hơn tuần kết thúc");
+            if (hasTo) {
+                if (query.toYear() == null || query.toWeek() == null) {
+                    throw new IllegalArgumentException("toYear và toWeek phải được cung cấp cùng nhau");
                 }
+                endWeek = YearWeek.of(query.toYear(), query.toWeek());
             } else {
                 endWeek = startWeek;
             }
+
+            if (startWeek.isAfter(endWeek)) {
+                throw new IllegalArgumentException("Tuần bắt đầu không được lớn hơn tuần kết thúc");
+            }
+        }
+
+        long numberOfWeeks = ChronoUnit.WEEKS.between(startWeek.getStartDate(), endWeek.getStartDate()) + 1;
+        if (numberOfWeeks > 104) {
+            throw new IllegalArgumentException("Khoảng thời gian đối chiếu tối đa là 104 tuần (2 năm)");
         }
 
         List<YearWeek> targetWeeks = buildTargetWeeks(startWeek, endWeek);

@@ -271,4 +271,41 @@ class GetTimesheetVarianceServiceTest {
         verify(loadEmployeePort, org.mockito.Mockito.never()).findActiveByOrgUnitIds(any());
         verify(loadEmployeePort, org.mockito.Mockito.never()).findAllActive();
     }
+
+    @Test
+    @DisplayName("TC-06: Truyền toYear/toWeek mà không truyền fromYear/fromWeek -> Ném IllegalArgumentException")
+    void testExecute_OnlyToWeekProvided_ThrowsIllegalArgumentException() {
+        TimesheetVarianceQuery query = new TimesheetVarianceQuery(ORG_UNIT_ID, null, null, null, null, 2026, 40);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.execute(query));
+        assertTrue(ex.getMessage().contains("Phải cung cấp đồng thời fromYear và fromWeek"));
+    }
+
+    @Test
+    @DisplayName("TC-07: Khoảng thời gian vượt quá 104 tuần (2 năm) -> Ném IllegalArgumentException")
+    void testExecute_Exceeds104WeeksLimit_ThrowsIllegalArgumentException() {
+        // Từ tuần 1/2024 đến tuần 40/2026 là 144 tuần (> 104 tuần)
+        TimesheetVarianceQuery query = new TimesheetVarianceQuery(ORG_UNIT_ID, null, null, 2024, 1, 2026, 40);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.execute(query));
+        assertTrue(ex.getMessage().contains("Khoảng thời gian đối chiếu tối đa là 104 tuần"));
+    }
+
+    @Test
+    @DisplayName("TC-08: fromYear có nhưng fromWeek null -> Ném IllegalArgumentException")
+    void testExecute_IncompleteFromWeek_ThrowsIllegalArgumentException() {
+        TimesheetVarianceQuery query = new TimesheetVarianceQuery(ORG_UNIT_ID, null, null, 2026, null, 2026, 35);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.execute(query));
+        assertTrue(ex.getMessage().contains("fromYear và fromWeek phải được cung cấp cùng nhau"));
+    }
+
+    @Test
+    @DisplayName("TC-09: startWeek lớn hơn endWeek -> Ném IllegalArgumentException")
+    void testExecute_StartWeekAfterEndWeek_ThrowsIllegalArgumentException() {
+        TimesheetVarianceQuery query = new TimesheetVarianceQuery(ORG_UNIT_ID, null, null, 2026, 40, 2026, 35);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.execute(query));
+        assertTrue(ex.getMessage().contains("Tuần bắt đầu không được lớn hơn tuần kết thúc"));
+    }
 }
