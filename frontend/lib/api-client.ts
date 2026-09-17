@@ -28,9 +28,16 @@ export async function apiRequest<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = endpoint.startsWith("http")
-    ? endpoint
-    : `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  let path = endpoint;
+  if (path.startsWith("/api/v1/")) {
+    path = path.slice(7);
+  } else if (path.startsWith("api/v1/")) {
+    path = path.slice(6);
+  }
+
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
   const token = getAuthToken();
   const headers = new Headers(options.headers || {});
