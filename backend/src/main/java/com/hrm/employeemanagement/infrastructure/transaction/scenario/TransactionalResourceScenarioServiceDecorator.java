@@ -14,7 +14,13 @@ public class TransactionalResourceScenarioServiceDecorator implements
         AddScenarioDemandUseCase,
         UpdateScenarioDemandUseCase,
         DeleteScenarioDemandUseCase,
-        GetScenarioSimulationResultUseCase {
+        GetScenarioSimulationResultUseCase,
+        SaveSimulationScenarioUseCase,
+        PatchSimulationScenarioUseCase,
+        ShareSimulationScenarioUseCase,
+        UnshareSimulationScenarioUseCase,
+        GetShareCandidatesUseCase,
+        GetScenarioSharesUseCase {
 
     private final CreateSimulationScenarioUseCase createScenarioUseCase;
     private final GetSimulationScenarioUseCase getScenarioUseCase;
@@ -23,6 +29,12 @@ public class TransactionalResourceScenarioServiceDecorator implements
     private final UpdateScenarioDemandUseCase updateDemandUseCase;
     private final DeleteScenarioDemandUseCase deleteDemandUseCase;
     private final GetScenarioSimulationResultUseCase simulationResultUseCase;
+    private final SaveSimulationScenarioUseCase saveScenarioUseCase;
+    private final PatchSimulationScenarioUseCase patchScenarioUseCase;
+    private final ShareSimulationScenarioUseCase shareScenarioUseCase;
+    private final UnshareSimulationScenarioUseCase unshareScenarioUseCase;
+    private final GetShareCandidatesUseCase getShareCandidatesUseCase;
+    private final GetScenarioSharesUseCase getScenarioSharesUseCase;
 
     public TransactionalResourceScenarioServiceDecorator(
             CreateSimulationScenarioUseCase createScenarioUseCase,
@@ -31,7 +43,13 @@ public class TransactionalResourceScenarioServiceDecorator implements
             AddScenarioDemandUseCase addDemandUseCase,
             UpdateScenarioDemandUseCase updateDemandUseCase,
             DeleteScenarioDemandUseCase deleteDemandUseCase,
-            GetScenarioSimulationResultUseCase simulationResultUseCase
+            GetScenarioSimulationResultUseCase simulationResultUseCase,
+            SaveSimulationScenarioUseCase saveScenarioUseCase,
+            PatchSimulationScenarioUseCase patchScenarioUseCase,
+            ShareSimulationScenarioUseCase shareScenarioUseCase,
+            UnshareSimulationScenarioUseCase unshareScenarioUseCase,
+            GetShareCandidatesUseCase getShareCandidatesUseCase,
+            GetScenarioSharesUseCase getScenarioSharesUseCase
     ) {
         this.createScenarioUseCase = Objects.requireNonNull(createScenarioUseCase, "CreateSimulationScenarioUseCase must not be null");
         this.getScenarioUseCase = Objects.requireNonNull(getScenarioUseCase, "GetSimulationScenarioUseCase must not be null");
@@ -40,6 +58,12 @@ public class TransactionalResourceScenarioServiceDecorator implements
         this.updateDemandUseCase = Objects.requireNonNull(updateDemandUseCase, "UpdateScenarioDemandUseCase must not be null");
         this.deleteDemandUseCase = Objects.requireNonNull(deleteDemandUseCase, "DeleteScenarioDemandUseCase must not be null");
         this.simulationResultUseCase = Objects.requireNonNull(simulationResultUseCase, "GetScenarioSimulationResultUseCase must not be null");
+        this.saveScenarioUseCase = Objects.requireNonNull(saveScenarioUseCase, "SaveSimulationScenarioUseCase must not be null");
+        this.patchScenarioUseCase = Objects.requireNonNull(patchScenarioUseCase, "PatchSimulationScenarioUseCase must not be null");
+        this.shareScenarioUseCase = Objects.requireNonNull(shareScenarioUseCase, "ShareSimulationScenarioUseCase must not be null");
+        this.unshareScenarioUseCase = Objects.requireNonNull(unshareScenarioUseCase, "UnshareSimulationScenarioUseCase must not be null");
+        this.getShareCandidatesUseCase = Objects.requireNonNull(getShareCandidatesUseCase, "GetShareCandidatesUseCase must not be null");
+        this.getScenarioSharesUseCase = Objects.requireNonNull(getScenarioSharesUseCase, "GetScenarioSharesUseCase must not be null");
     }
 
     @Override
@@ -82,5 +106,41 @@ public class TransactionalResourceScenarioServiceDecorator implements
     @Transactional(readOnly = true)
     public ScenarioSimulationResult getSimulationResult(Long scenarioId) {
         return simulationResultUseCase.getSimulationResult(scenarioId);
+    }
+
+    @Override
+    @Transactional
+    public ScenarioResult saveScenario(Long scenarioId) {
+        return saveScenarioUseCase.saveScenario(scenarioId);
+    }
+
+    @Override
+    @Transactional
+    public ScenarioResult patchScenario(PatchScenarioCommand command) {
+        return patchScenarioUseCase.patchScenario(command);
+    }
+
+    @Override
+    @Transactional
+    public List<ScenarioShareResult> shareScenario(ShareScenarioCommand command) {
+        return shareScenarioUseCase.shareScenario(command);
+    }
+
+    @Override
+    @Transactional
+    public void unshareScenario(Long scenarioId, Long sharedWithUserId) {
+        unshareScenarioUseCase.unshareScenario(scenarioId, sharedWithUserId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShareCandidateResult> getShareCandidates(Long scenarioId, String query) {
+        return getShareCandidatesUseCase.getShareCandidates(scenarioId, query);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ScenarioShareResult> getActiveShares(Long scenarioId) {
+        return getScenarioSharesUseCase.getActiveShares(scenarioId);
     }
 }

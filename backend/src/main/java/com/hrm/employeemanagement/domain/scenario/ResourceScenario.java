@@ -22,6 +22,8 @@ public class ResourceScenario {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long version;
+    private String note;
+    private String snapshotData;
     private List<ScenarioDemand> demands = new ArrayList<>();
     private List<ScenarioAllocationSnapshotItem> snapshotItems = new ArrayList<>();
 
@@ -41,10 +43,33 @@ public class ResourceScenario {
             LocalDateTime updatedAt,
             Long version
     ) {
+        this(id, code, name, description, null, null, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version);
+    }
+
+    public ResourceScenario(
+            Long id,
+            String code,
+            String name,
+            String description,
+            String note,
+            String snapshotData,
+            Long orgUnitId,
+            ScenarioStatus status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
         this.id = id;
         this.code = Objects.requireNonNull(code, "Mã kịch bản không được để trống");
         this.name = Objects.requireNonNull(name, "Tên kịch bản không được để trống");
         this.description = description;
+        this.note = note;
+        this.snapshotData = snapshotData;
         this.orgUnitId = Objects.requireNonNull(orgUnitId, "Đơn vị không được để trống");
         this.status = status != null ? status : ScenarioStatus.DRAFT;
         this.fromYear = Objects.requireNonNull(fromYear, "Năm bắt đầu không được để trống");
@@ -86,11 +111,53 @@ public class ResourceScenario {
     }
 
     public void assertModifiable() {
+        if (this.status == ScenarioStatus.SAVED) {
+            transitionToDraft();
+            return;
+        }
         if (this.status != ScenarioStatus.DRAFT) {
             throw new ScenarioNotModifiableException(
                     "Không thể chỉnh sửa kịch bản ở trạng thái: " + this.status.getValue() + ". Chỉ được chỉnh sửa kịch bản ở trạng thái draft."
             );
         }
+    }
+
+    public void transitionToDraft() {
+        if (this.status == ScenarioStatus.SAVED) {
+            this.status = ScenarioStatus.DRAFT;
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    public void saveSnapshot(String snapshotJson) {
+        this.snapshotData = Objects.requireNonNull(snapshotJson, "Dữ liệu snapshot không được để trống");
+        this.status = ScenarioStatus.SAVED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateBasicInfo(String name, String note) {
+        if (name != null && !name.trim().isEmpty()) {
+            if (name.trim().length() > 255) {
+                throw new IllegalArgumentException("Tên kịch bản không được vượt quá 255 ký tự");
+            }
+            this.name = name.trim();
+        }
+        if (note != null) {
+            if (note.trim().length() > 2000) {
+                throw new IllegalArgumentException("Ghi chú kịch bản không được vượt quá 2000 ký tự");
+            }
+            this.note = note.trim();
+        }
+        transitionToDraft();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isSaved() {
+        return this.status == ScenarioStatus.SAVED;
+    }
+
+    public boolean isDraft() {
+        return this.status == ScenarioStatus.DRAFT;
     }
 
     public void addDemand(ScenarioDemand demand) {
@@ -125,6 +192,10 @@ public class ResourceScenario {
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getNote() { return note; }
+    public void setNote(String note) { this.note = note; }
+    public String getSnapshotData() { return snapshotData; }
+    public void setSnapshotData(String snapshotData) { this.snapshotData = snapshotData; }
     public Long getOrgUnitId() { return orgUnitId; }
     public ScenarioStatus getStatus() { return status; }
     public void setStatus(ScenarioStatus status) { this.status = status; }
