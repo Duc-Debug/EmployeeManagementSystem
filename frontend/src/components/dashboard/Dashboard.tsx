@@ -16,6 +16,7 @@ import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CapacityForecastReportView from "../reports/CapacityForecastReportView";
+import ProjectAllocationReportView from "../reports/ProjectAllocationReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import CapacityDashboardView from "../capacity/CapacityDashboardView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
@@ -68,6 +69,7 @@ export default function Dashboard() {
         if (path.includes("recruitment") || path.includes("tuyen-dung")) return "recruitment-demand";
         if (path.includes("simulation-scenario") || path.includes("mo-phong-kich-ban") || path.includes("scenarios")) return "simulation-scenarios";
         if (path.includes("schedule-conflict") || path.includes("xung-dot-lich") || path.includes("conflict")) return "schedule-conflict";
+        if (path.includes("project-allocation") || path.includes("phan-bo-du-an") || path.includes("project-report")) return "project-allocation-report";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         return "overview";
     }, [location.pathname]);
@@ -276,6 +278,8 @@ export default function Dashboard() {
                                 {activeTab === "capacity-forecast" && <CapacityForecastReportView />}
 
                                 {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
+
+                                {activeTab === "project-allocation-report" && <ProjectAllocationReportView />}
 
                                 {(activeTab === "overview" || activeTab === "reports") && (() => {
                                     const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");

@@ -48,14 +48,4 @@ public class ProjectAllocationReportUseCaseConfig {
                 saveAuditLogPort.orElse(null)
         );
     }
-
-    @Bean
-    public GetProjectAllocationReportUseCase getProjectAllocationReportUseCase(GetProjectAllocationReportService service) {
-        return service;
-    }
-
-    @Bean
-    public ExportProjectAllocationReportUseCase exportProjectAllocationReportUseCase(GetProjectAllocationReportService service) {
-        return service;
-    }
 }

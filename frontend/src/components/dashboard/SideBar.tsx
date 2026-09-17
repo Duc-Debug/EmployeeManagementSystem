@@ -37,6 +37,7 @@ const SIDEBAR_WORKSPACE = [
     { name: "Mô phỏng kịch bản", icon: Sparkles, id: "simulation-scenarios" },
     { name: "Nhu cầu tuyển dụng", icon: TrendingUp, id: "recruitment-demand" },
     { name: "Dự báo năng lực", icon: TrendingUp, id: "capacity-forecast" },
+    { name: "Phân bổ theo dự án", icon: FolderKanban, id: "project-allocation-report" },
 ];
 
 const SIDEBAR_SETTINGS = [
@@ -144,6 +145,11 @@ export function canAccessTab(
         case "recruitment":
             // Báo cáo nhu cầu tuyển dụng theo kỹ năng (NCL-10-CN-005): VT-01 (Ban Giám Đốc), VT-03 (HR), VT-06 (Admin)
             return ["VT-01", "VT-03", "VT-06"].includes(normalized);
+
+        case "project-allocation-report":
+        case "project-allocation":
+            // Báo cáo phân bổ theo dự án (NCL-10-CN-006): VT-01 (Ban Giám Đốc), VT-02 (PM), VT-03 (RM), VT-06 (Admin)
+            return ["VT-01", "VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         default:
             return true;

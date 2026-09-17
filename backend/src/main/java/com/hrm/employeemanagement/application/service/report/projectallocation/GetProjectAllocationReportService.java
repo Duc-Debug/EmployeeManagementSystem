@@ -130,8 +130,11 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
                 .filter(r -> r.getIdValue() != null)
                 .collect(Collectors.toMap(ProjectRole::getIdValue, r -> r, (r1, r2) -> r1));
 
-        List<ProjectResourceDemand> demands = loadDemandPort.findByProjectId(new ProjectId(project.getIdValue()));
-        List<WeeklyProjectAllocation> allocations = loadAllocationsForWeeks(project.getIdValue(), targetWeeks);
+        Long effectiveProjectId = project.getIdValue() != null ? project.getIdValue() : query.projectId();
+        ProjectId projIdObj = project.getId() != null ? project.getId() : new ProjectId(effectiveProjectId);
+
+        List<ProjectResourceDemand> demands = loadDemandPort.findByProjectId(projIdObj);
+        List<WeeklyProjectAllocation> allocations = loadAllocationsForWeeks(effectiveProjectId, targetWeeks);
 
         // Tải danh sách nhân sự được phân bổ
         List<Long> allocatedEmployeeIds = allocations.stream()
@@ -358,10 +361,10 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
                 : BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
 
         // 11. Ghi Audit Log thành công (TC-03)
-        recordSuccessAuditLog(currentUserId, project, startWeek, endWeek);
+        recordSuccessAuditLog(currentUserId, effectiveProjectId, project, startWeek, endWeek);
 
         return new ProjectAllocationReportResult(
-                project.getIdValue(),
+                effectiveProjectId,
                 project.getProjectCode(),
                 project.getProjectName(),
                 project.getStatus().name(),
@@ -628,13 +631,13 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
         }
     }
 
-    private void recordSuccessAuditLog(Long userId, Project project, YearWeek startWeek, YearWeek endWeek) {
+    private void recordSuccessAuditLog(Long userId, Long projectId, Project project, YearWeek startWeek, YearWeek endWeek) {
         if (saveAuditLogPort != null) {
             saveAuditLogPort.save(AuditLog.createChange(
                     userId,
                     "PROJECT_ALLOCATION_REPORT_VIEWED",
                     "project_allocation_report",
-                    project.getIdValue(),
+                    projectId,
                     null,
                     "Xem báo cáo phân bổ dự án " + project.getProjectCode() + " từ T" + startWeek.weekNumber() + "/" + startWeek.year()
                             + " đến T" + endWeek.weekNumber() + "/" + endWeek.year()
