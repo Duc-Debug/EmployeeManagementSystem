@@ -10,6 +10,7 @@ import java.util.Objects;
 public record BulkAllocateResourceCommand(
         Long employeeId,
         Long projectId,
+        Long projectRoleId,
         Integer fromYear,
         Integer fromWeek,
         Integer toYear,
@@ -26,7 +27,33 @@ public record BulkAllocateResourceCommand(
             Integer toWeek,
             BigDecimal allocatedHoursPerWeek
     ) {
-        this(employeeId, projectId, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, null);
+        this(employeeId, projectId, null, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, null);
+    }
+
+    public BulkAllocateResourceCommand(
+            Long employeeId,
+            Long projectId,
+            Long projectRoleId,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer toYear,
+            Integer toWeek,
+            BigDecimal allocatedHoursPerWeek
+    ) {
+        this(employeeId, projectId, projectRoleId, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, null);
+    }
+
+    public BulkAllocateResourceCommand(
+            Long employeeId,
+            Long projectId,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer toYear,
+            Integer toWeek,
+            BigDecimal allocatedHoursPerWeek,
+            BigDecimal allocationPercentagePerWeek
+    ) {
+        this(employeeId, projectId, null, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, allocationPercentagePerWeek);
     }
 
     public BulkAllocateResourceCommand {

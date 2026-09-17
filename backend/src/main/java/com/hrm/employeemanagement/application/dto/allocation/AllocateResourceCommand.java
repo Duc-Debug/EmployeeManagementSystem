@@ -6,6 +6,7 @@ import java.util.Objects;
 public record AllocateResourceCommand(
         Long employeeId,
         Long projectId,
+        Long projectRoleId,
         Integer year,
         Integer weekNumber,
         BigDecimal allocatedHours,
@@ -14,15 +15,31 @@ public record AllocateResourceCommand(
 ) {
 
     public AllocateResourceCommand(Long employeeId, Long projectId, Integer year, Integer weekNumber, BigDecimal allocatedHours) {
-        this(employeeId, projectId, year, weekNumber, allocatedHours, (BigDecimal) null, null);
+        this(employeeId, projectId, null, year, weekNumber, allocatedHours, (BigDecimal) null, null);
+    }
+
+    public AllocateResourceCommand(Long employeeId, Long projectId, Long projectRoleId, Integer year, Integer weekNumber, BigDecimal allocatedHours) {
+        this(employeeId, projectId, projectRoleId, year, weekNumber, allocatedHours, (BigDecimal) null, null);
     }
 
     public AllocateResourceCommand(Long employeeId, Long projectId, Integer year, Integer weekNumber, BigDecimal allocatedHours, String overloadReason) {
-        this(employeeId, projectId, year, weekNumber, allocatedHours, (BigDecimal) null, overloadReason);
+        this(employeeId, projectId, null, year, weekNumber, allocatedHours, (BigDecimal) null, overloadReason);
+    }
+
+    public AllocateResourceCommand(Long employeeId, Long projectId, Long projectRoleId, Integer year, Integer weekNumber, BigDecimal allocatedHours, String overloadReason) {
+        this(employeeId, projectId, projectRoleId, year, weekNumber, allocatedHours, (BigDecimal) null, overloadReason);
     }
 
     public AllocateResourceCommand(Long employeeId, Long projectId, Integer year, Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage) {
-        this(employeeId, projectId, year, weekNumber, allocatedHours, allocationPercentage, null);
+        this(employeeId, projectId, null, year, weekNumber, allocatedHours, allocationPercentage, null);
+    }
+
+    public AllocateResourceCommand(Long employeeId, Long projectId, Integer year, Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, String overloadReason) {
+        this(employeeId, projectId, null, year, weekNumber, allocatedHours, allocationPercentage, overloadReason);
+    }
+
+    public AllocateResourceCommand(Long employeeId, Long projectId, Long projectRoleId, Integer year, Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage) {
+        this(employeeId, projectId, projectRoleId, year, weekNumber, allocatedHours, allocationPercentage, null);
     }
 
     public AllocateResourceCommand {
