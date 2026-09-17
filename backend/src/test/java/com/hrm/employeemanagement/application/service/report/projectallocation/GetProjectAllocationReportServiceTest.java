@@ -472,4 +472,153 @@ class GetProjectAllocationReportServiceTest {
                 () -> new ProjectAllocationReportQuery(1L, 2024, 1, 2026, 52));
         assertTrue(ex.getMessage().contains("104 tuần"));
     }
+
+    @Test
+    @DisplayName("Regression: Employee.professionalRole != ProjectRole ('Senior Backend Developer' -> DEV) - Khớp chính xác vai trò và tính đúng giờ phân bổ")
+    void testRegression_EmployeeProfessionalRoleNotEqualProjectRole_CalculatesCorrectly() {
+        Long currentUserId = 200L;
+        Long pmEmployeeId = 20L;
+        Long projectId = 1L;
+        int targetYear = 2026;
+        int targetWeek = 38;
+
+        when(authorizationService.require(PermissionCode.PROJECT_ALLOCATION_REPORT_READ)).thenReturn(currentUserId);
+
+        Role pmRole = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý Dự án");
+        User pmUser = new User(new UserId(currentUserId), "pm_user", "hash", pmRole, UserStatus.ACTIVE,
+                new EmployeeId(pmEmployeeId), DataScope.SELF, null, 0L);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(pmUser));
+
+        Project project = Project.createNew(
+                "PRJ-001",
+                "Hệ thống HRM Core",
+                10L,
+                new EmployeeId(pmEmployeeId),
+                LocalDate.of(2026, 9, 14),
+                LocalDate.of(2026, 9, 20),
+                BigDecimal.valueOf(160.0),
+                "Mô tả dự án",
+                new UserId(currentUserId)
+        );
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+
+        // Catalog có vai trò chuẩn DEV: "Lập trình (Developer)" và TEST: "Kiểm thử (Tester / QA)"
+        ProjectRole devRole = new ProjectRole(new ProjectRoleId(1L), "DEV", "Lập trình (Developer)", "Phát triển");
+        ProjectRole testRole = new ProjectRole(new ProjectRoleId(2L), "TEST", "Kiểm thử (Tester / QA)", "Kiểm thử");
+        when(loadProjectRolePort.findAll()).thenReturn(List.of(devRole, testRole));
+
+        // Nhu cầu dự án cần DEV 40h
+        ProjectResourceDemand demand = ProjectResourceDemand.createNew(
+                new ProjectId(projectId),
+                new ProjectRoleId(1L),
+                YearWeek.of(targetYear, targetWeek),
+                BigDecimal.valueOf(40.0)
+        );
+        when(loadDemandPort.findByProjectId(new ProjectId(projectId))).thenReturn(List.of(demand));
+
+        // Phân bổ nhân sự có professionalRole = "Senior Backend Developer" (khác với "DEV" và "Lập trình (Developer)")
+        Long devEmployeeId = 501L;
+        WeeklyProjectAllocation alloc = WeeklyProjectAllocation.createNew(
+                devEmployeeId,
+                projectId,
+                YearWeek.of(targetYear, targetWeek),
+                BigDecimal.valueOf(40.0),
+                BigDecimal.valueOf(100.0)
+        );
+        when(loadAllocationPort.loadAllocationsForProjectInWeekRange(projectId, targetYear, targetWeek, targetWeek))
+                .thenReturn(List.of(alloc));
+
+        Employee devEmp = new Employee(new EmployeeId(devEmployeeId), new UserId(500L), 10L, "NV501", "Nguyễn Văn Backend",
+                "Senior Backend Developer", LocalDate.of(2022, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(devEmployeeId)))).thenReturn(List.of(devEmp));
+
+        ProjectAllocationReportQuery query = new ProjectAllocationReportQuery(projectId, targetYear, targetWeek, targetYear, targetWeek);
+        ProjectAllocationReportResult result = service.execute(query);
+
+        assertNotNull(result);
+        assertEquals(new BigDecimal("40.0"), result.totalDemandHours());
+        assertEquals(new BigDecimal("40.0"), result.totalAllocatedHours());
+        assertEquals(new BigDecimal("0.0"), result.totalShortfallHours());
+        assertEquals(new BigDecimal("100.0"), result.fulfillmentRate());
+
+        RoleAllocationBreakdownItem devBreakdown = result.roleBreakdowns().stream()
+                .filter(r -> r.roleId().equals(1L))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(new BigDecimal("40.0"), devBreakdown.totalDemandHours());
+        assertEquals(new BigDecimal("40.0"), devBreakdown.totalAllocatedHours(), "Phân bổ của 'Senior Backend Developer' phải được tính vào vai trò DEV");
+        assertEquals(new BigDecimal("0.0"), devBreakdown.totalShortfallHours());
+        assertEquals(new BigDecimal("100.0"), devBreakdown.fulfillmentRate());
+        assertEquals(1, devBreakdown.weeklyRoleMetrics().get(0).allocatedMembers().size());
+        assertEquals("Nguyễn Văn Backend", devBreakdown.weeklyRoleMetrics().get(0).allocatedMembers().get(0).fullName());
+    }
+
+    @Test
+    @DisplayName("Regression: Tech Lead và QA Automation được phân bổ chuẩn xác vào vai trò DEV và TEST tương ứng")
+    void testRegression_MultipleRoles_MappedAccurately() {
+        Long currentUserId = 200L;
+        Long pmEmployeeId = 20L;
+        Long projectId = 1L;
+        int targetYear = 2026;
+        int targetWeek = 38;
+
+        when(authorizationService.require(PermissionCode.PROJECT_ALLOCATION_REPORT_READ)).thenReturn(currentUserId);
+
+        Role pmRole = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý Dự án");
+        User pmUser = new User(new UserId(currentUserId), "pm_user", "hash", pmRole, UserStatus.ACTIVE,
+                new EmployeeId(pmEmployeeId), DataScope.SELF, null, 0L);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(pmUser));
+
+        Project project = Project.createNew(
+                "PRJ-001",
+                "Hệ thống HRM Core",
+                10L,
+                new EmployeeId(pmEmployeeId),
+                LocalDate.of(2026, 9, 14),
+                LocalDate.of(2026, 9, 20),
+                BigDecimal.valueOf(160.0),
+                "Mô tả dự án",
+                new UserId(currentUserId)
+        );
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+
+        ProjectRole devRole = new ProjectRole(new ProjectRoleId(1L), "DEV", "Lập trình (Developer)", "Phát triển");
+        ProjectRole testRole = new ProjectRole(new ProjectRoleId(2L), "TEST", "Kiểm thử (Tester / QA)", "Kiểm thử");
+        when(loadProjectRolePort.findAll()).thenReturn(List.of(devRole, testRole));
+
+        ProjectResourceDemand devDemand = ProjectResourceDemand.createNew(new ProjectId(projectId), new ProjectRoleId(1L), YearWeek.of(targetYear, targetWeek), BigDecimal.valueOf(40.0));
+        ProjectResourceDemand testDemand = ProjectResourceDemand.createNew(new ProjectId(projectId), new ProjectRoleId(2L), YearWeek.of(targetYear, targetWeek), BigDecimal.valueOf(20.0));
+        when(loadDemandPort.findByProjectId(new ProjectId(projectId))).thenReturn(List.of(devDemand, testDemand));
+
+        Long techLeadEmpId = 601L;
+        Long qaEmpId = 602L;
+        WeeklyProjectAllocation alloc1 = WeeklyProjectAllocation.createNew(techLeadEmpId, projectId, YearWeek.of(targetYear, targetWeek), BigDecimal.valueOf(40.0));
+        WeeklyProjectAllocation alloc2 = WeeklyProjectAllocation.createNew(qaEmpId, projectId, YearWeek.of(targetYear, targetWeek), BigDecimal.valueOf(20.0));
+        when(loadAllocationPort.loadAllocationsForProjectInWeekRange(projectId, targetYear, targetWeek, targetWeek))
+                .thenReturn(List.of(alloc1, alloc2));
+
+        Employee techLead = new Employee(new EmployeeId(techLeadEmpId), new UserId(601L), 10L, "NV601", "Trần Tech Lead",
+                "Tech Lead", LocalDate.of(2021, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee qa = new Employee(new EmployeeId(qaEmpId), new UserId(602L), 10L, "NV602", "Lê QA Automation",
+                "QA Automation Specialist", LocalDate.of(2021, 5, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(techLeadEmpId), new EmployeeId(qaEmpId))))
+                .thenReturn(List.of(techLead, qa));
+
+        ProjectAllocationReportQuery query = new ProjectAllocationReportQuery(projectId, targetYear, targetWeek, targetYear, targetWeek);
+        ProjectAllocationReportResult result = service.execute(query);
+
+        assertNotNull(result);
+        assertEquals(new BigDecimal("60.0"), result.totalDemandHours());
+        assertEquals(new BigDecimal("60.0"), result.totalAllocatedHours());
+        assertEquals(new BigDecimal("0.0"), result.totalShortfallHours());
+        assertEquals(new BigDecimal("100.0"), result.fulfillmentRate());
+
+        RoleAllocationBreakdownItem devItem = result.roleBreakdowns().stream().filter(r -> r.roleId().equals(1L)).findFirst().orElseThrow();
+        assertEquals(new BigDecimal("40.0"), devItem.totalAllocatedHours());
+        assertEquals(new BigDecimal("0.0"), devItem.totalShortfallHours());
+
+        RoleAllocationBreakdownItem testItem = result.roleBreakdowns().stream().filter(r -> r.roleId().equals(2L)).findFirst().orElseThrow();
+        assertEquals(new BigDecimal("20.0"), testItem.totalAllocatedHours());
+        assertEquals(new BigDecimal("0.0"), testItem.totalShortfallHours());
+    }
 }

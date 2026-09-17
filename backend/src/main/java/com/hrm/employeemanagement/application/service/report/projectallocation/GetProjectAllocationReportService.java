@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.report.projectallocation.*;
@@ -153,7 +154,7 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
         // 7. Nhóm phân bổ theo role và nhân sự
         Map<Long, ProjectRole> employeeToRoleMap = new HashMap<>();
         for (Employee emp : employeeMap.values()) {
-            ProjectRole matchedRole = matchEmployeeToProjectRole(emp, allRoles);
+            ProjectRole matchedRole = matchEmployeeToProjectRole(emp, allRoles, demands);
             if (matchedRole != null) {
                 employeeToRoleMap.put(emp.getIdValue(), matchedRole);
             }
@@ -584,31 +585,127 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
         return result;
     }
 
-    private ProjectRole matchEmployeeToProjectRole(Employee employee, List<ProjectRole> allRoles) {
-        if (employee == null || employee.getProfessionalRole() == null || employee.getProfessionalRole().isBlank()) {
+    private static final Map<String, List<String>> ROLE_FAMILY_KEYWORDS = Map.of(
+            "DEV", List.of("developer", "lập trình", "software engineer", "backend", "frontend", "fullstack", "coder", "programmer", "tech lead", "lead developer", "software developer", "engineer", "kỹ sư phần mềm", "web developer", "mobile developer", "java", "react", "golang", "python", "node"),
+            "TEST", List.of("tester", "qa", "qc", "kiểm thử", "quality assurance", "automation test", "manual test", "test engineer"),
+            "BA", List.of("business analyst", "phân tích", "phân tích nghiệp vụ", "product owner", "po", "system analyst", "sa"),
+            "UIUX", List.of("ui", "ux", "uiux", "ui/ux", "designer", "thiết kế", "graphic designer", "product designer", "interaction designer"),
+            "PM", List.of("project manager", "quản lý dự án", "scrum master", "delivery manager", "project lead", "pm"),
+            "DEVOPS", List.of("devops", "sre", "sysadmin", "infrastructure", "kỹ sư hệ thống", "cloud", "system admin", "platform engineer")
+    );
+
+    private ProjectRole matchEmployeeToProjectRole(Employee employee, List<ProjectRole> allRoles, List<ProjectResourceDemand> demands) {
+        if (employee == null || employee.getProfessionalRole() == null || employee.getProfessionalRole().isBlank() || allRoles == null || allRoles.isEmpty()) {
             return null;
         }
         String profRole = employee.getProfessionalRole().trim();
 
-        // 1. Khớp chính xác (case-insensitive) theo Name hoặc Code
+        // 1. Tầng 1: Khớp chính xác (case-insensitive) theo Code hoặc Name
         for (ProjectRole r : allRoles) {
-            if (r.getName().equalsIgnoreCase(profRole) || r.getCode().equalsIgnoreCase(profRole)) {
+            if (r.getCode() != null && r.getCode().equalsIgnoreCase(profRole)) {
+                return r;
+            }
+            if (r.getName() != null && r.getName().equalsIgnoreCase(profRole)) {
                 return r;
             }
         }
 
-        // 2. Khớp chuẩn hóa bỏ khoảng trắng, dấu gạch dưới, gạch ngang
-        String normalizedProf = profRole.replaceAll("[\\s_-]+", "").toLowerCase();
-        for (ProjectRole r : allRoles) {
-            String normName = r.getName().replaceAll("[\\s_-]+", "").toLowerCase();
-            String normCode = r.getCode().replaceAll("[\\s_-]+", "").toLowerCase();
-            if (normalizedProf.equals(normName) || normalizedProf.equals(normCode)) {
+        // 2. Tầng 2: Khớp chuẩn hóa bỏ khoảng trắng, dấu gạch dưới, gạch ngang, ký tự đặc biệt
+        String normalizedProf = normalizeRoleString(profRole);
+        if (!normalizedProf.isEmpty()) {
+            for (ProjectRole r : allRoles) {
+                if (r.getCode() != null && normalizedProf.equals(normalizeRoleString(r.getCode()))) {
+                    return r;
+                }
+                if (r.getName() != null && normalizedProf.equals(normalizeRoleString(r.getName()))) {
+                    return r;
+                }
+            }
+        }
+
+        // 3. Tầng 3: Khớp theo ranh giới từ (Word Boundary) với Name / Code của ProjectRole
+        Set<Long> demandedRoleIds = demands != null ? demands.stream()
+                .map(ProjectResourceDemand::getRoleIdValue)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()) : Set.of();
+
+        List<ProjectRole> candidateRoles = new ArrayList<>(allRoles);
+        // Sắp xếp: role có trong demand của dự án lên trước, role có độ dài tên lớn hơn lên trước (longest match first)
+        candidateRoles.sort((r1, r2) -> {
+            boolean d1 = r1.getIdValue() != null && demandedRoleIds.contains(r1.getIdValue());
+            boolean d2 = r2.getIdValue() != null && demandedRoleIds.contains(r2.getIdValue());
+            if (d1 != d2) return d1 ? -1 : 1;
+            int l1 = Math.max(r1.getName() != null ? r1.getName().length() : 0, r1.getCode() != null ? r1.getCode().length() : 0);
+            int l2 = Math.max(r2.getName() != null ? r2.getName().length() : 0, r2.getCode() != null ? r2.getCode().length() : 0);
+            return Integer.compare(l2, l1);
+        });
+
+        for (ProjectRole r : candidateRoles) {
+            if (r.getName() != null && matchesWordBoundary(profRole, r.getName())) {
+                return r;
+            }
+            if (r.getCode() != null && matchesWordBoundary(profRole, r.getCode())) {
                 return r;
             }
         }
 
-        // Không tự ý fallback về role khác để tránh làm sai lệch báo cáo phân bổ
+        // 4. Tầng 4: Khớp theo bộ từ khóa vai trò chuyên môn (Role Family Keywords)
+        String lowerProf = profRole.toLowerCase();
+        for (ProjectRole r : candidateRoles) {
+            String roleFamilyKey = identifyRoleFamily(r);
+            if (roleFamilyKey != null) {
+                List<String> keywords = ROLE_FAMILY_KEYWORDS.get(roleFamilyKey);
+                if (keywords != null) {
+                    for (String kw : keywords) {
+                        if (matchesWordBoundary(lowerProf, kw) || lowerProf.contains(kw)) {
+                            // Bảo vệ đặc thù: Không gán nhân sự DevOps vào vai trò DEV chung nếu không có vai trò DevOps
+                            if ("DEV".equals(roleFamilyKey) && lowerProf.contains("devops")) {
+                                continue;
+                            }
+                            // Không gán nhân sự QA/QC/Tester vào vai trò DEV
+                            if ("DEV".equals(roleFamilyKey) && (lowerProf.contains("qa") || lowerProf.contains("test") || lowerProf.contains("qc") || lowerProf.contains("kiểm thử"))) {
+                                continue;
+                            }
+                            return r;
+                        }
+                    }
+                }
+            }
+        }
+
         return null;
+    }
+
+    private String identifyRoleFamily(ProjectRole role) {
+        if (role == null) return null;
+        String code = role.getCode() != null ? role.getCode().toUpperCase() : "";
+        String name = role.getName() != null ? role.getName().toUpperCase() : "";
+
+        if (code.contains("DEVOPS") || name.contains("DEVOPS") || name.contains("HỆ THỐNG") || name.contains("SYSADMIN") || name.contains("SRE")) return "DEVOPS";
+        if (code.contains("TEST") || code.contains("QA") || code.contains("QC") || name.contains("TEST") || name.contains("KIỂM THỬ") || name.contains("QA") || name.contains("QC")) return "TEST";
+        if (code.contains("BA") || name.contains("BUSINESS ANALYST") || name.contains("PHÂN TÍCH")) return "BA";
+        if (code.contains("UIUX") || code.contains("UI") || code.contains("UX") || name.contains("UI/UX") || name.contains("UIUX") || name.contains("THIẾT KẾ") || name.contains("DESIGNER")) return "UIUX";
+        if (code.contains("PM") || name.contains("PROJECT MANAGER") || name.contains("QUẢN LÝ DỰ ÁN") || name.contains("SCRUM MASTER")) return "PM";
+        if (code.contains("DEV") || name.contains("LẬP TRÌNH") || name.contains("DEVELOPER") || name.contains("ENGINEER")) return "DEV";
+
+        return null;
+    }
+
+    private String normalizeRoleString(String input) {
+        if (input == null) return "";
+        return input.replaceAll("[^a-zA-Z0-9\u00C0-\u024F\u1EA0-\u1EF9]", "").toLowerCase();
+    }
+
+    private boolean matchesWordBoundary(String text, String target) {
+        if (text == null || target == null || target.trim().isEmpty()) {
+            return false;
+        }
+        String cleanTarget = target.replaceAll("[()]", "").trim();
+        if (cleanTarget.isEmpty()) {
+            return false;
+        }
+        String regex = "(?i)\\b" + Pattern.quote(cleanTarget) + "\\b";
+        return Pattern.compile(regex).matcher(text).find();
     }
 
     private Long resolveEmployeeId(User currentUser, Long currentUserId) {
