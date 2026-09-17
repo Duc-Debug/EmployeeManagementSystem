@@ -22,6 +22,9 @@ public class ResourceScenario {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long version;
+    private Long targetProjectId;
+    private LocalDateTime appliedAt;
+    private Long appliedBy;
     private List<ScenarioDemand> demands = new ArrayList<>();
     private List<ScenarioAllocationSnapshotItem> snapshotItems = new ArrayList<>();
 
@@ -41,6 +44,28 @@ public class ResourceScenario {
             LocalDateTime updatedAt,
             Long version
     ) {
+        this(id, code, name, description, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, null, null, null);
+    }
+
+    public ResourceScenario(
+            Long id,
+            String code,
+            String name,
+            String description,
+            Long orgUnitId,
+            ScenarioStatus status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Long targetProjectId,
+            LocalDateTime appliedAt,
+            Long appliedBy
+    ) {
         this.id = id;
         this.code = Objects.requireNonNull(code, "Mã kịch bản không được để trống");
         this.name = Objects.requireNonNull(name, "Tên kịch bản không được để trống");
@@ -55,6 +80,9 @@ public class ResourceScenario {
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
         this.updatedAt = updatedAt;
         this.version = version != null ? version : 0L;
+        this.targetProjectId = targetProjectId;
+        this.appliedAt = appliedAt;
+        this.appliedBy = appliedBy;
     }
 
     public static ResourceScenario createNew(
@@ -118,6 +146,21 @@ public class ResourceScenario {
         return com.hrm.employeemanagement.domain.availability.YearWeek.of(y, w);
     }
 
+    public void markAsApplied(Long targetProjectId, Long appliedBy) {
+        assertModifiable();
+        this.status = ScenarioStatus.APPLIED;
+        this.targetProjectId = Objects.requireNonNull(targetProjectId, "Dự án mục tiêu không được để trống khi áp dụng kịch bản");
+        this.appliedBy = Objects.requireNonNull(appliedBy, "Người áp dụng không được để trống");
+        this.appliedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateBaseSnapshotAt(LocalDateTime newSnapshotAt) {
+        assertModifiable();
+        this.baseSnapshotAt = Objects.requireNonNull(newSnapshotAt, "Thời điểm snapshot không được để trống");
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getCode() { return code; }
@@ -136,6 +179,12 @@ public class ResourceScenario {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public Long getVersion() { return version; }
+    public Long getTargetProjectId() { return targetProjectId; }
+    public void setTargetProjectId(Long targetProjectId) { this.targetProjectId = targetProjectId; }
+    public LocalDateTime getAppliedAt() { return appliedAt; }
+    public void setAppliedAt(LocalDateTime appliedAt) { this.appliedAt = appliedAt; }
+    public Long getAppliedBy() { return appliedBy; }
+    public void setAppliedBy(Long appliedBy) { this.appliedBy = appliedBy; }
     public List<ScenarioDemand> getDemands() { return Collections.unmodifiableList(demands); }
     public List<ScenarioAllocationSnapshotItem> getSnapshotItems() { return Collections.unmodifiableList(snapshotItems); }
 }
