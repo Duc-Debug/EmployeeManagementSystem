@@ -1,5 +1,6 @@
 import {
     LayoutDashboard,
+    Activity,
     Users,
     Clock,
     Calendar as CalendarIcon,
@@ -21,6 +22,7 @@ import { useAuthUser } from "@/lib/auth-session";
 
 const SIDEBAR_WORKSPACE = [
     { name: "Tổng quan", icon: LayoutDashboard, id: "overview" },
+    { name: "Bảng điều khiển năng lực", icon: Activity, id: "capacity-dashboard" },
     { name: "Bảng năng lực & Phân bổ", icon: CalendarRange, id: "capacity" },
     { name: "Cảnh báo xung đột lịch", icon: AlertTriangle, id: "schedule-conflict" },
     { name: "Quản lý tài khoản", icon: Users, id: "users" },
@@ -62,6 +64,11 @@ export function canAccessTab(
         case "overview":
             // Tất cả vai trò đều có quyền truy cập trang Tổng quan
             return true;
+
+        case "capacity-dashboard":
+        case "dashboard-capacity":
+            // NCL-10-CN-001: Bảng điều khiển năng lực dành cho Ban Giám Đốc (VT-01), Quản lý dự án (VT-02), Quản lý nguồn lực (VT-03), Quản trị viên (VT-06)
+            return ["VT-01", "VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "capacity":
         case "weekly-capacity":
