@@ -68,6 +68,12 @@ class ProjectControllerTest {
     private ReopenProjectUseCase reopenProjectUseCase;
 
     @Mock
+    private com.hrm.employeemanagement.application.port.inbound.project.ApproveProjectUseCase approveProjectUseCase;
+
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.project.CancelProjectUseCase cancelProjectUseCase;
+
+    @Mock
     private com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase;
 
     @BeforeEach
@@ -82,6 +88,8 @@ class ProjectControllerTest {
                         getProjectTemplatesUseCase,
                         closeProjectUseCase,
                         reopenProjectUseCase,
+                        approveProjectUseCase,
+                        cancelProjectUseCase,
                         getAssignableEmployeesUseCase
                 );
 
