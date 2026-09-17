@@ -4,6 +4,7 @@ import { Menu, Settings, Clock, User, LogOut } from "lucide-react";
 import UserProfileModal from "../profile/UserProfileModal";
 import { useAuthUser, clearAuthSession } from "@/lib/auth-session";
 import { NotificationPopover } from "./NotificationPopover";
+import PageQuickSearch from "./PageQuickSearch";
 
 interface HeaderProps {
     setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -80,6 +81,10 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {/* Thanh tìm kiếm nhanh trang khả dụng */}
+                    <PageQuickSearch />
+
+                    {/* Nút thông báo */}
                     <NotificationPopover />
 
                     {/* Đồng hồ hệ thống */}

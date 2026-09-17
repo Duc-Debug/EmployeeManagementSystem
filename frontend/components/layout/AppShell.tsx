@@ -33,6 +33,7 @@ const navSections: ReadonlyArray<NavSection> = [
       { href: "/access", icon: "access", label: "Phân quyền hệ thống" },
       { href: "/skills", icon: "shield", label: "Khai báo kỹ năng" },
       { href: "/work-logs", icon: "time", label: "Ghi giờ làm việc" },
+      { href: "/reports/timesheet-variance", icon: "chart", label: "Đối chiếu giờ công" },
     ],
   },
 ];
@@ -98,6 +99,10 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         items: section.items.filter((item) => {
           // VT-06 (Admin) has access to all management modules
           if (authUser?.roleCode === "VT-06") {
+            return true;
+          }
+          // VT-01 (Executive) & VT-03 (Resource Manager) have access to variance report
+          if ((authUser?.roleCode === "VT-01" || authUser?.roleCode === "VT-03") && item.href === "/reports/timesheet-variance") {
             return true;
           }
           // VT-04 (Specialist/Employee) has access to skills declaration and work logs

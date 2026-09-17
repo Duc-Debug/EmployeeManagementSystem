@@ -35,4 +35,30 @@ public interface SpringDataTimesheetEntryRepository extends JpaRepository<Timesh
             @Param("managerId") Long managerId,
             @Param("status") String status
     );
+
+    @Query("SELECT e.employeeId, e.projectId, e.workDate, SUM(e.hours) " +
+           "FROM TimesheetEntryJpaEntity e " +
+           "WHERE e.employeeId IN :employeeIds " +
+           "  AND e.workDate BETWEEN :startDate AND :endDate " +
+           "  AND e.status = 'APPROVED' " +
+           "  AND (:projectId IS NULL OR e.projectId = :projectId) " +
+           "GROUP BY e.employeeId, e.projectId, e.workDate")
+    List<Object[]> sumApprovedHoursByEmployeesAndDateRange(
+            @Param("employeeIds") List<Long> employeeIds,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("projectId") Long projectId
+    );
+
+    @Query("SELECT COUNT(e) > 0 FROM TimesheetEntryJpaEntity e " +
+           "WHERE e.employeeId IN :employeeIds " +
+           "  AND e.workDate BETWEEN :startDate AND :endDate " +
+           "  AND e.status = 'APPROVED' " +
+           "  AND (:projectId IS NULL OR e.projectId = :projectId)")
+    boolean existsApprovedEntries(
+            @Param("employeeIds") List<Long> employeeIds,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("projectId") Long projectId
+    );
 }

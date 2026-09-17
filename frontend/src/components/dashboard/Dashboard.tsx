@@ -16,6 +16,7 @@ import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CapacityForecastReportView from "../reports/CapacityForecastReportView";
+import TimesheetVarianceReportView from "../reports/TimesheetVarianceReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import CapacityDashboardView from "../capacity/CapacityDashboardView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
@@ -47,6 +48,7 @@ export default function Dashboard() {
         const path = location.pathname.toLowerCase();
         if (path.includes("capacity-dashboard") || path.includes("bang-dieu-khien-nang-luc") || path.includes("dashboard-capacity")) return "capacity-dashboard";
         if (path.includes("capacity-forecast") || path.includes("du-bao-nang-luc") || path.includes("forecast")) return "capacity-forecast";
+        if (path.includes("timesheet-variance") || path.includes("doi-chieu-gio-cong") || path.includes("variance")) return "timesheet-variance";
         if (path.includes("capacity") || path.includes("nang-luc")) return "capacity";
         if (
             path.includes("roles") ||
@@ -72,7 +74,7 @@ export default function Dashboard() {
         return "overview";
     }, [location.pathname]);
 
-    const isTabAllowed = canAccessTab(user?.roleCode, activeTab, user?.dataScope);
+    const isTabAllowed = canAccessTab(user?.roleCode, activeTab, user?.dataScope, user?.permissions);
 
     const handleTabChange = (tabId: string) => {
         const targetPath = tabId === "overview" ? "/" : `/${tabId}`;
@@ -273,9 +275,11 @@ export default function Dashboard() {
 
                                 {activeTab === "simulation-scenarios" && <SimulationScenarioListView />}
 
-                                {activeTab === "capacity-forecast" && <CapacityForecastReportView />}
+                                 {activeTab === "capacity-forecast" && <CapacityForecastReportView />}
 
-                                {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
+                                 {activeTab === "timesheet-variance" && <TimesheetVarianceReportView />}
+
+                                 {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
 
                                 {(activeTab === "overview" || activeTab === "reports") && (() => {
                                     const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
