@@ -31,7 +31,7 @@ class ProjectTest {
     class CreateNewTests {
 
         @Test
-        @DisplayName("Tạo dự án thành công với dữ liệu hợp lệ")
+        @DisplayName("Tạo dự án thành công với dữ liệu hợp lệ và trạng thái ACTIVE mặc định")
         void shouldCreateProjectSuccessfully() {
             Project project = Project.createNew(
                     VALID_CODE,
@@ -50,6 +50,64 @@ class ProjectTest {
             assertThat(project.getStatus()).isEqualTo(ProjectStatus.ACTIVE);
             assertThat(project.getEstimatedHours()).isEqualTo(new BigDecimal("150.50"));
             assertThat(project.getDescription()).isEqualTo("Mô tả dự án");
+        }
+
+        @Test
+        @DisplayName("Tạo dự án thành công với trạng thái PLANNED")
+        void shouldCreateProjectWithPlannedStatus() {
+            Project project = Project.createNew(
+                    VALID_CODE,
+                    VALID_NAME,
+                    ORG_UNIT_ID,
+                    MANAGER_ID,
+                    LocalDate.of(2026, 1, 1),
+                    LocalDate.of(2026, 12, 31),
+                    new BigDecimal("150.50"),
+                    "Mô tả dự án",
+                    ProjectStatus.PLANNED,
+                    CREATED_BY);
+
+            assertThat(project).isNotNull();
+            assertThat(project.getStatus()).isEqualTo(ProjectStatus.PLANNED);
+            assertThat(project.isPlanned()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Ném lỗi khi trạng thái khởi tạo dự án là null")
+        void shouldThrowWhenInitialStatusIsNull() {
+            assertThatThrownBy(() -> Project.createNew(
+                    VALID_CODE,
+                    VALID_NAME,
+                    ORG_UNIT_ID,
+                    MANAGER_ID,
+                    null,
+                    null,
+                    BigDecimal.ZERO,
+                    null,
+                    null,
+                    CREATED_BY))
+                    .isInstanceOf(InvalidProjectDataException.class)
+                    .hasMessageContaining("Trạng thái khởi tạo dự án không được để trống");
+        }
+
+        @Test
+        @DisplayName("Ném lỗi khi trạng thái khởi tạo không phải PLANNED hoặc ACTIVE")
+        void shouldThrowWhenInitialStatusNotPlannedOrActive() {
+            for (ProjectStatus invalidStatus : new ProjectStatus[]{ProjectStatus.CANCELLED, ProjectStatus.CLOSED, ProjectStatus.INACTIVE}) {
+                assertThatThrownBy(() -> Project.createNew(
+                        VALID_CODE,
+                        VALID_NAME,
+                        ORG_UNIT_ID,
+                        MANAGER_ID,
+                        null,
+                        null,
+                        BigDecimal.ZERO,
+                        null,
+                        invalidStatus,
+                        CREATED_BY))
+                        .isInstanceOf(InvalidProjectDataException.class)
+                        .hasMessageContaining("Trạng thái khởi tạo dự án chỉ được là PLANNED hoặc ACTIVE");
+            }
         }
 
         @Test
