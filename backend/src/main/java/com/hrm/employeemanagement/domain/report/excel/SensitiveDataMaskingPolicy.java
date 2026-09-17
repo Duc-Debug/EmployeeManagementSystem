@@ -9,6 +9,7 @@ import com.hrm.employeemanagement.domain.role.RoleCode;
 public final class SensitiveDataMaskingPolicy {
 
     public static final String MASKED_STRING = "***";
+    public static final String NOT_CONFIGURED_STRING = "Chưa cập nhật";
 
     private SensitiveDataMaskingPolicy() {
         // Utility class
@@ -24,7 +25,7 @@ public final class SensitiveDataMaskingPolicy {
         }
         // Chỉ Ban Giám Đốc (VT-01) hoặc Nhân sự (VT-05) mới có thể xem lương nếu được cấu hình
         if (userRoleCode == RoleCode.VT_01 || userRoleCode == RoleCode.VT_05) {
-            return salaryValue != null ? salaryValue.toString() : "-";
+            return salaryValue != null ? salaryValue.toString() : NOT_CONFIGURED_STRING;
         }
         // Quản lý dự án (VT-02) và các vai trò khác luôn bị che
         return MASKED_STRING;
@@ -38,7 +39,7 @@ public final class SensitiveDataMaskingPolicy {
             return MASKED_STRING;
         }
         if (userRoleCode == RoleCode.VT_01) {
-            return costRateValue != null ? costRateValue.toString() : "-";
+            return costRateValue != null ? costRateValue.toString() : NOT_CONFIGURED_STRING;
         }
         // Quản lý dự án (VT-02) bị che đơn giá chi phí nội bộ
         return MASKED_STRING;

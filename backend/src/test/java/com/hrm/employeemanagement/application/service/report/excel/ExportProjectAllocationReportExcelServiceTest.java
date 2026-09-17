@@ -284,4 +284,51 @@ class ExportProjectAllocationReportExcelServiceTest {
 
         assertTrue(ex.getMessage().contains("QTN-02"));
     }
+
+    @Test
+    @DisplayName("BLOCKER 2: Default 4 tuần tính an toàn qua giao thừa ISO (2026-W52 -> 2027-W02/W03, 2026-W53 -> 2027-W03/W04)")
+    void testDefaultFourWeeks_CrossingIsoYearBoundary() {
+        ExportReportExcelQuery q52 = new ExportReportExcelQuery(PROJECT_ID, 2026, 52, null, null).withDefaults();
+        assertEquals(2026, q52.fromYear());
+        assertEquals(52, q52.fromWeek());
+        assertEquals(2027, q52.toYear());
+        assertTrue(q52.toWeek() >= 2 && q52.toWeek() <= 3);
+        assertDoesNotThrow(() -> YearWeek.of(q52.toYear(), q52.toWeek()));
+
+        ExportReportExcelQuery q53 = new ExportReportExcelQuery(PROJECT_ID, 2026, 53, null, null).withDefaults();
+        assertEquals(2026, q53.fromYear());
+        assertEquals(53, q53.fromWeek());
+        assertEquals(2027, q53.toYear());
+        assertTrue(q53.toWeek() >= 3 && q53.toWeek() <= 4);
+        assertDoesNotThrow(() -> YearWeek.of(q53.toYear(), q53.toWeek()));
+    }
+
+    @Test
+    @DisplayName("BLOCKER 1: Chế độ Toàn bộ dữ liệu dự án (all=true) xuất toàn bộ vòng đời startDate -> endDate")
+    void testAllProjectData_CoversFullProjectLifespan() {
+        LocalDate start = LocalDate.of(2026, 1, 5); // 2026-W02
+        LocalDate end = LocalDate.of(2026, 3, 29);  // 2026-W13
+        Project longProject = new Project(new ProjectId(PROJECT_ID), "PRJ_ALL", "Dự án toàn bộ",
+                1L, new EmployeeId(PM_EMPLOYEE_ID), start, end, BigDecimal.valueOf(1000),
+                "Mô tả", ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(longProject));
+
+        YearWeek wStart = YearWeek.of(2026, 2);
+        WeeklyProjectAllocation a1 = WeeklyProjectAllocation.createNew(201L, PROJECT_ID, wStart, BigDecimal.valueOf(40.0));
+        when(loadAllocationPort.loadAllocationsForProjectInWeekRange(eq(PROJECT_ID), eq(2026), anyInt(), anyInt()))
+                .thenReturn(List.of(a1));
+
+        Employee dev = createEmployee(201L, "DEV01", "Trần Kỹ Sư");
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(dev));
+        when(generateExcelWorkbookPort.generateProjectAllocationWorkbook(any())).thenReturn(new byte[]{1, 2, 3});
+
+        ExportReportExcelQuery query = new ExportReportExcelQuery(PROJECT_ID, null, null, null, null, true);
+        ExportReportExcelResult result = service.export(query);
+
+        assertNotNull(result);
+        verify(generateExcelWorkbookPort).generateProjectAllocationWorkbook(argThat(data -> {
+            // Kiểm tra metadata ghi nhận chế độ Toàn bộ dự án
+            return data.getMetadata().timeRangeText().contains("Toàn bộ dự án");
+        }));
+    }
 }

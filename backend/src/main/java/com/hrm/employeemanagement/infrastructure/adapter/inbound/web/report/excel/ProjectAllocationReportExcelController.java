@@ -16,6 +16,7 @@ import com.hrm.employeemanagement.application.dto.report.excel.ExportReportExcel
 import com.hrm.employeemanagement.application.dto.report.excel.ExportReportExcelResult;
 import com.hrm.employeemanagement.application.port.inbound.report.excel.ExportProjectAllocationReportExcelUseCase;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.report.excel.exception.NoReportDataToExportException;
 import com.hrm.employeemanagement.domain.report.excel.exception.ReportExportAuditException;
@@ -53,9 +54,10 @@ public class ProjectAllocationReportExcelController {
             @RequestParam(required = false) Integer fromYear,
             @RequestParam(required = false) Integer fromWeek,
             @RequestParam(required = false) Integer toYear,
-            @RequestParam(required = false) Integer toWeek
+            @RequestParam(required = false) Integer toWeek,
+            @RequestParam(required = false, defaultValue = "false") Boolean all
     ) {
-        ExportReportExcelQuery query = new ExportReportExcelQuery(projectId, fromYear, fromWeek, toYear, toWeek);
+        ExportReportExcelQuery query = new ExportReportExcelQuery(projectId, fromYear, fromWeek, toYear, toWeek, all);
         ExportReportExcelResult result = exportProjectAllocationReportExcelUseCase.export(query);
 
         return ResponseEntity.ok()
@@ -106,8 +108,8 @@ public class ProjectAllocationReportExcelController {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+    @ExceptionHandler({InvalidWeekNumberException.class, IllegalArgumentException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidInput(Exception ex) {
         ErrorResponse error = ErrorResponse.of(
                 "INVALID_INPUT",
                 ex.getMessage(),

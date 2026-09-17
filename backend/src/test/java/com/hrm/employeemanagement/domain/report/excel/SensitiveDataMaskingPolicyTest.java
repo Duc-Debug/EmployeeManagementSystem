@@ -46,6 +46,13 @@ class SensitiveDataMaskingPolicyTest {
     }
 
     @Test
+    @DisplayName("Ban Giám Đốc (VT-01) khi giá trị lương/chi phí null hiển thị 'Chưa cập nhật'")
+    void testMaskSalaryAndCostRate_Director_Null_ReturnsNotConfigured() {
+        assertEquals("Chưa cập nhật", SensitiveDataMaskingPolicy.maskSalary(RoleCode.VT_01, null));
+        assertEquals("Chưa cập nhật", SensitiveDataMaskingPolicy.maskCostRate(RoleCode.VT_01, null));
+    }
+
+    @Test
     @DisplayName("PM được phép xuất báo cáo khi chính mình là Quản lý dự án của dự án đó")
     void testCanExport_ProjectManager_MatchingId_Allowed() {
         Long pmEmployeeId = 10L;

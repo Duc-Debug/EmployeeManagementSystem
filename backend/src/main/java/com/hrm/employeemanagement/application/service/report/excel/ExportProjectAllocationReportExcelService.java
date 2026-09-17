@@ -14,6 +14,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.hrm.employeemanagement.application.dto.report.excel.ExportReportExcelQuery;
 import com.hrm.employeemanagement.application.dto.report.excel.ExportReportExcelResult;
 import com.hrm.employeemanagement.application.port.inbound.report.excel.ExportProjectAllocationReportExcelUseCase;
@@ -55,6 +58,8 @@ import com.hrm.employeemanagement.domain.user.UserId;
  * Tuân thủ nghiêm ngặt quy tắc QTN-02 và che dữ liệu nhạy cảm.
  */
 public class ExportProjectAllocationReportExcelService implements ExportProjectAllocationReportExcelUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(ExportProjectAllocationReportExcelService.class);
 
     private final AuthorizationService authorizationService;
     private final LoadUserPort loadUserPort;
@@ -129,7 +134,26 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
         }
 
         // 4. Tạo danh sách các tuần trong khoảng thời gian yêu cầu
-        List<YearWeek> targetWeeks = buildTargetWeeks(query.fromYear(), query.fromWeek(), query.toYear(), query.toWeek());
+        List<YearWeek> targetWeeks;
+        String timeRangeText;
+
+        if (Boolean.TRUE.equals(query.all())) {
+            YearWeek startYw = project.getStartDate() != null
+                    ? YearWeek.from(project.getStartDate())
+                    : YearWeek.from(LocalDate.now().minusWeeks(12));
+            YearWeek endYw = project.getEndDate() != null
+                    ? YearWeek.from(project.getEndDate())
+                    : YearWeek.from(LocalDate.now().plusWeeks(12));
+
+            targetWeeks = buildTargetWeeks(startYw.year(), startYw.weekNumber(), endYw.year(), endYw.weekNumber());
+            timeRangeText = String.format("Toàn bộ dự án (T%02d/%d - T%02d/%d)",
+                    startYw.weekNumber(), startYw.year(), endYw.weekNumber(), endYw.year());
+        } else {
+            targetWeeks = buildTargetWeeks(query.fromYear(), query.fromWeek(), query.toYear(), query.toWeek());
+            timeRangeText = String.format("Từ tuần T%02d/%d đến tuần T%02d/%d",
+                    query.fromWeek(), query.fromYear(), query.toWeek(), query.toYear());
+        }
+
         if (targetWeeks.isEmpty()) {
             throw new NoReportDataToExportException("Khoảng thời gian yêu cầu không hợp lệ hoặc không có tuần nào");
         }
@@ -219,9 +243,6 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
                 pmName = pmOpt.get().getFullName();
             }
         }
-
-        String timeRangeText = String.format("Từ tuần T%02d/%d đến tuần T%02d/%d",
-                query.fromWeek(), query.fromYear(), query.toWeek(), query.toYear());
 
         ExcelReportMetadata metadata = new ExcelReportMetadata(
                 "BÁO CÁO PHÂN BỔ NGUỒN LỰC DỰ ÁN",
@@ -323,7 +344,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
                         ));
             }
         } catch (Exception e) {
-            // Không làm gián đoạn báo cáo nếu nạp vai trò phụ bị lỗi
+            log.warn("Không thể nạp vai trò thành viên dự án cho dự án ID {}: {}", projectId, e.getMessage());
         }
         return Map.of();
     }
@@ -352,7 +373,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
                         ));
             }
         } catch (Exception e) {
-            // Không làm gián đoạn báo cáo nếu nạp tên phòng ban bị lỗi
+            log.warn("Không thể nạp thông tin đơn vị phòng ban cho nhân sự: {}", e.getMessage());
         }
         return Map.of();
     }
@@ -368,7 +389,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
                     "Từ chối xuất báo cáo Excel dự án ID " + projectId + "; lý do: " + reason
             ));
         } catch (Exception ignored) {
-            // Log từ chối tốt nhất có thể
+            log.warn("Không thể ghi nhận nhật ký kiểm toán từ chối cho người dùng ID {}: {}", userId, ignored.getMessage());
         }
     }
 

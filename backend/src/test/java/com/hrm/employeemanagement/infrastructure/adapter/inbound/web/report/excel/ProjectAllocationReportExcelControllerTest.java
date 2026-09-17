@@ -116,4 +116,18 @@ class ProjectAllocationReportExcelControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("AUDIT_LOG_FAILED"));
     }
+
+    @Test
+    @DisplayName("BLOCKER 2: API - Số tuần không hợp lệ (InvalidWeekNumberException) trả về 400 Bad Request thay vì 500")
+    void testExportReport_InvalidWeekNumber_Returns400() throws Exception {
+        when(exportUseCase.export(any()))
+                .thenThrow(new com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException("Số tuần không hợp lệ: 55"));
+
+        mockMvc.perform(get("/api/v1/reports/export/excel/project-allocation")
+                        .param("projectId", "1")
+                        .param("fromYear", "2026")
+                        .param("fromWeek", "55"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
 }
