@@ -38,7 +38,12 @@ const DURATION_OPTIONS = [
 export default function CapacityDashboardView({ onNavigate }: CapacityDashboardViewProps) {
     const currentIso = useMemo(() => getCurrentIsoWeek(), []);
 
-    // Filters state
+    // Filters state (Draft vs Applied)
+    const [draftFromYear, setDraftFromYear] = useState<number>(currentIso.year);
+    const [draftFromWeek, setDraftFromWeek] = useState<number>(currentIso.weekNumber);
+    const [draftDurationWeeks, setDraftDurationWeeks] = useState<number>(8);
+    const [draftOrgUnitId, setDraftOrgUnitId] = useState<number | undefined>(undefined);
+
     const [fromYear, setFromYear] = useState<number>(currentIso.year);
     const [fromWeek, setFromWeek] = useState<number>(currentIso.weekNumber);
     const [durationWeeks, setDurationWeeks] = useState<number>(8);
@@ -168,8 +173,8 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                                 type="number"
                                 min={1}
                                 max={53}
-                                value={fromWeek}
-                                onChange={(e) => setFromWeek(Math.max(1, Math.min(53, Number(e.target.value) || 1)))}
+                                value={draftFromWeek}
+                                onChange={(e) => setDraftFromWeek(Math.max(1, Math.min(53, Number(e.target.value) || 1)))}
                                 className="w-16 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-hidden"
                             />
                             <span className="text-xs text-slate-400">/</span>
@@ -177,8 +182,8 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                                 type="number"
                                 min={2020}
                                 max={2030}
-                                value={fromYear}
-                                onChange={(e) => setFromYear(Number(e.target.value) || currentIso.year)}
+                                value={draftFromYear}
+                                onChange={(e) => setDraftFromYear(Number(e.target.value) || currentIso.year)}
                                 className="w-20 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-hidden"
                             />
                         </div>
@@ -191,10 +196,10 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                                     <button
                                         key={opt.value}
                                         type="button"
-                                        onClick={() => setDurationWeeks(opt.value)}
+                                        onClick={() => setDraftDurationWeeks(opt.value)}
                                         className={cn(
                                             "rounded-md px-2.5 py-1 text-xs font-semibold transition cursor-pointer",
-                                            durationWeeks === opt.value
+                                            draftDurationWeeks === opt.value
                                                 ? "bg-white text-indigo-700 shadow-2xs"
                                                 : "text-slate-600 hover:text-slate-900"
                                         )}
@@ -209,8 +214,8 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                         <div className="flex items-center gap-1.5">
                             <label className="text-[11px] font-medium text-slate-500">Phòng ban:</label>
                             <select
-                                value={selectedOrgUnitId ?? ""}
-                                onChange={(e) => setSelectedOrgUnitId(e.target.value ? Number(e.target.value) : undefined)}
+                                value={draftOrgUnitId ?? ""}
+                                onChange={(e) => setDraftOrgUnitId(e.target.value ? Number(e.target.value) : undefined)}
                                 className="rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-hidden cursor-pointer"
                             >
                                 <option value="">Toàn công ty</option>
@@ -221,6 +226,21 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                                 ))}
                             </select>
                         </div>
+
+                        {/* Apply Filters Button */}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setFromYear(draftFromYear);
+                                setFromWeek(draftFromWeek);
+                                setDurationWeeks(draftDurationWeeks);
+                                setSelectedOrgUnitId(draftOrgUnitId);
+                            }}
+                            disabled={loading}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer shadow-2xs"
+                        >
+                            Áp dụng bộ lọc
+                        </button>
                     </div>
 
                     {/* Scope info tag */}

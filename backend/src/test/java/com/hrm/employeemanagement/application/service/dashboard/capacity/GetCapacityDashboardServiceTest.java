@@ -17,9 +17,12 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.Holiday;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflict;
@@ -28,11 +31,15 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
+import com.hrm.employeemanagement.domain.role.Role;
+import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import org.junit.jupiter.api.BeforeEach;
@@ -338,6 +345,252 @@ class GetCapacityDashboardServiceTest {
         assertThatThrownBy(() -> new CapacityDashboardQuery(null, 2026, 999, 8))
                 .isInstanceOf(com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException.class)
                 .hasMessageContaining("Số tuần không hợp lệ");
+    }
+
+    @Test
+    @DisplayName("TC-08: Cross-year dashboard period - Hiển thị chuyển giao năm ISO 2026-W52 đến 2027-W02")
+    void shouldHandleCrossYearDashboardPeriod() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjects()).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
+
+        CapacityDashboardQuery query = new CapacityDashboardQuery(null, 2026, 52, 4);
+        CapacityDashboardResult result = service.execute(query);
+
+        assertThat(result.weeklyMetrics()).hasSize(4);
+        assertThat(result.weeklyMetrics().get(0).year()).isEqualTo(2026);
+        assertThat(result.weeklyMetrics().get(0).weekNumber()).isEqualTo(52);
+        assertThat(result.weeklyMetrics().get(1).year()).isEqualTo(2026);
+        assertThat(result.weeklyMetrics().get(1).weekNumber()).isEqualTo(53);
+        assertThat(result.weeklyMetrics().get(2).year()).isEqualTo(2027);
+        assertThat(result.weeklyMetrics().get(2).weekNumber()).isEqualTo(1);
+        assertThat(result.weeklyMetrics().get(3).year()).isEqualTo(2027);
+        assertThat(result.weeklyMetrics().get(3).weekNumber()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("TC-09: Available hours = 0 - Không xảy ra lỗi chia cho 0 và tính toán tỷ lệ an toàn")
+    void shouldHandleZeroAvailableHours() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+
+        Employee emp = createEmployee(101L, "EMP001", "Nguyễn Văn A", 10L, 40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+
+        // Nghỉ phép toàn bộ 40h trong tuần -> Giờ khả dụng ròng = 0h
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(Map.of(101L, Map.of(YearWeek.of(2026, 38), BigDecimal.valueOf(40.0))));
+
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadScheduleConflictPort.findUnresolvedConflictsForEmployees(anyList(), anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjects()).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
+
+        CapacityDashboardResult result = service.execute(new CapacityDashboardQuery(null, 2026, 38, 1));
+
+        assertThat(result.averageCapacityUtilization()).isNotNull();
+        assertThat(result.averageCapacityUtilization()).isEqualTo(BigDecimal.ZERO.setScale(1));
+        assertThat(result.weeklyMetrics()).hasSize(1);
+        assertThat(result.weeklyMetrics().get(0).availableHours()).isEqualTo(BigDecimal.ZERO.setScale(1));
+    }
+
+    @Test
+    @DisplayName("TC-10: Cấu hình ngưỡng tùy chỉnh - Không đánh dấu quá tải nếu tỷ lệ dưới ngưỡng overload mới (120%)")
+    void shouldApplyCustomCapacityThreshold() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+
+        CapacityThresholdConfig customThreshold = CapacityThresholdConfig.createNew(
+                CapacityThresholdScope.COMPANY, null,
+                BigDecimal.valueOf(120.0), BigDecimal.valueOf(50.0), 1L
+        );
+        when(loadCapacityThresholdPort.findByScope(CapacityThresholdScope.COMPANY, null))
+                .thenReturn(Optional.of(customThreshold));
+
+        Employee emp = createEmployee(101L, "EMP001", "Nguyễn Văn A", 10L, 40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
+
+        // Phân bổ 45h / 40h khả dụng = 112.5% tải -> Lớn hơn 100% nhưng nhỏ hơn ngưỡng 120%
+        List<WeeklyProjectAllocation> allocations = List.of(
+                new WeeklyProjectAllocation(1L, 101L, 1L, YearWeek.of(2026, 38), BigDecimal.valueOf(45.0))
+        );
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(allocations);
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadScheduleConflictPort.findUnresolvedConflictsForEmployees(anyList(), anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjects()).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
+
+        CapacityDashboardResult result = service.execute(new CapacityDashboardQuery(null, 2026, 38, 1));
+
+        assertThat(result.overloadedEmployeesCount()).isEqualTo(0);
+        assertThat(result.overloadedEmployees()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("TC-11: Hết hạn hợp đồng giữa tuần - Tự động điều chỉnh giảm giờ khả dụng theo số ngày làm việc còn lại")
+    void shouldAdjustAvailableHoursWhenContractEndsMidweek() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+
+        // Hợp đồng kết thúc vào Thứ Tư 23/09/2026 trong tuần 2026-W39 (21/09 - 27/09)
+        Employee emp = new Employee(
+                new EmployeeId(101L), new UserId(101L), 10L, "EMP001", "Nguyễn Văn A", "Lập trình viên",
+                LocalDate.of(2025, 1, 1), LocalDate.of(2026, 9, 23), false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadScheduleConflictPort.findUnresolvedConflictsForEmployees(anyList(), anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjects()).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
+
+        CapacityDashboardResult result = service.execute(new CapacityDashboardQuery(null, 2026, 39, 1));
+
+        // 3 ngày làm việc (Thứ 2, 3, 4) / 5 ngày tiêu chuẩn -> 40 * 3 / 5 = 24.0h
+        assertThat(result.weeklyMetrics()).hasSize(1);
+        assertThat(result.weeklyMetrics().get(0).availableHours())
+                .isEqualByComparingTo(BigDecimal.valueOf(24.0));
+    }
+
+    @Test
+    @DisplayName("TC-12: Nghỉ lễ kết hợp Nghỉ phép - Khấu trừ đồng thời cả ngày lễ và giờ nghỉ phép trong tuần")
+    void shouldDeductBothHolidayAndApprovedLeaveHours() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+
+        Employee emp = createEmployee(101L, "EMP001", "Nguyễn Văn A", 10L, 40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+
+        // 1 ngày lễ (8h)
+        Holiday holiday = new Holiday(LocalDate.of(2026, 9, 21), "Ngày Lễ Test", 8);
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of(holiday));
+
+        // 1 ngày nghỉ phép (8h)
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList()))
+                .thenReturn(Map.of(101L, Map.of(YearWeek.of(2026, 39), BigDecimal.valueOf(8.0))));
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadScheduleConflictPort.findUnresolvedConflictsForEmployees(anyList(), anyInt(), anyInt(), anyInt(), anyInt())).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjects()).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of());
+
+        CapacityDashboardResult result = service.execute(new CapacityDashboardQuery(null, 2026, 39, 1));
+
+        // 40h - 8h lễ - 8h phép = 24.0h
+        assertThat(result.weeklyMetrics()).hasSize(1);
+        assertThat(result.weeklyMetrics().get(0).availableHours())
+                .isEqualByComparingTo(BigDecimal.valueOf(24.0));
+    }
+
+    @Test
+    @DisplayName("TC-13: Thiếu dữ liệu phân bổ thành viên dự án - Gán mặc định 0 thành viên an toàn")
+    void shouldHandleMissingMemberCountMapForActiveProjects() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of());
+
+        Project project1 = new Project(
+                new ProjectId(1L), "PRJ-01", "Dự án Test", 10L, new EmployeeId(101L),
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), BigDecimal.valueOf(500), "Mô tả",
+                ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L
+        );
+
+        when(loadProjectPort.countActiveProjects()).thenReturn(2L);
+        when(loadProjectPort.findActiveProjects(anyInt(), anyInt())).thenReturn(List.of(project1));
+        when(loadProjectMemberPort.countMembersByProjectIds(anyList())).thenReturn(Map.of());
+
+        CapacityDashboardResult result = service.execute(new CapacityDashboardQuery(null, 2026, 38, 1));
+
+        assertThat(result.activeProjectsCount()).isEqualTo(2L);
+        assertThat(result.activeProjects()).hasSize(1);
+        assertThat(result.activeProjects().get(0).memberCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("TC-14: Giới hạn danh sách preview dự án tối đa 50 phần tử")
+    void shouldLimitActiveProjectPreviewTo50() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of());
+
+        List<Project> projectList = new ArrayList<>();
+        for (long i = 1; i <= 50; i++) {
+            projectList.add(new Project(
+                    new ProjectId(i), "PRJ-" + i, "Dự án " + i, 10L, new EmployeeId(101L),
+                    LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), BigDecimal.valueOf(100), "Mô tả",
+                    ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L
+            ));
+        }
+
+        when(loadProjectPort.countActiveProjects()).thenReturn(60L);
+        when(loadProjectPort.findActiveProjects(eq(0), eq(50))).thenReturn(projectList);
+        when(loadProjectMemberPort.countMembersByProjectIds(anyList())).thenReturn(Map.of());
+
+        CapacityDashboardResult result = service.execute(new CapacityDashboardQuery(null, 2026, 38, 8));
+
+        assertThat(result.activeProjectsCount()).isEqualTo(60L);
+        assertThat(result.activeProjects()).hasSize(50);
+    }
+
+    @Test
+    @DisplayName("TC-15: Data Scope ORGANIZATION_BRANCH - Chỉ truy cập trong nhánh được phân quyền")
+    void shouldRestrictDataScopeForOrganizationBranch() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+        when(executiveUser.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(executiveUser.getScopeOrgUnitId()).thenReturn(10L);
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+        when(loadOrgUnitPort.findSubTree(anyString())).thenReturn(List.of(itDept));
+        when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjectsByOrgUnitBranch(10L)).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjectsByOrgUnitBranch(eq(10L), anyInt(), anyInt())).thenReturn(List.of());
+
+        // In scope query -> Thành công
+        CapacityDashboardResult result = service.execute(new CapacityDashboardQuery(10L, 2026, 38, 4));
+        assertThat(result).isNotNull();
+
+        // Out of scope query -> Bị từ chối
+        when(loadOrgUnitPort.existsInOrgUnitBranch(999L, 10L)).thenReturn(false);
+        assertThatThrownBy(() -> service.execute(new CapacityDashboardQuery(999L, 2026, 38, 4)))
+                .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("TC-16: Data Scope SELF - PM (VT_02) chỉ xem trong phạm vi phòng ban của mình, vai trò khác bị từ chối")
+    void shouldRestrictDataScopeForSelfProjectManager() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+        when(executiveUser.getDataScope()).thenReturn(DataScope.SELF);
+        when(executiveUser.getRole()).thenReturn(new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án"));
+
+        Employee pmEmp = createEmployee(101L, "PM001", "PM Nguyễn Văn C", 10L, 40);
+        when(loadEmployeePort.findByUserId(new UserId(1L))).thenReturn(Optional.of(pmEmp));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+        when(loadOrgUnitPort.findSubTree(anyString())).thenReturn(List.of(itDept));
+        when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of());
+        lenient().when(loadProjectPort.countActiveProjectsByOrgUnitBranch(10L)).thenReturn(0L);
+        lenient().when(loadProjectPort.findActiveProjectsByOrgUnitBranch(eq(10L), anyInt(), anyInt())).thenReturn(List.of());
+
+        // PM xem phòng ban của mình -> Thành công
+        CapacityDashboardResult result = service.execute(new CapacityDashboardQuery(10L, 2026, 38, 4));
+        assertThat(result).isNotNull();
+
+        // User role khác (không phải VT_02) có scope SELF -> Bị từ chối
+        when(executiveUser.getRole()).thenReturn(new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên dự án"));
+        assertThatThrownBy(() -> service.execute(new CapacityDashboardQuery(10L, 2026, 38, 4)))
+                .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("TC-17: Phòng ban không tồn tại -> Ném OrgUnitNotFoundException")
+    void shouldThrowOrgUnitNotFoundException_WhenOrgUnitDoesNotExist() {
+        when(authorizationService.require(PermissionCode.CAPACITY_DASHBOARD_READ)).thenReturn(1L);
+        when(loadOrgUnitPort.findById(new OrgUnitId(999L))).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.execute(new CapacityDashboardQuery(999L, 2026, 38, 8)))
+                .isInstanceOf(OrgUnitNotFoundException.class)
+                .hasMessageContaining("Không tìm thấy bộ phận: 999");
     }
 
     private Employee createEmployee(Long id, String code, String name, Long orgUnitId, int standardHours) {
