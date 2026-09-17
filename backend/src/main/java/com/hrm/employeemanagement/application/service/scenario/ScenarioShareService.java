@@ -100,63 +100,67 @@ public class ScenarioShareService implements
 
         List<Long> scenarioProjectIds = extractProjectIdsFromSnapshot(scenario.getSnapshotData());
 
+        // Pre-load all scenario project names once to avoid N+1 query in VT-02 checks
+        List<ProjectId> scenarioProjectEntityIds = scenarioProjectIds.stream().map(ProjectId::new).toList();
+        Map<Long, String> scenarioProjectNameMap = new HashMap<>();
+        if (!scenarioProjectEntityIds.isEmpty() && loadProjectPort != null) {
+            loadProjectPort.findAllById(scenarioProjectEntityIds)
+                    .forEach(p -> scenarioProjectNameMap.put(p.getId().value(), p.getProjectName()));
+        }
+
         // Lấy tất cả user đang active
         Set<Long> existingActiveUserIds = loadScenarioSharePort.findActiveSharesByScenarioId(scenarioId).stream()
                 .map(ScenarioShare::getSharedWithUserId)
                 .collect(Collectors.toSet());
 
         List<User> allUsers = loadUserPort.findAll(0, 1000);
+        List<User> eligibleUsers = allUsers.stream()
+                .filter(u -> u.getStatus() == UserStatus.ACTIVE)
+                .filter(u -> !u.getIdValue().equals(scenario.getCreatedBy()))
+                .filter(u -> !existingActiveUserIds.contains(u.getIdValue()))
+                .filter(u -> u.getRole() != null && (
+                        u.getRole().getCode() == RoleCode.VT_01 ||
+                        u.getRole().getCode() == RoleCode.VT_02 ||
+                        u.getRole().getCode() == RoleCode.VT_03
+                ))
+                .toList();
+
+        // Batch load all employees in 1 query
+        List<EmployeeId> empIds = eligibleUsers.stream()
+                .map(User::getEmployeeId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<EmployeeId, Employee> employeeMap = new HashMap<>();
+        if (!empIds.isEmpty() && loadEmployeePort != null) {
+            loadEmployeePort.findAllByIdIn(empIds)
+                    .forEach(e -> employeeMap.put(e.getId(), e));
+        }
+
         List<ShareCandidateResult> candidates = new ArrayList<>();
         Map<Long, String> orgUnitCache = new HashMap<>();
-
         String lowerQuery = (query != null && !query.trim().isEmpty()) ? query.trim().toLowerCase() : null;
 
-        for (User u : allUsers) {
-            if (u.getStatus() != UserStatus.ACTIVE) {
-                continue;
-            }
-            // Không tự chia sẻ cho chính mình
-            if (u.getIdValue().equals(scenario.getCreatedBy())) {
-                continue;
-            }
+        for (User u : eligibleUsers) {
+            RoleCode roleCode = u.getRole().getCode();
+            Employee emp = u.getEmployeeId() != null ? employeeMap.get(u.getEmployeeId()) : null;
 
-            // Đã có active share thì không hiển thị làm candidate
-            if (existingActiveUserIds.contains(u.getIdValue())) {
-                continue;
-            }
-
-            RoleCode roleCode = u.getRole() != null ? u.getRole().getCode() : null;
-            if (roleCode == null) {
-                continue;
-            }
-
-            // BR-03: Chỉ cho phép VT-01, VT-02, VT-03. VT-04/05/06 không hợp lệ.
-            if (roleCode != RoleCode.VT_01 && roleCode != RoleCode.VT_02 && roleCode != RoleCode.VT_03) {
-                continue;
-            }
-
-            Employee emp = null;
-            if (u.getEmployeeId() != null) {
-                emp = loadEmployeePort.findById(u.getEmployeeId()).orElse(null);
-            }
-
+            List<Long> matchedProjectIds = Collections.emptyList();
             List<String> managedProjectNames = Collections.emptyList();
 
             if (roleCode == RoleCode.VT_02) {
                 // VT-02: Phải phụ trách ít nhất một Project trong Scenario
-                if (emp == null) {
+                if (emp == null || loadProjectPort == null) {
                     continue;
                 }
                 List<Long> managedIds = loadProjectPort.findAllManagedProjectIds(emp.getIdValue());
-                List<Long> matchedProjectIds = managedIds.stream()
+                matchedProjectIds = managedIds.stream()
                         .filter(scenarioProjectIds::contains)
                         .toList();
                 if (matchedProjectIds.isEmpty()) {
                     continue;
                 }
-                List<ProjectId> pIds = matchedProjectIds.stream().map(ProjectId::new).toList();
-                managedProjectNames = loadProjectPort.findAllById(pIds).stream()
-                        .map(Project::getProjectName)
+                managedProjectNames = matchedProjectIds.stream()
+                        .map(id -> scenarioProjectNameMap.getOrDefault(id, "Dự án #" + id))
                         .toList();
             } else if (roleCode == RoleCode.VT_03) {
                 // VT-03: recipient.org_unit_id == scenario.org_unit_id
@@ -203,6 +207,7 @@ public class ScenarioShareService implements
                     u.getRole().getName(),
                     targetOrgId,
                     orgUnitName,
+                    matchedProjectIds,
                     managedProjectNames
             ));
         }
@@ -351,24 +356,14 @@ public class ScenarioShareService implements
 
     @Override
     public List<ScenarioShareResult> getActiveShares(Long scenarioId) {
-        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ);
+        if (scenarioId == null) {
+            throw new IllegalArgumentException("Mã kịch bản không được để trống");
+        }
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE);
         ResourceScenario scenario = loadScenarioPort.findById(scenarioId)
                 .orElseThrow(() -> new ScenarioNotFoundException(scenarioId));
 
-        // Quyền xem danh sách share: Owner hoặc người đang có active share
-        boolean isOwner = scenario.getCreatedBy().equals(currentUserId);
-        boolean hasActiveShare = loadScenarioSharePort.hasActiveShare(scenarioId, currentUserId);
-        if (!isOwner && !hasActiveShare) {
-            deniedAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "SCENARIO_ACCESS_DENIED",
-                    "resource_scenarios",
-                    scenarioId,
-                    null,
-                    "action=GET_ACTIVE_SHARES;reason=NOT_OWNER_OR_RECIPIENT"
-            ));
-            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-        }
+        assertOwner(scenario, currentUserId);
 
         List<ScenarioShare> shares = loadScenarioSharePort.findActiveSharesByScenarioId(scenarioId);
         return shares.stream().map(this::enrichShareResult).toList();
@@ -388,6 +383,20 @@ public class ScenarioShareService implements
             }
         }
 
+        String sharedByName = "--";
+        if (share.getSharedByUserId() != null) {
+            User sharedByUser = loadUserPort.findById(new UserId(share.getSharedByUserId())).orElse(null);
+            if (sharedByUser != null) {
+                sharedByName = sharedByUser.getUsername();
+                if (sharedByUser.getEmployeeId() != null) {
+                    Employee emp = loadEmployeePort.findById(sharedByUser.getEmployeeId()).orElse(null);
+                    if (emp != null) {
+                        sharedByName = emp.getFullName();
+                    }
+                }
+            }
+        }
+
         return new ScenarioShareResult(
                 share.getId(),
                 share.getScenarioId(),
@@ -397,6 +406,7 @@ public class ScenarioShareService implements
                 roleCode,
                 roleName,
                 share.getSharedByUserId(),
+                sharedByName,
                 share.getAccessLevel(),
                 share.getCreatedAt(),
                 share.getRevokedAt(),
@@ -431,7 +441,10 @@ public class ScenarioShareService implements
                         .map(o -> Long.valueOf(o.toString()))
                         .toList();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Failed to parse projectIds from scenario snapshot JSON: {}", e.getMessage(), e);
+            throw new CorruptedScenarioSnapshotException("Dữ liệu ảnh chụp kịch bản không hợp lệ hoặc bị hỏng", e);
+        }
         return List.of();
     }
 }

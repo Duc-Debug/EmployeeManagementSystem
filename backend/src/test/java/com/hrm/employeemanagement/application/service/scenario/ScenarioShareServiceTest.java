@@ -28,9 +28,13 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.application.dto.scenario.ShareCandidateResult;
+import com.hrm.employeemanagement.domain.exception.scenario.CorruptedScenarioSnapshotException;
 import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioShareException;
 import com.hrm.employeemanagement.domain.exception.scenario.InvalidShareRecipientException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException;
+import com.hrm.employeemanagement.domain.project.Project;
+import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;
@@ -338,5 +342,86 @@ class ScenarioShareServiceTest {
 
         ShareScenarioCommand command = new ShareScenarioCommand(scenarioId, List.of(201L));
         assertThrows(DuplicateScenarioShareException.class, () -> shareService.shareScenario(command));
+    }
+
+    @Test
+    @DisplayName("Issue 5: getActiveShares bởi Owner -> Trả về danh sách shares kèm thông tin enrich và sharedByName")
+    void getActiveShares_ByOwner_Success() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(ownerUserId);
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(savedScenario));
+
+        ScenarioShare activeShare = new ScenarioShare(50L, scenarioId, 201L, ownerUserId, "VIEW_ONLY", LocalDateTime.now(), null, 0L);
+        when(loadScenarioSharePort.findActiveSharesByScenarioId(scenarioId)).thenReturn(List.of(activeShare));
+
+        User recipientUser = createUser(201L, "director", RoleCode.VT_01, null, 2001L);
+        User ownerUser = createUser(ownerUserId, "rm_lead", RoleCode.VT_03, orgUnitId, 2003L);
+        when(loadUserPort.findById(new UserId(201L))).thenReturn(Optional.of(recipientUser));
+        when(loadUserPort.findById(new UserId(ownerUserId))).thenReturn(Optional.of(ownerUser));
+
+        List<ScenarioShareResult> shares = shareService.getActiveShares(scenarioId);
+        assertEquals(1, shares.size());
+        ScenarioShareResult result = shares.get(0);
+        assertEquals(201L, result.sharedWithUserId());
+        assertEquals(201L, result.userId());
+        assertEquals("director", result.username());
+        assertEquals(ownerUserId, result.sharedBy());
+        assertEquals("rm_lead", result.sharedByName());
+        assertTrue(result.isActive());
+    }
+
+    @Test
+    @DisplayName("Issue 5: getActiveShares bởi user không phải owner -> Throw PermissionDeniedException")
+    void getActiveShares_NotOwner_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(999L);
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(savedScenario));
+
+        assertThrows(PermissionDeniedException.class, () -> shareService.getActiveShares(scenarioId));
+        verify(deniedAuditLogPort, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Issue 6: Snapshot corrupt trong kịch bản -> Throw CorruptedScenarioSnapshotException")
+    void getShareCandidates_CorruptedSnapshot_ThrowsCorruptedScenarioSnapshotException() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(ownerUserId);
+        ResourceScenario corruptedScenario = ResourceScenario.createNew(
+                "SCN-CORRUPT", "Corrupt Scenario", "Mô tả", orgUnitId, 2026, 38, 4, ownerUserId
+        );
+        corruptedScenario.setId(scenarioId);
+        corruptedScenario.saveSnapshot("invalid_json{[[}");
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(corruptedScenario));
+
+        assertThrows(CorruptedScenarioSnapshotException.class, () -> shareService.getShareCandidates(scenarioId, null));
+    }
+
+    @Test
+    @DisplayName("Issue 7: getShareCandidates batch load employees và trả về managedProjectIds")
+    void getShareCandidates_BatchesEmployeeLookup_Success() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(ownerUserId);
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(savedScenario));
+        when(loadScenarioSharePort.findActiveSharesByScenarioId(scenarioId)).thenReturn(List.of());
+
+        User vt01 = createUser(201L, "director", RoleCode.VT_01, null, 2001L);
+        User vt02 = createUser(202L, "pm_lead", RoleCode.VT_02, null, 2002L);
+        when(loadUserPort.findAll(0, 1000)).thenReturn(List.of(vt01, vt02));
+
+        Employee emp01 = createEmployee(2001L, 201L, orgUnitId, "EMP01", "Director User");
+        Employee emp02 = createEmployee(2002L, 202L, orgUnitId, "EMP02", "PM Lead User");
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp01, emp02));
+
+        when(loadProjectPort.findAllManagedProjectIds(2002L)).thenReturn(List.of(501L));
+        Project p501 = mock(Project.class);
+        when(p501.getId()).thenReturn(new ProjectId(501L));
+        when(p501.getProjectName()).thenReturn("Project 1");
+        when(loadProjectPort.findAllById(anyList())).thenReturn(List.of(p501));
+
+        List<ShareCandidateResult> candidates = shareService.getShareCandidates(scenarioId, null);
+        assertEquals(2, candidates.size());
+
+        ShareCandidateResult pmCandidate = candidates.stream()
+                .filter(c -> c.userId().equals(202L))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(List.of(501L), pmCandidate.managedProjectIds());
+        assertEquals(List.of("Project 1"), pmCandidate.managedProjectNames());
     }
 }
