@@ -56,7 +56,7 @@ public interface SpringDataProjectResourceDemandRepository
         SELECT d.roleId AS roleId, SUM(d.requiredHours) AS requiredHours
         FROM ProjectResourceDemandJpaEntity d JOIN ProjectJpaEntity p ON p.id = d.projectId
         WHERE (:orgUnitId IS NULL OR p.orgUnitId = :orgUnitId)
-          AND p.status = com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE
+          AND p.status IN (com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED)
           AND (d.year > :fromYear OR (d.year = :fromYear AND d.weekNumber >= :fromWeek))
           AND (d.year < :toYear OR (d.year = :toYear AND d.weekNumber <= :toWeek))
         GROUP BY d.roleId
@@ -69,7 +69,7 @@ public interface SpringDataProjectResourceDemandRepository
         SELECT d.roleId AS roleId, SUM(d.requiredHours) AS requiredHours
         FROM ProjectResourceDemandJpaEntity d JOIN ProjectJpaEntity p ON p.id = d.projectId
         WHERE p.orgUnitId IN :orgUnitIds
-          AND p.status = com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE
+          AND p.status IN (com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED)
           AND (d.year > :fromYear OR (d.year = :fromYear AND d.weekNumber >= :fromWeek))
           AND (d.year < :toYear OR (d.year = :toYear AND d.weekNumber <= :toWeek))
         GROUP BY d.roleId

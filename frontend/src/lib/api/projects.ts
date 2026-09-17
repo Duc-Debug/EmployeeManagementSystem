@@ -42,6 +42,7 @@ export interface CreateProjectPayload {
   endDate?: string;
   estimatedHours?: number;
   description?: string;
+  status?: 'ACTIVE' | 'PLANNED';
 }
 
 export interface UpdateProjectPayload {
@@ -241,6 +242,7 @@ export interface CreateProjectFromTemplatePayload {
   startDate?: string;
   endDate?: string;
   description?: string;
+  status?: 'ACTIVE' | 'PLANNED';
 }
 
 /**
@@ -264,6 +266,30 @@ export async function createProjectFromTemplate(payload: CreateProjectFromTempla
   return await apiRequest<ProjectResult>('/projects/from-template', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Phê duyệt và khởi động dự án dự kiến (PLANNED -> ACTIVE)
+ */
+export async function approveProject(
+  id: number | string
+): Promise<ProjectResult> {
+  return await apiRequest<ProjectResult>(`/projects/${id}/approve`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Hủy dự án dự kiến (PLANNED -> CANCELLED)
+ */
+export async function cancelProject(
+  id: number | string,
+  cancelReason?: string
+): Promise<ProjectResult> {
+  return await apiRequest<ProjectResult>(`/projects/${id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify(cancelReason ? { cancelReason } : {}),
   });
 }
 

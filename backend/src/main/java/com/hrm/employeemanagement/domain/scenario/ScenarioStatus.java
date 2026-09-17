@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.domain.scenario;
 
 public enum ScenarioStatus {
     DRAFT("draft"),
+    SAVED("saved"),
     APPLIED("applied"),
     DISCARDED("discarded");
 

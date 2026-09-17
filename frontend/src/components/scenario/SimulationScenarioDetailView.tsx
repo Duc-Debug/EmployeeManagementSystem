@@ -16,17 +16,27 @@ import {
   Clock,
   Briefcase,
   TrendingUp,
+  Save,
+  Share2,
+  Eye,
+  FileText,
+  Loader2,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import {
   getScenarioById,
   getScenarioSimulation,
   deleteScenarioDemand,
+  saveScenario,
+  patchScenario,
   type ScenarioDetailResult,
   type ScenarioSimulationResult,
   type ScenarioDemandResult,
 } from "@/lib/api/simulation-scenarios";
 import { AddEditDemandModal } from "./AddEditDemandModal";
 import { ApplyScenarioModal } from "./ApplyScenarioModal";
+import { ShareScenarioModal } from "./ShareScenarioModal";
 import { RecruitmentScenarioSection } from "./recruitment/RecruitmentScenarioSection";
 import { useAuthUser } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
@@ -60,6 +70,17 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
 
   // Snapshot table accordion state
   const [isSnapshotExpanded, setIsSnapshotExpanded] = useState(false);
+
+  // Share modal state
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Save & Patch state
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEditInfoModalOpen, setIsEditInfoModalOpen] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
+  const [isPatching, setIsPatching] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -115,6 +136,72 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
       await loadData();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Xóa nhu cầu thất bại.");
+    }
+  };
+
+  const handleSaveScenario = async () => {
+    setIsSaving(true);
+    setActionFeedback(null);
+    try {
+      await saveScenario(scenarioId);
+      setActionFeedback({
+        type: "success",
+        message: "Đã lưu kịch bản và đóng băng snapshot thành công! Trạng thái kịch bản chuyển sang ĐÃ LƯU (SAVED).",
+      });
+      await loadData();
+    } catch (err: unknown) {
+      setActionFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Lưu kịch bản thất bại.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleShareClick = async () => {
+    if (!detail) return;
+    const { scenario } = detail;
+    if (scenario.status !== "saved") {
+      const confirmSave = window.confirm(
+        "Theo quy tắc BR-05: Chỉ có thể chia sẻ kịch bản đã lưu (SAVED) để đảm bảo tính đóng băng của dữ liệu. Bạn có muốn Lưu kịch bản ngay để tiến hành chia sẻ?"
+      );
+      if (confirmSave) {
+        try {
+          setIsSaving(true);
+          await saveScenario(scenarioId);
+          await loadData();
+          setIsShareModalOpen(true);
+        } catch (err: unknown) {
+          alert(err instanceof Error ? err.message : "Không thể lưu kịch bản.");
+        } finally {
+          setIsSaving(false);
+        }
+      }
+      return;
+    }
+    setIsShareModalOpen(true);
+  };
+
+  const handlePatchInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsPatching(true);
+    setActionFeedback(null);
+    try {
+      await patchScenario(scenarioId, {
+        name: nameInput.trim() || undefined,
+        note: noteInput.trim() || undefined,
+      });
+      setIsEditInfoModalOpen(false);
+      setActionFeedback({
+        type: "success",
+        message: "Cập nhật thông tin thành công! Theo quy tắc BR-07, kịch bản tự động chuyển về Bản nháp (DRAFT).",
+      });
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Cập nhật thông tin kịch bản thất bại.");
+    } finally {
+      setIsPatching(false);
     }
   };
 
@@ -212,8 +299,11 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   }
 
   const { scenario, demands } = detail;
+  const isViewOnly = scenario.viewMode === "VIEW_ONLY";
+  const isOwner = !isViewOnly && isVT03;
+  const isSaved = scenario.status === "saved";
   const isDraft = scenario.status === "draft";
-  const canEdit = isVT03 && isDraft;
+  const canEdit = isOwner;
 
   // Calculation summaries
   const totalSnapshotHours = simulation?.weeklyMetrics.reduce((sum, m) => sum + m.snapshotAllocatedHours, 0) || 0;
@@ -240,14 +330,25 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                 {scenario.code}
               </span>
               <h2 className="text-lg font-bold text-slate-900">{scenario.name}</h2>
-              {scenario.status === "applied" ? (
+              {isViewOnly ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                  <Eye className="h-3 w-3 mr-1 text-sky-600" />
+                  Chỉ xem (VIEW_ONLY)
+                </span>
+              ) : scenario.status === "applied" ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
                   Đã áp dụng
                 </span>
+              ) : isSaved ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
+                  Đã lưu (SAVED)
+                </span>
               ) : (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                  Bản nháp ({scenario.status})
+                  <Clock className="h-3 w-3 mr-1 text-amber-600" />
+                  Bản nháp (DRAFT)
                 </span>
               )}
             </div>
@@ -274,32 +375,129 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
           </div>
         </div>
 
-        {/* Action button */}
-        <div className="flex items-center space-x-2">
+        {/* Action button toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
           {canEdit && (
             <>
+              {/* Edit Info / Note Button */}
+              <button
+                onClick={() => setIsEditInfoModalOpen(true)}
+                className="rounded-xl border border-slate-200 hover:bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition flex items-center space-x-1.5 shadow-xs"
+                title="Sửa tên và ghi chú kịch bản"
+              >
+                <Edit2 className="h-3.5 w-3.5 text-slate-500" />
+                <span>Sửa thông tin</span>
+              </button>
+
+              {/* Save Scenario Button */}
+              <button
+                disabled={isSaving}
+                onClick={handleSaveScenario}
+                className={cn(
+                  "rounded-xl px-3.5 py-2 text-xs font-semibold transition shadow-xs flex items-center space-x-1.5 disabled:opacity-50",
+                  isSaved
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                )}
+                title={isSaved ? "Bấm để lưu lại ảnh chụp mới nhất" : "Lưu kịch bản và đóng băng snapshot"}
+              >
+                {isSaving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : isSaved ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                <span>{isSaved ? "Đã lưu (Lưu lại)" : "Lưu kịch bản"}</span>
+              </button>
+
+              {/* Share Scenario Button (BR-05) */}
+              <button
+                onClick={handleShareClick}
+                className={cn(
+                  "rounded-xl px-3.5 py-2 text-xs font-semibold transition shadow-xs flex items-center space-x-1.5",
+                  isSaved
+                    ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                    : "bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100"
+                )}
+                title={isDraft ? "Cần lưu kịch bản trước khi chia sẻ (BR-05)" : "Chia sẻ kịch bản cho các vai trò liên quan"}
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span>Chia sẻ</span>
+              </button>
+
+              {/* Apply Scenario Button (NCL-08-CN-003) */}
               <button
                 onClick={() => setIsApplyModalOpen(true)}
-                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-semibold text-white transition shadow-xs flex items-center space-x-1.5"
+                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white transition shadow-xs flex items-center space-x-1.5"
                 title="Áp dụng các phân bổ từ kịch bản này vào dự án thật (NCL-08-CN-003)"
               >
-                <CheckCircle2 className="h-4 w-4" />
+                <CheckCircle2 className="h-3.5 w-3.5" />
                 <span>Áp dụng vào phân bổ thật</span>
               </button>
+
+              {/* Add Demand Button */}
               <button
                 onClick={() => {
                   setSelectedDemand(null);
                   setIsDemandModalOpen(true);
                 }}
-                className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs flex items-center space-x-1.5"
+                className="rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs flex items-center space-x-1.5"
               >
-                <Plus className="h-4 w-4" />
-                <span>Thêm nhu cầu nhân sự</span>
+                <Plus className="h-3.5 w-3.5" />
+                <span>Thêm nhu cầu</span>
               </button>
             </>
           )}
         </div>
       </div>
+
+      {/* Action feedback message */}
+      {actionFeedback && (
+        <div
+          className={cn(
+            "p-3.5 rounded-xl text-xs flex items-center justify-between shadow-xs animate-in fade-in duration-150",
+            actionFeedback.type === "success"
+              ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+              : "bg-rose-50 border border-rose-200 text-rose-800"
+          )}
+        >
+          <div className="flex items-center space-x-2">
+            {actionFeedback.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button
+            onClick={() => setActionFeedback(null)}
+            className="text-slate-400 hover:text-slate-600 text-xs font-bold px-1"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* VIEW_ONLY Warning Banner (BR-04, BR-06, BR-08) */}
+      {isViewOnly && (
+        <div className="rounded-2xl bg-amber-50/90 border border-amber-200 p-4 text-amber-900 flex items-start space-x-3 shadow-xs">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 shrink-0 mt-0.5 border border-amber-200">
+            <Eye className="h-5 w-5" />
+          </div>
+          <div className="flex-1 space-y-1 text-xs">
+            <div className="font-bold flex items-center space-x-2">
+              <span>Chế độ chỉ xem (VIEW_ONLY) — Kịch bản được chia sẻ</span>
+              <span className="px-2 py-0.2 rounded-md bg-amber-200/80 text-amber-800 text-[10px] font-mono">
+                Người tạo: {scenario.createdByName}
+              </span>
+            </div>
+            <p className="text-amber-800/90 leading-relaxed text-[11px]">
+              Bạn đang xem kịch bản ở chế độ chỉ đọc. Toàn bộ dữ liệu được trích xuất trực tiếp từ ảnh chụp đã lưu (snapshot) bất biến. Các thao tác chỉnh sửa nhu cầu, phân bổ và chia sẻ bị vô hiệu hóa.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Snapshot Sandbox Alert Banner (QTN-14 & AC-02) */}
       <div className="rounded-2xl bg-sky-50/80 border border-sky-200 p-4 text-sky-900 flex items-start space-x-3 shadow-xs">
@@ -322,8 +520,8 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
 
       {simulationError && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 flex items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold">Không thể tải kết quả mô phỏng</p>
               <p className="mt-1 text-[11px]">{simulationError}</p>
@@ -341,40 +539,49 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
         </div>
       )}
 
+      {/* Scenario Note Card */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-start justify-between gap-3">
+        <div className="flex items-start space-x-2.5">
+          <FileText className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-0.5">
+            <span className="font-bold text-slate-700">Ghi chú kịch bản:</span>
+            <p className="text-slate-600 leading-relaxed">
+              {scenario.note ? scenario.note : <span className="italic text-slate-400">Chưa có ghi chú nào được thêm vào kịch bản này.</span>}
+            </p>
+          </div>
+        </div>
+        {isOwner && (
+          <button
+            onClick={() => setIsEditInfoModalOpen(true)}
+            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:underline shrink-0 pt-0.5"
+          >
+            {scenario.note ? "Sửa ghi chú" : "+ Thêm ghi chú"}
+          </button>
+        )}
+      </div>
+
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[11px] font-medium text-slate-500">Giờ Snapshot (Thật)</span>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold text-slate-900">{totalSnapshotHours.toLocaleString()}h</span>
-            <span className="text-[10px] text-slate-400">cố định</span>
-          </div>
+          <p className="text-lg font-bold text-slate-900 mt-1 font-mono">{totalSnapshotHours.toLocaleString()}h</p>
+          <span className="text-[10px] text-slate-400">Dữ liệu phân bổ cố định</span>
         </div>
-
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-medium text-slate-500">Giờ Nhu cầu (Dự án mới)</span>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold text-indigo-600">+{totalDemandHours.toLocaleString()}h</span>
-            <span className="text-[10px] text-indigo-400">{demands.length} vị trí</span>
-          </div>
+          <span className="text-[11px] font-medium text-slate-500">Giờ Nhu Cầu Mới</span>
+          <p className="text-lg font-bold text-indigo-600 mt-1 font-mono">{totalDemandHours.toLocaleString()}h</p>
+          <span className="text-[10px] text-slate-400">{demands.length} nhu cầu giả định</span>
         </div>
-
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-medium text-slate-500">Tổng Khối lượng Giả định</span>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold text-slate-900">{totalWorkloadHours.toLocaleString()}h</span>
-            <span className="text-[10px] text-slate-400">Snapshot + Nhu cầu</span>
-          </div>
+          <span className="text-[11px] font-medium text-slate-500">Tổng Khối Lượng Mô Phỏng</span>
+          <p className="text-lg font-bold text-slate-900 mt-1 font-mono">{totalWorkloadHours.toLocaleString()}h</p>
+          <span className="text-[10px] text-slate-400">Snapshot + Nhu cầu</span>
         </div>
-
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-medium text-slate-500">Năng lực Khả dụng</span>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold text-slate-900">{totalAvailableCapacity.toLocaleString()}h</span>
-            <span className="text-[10px] text-slate-400">Tổng giờ trống</span>
-          </div>
+          <span className="text-[11px] font-medium text-slate-500">Tổng Năng Lực Khả Dụng</span>
+          <p className="text-lg font-bold text-emerald-600 mt-1 font-mono">{totalAvailableCapacity.toLocaleString()}h</p>
+          <span className="text-[10px] text-slate-400">Net capacity phòng ban</span>
         </div>
-
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[11px] font-medium text-slate-500">Tỷ lệ Sử dụng TB</span>
           <div className="mt-1 flex items-baseline justify-between">
@@ -475,13 +682,15 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
         )}
       </div>
 
-      {/* SECTION 1: Nhu cầu nhân sự giả định (Demands) */}
+      {/* SECTION 1: Bảng Nhu cầu Giả định (Hypothetical Demands) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center space-x-2">
             <Users className="h-4 w-4 text-indigo-600" />
-            <h3 className="text-sm font-bold text-slate-900">Danh sách Nhu cầu Nhân sự Giả định</h3>
-            <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-semibold">
+            <h3 className="text-sm font-bold text-slate-900">
+              Nhu Cầu Nhân Sự Giả Định (Hypothetical Demands)
+            </h3>
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-600 border border-indigo-100">
               {demands.length}
             </span>
           </div>
@@ -494,20 +703,15 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center space-x-1"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Thêm vị trí</span>
+              <span>Thêm vai trò</span>
             </button>
           )}
         </div>
 
         {demands.length === 0 ? (
           <div className="p-8 text-center space-y-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 mx-auto">
-              <Users className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-medium text-slate-600">Chưa có nhu cầu nhân sự giả định nào</p>
-            <p className="text-[11px] text-slate-400">
-              Thêm vị trí nhân sự (headcount, tuần, số giờ) để hệ thống tính toán năng lực đáp ứng.
-            </p>
+            <Users className="h-8 w-8 text-slate-300 mx-auto" />
+            <p className="text-xs text-slate-500 font-medium">Chưa có nhu cầu nhân sự giả định nào trong kịch bản này.</p>
             {canEdit && (
               <button
                 onClick={() => {
@@ -617,36 +821,27 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {simulation?.weeklyMetrics.map((metric) => (
-                <tr
-                  key={`${metric.year}-${metric.weekNumber}`}
-                  className={cn(
-                    "hover:bg-slate-50/70 transition",
-                    metric.status === "OVERLOADED" && "bg-rose-50/30"
-                  )}
-                >
-                  <td className="px-4 py-3 font-bold text-slate-900">
-                    Tuần {metric.weekNumber} <span className="text-[10px] text-slate-400 font-normal">({metric.year})</span>
+                <tr key={`${metric.year}-${metric.weekNumber}`} className="hover:bg-slate-50/70 transition">
+                  <td className="px-4 py-3 font-semibold font-mono text-slate-900">
+                    Tuần {metric.weekNumber}, {metric.year}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-600">
-                    {metric.snapshotAllocatedHours}h
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono font-semibold text-indigo-600">
-                    +{metric.demandHours}h
-                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-600">{metric.snapshotAllocatedHours}h</td>
+                  <td className="px-4 py-3 text-right font-mono text-indigo-600 font-medium">+{metric.demandHours}h</td>
                   <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                    {metric.scenarioWorkloadHours ?? metric.totalWorkloadHours}h
+                    {(metric.scenarioWorkloadHours ?? metric.totalWorkloadHours ?? 0)}h
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-600">
-                    {metric.availableHours ?? metric.availableCapacityHours}h
+                  <td className="px-4 py-3 text-right font-mono text-emerald-600">
+                    {(metric.availableHours ?? metric.availableCapacityHours ?? 0)}h
                   </td>
-                  <td className="px-4 py-3 text-right font-mono font-bold">
+                  <td className="px-4 py-3 text-right font-mono font-semibold">
                     <span
                       className={cn(
-                        metric.status === "OVERLOADED"
-                          ? "text-rose-600"
-                          : metric.status === "OPTIMAL"
-                          ? "text-emerald-600"
-                          : "text-slate-700"
+                        "inline-block px-2 py-0.5 rounded-md",
+                        metric.utilizationPercentage > (simulation?.overloadThreshold ?? 100)
+                          ? "bg-rose-100 text-rose-800 font-bold"
+                          : metric.utilizationPercentage < (simulation?.idleThreshold ?? 70)
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-emerald-50 text-emerald-700"
                       )}
                     >
                       {metric.utilizationPercentage != null ? `${metric.utilizationPercentage.toFixed(1)}%` : "N/A"}
@@ -660,38 +855,38 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
         </div>
       </div>
 
-      {/* SECTION 3: Ảnh chụp phân bổ nhân sự gốc (Collapsible Employee Snapshot Table) */}
+      {/* SECTION 3: Bảng Nhân sự Snapshot Phân bổ Cố định (Accordion) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <button
           onClick={() => setIsSnapshotExpanded(!isSnapshotExpanded)}
-          className="w-full flex items-center justify-between px-5 py-4 bg-slate-50/50 hover:bg-slate-50 transition border-b border-slate-100 text-left"
+          className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-50 transition"
         >
           <div className="flex items-center space-x-2">
-            {isSnapshotExpanded ? (
-              <ChevronDown className="h-4 w-4 text-slate-500" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-slate-500" />
-            )}
-            <Clock className="h-4 w-4 text-indigo-600" />
+            <Users className="h-4 w-4 text-slate-500" />
             <h3 className="text-sm font-bold text-slate-900">
-              Chi Tiết Ảnh Chụp Nhân Sự Tại Thời Điểm Snapshot ({(simulation?.employeeSnapshots ?? simulation?.employeeRows ?? []).length} nhân sự)
+              Chi Tiết Nhân Sự Trong Snapshot ({scenario.snapshotEmployeesCount ?? scenario.totalSnapshotEmployees ?? 0} nhân sự)
             </h3>
+            <span className="text-xs text-slate-400">
+              (Ảnh chụp phân bổ cố định, không thay đổi)
+            </span>
           </div>
-          <span className="text-[11px] text-slate-400 font-medium">
-            {isSnapshotExpanded ? "Thu gọn" : "Xem chi tiết từng nhân sự"}
-          </span>
+          {isSnapshotExpanded ? (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-slate-400" />
+          )}
         </button>
 
         {isSnapshotExpanded && (
-          <div className="overflow-x-auto p-2">
+          <div className="border-t border-slate-100 overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                   <th className="px-4 py-2.5">Mã NV</th>
-                  <th className="px-4 py-2.5">Họ và Tên</th>
+                  <th className="px-4 py-2.5">Họ và tên</th>
                   <th className="px-4 py-2.5">Chức danh</th>
                   {simulation?.weeklyMetrics.map((m) => (
-                    <th key={m.weekNumber} className="px-3 py-2.5 text-center">
+                    <th key={m.weekNumber} className="px-3 py-2.5 text-center font-mono text-[10px]">
                       W{m.weekNumber} (Phân bổ / Chuẩn)
                     </th>
                   ))}
@@ -754,6 +949,93 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
             loadData();
           }}
         />
+      )}
+
+      {/* Share Scenario Modal */}
+      {isShareModalOpen && (
+        <ShareScenarioModal
+          isOpen={isShareModalOpen}
+          scenarioId={scenarioId}
+          scenarioCode={scenario.code}
+          scenarioName={scenario.name}
+          onClose={() => setIsShareModalOpen(false)}
+          onShareUpdated={() => loadData()}
+        />
+      )}
+
+      {/* Edit Scenario Info / Note Modal */}
+      {isEditInfoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center space-x-2.5">
+                <Edit2 className="h-5 w-5 text-indigo-600" />
+                <h3 className="text-base font-bold text-slate-900">Sửa Tên &amp; Ghi Chú Kịch Bản</h3>
+              </div>
+              <button
+                onClick={() => setIsEditInfoModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePatchInfo} className="p-5 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Tên kịch bản</label>
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  maxLength={255}
+                  required
+                  placeholder="Nhập tên kịch bản..."
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Ghi chú (Note)</label>
+                <textarea
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  maxLength={2000}
+                  rows={4}
+                  placeholder="Nhập ghi chú bối cảnh, giả định tuyển dụng hoặc lưu ý khi chia sẻ..."
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/10 resize-none"
+                />
+                <span className="text-[10px] text-slate-400 block text-right">
+                  {noteInput.length}/2000 ký tự
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-start space-x-2">
+                <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Quy tắc BR-07:</strong> Chỉnh sửa kịch bản sẽ tự động chuyển trạng thái về <strong>Bản nháp (DRAFT)</strong>. Sau khi hoàn tất chỉnh sửa, hãy bấm &quot;Lưu kịch bản&quot; nếu muốn chia sẻ lại cho người khác.
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditInfoModalOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPatching}
+                  className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition disabled:opacity-50 flex items-center space-x-1.5 shadow-xs"
+                >
+                  {isPatching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>Cập nhật</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

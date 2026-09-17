@@ -7,9 +7,11 @@ export interface ScenarioResult {
   code: string;
   name: string;
   description: string | null;
+  note?: string | null;
   orgUnitId: number;
   orgUnitName: string;
-  status: "draft" | "applied" | "discarded" | string;
+  status: "draft" | "saved" | "applied" | "discarded" | string;
+  viewMode?: "EDIT" | "VIEW_ONLY";
   fromYear: number;
   fromWeek: number;
   durationWeeks: number;
@@ -236,6 +238,10 @@ export async function getScenarioSimulation(id: number): Promise<ScenarioSimulat
   return apiRequest<ScenarioSimulationResult>(`/resource-scenarios/${id}/simulation`);
 }
 
+// ============================================================================
+// NCL-08-CN-003: Áp dụng kịch bản vào phân bổ thật (Apply Scenario To Real Allocations)
+// ============================================================================
+
 export interface WeeklyComparisonCellResult {
   year: number;
   weekNumber: number;
@@ -319,3 +325,197 @@ export async function refreshScenarioBaseline(scenarioId: number): Promise<Scena
   });
 }
 
+// ============================================================================
+// NCL.08.CN.004: So sánh đa kịch bản (Scenario Comparison)
+// ============================================================================
+
+export interface CompareScenariosPayload {
+  scenarioIds: number[];
+}
+
+export interface OverloadedEmployeeSummaryResult {
+  employeeId: number;
+  employeeCode: string;
+  fullName: string;
+  professionalRole: string;
+  overloadedWeeksCount: number;
+  maxExcessHours: number;
+  peakUtilizationPercentage: number;
+}
+
+export interface ScenarioComparisonItemResult {
+  scenarioId: number;
+  scenarioCode: string;
+  scenarioName: string;
+  description: string | null;
+  orgUnitId: number;
+  orgUnitName: string;
+  status: string;
+  fromYear: number;
+  fromWeek: number;
+  durationWeeks: number;
+  overloadedEmployeesCount: number;
+  totalShortfallHours: number;
+  totalRequiredAdditionalHours: number;
+  totalDemandHours: number;
+  totalWorkloadHours: number;
+  totalAvailableHours: number;
+  averageUtilizationPercentage: number;
+  peakUtilizationPercentage: number;
+  weeklyMetrics: WeeklySimulationMetricResult[];
+  overloadedEmployees: OverloadedEmployeeSummaryResult[];
+}
+
+export interface ScenarioComparisonResult {
+  scenarios: ScenarioComparisonItemResult[];
+  isTimeframeAligned: boolean;
+  isOrgUnitAligned: boolean;
+  comparedAt: string;
+}
+
+export async function compareScenarios(
+  payload: CompareScenariosPayload
+): Promise<ScenarioComparisonResult> {
+  return apiRequest<ScenarioComparisonResult>("/resource-scenarios/compare", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// ============================================================================
+// NCL.08.CN.006: Lưu & Chia sẻ kịch bản (Save & Share Scenario)
+// ============================================================================
+
+export interface PatchScenarioPayload {
+  name?: string;
+  note?: string;
+}
+
+export interface ShareCandidateResult {
+  userId: number;
+  username: string;
+  fullName: string;
+  roleCode: string;
+  roleName: string;
+  orgUnitId: number | null;
+  orgUnitName: string | null;
+  managedProjectIds?: number[];
+  managedProjectNames: string[];
+}
+
+export interface ScenarioShareResult {
+  id: number;
+  scenarioId: number;
+  userId: number;
+  sharedWithUserId?: number;
+  username: string;
+  sharedWithUsername?: string;
+  fullName: string;
+  sharedWithFullName?: string;
+  roleCode: string;
+  sharedWithRoleCode?: string;
+  roleName?: string;
+  sharedWithRoleName?: string;
+  permission: string;
+  accessLevel?: string;
+  sharedBy: number;
+  sharedByUserId?: number;
+  sharedByName: string;
+  sharedAt: string;
+  createdAt?: string;
+  revokedAt: string | null;
+  isActive: boolean;
+  active?: boolean;
+}
+
+export interface ShareScenarioPayload {
+  userIds?: number[];
+  recipientUserIds?: number[];
+}
+
+function normalizeShareResult(item: any): ScenarioShareResult {
+  const userId = item.userId ?? item.sharedWithUserId;
+  const username = item.username ?? item.sharedWithUsername ?? "";
+  const fullName = item.fullName ?? item.sharedWithFullName ?? username;
+  const roleCode = item.roleCode ?? item.sharedWithRoleCode ?? "";
+  const roleName = item.roleName ?? item.sharedWithRoleName ?? "";
+  const permission = item.permission ?? item.accessLevel ?? "VIEW_ONLY";
+  const sharedBy = item.sharedBy ?? item.sharedByUserId;
+  const sharedByName = item.sharedByName ?? (sharedBy ? `User #${sharedBy}` : "--");
+  const sharedAt = item.sharedAt ?? item.createdAt ?? "";
+  const isActive = item.isActive !== undefined ? Boolean(item.isActive) : (item.active !== undefined ? Boolean(item.active) : true);
+
+  return {
+    ...item,
+    userId,
+    sharedWithUserId: userId,
+    username,
+    sharedWithUsername: username,
+    fullName,
+    sharedWithFullName: fullName,
+    roleCode,
+    sharedWithRoleCode: roleCode,
+    roleName,
+    sharedWithRoleName: roleName,
+    permission,
+    accessLevel: permission,
+    sharedBy,
+    sharedByUserId: sharedBy,
+    sharedByName,
+    sharedAt,
+    createdAt: sharedAt,
+    revokedAt: item.revokedAt ?? null,
+    isActive,
+    active: isActive,
+  };
+}
+
+export async function patchScenario(
+  id: number,
+  payload: PatchScenarioPayload
+): Promise<ScenarioResult> {
+  return apiRequest<ScenarioResult>(`/resource-scenarios/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function saveScenario(id: number): Promise<ScenarioResult> {
+  return apiRequest<ScenarioResult>(`/resource-scenarios/${id}/save`, {
+    method: "POST",
+  });
+}
+
+export async function getShareCandidates(
+  id: number,
+  query?: string
+): Promise<ShareCandidateResult[]> {
+  const q = query ? `?query=${encodeURIComponent(query)}` : "";
+  return apiRequest<ShareCandidateResult[]>(`/resource-scenarios/${id}/share-candidates${q}`);
+}
+
+export async function shareScenario(
+  id: number,
+  payload: ShareScenarioPayload
+): Promise<ScenarioShareResult[]> {
+  const ids = payload.userIds ?? payload.recipientUserIds ?? [];
+  const res = await apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`, {
+    method: "POST",
+    body: JSON.stringify({
+      userIds: ids,
+      recipientUserIds: ids,
+    }),
+  });
+  return (res || []).map(normalizeShareResult);
+}
+
+export async function unshareScenario(id: number, userId: number): Promise<void> {
+  return apiRequest<void>(`/resource-scenarios/${id}/shares/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getScenarioShares(id: number): Promise<ScenarioShareResult[]> {
+  const res = await apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`);
+  return (res || []).map(normalizeShareResult);
+}

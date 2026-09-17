@@ -80,7 +80,7 @@ export function ProjectCloseModal({
                         </div>
                         <div>
                             <h2 className="text-base font-bold text-slate-900">Đóng dự án</h2>
-                            <p className="text-xs text-rose-700 font-medium">NCL-03-CN-004 & Quy tắc QTN-08</p>
+                            <p className="text-xs text-rose-700 font-medium">Khóa toàn bộ công việc và phân bổ</p>
                         </div>
                     </div>
                     <button
@@ -114,11 +114,11 @@ export function ProjectCloseModal({
                         </div>
                     </div>
 
-                    {/* QTN-08 Warning Box */}
+                    {/* Warning Box */}
                     <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-amber-900 space-y-1.5">
                         <div className="flex items-center gap-1.5 font-bold text-amber-950">
                             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                            <span>Lưu ý quan trọng (Quy tắc QTN-08)</span>
+                            <span>Lưu ý quan trọng</span>
                         </div>
                         <p className="text-[11px] leading-relaxed text-amber-800">
                             Khi dự án ở trạng thái <strong>ĐÃ ĐÓNG (CLOSED)</strong>, toàn bộ cây WBS và phân bổ nguồn lực sẽ bị khóa.

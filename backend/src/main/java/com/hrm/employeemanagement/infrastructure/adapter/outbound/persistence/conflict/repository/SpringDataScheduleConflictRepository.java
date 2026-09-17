@@ -38,4 +38,23 @@ public interface SpringDataScheduleConflictRepository extends JpaRepository<Sche
             Integer weekNumber,
             ConflictType conflictType
     );
+
+    @Query("""
+        SELECT c FROM ScheduleConflictJpaEntity c
+        WHERE c.employeeId IN :employeeIds
+          AND c.status <> :excludedStatus
+          AND ((c.yearNumber = :startYear AND c.yearNumber = :endYear AND c.weekNumber BETWEEN :startWeek AND :endWeek)
+               OR (c.yearNumber = :startYear AND :startYear < :endYear AND c.weekNumber >= :startWeek)
+               OR (c.yearNumber = :endYear AND :startYear < :endYear AND c.weekNumber <= :endWeek)
+               OR (c.yearNumber > :startYear AND c.yearNumber < :endYear))
+        ORDER BY c.yearNumber ASC, c.weekNumber ASC, c.id ASC
+    """)
+    List<ScheduleConflictJpaEntity> findUnresolvedConflictsForEmployees(
+            @Param("employeeIds") List<Long> employeeIds,
+            @Param("excludedStatus") ScheduleConflictStatus excludedStatus,
+            @Param("startYear") Integer startYear,
+            @Param("startWeek") Integer startWeek,
+            @Param("endYear") Integer endYear,
+            @Param("endWeek") Integer endWeek
+    );
 }

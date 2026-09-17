@@ -20,6 +20,12 @@ public class ResourceScenarioJpaEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "note", columnDefinition = "TEXT")
+    private String note;
+
+    @Column(name = "snapshot_data", columnDefinition = "LONGTEXT")
+    private String snapshotData;
+
     @Column(name = "org_unit_id", nullable = false)
     private Long orgUnitId;
 
@@ -67,6 +73,8 @@ public class ResourceScenarioJpaEntity {
             String code,
             String name,
             String description,
+            String note,
+            String snapshotData,
             Long orgUnitId,
             String status,
             Integer fromYear,
@@ -104,6 +112,8 @@ public class ResourceScenarioJpaEntity {
         this.code = code;
         this.name = name;
         this.description = description;
+        this.note = note;
+        this.snapshotData = snapshotData;
         this.orgUnitId = orgUnitId;
         this.status = status;
         this.fromYear = fromYear;
@@ -119,6 +129,25 @@ public class ResourceScenarioJpaEntity {
         this.appliedBy = appliedBy;
     }
 
+    public ResourceScenarioJpaEntity(
+            Long id,
+            String code,
+            String name,
+            String description,
+            Long orgUnitId,
+            String status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
+        this(id, code, name, description, null, null, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version);
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getCode() { return code; }
@@ -127,6 +156,10 @@ public class ResourceScenarioJpaEntity {
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getNote() { return note; }
+    public void setNote(String note) { this.note = note; }
+    public String getSnapshotData() { return snapshotData; }
+    public void setSnapshotData(String snapshotData) { this.snapshotData = snapshotData; }
     public Long getOrgUnitId() { return orgUnitId; }
     public void setOrgUnitId(Long orgUnitId) { this.orgUnitId = orgUnitId; }
     public String getStatus() { return status; }
