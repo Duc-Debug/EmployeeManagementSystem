@@ -602,6 +602,15 @@ class ResourceScenarioControllerTest {
         mockMvc.perform(get("/api/v1/resource-scenarios/1/shares"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0].id").value(10));
+                .andExpect(jsonPath("$.data[0].id").value(10))
+                .andExpect(jsonPath("$.data[0].sharedWithUserId").value(200))
+                .andExpect(jsonPath("$.data[0].userId").value(200))
+                .andExpect(jsonPath("$.data[0].username").value("vt01_user"))
+                .andExpect(jsonPath("$.data[0].fullName").value("Giám Đốc"))
+                .andExpect(jsonPath("$.data[0].roleCode").value("VT-01"))
+                .andExpect(jsonPath("$.data[0].permission").value("VIEW_ONLY"))
+                .andExpect(jsonPath("$.data[0].accessLevel").value("VIEW_ONLY"))
+                .andExpect(jsonPath("$.data[0].sharedBy").value(100))
+                .andExpect(jsonPath("$.data[0].isActive").value(true));
     }
 }

@@ -63,7 +63,7 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
     setLoadingShares(true);
     try {
       const data = await getScenarioShares(scenarioId);
-      setActiveShares(data.filter((s) => s.isActive));
+      setActiveShares(data.filter((s) => s.isActive ?? s.active ?? true));
     } catch (err: unknown) {
       console.error("Failed to load scenario shares:", err);
     } finally {
@@ -477,7 +477,15 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
                 </div>
               ) : (
                 activeShares.map((share) => {
-                  const isRevoking = revokingUserId === share.userId;
+                  const targetUserId = share.userId ?? share.sharedWithUserId;
+                  const isRevoking = revokingUserId === targetUserId;
+                  const displayName = share.fullName ?? share.sharedWithFullName ?? share.username;
+                  const displayUsername = share.username ?? share.sharedWithUsername ?? "";
+                  const displayRole = share.roleCode ?? share.sharedWithRoleCode ?? "";
+                  const displayPermission = share.permission ?? share.accessLevel ?? "VIEW_ONLY";
+                  const displaySharedBy = share.sharedByName ?? (share.sharedBy ? `User #${share.sharedBy}` : "--");
+                  const displayDate = share.sharedAt ?? share.createdAt ?? "";
+
                   return (
                     <div
                       key={share.id}
@@ -485,24 +493,24 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
                     >
                       <div className="space-y-1">
                         <div className="flex items-center space-x-2">
-                          <span className="font-bold text-xs text-slate-900">{share.fullName}</span>
+                          <span className="font-bold text-xs text-slate-900">{displayName}</span>
                           <span className="font-mono text-[11px] text-slate-400">
-                            @{share.username}
+                            @{displayUsername}
                           </span>
-                          {renderRoleBadge(share.roleCode)}
+                          {renderRoleBadge(displayRole)}
                           <span className="px-2 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Chỉ xem ({share.permission})
+                            Chỉ xem ({displayPermission})
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          Chia sẻ lúc {formatDateTime(share.sharedAt)} bởi {share.sharedByName}
+                          Chia sẻ lúc {formatDateTime(displayDate)} bởi {displaySharedBy}
                         </div>
                       </div>
 
                       <button
                         type="button"
-                        disabled={isRevoking}
-                        onClick={() => handleRevokeShare(share.userId, share.fullName)}
+                        disabled={isRevoking || !targetUserId}
+                        onClick={() => targetUserId && handleRevokeShare(targetUserId, displayName)}
                         className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 transition disabled:opacity-50 flex items-center space-x-1"
                       >
                         {isRevoking ? (

@@ -249,7 +249,7 @@ export interface ShareCandidateResult {
   roleName: string;
   orgUnitId: number | null;
   orgUnitName: string | null;
-  managedProjectIds: number[];
+  managedProjectIds?: number[];
   managedProjectNames: string[];
 }
 
@@ -257,20 +257,67 @@ export interface ScenarioShareResult {
   id: number;
   scenarioId: number;
   userId: number;
+  sharedWithUserId?: number;
   username: string;
+  sharedWithUsername?: string;
   fullName: string;
+  sharedWithFullName?: string;
   roleCode: string;
+  sharedWithRoleCode?: string;
+  roleName?: string;
+  sharedWithRoleName?: string;
   permission: string;
+  accessLevel?: string;
   sharedBy: number;
+  sharedByUserId?: number;
   sharedByName: string;
   sharedAt: string;
+  createdAt?: string;
   revokedAt: string | null;
   isActive: boolean;
+  active?: boolean;
 }
 
 export interface ShareScenarioPayload {
   userIds?: number[];
   recipientUserIds?: number[];
+}
+
+function normalizeShareResult(item: any): ScenarioShareResult {
+  const userId = item.userId ?? item.sharedWithUserId;
+  const username = item.username ?? item.sharedWithUsername ?? "";
+  const fullName = item.fullName ?? item.sharedWithFullName ?? username;
+  const roleCode = item.roleCode ?? item.sharedWithRoleCode ?? "";
+  const roleName = item.roleName ?? item.sharedWithRoleName ?? "";
+  const permission = item.permission ?? item.accessLevel ?? "VIEW_ONLY";
+  const sharedBy = item.sharedBy ?? item.sharedByUserId;
+  const sharedByName = item.sharedByName ?? (sharedBy ? `User #${sharedBy}` : "--");
+  const sharedAt = item.sharedAt ?? item.createdAt ?? "";
+  const isActive = item.isActive !== undefined ? Boolean(item.isActive) : (item.active !== undefined ? Boolean(item.active) : true);
+
+  return {
+    ...item,
+    userId,
+    sharedWithUserId: userId,
+    username,
+    sharedWithUsername: username,
+    fullName,
+    sharedWithFullName: fullName,
+    roleCode,
+    sharedWithRoleCode: roleCode,
+    roleName,
+    sharedWithRoleName: roleName,
+    permission,
+    accessLevel: permission,
+    sharedBy,
+    sharedByUserId: sharedBy,
+    sharedByName,
+    sharedAt,
+    createdAt: sharedAt,
+    revokedAt: item.revokedAt ?? null,
+    isActive,
+    active: isActive,
+  };
 }
 
 export async function patchScenario(
@@ -302,13 +349,14 @@ export async function shareScenario(
   payload: ShareScenarioPayload
 ): Promise<ScenarioShareResult[]> {
   const ids = payload.userIds ?? payload.recipientUserIds ?? [];
-  return apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`, {
+  const res = await apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`, {
     method: "POST",
     body: JSON.stringify({
       userIds: ids,
       recipientUserIds: ids,
     }),
   });
+  return (res || []).map(normalizeShareResult);
 }
 
 export async function unshareScenario(id: number, userId: number): Promise<void> {
@@ -318,6 +366,7 @@ export async function unshareScenario(id: number, userId: number): Promise<void>
 }
 
 export async function getScenarioShares(id: number): Promise<ScenarioShareResult[]> {
-  return apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`);
+  const res = await apiRequest<ScenarioShareResult[]>(`/resource-scenarios/${id}/shares`);
+  return (res || []).map(normalizeShareResult);
 }
 
