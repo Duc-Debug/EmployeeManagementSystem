@@ -1,11 +1,25 @@
 package com.hrm.employeemanagement.application.service.scenario;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioSimulationResult;
 import com.hrm.employeemanagement.application.dto.scenario.WeeklySimulationMetricResult;
@@ -19,28 +33,21 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
-import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
-import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
-import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
+import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
 import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
 import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
-import java.time.LocalDate;
-import com.hrm.employeemanagement.domain.authorization.DataScope;
-import com.hrm.employeemanagement.domain.role.RoleId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.domain.user.UserStatus;
-import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 class ScenarioSimulationCalculationTest {
 
@@ -131,7 +138,7 @@ class ScenarioSimulationCalculationTest {
                 10L,
                 "EMP100",
                 "Lê Văn B",
-                "Backend",
+                "Backend Java",
                 LocalDate.of(2025, 1, 1),
                 null,
                 false,
@@ -181,6 +188,48 @@ class ScenarioSimulationCalculationTest {
         assertEquals(1, result.employeeSnapshots().size());
         assertEquals("EMP100", result.employeeSnapshots().get(0).employeeCode());
         assertEquals("Lê Văn B", result.employeeSnapshots().get(0).fullName());
+
+        // Regression Check (#1): Mỗi nhân sự có đúng 1 cell per week, không duplicate
+        var empSnapshot = result.employeeSnapshots().get(0);
+        assertEquals(4, empSnapshot.cells().size(), "Mỗi nhân sự chỉ có đúng 4 cells tương ứng 4 tuần mục tiêu, không trùng lặp");
+        var weekNumbers = empSnapshot.cells().stream().map(c -> c.weekNumber()).toList();
+        assertEquals(List.of(38, 39, 40, 41), weekNumbers, "Danh sách tuần trong cells phải duy nhất và theo thứ tự");
+
+        // Kiểm tra Audit Log KHÔNG được gọi khi GET simulation result
+        verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("NCL-08-CN-002-TC-02: Năng lực còn lại đủ cho nhu cầu mới -> Không nhân sự nào vỡ kế hoạch, hiện số giờ dư")
+    void testSimulationCalculation_SufficientCapacity_ReportsNoOverload() {
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 1L, 100L, 2026, 38, BigDecimal.valueOf(10), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(1L)).thenReturn(snapshots);
+
+        // Nhu cầu giả định 15h -> Workload = 25h <= 40h Available -> Tối ưu / dư 15h
+        ScenarioDemand demand = ScenarioDemand.create(1L, "Nhu cầu nhẹ", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(15), "Tester");
+        demand.setId(11L);
+        when(loadDemandPort.findByScenarioId(1L)).thenReturn(List.of(demand));
+
+        Employee emp = new Employee(
+                new EmployeeId(100L), new UserId(200L), 10L, "EMP100", "Lê Văn B", "Backend",
+                LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp));
+
+        ScenarioSimulationResult result = service.getSimulationResult(1L);
+
+        assertNotNull(result);
+        assertEquals(4, result.weeklyMetrics().size());
+        // Kiểm tra tuần 38 (có demand 15h) không bị quá tải
+        WeeklySimulationMetricResult metric = result.weeklyMetrics().get(0);
+        assertFalse(metric.isOverloaded());
+        assertEquals(CapacityStatus.OPTIMAL, metric.status());
+        assertEquals(BigDecimal.valueOf(15.0).setScale(2), metric.remainingHours());
+        assertEquals(BigDecimal.ZERO.setScale(2), metric.excessHours());
+        // Tất cả 4 tuần đều không bị vỡ kế hoạch / quá tải
+        assertTrue(result.weeklyMetrics().stream().noneMatch(WeeklySimulationMetricResult::isOverloaded));
     }
 
     @Test
@@ -271,12 +320,343 @@ class ScenarioSimulationCalculationTest {
     @Test
     @DisplayName("Kịch bản ngoài phạm vi branch -> Ném PermissionDeniedException")
     void testSimulation_OutOfScope_ThrowsPermissionDenied() {
+        ResourceScenario outOfScopeScenario = ResourceScenario.createNew(
+                "SCN-OUT", "Kịch bản ngoài phạm vi", "Mô tả", 20L, 2026, 38, 4, 103L
+        );
+        outOfScopeScenario.setId(1L);
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ)).thenReturn(103L);
         when(loadUserPort.findById(new UserId(103L))).thenReturn(Optional.of(vt03User));
-        when(loadScenarioPort.findById(1L)).thenReturn(Optional.of(scenario));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(false);
+        when(loadScenarioPort.findById(1L)).thenReturn(Optional.of(outOfScopeScenario));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(20L, 10L)).thenReturn(false);
+        lenient().when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 20L)).thenReturn(true);
 
         assertThrows(PermissionDeniedException.class, () -> service.getSimulationResult(1L));
+        verify(loadOrgUnitPort, never()).existsInOrgUnitBranch(10L, 20L);
         verify(saveAuditLogPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Snapshot tham chiếu nhân sự không còn tồn tại -> vẫn trả kết quả dự phòng")
+    void testSimulation_MissingEmployee_UsesSnapshotFallback() {
+        when(loadSnapshotPort.findByScenarioId(1L)).thenReturn(List.of(
+                new ScenarioAllocationSnapshotItem(1L, 1L, 999L, 2026, 38,
+                        BigDecimal.valueOf(8), BigDecimal.valueOf(40))
+        ));
+        when(loadDemandPort.findByScenarioId(1L)).thenReturn(List.of());
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of());
+
+        ScenarioSimulationResult result = service.getSimulationResult(1L);
+
+        assertEquals(1, result.employeeSnapshots().size());
+        assertEquals("EMP-999", result.employeeSnapshots().get(0).employeeCode());
+        assertEquals("Nhân viên 999", result.employeeSnapshots().get(0).fullName());
+    }
+
+    @Test
+    @DisplayName("Bổ sung NCL-08-CN-002: Kiểm tra trả về danh sách nhân sự vượt năng lực/vỡ kế hoạch (Overloaded Employees)")
+    void testSimulationCalculation_IdentifiesOverloadedPersonnel_ReturnsOverloadedEmployeesList() {
+        // Employee 101: Allocated 45h / Available 40h (Overloaded 5h at week 38)
+        // Employee 102: Allocated 30h / Available 40h (Optimal at week 38)
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 1L, 101L, 2026, 38, BigDecimal.valueOf(45), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 1L, 102L, 2026, 38, BigDecimal.valueOf(30), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(1L)).thenReturn(snapshots);
+        when(loadDemandPort.findByScenarioId(1L)).thenReturn(List.of());
+
+        Employee emp1 = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "Nguyễn Văn Overload", "Senior Java",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee emp2 = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Trần Văn Normal", "Frontend",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp1, emp2));
+
+        ScenarioSimulationResult result = service.getSimulationResult(1L);
+
+        assertNotNull(result);
+        assertNotNull(result.overloadedEmployees());
+        assertEquals(1, result.overloadedEmployees().size(), "Phải trả về đúng 1 nhân sự bị vượt năng lực");
+        
+        com.hrm.employeemanagement.application.dto.scenario.OverloadedEmployeeResult overloaded = result.overloadedEmployees().get(0);
+        assertEquals(101L, overloaded.employeeId());
+        assertEquals("EMP101", overloaded.employeeCode());
+        assertEquals("Nguyễn Văn Overload", overloaded.fullName());
+        assertEquals(38, overloaded.weekNumber());
+        assertEquals(BigDecimal.valueOf(45), overloaded.allocatedHours());
+        assertEquals(BigDecimal.valueOf(40), overloaded.availableHours());
+        assertEquals(BigDecimal.valueOf(5.0).setScale(2), overloaded.excessHours());
+        assertEquals(CapacityStatus.OVERLOADED, overloaded.status());
+    }
+
+    @Test
+    @DisplayName("NCL-08-CN-002: Kiểm tra sắp xếp overloadedEmployees đúng theo Năm -> Tuần -> Tên khi vắt qua năm")
+    void testSimulationCalculation_SortsOverloadedEmployeesByYearAndWeekChronologically() {
+        ResourceScenario crossYearScenario = ResourceScenario.createNew(
+                "SCN-SORT", "Kịch bản test sort", "Mô tả", 10L, 2026, 53, 2, 100L
+        );
+        crossYearScenario.setId(88L);
+        when(loadScenarioPort.findById(88L)).thenReturn(Optional.of(crossYearScenario));
+
+        // Employee 101: Overloaded ở 2027-W01
+        // Employee 102: Overloaded ở 2026-W53
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 88L, 101L, 2027, 1, BigDecimal.valueOf(50), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 88L, 102L, 2026, 53, BigDecimal.valueOf(45), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(88L)).thenReturn(snapshots);
+        when(loadDemandPort.findByScenarioId(88L)).thenReturn(List.of());
+
+        Employee emp1 = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "An B", "Senior Java",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee emp2 = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Bình C", "Frontend",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp1, emp2));
+
+        ScenarioSimulationResult result = service.getSimulationResult(88L);
+
+        assertNotNull(result);
+        assertEquals(2, result.overloadedEmployees().size());
+
+        // Bản ghi 1 phải là 2026-W53 (Bình C)
+        var first = result.overloadedEmployees().get(0);
+        assertEquals(2026, first.year());
+        assertEquals(53, first.weekNumber());
+
+        // Bản ghi 2 phải là 2027-W01 (An B)
+        var second = result.overloadedEmployees().get(1);
+        assertEquals(2027, second.year());
+        assertEquals(1, second.weekNumber());
+    }
+
+    @Test
+    @DisplayName("NCL-08-CN-002: Nhu cầu kịch bản (Scenario Demand) được phân bổ khiến nhân sự cụ thể bị overload (A: 35+20=55h/40h, B: 10h/40h)")
+    void testSimulationCalculation_DemandCausesSpecificEmployeeOverload() {
+        ResourceScenario demandScenario = ResourceScenario.createNew(
+                "SCN-DEMAND", "Kịch bản test demand overload", "Mô tả", 10L, 2026, 38, 1, 100L
+        );
+        demandScenario.setId(77L);
+        when(loadScenarioPort.findById(77L)).thenReturn(Optional.of(demandScenario));
+
+        // Snapshot: Employee A (101L) baseline = 35h / 40h, Employee B (102L) baseline = 10h / 40h
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 77L, 101L, 2026, 38, BigDecimal.valueOf(35), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 77L, 102L, 2026, 38, BigDecimal.valueOf(10), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(77L)).thenReturn(snapshots);
+
+        // Demand: +20h/tuần cho vị trí "Senior Java" (khớp với Employee A)
+        ScenarioDemand demand = ScenarioDemand.create(
+                77L, "Nhu cầu Backend", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(20), "Senior Java"
+        );
+        demand.setId(701L);
+        when(loadDemandPort.findByScenarioId(77L)).thenReturn(List.of(demand));
+
+        Employee empA = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "Nguyễn Văn A", "Senior Java",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee empB = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Trần Văn B", "Frontend",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(empA, empB));
+
+        ScenarioSimulationResult result = service.getSimulationResult(77L);
+
+        assertNotNull(result);
+        assertEquals(1, result.overloadedEmployees().size(), "Chỉ duy nhất Employee A bị overload do được nhận 20h demand");
+
+        com.hrm.employeemanagement.application.dto.scenario.OverloadedEmployeeResult overloaded = result.overloadedEmployees().get(0);
+        assertEquals(101L, overloaded.employeeId());
+        assertEquals("EMP101", overloaded.employeeCode());
+        assertEquals("Nguyễn Văn A", overloaded.fullName());
+        assertEquals(38, overloaded.weekNumber());
+        assertEquals(BigDecimal.valueOf(55.0).setScale(2), overloaded.allocatedHours(), "Allocated của Employee A phải là 35h baseline + 20h demand = 55h");
+        assertEquals(BigDecimal.valueOf(40), overloaded.availableHours());
+        assertEquals(BigDecimal.valueOf(15.0).setScale(2), overloaded.excessHours(), "Vượt định mức 15h");
+        assertEquals(CapacityStatus.OVERLOADED, overloaded.status());
+    }
+
+    @Test
+    @DisplayName("HIGH 1 Fix: Nhu cầu kịch bản yêu cầu vai trò Java nhưng snapshot chỉ có Tester/HR -> Không phân bổ nhầm sang Tester/HR")
+    void testSimulation_UnmatchedDemandRole_DoesNotFallbackToAllPersonnel() {
+        ResourceScenario demandScenario = ResourceScenario.createNew(
+                "SCN-UNMATCH", "Kịch bản test unmatched role", "Mô tả", 10L, 2026, 38, 1, 100L
+        );
+        demandScenario.setId(66L);
+        when(loadScenarioPort.findById(66L)).thenReturn(Optional.of(demandScenario));
+
+        // Snapshot có 2 nhân sự: Tester (101L) baseline = 30h/40h, HR (102L) baseline = 20h/40h
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 66L, 101L, 2026, 38, BigDecimal.valueOf(30), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 66L, 102L, 2026, 38, BigDecimal.valueOf(20), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(66L)).thenReturn(snapshots);
+
+        // Demand: +40h cho role "Java Developer" (Không có ai đáp ứng)
+        ScenarioDemand demand = ScenarioDemand.create(
+                66L, "Nhu cầu Java Dev", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(40), "Java Developer"
+        );
+        demand.setId(601L);
+        when(loadDemandPort.findByScenarioId(66L)).thenReturn(List.of(demand));
+
+        Employee empTester = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "Phạm Văn Tester", "Tester",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee empHR = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Đỗ Thị HR", "HR Specialist",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(empTester, empHR));
+
+        ScenarioSimulationResult result = service.getSimulationResult(66L);
+
+        assertNotNull(result);
+        assertTrue(result.overloadedEmployees().isEmpty(), "Không nhân sự nào bị quá tải vì nhu cầu Java không được gán nhầm cho Tester/HR");
+
+        // Kiểm tra simulatedAlloc của Tester và HR giữ nguyên baseline (không bị cộng 20h mỗi người)
+        var testerSnapshot = result.employeeSnapshots().stream().filter(e -> e.employeeId().equals(101L)).findFirst().orElseThrow();
+        assertEquals(BigDecimal.valueOf(30), testerSnapshot.cells().get(0).allocatedHours());
+
+        var hrSnapshot = result.employeeSnapshots().stream().filter(e -> e.employeeId().equals(102L)).findFirst().orElseThrow();
+        assertEquals(BigDecimal.valueOf(20), hrSnapshot.cells().get(0).allocatedHours());
+    }
+
+    @Test
+    @DisplayName("MEDIUM 3 Fix: Thiếu snapshot item ở một tuần -> Fallback năng lực về standard hours (40h) thay vì 0h")
+    void testSimulation_MissingSnapshotItem_FallbacksToStandardHours() {
+        // Scenario kéo dài 2 tuần: 2026-W38 và 2026-W39
+        ResourceScenario scenarioMissing = ResourceScenario.createNew(
+                "SCN-MISSING", "Kịch bản thiếu snapshot tuần", "Mô tả", 10L, 2026, 38, 2, 100L
+        );
+        scenarioMissing.setId(55L);
+        when(loadScenarioPort.findById(55L)).thenReturn(Optional.of(scenarioMissing));
+
+        // Employee 101 chỉ có snapshot item ở week 38 (30h allocated / 40h available), hoàn toàn THIẾU snapshot item ở week 39
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 55L, 101L, 2026, 38, BigDecimal.valueOf(30), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(55L)).thenReturn(snapshots);
+        when(loadDemandPort.findByScenarioId(55L)).thenReturn(List.of());
+
+        Employee emp1 = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "Lê Văn A", "Dev",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp1));
+
+        ScenarioSimulationResult result = service.getSimulationResult(55L);
+
+        assertNotNull(result);
+        assertEquals(1, result.employeeSnapshots().size());
+
+        var emp1Snapshot = result.employeeSnapshots().get(0);
+        assertEquals(2, emp1Snapshot.cells().size(), "Có 2 cells tương ứng 2 tuần mục tiêu");
+
+        // Cell 0 (Week 38 - có snapshot item): availableHours = 40h
+        assertEquals(38, emp1Snapshot.cells().get(0).weekNumber());
+        assertEquals(BigDecimal.valueOf(40), emp1Snapshot.cells().get(0).availableHours());
+
+        // Cell 1 (Week 39 - khuyết snapshot item): availableHours phải fallback về standard capacity 40h thay vì 0h
+        assertEquals(39, emp1Snapshot.cells().get(1).weekNumber());
+        assertEquals(BigDecimal.valueOf(40), emp1Snapshot.cells().get(1).availableHours(), "Khi thiếu snapshot item ở W39, availableHours phải fallback về 40h");
+        assertFalse(emp1Snapshot.cells().get(1).isOverloaded(), "Không bị đánh dấu overload do sẵn sàng năng lực fallback 40h");
+    }
+
+    @Test
+    @DisplayName("HIGH Fix: Word-boundary role matching - 'Java' khớp 'Java Developer' nhưng KHÔNG khớp 'JavaScript Developer'")
+    void testSimulation_RoleMatching_WordBoundary_ExcludesJavaScriptForJavaRequirement() {
+        ResourceScenario scenario = ResourceScenario.createNew(
+                "SCN-ROLE", "Kịch bản test word boundary", "Mô tả", 10L, 2026, 38, 1, 100L
+        );
+        scenario.setId(44L);
+        when(loadScenarioPort.findById(44L)).thenReturn(Optional.of(scenario));
+
+        // Snapshot có 2 nhân sự: Java Dev (101L) và JavaScript Dev (102L), mỗi người baseline 20h/40h
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 44L, 101L, 2026, 38, BigDecimal.valueOf(20), BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 44L, 102L, 2026, 38, BigDecimal.valueOf(20), BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(44L)).thenReturn(snapshots);
+
+        // Demand: Cần 1 người 20h/tuần với yêu cầu "Java"
+        ScenarioDemand demand = ScenarioDemand.create(
+                44L, "Nhu cầu Java Backend", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(20), "Java"
+        );
+        demand.setId(401L);
+        when(loadDemandPort.findByScenarioId(44L)).thenReturn(List.of(demand));
+
+        Employee empJava = new Employee(
+                new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "Nguyễn Java", "Java Developer",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        Employee empJS = new Employee(
+                new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "Trần JS", "JavaScript Developer",
+                LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(empJava, empJS));
+
+        ScenarioSimulationResult result = service.getSimulationResult(44L);
+
+        assertNotNull(result);
+        assertEquals(2, result.employeeSnapshots().size());
+
+        // Employee Java (101L): Được nhận toàn bộ 20h demand -> 20 + 20 = 40h
+        var javaSnapshot = result.employeeSnapshots().stream().filter(e -> e.employeeId().equals(101L)).findFirst().orElseThrow();
+        assertEquals(BigDecimal.valueOf(40.0).setScale(2), javaSnapshot.cells().get(0).allocatedHours());
+
+        // Employee JS (102L): KHÔNG được nhận demand Java -> giữ nguyên 20h
+        var jsSnapshot = result.employeeSnapshots().stream().filter(e -> e.employeeId().equals(102L)).findFirst().orElseThrow();
+        assertEquals(BigDecimal.valueOf(20), jsSnapshot.cells().get(0).allocatedHours(), "JavaScript Developer không được dính demand Java");
+    }
+
+    @Test
+    @DisplayName("MEDIUM Fix: Remainder Distribution - Chia 10h cho 3 nhân sự bảo toàn chính xác tổng 10.00h (3.34h + 3.33h + 3.33h)")
+    void testSimulation_DemandAllocation_PreservesTotalWithRemainder() {
+        ResourceScenario scenario = ResourceScenario.createNew(
+                "SCN-REMAINDER", "Kịch bản test remainder", "Mô tả", 10L, 2026, 38, 1, 100L
+        );
+        scenario.setId(33L);
+        when(loadScenarioPort.findById(33L)).thenReturn(Optional.of(scenario));
+
+        // 3 nhân sự cùng role Backend, baseline 0h
+        List<ScenarioAllocationSnapshotItem> snapshots = List.of(
+                new ScenarioAllocationSnapshotItem(1L, 33L, 101L, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(2L, 33L, 102L, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40)),
+                new ScenarioAllocationSnapshotItem(3L, 33L, 103L, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40))
+        );
+        when(loadSnapshotPort.findByScenarioId(33L)).thenReturn(snapshots);
+
+        // Demand: 1 người 10h/tuần cho role "Backend" -> Chia cho 3 nhân sự Backend
+        ScenarioDemand demand = ScenarioDemand.create(
+                33L, "Nhu cầu Backend", 1, 2026, 38, 2026, 38, BigDecimal.valueOf(10), "Backend"
+        );
+        demand.setId(301L);
+        when(loadDemandPort.findByScenarioId(33L)).thenReturn(List.of(demand));
+
+        Employee emp1 = new Employee(new EmployeeId(101L), new UserId(201L), 10L, "EMP101", "A", "Backend", LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp2 = new Employee(new EmployeeId(102L), new UserId(202L), 10L, "EMP102", "B", "Backend", LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        Employee emp3 = new Employee(new EmployeeId(103L), new UserId(203L), 10L, "EMP103", "C", "Backend", LocalDate.of(2024, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(emp1, emp2, emp3));
+
+        ScenarioSimulationResult result = service.getSimulationResult(33L);
+
+        assertNotNull(result);
+        assertEquals(3, result.employeeSnapshots().size());
+
+        // Tổng số giờ mô phỏng của 3 nhân viên phải bằng đúng 10.00h (3.34 + 3.33 + 3.33)
+        BigDecimal totalSimulatedAlloc = result.employeeSnapshots().stream()
+                .map(e -> e.cells().get(0).allocatedHours())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        assertEquals(new BigDecimal("10.00"), totalSimulatedAlloc, "Tổng demand phân bổ cho các nhân sự phải bảo toàn chính xác 10.00h");
     }
 }

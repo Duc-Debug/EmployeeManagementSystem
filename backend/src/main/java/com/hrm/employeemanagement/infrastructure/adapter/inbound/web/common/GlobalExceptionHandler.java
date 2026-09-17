@@ -621,6 +621,42 @@ public class GlobalExceptionHandler {
     }
 
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioNotSaved(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_NOT_SAVED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.InvalidShareRecipientException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidShareRecipient(com.hrm.employeemanagement.domain.exception.scenario.InvalidShareRecipientException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_SHARE_RECIPIENT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioShareException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateScenarioShare(com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioShareException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_SCENARIO_SHARE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.CorruptedScenarioSnapshotException.class)
+    public ResponseEntity<ErrorResponse> handleCorruptedScenarioSnapshot(com.hrm.employeemanagement.domain.exception.scenario.CorruptedScenarioSnapshotException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CORRUPTED_SCENARIO_SNAPSHOT",
+                ex.getMessage(),
+                HttpStatus.UNPROCESSABLE_ENTITY.value());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
+    }
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
@@ -628,7 +664,7 @@ public class GlobalExceptionHandler {
 
         ErrorResponse response = ErrorResponse.of(
                 "INTERNAL_SERVER_ERROR",
-                "An unexpected error occurred.",
+                "Máy chủ gặp lỗi khi xử lý dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị viên.",
                 HttpStatus.INTERNAL_SERVER_ERROR.value());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }

@@ -220,17 +220,14 @@ public class ScenarioDemandService implements
     }
 
     private void verifyScenarioInUserScope(User currentUser, ResourceScenario scenario) {
-        DataScope dataScope = currentUser.getDataScope();
-        if (dataScope == DataScope.COMPANY) {
+        if (isOrgUnitInUserScope(currentUser, scenario.getOrgUnitId())) {
             return;
         }
-        if (dataScope == DataScope.ORGANIZATION_BRANCH) {
-            Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (userScopeOrgUnitId != null && loadOrgUnitPort.existsInOrgUnitBranch(scenario.getOrgUnitId(), userScopeOrgUnitId)) {
-                return;
-            }
-        }
         throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE);
+    }
+
+    private boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId) {
+        return AuthorizationService.isOrgUnitInUserScope(currentUser, targetOrgUnitId, loadOrgUnitPort);
     }
 
     private ScenarioDemandResult toDemandResult(ScenarioDemand demand) {

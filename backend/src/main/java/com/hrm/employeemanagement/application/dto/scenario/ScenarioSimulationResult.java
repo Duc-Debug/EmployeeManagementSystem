@@ -13,6 +13,7 @@ public record ScenarioSimulationResult(
         String status,
         LocalDateTime baseSnapshotAt,
         List<WeeklySimulationMetricResult> weeklyMetrics,
+        List<OverloadedEmployeeResult> overloadedEmployees,
         List<EmployeeSnapshotRowResult> employeeSnapshots,
         BigDecimal overloadThreshold,
         BigDecimal idleThreshold

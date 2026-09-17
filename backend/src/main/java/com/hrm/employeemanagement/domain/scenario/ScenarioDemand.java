@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.domain.scenario;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
+
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.scenario.InvalidScenarioDemandException;
 
@@ -154,6 +155,14 @@ public class ScenarioDemand {
         return hoursPerWeekPerPerson.multiply(BigDecimal.valueOf(headcount));
     }
 
+    /**
+     * Kiểm tra xem nhu cầu kịch bản có hiệu lực trong tuần chỉ định hay không.
+     * Phương thức so sánh chặt chẽ cả Năm (Year) và Tuần (ISO Week) thông qua đối tượng {@link YearWeek},
+     * đảm bảo không xảy ra nhầm lẫn giữa các tuần có cùng số thứ tự nhưng khác năm (ví dụ: 2026-W10 vs 2027-W10).
+     *
+     * @param week Tuần mục tiêu cần kiểm tra
+     * @return true nếu tuần nằm trong khoảng [startYear-startWeek, endYear-endWeek]
+     */
     public boolean isActiveInWeek(YearWeek week) {
         if (week == null) return false;
         YearWeek start = getDemandStart();
