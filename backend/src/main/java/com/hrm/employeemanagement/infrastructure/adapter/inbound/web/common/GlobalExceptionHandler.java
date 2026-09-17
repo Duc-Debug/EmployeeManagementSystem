@@ -666,6 +666,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.notification.NotificationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotificationNotFound(com.hrm.employeemanagement.domain.exception.notification.NotificationNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "NOTIFICATION_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.notification.NotificationAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleNotificationAccessDenied(com.hrm.employeemanagement.domain.exception.notification.NotificationAccessDeniedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "NOTIFICATION_ACCESS_DENIED",
+                ex.getMessage(),
+                HttpStatus.FORBIDDEN.value());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
