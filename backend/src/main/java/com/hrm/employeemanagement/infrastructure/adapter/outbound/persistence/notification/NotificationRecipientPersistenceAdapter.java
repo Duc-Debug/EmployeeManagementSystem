@@ -52,7 +52,10 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
         return repository.findByNotificationEventIdAndRecipientUserId(
                 item.getEventId().value(),
                 item.getRecipientUserId().value()
-        ).map(this::toDomain).orElse(item);
+        ).map(this::toDomain).orElseThrow(() -> new IllegalStateException(
+                String.format("Không thể lưu hoặc tìm thấy notification recipient sau khi xung đột dữ liệu: eventId=%d, userId=%d",
+                        item.getEventId().value(), item.getRecipientUserId().value())
+        ));
     }
 
     @Override

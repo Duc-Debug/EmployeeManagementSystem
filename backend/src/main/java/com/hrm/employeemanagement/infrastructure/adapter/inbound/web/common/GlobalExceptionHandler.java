@@ -629,7 +629,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-
     @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException.class)
     public ResponseEntity<ErrorResponse> handleScenarioNotSaved(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException ex) {
         ErrorResponse response = ErrorResponse.of(
