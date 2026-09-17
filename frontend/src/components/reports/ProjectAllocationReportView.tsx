@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
 import {
   FolderKanban,
   AlertTriangle,
@@ -68,17 +68,17 @@ export default function ProjectAllocationReportView() {
         if (activeOrAll.length > 0 && selectedProjectId == null) {
           setSelectedProjectId(activeOrAll[0].id);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.warn("Không thể tải danh sách dự án:", err);
       } finally {
         setIsProjectsLoading(false);
       }
     }
     loadAccessibleProjects();
-  }, []);
+  }, [selectedProjectId]);
 
   // 2. Hàm nạp dữ liệu báo cáo phân bổ
-  const fetchReport = async (silent = false) => {
+  const fetchReport = useCallback(async (silent = false) => {
     if (!selectedProjectId) return;
 
     if (abortControllerRef.current) {
@@ -115,26 +115,31 @@ export default function ProjectAllocationReportView() {
       if (shortageRoles.size > 0) {
         setExpandedRoleIds(shortageRoles);
       }
-    } catch (err: any) {
-      if (err?.name === "AbortError") return;
-      if (err?.status === 403 || String(err?.message || "").includes("403") || String(err?.code || "").includes("FORBIDDEN")) {
+    } catch (err: unknown) {
+      const errorObj = err as { name?: string; status?: number; message?: string; code?: string } | undefined;
+      if (errorObj?.name === "AbortError") return;
+      if (
+        errorObj?.status === 403 ||
+        String(errorObj?.message || "").includes("403") ||
+        String(errorObj?.code || "").includes("FORBIDDEN")
+      ) {
         setForbidden(true);
       } else {
-        setError(err?.message || "Không thể kết nối đến máy chủ để lấy dữ liệu báo cáo.");
+        setError(errorObj?.message || "Không thể kết nối đến máy chủ để lấy dữ liệu báo cáo.");
       }
     } finally {
       if (!silent) {
         setIsLoading(false);
       }
     }
-  };
+  }, [selectedProjectId, fromYear, fromWeek, toYear, toWeek]);
 
   // 3. Tự động tải lại khi đổi dự án hoặc kỳ tuần
   useEffect(() => {
     if (selectedProjectId) {
       fetchReport();
     }
-  }, [selectedProjectId, fromYear, fromWeek, toYear, toWeek]);
+  }, [selectedProjectId, fetchReport]);
 
   // 4. Auto-refresh định kỳ mỗi 30s nếu được bật (đảm bảo "mỗi khi có cập nhật thì luôn thay đổi theo")
   useEffect(() => {
@@ -143,7 +148,7 @@ export default function ProjectAllocationReportView() {
       fetchReport(true);
     }, 30000);
     return () => clearInterval(interval);
-  }, [autoRefresh, selectedProjectId, fromYear, fromWeek, toYear, toWeek]);
+  }, [autoRefresh, selectedProjectId, fetchReport]);
 
   // Đồng bộ kỳ tuần theo ngày bắt đầu / kết thúc của dự án khi chọn
   const handleSelectProject = (projectId: number) => {
@@ -193,8 +198,8 @@ export default function ProjectAllocationReportView() {
 
   // Lọc vai trò theo filter và keyword tìm kiếm
   const filteredRoleBreakdowns = useMemo(() => {
-    if (!reportData?.roleBreakdowns) return [];
-    return reportData.roleBreakdowns.filter((rb) => {
+    const roleBreakdowns = reportData?.roleBreakdowns ?? [];
+    return roleBreakdowns.filter((rb) => {
       if (selectedRoleFilter !== "ALL" && String(rb.roleId) !== selectedRoleFilter) {
         return false;
       }
@@ -208,7 +213,7 @@ export default function ProjectAllocationReportView() {
       );
       return matchRole || matchMember;
     });
-  }, [reportData?.roleBreakdowns, selectedRoleFilter, searchKeyword]);
+  }, [reportData, selectedRoleFilter, searchKeyword]);
 
   // Xuất file CSV
   const handleExportCsv = async () => {
@@ -222,8 +227,9 @@ export default function ProjectAllocationReportView() {
         toYear,
         toWeek
       });
-    } catch (err: any) {
-      alert(err?.message || "Lỗi khi xuất file báo cáo.");
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string } | undefined;
+      alert(errorObj?.message || "Lỗi khi xuất file báo cáo.");
     } finally {
       setIsExporting(false);
     }

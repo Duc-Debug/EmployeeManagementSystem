@@ -594,7 +594,8 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
             }
         }
 
-        return allRoles.isEmpty() ? null : allRoles.get(0);
+        // Không tự ý fallback về role đầu tiên để tránh làm sai lệch báo cáo phân bổ
+        return null;
     }
 
     private Long resolveEmployeeId(User currentUser, Long currentUserId) {

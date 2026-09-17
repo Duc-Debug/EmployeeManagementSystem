@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import com.hrm.employeemanagement.application.dto.report.projectallocation.ProjectAllocationReportExport;
 import com.hrm.employeemanagement.application.dto.report.projectallocation.ProjectAllocationReportQuery;
 import com.hrm.employeemanagement.application.dto.report.projectallocation.ProjectAllocationReportResult;
+import com.hrm.employeemanagement.application.dto.report.projectallocation.RoleAllocationBreakdownItem;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
@@ -368,5 +369,103 @@ class GetProjectAllocationReportServiceTest {
 
         ProjectAllocationReportQuery query = new ProjectAllocationReportQuery(999L, 2026, 38, 2026, 38);
         assertThrows(ProjectNotFoundException.class, () -> service.execute(query));
+    }
+
+    @Test
+    @DisplayName("Không tự ý gán nhân sự không khớp vai trò (unmatched role) vào role đầu tiên trong catalog")
+    void shouldNotAssignUnmatchedEmployeeToFirstProjectRole() {
+        Long currentUserId = 100L;
+        Long projectId = 1L;
+        int targetYear = 2026;
+        int targetWeek = 38;
+
+        when(authorizationService.require(PermissionCode.PROJECT_ALLOCATION_REPORT_READ)).thenReturn(currentUserId);
+
+        Role directorRole = new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám Đốc");
+        User directorUser = new User(new UserId(currentUserId), "director", "hash", directorRole, UserStatus.ACTIVE,
+                null, DataScope.COMPANY, null, 0L);
+        when(loadUserPort.findById(new UserId(currentUserId))).thenReturn(Optional.of(directorUser));
+
+        Project project = Project.createNew(
+                "PRJ-001",
+                "Hệ thống HRM Core",
+                10L,
+                new EmployeeId(20L),
+                LocalDate.of(2026, 9, 14),
+                LocalDate.of(2026, 9, 20),
+                BigDecimal.valueOf(160.0),
+                "Mô tả",
+                new UserId(currentUserId)
+        );
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+
+        // Catalog có Backend Developer và Frontend Developer
+        ProjectRole backendRole = new ProjectRole(new ProjectRoleId(1L), "BACKEND_DEV", "Backend Developer", "Backend");
+        ProjectRole frontendRole = new ProjectRole(new ProjectRoleId(2L), "FRONTEND_DEV", "Frontend Developer", "Frontend");
+        when(loadProjectRolePort.findAll()).thenReturn(List.of(backendRole, frontendRole));
+
+        // Nhu cầu dự án cần Backend Developer 40h
+        ProjectResourceDemand demand = ProjectResourceDemand.createNew(
+                new ProjectId(projectId),
+                new ProjectRoleId(1L),
+                YearWeek.of(targetYear, targetWeek),
+                BigDecimal.valueOf(40.0)
+        );
+        when(loadDemandPort.findByProjectId(new ProjectId(projectId))).thenReturn(List.of(demand));
+
+        // Phân bổ nhân sự có professionalRole = "DevOps Engineer" (không khớp backend hay frontend)
+        Long devOpsEmployeeId = 401L;
+        WeeklyProjectAllocation alloc = WeeklyProjectAllocation.createNew(
+                devOpsEmployeeId,
+                projectId,
+                YearWeek.of(targetYear, targetWeek),
+                BigDecimal.valueOf(30.0),
+                BigDecimal.valueOf(75.0)
+        );
+        when(loadAllocationPort.loadAllocationsForProjectInWeekRange(projectId, targetYear, targetWeek, targetWeek))
+                .thenReturn(List.of(alloc));
+
+        Employee devOpsEmp = new Employee(new EmployeeId(devOpsEmployeeId), new UserId(400L), 10L, "NV401", "Phạm Văn DevOps",
+                "DevOps Engineer", LocalDate.of(2022, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(devOpsEmployeeId)))).thenReturn(List.of(devOpsEmp));
+
+        ProjectAllocationReportQuery query = new ProjectAllocationReportQuery(projectId, targetYear, targetWeek, targetYear, targetWeek);
+        ProjectAllocationReportResult result = service.execute(query);
+
+        assertNotNull(result);
+        // Backend Developer không được tự ý cộng 30h của DevOps vào
+        RoleAllocationBreakdownItem backendBreakdown = result.roleBreakdowns().stream()
+                .filter(r -> r.roleId().equals(1L))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(new BigDecimal("40.0"), backendBreakdown.totalDemandHours());
+        assertEquals(new BigDecimal("0.0"), backendBreakdown.totalAllocatedHours(), "Không được gán giờ của DevOps vào Backend");
+        assertEquals(new BigDecimal("40.0"), backendBreakdown.totalShortfallHours());
+    }
+
+    @Test
+    @DisplayName("Validation: Từ chối khi projectId null")
+    void shouldRejectNullProjectId() {
+        assertThrows(IllegalArgumentException.class, () -> new ProjectAllocationReportQuery(null, 2026, 38, 2026, 38));
+    }
+
+    @Test
+    @DisplayName("Validation: Từ chối khi chỉ truyền fromYear hoặc fromWeek")
+    void shouldRejectPartialFromWeekParameters() {
+        assertThrows(IllegalArgumentException.class, () -> new ProjectAllocationReportQuery(1L, 2026, null, 2026, 38));
+        assertThrows(IllegalArgumentException.class, () -> new ProjectAllocationReportQuery(1L, null, 38, 2026, 38));
+    }
+
+    @Test
+    @DisplayName("Validation: Từ chối khi chỉ truyền toYear hoặc toWeek")
+    void shouldRejectPartialToWeekParameters() {
+        assertThrows(IllegalArgumentException.class, () -> new ProjectAllocationReportQuery(1L, 2026, 38, 2026, null));
+        assertThrows(IllegalArgumentException.class, () -> new ProjectAllocationReportQuery(1L, 2026, 38, null, 38));
+    }
+
+    @Test
+    @DisplayName("Validation: Từ chối khi thời gian kết thúc trước thời gian bắt đầu")
+    void shouldRejectEndWeekBeforeStartWeek() {
+        assertThrows(IllegalArgumentException.class, () -> new ProjectAllocationReportQuery(1L, 2026, 40, 2026, 38));
     }
 }
