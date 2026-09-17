@@ -8,7 +8,7 @@ import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioS
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
-import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.scenario.ScenarioComparisonService;
 
@@ -22,7 +22,7 @@ public class ScenarioComparisonUseCaseConfig {
             LoadResourceScenarioPort loadScenarioPort,
             LoadOrgUnitPort loadOrgUnitPort,
             GetScenarioSimulationResultUseCase simulationResultUseCase,
-            SaveAuditLogPort saveAuditLogPort
+            SaveAuditLogInNewTransactionPort saveAuditLogPort
     ) {
         ScenarioComparisonService service = new ScenarioComparisonService(
                 authorizationService,

@@ -22,7 +22,7 @@ import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioS
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
-import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -44,7 +44,7 @@ public class ScenarioComparisonService implements CompareSimulationScenariosUseC
     private final LoadResourceScenarioPort loadScenarioPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final GetScenarioSimulationResultUseCase simulationResultUseCase;
-    private final SaveAuditLogPort saveAuditLogPort;
+    private final SaveAuditLogInNewTransactionPort saveAuditLogPort;
 
     public ScenarioComparisonService(
             AuthorizationService authorizationService,
@@ -52,14 +52,14 @@ public class ScenarioComparisonService implements CompareSimulationScenariosUseC
             LoadResourceScenarioPort loadScenarioPort,
             LoadOrgUnitPort loadOrgUnitPort,
             GetScenarioSimulationResultUseCase simulationResultUseCase,
-            SaveAuditLogPort saveAuditLogPort
+            SaveAuditLogInNewTransactionPort saveAuditLogPort
     ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadScenarioPort = Objects.requireNonNull(loadScenarioPort, "LoadResourceScenarioPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
         this.simulationResultUseCase = Objects.requireNonNull(simulationResultUseCase, "GetScenarioSimulationResultUseCase must not be null");
-        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
+        this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
     }
 
     @Override
@@ -171,13 +171,19 @@ public class ScenarioComparisonService implements CompareSimulationScenariosUseC
                                 .filter(Objects::nonNull)
                                 .max(BigDecimal::compareTo)
                                 .orElse(BigDecimal.ZERO);
+                        BigDecimal peakUtilization = list.stream()
+                                .map(OverloadedEmployeeResult::utilizationPercentage)
+                                .filter(Objects::nonNull)
+                                .max(BigDecimal::compareTo)
+                                .orElse(BigDecimal.ZERO);
                         return new OverloadedEmployeeSummaryResult(
                                 first.employeeId(),
                                 first.employeeCode(),
                                 first.fullName(),
                                 first.professionalRole(),
                                 list.size(),
-                                maxExcess
+                                maxExcess,
+                                peakUtilization
                         );
                     })
                     .sorted(Comparator.comparing(OverloadedEmployeeSummaryResult::overloadedWeeksCount).reversed()

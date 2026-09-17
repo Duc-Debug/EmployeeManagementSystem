@@ -16,7 +16,7 @@ public class TransactionalScenarioComparisonUseCaseDecorator implements CompareS
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public ScenarioComparisonResult compareScenarios(CompareScenariosCommand command) {
         return delegate.compareScenarios(command);
     }

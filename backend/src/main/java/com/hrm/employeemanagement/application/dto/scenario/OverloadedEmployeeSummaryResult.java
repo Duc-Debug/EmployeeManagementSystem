@@ -8,6 +8,7 @@ public record OverloadedEmployeeSummaryResult(
         String fullName,
         String professionalRole,
         int overloadedWeeksCount,
-        BigDecimal maxExcessHours
+        BigDecimal maxExcessHours,
+        BigDecimal peakUtilizationPercentage
 ) {
 }

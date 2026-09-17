@@ -20,7 +20,7 @@ import com.hrm.employeemanagement.application.port.inbound.scenario.GetScenarioS
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
-import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
@@ -51,7 +51,7 @@ class ScenarioComparisonServiceTest {
     private LoadResourceScenarioPort loadScenarioPort;
     private LoadOrgUnitPort loadOrgUnitPort;
     private GetScenarioSimulationResultUseCase simulationResultUseCase;
-    private SaveAuditLogPort saveAuditLogPort;
+    private SaveAuditLogInNewTransactionPort saveAuditLogPort;
 
     private ScenarioComparisonService service;
 
@@ -66,7 +66,7 @@ class ScenarioComparisonServiceTest {
         loadScenarioPort = mock(LoadResourceScenarioPort.class);
         loadOrgUnitPort = mock(LoadOrgUnitPort.class);
         simulationResultUseCase = mock(GetScenarioSimulationResultUseCase.class);
-        saveAuditLogPort = mock(SaveAuditLogPort.class);
+        saveAuditLogPort = mock(SaveAuditLogInNewTransactionPort.class);
 
         service = new ScenarioComparisonService(
                 authorizationService,
@@ -197,6 +197,7 @@ class ScenarioComparisonServiceTest {
         assertTrue(result.isTimeframeAligned());
         assertTrue(result.isOrgUnitAligned());
         assertFalse(item1.overloadedEmployees().isEmpty());
+        assertEquals(new BigDecimal("120.0"), item1.overloadedEmployees().get(0).peakUtilizationPercentage());
 
         ScenarioComparisonItemResult item2 = result.scenarios().get(1);
         assertEquals(2L, item2.scenarioId());
