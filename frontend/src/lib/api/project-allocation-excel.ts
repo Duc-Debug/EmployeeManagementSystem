@@ -141,12 +141,12 @@ export function canExportProjectAllocationExcel(
     return true;
   }
 
-  // Quản lý dự án (VT-02): Nếu có thông tin PM và Employee ID thì phải đúng là PM của dự án đó
+  // Quản lý dự án (VT-02): Chỉ cho phép khi có đầy đủ ID và currentEmployeeId trùng khớp với projectManagerId
   if (["VT-02", "ROLE-PM", "PM", "PROJECT-MANAGER"].includes(normalized)) {
-    if (currentEmployeeId != null && projectManagerId != null) {
-      return String(currentEmployeeId) === String(projectManagerId);
+    if (currentEmployeeId == null || projectManagerId == null) {
+      return false;
     }
-    return true;
+    return String(currentEmployeeId) === String(projectManagerId);
   }
 
   return false;

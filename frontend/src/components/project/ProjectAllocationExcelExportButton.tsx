@@ -11,6 +11,8 @@ export interface ProjectAllocationExcelExportButtonProps {
   projectId: number;
   projectCode?: string;
   projectName?: string;
+  projectManagerId?: number | string | null;
+  currentEmployeeId?: number | string | null;
   initialFromYear?: number;
   initialFromWeek?: number;
   initialToYear?: number;
@@ -26,6 +28,8 @@ export function ProjectAllocationExcelExportButton({
   projectId,
   projectCode,
   projectName,
+  projectManagerId,
+  currentEmployeeId,
   initialFromYear,
   initialFromWeek,
   initialToYear,
@@ -39,9 +43,15 @@ export function ProjectAllocationExcelExportButton({
   const [isOpen, setIsOpen] = useState(false);
   const user = useAuthUser();
 
+  const userRecord = user as (Record<string, unknown> | null);
+  const effectiveEmployeeId =
+    currentEmployeeId ?? (userRecord?.employeeId as (number | string | null | undefined));
+
   const hasPermission = canExportProjectAllocationExcel(
     user?.roleCode,
-    user?.permissions
+    user?.permissions,
+    effectiveEmployeeId,
+    projectManagerId
   );
 
   if (!hasPermission && hideIfNoPermission) {

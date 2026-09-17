@@ -127,10 +127,12 @@ describe("Project Allocation Excel Report Logic & Validation Tests (NCL-10-CN-00
       assert.equal(canExportProjectAllocationExcel("ROLE-EXECUTIVE", ["RESOURCE_ALLOCATION_READ"]), true);
     });
 
-    test("VT-02 (Quản lý dự án) có quyền xuất báo cáo khi đúng là PM của dự án", () => {
+    test("VT-02 (Quản lý dự án) chỉ có quyền xuất báo cáo khi có đầy đủ ID và đúng là PM của dự án", () => {
       assert.equal(canExportProjectAllocationExcel("VT-02", ["RESOURCE_ALLOCATION_READ"], 10, 10), true);
       assert.equal(canExportProjectAllocationExcel("VT-02", ["RESOURCE_ALLOCATION_READ"], 10, 99), false);
-      assert.equal(canExportProjectAllocationExcel("PM", ["RESOURCE_ALLOCATION_READ"]), true);
+      assert.equal(canExportProjectAllocationExcel("VT-02", ["RESOURCE_ALLOCATION_READ"], null, 10), false);
+      assert.equal(canExportProjectAllocationExcel("VT-02", ["RESOURCE_ALLOCATION_READ"], 10, null), false);
+      assert.equal(canExportProjectAllocationExcel("PM", ["RESOURCE_ALLOCATION_READ"]), false);
     });
 
     test("Các vai trò không có thẩm quyền (VT-03, VT-04, VT-05) dù có permission vẫn bị từ chối", () => {
