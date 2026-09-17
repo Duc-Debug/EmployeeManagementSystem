@@ -18,25 +18,40 @@ import {
 } from "@/lib/api/timesheet-variance";
 import { getOrgTree } from "@/lib/api/org-units";
 import { useAuthUser } from "@/lib/auth-session";
+import { getIsoWeeksInYear, getIsoWeekDetails, addIsoWeeks } from "@/lib/iso-week";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 
 export default function TimesheetVarianceReportView() {
   const user = useAuthUser();
-  const currentYear = new Date().getFullYear();
 
-  // Tính tuần hiện tại
-  const today = new Date();
-  const d = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const currentWeek = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  // Tính tuần hiện tại và tuần bắt đầu theo chuẩn ISO-8601 week-based year
+  const currentIsoDetails = getIsoWeekDetails(new Date());
+  const initialFrom = addIsoWeeks(currentIsoDetails.year, currentIsoDetails.week, -4);
 
-  const [fromYear, setFromYear] = useState<number>(currentYear);
-  const [fromWeek, setFromWeek] = useState<number>(Math.max(1, currentWeek - 4));
-  const [toYear, setToYear] = useState<number>(currentYear);
-  const [toWeek, setToWeek] = useState<number>(currentWeek);
+  const [fromYear, setFromYear] = useState<number>(initialFrom.year);
+  const [fromWeek, setFromWeek] = useState<number>(initialFrom.week);
+  const [toYear, setToYear] = useState<number>(currentIsoDetails.year);
+  const [toWeek, setToWeek] = useState<number>(currentIsoDetails.week);
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>("");
+
+  const fromMaxWeeks = getIsoWeeksInYear(fromYear);
+  const toMaxWeeks = getIsoWeeksInYear(toYear);
+
+  const handleFromYearChange = (newYear: number) => {
+    setFromYear(newYear);
+    const maxWeeks = getIsoWeeksInYear(newYear);
+    if (fromWeek > maxWeeks) {
+      setFromWeek(maxWeeks);
+    }
+  };
+
+  const handleToYearChange = (newYear: number) => {
+    setToYear(newYear);
+    const maxWeeks = getIsoWeeksInYear(newYear);
+    if (toWeek > maxWeeks) {
+      setToWeek(maxWeeks);
+    }
+  };
 
   const [reportData, setReportData] = useState<TimesheetVarianceResult | null>(null);
   const [orgUnits, setOrgUnits] = useState<OrgUnitTreeNode[]>([]);
@@ -275,14 +290,14 @@ export default function TimesheetVarianceReportView() {
               onChange={(e) => setFromWeek(Number(e.target.value))}
               className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none transition"
             >
-              {Array.from({ length: 53 }, (_, i) => i + 1).map((w) => (
+              {Array.from({ length: fromMaxWeeks }, (_, i) => i + 1).map((w) => (
                 <option key={w} value={w}>Tuần {w}</option>
               ))}
             </select>
             <input
               type="number"
               value={fromYear}
-              onChange={(e) => setFromYear(Number(e.target.value))}
+              onChange={(e) => handleFromYearChange(Number(e.target.value))}
               className="w-24 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none transition font-medium"
             />
           </div>
@@ -299,14 +314,14 @@ export default function TimesheetVarianceReportView() {
               onChange={(e) => setToWeek(Number(e.target.value))}
               className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none transition"
             >
-              {Array.from({ length: 53 }, (_, i) => i + 1).map((w) => (
+              {Array.from({ length: toMaxWeeks }, (_, i) => i + 1).map((w) => (
                 <option key={w} value={w}>Tuần {w}</option>
               ))}
             </select>
             <input
               type="number"
               value={toYear}
-              onChange={(e) => setToYear(Number(e.target.value))}
+              onChange={(e) => handleToYearChange(Number(e.target.value))}
               className="w-24 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none transition font-medium"
             />
           </div>
