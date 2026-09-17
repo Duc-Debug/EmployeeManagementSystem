@@ -10,15 +10,19 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.hrm.employeemanagement.application.dto.scenario.CreateScenarioCommand;
+import com.hrm.employeemanagement.application.dto.scenario.PatchScenarioCommand;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioResult;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSharePort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSnapshotPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.SaveResourceScenarioPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.SaveScenarioSnapshotPort;
@@ -70,6 +74,9 @@ class ResourceScenarioServiceTest {
     private LoadScenarioSnapshotPort loadSnapshotPort;
     private LoadScenarioDemandPort loadDemandPort;
     private SaveAuditLogPort saveAuditLogPort;
+    private LoadScenarioSharePort loadScenarioSharePort;
+    private LoadProjectPort loadProjectPort;
+    private SaveAuditLogInNewTransactionPort deniedAuditLogPort;
 
     private ResourceScenarioService service;
 
@@ -95,6 +102,9 @@ class ResourceScenarioServiceTest {
         loadSnapshotPort = mock(LoadScenarioSnapshotPort.class);
         loadDemandPort = mock(LoadScenarioDemandPort.class);
         saveAuditLogPort = mock(SaveAuditLogPort.class);
+        loadScenarioSharePort = mock(LoadScenarioSharePort.class);
+        loadProjectPort = mock(LoadProjectPort.class);
+        deniedAuditLogPort = mock(SaveAuditLogInNewTransactionPort.class);
 
         service = new ResourceScenarioService(
                 authorizationService,
@@ -111,7 +121,11 @@ class ResourceScenarioServiceTest {
                 saveSnapshotPort,
                 loadSnapshotPort,
                 loadDemandPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                loadScenarioSharePort,
+                loadProjectPort,
+                null,
+                deniedAuditLogPort
         );
 
         vt03User = new User(
@@ -285,6 +299,7 @@ class ResourceScenarioServiceTest {
     void testGetScenarioById_VT01_Success() {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ)).thenReturn(101L);
         when(loadUserPort.findById(new UserId(101L))).thenReturn(Optional.of(vt01User));
+        when(loadScenarioSharePort.hasActiveShare(10L, 101L)).thenReturn(true);
 
         ResourceScenario scenario = ResourceScenario.createNew(
                 "SCN-10", "Kịch bản bộ phận 10", "Mô tả", 10L, 2026, 38, 8, 103L
@@ -522,5 +537,45 @@ class ResourceScenarioServiceTest {
 
         assertNotNull(result);
         verify(saveScenarioPort, times(2)).save(any(ResourceScenario.class));
+    }
+
+    @Test
+    @DisplayName("Regression Test Issue 2: SAVED có active share -> Owner PATCH name/note (chuyển về DRAFT) -> Recipient không được đọc DRAFT")
+    void testActiveShare_OwnerPatchesScenarioToDraft_RecipientCannotAccessDraft() {
+        Long ownerId = 103L;
+        Long recipientId = 102L;
+        Long scenarioId = 99L;
+
+        ResourceScenario scenario = ResourceScenario.createNew(
+                "SCN-REG-01", "Kịch bản đã lưu", "Mô tả", 10L, 2026, 38, 4, ownerId
+        );
+        scenario.setId(scenarioId);
+        scenario.saveSnapshot("{\"projectIds\":[501]}");
+        assertTrue(scenario.isSaved());
+
+        // 1. Owner PATCH name/note -> scenario chuyển sang DRAFT
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(ownerId);
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(scenario));
+        when(saveScenarioPort.save(any(ResourceScenario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PatchScenarioCommand patchCommand = new PatchScenarioCommand(scenarioId, "Kịch bản đã sửa tên", "Ghi chú mới");
+        ScenarioResult patchResult = service.patchScenario(patchCommand);
+        assertEquals("draft", patchResult.status());
+        assertTrue(scenario.isDraft());
+
+        // 2. Recipient (VT-02) có active share cố gắng đọc kịch bản DRAFT -> PermissionDeniedException
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_READ)).thenReturn(recipientId);
+        when(loadUserPort.findById(new UserId(recipientId))).thenReturn(Optional.of(vt02User));
+        when(loadScenarioSharePort.hasActiveShare(scenarioId, recipientId)).thenReturn(true);
+
+        assertThrows(PermissionDeniedException.class, () -> service.getScenarioById(scenarioId));
+
+        // 3. Recipient gọi listScenarios -> kịch bản DRAFT không xuất hiện trong danh sách của recipient
+        com.hrm.employeemanagement.domain.scenario.ScenarioShare activeShare = com.hrm.employeemanagement.domain.scenario.ScenarioShare.create(scenarioId, recipientId, ownerId);
+        when(loadScenarioSharePort.findActiveSharesByUserId(recipientId)).thenReturn(List.of(activeShare));
+        when(loadScenarioPort.findAll()).thenReturn(List.of());
+
+        List<ScenarioResult> recipientList = service.listScenarios(null);
+        assertTrue(recipientList.isEmpty(), "Recipient không được nhìn thấy kịch bản DRAFT trong danh sách chia sẻ");
     }
 }

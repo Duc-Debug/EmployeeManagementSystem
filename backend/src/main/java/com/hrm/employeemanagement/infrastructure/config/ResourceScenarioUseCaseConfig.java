@@ -7,11 +7,13 @@ import org.springframework.context.annotation.Primary;
 import com.hrm.employeemanagement.application.port.inbound.scenario.*;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.*;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -19,6 +21,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.application.service.scenario.ResourceScenarioService;
 import com.hrm.employeemanagement.application.service.scenario.ScenarioDemandService;
+import com.hrm.employeemanagement.application.service.scenario.ScenarioShareService;
 import com.hrm.employeemanagement.application.service.scenario.ScenarioSimulationCalculationService;
 import com.hrm.employeemanagement.infrastructure.transaction.scenario.RetryableCreateSimulationScenarioUseCaseDecorator;
 import com.hrm.employeemanagement.infrastructure.transaction.scenario.TransactionalResourceScenarioServiceDecorator;
@@ -32,6 +35,7 @@ public class ResourceScenarioUseCaseConfig {
             LoadUserPort loadUserPort,
             LoadEmployeePort loadEmployeePort,
             LoadOrgUnitPort loadOrgUnitPort,
+            LoadProjectPort loadProjectPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             LoadHolidaysPort loadHolidaysPort,
@@ -44,9 +48,27 @@ public class ResourceScenarioUseCaseConfig {
             SaveScenarioDemandPort saveDemandPort,
             LoadScenarioDemandPort loadDemandPort,
             DeleteScenarioDemandPort deleteDemandPort,
+            SaveScenarioSharePort saveScenarioSharePort,
+            LoadScenarioSharePort loadScenarioSharePort,
             LoadCapacityThresholdPort loadCapacityThresholdPort,
-            SaveAuditLogPort saveAuditLogPort
+            SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort
     ) {
+        ScenarioSimulationCalculationService simulationService = new ScenarioSimulationCalculationService(
+                authorizationService,
+                loadUserPort,
+                loadOrgUnitPort,
+                loadEmployeePort,
+                loadScenarioPort,
+                loadDemandPort,
+                loadSnapshotPort,
+                loadCapacityThresholdPort,
+                loadScenarioSharePort,
+                loadProjectPort,
+                deniedAuditLogPort,
+                saveAuditLogPort
+        );
+
         ResourceScenarioService scenarioService = new ResourceScenarioService(
                 authorizationService,
                 loadUserPort,
@@ -62,7 +84,11 @@ public class ResourceScenarioUseCaseConfig {
                 saveSnapshotPort,
                 loadSnapshotPort,
                 loadDemandPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                loadScenarioSharePort,
+                loadProjectPort,
+                simulationService,
+                deniedAuditLogPort
         );
 
         ScenarioDemandService demandService = new ScenarioDemandService(
@@ -76,16 +102,17 @@ public class ResourceScenarioUseCaseConfig {
                 saveAuditLogPort
         );
 
-        ScenarioSimulationCalculationService simulationService = new ScenarioSimulationCalculationService(
+        ScenarioShareService shareService = new ScenarioShareService(
                 authorizationService,
                 loadUserPort,
-                loadOrgUnitPort,
                 loadEmployeePort,
+                loadOrgUnitPort,
+                loadProjectPort,
                 loadScenarioPort,
-                loadDemandPort,
-                loadSnapshotPort,
-                loadCapacityThresholdPort,
-                saveAuditLogPort
+                loadScenarioSharePort,
+                saveScenarioSharePort,
+                saveAuditLogPort,
+                deniedAuditLogPort
         );
 
         return new TransactionalResourceScenarioServiceDecorator(
@@ -95,7 +122,13 @@ public class ResourceScenarioUseCaseConfig {
                 demandService,
                 demandService,
                 demandService,
-                simulationService
+                simulationService,
+                scenarioService,
+                scenarioService,
+                shareService,
+                shareService,
+                shareService,
+                shareService
         );
     }
 
