@@ -185,4 +185,34 @@ class NotificationControllerTest {
 
         verify(deleteNotificationItemUseCase, times(1)).deleteNotification(10L, currentUserId);
     }
+
+    @Test
+    @DisplayName("GET /api/v1/notifications với status không hợp lệ -> Trả về 400 BAD_REQUEST")
+    void getNotifications_invalidStatus_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications")
+                        .param("status", "INVALID_STATUS")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/notifications với level không hợp lệ -> Trả về 400 BAD_REQUEST")
+    void getNotifications_invalidLevel_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications")
+                        .param("level", "SUPER_HIGH")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/notifications với size > 100 -> Trả về 400 BAD_REQUEST")
+    void getNotifications_sizeOverLimit_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications")
+                        .param("size", "101")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
 }

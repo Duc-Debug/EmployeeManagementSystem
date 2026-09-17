@@ -71,6 +71,24 @@ public class NotificationEventPersistenceAdapter implements NotificationEventRep
     }
 
     @Override
+    public java.util.List<NotificationEvent> findAllByIds(java.util.List<NotificationEventId> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<Long> longIds = ids.stream()
+                .filter(Objects::nonNull)
+                .map(NotificationEventId::value)
+                .filter(Objects::nonNull)
+                .toList();
+        if (longIds.isEmpty()) {
+            return java.util.List.of();
+        }
+        return repository.findAllById(longIds).stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<NotificationEvent> findBySourceEventKey(String sourceEventKey) {
         if (sourceEventKey == null || sourceEventKey.isBlank()) {
             return Optional.empty();

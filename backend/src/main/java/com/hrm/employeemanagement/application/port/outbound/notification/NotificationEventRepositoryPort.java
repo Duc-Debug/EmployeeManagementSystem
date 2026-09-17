@@ -10,6 +10,7 @@ public interface NotificationEventRepositoryPort {
     NotificationEvent save(NotificationEvent event);
     NotificationEvent getOrCreate(NotificationEvent event);
     Optional<NotificationEvent> findById(NotificationEventId id);
+    java.util.List<NotificationEvent> findAllByIds(java.util.List<NotificationEventId> ids);
     Optional<NotificationEvent> findBySourceEventKey(String sourceEventKey);
     long purgeOrphanEventsOlderThan(LocalDateTime cutoff);
 }
