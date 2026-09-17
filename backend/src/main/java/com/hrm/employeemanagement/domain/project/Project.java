@@ -189,7 +189,12 @@ public class Project {
         if (createdBy == null) {
             throw new InvalidProjectDataException("Người tạo dự án không được để trống");
         }
-        ProjectStatus initialStatus = (status == ProjectStatus.PLANNED) ? ProjectStatus.PLANNED : ProjectStatus.ACTIVE;
+        if (status == null) {
+            throw new InvalidProjectDataException("Trạng thái khởi tạo dự án không được để trống");
+        }
+        if (status != ProjectStatus.PLANNED && status != ProjectStatus.ACTIVE) {
+            throw new InvalidProjectDataException("Trạng thái khởi tạo dự án chỉ được là PLANNED hoặc ACTIVE");
+        }
         return new Project(
                 null, // id = null vì là tạo mới
                 projectCode,
@@ -200,7 +205,7 @@ public class Project {
                 endDate,
                 estimatedHours,
                 description,
-                initialStatus,
+                status,
                 createdBy,
                 LocalDateTime.now(),
                 null,

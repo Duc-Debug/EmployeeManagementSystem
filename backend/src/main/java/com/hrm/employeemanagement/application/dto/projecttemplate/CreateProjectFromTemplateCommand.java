@@ -24,6 +24,12 @@ public record CreateProjectFromTemplateCommand(
             throw new InvalidProjectDataException("Tên dự án không được để trống");
         }
         Objects.requireNonNull(orgUnitId, "Đơn vị tổ chức (orgUnitId) không được để trống");
+        if (status == null) {
+            throw new InvalidProjectDataException("Trạng thái khởi tạo dự án không được để trống");
+        }
+        if (status != ProjectStatus.PLANNED && status != ProjectStatus.ACTIVE) {
+            throw new InvalidProjectDataException("Trạng thái khởi tạo dự án chỉ được là PLANNED hoặc ACTIVE");
+        }
     }
 
     public CreateProjectFromTemplateCommand(

@@ -24,6 +24,7 @@ public record CreateProjectFromTemplateRequest(
         @Size(max = 2000, message = "Mô tả dự án không được vượt quá 2000 ký tự")
         String description,
 
+        @NotNull(message = "Trạng thái khởi tạo dự án không được để trống")
         com.hrm.employeemanagement.domain.project.ProjectStatus status
 ) {
 }

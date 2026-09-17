@@ -337,7 +337,8 @@ class ProjectControllerTest {
             {
                 "templateId": 1,
                 "projectName": "Dự án mới từ mẫu",
-                "orgUnitId": 5
+                "orgUnitId": 5,
+                "status": "ACTIVE"
             }
             """;
 
@@ -357,7 +358,8 @@ class ProjectControllerTest {
         String jsonPayload = """
             {
                 "projectName": "Dự án thiếu template",
-                "orgUnitId": 5
+                "orgUnitId": 5,
+                "status": "ACTIVE"
             }
             """;
 
@@ -380,7 +382,8 @@ class ProjectControllerTest {
             {
                 "templateId": 999,
                 "projectName": "Dự án mẫu không tồn tại",
-                "orgUnitId": 5
+                "orgUnitId": 5,
+                "status": "ACTIVE"
             }
             """;
 

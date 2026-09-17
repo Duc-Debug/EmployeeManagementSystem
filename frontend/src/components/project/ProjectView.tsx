@@ -362,7 +362,7 @@ export default function ProjectView() {
             loadProjectAllocations();
             loadProjectDemands(selectedProjectId);
         }
-        showToast(`Dự án "${approvedProject.projectName}" đã được phê duyệt & khởi động thành công! Toàn bộ giữ chỗ đã được chuyển thành phân bổ.`, 'success');
+        showToast(`Dự án "${approvedProject.projectName}" đã được phê duyệt & khởi động thành công!`, 'success');
     };
 
     const handleProjectCancelled = (cancelledProject: ProjectResult) => {
