@@ -169,6 +169,12 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
             if (r.getIdValue() != null) involvedRoleIds.add(r.getIdValue());
         });
 
+        // Nếu có nhân sự được phân bổ nhưng chuyên môn chưa khớp vai trò nào trong catalog dự án
+        boolean hasUnmappedAllocations = allocations.stream().anyMatch(a -> !employeeToRoleMap.containsKey(a.getEmployeeId()));
+        if (hasUnmappedAllocations) {
+            involvedRoleIds.add(0L);
+        }
+
         // Nếu chưa có vai trò nào trong demand, hiển thị các vai trò đang active trong hệ thống
         if (involvedRoleIds.isEmpty()) {
             allRoles.stream().filter(ProjectRole::isActive).forEach(r -> involvedRoleIds.add(r.getIdValue()));
@@ -197,8 +203,8 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
 
         for (Long roleId : involvedRoleIds) {
             ProjectRole role = roleMap.get(roleId);
-            String roleName = role != null ? role.getName() : "Vai trò #" + roleId;
-            String roleCode = role != null ? role.getCode() : "ROLE_" + roleId;
+            String roleName = roleId == 0L ? "Vai trò khác / Chưa phân loại" : (role != null ? role.getName() : "Vai trò #" + roleId);
+            String roleCode = roleId == 0L ? "OTHER" : (role != null ? role.getCode() : "ROLE_" + roleId);
 
             BigDecimal roleTotalDemand = BigDecimal.ZERO;
             BigDecimal roleTotalAllocated = BigDecimal.ZERO;
@@ -209,7 +215,7 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
 
             for (YearWeek yw : targetWeeks) {
                 String key = makeKey(roleId, yw.year(), yw.weekNumber());
-                BigDecimal demandHours = demandMap.getOrDefault(key, BigDecimal.ZERO).setScale(1, RoundingMode.HALF_UP);
+                BigDecimal demandHours = (roleId == 0L ? BigDecimal.ZERO : demandMap.getOrDefault(key, BigDecimal.ZERO)).setScale(1, RoundingMode.HALF_UP);
 
                 List<AllocatedMemberDetailItem> memberDetails = new ArrayList<>();
                 BigDecimal weekRoleAllocated = BigDecimal.ZERO;
@@ -218,7 +224,8 @@ public class GetProjectAllocationReportService implements GetProjectAllocationRe
                     if (alloc.getYear() == yw.year() && alloc.getWeekNumber() == yw.weekNumber()) {
                         ProjectRole empRole = employeeToRoleMap.get(alloc.getEmployeeId());
                         Long empRoleId = empRole != null ? empRole.getIdValue() : null;
-                        if (Objects.equals(empRoleId, roleId)) {
+                        boolean matchesThisRole = roleId == 0L ? (empRole == null) : Objects.equals(empRoleId, roleId);
+                        if (matchesThisRole) {
                             Employee emp = employeeMap.get(alloc.getEmployeeId());
                             BigDecimal hours = alloc.getAllocatedHours() != null ? alloc.getAllocatedHours().setScale(1, RoundingMode.HALF_UP) : BigDecimal.ZERO;
                             weekRoleAllocated = weekRoleAllocated.add(hours);
