@@ -10,7 +10,7 @@ import {
   ExternalLink,
   ChevronDown,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import {
   getNotificationCenter,
   getUnreadNotificationCount,
@@ -26,7 +26,7 @@ interface NotificationPopoverProps {
 }
 
 export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<NotificationCenterItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -159,11 +159,11 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
           );
         }
       } else if (type === "CAPACITY_WEEK") {
-        router.push(`/capacity?week=${encodeURIComponent(id)}`);
+        navigate(`/capacity?week=${encodeURIComponent(id)}`);
       } else if (type === "PROJECT" || type === "PROJECT_ALLOCATION" || type === "ALLOCATION") {
-        router.push(`/projects/${encodeURIComponent(id)}`);
+        navigate(`/projects/${encodeURIComponent(id)}`);
       } else if (type === "LEAVE_REQUEST") {
-        router.push(`/leave?requestId=${encodeURIComponent(id)}`);
+        navigate(`/leave?requestId=${encodeURIComponent(id)}`);
       }
     }
   };
