@@ -100,7 +100,10 @@ public class ResourceScenarioPersistenceAdapter implements SaveResourceScenarioP
                 domain.getCreatedBy(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt(),
-                domain.getVersion()
+                domain.getVersion(),
+                domain.getTargetProjectId(),
+                domain.getAppliedAt(),
+                domain.getAppliedBy()
         );
     }
 
@@ -119,7 +122,10 @@ public class ResourceScenarioPersistenceAdapter implements SaveResourceScenarioP
                 entity.getCreatedBy(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                entity.getVersion()
+                entity.getVersion(),
+                entity.getTargetProjectId(),
+                entity.getAppliedAt(),
+                entity.getAppliedBy()
         );
     }
 }

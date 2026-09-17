@@ -47,6 +47,15 @@ public class ResourceScenarioJpaEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "target_project_id")
+    private Long targetProjectId;
+
+    @Column(name = "applied_at")
+    private LocalDateTime appliedAt;
+
+    @Column(name = "applied_by")
+    private Long appliedBy;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version = 0L;
@@ -69,6 +78,28 @@ public class ResourceScenarioJpaEntity {
             LocalDateTime updatedAt,
             Long version
     ) {
+        this(id, code, name, description, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, null, null, null);
+    }
+
+    public ResourceScenarioJpaEntity(
+            Long id,
+            String code,
+            String name,
+            String description,
+            Long orgUnitId,
+            String status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Long targetProjectId,
+            LocalDateTime appliedAt,
+            Long appliedBy
+    ) {
         this.id = id;
         this.code = code;
         this.name = name;
@@ -83,6 +114,9 @@ public class ResourceScenarioJpaEntity {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version != null ? version : 0L;
+        this.targetProjectId = targetProjectId;
+        this.appliedAt = appliedAt;
+        this.appliedBy = appliedBy;
     }
 
     public Long getId() { return id; }
@@ -113,6 +147,12 @@ public class ResourceScenarioJpaEntity {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public Long getVersion() { return version; }
     public void setVersion(Long version) { this.version = version; }
+    public Long getTargetProjectId() { return targetProjectId; }
+    public void setTargetProjectId(Long targetProjectId) { this.targetProjectId = targetProjectId; }
+    public LocalDateTime getAppliedAt() { return appliedAt; }
+    public void setAppliedAt(LocalDateTime appliedAt) { this.appliedAt = appliedAt; }
+    public Long getAppliedBy() { return appliedBy; }
+    public void setAppliedBy(Long appliedBy) { this.appliedBy = appliedBy; }
 
     @PrePersist
     @PreUpdate

@@ -621,6 +621,33 @@ public class GlobalExceptionHandler {
     }
 
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioBaselineStaleException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioBaselineStale(com.hrm.employeemanagement.domain.exception.scenario.ScenarioBaselineStaleException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_BASELINE_STALE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioAlreadyAppliedException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioAlreadyApplied(com.hrm.employeemanagement.domain.exception.scenario.ScenarioAlreadyAppliedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_ALREADY_APPLIED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.InvalidTargetProjectException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidTargetProject(com.hrm.employeemanagement.domain.exception.scenario.InvalidTargetProjectException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_TARGET_PROJECT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
