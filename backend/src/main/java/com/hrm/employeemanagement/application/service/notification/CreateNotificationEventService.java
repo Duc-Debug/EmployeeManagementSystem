@@ -60,12 +60,12 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
                 );
 
                 if (existingRecipientOpt.isEmpty()) {
-                    // Chưa từng có bản ghi -> Thêm mới
+                    // Chưa từng có bản ghi -> Thêm mới với cơ chế saveIfAbsent an toàn đồng thời (idempotent)
                     NotificationRecipientItem newRecipient = NotificationRecipientItem.create(
                             event.getId(),
                             recipientUserId
                     );
-                    recipientRepositoryPort.save(newRecipient);
+                    recipientRepositoryPort.saveIfAbsent(newRecipient);
                 }
                 // Nếu đã tồn tại:
                 // - Dù is_deleted = false hay is_deleted = true, theo phương án A đã chốt:

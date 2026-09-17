@@ -11,6 +11,7 @@ import com.hrm.employeemanagement.domain.user.UserId;
 
 public interface NotificationRecipientRepositoryPort {
     NotificationRecipientItem save(NotificationRecipientItem item);
+    NotificationRecipientItem saveIfAbsent(NotificationRecipientItem item);
     Optional<NotificationRecipientItem> findById(NotificationRecipientId id);
     Optional<NotificationRecipientItem> findByEventIdAndRecipientUserId(NotificationEventId eventId, UserId recipientUserId);
     List<NotificationRecipientItem> findRecipients(UserId recipientUserId, String status, String level, int page, int size);

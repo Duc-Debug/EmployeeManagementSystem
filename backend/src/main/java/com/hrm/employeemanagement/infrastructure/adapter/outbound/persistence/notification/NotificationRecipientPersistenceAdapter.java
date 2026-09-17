@@ -21,9 +21,14 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.no
 public class NotificationRecipientPersistenceAdapter implements NotificationRecipientRepositoryPort {
 
     private final SpringDataNotificationRecipientRepository repository;
+    private final TransactionalNotificationRecipientSaveHelper saveHelper;
 
-    public NotificationRecipientPersistenceAdapter(SpringDataNotificationRecipientRepository repository) {
+    public NotificationRecipientPersistenceAdapter(
+            SpringDataNotificationRecipientRepository repository,
+            TransactionalNotificationRecipientSaveHelper saveHelper
+    ) {
         this.repository = Objects.requireNonNull(repository, "repository must not be null");
+        this.saveHelper = Objects.requireNonNull(saveHelper, "saveHelper must not be null");
     }
 
     @Override
@@ -31,6 +36,23 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
         NotificationRecipientJpaEntity entity = toJpaEntity(item);
         NotificationRecipientJpaEntity saved = repository.save(entity);
         return toDomain(saved);
+    }
+
+    @Override
+    public NotificationRecipientItem saveIfAbsent(NotificationRecipientItem item) {
+        if (item == null) {
+            return null;
+        }
+        Optional<NotificationRecipientJpaEntity> savedOpt = saveHelper.saveAndFlushRequiresNew(toJpaEntity(item));
+        if (savedOpt.isPresent()) {
+            return toDomain(savedOpt.get());
+        }
+        // Concurrent race: record was already created by another thread/transaction.
+        // Fetch the existing record to guarantee idempotent return.
+        return repository.findByNotificationEventIdAndRecipientUserId(
+                item.getEventId().value(),
+                item.getRecipientUserId().value()
+        ).map(this::toDomain).orElse(item);
     }
 
     @Override

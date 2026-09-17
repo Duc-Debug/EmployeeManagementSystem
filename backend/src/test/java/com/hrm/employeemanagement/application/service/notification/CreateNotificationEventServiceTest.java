@@ -70,7 +70,7 @@ class CreateNotificationEventServiceTest {
 
         assertEquals(50L, eventId);
         // Verify đã tạo recipient cho cả 2 user
-        verify(recipientRepo, times(2)).save(any());
+        verify(recipientRepo, times(2)).saveIfAbsent(any());
     }
 
     @Test
@@ -117,7 +117,7 @@ class CreateNotificationEventServiceTest {
 
         assertEquals(50L, eventId);
         // Không gọi save cho recipient vì đã có
-        verify(recipientRepo, never()).save(any());
+        verify(recipientRepo, never()).saveIfAbsent(any());
     }
 
     @Test
@@ -164,7 +164,7 @@ class CreateNotificationEventServiceTest {
 
         assertEquals(50L, eventId);
         // Tôn trọng quyền xóa của user: không save tạo mới hay khôi phục
-        verify(recipientRepo, never()).save(any());
+        verify(recipientRepo, never()).saveIfAbsent(any());
         assertTrue(softDeletedRecipient.isDeleted());
     }
 }
