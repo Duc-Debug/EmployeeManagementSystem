@@ -17,6 +17,7 @@ import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CapacityForecastReportView from "../reports/CapacityForecastReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
+import CapacityDashboardView from "../capacity/CapacityDashboardView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWarningView";
 import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
@@ -44,6 +45,7 @@ export default function Dashboard() {
     // Đồng bộ URL trình duyệt với tab tương ứng
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
+        if (path.includes("capacity-dashboard") || path.includes("bang-dieu-khien-nang-luc") || path.includes("dashboard-capacity")) return "capacity-dashboard";
         if (path.includes("capacity-forecast") || path.includes("du-bao-nang-luc") || path.includes("forecast")) return "capacity-forecast";
         if (path.includes("capacity") || path.includes("nang-luc")) return "capacity";
         if (
@@ -237,6 +239,8 @@ export default function Dashboard() {
                                 {activeTab === "users" && <EmployeeProfilePage />}
 
                                 {activeTab === "hrprofile" && <HrProfilePage />}
+
+                                {activeTab === "capacity-dashboard" && <CapacityDashboardView onNavigate={handleTabChange} />}
 
                                 {activeTab === "capacity" && <CompanyWeeklyCapacityView />}
 

@@ -38,4 +38,12 @@ public interface LoadProjectPort {
     List<Long> findAllProjectIdsByOrgUnitBranch(Long scopeOrgUnitId);
 
     List<Long> findAllManagedProjectIds(Long employeeId);
+
+    List<Project> findActiveProjects(int page, int size);
+
+    List<Project> findActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId, int page, int size);
+
+    long countActiveProjects();
+
+    long countActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId);
 }

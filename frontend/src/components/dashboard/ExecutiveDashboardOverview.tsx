@@ -214,7 +214,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
 
                 {/* 3. Hiệu suất & Tải Nguồn lực Doanh nghiệp */}
                 <div
-                    onClick={() => onNavigate("capacity")}
+                    onClick={() => onNavigate("capacity-dashboard")}
                     className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-2xs transition hover:border-blue-300 hover:shadow-xs"
                 >
                     <div className="flex items-center justify-between">
@@ -222,7 +222,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                             <TrendingUp className="h-3.5 w-3.5" />
                         </div>
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 group-hover:translate-x-0.5 transition">
-                            Công suất <ArrowUpRight className="h-2.5 w-2.5" />
+                            Bảng điều khiển <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
@@ -295,15 +295,15 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
 
                     <button
                         type="button"
-                        onClick={() => onNavigate("capacity")}
+                        onClick={() => onNavigate("capacity-dashboard")}
                         className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-left transition hover:border-blue-300 hover:bg-blue-50/40 cursor-pointer"
                     >
                         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white shadow-2xs">
                             <TrendingUp className="h-3 w-3" />
                         </div>
                         <div className="min-w-0">
-                            <span className="block text-[11px] font-semibold text-slate-900 truncate">Báo cáo Năng lực Tuần</span>
-                            <p className="text-[9px] text-slate-400 truncate">Công suất toàn công ty</p>
+                            <span className="block text-[11px] font-semibold text-slate-900 truncate">Bảng Điều khiển Năng lực</span>
+                            <p className="text-[9px] text-slate-400 truncate">Tổng quan công suất & xung đột</p>
                         </div>
                     </button>
 
