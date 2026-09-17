@@ -25,6 +25,7 @@ import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitP
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.report.excel.GenerateExcelWorkbookPort;
+import com.hrm.employeemanagement.application.port.outbound.report.excel.LoadProjectAllocationsForExcelReportPort;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -70,6 +71,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
     private final GenerateExcelWorkbookPort generateExcelWorkbookPort;
     private final SaveAuditLogPort saveAuditLogPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
+    private final LoadProjectAllocationsForExcelReportPort loadAllAllocationsPort;
 
     public ExportProjectAllocationReportExcelService(
             AuthorizationService authorizationService,
@@ -82,7 +84,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
             SaveAuditLogPort saveAuditLogPort
     ) {
         this(authorizationService, loadUserPort, loadEmployeePort, loadProjectPort, loadProjectMemberPort,
-                loadAllocationPort, generateExcelWorkbookPort, saveAuditLogPort, null);
+                loadAllocationPort, generateExcelWorkbookPort, saveAuditLogPort, null, null);
     }
 
     public ExportProjectAllocationReportExcelService(
@@ -96,6 +98,22 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
             SaveAuditLogPort saveAuditLogPort,
             LoadOrgUnitPort loadOrgUnitPort
     ) {
+        this(authorizationService, loadUserPort, loadEmployeePort, loadProjectPort, loadProjectMemberPort,
+                loadAllocationPort, generateExcelWorkbookPort, saveAuditLogPort, loadOrgUnitPort, null);
+    }
+
+    public ExportProjectAllocationReportExcelService(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadProjectMemberPort loadProjectMemberPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            GenerateExcelWorkbookPort generateExcelWorkbookPort,
+            SaveAuditLogPort saveAuditLogPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadProjectAllocationsForExcelReportPort loadAllAllocationsPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
@@ -105,6 +123,7 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
         this.generateExcelWorkbookPort = Objects.requireNonNull(generateExcelWorkbookPort, "GenerateExcelWorkbookPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
         this.loadOrgUnitPort = loadOrgUnitPort;
+        this.loadAllAllocationsPort = loadAllAllocationsPort;
     }
 
     @Override
@@ -133,33 +152,72 @@ public class ExportProjectAllocationReportExcelService implements ExportProjectA
             throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
         }
 
-        // 4. Tạo danh sách các tuần trong khoảng thời gian yêu cầu
+        // 4. Tạo danh sách các tuần trong khoảng thời gian yêu cầu và nạp dữ liệu phân bổ
         List<YearWeek> targetWeeks;
         String timeRangeText;
+        List<WeeklyProjectAllocation> allocations;
 
         if (Boolean.TRUE.equals(query.all())) {
-            YearWeek startYw = project.getStartDate() != null
-                    ? YearWeek.from(project.getStartDate())
-                    : YearWeek.from(LocalDate.now().minusWeeks(12));
-            YearWeek endYw = project.getEndDate() != null
-                    ? YearWeek.from(project.getEndDate())
-                    : YearWeek.from(LocalDate.now().plusWeeks(12));
+            List<WeeklyProjectAllocation> allAllocations = loadAllAllocationsPort != null
+                    ? loadAllAllocationsPort.loadAllAllocationsForProject(project.getIdValue())
+                    : List.of();
+
+            YearWeek minAllocYw = allAllocations.stream()
+                    .map(WeeklyProjectAllocation::getYearWeek)
+                    .filter(Objects::nonNull)
+                    .min(YearWeek::compareTo)
+                    .orElse(null);
+
+            YearWeek maxAllocYw = allAllocations.stream()
+                    .map(WeeklyProjectAllocation::getYearWeek)
+                    .filter(Objects::nonNull)
+                    .max(YearWeek::compareTo)
+                    .orElse(null);
+
+            YearWeek projStartYw = project.getStartDate() != null ? YearWeek.from(project.getStartDate()) : null;
+            YearWeek projEndYw = project.getEndDate() != null ? YearWeek.from(project.getEndDate()) : null;
+
+            YearWeek startYw;
+            if (projStartYw != null && minAllocYw != null) {
+                startYw = projStartYw.isBefore(minAllocYw) ? projStartYw : minAllocYw;
+            } else if (projStartYw != null) {
+                startYw = projStartYw;
+            } else if (minAllocYw != null) {
+                startYw = minAllocYw;
+            } else {
+                throw new NoReportDataToExportException("Dự án chưa có ngày bắt đầu/kết thúc và chưa có dữ liệu phân bổ để xuất");
+            }
+
+            YearWeek endYw;
+            if (projEndYw != null && maxAllocYw != null) {
+                endYw = projEndYw.isAfter(maxAllocYw) ? projEndYw : maxAllocYw;
+            } else if (projEndYw != null) {
+                endYw = projEndYw;
+            } else if (maxAllocYw != null) {
+                endYw = maxAllocYw;
+            } else {
+                endYw = startYw;
+            }
 
             targetWeeks = buildTargetWeeks(startYw.year(), startYw.weekNumber(), endYw.year(), endYw.weekNumber());
             timeRangeText = String.format("Toàn bộ dự án (T%02d/%d - T%02d/%d)",
                     startYw.weekNumber(), startYw.year(), endYw.weekNumber(), endYw.year());
+
+            if (!allAllocations.isEmpty()) {
+                allocations = allAllocations;
+            } else {
+                allocations = loadAllocationsForWeeks(project.getIdValue(), targetWeeks);
+            }
         } else {
             targetWeeks = buildTargetWeeks(query.fromYear(), query.fromWeek(), query.toYear(), query.toWeek());
             timeRangeText = String.format("Từ tuần T%02d/%d đến tuần T%02d/%d",
                     query.fromWeek(), query.fromYear(), query.toWeek(), query.toYear());
+            allocations = loadAllocationsForWeeks(project.getIdValue(), targetWeeks);
         }
 
         if (targetWeeks.isEmpty()) {
             throw new NoReportDataToExportException("Khoảng thời gian yêu cầu không hợp lệ hoặc không có tuần nào");
         }
-
-        // 5. Tải dữ liệu phân bổ của dự án trong các tuần đó
-        List<WeeklyProjectAllocation> allocations = loadAllocationsForWeeks(project.getIdValue(), targetWeeks);
 
         // 6. Kiểm tra dữ liệu rỗng (TC-02: Không có số liệu trong kỳ đã chọn)
         if (allocations == null || allocations.isEmpty()) {

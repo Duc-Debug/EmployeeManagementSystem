@@ -16,6 +16,8 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.application.service.report.excel.ExportProjectAllocationReportExcelService;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.excel.PoiExcelGeneratorAdapter;
 
+import com.hrm.employeemanagement.application.port.outbound.report.excel.LoadProjectAllocationsForExcelReportPort;
+
 /**
  * Spring Configuration đăng ký các bean cho Use Case Xuất báo cáo file Excel (NCL-10-CN-003).
  * Đảm bảo tầng Application không bị dính annotation @Service hay @Component theo kiến trúc Hexagonal.
@@ -38,7 +40,8 @@ public class ReportExcelExportUseCaseConfig {
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             GenerateExcelWorkbookPort generateExcelWorkbookPort,
             SaveAuditLogPort saveAuditLogPort,
-            LoadOrgUnitPort loadOrgUnitPort
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadProjectAllocationsForExcelReportPort loadAllAllocationsPort
     ) {
         return new ExportProjectAllocationReportExcelService(
                 authorizationService,
@@ -49,7 +52,8 @@ public class ReportExcelExportUseCaseConfig {
                 loadAllocationPort,
                 generateExcelWorkbookPort,
                 saveAuditLogPort,
-                loadOrgUnitPort
+                loadOrgUnitPort,
+                loadAllAllocationsPort
         );
     }
 }

@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeekl
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.report.excel.GenerateExcelWorkbookPort;
+import com.hrm.employeemanagement.application.port.outbound.report.excel.LoadProjectAllocationsForExcelReportPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
@@ -56,6 +57,7 @@ class ExportProjectAllocationReportExcelServiceTest {
     private LoadWeeklyProjectAllocationPort loadAllocationPort;
     private GenerateExcelWorkbookPort generateExcelWorkbookPort;
     private SaveAuditLogPort saveAuditLogPort;
+    private LoadProjectAllocationsForExcelReportPort loadAllAllocationsPort;
     private ExportProjectAllocationReportExcelService service;
 
     private static final Long PM_USER_ID = 20L;
@@ -72,6 +74,7 @@ class ExportProjectAllocationReportExcelServiceTest {
         loadAllocationPort = mock(LoadWeeklyProjectAllocationPort.class);
         generateExcelWorkbookPort = mock(GenerateExcelWorkbookPort.class);
         saveAuditLogPort = mock(SaveAuditLogPort.class);
+        loadAllAllocationsPort = mock(LoadProjectAllocationsForExcelReportPort.class);
 
         service = new ExportProjectAllocationReportExcelService(
                 authorizationService,
@@ -81,7 +84,9 @@ class ExportProjectAllocationReportExcelServiceTest {
                 loadProjectMemberPort,
                 loadAllocationPort,
                 generateExcelWorkbookPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                null,
+                loadAllAllocationsPort
         );
 
         // Mặc định cho phép permission
@@ -304,7 +309,7 @@ class ExportProjectAllocationReportExcelServiceTest {
     }
 
     @Test
-    @DisplayName("BLOCKER 1: Chế độ Toàn bộ dữ liệu dự án (all=true) xuất toàn bộ vòng đời startDate -> endDate")
+    @DisplayName("BLOCKER 1: Chế độ Toàn bộ dữ liệu dự án (all=true) xuất toàn bộ vòng đời startDate -> endDate và verify đủ danh sách targetWeeks")
     void testAllProjectData_CoversFullProjectLifespan() {
         LocalDate start = LocalDate.of(2026, 1, 5); // 2026-W02
         LocalDate end = LocalDate.of(2026, 3, 29);  // 2026-W13
@@ -314,9 +319,10 @@ class ExportProjectAllocationReportExcelServiceTest {
         when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(longProject));
 
         YearWeek wStart = YearWeek.of(2026, 2);
+        YearWeek wEnd = YearWeek.of(2026, 13);
         WeeklyProjectAllocation a1 = WeeklyProjectAllocation.createNew(201L, PROJECT_ID, wStart, BigDecimal.valueOf(40.0));
-        when(loadAllocationPort.loadAllocationsForProjectInWeekRange(eq(PROJECT_ID), eq(2026), anyInt(), anyInt()))
-                .thenReturn(List.of(a1));
+        WeeklyProjectAllocation a2 = WeeklyProjectAllocation.createNew(201L, PROJECT_ID, wEnd, BigDecimal.valueOf(20.0));
+        when(loadAllAllocationsPort.loadAllAllocationsForProject(PROJECT_ID)).thenReturn(List.of(a1, a2));
 
         Employee dev = createEmployee(201L, "DEV01", "Trần Kỹ Sư");
         when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(dev));
@@ -327,8 +333,61 @@ class ExportProjectAllocationReportExcelServiceTest {
 
         assertNotNull(result);
         verify(generateExcelWorkbookPort).generateProjectAllocationWorkbook(argThat(data -> {
-            // Kiểm tra metadata ghi nhận chế độ Toàn bộ dự án
-            return data.getMetadata().timeRangeText().contains("Toàn bộ dự án");
+            // 1. Kiểm tra metadata ghi nhận chính xác khoảng tuần
+            boolean matchRange = "Toàn bộ dự án (T02/2026 - T13/2026)".equals(data.getMetadata().timeRangeText());
+            // 2. Kiểm tra độ bao phủ đầy đủ của các tuần (12 tuần từ W02 đến W13)
+            List<YearWeek> weeks = data.getMetadata().targetWeeks();
+            boolean matchColumnsCount = weeks.size() == 12;
+            boolean matchFirstCol = weeks.get(0).equals(YearWeek.of(2026, 2));
+            boolean matchLastCol = weeks.get(11).equals(YearWeek.of(2026, 13));
+            return matchRange && matchColumnsCount && matchFirstCol && matchLastCol;
         }));
+    }
+
+    @Test
+    @DisplayName("BLOCKER 1: Dự án thiếu startDate/endDate nhưng có phân bổ (2024 đến 2026) -> Lấy trọn vẹn từ phân bổ thực tế")
+    void testAllProjectData_WithMissingDates_LoadsFullLifespanFromAllocations() {
+        // Dự án không có startDate và endDate
+        Project ongoingProject = new Project(new ProjectId(PROJECT_ID), "PRJ_NO_DATES", "Dự án liên tục",
+                1L, new EmployeeId(PM_EMPLOYEE_ID), null, null, BigDecimal.valueOf(5000),
+                "Mô tả", ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(ongoingProject));
+
+        YearWeek wOld = YearWeek.of(2024, 10);
+        YearWeek wNew = YearWeek.of(2026, 5);
+        WeeklyProjectAllocation aOld = WeeklyProjectAllocation.createNew(201L, PROJECT_ID, wOld, BigDecimal.valueOf(40.0));
+        WeeklyProjectAllocation aNew = WeeklyProjectAllocation.createNew(201L, PROJECT_ID, wNew, BigDecimal.valueOf(30.0));
+        when(loadAllAllocationsPort.loadAllAllocationsForProject(PROJECT_ID)).thenReturn(List.of(aOld, aNew));
+
+        Employee dev = createEmployee(201L, "DEV01", "Trần Kỹ Sư");
+        when(loadEmployeePort.findAllByIdIn(anyList())).thenReturn(List.of(dev));
+        when(generateExcelWorkbookPort.generateProjectAllocationWorkbook(any())).thenReturn(new byte[]{1, 2, 3});
+
+        ExportReportExcelQuery query = new ExportReportExcelQuery(PROJECT_ID, null, null, null, null, true);
+        ExportReportExcelResult result = service.export(query);
+
+        assertNotNull(result);
+        verify(generateExcelWorkbookPort).generateProjectAllocationWorkbook(argThat(data -> {
+            // Không bị giới hạn +- 12 tuần quanh hiện tại, bao phủ từ 2024-W10 đến 2026-W05
+            boolean matchRange = "Toàn bộ dự án (T10/2024 - T05/2026)".equals(data.getMetadata().timeRangeText());
+            List<YearWeek> weeks = data.getMetadata().targetWeeks();
+            boolean matchFirstCol = weeks.get(0).equals(YearWeek.of(2024, 10));
+            boolean matchLastCol = weeks.get(weeks.size() - 1).equals(YearWeek.of(2026, 5));
+            return matchRange && matchFirstCol && matchLastCol;
+        }));
+    }
+
+    @Test
+    @DisplayName("BLOCKER 1: Dự án không có ngày bắt đầu/kết thúc và không có bất kỳ phân bổ nào -> Ném ngoại lệ")
+    void testAllProjectData_NoDatesAndNoAllocations_ThrowsException() {
+        Project emptyProject = new Project(new ProjectId(PROJECT_ID), "PRJ_EMPTY", "Dự án rỗng",
+                1L, new EmployeeId(PM_EMPLOYEE_ID), null, null, BigDecimal.valueOf(100),
+                "Mô tả", ProjectStatus.ACTIVE, new UserId(1L), LocalDateTime.now(), LocalDateTime.now(), 0L);
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(emptyProject));
+        when(loadAllAllocationsPort.loadAllAllocationsForProject(PROJECT_ID)).thenReturn(List.of());
+
+        ExportReportExcelQuery query = new ExportReportExcelQuery(PROJECT_ID, null, null, null, null, true);
+
+        assertThrows(NoReportDataToExportException.class, () -> service.export(query));
     }
 }
