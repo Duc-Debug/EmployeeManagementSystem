@@ -10,6 +10,7 @@ import {
   ExternalLink,
   ChevronDown,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   getNotificationCenter,
   getUnreadNotificationCount,
@@ -25,6 +26,7 @@ interface NotificationPopoverProps {
 }
 
 export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationCenterItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -81,6 +83,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
 
   // Initial fetch and 30s polling
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUnreadBadge();
     const interval = setInterval(() => {
       fetchUnreadBadge();
@@ -94,6 +97,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
   // Fetch when opening popover or changing filters
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchNotificationList(0, false);
     }
   }, [isOpen, statusFilter, levelFilter, fetchNotificationList]);
@@ -155,11 +159,11 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
           );
         }
       } else if (type === "CAPACITY_WEEK") {
-        window.location.href = `/capacity?week=${encodeURIComponent(id)}`;
+        router.push(`/capacity?week=${encodeURIComponent(id)}`);
       } else if (type === "PROJECT" || type === "PROJECT_ALLOCATION" || type === "ALLOCATION") {
-        window.location.href = `/projects/${encodeURIComponent(id)}`;
+        router.push(`/projects/${encodeURIComponent(id)}`);
       } else if (type === "LEAVE_REQUEST") {
-        window.location.href = `/leave?requestId=${encodeURIComponent(id)}`;
+        router.push(`/leave?requestId=${encodeURIComponent(id)}`);
       }
     }
   };
