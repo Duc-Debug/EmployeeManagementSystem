@@ -194,4 +194,74 @@ public interface SpringDataProjectRepository
     List<Long> findAllManagedProjectIds(
             @Param("employeeId") Long employeeId
     );
+
+    @Query(value = """
+        SELECT p.*
+        FROM projects p
+        WHERE p.status = :status
+        ORDER BY p.id DESC
+        LIMIT :size OFFSET :offset
+        """,
+        nativeQuery = true)
+    List<ProjectJpaEntity> findAllByStatus(
+            @Param("status") String status,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM projects p
+        WHERE p.status = :status
+        """,
+        nativeQuery = true)
+    long countByStatus(
+            @Param("status") String status
+    );
+
+    @Query(value = """
+        SELECT p.*
+        FROM projects p
+        JOIN org_units ou
+            ON ou.id = p.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+          AND p.status = :status
+        ORDER BY p.id DESC
+        LIMIT :size OFFSET :offset
+        """,
+        nativeQuery = true)
+    List<ProjectJpaEntity> findByOrgUnitBranchAndStatus(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("status") String status,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM projects p
+        JOIN org_units ou
+            ON ou.id = p.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+          AND p.status = :status
+        """,
+        nativeQuery = true)
+    long countByOrgUnitBranchAndStatus(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("status") String status
+    );
+
+    @Query(value = """
+        SELECT p.id, p.manager_id
+        FROM projects p
+        WHERE p.id IN :projectIds
+        """,
+        nativeQuery = true)
+    List<Object[]> findManagerIdsByProjectIds(
+            @Param("projectIds") List<Long> projectIds
+    );
 }
