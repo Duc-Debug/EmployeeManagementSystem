@@ -162,9 +162,34 @@ public class Project {
             BigDecimal estimatedHours,
             String description,
             UserId createdBy) {
+        return createNew(
+                projectCode,
+                projectName,
+                orgUnitId,
+                managerId,
+                startDate,
+                endDate,
+                estimatedHours,
+                description,
+                ProjectStatus.ACTIVE,
+                createdBy);
+    }
+
+    public static Project createNew(
+            String projectCode,
+            String projectName,
+            Long orgUnitId,
+            EmployeeId managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description,
+            ProjectStatus status,
+            UserId createdBy) {
         if (createdBy == null) {
             throw new InvalidProjectDataException("Người tạo dự án không được để trống");
         }
+        ProjectStatus initialStatus = (status == ProjectStatus.PLANNED) ? ProjectStatus.PLANNED : ProjectStatus.ACTIVE;
         return new Project(
                 null, // id = null vì là tạo mới
                 projectCode,
@@ -175,7 +200,7 @@ public class Project {
                 endDate,
                 estimatedHours,
                 description,
-                ProjectStatus.ACTIVE, // Trạng thái mặc định khi tạo mới
+                initialStatus,
                 createdBy,
                 LocalDateTime.now(),
                 null,
@@ -184,7 +209,7 @@ public class Project {
     }
 
     /**
-     * Cập nhật thông tin dự án (Chỉ cho phép khi dự án đang ở trạng thái ACTIVE).
+     * Cập nhật thông tin dự án (Cho phép khi dự án đang ở trạng thái ACTIVE hoặc PLANNED).
      */
     public void updateInfo(
             String projectName,
@@ -193,8 +218,8 @@ public class Project {
             LocalDate endDate,
             BigDecimal estimatedHours,
             String description) {
-        if (this.status != ProjectStatus.ACTIVE) {
-            throw new InvalidProjectDataException("Chỉ có thể chỉnh sửa thông tin dự án đang ở trạng thái hoạt động");
+        if (this.status != ProjectStatus.ACTIVE && this.status != ProjectStatus.PLANNED) {
+            throw new InvalidProjectDataException("Chỉ có thể chỉnh sửa thông tin dự án đang ở trạng thái hoạt động hoặc dự kiến");
         }
         validateProjectName(projectName);
         validateProjectDates(startDate, endDate);

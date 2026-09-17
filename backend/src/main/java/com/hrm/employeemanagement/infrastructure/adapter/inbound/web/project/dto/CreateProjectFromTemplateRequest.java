@@ -22,6 +22,8 @@ public record CreateProjectFromTemplateRequest(
         LocalDate endDate,
 
         @Size(max = 2000, message = "Mô tả dự án không được vượt quá 2000 ký tự")
-        String description
+        String description,
+
+        com.hrm.employeemanagement.domain.project.ProjectStatus status
 ) {
 }
