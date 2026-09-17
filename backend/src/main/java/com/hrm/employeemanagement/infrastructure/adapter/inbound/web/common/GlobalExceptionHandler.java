@@ -648,6 +648,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.CorruptedScenarioSnapshotException.class)
+    public ResponseEntity<ErrorResponse> handleCorruptedScenarioSnapshot(com.hrm.employeemanagement.domain.exception.scenario.CorruptedScenarioSnapshotException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CORRUPTED_SCENARIO_SNAPSHOT",
+                ex.getMessage(),
+                HttpStatus.UNPROCESSABLE_ENTITY.value());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
+    }
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {

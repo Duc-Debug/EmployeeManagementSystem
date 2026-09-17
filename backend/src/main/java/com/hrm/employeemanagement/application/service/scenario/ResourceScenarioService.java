@@ -38,6 +38,7 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.scenario.CorruptedScenarioSnapshotException;
 import com.hrm.employeemanagement.domain.exception.scenario.DuplicateScenarioCodeException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
@@ -59,6 +60,8 @@ public class ResourceScenarioService implements
         ListSimulationScenariosUseCase,
         SaveSimulationScenarioUseCase,
         PatchSimulationScenarioUseCase {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ResourceScenarioService.class);
 
     private final AuthorizationService authorizationService;
     private final LoadUserPort loadUserPort;
@@ -407,6 +410,11 @@ public class ResourceScenarioService implements
                     continue;
                 }
 
+                // Invariant: Recipient chỉ được xem kịch bản khi ở trạng thái SAVED
+                if (!sharedScenario.isSaved()) {
+                    continue;
+                }
+
                 // BR-08: Re-check scope tại thời điểm list
                 if (isRecipientScopeValid(currentUser, sharedScenario)) {
                     resultMap.put(sharedScenario.getId(), enrichScenarioResult(sharedScenario, "VIEW_ONLY"));
@@ -432,10 +440,19 @@ public class ResourceScenarioService implements
         if (isOwner) {
             validateReadScope(currentUser, scenario.getOrgUnitId());
             viewMode = "EDIT";
+        } else if (currentUser.getRole().getCode() == RoleCode.VT_01) {
+            // VT-01 (Giám đốc) có quyền xem toàn công ty
+            viewMode = "VIEW_ONLY";
         } else {
             RoleCode roleCode = currentUser.getRole().getCode();
-            if (roleCode != RoleCode.VT_01 && roleCode != RoleCode.VT_02 && roleCode != RoleCode.VT_03) {
+            if (roleCode != RoleCode.VT_02 && roleCode != RoleCode.VT_03) {
                 logDenied(currentUserId, scenarioId, "INVALID_ROLE_" + roleCode.getCode());
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+            }
+
+            // Invariant: Recipient chỉ được xem kịch bản khi ở trạng thái SAVED
+            if (!scenario.isSaved()) {
+                logDenied(currentUserId, scenarioId, "SCENARIO_NOT_SAVED");
                 throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
             }
 
@@ -462,7 +479,10 @@ public class ResourceScenarioService implements
                     ScenarioResult res = snapshotData.scenario().withViewMode(viewMode);
                     return new ScenarioDetailResult(res, snapshotData.demands() != null ? snapshotData.demands() : List.of());
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.error("Failed to parse snapshotData in scenario {}: {}", scenarioId, e.getMessage(), e);
+                throw new CorruptedScenarioSnapshotException("Dữ liệu ảnh chụp kịch bản không hợp lệ hoặc bị hỏng", e);
+            }
         }
 
         List<ScenarioDemand> demands = loadDemandPort.findByScenarioId(scenarioId);
@@ -565,26 +585,29 @@ public class ResourceScenarioService implements
                 simulationResult
         );
 
+        String snapshotJson;
         try {
-            String snapshotJson = objectMapper.writeValueAsString(snapshotData);
-            String oldStatus = scenario.getStatus().getValue();
-            scenario.saveSnapshot(snapshotJson);
-            ResourceScenario saved = saveScenarioPort.save(scenario);
-
-            // BR-11: Ghi Audit log SCENARIO_SAVED (atomic trong transaction)
-            saveAuditLogPort.save(AuditLog.createChange(
-                    currentUserId,
-                    "SCENARIO_SAVED",
-                    "resource_scenarios",
-                    saved.getId(),
-                    "status=" + oldStatus,
-                    "status=saved;snapshotVersion=1;projectIdsCount=" + projectIds.size()
-            ));
-
-            return enrichScenarioResult(saved, "EDIT");
+            snapshotJson = objectMapper.writeValueAsString(snapshotData);
         } catch (Exception e) {
-            throw new RuntimeException("Không thể lưu snapshot kịch bản: " + e.getMessage(), e);
+            log.error("Failed to serialize scenario snapshot: {}", e.getMessage(), e);
+            throw new IllegalStateException("Không thể serialize snapshot kịch bản: " + e.getMessage(), e);
         }
+
+        String oldStatus = scenario.getStatus().getValue();
+        scenario.saveSnapshot(snapshotJson);
+        ResourceScenario saved = saveScenarioPort.save(scenario);
+
+        // BR-11: Ghi Audit log SCENARIO_SAVED (atomic trong transaction)
+        saveAuditLogPort.save(AuditLog.createChange(
+                currentUserId,
+                "SCENARIO_SAVED",
+                "resource_scenarios",
+                saved.getId(),
+                "status=" + oldStatus,
+                "status=saved;snapshotVersion=1;projectIdsCount=" + projectIds.size()
+        ));
+
+        return enrichScenarioResult(saved, "EDIT");
     }
 
     @Override
@@ -656,7 +679,10 @@ public class ResourceScenarioService implements
             if (projectIdsObj instanceof List<?> list) {
                 return list.stream().map(o -> Long.valueOf(o.toString())).toList();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Failed to extract projectIds from scenario snapshot JSON: {}", e.getMessage(), e);
+            throw new CorruptedScenarioSnapshotException("Không thể trích xuất danh sách dự án từ ảnh chụp kịch bản", e);
+        }
         return List.of();
     }
 

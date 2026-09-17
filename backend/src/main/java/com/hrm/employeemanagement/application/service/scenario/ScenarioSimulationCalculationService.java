@@ -43,6 +43,7 @@ import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdC
 import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.exception.scenario.CorruptedScenarioSnapshotException;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -151,34 +152,42 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             } else if (roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_02 && roleCode != com.hrm.employeemanagement.domain.role.RoleCode.VT_03) {
                 logDenied(currentUserId, scenarioId, "ROLE_NOT_AUTHORIZED");
                 throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-            }
-
-            if (loadScenarioSharePort != null && !loadScenarioSharePort.hasActiveShare(scenarioId, currentUserId)) {
-                logDenied(currentUserId, scenarioId, "NO_ACTIVE_SHARE");
-                throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-            }
-
-            // BR-08: Re-check scope tại thời điểm mở
-            List<Long> projectIds = extractProjectIds(scenario.getSnapshotData());
-            if (roleCode == com.hrm.employeemanagement.domain.role.RoleCode.VT_02) {
-                if (currentUser.getEmployeeId() == null) {
-                    logDenied(currentUserId, scenarioId, "VT02_NO_EMPLOYEE_PROFILE");
+            } else if (loadScenarioSharePort != null) {
+                // Invariant: Recipient chỉ được xem kết quả mô phỏng khi kịch bản ở trạng thái SAVED
+                if (!scenario.isSaved()) {
+                    logDenied(currentUserId, scenarioId, "SCENARIO_NOT_SAVED");
                     throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
                 }
-                if (loadProjectPort != null) {
-                    List<Long> managed = loadProjectPort.findAllManagedProjectIds(currentUser.getEmployeeId().value());
-                    boolean overlap = managed.stream().anyMatch(projectIds::contains);
-                    if (!overlap) {
-                        logDenied(currentUserId, scenarioId, "VT02_SCOPE_LOST_NO_PROJECT_MANAGED");
+
+                if (!loadScenarioSharePort.hasActiveShare(scenarioId, currentUserId)) {
+                    logDenied(currentUserId, scenarioId, "NO_ACTIVE_SHARE");
+                    throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+                }
+
+                // BR-08: Re-check scope tại thời điểm mở
+                List<Long> projectIds = extractProjectIds(scenario.getSnapshotData());
+                if (roleCode == com.hrm.employeemanagement.domain.role.RoleCode.VT_02) {
+                    if (currentUser.getEmployeeId() == null) {
+                        logDenied(currentUserId, scenarioId, "VT02_NO_EMPLOYEE_PROFILE");
+                        throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+                    }
+                    if (loadProjectPort != null) {
+                        List<Long> managed = loadProjectPort.findAllManagedProjectIds(currentUser.getEmployeeId().value());
+                        boolean overlap = managed.stream().anyMatch(projectIds::contains);
+                        if (!overlap) {
+                            logDenied(currentUserId, scenarioId, "VT02_SCOPE_LOST_NO_PROJECT_MANAGED");
+                            throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
+                        }
+                    }
+                } else if (roleCode == com.hrm.employeemanagement.domain.role.RoleCode.VT_03) {
+                    Long userOrgUnitId = currentUser.getScopeOrgUnitId();
+                    if (userOrgUnitId == null || !userOrgUnitId.equals(scenario.getOrgUnitId())) {
+                        logDenied(currentUserId, scenarioId, "VT03_SCOPE_LOST_WRONG_ORG_UNIT");
                         throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
                     }
                 }
-            } else if (roleCode == com.hrm.employeemanagement.domain.role.RoleCode.VT_03) {
-                Long userOrgUnitId = currentUser.getScopeOrgUnitId();
-                if (userOrgUnitId == null || !userOrgUnitId.equals(scenario.getOrgUnitId())) {
-                    logDenied(currentUserId, scenarioId, "VT03_SCOPE_LOST_WRONG_ORG_UNIT");
-                    throw new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_READ);
-                }
+            } else {
+                validateReadScope(currentUser, scenario.getOrgUnitId());
             }
         } else {
             validateReadScope(currentUser, scenario.getOrgUnitId());
@@ -191,7 +200,10 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
                 if (snapshotData != null && snapshotData.simulationResult() != null) {
                     return snapshotData.simulationResult();
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.error("Failed to parse snapshotData simulationResult in scenario {}: {}", scenarioId, e.getMessage(), e);
+                throw new CorruptedScenarioSnapshotException("Dữ liệu ảnh chụp kịch bản không hợp lệ hoặc bị hỏng", e);
+            }
         }
 
         OrgUnit orgUnit = loadOrgUnitPort.findById(new OrgUnitId(scenario.getOrgUnitId())).orElse(null);
@@ -490,7 +502,10 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
             if (projectIdsObj instanceof List<?> list) {
                 return list.stream().map(o -> Long.valueOf(o.toString())).toList();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Failed to extract projectIds from scenario snapshot JSON: {}", e.getMessage(), e);
+            throw new CorruptedScenarioSnapshotException("Không thể trích xuất danh sách dự án từ ảnh chụp kịch bản", e);
+        }
         return List.of();
     }
 }
