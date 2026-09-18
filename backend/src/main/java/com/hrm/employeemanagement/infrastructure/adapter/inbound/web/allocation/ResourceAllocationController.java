@@ -80,6 +80,7 @@ public class ResourceAllocationController {
         AllocateResourceCommand command = new AllocateResourceCommand(
                 request.employeeId(),
                 request.projectId(),
+                request.projectRoleId(),
                 request.year(),
                 request.weekNumber(),
                 request.allocatedHours(),
@@ -102,6 +103,7 @@ public class ResourceAllocationController {
                 new com.hrm.employeemanagement.application.dto.allocation.BulkAllocateResourceCommand(
                         request.employeeId(),
                         request.projectId(),
+                        request.projectRoleId(),
                         request.fromYear(),
                         request.fromWeek(),
                         request.toYear(),
