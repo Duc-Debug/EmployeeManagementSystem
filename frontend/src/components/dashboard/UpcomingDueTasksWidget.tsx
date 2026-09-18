@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Clock,
   AlertCircle,
@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ExternalLink,
   Briefcase,
-  Play,
   Eye,
 } from "lucide-react";
 import { useUpcomingDueTasks } from "@/hooks/useUpcomingDueTasks";
@@ -38,41 +37,9 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
     criticalCount,
     isSpecialist,
     reload,
-    triggerManualScan,
   } = useUpcomingDueTasks();
 
-  const [scanning, setScanning] = useState<boolean>(false);
-  const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [selectedTaskForModal, setSelectedTaskForModal] = useState<UpcomingDueTaskResult | null>(null);
-
-  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (scanTimerRef.current) {
-        clearTimeout(scanTimerRef.current);
-      }
-    };
-  }, []);
-
-  const handleManualScan = async () => {
-    setScanning(true);
-    setScanMessage(null);
-    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
-    try {
-      const result = await triggerManualScan();
-      setScanMessage(
-        `Rà soát thành công: Đã quét ${result.totalScanned} việc, gửi ${result.sentCount} thông báo (Bỏ qua trùng QTN-19: ${result.skippedDuplicateCount})`
-      );
-      scanTimerRef.current = setTimeout(() => setScanMessage(null), 5000);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Rà soát thất bại";
-      setScanMessage(`Lỗi: ${msg}`);
-      scanTimerRef.current = setTimeout(() => setScanMessage(null), 5000);
-    } finally {
-      setScanning(false);
-    }
-  };
 
   const handleOpenTask = (task: UpcomingDueTaskResult) => {
     if (onSelectTask) {
@@ -149,18 +116,6 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Nút rà soát thủ công (Manual Scan) */}
-          <button
-            type="button"
-            onClick={handleManualScan}
-            disabled={scanning || loading}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
-            title="Kích hoạt rà soát toàn hệ thống ngay bây giờ (kiểm tra chống gửi trùng QTN-19)"
-          >
-            <Play className={`h-3 w-3 ${scanning ? "animate-pulse text-amber-600" : "text-slate-600"}`} />
-            <span>{scanning ? "Đang rà soát..." : "Rà soát ngay"}</span>
-          </button>
-
           {/* Nút làm mới */}
           <button
             type="button"
@@ -175,14 +130,6 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
         </div>
       </div>
 
-      {/* Thông báo kết quả rà soát thủ công */}
-      {scanMessage && (
-        <div className="mb-3 rounded-lg bg-sky-50 border border-sky-200 p-2 text-xs text-sky-800 flex items-center gap-1.5 animate-in fade-in duration-200">
-          <CheckCircle2 className="h-3.5 w-3.5 text-sky-600 flex-shrink-0" />
-          <span>{scanMessage}</span>
-        </div>
-      )}
-
       {/* Error state */}
       {error && (
         <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800 flex items-center justify-between">
@@ -193,7 +140,7 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
           <button
             onClick={() => reload(false)}
             type="button"
-            className="font-bold underline hover:text-rose-900 ml-2"
+            className="font-bold underline hover:text-rose-900 ml-2 cursor-pointer"
           >
             Thử lại
           </button>

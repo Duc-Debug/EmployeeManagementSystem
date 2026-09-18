@@ -2,9 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuthUser } from "@/lib/auth-session";
 import {
   getMyUpcomingDueTasks,
-  triggerScanDueReminders,
   type UpcomingDueTaskResult,
-  type TaskDueReminderScanResult,
 } from "@/lib/api/task-due-reminders";
 
 export type DueTaskFilterTab = "ALL" | "CRITICAL" | "UPCOMING_DAYS";
@@ -21,7 +19,6 @@ export interface UseUpcomingDueTasksResult {
   todayCount: number;
   isSpecialist: boolean;
   reload: (silent?: boolean) => Promise<void>;
-  triggerManualScan: (scanDate?: string) => Promise<TaskDueReminderScanResult>;
 }
 
 /**
@@ -123,13 +120,6 @@ export function useUpcomingDueTasks(): UseUpcomingDueTasksResult {
     return tasks;
   }, [tasks, activeFilter]);
 
-  const triggerManualScan = useCallback(async (scanDate?: string) => {
-    const result = await triggerScanDueReminders(scanDate);
-    // Sau khi rà soát, nạp lại danh sách công việc
-    await reload(true);
-    return result;
-  }, [reload]);
-
   return {
     tasks,
     filteredTasks,
@@ -142,6 +132,5 @@ export function useUpcomingDueTasks(): UseUpcomingDueTasksResult {
     todayCount,
     isSpecialist,
     reload,
-    triggerManualScan,
   };
 }

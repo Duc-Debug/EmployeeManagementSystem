@@ -15,6 +15,7 @@ import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskStatus;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.repository.SpringDataNotificationEventRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.repository.SpringDataNotificationRecipientRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.repository.SpringDataTaskDueReminderNotificationRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.task.repository.SpringDataTaskDueReminderTaskRepository;
 
@@ -29,17 +30,20 @@ public class TaskDueReminderPersistenceAdapter implements LoadTaskDueReminderPor
     private final SpringDataTaskDueReminderTaskRepository taskRepository;
     private final TaskPersistenceMapper taskMapper;
     private final SpringDataNotificationEventRepository eventRepository;
+    private final SpringDataNotificationRecipientRepository recipientRepository;
     private final SpringDataTaskDueReminderNotificationRepository notificationRepository;
 
     public TaskDueReminderPersistenceAdapter(
             SpringDataTaskDueReminderTaskRepository taskRepository,
             TaskPersistenceMapper taskMapper,
             SpringDataNotificationEventRepository eventRepository,
+            SpringDataNotificationRecipientRepository recipientRepository,
             SpringDataTaskDueReminderNotificationRepository notificationRepository
     ) {
         this.taskRepository = Objects.requireNonNull(taskRepository, "taskRepository must not be null");
         this.taskMapper = Objects.requireNonNull(taskMapper, "taskMapper must not be null");
         this.eventRepository = Objects.requireNonNull(eventRepository, "eventRepository must not be null");
+        this.recipientRepository = Objects.requireNonNull(recipientRepository, "recipientRepository must not be null");
         this.notificationRepository = Objects.requireNonNull(notificationRepository, "notificationRepository must not be null");
     }
 
@@ -69,14 +73,27 @@ public class TaskDueReminderPersistenceAdapter implements LoadTaskDueReminderPor
             return false;
         }
 
-        // 1. Kiểm tra trong bảng notification_events qua source_event_key (QTN-19)
+        // 1. Kiểm tra trong Notification Center mới (notification_recipients gắn với notification_events):
+        // QUY TẮC ATOMIC & PROOF-OF-DELIVERY (QTN-19):
+        // Chỉ coi là đã gửi nếu CẢ event LẪN recipient record đều tồn tại trong database!
+        // Nếu event header tồn tại do REQUIRES_NEW commit sớm nhưng recipient bị rollback hoặc chưa lưu,
+        // thì KHÔNG được coi là đã gửi -> cho phép hệ thống retry an toàn, giải quyết triệt để lỗi atomic.
         String sourceEventKeyWithRecipient = TaskDueReminderPolicy.buildSourceEventKey(taskId, recipientId.value(), dueDate);
-        if (eventRepository.findBySourceEventKey(sourceEventKeyWithRecipient).isPresent()) {
-            return true;
+        var eventOpt = eventRepository.findBySourceEventKey(sourceEventKeyWithRecipient);
+        if (eventOpt.isPresent()) {
+            Long eventId = eventOpt.get().getId();
+            if (recipientRepository.findByNotificationEventIdAndRecipientUserId(eventId, recipientId.value()).isPresent()) {
+                return true;
+            }
         }
+
         String legacySourceEventKey = TaskDueReminderPolicy.buildSourceEventKey(taskId, dueDate);
-        if (eventRepository.findBySourceEventKey(legacySourceEventKey).isPresent()) {
-            return true;
+        var legacyEventOpt = eventRepository.findBySourceEventKey(legacySourceEventKey);
+        if (legacyEventOpt.isPresent()) {
+            Long legacyEventId = legacyEventOpt.get().getId();
+            if (recipientRepository.findByNotificationEventIdAndRecipientUserId(legacyEventId, recipientId.value()).isPresent()) {
+                return true;
+            }
         }
 
         // 2. Kiểm tra trong bảng notifications truyền thống (QTN-19)

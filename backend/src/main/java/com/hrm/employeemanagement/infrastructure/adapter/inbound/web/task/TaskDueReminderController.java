@@ -52,9 +52,11 @@ public class TaskDueReminderController {
 
     /**
      * Kích hoạt rà soát và gửi thông báo nhắc việc sắp đến hạn (hỗ trợ kiểm thử và chạy thủ công).
+     * Phân quyền: Chỉ Quản trị viên (VT-06 / Admin) hoặc Ban Giám Đốc (VT-01) mới có quyền kích hoạt batch operation toàn hệ thống.
      * Tuân thủ quy tắc chống gửi trùng QTN-19 (TC-01, TC-02, TC-04).
      */
     @PostMapping("/scan")
+    @PreAuthorize("hasAnyAuthority('VT-01', 'VT-06', 'ROLE_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<TaskDueReminderScanResult>> scanAndSendReminders(
             @RequestParam(name = "scanDate", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate scanDate

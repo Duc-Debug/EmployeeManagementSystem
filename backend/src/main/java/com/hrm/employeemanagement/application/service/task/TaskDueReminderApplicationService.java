@@ -136,6 +136,20 @@ public class TaskDueReminderApplicationService implements ScanAndSendTaskDueRemi
             String title = TaskDueReminderPolicy.buildNotificationTitle(task.getName());
             String content = TaskDueReminderPolicy.buildNotificationContent(task.getName(), dueDate, daysRemaining, directUrl);
 
+            // Lưu vào bảng notifications truyền thống trước để đảm bảo tính nhất quán (Atomicity)
+            if (saveNotificationPort != null) {
+                Notification notification = Notification.create(
+                        recipientUserId,
+                        null,
+                        NotificationType.TASK_DUE_REMINDER,
+                        "TASK",
+                        task.getIdValue(),
+                        title,
+                        content
+                );
+                saveNotificationPort.save(notification);
+            }
+
             // Lưu vào hệ thống thông báo mới (Notification Center nếu có)
             if (createNotificationEventUseCase != null) {
                 String sourceEventKey = TaskDueReminderPolicy.buildSourceEventKey(task.getIdValue(), recipientUserId.value(), dueDate);
@@ -152,20 +166,6 @@ public class TaskDueReminderApplicationService implements ScanAndSendTaskDueRemi
                         List.of(recipientUserId.value())
                 );
                 createNotificationEventUseCase.execute(eventCommand);
-            }
-
-            // Lưu vào bảng notifications truyền thống (hỗ trợ NotificationPopover & các API hiện tại)
-            if (saveNotificationPort != null) {
-                Notification notification = Notification.create(
-                        recipientUserId,
-                        null,
-                        NotificationType.TASK_DUE_REMINDER,
-                        "TASK",
-                        task.getIdValue(),
-                        title,
-                        content
-                );
-                saveNotificationPort.save(notification);
             }
 
             sentCount++;
