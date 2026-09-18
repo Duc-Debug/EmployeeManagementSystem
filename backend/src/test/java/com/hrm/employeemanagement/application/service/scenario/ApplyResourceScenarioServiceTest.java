@@ -1,0 +1,704 @@
+package com.hrm.employeemanagement.application.service.scenario;
+
+import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.hrm.employeemanagement.application.dto.scenario.ApplyScenarioCommand;
+import com.hrm.employeemanagement.application.dto.scenario.ApplyScenarioPreviewResult;
+import com.hrm.employeemanagement.application.dto.scenario.ApplyScenarioResult;
+import com.hrm.employeemanagement.application.dto.scenario.ScenarioResult;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.DeleteScenarioSnapshotPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadResourceScenarioPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioDemandPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSnapshotPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.SaveResourceScenarioPort;
+import com.hrm.employeemanagement.application.port.outbound.scenario.SaveScenarioSnapshotPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioAlreadyAppliedException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioBaselineStaleException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandCapacityExceededException;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.project.Project;
+import com.hrm.employeemanagement.domain.project.ProjectId;
+import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
+import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
+import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
+import com.hrm.employeemanagement.domain.scenario.ScenarioStatus;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("ApplyResourceScenarioService Unit Tests (NCL-08-CN-003)")
+class ApplyResourceScenarioServiceTest {
+
+    @Mock private AuthorizationService authorizationService;
+    @Mock private LoadUserPort loadUserPort;
+    @Mock private LoadEmployeePort loadEmployeePort;
+    @Mock private LoadOrgUnitPort loadOrgUnitPort;
+    @Mock private LoadProjectPort loadProjectPort;
+    @Mock private LoadResourceScenarioPort loadScenarioPort;
+    @Mock private SaveResourceScenarioPort saveScenarioPort;
+    @Mock private LoadScenarioDemandPort loadDemandPort;
+    @Mock private LoadScenarioSnapshotPort loadSnapshotPort;
+    @Mock private SaveScenarioSnapshotPort saveSnapshotPort;
+    @Mock private DeleteScenarioSnapshotPort deleteSnapshotPort;
+    @Mock private LoadWeeklyProjectAllocationPort loadAllocationPort;
+    @Mock private SaveWeeklyProjectAllocationPort saveAllocationPort;
+    @Mock private LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
+    @Mock private LoadHolidaysPort loadHolidaysPort;
+    @Mock private LoadApprovedLeavesPort loadApprovedLeavesPort;
+    @Mock private LoadWorkingCalendarPort loadWorkingCalendarPort;
+    @Mock private SaveAuditLogPort saveAuditLogPort;
+
+    private ApplyResourceScenarioService service;
+
+    private final Long rmUserId = 100L;
+    private final Long orgUnitId = 10L;
+    private final Long projectId = 200L;
+    private final Long scenarioId = 1L;
+    private final Long empId1 = 1001L;
+
+    private User rmUser;
+    private ResourceScenario draftScenario;
+    private Project project;
+    private Employee emp1;
+    private ScenarioDemand demand;
+    private ScenarioAllocationSnapshotItem snapshotItem;
+
+    @BeforeEach
+    void setUp() {
+        service = new ApplyResourceScenarioService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadProjectPort,
+                loadScenarioPort,
+                saveScenarioPort,
+                loadDemandPort,
+                loadSnapshotPort,
+                saveSnapshotPort,
+                deleteSnapshotPort,
+                loadAllocationPort,
+                saveAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort,
+                saveAuditLogPort
+        );
+
+        rmUser = new User(
+                new UserId(rmUserId),
+                "resourcemanager",
+                "rm@example.com",
+                new com.hrm.employeemanagement.domain.role.Role(new com.hrm.employeemanagement.domain.role.RoleId(3L), com.hrm.employeemanagement.domain.role.RoleCode.VT_03, "Quản lý nguồn lực"),
+                com.hrm.employeemanagement.domain.user.UserStatus.ACTIVE,
+                null,
+                DataScope.ORGANIZATION_BRANCH,
+                orgUnitId,
+                1L
+        );
+
+        draftScenario = new ResourceScenario(
+                scenarioId,
+                "SCN-2026-001",
+                "Kịch bản thử nghiệm dự án Alpha",
+                "Mô tả kịch bản",
+                orgUnitId,
+                ScenarioStatus.DRAFT,
+                2026,
+                38,
+                2,
+                LocalDateTime.now().minusHours(2),
+                rmUserId,
+                LocalDateTime.now().minusHours(2),
+                null,
+                0L
+        );
+
+        project = new Project(
+                new ProjectId(projectId),
+                "PRJ-ALPHA",
+                "Dự án Alpha",
+                orgUnitId,
+                null,
+                null,
+                null,
+                BigDecimal.ZERO,
+                "Mô tả",
+                com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE,
+                new UserId(1L),
+                LocalDateTime.now(),
+                null,
+                0L
+        );
+
+        emp1 = new Employee(
+                new EmployeeId(empId1),
+                new UserId(1L),
+                orgUnitId,
+                "EMP-1001",
+                "Nguyễn Văn A",
+                "Java Developer",
+                null,
+                null,
+                false,
+                40,
+                com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE
+        );
+
+        demand = ScenarioDemand.create(
+                scenarioId,
+                "Nhu cầu Java Backend",
+                1,
+                2026,
+                38,
+                2026,
+                39,
+                BigDecimal.valueOf(20),
+                "Java Developer"
+        );
+
+        snapshotItem = ScenarioAllocationSnapshotItem.create(
+                scenarioId,
+                empId1,
+                2026,
+                38,
+                BigDecimal.valueOf(10),
+                BigDecimal.valueOf(40)
+        );
+
+        lenient().when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+        lenient().when(loadProjectPort.findByIdForUpdate(new ProjectId(projectId))).thenReturn(Optional.of(project));
+    }
+
+    @Test
+    @DisplayName("TC-01: Luồng thành công - Áp dụng kịch bản cập nhật weekly_project_allocations, đổi status sang applied và lưu audit log")
+    void testApplyScenario_Success_TC01() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        // Phân bổ thật hiện tại khớp với snapshot (TC-02 pass: 10h)
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
+
+        // Khóa bi quan và nạp phân bổ trên dự án mục tiêu projectId và nhân sự
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Áp dụng sau khi ký hợp đồng");
+        ApplyScenarioResult result = service.applyScenario(command);
+
+        assertThat(result.scenarioId()).isEqualTo(scenarioId);
+        assertThat(result.targetProjectId()).isEqualTo(projectId);
+        assertThat(result.status()).isEqualTo("applied");
+        assertThat(result.appliedAllocationsCount()).isGreaterThan(0);
+        assertThat(draftScenario.getStatus()).isEqualTo(ScenarioStatus.APPLIED);
+        assertThat(draftScenario.getTargetProjectId()).isEqualTo(projectId);
+
+        // Verify save weekly allocation called
+        verify(saveAllocationPort, atLeastOnce()).save(any(WeeklyProjectAllocation.class));
+
+        // Verify audit log saved (TC-04)
+        ArgumentCaptor<AuditLog> logCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(logCaptor.capture());
+        AuditLog savedLog = logCaptor.getValue();
+        assertThat(savedLog.getAction()).isEqualTo("APPLY_SCENARIO_TO_REAL_ALLOCATION");
+        assertThat(savedLog.getRecordId()).isEqualTo(scenarioId);
+    }
+
+    @Test
+    @DisplayName("TC-02: Ngoại lệ - Dữ liệu gốc đã đổi sau khi tạo kịch bản -> Ném ScenarioBaselineStaleException")
+    void testApplyScenario_BaselineStale_ThrowsException_TC02() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+
+        // Dữ liệu thật hiện tại là 25h (khác với snapshotItem là 10h)
+        WeeklyProjectAllocation changedAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(25));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(changedAlloc));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Áp dụng thử");
+
+        assertThatThrownBy(() -> service.applyScenario(command))
+                .isInstanceOf(ScenarioBaselineStaleException.class)
+                .hasMessageContaining("Dữ liệu phân bổ thật đã thay đổi sau khi kịch bản được tạo");
+
+        verify(saveAllocationPort, never()).save(any());
+        assertThat(draftScenario.getStatus()).isEqualTo(ScenarioStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("TC-02: Preview phát hiện dữ liệu gốc đã đổi -> cờ isBaselineStale=true và trả về staleReasons")
+    void testPreviewApplyScenario_BaselineStale_TC02() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        // Phân bổ thật đã đổi thành 20h
+        WeeklyProjectAllocation changedAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(20));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(changedAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeks(eq(projectId), any())).thenReturn(List.of());
+
+        ApplyScenarioPreviewResult preview = service.previewApplyScenario(scenarioId, projectId);
+
+        assertThat(preview.isBaselineStale()).isTrue();
+        assertThat(preview.staleReasons()).isNotEmpty();
+        assertThat(preview.staleReasons().get(0)).contains("10");
+        assertThat(preview.staleReasons().get(0)).contains("20");
+    }
+
+    @Test
+    @DisplayName("TC-03: Không có quyền - Người dùng không phải Quản lý nguồn lực -> Ném PermissionDeniedException")
+    void testApplyScenario_UnauthorizedUser_ThrowsAndLogsAudit_TC03() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE))
+                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_SCENARIO_MANAGE));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Không có quyền");
+
+        assertThatThrownBy(() -> service.applyScenario(command))
+                .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("Kịch bản đã ở trạng thái APPLIED -> Ném ScenarioAlreadyAppliedException")
+    void testApplyScenario_AlreadyApplied_ThrowsException() {
+        draftScenario.setStatus(ScenarioStatus.APPLIED);
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Thử áp dụng lại");
+
+        assertThatThrownBy(() -> service.applyScenario(command))
+                .isInstanceOf(ScenarioAlreadyAppliedException.class)
+                .hasMessageContaining("đã được áp dụng");
+    }
+
+    @Test
+    @DisplayName("Áp dụng kịch bản vắt năm (Cross-year) thành công nạp và ghi phân bổ cho cả 2026 và 2027")
+    void testApplyScenario_CrossYear_Success() {
+        // Kịch bản từ 2026-W53 kéo dài 2 tuần -> 2026-W53 và 2027-W01 (2026 có 53 tuần ISO)
+        ResourceScenario crossYearScenario = new ResourceScenario(
+                scenarioId,
+                "SCN-CROSS-YEAR",
+                "Kịch bản vắt năm",
+                "Mô tả",
+                orgUnitId,
+                ScenarioStatus.DRAFT,
+                2026,
+                53,
+                2,
+                LocalDateTime.now().minusHours(1),
+                rmUserId,
+                LocalDateTime.now().minusHours(1),
+                null,
+                0L
+        );
+
+        ScenarioDemand crossYearDemand = ScenarioDemand.create(
+                scenarioId,
+                "Demand cross year",
+                1,
+                2026, 53,
+                2027, 1,
+                BigDecimal.valueOf(15),
+                "Java Developer"
+        );
+
+        ScenarioAllocationSnapshotItem snap1 = ScenarioAllocationSnapshotItem.create(
+                scenarioId, empId1, 2026, 53, BigDecimal.valueOf(10), BigDecimal.valueOf(40)
+        );
+        ScenarioAllocationSnapshotItem snap2 = ScenarioAllocationSnapshotItem.create(
+                scenarioId, empId1, 2027, 1, BigDecimal.valueOf(10), BigDecimal.valueOf(40)
+        );
+
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(crossYearScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snap1, snap2));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(crossYearDemand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation cur1 = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 53), BigDecimal.valueOf(10));
+        WeeklyProjectAllocation cur2 = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2027, 1), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(cur1, cur2));
+
+        // Phân bổ hiện tại trên targetProject có sẵn 5h ở 2027-W01 (được khóa bi quan)
+        WeeklyProjectAllocation target2027Alloc = WeeklyProjectAllocation.createNew(empId1, projectId, YearWeek.of(2027, 1), BigDecimal.valueOf(5));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of(target2027Alloc));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Áp dụng kịch bản vắt năm");
+        ApplyScenarioResult result = service.applyScenario(command);
+
+        assertThat(result.appliedAllocationsCount()).isEqualTo(2);
+        assertThat(crossYearScenario.getStatus()).isEqualTo(ScenarioStatus.APPLIED);
+
+        // Verify allocations saved: 1 updated (2027-W01: 5h + 15h = 20h) và 1 new (2026-W53: 15h)
+        ArgumentCaptor<WeeklyProjectAllocation> allocCaptor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
+        verify(saveAllocationPort, times(2)).save(allocCaptor.capture());
+
+        List<WeeklyProjectAllocation> savedAllocs = allocCaptor.getAllValues();
+        WeeklyProjectAllocation saved2027 = savedAllocs.stream()
+                .filter(a -> a.getYear() == 2027 && a.getWeekNumber() == 1)
+                .findFirst()
+                .orElse(null);
+        assertThat(saved2027).isNotNull();
+        assertThat(saved2027.getAllocatedHours()).isEqualByComparingTo(BigDecimal.valueOf(20));
+    }
+
+    @Test
+    @DisplayName("DB có bản ghi phân bổ trùng lặp vi phạm ràng buộc -> Ném IllegalStateException fail-fast")
+    void testApplyScenario_DuplicateAllocationsInDb_ThrowsIllegalStateException() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
+
+        // DB trả về 2 bản ghi phân bổ cho cùng 1 employee trên cùng 1 dự án và tuần (data corruption) được nạp qua ForUpdate
+        WeeklyProjectAllocation dup1 = WeeklyProjectAllocation.createNew(empId1, projectId, YearWeek.of(2026, 38), BigDecimal.valueOf(5));
+        WeeklyProjectAllocation dup2 = WeeklyProjectAllocation.createNew(empId1, projectId, YearWeek.of(2026, 38), BigDecimal.valueOf(8));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of(dup1, dup2));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Áp dụng");
+
+        assertThatThrownBy(() -> service.applyScenario(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("trùng lặp");
+
+        verify(saveAllocationPort, never()).save(any());
+        assertThat(draftScenario.getStatus()).isEqualTo(ScenarioStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("Làm mới snapshot kịch bản (Refresh baseline) -> Xóa snapshot cũ, lưu snapshot mới và cập nhật baseSnapshotAt")
+    void testRefreshScenarioBaseline_Success() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(draftScenario));
+        OrgUnit mockOrg = mock(OrgUnit.class);
+        lenient().when(mockOrg.getId()).thenReturn(new OrgUnitId(orgUnitId));
+        lenient().when(mockOrg.getUnitName()).thenReturn("Phòng Kỹ Thuật");
+        lenient().when(mockOrg.getTreePath()).thenReturn("/10/");
+        when(loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))).thenReturn(Optional.of(mockOrg));
+        when(loadOrgUnitPort.findSubTree("/10/")).thenReturn(List.of(mockOrg));
+        when(loadEmployeePort.findActiveByOrgUnitIds(any())).thenReturn(List.of(emp1));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(java.util.Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ScenarioResult result = service.refreshScenarioBaseline(scenarioId);
+
+        assertThat(result).isNotNull();
+        assertThat(result.id()).isEqualTo(scenarioId);
+        verify(deleteSnapshotPort).deleteByScenarioId(scenarioId);
+        verify(saveSnapshotPort).saveAll(any());
+        verify(saveScenarioPort).save(draftScenario);
+
+        // Verify audit log for refresh
+        ArgumentCaptor<AuditLog> logCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getAction()).isEqualTo("REFRESH_SCENARIO_BASELINE");
+    }
+
+    @Test
+    @DisplayName("HIGH-01: ApplyScenario thiết lập Concurrency Boundary bằng cách khóa bi quan allocations cho project và employees")
+    void testApplyScenario_LockBoundary() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Khóa bi quan kiểm tra");
+        service.applyScenario(command);
+
+        // Đảm bảo các hàm nạp có khóa bi quan được gọi
+        verify(loadScenarioPort).findByIdForUpdate(scenarioId);
+        verify(loadProjectPort).findByIdForUpdate(new ProjectId(projectId));
+        verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(empId1));
+        verify(loadAllocationPort).loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any());
+        verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeksForUpdate(eq(List.of(empId1)), any());
+    }
+
+    @Test
+    @DisplayName("Reviewer Point Concurrency: Khóa bi quan Employee (Root Lock) được gọi theo thứ tự ID tăng dần khi allocation chưa tồn tại để chống race condition và deadlock")
+    void testApplyScenario_LockBoundary_ProtectsUncreatedAllocationsViaSortedEmployeeLock() {
+        Long empIdA = 20L;
+        Long empIdB = 10L;
+
+        Employee empA = new Employee(new EmployeeId(empIdA), new UserId(empIdA), orgUnitId, "EMP-20", "Nguyen B", "Java Developer", null, null, false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        Employee empB = new Employee(new EmployeeId(empIdB), new UserId(empIdB), orgUnitId, "EMP-10", "Nguyen A", "Java Developer", null, null, false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+
+        ScenarioAllocationSnapshotItem snapA = ScenarioAllocationSnapshotItem.create(scenarioId, empIdA, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        ScenarioAllocationSnapshotItem snapB = ScenarioAllocationSnapshotItem.create(scenarioId, empIdB, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40));
+
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapA, snapB)); // unsorted
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(empA, empB));
+
+        // Hoàn toàn chưa có allocation nào tồn tại (cả project và employee đều rỗng)
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Lock uncreated allocation");
+        service.applyScenario(command);
+
+        // Khẳng định: Employee rows được khóa theo thứ tự ID tăng dần: 10L trước, 20L sau (tránh deadlock)
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(loadEmployeePort);
+        inOrder.verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(10L));
+        inOrder.verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(20L));
+    }
+
+    @Test
+    @DisplayName("Comment 1: Áp dụng kịch bản bị từ chối và ném ScenarioDemandCapacityExceededException khi nhu cầu vượt trần và allowPartialFulfillment=false")
+    void testApplyScenario_PartialAllocation_RejectedWhenStrict() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem)); // emp1 chỉ có 40h avail, 10h allocated -> 30h remaining/capacity
+
+        // Demand yêu cầu 50h mỗi tuần (vượt trần 40h)
+        ScenarioDemand largeDemand = ScenarioDemand.create(
+                scenarioId, "Large demand", 1,
+                2026, 38, 2026, 39,
+                BigDecimal.valueOf(50), "Java Developer"
+        );
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(largeDemand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Strict apply", false);
+
+        assertThatThrownBy(() -> service.applyScenario(command))
+                .isInstanceOf(ScenarioDemandCapacityExceededException.class)
+                .hasMessageContaining("vượt trần năng lực tuần");
+
+        verify(saveAllocationPort, never()).save(any());
+        assertThat(draftScenario.getStatus()).isEqualTo(ScenarioStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("Comment 1: Áp dụng kịch bản thành công một phần khi cho phép allowPartialFulfillment=true")
+    void testApplyScenario_PartialAllocation_AllowedWhenExplicitlyEnabled() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+
+        // Demand yêu cầu 50h mỗi tuần (vượt trần 40h)
+        ScenarioDemand largeDemand = ScenarioDemand.create(
+                scenarioId, "Large demand", 1,
+                2026, 38, 2026, 39,
+                BigDecimal.valueOf(50), "Java Developer"
+        );
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(largeDemand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Partial apply", true);
+        ApplyScenarioResult result = service.applyScenario(command);
+
+        assertThat(result.status()).isEqualTo("applied");
+        assertThat(result.isPartiallyFulfilled()).isTrue();
+        assertThat(result.totalRequestedHours()).isEqualByComparingTo(new BigDecimal("100.00")); // 50h x 2 tuần
+        assertThat(result.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("70.00")); // 30h (tuần 38: 40h avail - 10h existing) + 40h (tuần 39: fallback 40h)
+        assertThat(result.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("30.00"));
+        assertThat(result.message()).contains("Áp dụng một phần thành công");
+        assertThat(result.unfulfilledDetails()).hasSize(2);
+        assertThat(result.unfulfilledDetails().get(0).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("20.00"));
+        assertThat(result.unfulfilledDetails().get(1).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("10.00"));
+    }
+
+    @Test
+    @DisplayName("Reviewer Point 1 Service Regression: Available=40h, Existing=32h, Demand=16h -> Remaining=8h -> Thất bại khi strict, thành công 8h khi partial")
+    void testApplyScenario_RemainingCapacityInvariant_Available40_Existing32_Demand16() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+
+        // Snapshot có available = 40h, allocated = 32h -> remaining = 8h
+        ScenarioAllocationSnapshotItem snapshotWithExisting = ScenarioAllocationSnapshotItem.create(
+                scenarioId,
+                empId1,
+                2026,
+                38,
+                BigDecimal.valueOf(32),
+                BigDecimal.valueOf(40)
+        );
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotWithExisting));
+
+        // Nhu cầu: 16h ở tuần 38
+        ScenarioDemand demand16h = ScenarioDemand.create(
+                scenarioId, "Demand 16h", 1,
+                2026, 38, 2026, 38,
+                BigDecimal.valueOf(16), "Java Developer"
+        );
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand16h));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingCompanyAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(32));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingCompanyAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // 1. Chế độ Strict (allowPartialFulfillment = false) -> Bị từ chối
+        ApplyScenarioCommand strictCommand = new ApplyScenarioCommand(scenarioId, projectId, "Strict apply", false);
+        assertThatThrownBy(() -> service.applyScenario(strictCommand))
+                .isInstanceOf(ScenarioDemandCapacityExceededException.class)
+                .hasMessageContaining("chỉ có thể phân bổ 8 giờ (thiếu 8 giờ");
+
+        // 2. Chế độ Cho phép phân bổ một phần (allowPartialFulfillment = true) -> Phân bổ 8h
+        ApplyScenarioCommand partialCommand = new ApplyScenarioCommand(scenarioId, projectId, "Partial apply", true);
+        ApplyScenarioResult partialResult = service.applyScenario(partialCommand);
+
+        assertThat(partialResult.isPartiallyFulfilled()).isTrue();
+        assertThat(partialResult.totalRequestedHours()).isEqualByComparingTo(new BigDecimal("16.00"));
+        assertThat(partialResult.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+        assertThat(partialResult.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+        assertThat(partialResult.unfulfilledDetails()).hasSize(1);
+        assertThat(partialResult.unfulfilledDetails().get(0).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+    }
+
+    @Test
+    @DisplayName("HIGH-04: Parity Contract Test - Preview kết quả tính toán khớp 100% với dữ liệu được Apply xuống DB")
+    void testPreviewAndApply_ContractConsistency() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingCompanyAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingCompanyAlloc));
+
+        // Chưa có phân bổ trên target project
+        when(loadAllocationPort.loadAllocationsForProjectInWeeks(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // 1. Gọi previewApplyScenario
+        ApplyScenarioPreviewResult preview = service.previewApplyScenario(scenarioId, projectId);
+        assertThat(preview.isBaselineStale()).isFalse();
+        assertThat(preview.employeeComparisons()).hasSize(1);
+        var previewCell = preview.employeeComparisons().get(0).weeklyCells().get(0);
+        BigDecimal expectedNewProjHours = previewCell.newProjectHours();
+        BigDecimal expectedScenHours = previewCell.scenarioAdditionalHours();
+
+        // 2. Gọi applyScenario
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Apply khớp preview");
+        ApplyScenarioResult applyResult = service.applyScenario(command);
+        assertThat(applyResult.status()).isEqualTo("applied");
+
+        // 3. Kiểm tra các bản ghi được lưu xuống DB khớp tuyệt đối với các cell trong preview
+        var cells = preview.employeeComparisons().get(0).weeklyCells();
+        ArgumentCaptor<WeeklyProjectAllocation> allocCaptor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
+        verify(saveAllocationPort, times(cells.size())).save(allocCaptor.capture());
+        List<WeeklyProjectAllocation> savedAllocs = allocCaptor.getAllValues();
+
+        assertThat(savedAllocs).hasSameSizeAs(cells);
+
+        for (var cell : cells) {
+            WeeklyProjectAllocation savedAlloc = savedAllocs.stream()
+                    .filter(a -> a.getYear() == cell.year() && a.getWeekNumber() == cell.weekNumber())
+                    .findFirst()
+                    .orElse(null);
+
+            assertThat(savedAlloc).isNotNull();
+            assertThat(savedAlloc.getEmployeeId()).isEqualTo(empId1);
+            assertThat(savedAlloc.getProjectId()).isEqualTo(projectId);
+            assertThat(savedAlloc.getAllocatedHours()).isEqualByComparingTo(cell.newProjectHours());
+            assertThat(savedAlloc.getAllocatedHours()).isEqualByComparingTo(cell.scenarioAdditionalHours());
+        }
+    }
+}

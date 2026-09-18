@@ -59,7 +59,8 @@ public class AuthService implements AuthenticateUserUseCase, LogoutUseCase {
         }
 
         String token = tokenProvider.generateToken(user);
-        return new AuthTokenResult(token, "Bearer", user.getIdValue(), user.getUsername(), user.getRole().getCode().getCode());
+        boolean requiresPasswordChange = user.getPasswordChangedAt() == null;
+        return new AuthTokenResult(token, "Bearer", user.getIdValue(), user.getUsername(), user.getRole().getCode().getCode(), requiresPasswordChange);
     }
 
     @Override
