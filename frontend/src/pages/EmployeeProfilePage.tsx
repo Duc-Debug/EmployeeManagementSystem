@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Plus, Search, ChevronDown, Check, AlertTriangle, X, User, Users, RefreshCw, Lock, Unlock, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, ChevronDown, Check, AlertTriangle, X, User, Users, RefreshCw, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import EmployeeCard from "../components/employee/EmployeeCard";
 import EmployeeProfileForm from "../components/employee/form/EmployeeProfileForm";
 import EmployeeDetailModal from "../components/employee/form/EmployeeDetailModal";
-import EmployeeImportView from "../components/import/EmployeeImportView";
-import { useAuthUser } from "@/lib/auth-session";
 import type { EmployeeFormData } from "../components/employee/form/employeeForm.types";
 import { DEFAULT_ORG_UNIT_OPTIONS } from "../components/employee/form/employeeForm.constants";
 import { getUsers, createUser, updateUser, toggleUserStatus } from "@/lib/api/users";
@@ -243,15 +241,8 @@ export default function EmployeeProfilePage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedDept, setSelectedDept] = useState("All");
 
-    const user = useAuthUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<EmployeeFormData | undefined>(undefined);
-
-    const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
-    const hasImportPermission =
-        user?.permissions?.includes("DATA_IMPORT") === true ||
-        ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole);
     const [viewingEmployee, setViewingEmployee] = useState<EmployeeFormData | undefined>(undefined);
     const [statusTarget, setStatusTarget] = useState<EmployeeFormData | null>(null);
     const [isTogglingStatus, setIsTogglingStatus] = useState(false);
@@ -683,7 +674,7 @@ export default function EmployeeProfilePage() {
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                     <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-                        Quản lý tài khoản người dùng
+                        Quản tài lý khoản người dùng
                     </h1>
                     <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
                         Khai báo, phân quyền vai trò và quản lý danh sách hồ sơ nhân sự toàn công ty.
@@ -735,7 +726,7 @@ export default function EmployeeProfilePage() {
                         />
                     </div>
 
-                    {/* Bộ lọc phòng ban + Nút thêm mới + Nút nhập từ tệp */}
+                    {/* Bộ lọc phòng ban + Nút thêm mới */}
                     <div className="flex flex-wrap items-center justify-end gap-3">
                         <CustomSelectDropdown
                             value={selectedDept}
@@ -743,17 +734,6 @@ export default function EmployeeProfilePage() {
                             options={departmentFilterOptions}
                             labelPrefix={true}
                         />
-
-                        {hasImportPermission && (
-                            <button
-                                type="button"
-                                onClick={() => setIsImportModalOpen(true)}
-                                className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:border-slate-400 active:scale-95"
-                            >
-                                <FileSpreadsheet className="size-4 text-emerald-600 stroke-[2.2]" />
-                                <span>Nhập từ tệp</span>
-                            </button>
-                        )}
 
                         <button
                             type="button"
@@ -913,26 +893,6 @@ export default function EmployeeProfilePage() {
                 isSubmitting={isTogglingStatus}
                 errorMessage={statusError}
             />
-
-            {/* MODAL NHẬP DỮ LIỆU NHÂN SỰ TỪ TỆP (NCL-12-CN-004) */}
-            {isImportModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-                    <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl bg-slate-50 p-6 shadow-2xl border border-slate-200 custom-scrollbar">
-                        <EmployeeImportView
-                            onSuccess={(result) => {
-                                loadData();
-                                setActionNotification({
-                                    type: "success",
-                                    message: `Đã nhập thành công ${result.importedCount} hồ sơ nhân sự từ tệp vào hệ thống.`,
-                                });
-                            }}
-                            onClose={() => {
-                                setIsImportModalOpen(false);
-                            }}
-                        />
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
