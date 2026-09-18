@@ -41,11 +41,19 @@ public class EmployeeImportController {
         this.generateTemplateUseCase = generateTemplateUseCase;
     }
 
+    private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
     @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('DATA_IMPORT')")
     public ResponseEntity<ApiResponse<ImportEmployeePreviewResult>> preview(
             @RequestParam("file") MultipartFile file
     ) {
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Tệp tải lên không có dữ liệu"));
+        }
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Dung lượng tệp vượt quá giới hạn cho phép (tối đa 10MB)"));
+        }
         try (InputStream inputStream = file.getInputStream()) {
             ImportEmployeePreviewResult result = previewUseCase.preview(inputStream, file.getOriginalFilename());
             return ResponseEntity.ok(ApiResponse.success(result.message(), result));
