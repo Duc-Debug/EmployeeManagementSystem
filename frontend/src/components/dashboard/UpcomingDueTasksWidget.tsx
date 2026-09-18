@@ -80,7 +80,7 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
     } else if (onNavigate) {
       onNavigate("project");
     } else {
-      window.location.href = task.directUrl || `/projects/${task.projectId}/tasks/${task.taskId}`;
+      window.location.assign(task.directUrl || `/projects/${task.projectId}/tasks/${task.taskId}`);
     }
   };
 
@@ -377,7 +377,7 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
           } else if (onNavigate) {
             onNavigate("project");
           } else {
-            window.location.href = `/projects/${projectId}/tasks/${taskId}`;
+            window.location.assign(`/projects/${projectId}/tasks/${taskId}`);
           }
         }}
       />

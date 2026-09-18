@@ -41,16 +41,16 @@ export function useUpcomingDueTasks(): UseUpcomingDueTasksResult {
 
   const [tasks, setTasks] = useState<UpcomingDueTaskResult[]>([]);
   const [activeFilter, setActiveFilter] = useState<DueTaskFilterTab>("ALL");
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(() => isSpecialist);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async (silent = false) => {
     // Nếu không phải VT-04, tránh gọi API ngầm để không gây lỗi 403 và không ghi rác vào audit_logs
     if (!isSpecialist) {
+      setTasks([]);
       setLoading(false);
       setRefreshing(false);
-      setTasks([]);
       return;
     }
 
@@ -76,8 +76,33 @@ export function useUpcomingDueTasks(): UseUpcomingDueTasksResult {
   }, [isSpecialist]);
 
   useEffect(() => {
-    reload();
-  }, [reload]);
+    if (!isSpecialist) {
+      return;
+    }
+
+    let active = true;
+    getMyUpcomingDueTasks()
+      .then((data) => {
+        if (active) {
+          setTasks(data);
+          setLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : "Không thể tải danh sách công việc sắp đến hạn.";
+          setError(message);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isSpecialist]);
 
   const criticalCount = useMemo(() => {
     return tasks.filter((t) => t.daysRemaining <= 1).length;

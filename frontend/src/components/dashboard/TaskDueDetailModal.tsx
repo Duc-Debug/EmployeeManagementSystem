@@ -47,7 +47,7 @@ export const TaskDueDetailModal: React.FC<TaskDueDetailModalProps> = ({
     if (onNavigateProject) {
       onNavigateProject(task.projectId, task.taskId);
     } else {
-      window.location.href = directLink;
+      window.location.assign(directLink);
     }
   };
 
