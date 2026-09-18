@@ -35,6 +35,7 @@ import {
   type ScenarioDemandResult,
 } from "@/lib/api/simulation-scenarios";
 import { AddEditDemandModal } from "./AddEditDemandModal";
+import { ApplyScenarioModal } from "./ApplyScenarioModal";
 import { ShareScenarioModal } from "./ShareScenarioModal";
 import { RecruitmentScenarioSection } from "./recruitment/RecruitmentScenarioSection";
 import { useAuthUser } from "@/lib/auth-session";
@@ -63,6 +64,9 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   // Demand modal state
   const [isDemandModalOpen, setIsDemandModalOpen] = useState(false);
   const [selectedDemand, setSelectedDemand] = useState<ScenarioDemandResult | null>(null);
+
+  // Apply scenario modal state (NCL-08-CN-003)
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
 
   // Snapshot table accordion state
   const [isSnapshotExpanded, setIsSnapshotExpanded] = useState(false);
@@ -331,6 +335,11 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                   <Eye className="h-3 w-3 mr-1 text-sky-600" />
                   Chỉ xem (VIEW_ONLY)
                 </span>
+              ) : scenario.status === "applied" ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
+                  Đã áp dụng
+                </span>
               ) : isSaved ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
@@ -356,13 +365,19 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                 <Users className="h-3.5 w-3.5 mr-1 text-slate-400" />
                 {scenario.snapshotEmployeesCount ?? scenario.totalSnapshotEmployees ?? 0} nhân sự trong snapshot
               </span>
+              {scenario.status === "applied" && scenario.appliedAt && (
+                <span className="flex items-center text-emerald-700 font-medium">
+                  <Clock className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                  Áp dụng lúc: {formatSnapshotDate(scenario.appliedAt)}
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Action button toolbar */}
         <div className="flex flex-wrap items-center gap-2">
-          {isOwner && (
+          {canEdit && (
             <>
               {/* Edit Info / Note Button */}
               <button
@@ -411,15 +426,25 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                 <span>Chia sẻ</span>
               </button>
 
+              {/* Apply Scenario Button (NCL-08-CN-003) */}
+              <button
+                onClick={() => setIsApplyModalOpen(true)}
+                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white transition shadow-xs flex items-center space-x-1.5"
+                title="Áp dụng các phân bổ từ kịch bản này vào dự án thật (NCL-08-CN-003)"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Áp dụng vào phân bổ thật</span>
+              </button>
+
               {/* Add Demand Button */}
               <button
                 onClick={() => {
                   setSelectedDemand(null);
                   setIsDemandModalOpen(true);
                 }}
-                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs flex items-center space-x-1.5"
+                className="rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs flex items-center space-x-1.5"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
                 <span>Thêm nhu cầu</span>
               </button>
             </>
@@ -908,6 +933,18 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
             setIsDemandModalOpen(false);
             setSelectedDemand(null);
           }}
+          onSuccess={() => {
+            loadData();
+          }}
+        />
+      )}
+
+      {/* Apply Scenario Modal (NCL-08-CN-003) */}
+      {isApplyModalOpen && (
+        <ApplyScenarioModal
+          isOpen={isApplyModalOpen}
+          scenario={scenario}
+          onClose={() => setIsApplyModalOpen(false)}
           onSuccess={() => {
             loadData();
           }}
