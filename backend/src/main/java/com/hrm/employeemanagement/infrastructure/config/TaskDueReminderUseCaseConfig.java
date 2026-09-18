@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import java.time.Clock;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +18,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.task.GetMyUpcomingDueTasksService;
 import com.hrm.employeemanagement.application.service.task.TaskDueReminderApplicationService;
+import com.hrm.employeemanagement.infrastructure.transaction.task.TransactionalTaskDueReminderServiceDecorator;
 
 /**
  * Spring Configuration đăng ký các bean Use Case cho NCL-11-CN-004.
@@ -31,16 +34,19 @@ public class TaskDueReminderUseCaseConfig {
             LoadEmployeePort loadEmployeePort,
             @Autowired(required = false) SaveNotificationPort saveNotificationPort,
             @Autowired(required = false) CreateNotificationEventUseCase createNotificationEventUseCase,
-            @Autowired(required = false) SaveAuditLogPort saveAuditLogPort
+            @Autowired(required = false) SaveAuditLogPort saveAuditLogPort,
+            @Autowired(required = false) Clock clock
     ) {
-        return new TaskDueReminderApplicationService(
+        TaskDueReminderApplicationService service = new TaskDueReminderApplicationService(
                 loadTaskDueReminderPort,
                 checkTaskDueReminderSentPort,
                 loadEmployeePort,
                 saveNotificationPort,
                 createNotificationEventUseCase,
-                saveAuditLogPort
+                saveAuditLogPort,
+                clock
         );
+        return new TransactionalTaskDueReminderServiceDecorator(service);
     }
 
     @Bean
@@ -48,13 +54,16 @@ public class TaskDueReminderUseCaseConfig {
             GetAuthenticatedUserPort getAuthenticatedUserPort,
             LoadEmployeePort loadEmployeePort,
             LoadTaskDueReminderPort loadTaskDueReminderPort,
-            @Autowired(required = false) SaveAuditLogInNewTransactionPort deniedAuditLogPort
+            @Autowired(required = false) SaveAuditLogInNewTransactionPort deniedAuditLogPort,
+            @Autowired(required = false) Clock clock
     ) {
-        return new GetMyUpcomingDueTasksService(
+        GetMyUpcomingDueTasksService service = new GetMyUpcomingDueTasksService(
                 getAuthenticatedUserPort,
                 loadEmployeePort,
                 loadTaskDueReminderPort,
-                deniedAuditLogPort
+                deniedAuditLogPort,
+                clock
         );
+        return new TransactionalTaskDueReminderServiceDecorator(service);
     }
 }

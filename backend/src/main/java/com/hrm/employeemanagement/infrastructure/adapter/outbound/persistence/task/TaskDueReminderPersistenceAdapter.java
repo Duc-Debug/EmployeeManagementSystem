@@ -70,8 +70,12 @@ public class TaskDueReminderPersistenceAdapter implements LoadTaskDueReminderPor
         }
 
         // 1. Kiểm tra trong bảng notification_events qua source_event_key (QTN-19)
-        String sourceEventKey = TaskDueReminderPolicy.buildSourceEventKey(taskId, dueDate);
-        if (eventRepository.findBySourceEventKey(sourceEventKey).isPresent()) {
+        String sourceEventKeyWithRecipient = TaskDueReminderPolicy.buildSourceEventKey(taskId, recipientId.value(), dueDate);
+        if (eventRepository.findBySourceEventKey(sourceEventKeyWithRecipient).isPresent()) {
+            return true;
+        }
+        String legacySourceEventKey = TaskDueReminderPolicy.buildSourceEventKey(taskId, dueDate);
+        if (eventRepository.findBySourceEventKey(legacySourceEventKey).isPresent()) {
             return true;
         }
 
