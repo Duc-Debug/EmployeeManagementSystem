@@ -29,6 +29,9 @@ public class WeeklyProjectAllocationJpaEntity {
     @Column(name = "project_id", nullable = false)
     private Long projectId;
 
+    @Column(name = "project_role_id")
+    private Long projectRoleId;
+
     @Column(name = "year_number", nullable = false)
     private Integer year;
 
@@ -73,26 +76,49 @@ public class WeeklyProjectAllocationJpaEntity {
 
     public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
             Integer weekNumber, BigDecimal allocatedHours, Long version) {
-        this(id, employeeId, projectId, year, weekNumber, allocatedHours, null, false, null, null, null, null, null, version);
+        this(id, employeeId, projectId, null, year, weekNumber, allocatedHours, null, false, null, null, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Long projectRoleId, Integer year,
+            Integer weekNumber, BigDecimal allocatedHours, Long version) {
+        this(id, employeeId, projectId, projectRoleId, year, weekNumber, allocatedHours, null, false, null, null, null, null, null, version);
     }
 
     public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
             Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
-        this(id, employeeId, projectId, year, weekNumber, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
+        this(id, employeeId, projectId, null, year, weekNumber, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Long projectRoleId, Integer year,
+            Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
+        this(id, employeeId, projectId, projectRoleId, year, weekNumber, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
     }
 
     public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
             Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, LocalDateTime overloadApprovedAt, Long version) {
-        this(id, employeeId, projectId, year, weekNumber, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+        this(id, employeeId, projectId, null, year, weekNumber, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+    }
+
+    public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Long projectRoleId, Integer year,
+            Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, projectRoleId, year, weekNumber, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
     }
 
     public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Integer year,
             Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, LocalDateTime overloadApprovedAt, String varianceNote, Long updatedBy, Long version) {
+        this(id, employeeId, projectId, null, year, weekNumber, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, varianceNote, updatedBy, version);
+    }
+
+    public WeeklyProjectAllocationJpaEntity(Long id, Long employeeId, Long projectId, Long projectRoleId, Integer year,
+            Integer weekNumber, BigDecimal allocatedHours, BigDecimal allocationPercentage, Boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, LocalDateTime overloadApprovedAt, String varianceNote, Long updatedBy, Long version) {
         this.id = id;
         this.employeeId = employeeId;
         this.projectId = projectId;
+        this.projectRoleId = projectRoleId;
         this.year = year;
         this.weekNumber = weekNumber;
         this.allocatedHours = allocatedHours;
@@ -113,6 +139,14 @@ public class WeeklyProjectAllocationJpaEntity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getProjectRoleId() {
+        return projectRoleId;
+    }
+
+    public void setProjectRoleId(Long projectRoleId) {
+        this.projectRoleId = projectRoleId;
     }
 
     public Long getEmployeeId() {

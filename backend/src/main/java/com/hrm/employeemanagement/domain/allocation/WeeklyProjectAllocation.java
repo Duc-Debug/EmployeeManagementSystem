@@ -15,6 +15,7 @@ public class WeeklyProjectAllocation {
     private Long id;
     private Long employeeId;
     private Long projectId;
+    private Long projectRoleId;
     private YearWeek yearWeek;
     private BigDecimal allocatedHours;
     private BigDecimal allocationPercentage;
@@ -27,37 +28,70 @@ public class WeeklyProjectAllocation {
     private Long version;
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, null, null, 0L);
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, null, false, null, null, null, null, null, 0L);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek, BigDecimal allocatedHours) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, null, false, null, null, null, null, null, 0L);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, null, false, null, null, null, null, null, version);
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, null, false, null, null, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, Long version) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, null, false, null, null, null, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
-        this(id, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
     }
 
     public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
             Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, String varianceNote, Long updatedBy, Long version) {
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, varianceNote, updatedBy, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, String varianceNote, Long updatedBy, Long version) {
         this.id = id;
         this.employeeId = Objects.requireNonNull(employeeId, "ID nhân sự không được null");
         this.projectId = Objects.requireNonNull(projectId, "ID dự án không được null");
+        this.projectRoleId = projectRoleId;
         this.yearWeek = Objects.requireNonNull(yearWeek, "Tuần/Năm (YearWeek) không được null");
         setAllocatedHours(allocatedHours);
         setAllocationPercentage(allocationPercentage);
@@ -74,12 +108,21 @@ public class WeeklyProjectAllocation {
      * Phương thức khởi tạo một bản ghi phân bổ mới chưa có ID.
      */
     public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
-        return new WeeklyProjectAllocation(null, employeeId, projectId, yearWeek, allocatedHours, null, 0L);
+        return new WeeklyProjectAllocation(null, employeeId, projectId, null, yearWeek, allocatedHours, null, 0L);
+    }
+
+    public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek, BigDecimal allocatedHours) {
+        return new WeeklyProjectAllocation(null, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, null, 0L);
     }
 
     public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, YearWeek yearWeek,
             BigDecimal allocatedHours, BigDecimal allocationPercentage) {
-        return new WeeklyProjectAllocation(null, employeeId, projectId, yearWeek, allocatedHours, allocationPercentage, 0L);
+        return new WeeklyProjectAllocation(null, employeeId, projectId, null, yearWeek, allocatedHours, allocationPercentage, 0L);
+    }
+
+    public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage) {
+        return new WeeklyProjectAllocation(null, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, allocationPercentage, 0L);
     }
 
     /**
@@ -140,6 +183,14 @@ public class WeeklyProjectAllocation {
 
     public Long getProjectId() {
         return projectId;
+    }
+
+    public Long getProjectRoleId() {
+        return projectRoleId;
+    }
+
+    public void setProjectRoleId(Long projectRoleId) {
+        this.projectRoleId = projectRoleId;
     }
 
     public YearWeek getYearWeek() {

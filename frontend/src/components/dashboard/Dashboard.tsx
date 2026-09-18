@@ -16,6 +16,7 @@ import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CapacityForecastReportView from "../reports/CapacityForecastReportView";
+import ProjectAllocationReportView from "../reports/ProjectAllocationReportView";
 import TimesheetVarianceReportView from "../reports/TimesheetVarianceReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import CapacityDashboardView from "../capacity/CapacityDashboardView";
@@ -67,6 +68,7 @@ export default function Dashboard() {
         if (path.includes("attendance") || path.includes("cham-cong") || path.includes("timesheet") || path.includes("work-log") || path.includes("gio-lam")) return "attendance";
         if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
         if (path.includes("skills") || path.includes("ky-nang")) return "skills";
+        if (path.includes("project-allocation") || path.includes("phan-bo-du-an") || path.includes("project-report")) return "project-allocation-report";
         if (path.includes("project") || path.includes("du-an")) return "project";
         if (path.includes("recruitment") || path.includes("tuyen-dung")) return "recruitment-demand";
         if (path.includes("simulation-scenario") || path.includes("mo-phong-kich-ban") || path.includes("scenarios")) return "simulation-scenarios";
@@ -284,6 +286,8 @@ export default function Dashboard() {
                                  {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
 
                                  {activeTab === "data-import" && <EmployeeImportView />}
+
+                                {activeTab === "project-allocation-report" && <ProjectAllocationReportView />}
 
                                 {(activeTab === "overview" || activeTab === "reports") && (() => {
                                     const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");

@@ -16,6 +16,8 @@ public record BulkAllocateResourceRequest(
         Long employeeId,
         @NotNull(message = "ID dự án không được null")
         Long projectId,
+        @NotNull(message = "Mã vai trò dự án không được để trống")
+        Long projectRoleId,
         @NotNull(message = "Năm bắt đầu không được null")
         @Min(value = 2000, message = "Năm bắt đầu phải từ 2000 trở lên")
         @Max(value = 2100, message = "Năm bắt đầu không được vượt quá 2100")
@@ -42,13 +44,14 @@ public record BulkAllocateResourceRequest(
     public BulkAllocateResourceRequest(
             Long employeeId,
             Long projectId,
+            Long projectRoleId,
             Integer fromYear,
             Integer fromWeek,
             Integer toYear,
             Integer toWeek,
             BigDecimal allocatedHoursPerWeek
     ) {
-        this(employeeId, projectId, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, null);
+        this(employeeId, projectId, projectRoleId, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, null);
     }
 
     public BulkAllocateResourceRequest {

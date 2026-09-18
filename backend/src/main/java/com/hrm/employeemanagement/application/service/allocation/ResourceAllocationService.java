@@ -279,9 +279,12 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         if (existingOpt.isPresent()) {
             allocation = existingOpt.get();
             allocation.updateAllocation(effectiveAllocatedHours, effectivePercentage);
+            if (command.projectRoleId() != null) {
+                allocation.setProjectRoleId(command.projectRoleId());
+            }
         } else {
             allocation = WeeklyProjectAllocation.createNew(
-                    command.employeeId(), command.projectId(), yearWeek, effectiveAllocatedHours, effectivePercentage);
+                    command.employeeId(), command.projectId(), command.projectRoleId(), yearWeek, effectiveAllocatedHours, effectivePercentage);
         }
 
         java.time.LocalDateTime approvedAt = java.time.LocalDateTime.now();

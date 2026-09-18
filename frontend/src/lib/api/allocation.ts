@@ -5,6 +5,7 @@ import { apiRequest } from "../api-client";
 export interface AllocateResourcePayload {
   employeeId: number;
   projectId: number;
+  projectRoleId?: number;
   year: number;
   weekNumber: number;
   allocatedHours?: number;
