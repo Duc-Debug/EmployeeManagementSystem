@@ -13,6 +13,7 @@ import ProjectView from "../project/ProjectView";
 import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
+import UnavailabilityView from "../unavailability/UnavailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CapacityForecastReportView from "../reports/CapacityForecastReportView";
@@ -60,6 +61,7 @@ export default function Dashboard() {
         }
         if (path.includes("access") || path.includes("phan-quyen")) return "access";
         if (path.includes("working-calendar") || path.includes("lich-lam-viec") || path.includes("ngay-le") || path.includes("calendar-config")) return "working-calendar";
+        if (path.includes("unavailability") || path.includes("khong-san-sang")) return "unavailability";
         if (path.includes("availability") || path.includes("kha-dung") || path.includes("gio-tuan")) return "availability";
         if (path.includes("hrprofile") || path.includes("ho-so") || path.includes("employee")) return "hrprofile";
         if (path.includes("user") || path.includes("tai-khoan")) return "users";
@@ -249,6 +251,8 @@ export default function Dashboard() {
                                 {activeTab === "capacity" && <CompanyWeeklyCapacityView />}
 
                                 {activeTab === "availability" && <WeeklyAvailabilityView />}
+
+                                {activeTab === "unavailability" && <UnavailabilityView />}
 
                                 {activeTab === "working-calendar" && <WorkingCalendarConfigView />}
 
