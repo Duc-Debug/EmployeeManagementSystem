@@ -68,6 +68,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
         id: "reports_analytics",
         title: "Báo cáo & Phân tích",
         items: [
+            { name: "Phân bổ theo dự án", icon: FolderKanban, id: "project-allocation-report" },
             { name: "Đối chiếu giờ công", icon: Clock, id: "timesheet-variance" },
             { name: "Nhu cầu tuyển dụng", icon: TrendingUp, id: "recruitment-demand" },
             { name: "Dự báo năng lực", icon: TrendingUp, id: "capacity-forecast" },
@@ -199,6 +200,11 @@ export function canAccessTab(
         case "project-roles":
             // Danh mục vai trò chuyên môn (NCL-12-CN-001): VT-01 -> VT-06 đều có quyền xem
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+
+        case "project-allocation-report":
+        case "project-allocation":
+            // Báo cáo phân bổ theo dự án (NCL-10-CN-006): VT-01 (Ban Giám Đốc), VT-02 (PM), VT-03 (RM), VT-06 (Admin)
+            return ["VT-01", "VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         default:
             return true;

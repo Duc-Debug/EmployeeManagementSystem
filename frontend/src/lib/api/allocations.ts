@@ -54,6 +54,7 @@ export async function getProjectWeeklyAllocations(
 export async function allocateProjectHours(payload: {
   employeeId: number;
   projectId: number;
+  projectRoleId?: number;
   year: number;
   weekNumber: number;
   allocatedHours?: number;
@@ -72,6 +73,7 @@ export async function allocateProjectHours(payload: {
 export interface BulkAllocateResourcePayload {
   employeeId: number;
   projectId: number;
+  projectRoleId?: number;
   fromYear: number;
   fromWeek: number;
   toYear: number;

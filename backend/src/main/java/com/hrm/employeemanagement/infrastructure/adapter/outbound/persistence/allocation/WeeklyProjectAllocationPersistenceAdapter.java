@@ -61,6 +61,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements
                 );
             }
 
+            entity.setProjectRoleId(allocation.getProjectRoleId());
             entity.setYear(allocation.getYear());
             entity.setWeekNumber(allocation.getWeekNumber());
             entity.setAllocatedHours(allocation.getAllocatedHours());
@@ -76,6 +77,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements
                     null,
                     allocation.getEmployeeId(),
                     allocation.getProjectId(),
+                    allocation.getProjectRoleId(),
                     allocation.getYear(),
                     allocation.getWeekNumber(),
                     allocation.getAllocatedHours(),
@@ -185,6 +187,7 @@ public class WeeklyProjectAllocationPersistenceAdapter implements
                 e.getId(),
                 e.getEmployeeId(),
                 e.getProjectId(),
+                e.getProjectRoleId(),
                 YearWeek.of(e.getYear(), e.getWeekNumber()),
                 e.getAllocatedHours(),
                 e.getAllocationPercentage(),

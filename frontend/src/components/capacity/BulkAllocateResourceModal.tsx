@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { X, Layers, AlertCircle, Loader2, Sparkles, Percent, Clock } from 'lucide-react';
 import { bulkAllocateResource, type BulkAllocationResult } from '@/lib/api/allocations';
 import { getProjects, type ProjectResult } from '@/lib/api/projects';
+import { getProjectRoles, type ProjectRoleResponse } from '@/lib/api/project-roles';
 
 export interface BulkAllocateCandidate {
   id: number;
@@ -56,6 +57,7 @@ export function BulkAllocateResourceModal({
 }: BulkAllocateResourceModalProps) {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | ''>('');
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
+  const [selectedProjectRoleId, setSelectedProjectRoleId] = useState<number | ''>('');
   const [fromYear, setFromYear] = useState<number>(initialYear);
   const [fromWeek, setFromWeek] = useState<number>(initialWeek);
   const [toYear, setToYear] = useState<number>(initialYear);
@@ -67,6 +69,7 @@ export function BulkAllocateResourceModal({
   const [percentage, setPercentage] = useState<number>(50);
 
   const [projects, setProjects] = useState<ProjectResult[]>([]);
+  const [projectRoles, setProjectRoles] = useState<ProjectRoleResponse[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -93,27 +96,36 @@ export function BulkAllocateResourceModal({
     }
   }, [open, initialEmployeeId, initialYear, initialWeek, employees]);
 
-  // Load Active Projects
+  // Load Active Projects and Project Roles
   useEffect(() => {
     if (!open) return;
     let isMounted = true;
-    async function loadActiveProjects() {
+    async function loadData() {
       setIsLoadingProjects(true);
       try {
-        const res = await getProjects(0, 100);
+        const [projRes, rolesRes] = await Promise.all([
+          getProjects(0, 100),
+          getProjectRoles(false),
+        ]);
         if (!isMounted) return;
-        const activeList = (res.content || []).filter((p) => p.status === 'ACTIVE');
+        const activeList = (projRes.content || []).filter((p) => p.status === 'ACTIVE');
         setProjects(activeList);
         if (activeList.length > 0 && selectedProjectId === '') {
           setSelectedProjectId(activeList[0].id);
         }
+
+        const activeRoles = (rolesRes || []).filter((r) => r.status === 'ACTIVE');
+        setProjectRoles(activeRoles);
+        if (activeRoles.length > 0 && selectedProjectRoleId === '') {
+          setSelectedProjectRoleId(activeRoles[0].id);
+        }
       } catch (err) {
-        console.error('Không thể tải danh sách dự án:', err);
+        console.error('Không thể tải danh sách dự án hoặc vai trò:', err);
       } finally {
         if (isMounted) setIsLoadingProjects(false);
       }
     }
-    loadActiveProjects();
+    loadData();
     return () => {
       isMounted = false;
     };
@@ -155,6 +167,10 @@ export function BulkAllocateResourceModal({
       setErrorMessage('Vui lòng chọn dự án đang hoạt động');
       return;
     }
+    if (!selectedProjectRoleId) {
+      setErrorMessage('Vui lòng chọn vai trò trong dự án');
+      return;
+    }
 
     if (mode === 'HOURS') {
       if (allocatedHours <= 0 || allocatedHours > 168) {
@@ -173,6 +189,7 @@ export function BulkAllocateResourceModal({
       const result = await bulkAllocateResource({
         employeeId: Number(selectedEmployeeId),
         projectId: Number(selectedProjectId),
+        projectRoleId: Number(selectedProjectRoleId),
         fromYear,
         fromWeek,
         toYear,
@@ -249,32 +266,55 @@ export function BulkAllocateResourceModal({
             </div>
           </div>
 
-          {/* 2. Chọn Dự án */}
-          <div>
-            <label className="mb-1 block font-semibold text-slate-700">
-              Dự án tiếp nhận <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              {isLoadingProjects ? (
-                <div className="flex items-center gap-2 text-slate-400 py-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                  <span>Đang tải danh sách dự án...</span>
-                </div>
-              ) : (
+          {/* 2. Chọn Dự án & Vai trò */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block font-semibold text-slate-700">
+                Dự án tiếp nhận <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                {isLoadingProjects ? (
+                  <div className="flex items-center gap-2 text-slate-400 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                    <span>Đang tải...</span>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    required
+                  >
+                    <option value="">-- Chọn dự án --</option>
+                    {projects.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        [{proj.projectCode}] {proj.projectName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block font-semibold text-slate-700">
+                Vai trò trong dự án <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
                 <select
-                  value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                  value={selectedProjectRoleId}
+                  onChange={(e) => setSelectedProjectRoleId(Number(e.target.value))}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   required
                 >
-                  <option value="">-- Chọn dự án đang hoạt động --</option>
-                  {projects.map((proj) => (
-                    <option key={proj.id} value={proj.id}>
-                      [{proj.projectCode}] {proj.projectName}
+                  <option value="">-- Chọn vai trò --</option>
+                  {projectRoles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      [{role.code}] {role.name}
                     </option>
                   ))}
                 </select>
-              )}
+              </div>
             </div>
           </div>
 
