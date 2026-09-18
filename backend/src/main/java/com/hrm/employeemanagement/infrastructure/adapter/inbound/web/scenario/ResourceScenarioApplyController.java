@@ -53,7 +53,12 @@ public class ResourceScenarioApplyController {
             @PathVariable("id") Long id,
             @Valid @RequestBody ApplyScenarioRequest request
     ) {
-        ApplyScenarioCommand command = new ApplyScenarioCommand(id, request.targetProjectId(), request.note());
+        ApplyScenarioCommand command = new ApplyScenarioCommand(
+                id,
+                request.targetProjectId(),
+                request.note(),
+                Boolean.TRUE.equals(request.allowPartialFulfillment())
+        );
         ApplyScenarioResult result = applyScenarioUseCase.applyScenario(command);
         return ResponseEntity.ok(ApiResponse.success("Áp dụng kịch bản thành phân bổ thật thành công", result));
     }

@@ -48,7 +48,19 @@ public class ScenarioDemandDistributionPolicy {
             List<YearWeek> targetWeeks,
             Map<String, BigDecimal> capacityMap
     ) {
+        return calculateDistributionWithMetrics(demands, empIds, employeeMap, targetWeeks, capacityMap).empDemandHoursMap();
+    }
+
+    public static ScenarioDistributionResult calculateDistributionWithMetrics(
+            List<ScenarioDemand> demands,
+            List<Long> empIds,
+            Map<Long, Employee> employeeMap,
+            List<YearWeek> targetWeeks,
+            Map<String, BigDecimal> capacityMap
+    ) {
         Map<Long, Map<String, BigDecimal>> empDemandHoursMap = new HashMap<>();
+        BigDecimal totalRequestedHours = BigDecimal.ZERO;
+        BigDecimal totalAppliedHours = BigDecimal.ZERO;
 
         for (YearWeek yw : targetWeeks) {
             List<ScenarioDemand> activeDemands = demands.stream()
@@ -60,6 +72,8 @@ public class ScenarioDemandDistributionPolicy {
             for (ScenarioDemand d : activeDemands) {
                 BigDecimal totalDemandHours = d.getTotalHoursPerWeek();
                 if (totalDemandHours == null || totalDemandHours.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                totalRequestedHours = totalRequestedHours.add(totalDemandHours);
 
                 String req = d.getSkillRequirement();
                 List<Long> matchingEmpIds = empIds.stream()
@@ -100,6 +114,7 @@ public class ScenarioDemandDistributionPolicy {
 
                         if (empHours.compareTo(BigDecimal.ZERO) > 0) {
                             allocatedInWeekMap.put(empId, empAllocatedInWeek.add(empHours));
+                            totalAppliedHours = totalAppliedHours.add(empHours);
                             empDemandHoursMap
                                     .computeIfAbsent(empId, k -> new HashMap<>())
                                     .merge(mapKey, empHours, BigDecimal::add);
@@ -109,7 +124,16 @@ public class ScenarioDemandDistributionPolicy {
             }
         }
 
-        return empDemandHoursMap;
+        BigDecimal totalUnfulfilledHours = totalRequestedHours.subtract(totalAppliedHours).max(BigDecimal.ZERO);
+        boolean isPartiallyFulfilled = totalUnfulfilledHours.compareTo(BigDecimal.ZERO) > 0;
+
+        return new ScenarioDistributionResult(
+                empDemandHoursMap,
+                totalRequestedHours,
+                totalAppliedHours,
+                totalUnfulfilledHours,
+                isPartiallyFulfilled
+        );
     }
 
     public static String makeKey(Long employeeId, Integer year, Integer week) {

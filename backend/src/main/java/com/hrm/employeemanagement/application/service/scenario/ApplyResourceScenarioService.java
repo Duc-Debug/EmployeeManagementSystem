@@ -50,6 +50,7 @@ import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundExcept
 import com.hrm.employeemanagement.domain.exception.scenario.InvalidTargetProjectException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioAlreadyAppliedException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioBaselineStaleException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandCapacityExceededException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotModifiableException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
@@ -61,6 +62,7 @@ import com.hrm.employeemanagement.domain.scenario.ResourceScenario;
 import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
 import com.hrm.employeemanagement.domain.scenario.ScenarioDemand;
 import com.hrm.employeemanagement.domain.scenario.ScenarioDemandDistributionPolicy;
+import com.hrm.employeemanagement.domain.scenario.ScenarioDistributionResult;
 import com.hrm.employeemanagement.domain.scenario.ScenarioStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -201,13 +203,14 @@ public class ApplyResourceScenarioService implements
                 ));
 
         // 2. Tính toán phân bổ nhu cầu kịch bản xuống nhân sự (HIGH-03, HIGH-04)
-        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = ScenarioDemandDistributionPolicy.calculateDistribution(
+        ScenarioDistributionResult distResult = ScenarioDemandDistributionPolicy.calculateDistributionWithMetrics(
                 demands,
                 snapshotEmpIds,
                 employeeMap,
                 targetWeeks,
                 snapshotAvailMap
         );
+        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = distResult.empDemandHoursMap();
 
         // 3. Nạp phân bổ hiện tại trên dự án mục tiêu (hỗ trợ vắt năm)
         List<WeeklyProjectAllocation> targetProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeeks(
@@ -311,7 +314,11 @@ public class ApplyResourceScenarioService implements
                 weekHeaders,
                 rows,
                 affectedCount,
-                totalAdditionalHoursAll
+                totalAdditionalHoursAll,
+                distResult.totalRequestedHours(),
+                distResult.totalAppliedHours(),
+                distResult.totalUnfulfilledHours(),
+                distResult.isPartiallyFulfilled()
         );
     }
 
@@ -336,7 +343,7 @@ public class ApplyResourceScenarioService implements
 
         validateScenarioScope(currentUser, scenario.getOrgUnitId());
 
-        Project targetProject = loadProjectPort.findById(new ProjectId(command.targetProjectId()))
+        Project targetProject = loadProjectPort.findByIdForUpdate(new ProjectId(command.targetProjectId()))
                 .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.targetProjectId()));
 
         validateProjectScope(currentUser, targetProject);
@@ -376,14 +383,26 @@ public class ApplyResourceScenarioService implements
                         (a, b) -> a
                 ));
 
-        // 3. Tính toán phân bổ số giờ kịch bản cho từng nhân sự (HIGH-03, HIGH-04)
-        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = ScenarioDemandDistributionPolicy.calculateDistribution(
+        // 3. Tính toán phân bổ số giờ kịch bản cho từng nhân sự (HIGH-03, HIGH-04, Comment 1)
+        ScenarioDistributionResult distResult = ScenarioDemandDistributionPolicy.calculateDistributionWithMetrics(
                 demands,
                 snapshotEmpIds,
                 employeeMap,
                 targetWeeks,
                 snapshotAvailMap
         );
+        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = distResult.empDemandHoursMap();
+
+        // 3.1. Kiểm tra trần capacity và yêu cầu đáp ứng trọn vẹn (Comment 1)
+        if (distResult.isPartiallyFulfilled() && !command.isAllowPartialFulfillment()) {
+            throw new ScenarioDemandCapacityExceededException(String.format(
+                    "Không thể áp dụng kịch bản %s: Nhu cầu yêu cầu tổng cộng %s giờ nhưng chỉ có thể phân bổ %s giờ (thiếu %s giờ do vượt trần năng lực tuần của nhân sự). Bật tùy chọn 'allowPartialFulfillment' nếu bạn muốn chấp nhận phân bổ một phần.",
+                    scenario.getCode(),
+                    distResult.totalRequestedHours().stripTrailingZeros().toPlainString(),
+                    distResult.totalAppliedHours().stripTrailingZeros().toPlainString(),
+                    distResult.totalUnfulfilledHours().stripTrailingZeros().toPlainString()
+            ));
+        }
 
         // 4. Ánh xạ các phân bổ hiện tại trên dự án mục tiêu (hỗ trợ vắt năm)
         Map<String, WeeklyProjectAllocation> existingAllocMap = existingProjectAllocations.stream()
@@ -452,6 +471,15 @@ public class ApplyResourceScenarioService implements
                 )
         ));
 
+        String message = distResult.isPartiallyFulfilled()
+                ? String.format("Áp dụng một phần thành công kịch bản %s vào dự án %s: đã phân bổ %s/%s giờ (thiếu %s giờ do chạm trần năng lực)",
+                        scenario.getCode(),
+                        targetProject.getProjectName(),
+                        distResult.totalAppliedHours().stripTrailingZeros().toPlainString(),
+                        distResult.totalRequestedHours().stripTrailingZeros().toPlainString(),
+                        distResult.totalUnfulfilledHours().stripTrailingZeros().toPlainString())
+                : "Áp dụng kịch bản " + scenario.getCode() + " vào dự án " + targetProject.getProjectName() + " thành công!";
+
         return new ApplyScenarioResult(
                 scenario.getId(),
                 scenario.getCode(),
@@ -461,7 +489,11 @@ public class ApplyResourceScenarioService implements
                 appliedCount,
                 affectedEmployees.size(),
                 scenario.getAppliedAt(),
-                "Áp dụng kịch bản " + scenario.getCode() + " vào dự án " + targetProject.getProjectName() + " thành công!"
+                message,
+                distResult.totalRequestedHours(),
+                distResult.totalAppliedHours(),
+                distResult.totalUnfulfilledHours(),
+                distResult.isPartiallyFulfilled()
         );
     }
 

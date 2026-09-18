@@ -48,6 +48,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioAlreadyAppliedException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioBaselineStaleException;
+import com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandCapacityExceededException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.project.Project;
@@ -205,6 +206,9 @@ class ApplyResourceScenarioServiceTest {
                 BigDecimal.valueOf(10),
                 BigDecimal.valueOf(40)
         );
+
+        lenient().when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+        lenient().when(loadProjectPort.findByIdForUpdate(new ProjectId(projectId))).thenReturn(Optional.of(project));
     }
 
     @Test
@@ -213,7 +217,6 @@ class ApplyResourceScenarioServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
         when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
-        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
         when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
         when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
         when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
@@ -254,7 +257,6 @@ class ApplyResourceScenarioServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
         when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
-        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
         when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
         when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
         when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
@@ -368,7 +370,6 @@ class ApplyResourceScenarioServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
         when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(crossYearScenario));
-        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
         when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snap1, snap2));
         when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(crossYearDemand));
         when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
@@ -408,7 +409,6 @@ class ApplyResourceScenarioServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
         when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
-        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
         when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
         when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
         when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
@@ -471,7 +471,6 @@ class ApplyResourceScenarioServiceTest {
         when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
         when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
         when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
-        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
         when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
         when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
         when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
@@ -486,8 +485,75 @@ class ApplyResourceScenarioServiceTest {
         service.applyScenario(command);
 
         // Đảm bảo các hàm nạp có khóa bi quan được gọi
+        verify(loadProjectPort).findByIdForUpdate(new ProjectId(projectId));
         verify(loadAllocationPort).loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any());
         verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeksForUpdate(eq(List.of(empId1)), any());
+    }
+
+    @Test
+    @DisplayName("Comment 1: Áp dụng kịch bản bị từ chối và ném ScenarioDemandCapacityExceededException khi nhu cầu vượt trần và allowPartialFulfillment=false")
+    void testApplyScenario_PartialAllocation_RejectedWhenStrict() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem)); // emp1 chỉ có 40h avail, 10h allocated -> 30h remaining/capacity
+
+        // Demand yêu cầu 50h mỗi tuần (vượt trần 40h)
+        ScenarioDemand largeDemand = ScenarioDemand.create(
+                scenarioId, "Large demand", 1,
+                2026, 38, 2026, 39,
+                BigDecimal.valueOf(50), "Java Developer"
+        );
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(largeDemand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Strict apply", false);
+
+        assertThatThrownBy(() -> service.applyScenario(command))
+                .isInstanceOf(ScenarioDemandCapacityExceededException.class)
+                .hasMessageContaining("vượt trần năng lực tuần");
+
+        verify(saveAllocationPort, never()).save(any());
+        assertThat(draftScenario.getStatus()).isEqualTo(ScenarioStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("Comment 1: Áp dụng kịch bản thành công một phần khi cho phép allowPartialFulfillment=true")
+    void testApplyScenario_PartialAllocation_AllowedWhenExplicitlyEnabled() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+
+        // Demand yêu cầu 50h mỗi tuần (vượt trần 40h)
+        ScenarioDemand largeDemand = ScenarioDemand.create(
+                scenarioId, "Large demand", 1,
+                2026, 38, 2026, 39,
+                BigDecimal.valueOf(50), "Java Developer"
+        );
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(largeDemand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Partial apply", true);
+        ApplyScenarioResult result = service.applyScenario(command);
+
+        assertThat(result.status()).isEqualTo("applied");
+        assertThat(result.isPartiallyFulfilled()).isTrue();
+        assertThat(result.totalRequestedHours()).isEqualByComparingTo(new BigDecimal("100.00")); // 50h x 2 tuần
+        assertThat(result.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("80.00")); // 40h x 2 tuần
+        assertThat(result.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("20.00"));
+        assertThat(result.message()).contains("Áp dụng một phần thành công");
     }
 
     @Test

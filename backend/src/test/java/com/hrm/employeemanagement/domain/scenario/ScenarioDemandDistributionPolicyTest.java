@@ -165,6 +165,43 @@ class ScenarioDemandDistributionPolicyTest {
         assertThat(result.get(inactiveEmpId)).isNull();
     }
 
+    @Test
+    @DisplayName("Comment 1: calculateDistributionWithMetrics ghi nhận đầy đủ requested, applied, unfulfilled hours khi bị chạm trần capacity")
+    void testCalculateDistributionWithMetrics_PartialAllocationReporting() {
+        Long empId = 1L;
+        Employee emp = createEmployee(empId, "Java Developer");
+        Map<Long, Employee> employeeMap = Map.of(empId, emp);
+        List<Long> snapshotEmpIds = List.of(empId);
+
+        YearWeek yw = YearWeek.of(2026, 40);
+        List<YearWeek> targetWeeks = List.of(yw);
+
+        // Nhu cầu yêu cầu 40 giờ
+        ScenarioDemand demand = ScenarioDemand.create(
+                101L, "Demand 40h", 1,
+                2026, 40, 2026, 40,
+                BigDecimal.valueOf(40), "Java Developer"
+        );
+
+        // Nhưng nhân viên chỉ còn 25 giờ capacity
+        String key = ScenarioDemandDistributionPolicy.makeKey(empId, yw.year(), yw.weekNumber());
+        Map<String, BigDecimal> capacityMap = Map.of(key, BigDecimal.valueOf(25));
+
+        ScenarioDistributionResult result = ScenarioDemandDistributionPolicy.calculateDistributionWithMetrics(
+                List.of(demand),
+                snapshotEmpIds,
+                employeeMap,
+                targetWeeks,
+                capacityMap
+        );
+
+        assertThat(result.totalRequestedHours()).isEqualByComparingTo(new BigDecimal("40.00"));
+        assertThat(result.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("25.00"));
+        assertThat(result.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("15.00"));
+        assertThat(result.isPartiallyFulfilled()).isTrue();
+        assertThat(result.empDemandHoursMap().get(empId).get(key)).isEqualByComparingTo(new BigDecimal("25.00"));
+    }
+
     private Employee createEmployee(Long id, String role) {
         return new Employee(
                 new EmployeeId(id),
