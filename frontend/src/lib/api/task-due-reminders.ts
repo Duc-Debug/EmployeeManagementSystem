@@ -90,3 +90,16 @@ export async function triggerScanDueReminders(scanDate?: string): Promise<TaskDu
     method: "POST",
   });
 }
+
+/**
+ * Định dạng chuỗi ngày YYYY-MM-DD sang định dạng tiếng Việt DD/MM/YYYY trực quan.
+ */
+export function formatDueDateVietnamese(dateStr?: string | null): string {
+  if (!dateStr || typeof dateStr !== "string") return "Chưa cập nhật";
+  const parts = dateStr.trim().split("-");
+  if (parts.length === 3 && parts[0].length === 4) {
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year}`;
+  }
+  return dateStr;
+}

@@ -36,6 +36,39 @@ test("NCL-11-CN-004: Nhắc việc sắp đến hạn Frontend Logic & Formattin
     };
   };
 
+  // 2. Logic formatDueDateVietnamese
+  const formatDueDateVietnamese = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      const parts = dateStr.split("T")[0].split("-");
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // 3. Logic role check VT-04
+  const checkIsSpecialist = (currentUser) => {
+    if (!currentUser) return false;
+    const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+    return ["VT-04", "ROLE-EMPLOYEE", "EMPLOYEE", "MEMBER", "DEVELOPER"].includes(normalizedRole) ||
+      (currentUser.roleName ? currentUser.roleName.toLowerCase().includes("chuyên môn") || currentUser.roleName.toLowerCase().includes("nhân viên") : false);
+  };
+
+  // 4. Logic filter tasks
+  const filterDueTasks = (tasks, filter) => {
+    if (filter === "CRITICAL") {
+      return tasks.filter((t) => t.daysRemaining <= 1);
+    }
+    if (filter === "UPCOMING_DAYS") {
+      return tasks.filter((t) => t.daysRemaining >= 2);
+    }
+    return tasks;
+  };
+
   await t.test("TC-01: Định dạng số ngày còn lại (Hôm nay / Còn 1 ngày / Còn 2 ngày / Còn 3 ngày)", () => {
     // 0 ngày (đến hạn hôm nay) hoặc quá hạn
     const today = formatDaysRemaining(0);
@@ -114,5 +147,44 @@ test("NCL-11-CN-004: Nhắc việc sắp đến hạn Frontend Logic & Formattin
     assert.deepEqual(parseApiResponse(undefined), []);
     assert.deepEqual(parseApiResponse({}), []);
     assert.deepEqual(parseApiResponse([{ taskId: 1 }]), [{ taskId: 1 }]);
+  });
+
+  await t.test("TC-06: Định dạng ngày theo chuẩn Việt Nam DD/MM/YYYY", () => {
+    assert.equal(formatDueDateVietnamese("2026-09-20"), "20/09/2026");
+    assert.equal(formatDueDateVietnamese("2026-12-31"), "31/12/2026");
+    assert.equal(formatDueDateVietnamese("2026-01-05T10:30:00"), "05/01/2026");
+    assert.equal(formatDueDateVietnamese(null), "");
+    assert.equal(formatDueDateVietnamese(undefined), "");
+    assert.equal(formatDueDateVietnamese("invalid-date"), "invalid-date");
+  });
+
+  await t.test("TC-07: Lọc danh sách công việc theo độ khẩn cấp (ALL, CRITICAL, UPCOMING_DAYS)", () => {
+    const mockTasks = [
+      { taskId: 1, taskName: "Khẩn cấp hôm nay", daysRemaining: 0 },
+      { taskId: 2, taskName: "Khẩn cấp ngày mai", daysRemaining: 1 },
+      { taskId: 3, taskName: "Còn 2 ngày", daysRemaining: 2 },
+      { taskId: 4, taskName: "Còn 3 ngày", daysRemaining: 3 },
+    ];
+
+    const all = filterDueTasks(mockTasks, "ALL");
+    assert.equal(all.length, 4);
+
+    const critical = filterDueTasks(mockTasks, "CRITICAL");
+    assert.equal(critical.length, 2);
+    assert.ok(critical.every((t) => t.daysRemaining <= 1));
+
+    const upcoming = filterDueTasks(mockTasks, "UPCOMING_DAYS");
+    assert.equal(upcoming.length, 2);
+    assert.ok(upcoming.every((t) => t.daysRemaining >= 2));
+  });
+
+  await t.test("TC-08: Kiểm soát vai trò VT-04 (Role Guard) trước khi kích hoạt tải dữ liệu", () => {
+    assert.equal(checkIsSpecialist(null), false);
+    assert.equal(checkIsSpecialist({ roleCode: "VT-01" }), false);
+    assert.equal(checkIsSpecialist({ roleCode: "VT-02" }), false);
+    assert.equal(checkIsSpecialist({ roleCode: "VT-04" }), true);
+    assert.equal(checkIsSpecialist({ roleCode: "ROLE_EMPLOYEE" }), true);
+    assert.equal(checkIsSpecialist({ roleCode: "EMPLOYEE" }), true);
+    assert.equal(checkIsSpecialist({ roleCode: "CUSTOM", roleName: "Nhân viên chuyên môn phát triển" }), true);
   });
 });

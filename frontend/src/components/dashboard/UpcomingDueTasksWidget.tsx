@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Clock,
   AlertCircle,
@@ -8,9 +8,15 @@ import {
   ExternalLink,
   Briefcase,
   Play,
+  Eye,
 } from "lucide-react";
 import { useUpcomingDueTasks } from "@/hooks/useUpcomingDueTasks";
-import { formatDaysRemaining, type UpcomingDueTaskResult } from "@/lib/api/task-due-reminders";
+import {
+  formatDaysRemaining,
+  formatDueDateVietnamese,
+  type UpcomingDueTaskResult,
+} from "@/lib/api/task-due-reminders";
+import { TaskDueDetailModal } from "./TaskDueDetailModal";
 
 interface UpcomingDueTasksWidgetProps {
   onNavigate?: (tabId: string) => void;
@@ -23,30 +29,46 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
 }) => {
   const {
     tasks,
+    filteredTasks,
+    activeFilter,
+    setActiveFilter,
     loading,
     refreshing,
     error,
     criticalCount,
+    isSpecialist,
     reload,
     triggerManualScan,
   } = useUpcomingDueTasks();
 
   const [scanning, setScanning] = useState<boolean>(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [selectedTaskForModal, setSelectedTaskForModal] = useState<UpcomingDueTaskResult | null>(null);
+
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (scanTimerRef.current) {
+        clearTimeout(scanTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleManualScan = async () => {
     setScanning(true);
     setScanMessage(null);
+    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
     try {
       const result = await triggerManualScan();
       setScanMessage(
         `Rà soát thành công: Đã quét ${result.totalScanned} việc, gửi ${result.sentCount} thông báo (Bỏ qua trùng QTN-19: ${result.skippedDuplicateCount})`
       );
-      setTimeout(() => setScanMessage(null), 5000);
+      scanTimerRef.current = setTimeout(() => setScanMessage(null), 5000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Rà soát thất bại";
       setScanMessage(`Lỗi: ${msg}`);
-      setTimeout(() => setScanMessage(null), 5000);
+      scanTimerRef.current = setTimeout(() => setScanMessage(null), 5000);
     } finally {
       setScanning(false);
     }
@@ -90,6 +112,11 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
         );
     }
   };
+
+  // Phân quyền TC-03: Nếu không phải nhân viên chuyên môn (VT-04), không hiển thị widget này
+  if (!isSpecialist && !loading) {
+    return null;
+  }
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
@@ -173,6 +200,46 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
         </div>
       )}
 
+      {/* Bộ lọc nhanh theo mức độ khẩn cấp */}
+      {!loading && !error && tasks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <button
+            type="button"
+            onClick={() => setActiveFilter("ALL")}
+            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
+              activeFilter === "ALL"
+                ? "bg-slate-900 text-white shadow-2xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            Tất cả ({tasks.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter("CRITICAL")}
+            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
+              activeFilter === "CRITICAL"
+                ? "bg-rose-600 text-white shadow-2xs"
+                : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/60"
+            }`}
+          >
+            <AlertCircle className="h-3 w-3" />
+            Khẩn cấp ≤ 1 ngày ({criticalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter("UPCOMING_DAYS")}
+            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
+              activeFilter === "UPCOMING_DAYS"
+                ? "bg-sky-600 text-white shadow-2xs"
+                : "bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200/60"
+            }`}
+          >
+            Còn 2-3 ngày ({tasks.length - criticalCount})
+          </button>
+        </div>
+      )}
+
       {/* Loading skeleton */}
       {loading && (
         <div className="space-y-2 py-2">
@@ -191,7 +258,7 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
         </div>
       )}
 
-      {/* Empty State */}
+      {/* Empty State khi hoàn toàn không có việc sắp đến hạn */}
       {!loading && !error && tasks.length === 0 && (
         <div className="py-7 text-center border border-dashed border-slate-200 rounded-lg">
           <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
@@ -206,15 +273,23 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
         </div>
       )}
 
+      {/* Empty State cho tab filter */}
+      {!loading && !error && tasks.length > 0 && filteredTasks.length === 0 && (
+        <div className="py-6 text-center border border-dashed border-slate-200 rounded-lg text-xs text-slate-500">
+          Không có công việc nào thuộc bộ lọc này.
+        </div>
+      )}
+
       {/* Danh sách công việc sắp đến hạn */}
-      {!loading && !error && tasks.length > 0 && (
+      {!loading && !error && filteredTasks.length > 0 && (
         <div className="space-y-2">
-          {tasks.map((task) => {
+          {filteredTasks.map((task) => {
             const urgency = formatDaysRemaining(task.daysRemaining);
+            const formattedDueDate = formatDueDateVietnamese(task.dueDate);
             return (
               <div
                 key={task.taskId}
-                onClick={() => handleOpenTask(task)}
+                onClick={() => setSelectedTaskForModal(task)}
                 className="group flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-100 hover:border-rose-200 hover:bg-slate-50/70 transition cursor-pointer"
               >
                 <div className="min-w-0 flex-1">
@@ -236,7 +311,7 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
                     <span>·</span>
                     <span className="inline-flex items-center gap-1">
                       <Calendar className="h-3 w-3 text-slate-400" />
-                      Hạn chót: <strong className="text-slate-700">{task.dueDate}</strong>
+                      Hạn chót: <strong className="text-slate-700">{formattedDueDate}</strong>
                     </span>
                   </div>
                 </div>
@@ -256,15 +331,29 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
                     {urgency.text}
                   </span>
 
-                  {/* Nút mở công việc */}
+                  {/* Nút xem chi tiết modal */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTaskForModal(task);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition shadow-2xs cursor-pointer"
+                    title="Xem chi tiết thời hạn & liên kết"
+                  >
+                    <Eye className="h-3 w-3" />
+                    <span>Chi tiết</span>
+                  </button>
+
+                  {/* Nút mở nhanh đến dự án */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleOpenTask(task);
                     }}
-                    className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition shadow-2xs"
-                    title="Mở công việc này"
+                    className="inline-flex items-center gap-0.5 rounded-lg border border-transparent bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition shadow-2xs cursor-pointer"
+                    title="Đến trang Dự án"
                   >
                     <span>Mở việc</span>
                     <ExternalLink className="h-2.5 w-2.5" />
@@ -275,6 +364,23 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
           })}
         </div>
       )}
+
+      {/* Modal chi tiết công việc sắp đến hạn */}
+      <TaskDueDetailModal
+        task={selectedTaskForModal}
+        isOpen={selectedTaskForModal !== null}
+        onClose={() => setSelectedTaskForModal(null)}
+        onNavigateProject={(projectId, taskId) => {
+          setSelectedTaskForModal(null);
+          if (onSelectTask) {
+            onSelectTask(taskId, projectId);
+          } else if (onNavigate) {
+            onNavigate("project");
+          } else {
+            window.location.href = `/projects/${projectId}/tasks/${taskId}`;
+          }
+        }}
+      />
     </div>
   );
 };
