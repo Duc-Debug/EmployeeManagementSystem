@@ -1,9 +1,29 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common;
 
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
 import com.hrm.employeemanagement.domain.exception.DomainException;
-import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeVersionConflictException;
+import com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException;
+import com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException;
+import com.hrm.employeemanagement.domain.exception.leave.LeaveBalanceExceededException;
 import com.hrm.employeemanagement.domain.exception.orgunit.CyclicDependencyException;
 import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
 import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
@@ -12,30 +32,11 @@ import com.hrm.employeemanagement.domain.exception.orgunit.InvalidTreePathExcept
 import com.hrm.employeemanagement.domain.exception.orgunit.NullOrgUnitIdException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
-import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
-import com.hrm.employeemanagement.domain.exception.leave.DuplicateLeaveRequestException;
-import com.hrm.employeemanagement.domain.exception.leave.InvalidLeaveDateRangeException;
-import com.hrm.employeemanagement.domain.exception.leave.LeaveBalanceExceededException;
 import com.hrm.employeemanagement.domain.exception.skill.EmployeeSkillNotFoundException;
 import com.hrm.employeemanagement.domain.exception.skill.SkillNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
-import jakarta.validation.ConstraintViolationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.method.annotation.HandlerMethodValidationException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.stream.Collectors;
+import jakarta.validation.ConstraintViolationException;
 
 @RestControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
@@ -629,7 +630,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-
     @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException.class)
     public ResponseEntity<ErrorResponse> handleScenarioNotSaved(com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotSavedException ex) {
         ErrorResponse response = ErrorResponse.of(
@@ -664,6 +664,42 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 HttpStatus.UNPROCESSABLE_ENTITY.value());
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioBaselineStaleException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioBaselineStale(com.hrm.employeemanagement.domain.exception.scenario.ScenarioBaselineStaleException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_BASELINE_STALE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioAlreadyAppliedException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioAlreadyApplied(com.hrm.employeemanagement.domain.exception.scenario.ScenarioAlreadyAppliedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_ALREADY_APPLIED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandCapacityExceededException.class)
+    public ResponseEntity<ErrorResponse> handleScenarioDemandCapacityExceeded(com.hrm.employeemanagement.domain.exception.scenario.ScenarioDemandCapacityExceededException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SCENARIO_DEMAND_CAPACITY_EXCEEDED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.scenario.InvalidTargetProjectException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidTargetProject(com.hrm.employeemanagement.domain.exception.scenario.InvalidTargetProjectException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_TARGET_PROJECT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(com.hrm.employeemanagement.domain.exception.notification.NotificationNotFoundException.class)

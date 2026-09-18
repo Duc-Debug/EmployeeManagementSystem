@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 
+import com.hrm.employeemanagement.application.port.outbound.scenario.DeleteScenarioSnapshotPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSnapshotPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.SaveScenarioSnapshotPort;
 import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
@@ -13,12 +14,20 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.sc
 @Component
 public class ScenarioSnapshotPersistenceAdapter implements
         SaveScenarioSnapshotPort,
-        LoadScenarioSnapshotPort {
+        LoadScenarioSnapshotPort,
+        DeleteScenarioSnapshotPort {
 
     private final SpringDataScenarioSnapshotRepository repository;
 
     public ScenarioSnapshotPersistenceAdapter(SpringDataScenarioSnapshotRepository repository) {
         this.repository = Objects.requireNonNull(repository, "SpringDataScenarioSnapshotRepository must not be null");
+    }
+
+    @Override
+    public void deleteByScenarioId(Long scenarioId) {
+        if (scenarioId != null) {
+            repository.deleteByScenarioId(scenarioId);
+        }
     }
 
     @Override
