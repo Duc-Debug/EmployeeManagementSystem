@@ -158,7 +158,6 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
         int importedCount = 0;
         int skippedCount = 0;
         List<String> executionErrors = new ArrayList<>();
-
         for (ImportEmployeeRowDto row : revalidatedRows) {
             // Không tin cậy cờ valid gửi từ frontend; chỉ chấp nhận kết quả re-validation từ server
             if (!row.valid()) {
@@ -498,7 +497,6 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
         }
         return new String(passwordArray);
     }
-
     private String cleanString(String input) {
         if (input == null) return null;
         String trimmed = input.trim();
