@@ -167,4 +167,36 @@ class GetMyUpcomingDueTasksServiceTest {
         assertEquals("/projects/10/tasks/201", item.directUrl());
         assertEquals("IN_PROGRESS", item.status());
     }
+
+    @Test
+    @DisplayName("NCL-11-CN-004-TC-03: Cơ chế fallback - Khi không tìm thấy Employee bằng userId thì tra cứu theo user.employeeId")
+    void tc03_fallbackToEmployeeId_whenFindByUserIdEmpty() {
+        User specialistUser = createUserWithRole(50L, RoleCode.VT_04); // has employeeId = 1L
+        Employee employee = new Employee(
+                new EmployeeId(1L),
+                new UserId(50L),
+                1L,
+                "EMP-001",
+                "Chuyên viên DEV",
+                "Developer",
+                LocalDate.of(2025, 1, 1),
+                null,
+                false,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+
+        when(getAuthenticatedUserPort.getAuthenticatedUser()).thenReturn(specialistUser);
+        // findByUserId không trả về kết quả
+        when(loadEmployeePort.findByUserId(new UserId(50L))).thenReturn(Optional.empty());
+        // Cơ chế fallback tìm theo employeeId (1L)
+        when(loadEmployeePort.findById(new EmployeeId(1L))).thenReturn(Optional.of(employee));
+        when(loadTaskDueReminderPort.findUpcomingTasksByAssignee(eq(new EmployeeId(1L)), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+
+        List<UpcomingDueTaskResult> results = service.execute();
+
+        assertNotNull(results);
+        verify(loadEmployeePort).findById(new EmployeeId(1L));
+    }
 }

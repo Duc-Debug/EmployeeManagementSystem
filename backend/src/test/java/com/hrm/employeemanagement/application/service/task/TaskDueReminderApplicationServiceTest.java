@@ -118,14 +118,14 @@ class TaskDueReminderApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("NCL-11-CN-004-TC-01: Gửi thông báo khi công việc còn 2 ngày là tới hạn")
+    @DisplayName("NCL-11-CN-004-TC-01: Gửi thông báo khi công việc còn 2 ngày là tới hạn (Batch loading)")
     void tc01_sendReminder_whenTaskIsDueInTwoDays() {
         LocalDate taskDueDate = scanDate.plusDays(2);
         Task task = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 5L, taskDueDate, TaskStatus.IN_PROGRESS);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
 
         when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
-        when(loadEmployeePort.findById(new EmployeeId(5L))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(50L), 101L, taskDueDate)).thenReturn(false);
 
         TaskDueReminderScanResult result = service.execute(scanDate);
@@ -135,6 +135,10 @@ class TaskDueReminderApplicationServiceTest {
         assertEquals(0, result.skippedDuplicateCount());
         assertEquals(0, result.skippedCompletedCount());
         assertEquals(List.of(101L), result.notifiedTaskIds());
+
+        // Kiểm tra nạp theo lô (Batch loading) được gọi 1 lần duy nhất, không gọi findById từng nhân sự (N+1 query)
+        verify(loadEmployeePort).findAllByIdIn(List.of(new EmployeeId(5L)));
+        verify(loadEmployeePort, never()).findById(any());
 
         // Kiểm tra thông báo lưu vào SaveNotificationPort
         ArgumentCaptor<Notification> notifCaptor = ArgumentCaptor.forClass(Notification.class);
@@ -147,11 +151,11 @@ class TaskDueReminderApplicationServiceTest {
         assertTrue(savedNotif.getTitle().contains("Xây dựng tính năng đăng nhập"));
         assertTrue(savedNotif.getContent().contains("/projects/10/tasks/101"));
 
-        // Kiểm tra thông báo lưu vào CreateNotificationEventUseCase
+        // Kiểm tra thông báo lưu vào CreateNotificationEventUseCase kèm recipientId trong sourceEventKey
         ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
         verify(createNotificationEventUseCase).execute(eventCaptor.capture());
         CreateNotificationEventCommand savedEvent = eventCaptor.getValue();
-        assertEquals("TASK_DUE_REMINDER:101:" + taskDueDate, savedEvent.sourceEventKey());
+        assertEquals("TASK_DUE_REMINDER:101:50:" + taskDueDate, savedEvent.sourceEventKey());
         assertEquals(List.of(50L), savedEvent.recipientUserIds());
     }
 
@@ -163,7 +167,7 @@ class TaskDueReminderApplicationServiceTest {
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
 
         when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
-        when(loadEmployeePort.findById(new EmployeeId(5L))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         // QTN-19: Đã gửi trước đó!
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(50L), 101L, taskDueDate)).thenReturn(true);
 
@@ -177,6 +181,31 @@ class TaskDueReminderApplicationServiceTest {
         // Đảm bảo tuyệt đối không gửi lại thông báo trùng
         verify(saveNotificationPort, never()).save(any());
         verify(createNotificationEventUseCase, never()).execute(any());
+    }
+
+    @Test
+    @DisplayName("NCL-11-CN-004-TC-01 + QTN-19: Gửi nhắc cho người phụ trách mới khi công việc được giao lại (Reassigned)")
+    void tc01_qtn19_sendReminderToNewAssignee_whenTaskReassigned() {
+        LocalDate taskDueDate = scanDate.plusDays(2);
+        // Công việc 101 trước đây giao cho user 50, nay giao cho employee 6 (user 60)
+        Task task = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 6L, taskDueDate, TaskStatus.IN_PROGRESS);
+        Employee newEmployee = createEmployee(6L, 60L, "Trần Văn Mới");
+
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(6L)))).thenReturn(List.of(newEmployee));
+        // User 60 chưa từng nhận thông báo cho công việc này
+        when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(60L), 101L, taskDueDate)).thenReturn(false);
+
+        TaskDueReminderScanResult result = service.execute(scanDate);
+
+        assertEquals(1, result.sentCount());
+        assertEquals(0, result.skippedDuplicateCount());
+        verify(saveNotificationPort).save(any());
+
+        ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
+        verify(createNotificationEventUseCase).execute(eventCaptor.capture());
+        assertEquals("TASK_DUE_REMINDER:101:60:" + taskDueDate, eventCaptor.getValue().sourceEventKey());
+        assertEquals(List.of(60L), eventCaptor.getValue().recipientUserIds());
     }
 
     @Test
@@ -216,14 +245,14 @@ class TaskDueReminderApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("NCL-11-CN-004-TC-04: Lưu lịch sử - Ghi nhật ký kiểm toán (Audit Log) khi rà soát hoàn tất")
+    @DisplayName("NCL-11-CN-004-TC-04: Lưu lịch sử - Ghi nhật ký kiểm toán (Audit Log) an toàn không bị tràn cột")
     void tc04_saveAuditLog_whenScanCompleted() {
         LocalDate taskDueDate = scanDate.plusDays(2);
         Task task = createTask(101L, 10L, "Xây dựng tính năng", 5L, taskDueDate, TaskStatus.TODO);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn A");
 
         when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
-        when(loadEmployeePort.findById(new EmployeeId(5L))).thenReturn(Optional.of(employee));
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(any(), anyLong(), any())).thenReturn(false);
 
         service.execute(scanDate);
@@ -237,5 +266,6 @@ class TaskDueReminderApplicationServiceTest {
         assertEquals("tasks", savedAudit.getTableName());
         assertTrue(savedAudit.getNewValue().contains("sentCount=1"));
         assertTrue(savedAudit.getNewValue().contains("notifiedTaskIds=[101]"));
+        assertTrue(savedAudit.getNewValue().length() <= 2000);
     }
 }

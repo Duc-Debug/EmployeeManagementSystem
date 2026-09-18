@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.service.task;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,7 @@ import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskDueRemi
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.notification.NotificationAccessDeniedException;
 import com.hrm.employeemanagement.domain.notification.TaskDueReminderPolicy;
 import com.hrm.employeemanagement.domain.role.RoleCode;
@@ -31,6 +33,21 @@ public class GetMyUpcomingDueTasksService implements GetMyUpcomingDueTasksUseCas
     private final LoadEmployeePort loadEmployeePort;
     private final LoadTaskDueReminderPort loadTaskDueReminderPort;
     private final SaveAuditLogInNewTransactionPort deniedAuditLogPort;
+    private final Clock clock;
+
+    public GetMyUpcomingDueTasksService(
+            GetAuthenticatedUserPort getAuthenticatedUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadTaskDueReminderPort loadTaskDueReminderPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort,
+            Clock clock
+    ) {
+        this.getAuthenticatedUserPort = Objects.requireNonNull(getAuthenticatedUserPort, "getAuthenticatedUserPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
+        this.loadTaskDueReminderPort = Objects.requireNonNull(loadTaskDueReminderPort, "loadTaskDueReminderPort must not be null");
+        this.deniedAuditLogPort = deniedAuditLogPort;
+        this.clock = clock != null ? clock : Clock.systemDefaultZone();
+    }
 
     public GetMyUpcomingDueTasksService(
             GetAuthenticatedUserPort getAuthenticatedUserPort,
@@ -38,21 +55,20 @@ public class GetMyUpcomingDueTasksService implements GetMyUpcomingDueTasksUseCas
             LoadTaskDueReminderPort loadTaskDueReminderPort,
             SaveAuditLogInNewTransactionPort deniedAuditLogPort
     ) {
-        this.getAuthenticatedUserPort = Objects.requireNonNull(getAuthenticatedUserPort, "getAuthenticatedUserPort must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
-        this.loadTaskDueReminderPort = Objects.requireNonNull(loadTaskDueReminderPort, "loadTaskDueReminderPort must not be null");
-        this.deniedAuditLogPort = deniedAuditLogPort;
+        this(getAuthenticatedUserPort, loadEmployeePort, loadTaskDueReminderPort, deniedAuditLogPort, Clock.systemDefaultZone());
     }
 
     @Override
     public List<UpcomingDueTaskResult> execute() {
         User currentUser = getAuthenticatedUserPort.getAuthenticatedUser();
         if (currentUser == null) {
-            throw new IllegalStateException("Không tìm thấy người dùng đã xác thực");
+            throw new NotificationAccessDeniedException("Không tìm thấy thông tin người dùng đã xác thực");
         }
 
         // 1. Phân quyền theo TC-03: Chỉ cho phép Nhân viên chuyên môn (VT-04)
-        boolean isSpecialist = currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_04;
+        boolean isSpecialist = currentUser.getRole() != null &&
+                (currentUser.getRole().getCode() == RoleCode.VT_04 || "VT-04".equalsIgnoreCase(currentUser.getRole().getCode().getCode()));
+
         if (!isSpecialist) {
             String roleCodeStr = currentUser.getRole() != null && currentUser.getRole().getCode() != null
                     ? currentUser.getRole().getCode().getCode()
@@ -76,18 +92,22 @@ public class GetMyUpcomingDueTasksService implements GetMyUpcomingDueTasksUseCas
             );
         }
 
-        // 2. Tra cứu Employee hồ sơ gắn với User
+        // 2. Tra cứu Employee hồ sơ gắn với User (kèm cơ chế fallback qua currentUser.getEmployeeId())
         Optional<Employee> employeeOpt = loadEmployeePort.findByUserId(currentUser.getId());
-        if (employeeOpt.isEmpty()) {
+        if (employeeOpt.isEmpty() && currentUser.getEmployeeId() != null) {
+            employeeOpt = loadEmployeePort.findById(currentUser.getEmployeeId());
+        }
+
+        EmployeeId employeeId = employeeOpt.map(Employee::getId).orElse(currentUser.getEmployeeId());
+        if (employeeId == null) {
             return List.of();
         }
 
-        Employee employee = employeeOpt.get();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDate toDate = today.plusDays(TaskDueReminderPolicy.DEFAULT_DUE_SOON_DAYS);
 
         // 3. Tải danh sách công việc sắp đến hạn trong 3 ngày tới
-        List<Task> tasks = loadTaskDueReminderPort.findUpcomingTasksByAssignee(employee.getId(), today, toDate);
+        List<Task> tasks = loadTaskDueReminderPort.findUpcomingTasksByAssignee(employeeId, today, toDate);
         List<UpcomingDueTaskResult> results = new ArrayList<>();
 
         for (Task task : tasks) {
