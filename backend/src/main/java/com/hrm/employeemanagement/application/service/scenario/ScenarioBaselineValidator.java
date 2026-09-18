@@ -18,11 +18,13 @@ import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem;
 
 /**
  * Validator kiểm tra tính tươi mới của Baseline Snapshot cho Kịch bản nguồn lực.
- * Đảm bảo phát hiện stale cả về giờ phân bổ (allocatedHours) và giờ khả dụng (availableHours).
+ * Đảm bảo phát hiện stale cả về giờ phân bổ (allocatedHours), giờ khả dụng (availableHours),
+ * và trạng thái/đơn vị của nhân sự trong kịch bản.
  * Pure Java (Hexagonal Architecture).
  */
 public class ScenarioBaselineValidator {
@@ -52,6 +54,15 @@ public class ScenarioBaselineValidator {
             List<YearWeek> targetWeeks,
             Map<Long, Employee> employeeMap
     ) {
+        return checkBaselineStale(snapshotItems, targetWeeks, employeeMap, null);
+    }
+
+    public List<String> checkBaselineStale(
+            List<ScenarioAllocationSnapshotItem> snapshotItems,
+            List<YearWeek> targetWeeks,
+            Map<Long, Employee> employeeMap,
+            List<Long> allowedOrgUnitIds
+    ) {
         if (snapshotItems == null || snapshotItems.isEmpty() || targetWeeks == null || targetWeeks.isEmpty()) {
             return List.of();
         }
@@ -61,7 +72,30 @@ public class ScenarioBaselineValidator {
                 .distinct()
                 .toList();
 
-        // 1. Nạp và gom phân bổ hiện tại
+        List<String> staleReasons = new ArrayList<>();
+
+        // 1. Kiểm tra tính hợp lệ của nhân sự (HIGH-02: tồn tại, ACTIVE, thuộc đơn vị)
+        for (Long empId : snapshotEmpIds) {
+            Employee emp = employeeMap.get(empId);
+            if (emp == null) {
+                staleReasons.add(String.format("Nhân sự ID %d không còn tồn tại trong hệ thống", empId));
+            } else {
+                if (emp.getStatus() != EmployeeStatus.ACTIVE) {
+                    staleReasons.add(String.format(
+                            "Nhân sự %s không còn ở trạng thái hoạt động (trạng thái: %s)",
+                            emp.getFullName(), emp.getStatus()
+                    ));
+                }
+                if (allowedOrgUnitIds != null && !allowedOrgUnitIds.isEmpty() && !allowedOrgUnitIds.contains(emp.getOrgUnitId())) {
+                    staleReasons.add(String.format(
+                            "Nhân sự %s đã chuyển khỏi đơn vị thuộc phạm vi kịch bản",
+                            emp.getFullName()
+                    ));
+                }
+            }
+        }
+
+        // 2. Nạp và gom phân bổ hiện tại
         List<WeeklyProjectAllocation> currentAllocations = loadAllocationPort.loadAllocationsForEmployeesAndWeeks(snapshotEmpIds, targetWeeks);
         Map<String, BigDecimal> currentAllocMap = currentAllocations.stream()
                 .collect(Collectors.toMap(
@@ -70,11 +104,10 @@ public class ScenarioBaselineValidator {
                         BigDecimal::add
                 ));
 
-        // 2. Tính khả dụng thực tế hiện tại
+        // 3. Tính khả dụng thực tế hiện tại
         Map<String, BigDecimal> currentAvailMap = calculateCurrentAvailableHours(snapshotEmpIds, targetWeeks, employeeMap);
 
-        // 3. Kiểm tra stale cả allocatedHours và availableHours
-        List<String> staleReasons = new ArrayList<>();
+        // 4. Kiểm tra stale cả allocatedHours và availableHours
         for (ScenarioAllocationSnapshotItem item : snapshotItems) {
             String key = makeKey(item.getEmployeeId(), item.getYearNumber(), item.getWeekNumber());
             BigDecimal currentAllocated = currentAllocMap.getOrDefault(key, BigDecimal.ZERO);

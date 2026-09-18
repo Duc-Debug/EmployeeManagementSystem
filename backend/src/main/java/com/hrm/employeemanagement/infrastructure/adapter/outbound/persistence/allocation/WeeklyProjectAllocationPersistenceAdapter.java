@@ -182,6 +182,47 @@ public class WeeklyProjectAllocationPersistenceAdapter implements
         return results;
     }
 
+    @Override
+    public List<WeeklyProjectAllocation> loadAllocationsForProjectInWeeksForUpdate(Long projectId, List<YearWeek> targetWeeks) {
+        if (projectId == null || targetWeeks == null || targetWeeks.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, List<Integer>> weeksByYear = targetWeeks.stream()
+                .collect(Collectors.groupingBy(YearWeek::year, Collectors.mapping(YearWeek::weekNumber, Collectors.toList())));
+
+        List<WeeklyProjectAllocation> results = new ArrayList<>();
+        for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
+            Integer year = entry.getKey();
+            List<Integer> weeks = entry.getValue();
+            List<WeeklyProjectAllocationJpaEntity> entities = repository
+                    .findByProjectIdAndYearAndWeekNumberInForUpdate(projectId, year, weeks);
+            results.addAll(entities.stream().map(this::toDomain).toList());
+        }
+        return results;
+    }
+
+    @Override
+    public List<WeeklyProjectAllocation> loadAllocationsForEmployeesAndWeeksForUpdate(List<Long> employeeIds, List<YearWeek> targetWeeks) {
+        if (employeeIds == null || employeeIds.isEmpty() || targetWeeks == null || targetWeeks.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, List<Integer>> weeksByYear = targetWeeks.stream()
+                .collect(Collectors.groupingBy(YearWeek::year, Collectors.mapping(YearWeek::weekNumber, Collectors.toList())));
+
+        List<WeeklyProjectAllocation> results = new ArrayList<>();
+        List<List<Long>> chunks = partitionList(employeeIds, 500);
+        for (List<Long> chunk : chunks) {
+            for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
+                Integer year = entry.getKey();
+                List<Integer> weeks = entry.getValue();
+                List<WeeklyProjectAllocationJpaEntity> entities = repository
+                        .findByEmployeeIdInAndYearAndWeekNumberInForUpdate(chunk, year, weeks);
+                results.addAll(entities.stream().map(this::toDomain).toList());
+            }
+        }
+        return results;
+    }
+
     private WeeklyProjectAllocation toDomain(WeeklyProjectAllocationJpaEntity e) {
         return new WeeklyProjectAllocation(
                 e.getId(),

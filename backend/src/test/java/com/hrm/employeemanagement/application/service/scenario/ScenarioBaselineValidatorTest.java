@@ -152,4 +152,73 @@ class ScenarioBaselineValidatorTest {
 
         assertThat(reasons).isEmpty();
     }
+
+    @Test
+    @DisplayName("HIGH-02: Phát hiện stale khi nhân sự chuyển sang trạng thái TERMINATED (không còn ACTIVE)")
+    void testCheckBaselineStale_EmployeeInactive() {
+        ScenarioAllocationSnapshotItem snapshot = ScenarioAllocationSnapshotItem.create(
+                1L, empId, 2026, 40, BigDecimal.valueOf(10), BigDecimal.valueOf(40)
+        );
+        Employee inactiveEmp = new Employee(
+                new EmployeeId(empId), new UserId(1L), 10L, "EMP-1001", "Nguyễn Văn A",
+                "Backend Developer", null, null, false, 40, EmployeeStatus.TERMINATED
+        );
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+
+        List<String> reasons = validator.checkBaselineStale(
+                List.of(snapshot),
+                List.of(targetWeek),
+                Map.of(empId, inactiveEmp),
+                List.of(10L)
+        );
+
+        assertThat(reasons).anyMatch(r -> r.contains("không còn ở trạng thái hoạt động"));
+    }
+
+    @Test
+    @DisplayName("HIGH-02: Phát hiện stale khi nhân sự chuyển khỏi đơn vị thuộc phạm vi kịch bản")
+    void testCheckBaselineStale_EmployeeTransferredOutOfOrgUnit() {
+        ScenarioAllocationSnapshotItem snapshot = ScenarioAllocationSnapshotItem.create(
+                1L, empId, 2026, 40, BigDecimal.valueOf(10), BigDecimal.valueOf(40)
+        );
+        // emp có orgUnitId = 10L, nhưng kịch bản chỉ cho phép [20L, 30L]
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+
+        List<String> reasons = validator.checkBaselineStale(
+                List.of(snapshot),
+                List.of(targetWeek),
+                Map.of(empId, emp),
+                List.of(20L, 30L)
+        );
+
+        assertThat(reasons).anyMatch(r -> r.contains("đã chuyển khỏi đơn vị thuộc phạm vi kịch bản"));
+    }
+
+    @Test
+    @DisplayName("HIGH-02: Phát hiện stale khi nhân sự trong snapshot không còn tồn tại trong hệ thống")
+    void testCheckBaselineStale_EmployeeNotFound() {
+        ScenarioAllocationSnapshotItem snapshot = ScenarioAllocationSnapshotItem.create(
+                1L, empId, 2026, 40, BigDecimal.valueOf(10), BigDecimal.valueOf(40)
+        );
+
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+
+        List<String> reasons = validator.checkBaselineStale(
+                List.of(snapshot),
+                List.of(targetWeek),
+                Map.of() // Empty employee map
+        );
+
+        assertThat(reasons).anyMatch(r -> r.contains("không còn tồn tại trong hệ thống"));
+    }
 }

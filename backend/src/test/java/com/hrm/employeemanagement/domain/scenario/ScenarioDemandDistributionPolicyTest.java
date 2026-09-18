@@ -79,6 +79,92 @@ class ScenarioDemandDistributionPolicyTest {
         assertThat(ScenarioDemandDistributionPolicy.isRoleMatching("Java Developer", "")).isTrue();
     }
 
+    @Test
+    @DisplayName("HIGH-03: Aggregate capacity invariant across multiple demands in the same week (không vượt quá capacity)")
+    void testCalculateDistribution_EnforcesCapacityAcrossMultipleDemands() {
+        Long empIdA = 10L;
+        Employee empA = createEmployee(empIdA, "Backend Developer");
+        Map<Long, Employee> employeeMap = Map.of(empIdA, empA);
+        List<Long> snapshotEmpIds = List.of(empIdA);
+
+        YearWeek yw = YearWeek.of(2026, 40);
+        List<YearWeek> targetWeeks = List.of(yw);
+
+        // Demand 1: 30h Backend
+        ScenarioDemand demand1 = ScenarioDemand.create(
+                101L, "Backend Demand 1", 1,
+                2026, 40, 2026, 40,
+                BigDecimal.valueOf(30), "Backend Developer"
+        );
+        // Demand 2: 30h Backend
+        ScenarioDemand demand2 = ScenarioDemand.create(
+                102L, "Backend Demand 2", 2,
+                2026, 40, 2026, 40,
+                BigDecimal.valueOf(30), "Backend Developer"
+        );
+
+        String key = ScenarioDemandDistributionPolicy.makeKey(empIdA, yw.year(), yw.weekNumber());
+        Map<String, BigDecimal> capacityMap = Map.of(key, BigDecimal.valueOf(40));
+
+        Map<Long, Map<String, BigDecimal>> result = ScenarioDemandDistributionPolicy.calculateDistribution(
+                List.of(demand1, demand2),
+                snapshotEmpIds,
+                employeeMap,
+                targetWeeks,
+                capacityMap
+        );
+
+        BigDecimal totalAllocated = result.get(empIdA).get(key);
+
+        // Demand 1 takes 30h, Demand 2 capped at remaining 10h -> Total 40h <= Capacity 40h
+        assertThat(totalAllocated).isEqualByComparingTo(new BigDecimal("40.00"));
+    }
+
+    @Test
+    @DisplayName("HIGH-02: Không phân bổ giờ nhu cầu cho nhân sự có trạng thái không ACTIVE (TERMINATED)")
+    void testCalculateDistribution_IgnoresInactiveEmployee() {
+        Long activeEmpId = 1L;
+        Long inactiveEmpId = 2L;
+
+        Employee activeEmp = createEmployee(activeEmpId, "Backend Developer");
+        Employee inactiveEmp = new Employee(
+                new EmployeeId(inactiveEmpId),
+                new UserId(inactiveEmpId),
+                1L,
+                "EMP-2",
+                "Inactive Employee",
+                "Backend Developer",
+                null,
+                null,
+                false,
+                40,
+                EmployeeStatus.TERMINATED
+        );
+
+        Map<Long, Employee> employeeMap = Map.of(activeEmpId, activeEmp, inactiveEmpId, inactiveEmp);
+        List<Long> snapshotEmpIds = List.of(activeEmpId, inactiveEmpId);
+
+        YearWeek yw = YearWeek.of(2026, 40);
+        List<YearWeek> targetWeeks = List.of(yw);
+
+        ScenarioDemand demand = ScenarioDemand.create(
+                101L, "Demand", 1,
+                2026, 40, 2026, 40,
+                BigDecimal.valueOf(20), "Backend Developer"
+        );
+
+        Map<Long, Map<String, BigDecimal>> result = ScenarioDemandDistributionPolicy.calculateDistribution(
+                List.of(demand),
+                snapshotEmpIds,
+                employeeMap,
+                targetWeeks
+        );
+
+        String keyActive = ScenarioDemandDistributionPolicy.makeKey(activeEmpId, yw.year(), yw.weekNumber());
+        assertThat(result.get(activeEmpId).get(keyActive)).isEqualByComparingTo(new BigDecimal("20.00"));
+        assertThat(result.get(inactiveEmpId)).isNull();
+    }
+
     private Employee createEmployee(Long id, String role) {
         return new Employee(
                 new EmployeeId(id),

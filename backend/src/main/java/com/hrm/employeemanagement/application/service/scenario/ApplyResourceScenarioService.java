@@ -187,12 +187,27 @@ public class ApplyResourceScenarioService implements
 
         Map<Long, Employee> employeeMap = loadEmployeeMap(snapshotEmpIds);
 
-        // 1. Kiểm tra tính toàn vẹn của baseline snapshot (TC-02)
-        List<String> staleReasons = scenarioBaselineValidator.checkBaselineStale(snapshotItems, targetWeeks, employeeMap);
+        List<Long> branchOrgUnitIds = resolveScopeBranchOrgUnitIds(scenario.getOrgUnitId());
+
+        // 1. Kiểm tra tính toàn vẹn của baseline snapshot (TC-02, HIGH-02)
+        List<String> staleReasons = scenarioBaselineValidator.checkBaselineStale(snapshotItems, targetWeeks, employeeMap, branchOrgUnitIds);
         boolean isBaselineStale = !staleReasons.isEmpty();
 
-        // 2. Tính toán phân bổ nhu cầu kịch bản xuống nhân sự
-        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = ScenarioDemandDistributionPolicy.calculateDistribution(demands, snapshotEmpIds, employeeMap, targetWeeks);
+        Map<String, BigDecimal> snapshotAvailMap = snapshotItems.stream()
+                .collect(Collectors.toMap(
+                        i -> makeKey(i.getEmployeeId(), i.getYearNumber(), i.getWeekNumber()),
+                        ScenarioAllocationSnapshotItem::getAvailableHours,
+                        (a, b) -> a
+                ));
+
+        // 2. Tính toán phân bổ nhu cầu kịch bản xuống nhân sự (HIGH-03, HIGH-04)
+        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = ScenarioDemandDistributionPolicy.calculateDistribution(
+                demands,
+                snapshotEmpIds,
+                employeeMap,
+                targetWeeks,
+                snapshotAvailMap
+        );
 
         // 3. Nạp phân bổ hiện tại trên dự án mục tiêu (hỗ trợ vắt năm)
         List<WeeklyProjectAllocation> targetProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeeks(
@@ -213,13 +228,6 @@ public class ApplyResourceScenarioService implements
                         a -> makeKey(a.getEmployeeId(), a.getYear(), a.getWeekNumber()),
                         WeeklyProjectAllocation::getAllocatedHours,
                         BigDecimal::add
-                ));
-
-        Map<String, BigDecimal> snapshotAvailMap = snapshotItems.stream()
-                .collect(Collectors.toMap(
-                        i -> makeKey(i.getEmployeeId(), i.getYearNumber(), i.getWeekNumber()),
-                        ScenarioAllocationSnapshotItem::getAvailableHours,
-                        (a, b) -> a
                 ));
 
         // 4. Xây dựng Header các tuần
@@ -344,22 +352,40 @@ public class ApplyResourceScenarioService implements
 
         Map<Long, Employee> employeeMap = loadEmployeeMap(snapshotEmpIds);
 
-        // 1. Kiểm tra tính tươi mới của baseline snapshot (TC-02)
-        List<String> staleReasons = scenarioBaselineValidator.checkBaselineStale(snapshotItems, targetWeeks, employeeMap);
+        List<Long> branchOrgUnitIds = resolveScopeBranchOrgUnitIds(scenario.getOrgUnitId());
+
+        // 1. Thiết lập Concurrency Boundary: Khóa bi quan các phân bổ của dự án và nhân sự trong các tuần (HIGH-01)
+        List<WeeklyProjectAllocation> existingProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(
+                command.targetProjectId(),
+                targetWeeks
+        );
+        loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(snapshotEmpIds, targetWeeks);
+
+        // 2. Kiểm tra tính tươi mới của baseline snapshot và tính hợp lệ nhân sự (TC-02, HIGH-02)
+        List<String> staleReasons = scenarioBaselineValidator.checkBaselineStale(snapshotItems, targetWeeks, employeeMap, branchOrgUnitIds);
         if (!staleReasons.isEmpty()) {
             throw new ScenarioBaselineStaleException(
                     "Dữ liệu phân bổ thật đã thay đổi sau khi kịch bản được tạo. Vui lòng làm mới kịch bản trước khi áp dụng."
             );
         }
 
-        // 2. Tính toán phân bổ số giờ kịch bản cho từng nhân sự
-        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = ScenarioDemandDistributionPolicy.calculateDistribution(demands, snapshotEmpIds, employeeMap, targetWeeks);
+        Map<String, BigDecimal> snapshotAvailMap = snapshotItems.stream()
+                .collect(Collectors.toMap(
+                        i -> makeKey(i.getEmployeeId(), i.getYearNumber(), i.getWeekNumber()),
+                        ScenarioAllocationSnapshotItem::getAvailableHours,
+                        (a, b) -> a
+                ));
 
-        // 3. Nạp phân bổ hiện tại trên dự án mục tiêu (hỗ trợ vắt năm)
-        List<WeeklyProjectAllocation> existingProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeeks(
-                command.targetProjectId(),
-                targetWeeks
+        // 3. Tính toán phân bổ số giờ kịch bản cho từng nhân sự (HIGH-03, HIGH-04)
+        Map<Long, Map<String, BigDecimal>> empDemandHoursMap = ScenarioDemandDistributionPolicy.calculateDistribution(
+                demands,
+                snapshotEmpIds,
+                employeeMap,
+                targetWeeks,
+                snapshotAvailMap
         );
+
+        // 4. Ánh xạ các phân bổ hiện tại trên dự án mục tiêu (hỗ trợ vắt năm)
         Map<String, WeeklyProjectAllocation> existingAllocMap = existingProjectAllocations.stream()
                 .collect(Collectors.toMap(
                         a -> makeKey(a.getEmployeeId(), a.getYear(), a.getWeekNumber()),

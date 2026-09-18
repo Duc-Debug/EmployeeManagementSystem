@@ -222,8 +222,9 @@ class ApplyResourceScenarioServiceTest {
         WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
         when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
 
-        // Chưa có phân bổ trên dự án mục tiêu projectId
-        when(loadAllocationPort.loadAllocationsForProjectInWeeks(eq(projectId), any())).thenReturn(List.of());
+        // Khóa bi quan và nạp phân bổ trên dự án mục tiêu projectId và nhân sự
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
         when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Áp dụng sau khi ký hợp đồng");
@@ -257,6 +258,9 @@ class ApplyResourceScenarioServiceTest {
         when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
         when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
         when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
 
         // Dữ liệu thật hiện tại là 25h (khác với snapshotItem là 10h)
         WeeklyProjectAllocation changedAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(25));
@@ -373,9 +377,10 @@ class ApplyResourceScenarioServiceTest {
         WeeklyProjectAllocation cur2 = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2027, 1), BigDecimal.valueOf(10));
         when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(cur1, cur2));
 
-        // Phân bổ hiện tại trên targetProject có sẵn 5h ở 2027-W01
+        // Phân bổ hiện tại trên targetProject có sẵn 5h ở 2027-W01 (được khóa bi quan)
         WeeklyProjectAllocation target2027Alloc = WeeklyProjectAllocation.createNew(empId1, projectId, YearWeek.of(2027, 1), BigDecimal.valueOf(5));
-        when(loadAllocationPort.loadAllocationsForProjectInWeeks(eq(projectId), any())).thenReturn(List.of(target2027Alloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of(target2027Alloc));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
         when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Áp dụng kịch bản vắt năm");
@@ -411,10 +416,11 @@ class ApplyResourceScenarioServiceTest {
         WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
         when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
 
-        // DB trả về 2 bản ghi phân bổ cho cùng 1 employee trên cùng 1 dự án và tuần (data corruption)
+        // DB trả về 2 bản ghi phân bổ cho cùng 1 employee trên cùng 1 dự án và tuần (data corruption) được nạp qua ForUpdate
         WeeklyProjectAllocation dup1 = WeeklyProjectAllocation.createNew(empId1, projectId, YearWeek.of(2026, 38), BigDecimal.valueOf(5));
         WeeklyProjectAllocation dup2 = WeeklyProjectAllocation.createNew(empId1, projectId, YearWeek.of(2026, 38), BigDecimal.valueOf(8));
-        when(loadAllocationPort.loadAllocationsForProjectInWeeks(eq(projectId), any())).thenReturn(List.of(dup1, dup2));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of(dup1, dup2));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
 
         ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Áp dụng");
 
@@ -457,5 +463,86 @@ class ApplyResourceScenarioServiceTest {
         ArgumentCaptor<AuditLog> logCaptor = ArgumentCaptor.forClass(AuditLog.class);
         verify(saveAuditLogPort).save(logCaptor.capture());
         assertThat(logCaptor.getValue().getAction()).isEqualTo("REFRESH_SCENARIO_BASELINE");
+    }
+
+    @Test
+    @DisplayName("HIGH-01: ApplyScenario thiết lập Concurrency Boundary bằng cách khóa bi quan allocations cho project và employees")
+    void testApplyScenario_LockBoundary() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Khóa bi quan kiểm tra");
+        service.applyScenario(command);
+
+        // Đảm bảo các hàm nạp có khóa bi quan được gọi
+        verify(loadAllocationPort).loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any());
+        verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeksForUpdate(eq(List.of(empId1)), any());
+    }
+
+    @Test
+    @DisplayName("HIGH-04: Parity Contract Test - Preview kết quả tính toán khớp 100% với dữ liệu được Apply xuống DB")
+    void testPreviewAndApply_ContractConsistency() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findById(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(project));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotItem));
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingCompanyAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(10));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingCompanyAlloc));
+
+        // Chưa có phân bổ trên target project
+        when(loadAllocationPort.loadAllocationsForProjectInWeeks(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // 1. Gọi previewApplyScenario
+        ApplyScenarioPreviewResult preview = service.previewApplyScenario(scenarioId, projectId);
+        assertThat(preview.isBaselineStale()).isFalse();
+        assertThat(preview.employeeComparisons()).hasSize(1);
+        var previewCell = preview.employeeComparisons().get(0).weeklyCells().get(0);
+        BigDecimal expectedNewProjHours = previewCell.newProjectHours();
+        BigDecimal expectedScenHours = previewCell.scenarioAdditionalHours();
+
+        // 2. Gọi applyScenario
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Apply khớp preview");
+        ApplyScenarioResult applyResult = service.applyScenario(command);
+        assertThat(applyResult.status()).isEqualTo("applied");
+
+        // 3. Kiểm tra các bản ghi được lưu xuống DB khớp tuyệt đối với các cell trong preview
+        var cells = preview.employeeComparisons().get(0).weeklyCells();
+        ArgumentCaptor<WeeklyProjectAllocation> allocCaptor = ArgumentCaptor.forClass(WeeklyProjectAllocation.class);
+        verify(saveAllocationPort, times(cells.size())).save(allocCaptor.capture());
+        List<WeeklyProjectAllocation> savedAllocs = allocCaptor.getAllValues();
+
+        assertThat(savedAllocs).hasSameSizeAs(cells);
+
+        for (var cell : cells) {
+            WeeklyProjectAllocation savedAlloc = savedAllocs.stream()
+                    .filter(a -> a.getYear() == cell.year() && a.getWeekNumber() == cell.weekNumber())
+                    .findFirst()
+                    .orElse(null);
+
+            assertThat(savedAlloc).isNotNull();
+            assertThat(savedAlloc.getEmployeeId()).isEqualTo(empId1);
+            assertThat(savedAlloc.getProjectId()).isEqualTo(projectId);
+            assertThat(savedAlloc.getAllocatedHours()).isEqualByComparingTo(cell.newProjectHours());
+            assertThat(savedAlloc.getAllocatedHours()).isEqualByComparingTo(cell.scenarioAdditionalHours());
+        }
     }
 }

@@ -7,10 +7,12 @@ import java.util.regex.Pattern;
 
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 
 /**
  * Domain policy chịu trách nhiệm khớp vai trò nhân sự và phân bổ số giờ nhu cầu (ScenarioDemand)
- * đều cho các nhân sự phù hợp theo tuần, bảo toàn phần dư làm tròn (remainder cents).
+ * đều cho các nhân sự phù hợp theo tuần, bảo toàn phần dư làm tròn (remainder cents)
+ * và đảm bảo không vượt quá capacity của nhân sự trong tuần.
  */
 public class ScenarioDemandDistributionPolicy {
 
@@ -36,6 +38,16 @@ public class ScenarioDemandDistributionPolicy {
             Map<Long, Employee> employeeMap,
             List<YearWeek> targetWeeks
     ) {
+        return calculateDistribution(demands, empIds, employeeMap, targetWeeks, null);
+    }
+
+    public static Map<Long, Map<String, BigDecimal>> calculateDistribution(
+            List<ScenarioDemand> demands,
+            List<Long> empIds,
+            Map<Long, Employee> employeeMap,
+            List<YearWeek> targetWeeks,
+            Map<String, BigDecimal> capacityMap
+    ) {
         Map<Long, Map<String, BigDecimal>> empDemandHoursMap = new HashMap<>();
 
         for (YearWeek yw : targetWeeks) {
@@ -43,15 +55,19 @@ public class ScenarioDemandDistributionPolicy {
                     .filter(d -> d.isActiveInWeek(yw))
                     .toList();
 
+            Map<Long, BigDecimal> allocatedInWeekMap = new HashMap<>();
+
             for (ScenarioDemand d : activeDemands) {
                 BigDecimal totalDemandHours = d.getTotalHoursPerWeek();
-                if (totalDemandHours.compareTo(BigDecimal.ZERO) <= 0) continue;
+                if (totalDemandHours == null || totalDemandHours.compareTo(BigDecimal.ZERO) <= 0) continue;
 
                 String req = d.getSkillRequirement();
                 List<Long> matchingEmpIds = empIds.stream()
                         .filter(id -> {
                             Employee emp = employeeMap.get(id);
-                            return emp != null && isRoleMatching(emp.getProfessionalRole(), req);
+                            return emp != null
+                                    && emp.getStatus() == EmployeeStatus.ACTIVE
+                                    && isRoleMatching(emp.getProfessionalRole(), req);
                         })
                         .toList();
 
@@ -63,13 +79,31 @@ public class ScenarioDemandDistributionPolicy {
 
                     for (int i = 0; i < count; i++) {
                         Long empId = matchingEmpIds.get(i);
-                        BigDecimal empHours = (i < remainderCents)
+                        BigDecimal desiredHours = (i < remainderCents)
                                 ? basePerEmp.add(new BigDecimal("0.01"))
                                 : basePerEmp;
+
                         String mapKey = makeKey(empId, yw.year(), yw.weekNumber());
-                        empDemandHoursMap
-                                .computeIfAbsent(empId, k -> new HashMap<>())
-                                .merge(mapKey, empHours, BigDecimal::add);
+                        BigDecimal empAllocatedInWeek = allocatedInWeekMap.getOrDefault(empId, BigDecimal.ZERO);
+                        BigDecimal capacity = capacityMap != null && capacityMap.containsKey(mapKey)
+                                ? capacityMap.get(mapKey)
+                                : (employeeMap.get(empId) != null && employeeMap.get(empId).getStandardHoursPerWeek() != null
+                                    ? BigDecimal.valueOf(employeeMap.get(empId).getStandardHoursPerWeek())
+                                    : BigDecimal.valueOf(40));
+
+                        if (capacity == null || capacity.compareTo(BigDecimal.ZERO) < 0) {
+                            capacity = BigDecimal.ZERO;
+                        }
+
+                        BigDecimal remainingCap = capacity.subtract(empAllocatedInWeek).max(BigDecimal.ZERO);
+                        BigDecimal empHours = desiredHours.min(remainingCap);
+
+                        if (empHours.compareTo(BigDecimal.ZERO) > 0) {
+                            allocatedInWeekMap.put(empId, empAllocatedInWeek.add(empHours));
+                            empDemandHoursMap
+                                    .computeIfAbsent(empId, k -> new HashMap<>())
+                                    .merge(mapKey, empHours, BigDecimal::add);
+                        }
                     }
                 }
             }
