@@ -54,7 +54,12 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
 
     private static final Logger log = LoggerFactory.getLogger(EmployeeImportService.class);
 
-    private static final String DEFAULT_INITIAL_PASSWORD = "Password@123";
+    private static final String UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String LOWER = "abcdefghijklmnopqrstuvwxyz";
+    private static final String DIGITS = "0123456789";
+    private static final String SPECIAL = "!@#$%^&*";
+    private static final String ALL_CHARS = UPPER + LOWER + DIGITS + SPECIAL;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private static final List<DateTimeFormatter> DATE_FORMATTERS = List.of(
             DateTimeFormatter.ofPattern("yyyy-MM-dd"),
@@ -153,7 +158,6 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
         int importedCount = 0;
         int skippedCount = 0;
         List<String> executionErrors = new ArrayList<>();
-        String encodedDefaultPassword = passwordEncoder.encode(DEFAULT_INITIAL_PASSWORD);
 
         for (ImportEmployeeRowDto row : revalidatedRows) {
             // Không tin cậy cờ valid gửi từ frontend; chỉ chấp nhận kết quả re-validation từ server
@@ -170,12 +174,16 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
 
                 Long scopeOrgUnitId = (roleCode == RoleCode.VT_03) ? row.resolvedOrgUnitId() : null;
 
+                // Sinh mật khẩu ngẫu nhiên tạm thời an toàn (SecureRandom) riêng cho từng tài khoản
+                String temporaryPassword = generateSecureTemporaryPassword();
+                String encodedPassword = passwordEncoder.encode(temporaryPassword);
+
                 SingleRowImportResult result = singleRowImportPort.importSingleRow(
                         row.rowNumber(),
                         row.employeeCode(),
                         row.fullName(),
                         row.username(),
-                        encodedDefaultPassword,
+                        encodedPassword,
                         row.email(),
                         row.resolvedOrgUnitId(),
                         role,
@@ -195,8 +203,8 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                 }
             } catch (Exception e) {
                 skippedCount++;
-                log.error("Lỗi khi xử lý nhập dòng {} ({})", row.rowNumber(), row.employeeCode(), e);
-                executionErrors.add("Dòng " + row.rowNumber() + " (" + row.employeeCode() + "): " + e.getMessage());
+                log.error("Lỗi nội bộ khi xử lý nhập dòng {} ({})", row.rowNumber(), row.employeeCode(), e);
+                executionErrors.add("Dòng " + row.rowNumber() + " (" + (row.employeeCode() != null ? row.employeeCode() : "N/A") + "): Không thể xử lý bản ghi do lỗi hệ thống.");
             }
         }
 
@@ -470,6 +478,25 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
             }
         }
         throw new IllegalArgumentException("Không thể phân tích ngày: " + text);
+    }
+
+    private String generateSecureTemporaryPassword() {
+        StringBuilder sb = new StringBuilder(16);
+        sb.append(UPPER.charAt(SECURE_RANDOM.nextInt(UPPER.length())));
+        sb.append(LOWER.charAt(SECURE_RANDOM.nextInt(LOWER.length())));
+        sb.append(DIGITS.charAt(SECURE_RANDOM.nextInt(DIGITS.length())));
+        sb.append(SPECIAL.charAt(SECURE_RANDOM.nextInt(SPECIAL.length())));
+        for (int i = 4; i < 16; i++) {
+            sb.append(ALL_CHARS.charAt(SECURE_RANDOM.nextInt(ALL_CHARS.length())));
+        }
+        char[] passwordArray = sb.toString().toCharArray();
+        for (int i = passwordArray.length - 1; i > 0; i--) {
+            int j = SECURE_RANDOM.nextInt(i + 1);
+            char temp = passwordArray[i];
+            passwordArray[i] = passwordArray[j];
+            passwordArray[j] = temp;
+        }
+        return new String(passwordArray);
     }
 
     private String cleanString(String input) {

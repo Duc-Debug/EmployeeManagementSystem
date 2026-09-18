@@ -126,4 +126,31 @@ class EmployeeImportControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403));
     }
+
+    @Test
+    @DisplayName("API Preview từ chối tệp rỗng (HTTP 400 Bad Request)")
+    void preview_EmptyFile_BadRequest() throws Exception {
+        MockMultipartFile emptyFile = new MockMultipartFile(
+                "file", "empty.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[0]
+        );
+
+        mockMvc.perform(multipart("/api/v1/imports/employees/preview").file(emptyFile))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Tệp tải lên không có dữ liệu"));
+    }
+
+    @Test
+    @DisplayName("API Preview từ chối tệp vượt quá 10MB (HTTP 400 Bad Request)")
+    void preview_Exceeds10MB_BadRequest() throws Exception {
+        byte[] largeBytes = new byte[10 * 1024 * 1024 + 1];
+        MockMultipartFile largeFile = new MockMultipartFile(
+                "file", "large.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", largeBytes
+        );
+
+        mockMvc.perform(multipart("/api/v1/imports/employees/preview").file(largeFile))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Dung lượng tệp vượt quá giới hạn cho phép (tối đa 10MB)"));
+    }
 }

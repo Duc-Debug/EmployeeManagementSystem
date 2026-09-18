@@ -112,10 +112,32 @@ public class TransactionalSingleRowEmployeeImportExecutor implements SingleRowEm
             return SingleRowImportResult.ofSuccess();
         } catch (DataIntegrityViolationException ex) {
             log.warn("Xung đột toàn vẹn dữ liệu khi import dòng {} ({})", rowNumber, employeeCode, ex);
-            return SingleRowImportResult.ofFailure("Dòng " + rowNumber + " (" + employeeCode + "): Xung đột dữ liệu trong hệ thống (Tên đăng nhập, email hoặc mã nhân viên bị trùng lặp).");
+            if (isUniqueConstraintViolation(ex)) {
+                return SingleRowImportResult.ofFailure("Dòng " + rowNumber + " (" + employeeCode + "): Xung đột dữ liệu trong hệ thống (Tên đăng nhập, email hoặc mã nhân viên bị trùng lặp).");
+            }
+            return SingleRowImportResult.ofFailure("Dòng " + rowNumber + " (" + employeeCode + "): Vi phạm ràng buộc toàn vẹn dữ liệu khi lưu vào cơ sở dữ liệu.");
         } catch (Exception ex) {
-            log.error("Lỗi không mong muốn khi import dòng {} ({})", rowNumber, employeeCode, ex);
+            log.error("Lỗi nội bộ khi import dòng {} ({})", rowNumber, employeeCode, ex);
             return SingleRowImportResult.ofFailure("Dòng " + rowNumber + " (" + employeeCode + "): Không thể lưu bản ghi do lỗi hệ thống.");
         }
+    }
+
+    private boolean isUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable cause = ex.getRootCause();
+        if (cause == null) {
+            cause = ex.getCause();
+        }
+        String message = cause != null && cause.getMessage() != null ? cause.getMessage().toLowerCase() : "";
+        if (message.contains("uk_") || message.contains("duplicate") || message.contains("trùng") || message.contains("unique")) {
+            return true;
+        }
+        if (cause instanceof java.sql.SQLException sqlEx) {
+            int errorCode = sqlEx.getErrorCode();
+            String sqlState = sqlEx.getSQLState();
+            if (errorCode == 1062 || "23505".equals(sqlState)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

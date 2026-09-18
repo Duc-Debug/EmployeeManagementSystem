@@ -199,8 +199,8 @@ class EmployeeImportServiceTest {
     }
 
     @Test
-    @DisplayName("NCL-12-CN-004: Xác nhận nhập và cấp mật khẩu mặc định khởi tạo (Password@123)")
-    void testConfirm_SavesWithDefaultInitialPassword() {
+    @DisplayName("NCL-12-CN-004: Xác nhận nhập và sinh mật khẩu ngẫu nhiên an toàn (SecureRandom 16 ký tự)")
+    void testConfirm_GeneratesSecureRandomPassword() {
         ImportEmployeeRowDto validRow = new ImportEmployeeRowDto(
                 2, "EMP001", "Nguyen Van A", "an.nguyen", "an.nguyen@test.com",
                 "Trung tâm Phần mềm", 10L, "Trung tâm Phần mềm", "VT-04", "Developer",
@@ -218,7 +218,12 @@ class EmployeeImportServiceTest {
         assertEquals(1, result.importedCount());
         assertEquals(0, result.skippedCount());
 
-        verify(passwordEncoder).encode(eq("Password@123"));
+        ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
+        verify(passwordEncoder).encode(passwordCaptor.capture());
+        String generatedPassword = passwordCaptor.getValue();
+        assertNotNull(generatedPassword);
+        assertEquals(16, generatedPassword.length());
+        assertFalse(generatedPassword.equals("Password@123"), "Mật khẩu không được là hardcoded Password@123");
     }
 
     @Test
