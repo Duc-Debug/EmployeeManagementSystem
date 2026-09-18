@@ -61,6 +61,7 @@ public class ScenarioDemandDistributionPolicy {
         Map<Long, Map<String, BigDecimal>> empDemandHoursMap = new HashMap<>();
         BigDecimal totalRequestedHours = BigDecimal.ZERO;
         BigDecimal totalAppliedHours = BigDecimal.ZERO;
+        List<UnfulfilledDemandDetail> unfulfilledDetails = new ArrayList<>();
 
         for (YearWeek yw : targetWeeks) {
             List<ScenarioDemand> activeDemands = demands.stream()
@@ -74,6 +75,7 @@ public class ScenarioDemandDistributionPolicy {
                 if (totalDemandHours == null || totalDemandHours.compareTo(BigDecimal.ZERO) <= 0) continue;
 
                 totalRequestedHours = totalRequestedHours.add(totalDemandHours);
+                BigDecimal demandAppliedInWeek = BigDecimal.ZERO;
 
                 String req = d.getSkillRequirement();
                 List<Long> matchingEmpIds = empIds.stream()
@@ -115,11 +117,25 @@ public class ScenarioDemandDistributionPolicy {
                         if (empHours.compareTo(BigDecimal.ZERO) > 0) {
                             allocatedInWeekMap.put(empId, empAllocatedInWeek.add(empHours));
                             totalAppliedHours = totalAppliedHours.add(empHours);
+                            demandAppliedInWeek = demandAppliedInWeek.add(empHours);
                             empDemandHoursMap
-                                    .computeIfAbsent(empId, k -> new HashMap<>())
-                                    .merge(mapKey, empHours, BigDecimal::add);
+                                     .computeIfAbsent(empId, k -> new HashMap<>())
+                                     .merge(mapKey, empHours, BigDecimal::add);
                         }
                     }
+                }
+
+                BigDecimal unfulfilledForDemand = totalDemandHours.subtract(demandAppliedInWeek).max(BigDecimal.ZERO);
+                if (unfulfilledForDemand.compareTo(BigDecimal.ZERO) > 0) {
+                    unfulfilledDetails.add(new UnfulfilledDemandDetail(
+                            d.getId(),
+                            d.getDemandName(),
+                            yw.year(),
+                            yw.weekNumber(),
+                            totalDemandHours,
+                            demandAppliedInWeek,
+                            unfulfilledForDemand
+                    ));
                 }
             }
         }
@@ -132,7 +148,8 @@ public class ScenarioDemandDistributionPolicy {
                 totalRequestedHours,
                 totalAppliedHours,
                 totalUnfulfilledHours,
-                isPartiallyFulfilled
+                isPartiallyFulfilled,
+                unfulfilledDetails
         );
     }
 

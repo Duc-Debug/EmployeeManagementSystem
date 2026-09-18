@@ -202,13 +202,21 @@ public class ApplyResourceScenarioService implements
                         (a, b) -> a
                 ));
 
-        // 2. Tính toán phân bổ nhu cầu kịch bản xuống nhân sự (HIGH-03, HIGH-04)
+        // Năng lực còn lại thực tế của nhân sự sau khi trừ phân bổ hiện có: Remaining = max(0, Available - Allocated)
+        Map<String, BigDecimal> snapshotRemainingMap = snapshotItems.stream()
+                .collect(Collectors.toMap(
+                        i -> makeKey(i.getEmployeeId(), i.getYearNumber(), i.getWeekNumber()),
+                        i -> i.getAvailableHours().subtract(i.getAllocatedHours()).max(BigDecimal.ZERO),
+                        (a, b) -> a
+                ));
+
+        // 2. Tính toán phân bổ nhu cầu kịch bản xuống nhân sự dựa trên năng lực còn lại (HIGH-03, HIGH-04)
         ScenarioDistributionResult distResult = ScenarioDemandDistributionPolicy.calculateDistributionWithMetrics(
                 demands,
                 snapshotEmpIds,
                 employeeMap,
                 targetWeeks,
-                snapshotAvailMap
+                snapshotRemainingMap
         );
         Map<Long, Map<String, BigDecimal>> empDemandHoursMap = distResult.empDemandHoursMap();
 
@@ -318,7 +326,8 @@ public class ApplyResourceScenarioService implements
                 distResult.totalRequestedHours(),
                 distResult.totalAppliedHours(),
                 distResult.totalUnfulfilledHours(),
-                distResult.isPartiallyFulfilled()
+                distResult.isPartiallyFulfilled(),
+                distResult.unfulfilledDetails()
         );
     }
 
@@ -376,20 +385,21 @@ public class ApplyResourceScenarioService implements
             );
         }
 
-        Map<String, BigDecimal> snapshotAvailMap = snapshotItems.stream()
+        // Năng lực còn lại thực tế của nhân sự sau khi trừ phân bổ hiện có: Remaining = max(0, Available - Allocated)
+        Map<String, BigDecimal> snapshotRemainingMap = snapshotItems.stream()
                 .collect(Collectors.toMap(
                         i -> makeKey(i.getEmployeeId(), i.getYearNumber(), i.getWeekNumber()),
-                        ScenarioAllocationSnapshotItem::getAvailableHours,
+                        i -> i.getAvailableHours().subtract(i.getAllocatedHours()).max(BigDecimal.ZERO),
                         (a, b) -> a
                 ));
 
-        // 3. Tính toán phân bổ số giờ kịch bản cho từng nhân sự (HIGH-03, HIGH-04, Comment 1)
+        // 3. Tính toán phân bổ số giờ kịch bản cho từng nhân sự dựa trên năng lực còn lại (HIGH-03, HIGH-04, Comment 1)
         ScenarioDistributionResult distResult = ScenarioDemandDistributionPolicy.calculateDistributionWithMetrics(
                 demands,
                 snapshotEmpIds,
                 employeeMap,
                 targetWeeks,
-                snapshotAvailMap
+                snapshotRemainingMap
         );
         Map<Long, Map<String, BigDecimal>> empDemandHoursMap = distResult.empDemandHoursMap();
 
@@ -462,11 +472,13 @@ public class ApplyResourceScenarioService implements
                 scenario.getId(),
                 null,
                 String.format(
-                        "code=%s;targetProjectId=%d;appliedAllocations=%d;affectedEmployees=%d;note=%s",
+                        "code=%s;targetProjectId=%d;appliedAllocations=%d;affectedEmployees=%d;allowPartialFulfillment=%b;unfulfilledHours=%s;note=%s",
                         scenario.getCode(),
                         command.targetProjectId(),
                         appliedCount,
                         affectedEmployees.size(),
+                        command.isAllowPartialFulfillment(),
+                        distResult.totalUnfulfilledHours().stripTrailingZeros().toPlainString(),
                         command.note() != null ? command.note() : ""
                 )
         ));
@@ -493,7 +505,8 @@ public class ApplyResourceScenarioService implements
                 distResult.totalRequestedHours(),
                 distResult.totalAppliedHours(),
                 distResult.totalUnfulfilledHours(),
-                distResult.isPartiallyFulfilled()
+                distResult.isPartiallyFulfilled(),
+                distResult.unfulfilledDetails()
         );
     }
 

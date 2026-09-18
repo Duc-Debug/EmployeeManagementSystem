@@ -200,6 +200,115 @@ class ScenarioDemandDistributionPolicyTest {
         assertThat(result.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("15.00"));
         assertThat(result.isPartiallyFulfilled()).isTrue();
         assertThat(result.empDemandHoursMap().get(empId).get(key)).isEqualByComparingTo(new BigDecimal("25.00"));
+        assertThat(result.unfulfilledDetails()).hasSize(1);
+        assertThat(result.unfulfilledDetails().get(0).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("15.00"));
+    }
+
+    @Test
+    @DisplayName("Reviewer Point 1 Regression: Available=40h, Existing=32h -> Remaining=8h; Demand=16h -> Applied=8h, Unfulfilled=8h")
+    void testCalculateDistribution_RemainingCapacityInvariant_Regression() {
+        Long empId = 1L;
+        Employee emp = createEmployee(empId, "Java Developer");
+        Map<Long, Employee> employeeMap = Map.of(empId, emp);
+        List<Long> snapshotEmpIds = List.of(empId);
+
+        YearWeek yw = YearWeek.of(2026, 40);
+        List<YearWeek> targetWeeks = List.of(yw);
+
+        ScenarioDemand demand = ScenarioDemand.create(
+                101L, "Demand 16h", 1,
+                2026, 40, 2026, 40,
+                BigDecimal.valueOf(16), "Java Developer"
+        );
+
+        // Available = 40h, Existing = 32h -> Remaining = 40 - 32 = 8h
+        BigDecimal availableHours = new BigDecimal("40.00");
+        BigDecimal existingAllocatedHours = new BigDecimal("32.00");
+        BigDecimal remainingCapacity = availableHours.subtract(existingAllocatedHours).max(BigDecimal.ZERO);
+
+        String key = ScenarioDemandDistributionPolicy.makeKey(empId, yw.year(), yw.weekNumber());
+        Map<String, BigDecimal> capacityMap = Map.of(key, remainingCapacity);
+
+        ScenarioDistributionResult result = ScenarioDemandDistributionPolicy.calculateDistributionWithMetrics(
+                List.of(demand),
+                snapshotEmpIds,
+                employeeMap,
+                targetWeeks,
+                capacityMap
+        );
+
+        assertThat(result.totalRequestedHours()).isEqualByComparingTo(new BigDecimal("16.00"));
+        assertThat(result.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+        assertThat(result.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+        assertThat(result.isPartiallyFulfilled()).isTrue();
+
+        // Invariant: Existing (32h) + Applied (8h) = 40h <= Available (40h) -> No overload
+        BigDecimal totalPostAllocation = existingAllocatedHours.add(result.totalAppliedHours());
+        assertThat(totalPostAllocation).isLessThanOrEqualTo(availableHours);
+
+        // Breakdown verification
+        assertThat(result.unfulfilledDetails()).hasSize(1);
+        UnfulfilledDemandDetail detail = result.unfulfilledDetails().get(0);
+        assertThat(detail.demandName()).isEqualTo("Demand 16h");
+        assertThat(detail.requestedHours()).isEqualByComparingTo(new BigDecimal("16.00"));
+        assertThat(detail.appliedHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+        assertThat(detail.unfulfilledHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+    }
+
+    @Test
+    @DisplayName("Reviewer Point 2: Ngữ nghĩa totalRequestedHours trên dải tuần - 1 demand, 4 tuần, 40h/tuần -> requested=160h, applied + unfulfilled = requested")
+    void testCalculateDistribution_MultiWeekDemandSemantics() {
+        Long empId = 1L;
+        Employee emp = createEmployee(empId, "Java Developer");
+        Map<Long, Employee> employeeMap = Map.of(empId, emp);
+        List<Long> snapshotEmpIds = List.of(empId);
+
+        List<YearWeek> targetWeeks = List.of(
+                YearWeek.of(2026, 40),
+                YearWeek.of(2026, 41),
+                YearWeek.of(2026, 42),
+                YearWeek.of(2026, 43)
+        );
+
+        // 1 demand kéo dài 4 tuần, mỗi tuần 40h
+        ScenarioDemand demand = ScenarioDemand.create(
+                101L, "Backend Dev Demand", 1,
+                2026, 40, 2026, 43,
+                BigDecimal.valueOf(40), "Java Developer"
+        );
+
+        // Giả sử tuần 40 và 41 nhân sự còn đủ 40h, nhưng tuần 42 chỉ còn 20h, tuần 43 chỉ còn 10h
+        Map<String, BigDecimal> capacityMap = Map.of(
+                ScenarioDemandDistributionPolicy.makeKey(empId, 2026, 40), new BigDecimal("40.00"),
+                ScenarioDemandDistributionPolicy.makeKey(empId, 2026, 41), new BigDecimal("40.00"),
+                ScenarioDemandDistributionPolicy.makeKey(empId, 2026, 42), new BigDecimal("20.00"),
+                ScenarioDemandDistributionPolicy.makeKey(empId, 2026, 43), new BigDecimal("10.00")
+        );
+
+        ScenarioDistributionResult result = ScenarioDemandDistributionPolicy.calculateDistributionWithMetrics(
+                List.of(demand),
+                snapshotEmpIds,
+                employeeMap,
+                targetWeeks,
+                capacityMap
+        );
+
+        // 4 tuần * 40h = 160h
+        assertThat(result.totalRequestedHours()).isEqualByComparingTo(new BigDecimal("160.00"));
+        // Đã phân bổ: 40 + 40 + 20 + 10 = 110h
+        assertThat(result.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("110.00"));
+        // Chưa phân bổ: 160 - 110 = 50h
+        assertThat(result.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("50.00"));
+        // Bất biến: applied + unfulfilled == requested
+        assertThat(result.totalAppliedHours().add(result.totalUnfulfilledHours()))
+                .isEqualByComparingTo(result.totalRequestedHours());
+
+        // Breakdown chi tiết: hụt ở tuần 42 (20h) và tuần 43 (30h)
+        assertThat(result.unfulfilledDetails()).hasSize(2);
+        assertThat(result.unfulfilledDetails().get(0).weekNumber()).isEqualTo(42);
+        assertThat(result.unfulfilledDetails().get(0).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("20.00"));
+        assertThat(result.unfulfilledDetails().get(1).weekNumber()).isEqualTo(43);
+        assertThat(result.unfulfilledDetails().get(1).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("30.00"));
     }
 
     private Employee createEmployee(Long id, String role) {

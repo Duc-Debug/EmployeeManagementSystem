@@ -551,9 +551,63 @@ class ApplyResourceScenarioServiceTest {
         assertThat(result.status()).isEqualTo("applied");
         assertThat(result.isPartiallyFulfilled()).isTrue();
         assertThat(result.totalRequestedHours()).isEqualByComparingTo(new BigDecimal("100.00")); // 50h x 2 tuần
-        assertThat(result.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("80.00")); // 40h x 2 tuần
-        assertThat(result.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("20.00"));
+        assertThat(result.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("70.00")); // 30h (tuần 38: 40h avail - 10h existing) + 40h (tuần 39: fallback 40h)
+        assertThat(result.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("30.00"));
         assertThat(result.message()).contains("Áp dụng một phần thành công");
+        assertThat(result.unfulfilledDetails()).hasSize(2);
+        assertThat(result.unfulfilledDetails().get(0).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("20.00"));
+        assertThat(result.unfulfilledDetails().get(1).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("10.00"));
+    }
+
+    @Test
+    @DisplayName("Reviewer Point 1 Service Regression: Available=40h, Existing=32h, Demand=16h -> Remaining=8h -> Thất bại khi strict, thành công 8h khi partial")
+    void testApplyScenario_RemainingCapacityInvariant_Available40_Existing32_Demand16() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+
+        // Snapshot có available = 40h, allocated = 32h -> remaining = 8h
+        ScenarioAllocationSnapshotItem snapshotWithExisting = ScenarioAllocationSnapshotItem.create(
+                scenarioId,
+                empId1,
+                2026,
+                38,
+                BigDecimal.valueOf(32),
+                BigDecimal.valueOf(40)
+        );
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapshotWithExisting));
+
+        // Nhu cầu: 16h ở tuần 38
+        ScenarioDemand demand16h = ScenarioDemand.create(
+                scenarioId, "Demand 16h", 1,
+                2026, 38, 2026, 38,
+                BigDecimal.valueOf(16), "Java Developer"
+        );
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand16h));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation existingCompanyAlloc = WeeklyProjectAllocation.createNew(empId1, 999L, YearWeek.of(2026, 38), BigDecimal.valueOf(32));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(existingCompanyAlloc));
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // 1. Chế độ Strict (allowPartialFulfillment = false) -> Bị từ chối
+        ApplyScenarioCommand strictCommand = new ApplyScenarioCommand(scenarioId, projectId, "Strict apply", false);
+        assertThatThrownBy(() -> service.applyScenario(strictCommand))
+                .isInstanceOf(ScenarioDemandCapacityExceededException.class)
+                .hasMessageContaining("chỉ có thể phân bổ 8 giờ (thiếu 8 giờ");
+
+        // 2. Chế độ Cho phép phân bổ một phần (allowPartialFulfillment = true) -> Phân bổ 8h
+        ApplyScenarioCommand partialCommand = new ApplyScenarioCommand(scenarioId, projectId, "Partial apply", true);
+        ApplyScenarioResult partialResult = service.applyScenario(partialCommand);
+
+        assertThat(partialResult.isPartiallyFulfilled()).isTrue();
+        assertThat(partialResult.totalRequestedHours()).isEqualByComparingTo(new BigDecimal("16.00"));
+        assertThat(partialResult.totalAppliedHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+        assertThat(partialResult.totalUnfulfilledHours()).isEqualByComparingTo(new BigDecimal("8.00"));
+        assertThat(partialResult.unfulfilledDetails()).hasSize(1);
+        assertThat(partialResult.unfulfilledDetails().get(0).unfulfilledHours()).isEqualByComparingTo(new BigDecimal("8.00"));
     }
 
     @Test
