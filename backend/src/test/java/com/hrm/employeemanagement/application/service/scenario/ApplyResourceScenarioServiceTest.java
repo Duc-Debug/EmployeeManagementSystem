@@ -485,9 +485,45 @@ class ApplyResourceScenarioServiceTest {
         service.applyScenario(command);
 
         // Đảm bảo các hàm nạp có khóa bi quan được gọi
+        verify(loadScenarioPort).findByIdForUpdate(scenarioId);
         verify(loadProjectPort).findByIdForUpdate(new ProjectId(projectId));
+        verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(empId1));
         verify(loadAllocationPort).loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any());
         verify(loadAllocationPort).loadAllocationsForEmployeesAndWeeksForUpdate(eq(List.of(empId1)), any());
+    }
+
+    @Test
+    @DisplayName("Reviewer Point Concurrency: Khóa bi quan Employee (Root Lock) được gọi theo thứ tự ID tăng dần khi allocation chưa tồn tại để chống race condition và deadlock")
+    void testApplyScenario_LockBoundary_ProtectsUncreatedAllocationsViaSortedEmployeeLock() {
+        Long empIdA = 20L;
+        Long empIdB = 10L;
+
+        Employee empA = new Employee(new EmployeeId(empIdA), new UserId(empIdA), orgUnitId, "EMP-20", "Nguyen B", "Java Developer", null, null, false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+        Employee empB = new Employee(new EmployeeId(empIdB), new UserId(empIdB), orgUnitId, "EMP-10", "Nguyen A", "Java Developer", null, null, false, 40, com.hrm.employeemanagement.domain.employee.EmployeeStatus.ACTIVE);
+
+        ScenarioAllocationSnapshotItem snapA = ScenarioAllocationSnapshotItem.create(scenarioId, empIdA, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        ScenarioAllocationSnapshotItem snapB = ScenarioAllocationSnapshotItem.create(scenarioId, empIdB, 2026, 38, BigDecimal.ZERO, BigDecimal.valueOf(40));
+
+        when(authorizationService.require(PermissionCode.RESOURCE_SCENARIO_MANAGE)).thenReturn(rmUserId);
+        when(loadUserPort.findById(new UserId(rmUserId))).thenReturn(Optional.of(rmUser));
+        when(loadScenarioPort.findByIdForUpdate(scenarioId)).thenReturn(Optional.of(draftScenario));
+        when(loadSnapshotPort.findByScenarioId(scenarioId)).thenReturn(List.of(snapA, snapB)); // unsorted
+        when(loadDemandPort.findByScenarioId(scenarioId)).thenReturn(List.of(demand));
+        when(loadEmployeePort.findAllByIdIn(any())).thenReturn(List.of(empA, empB));
+
+        // Hoàn toàn chưa có allocation nào tồn tại (cả project và employee đều rỗng)
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(eq(projectId), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeksForUpdate(any(), any())).thenReturn(List.of());
+        when(saveScenarioPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplyScenarioCommand command = new ApplyScenarioCommand(scenarioId, projectId, "Lock uncreated allocation");
+        service.applyScenario(command);
+
+        // Khẳng định: Employee rows được khóa theo thứ tự ID tăng dần: 10L trước, 20L sau (tránh deadlock)
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(loadEmployeePort);
+        inOrder.verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(10L));
+        inOrder.verify(loadEmployeePort).findByIdForUpdate(new EmployeeId(20L));
     }
 
     @Test

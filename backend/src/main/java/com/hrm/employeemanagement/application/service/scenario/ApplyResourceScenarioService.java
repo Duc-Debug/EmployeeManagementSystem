@@ -371,6 +371,12 @@ public class ApplyResourceScenarioService implements
         List<Long> branchOrgUnitIds = resolveScopeBranchOrgUnitIds(scenario.getOrgUnitId());
 
         // 1. Thiết lập Concurrency Boundary: Khóa bi quan các phân bổ của dự án và nhân sự trong các tuần (HIGH-01)
+        // Khóa bi quan các hàng nhân sự (Employee) theo thứ tự ID tăng dần để ngăn ngừa deadlock và race condition
+        // khi tạo mới phân bổ chưa từng tồn tại (Root Aggregate Lock tương thích với ResourceAllocationService)
+        snapshotEmpIds.stream()
+                .sorted()
+                .forEach(empId -> loadEmployeePort.findByIdForUpdate(new EmployeeId(empId)));
+
         List<WeeklyProjectAllocation> existingProjectAllocations = loadAllocationPort.loadAllocationsForProjectInWeeksForUpdate(
                 command.targetProjectId(),
                 targetWeeks
