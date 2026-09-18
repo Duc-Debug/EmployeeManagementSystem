@@ -77,5 +77,22 @@ public class ApplyResourceScenarioUseCaseConfig {
 
         return new TransactionalApplyResourceScenarioServiceDecorator(service);
     }
+
+    @Bean
+    public ScenarioBaselineValidator scenarioBaselineValidator(
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            @Autowired(required = false) LoadWorkingCalendarPort loadWorkingCalendarPort
+    ) {
+        return new ScenarioBaselineValidator(
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort
+        );
+    }
 }
 

@@ -6,8 +6,6 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import org.springframework.stereotype.Component;
-
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
@@ -25,8 +23,8 @@ import com.hrm.employeemanagement.domain.scenario.ScenarioAllocationSnapshotItem
 /**
  * Validator kiểm tra tính tươi mới của Baseline Snapshot cho Kịch bản nguồn lực.
  * Đảm bảo phát hiện stale cả về giờ phân bổ (allocatedHours) và giờ khả dụng (availableHours).
+ * Pure Java (Hexagonal Architecture).
  */
-@Component
 public class ScenarioBaselineValidator {
 
     private final LoadWeeklyProjectAllocationPort loadAllocationPort;
