@@ -41,7 +41,6 @@ public class BillableRateReportController {
      * API Lấy báo cáo tỷ lệ giờ tính phí (NCL-10-CN-002).
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('BILLABLE_HOURS_REPORT_READ')")
     public ResponseEntity<ApiResponse<BillableRateResult>> getBillableRateReport(
             @RequestParam(required = false) Long orgUnitId,
             @RequestParam(required = false) Long employeeId,
@@ -66,7 +65,6 @@ public class BillableRateReportController {
      * API Xuất CSV báo cáo tỷ lệ giờ tính phí.
      */
     @GetMapping("/export")
-    @PreAuthorize("hasAuthority('BILLABLE_HOURS_REPORT_READ')")
     public ResponseEntity<byte[]> exportBillableRateReport(
             @RequestParam(required = false) Long orgUnitId,
             @RequestParam(required = false) Long employeeId,
