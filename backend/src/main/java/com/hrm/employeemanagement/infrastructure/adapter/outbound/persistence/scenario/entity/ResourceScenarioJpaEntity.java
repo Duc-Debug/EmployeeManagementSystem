@@ -53,12 +53,46 @@ public class ResourceScenarioJpaEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "target_project_id")
+    private Long targetProjectId;
+
+    @Column(name = "applied_at")
+    private LocalDateTime appliedAt;
+
+    @Column(name = "applied_by")
+    private Long appliedBy;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version = 0L;
 
     public ResourceScenarioJpaEntity() {}
 
+    /**
+     * Constructor 14 tham số cơ bản (legacy)
+     */
+    public ResourceScenarioJpaEntity(
+            Long id,
+            String code,
+            String name,
+            String description,
+            Long orgUnitId,
+            String status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
+        this(id, code, name, description, null, null, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, null, null, null);
+    }
+
+    /**
+     * Constructor 16 tham số (hỗ trợ develop có note và snapshotData)
+     */
     public ResourceScenarioJpaEntity(
             Long id,
             String code,
@@ -77,6 +111,58 @@ public class ResourceScenarioJpaEntity {
             LocalDateTime updatedAt,
             Long version
     ) {
+        this(id, code, name, description, note, snapshotData, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, null, null, null);
+    }
+
+    /**
+     * Constructor 17 tham số (hỗ trợ feat có targetProjectId, appliedAt, appliedBy)
+     */
+    public ResourceScenarioJpaEntity(
+            Long id,
+            String code,
+            String name,
+            String description,
+            Long orgUnitId,
+            String status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Long targetProjectId,
+            LocalDateTime appliedAt,
+            Long appliedBy
+    ) {
+        this(id, code, name, description, null, null, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version, targetProjectId, appliedAt, appliedBy);
+    }
+
+    /**
+     * Constructor đầy đủ 19 tham số (phù hợp với ResourceScenarioPersistenceAdapter toEntity)
+     */
+    public ResourceScenarioJpaEntity(
+            Long id,
+            String code,
+            String name,
+            String description,
+            String note,
+            String snapshotData,
+            Long orgUnitId,
+            String status,
+            Integer fromYear,
+            Integer fromWeek,
+            Integer durationWeeks,
+            LocalDateTime baseSnapshotAt,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version,
+            Long targetProjectId,
+            LocalDateTime appliedAt,
+            Long appliedBy
+    ) {
         this.id = id;
         this.code = code;
         this.name = name;
@@ -93,25 +179,9 @@ public class ResourceScenarioJpaEntity {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version != null ? version : 0L;
-    }
-
-    public ResourceScenarioJpaEntity(
-            Long id,
-            String code,
-            String name,
-            String description,
-            Long orgUnitId,
-            String status,
-            Integer fromYear,
-            Integer fromWeek,
-            Integer durationWeeks,
-            LocalDateTime baseSnapshotAt,
-            Long createdBy,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            Long version
-    ) {
-        this(id, code, name, description, null, null, orgUnitId, status, fromYear, fromWeek, durationWeeks, baseSnapshotAt, createdBy, createdAt, updatedAt, version);
+        this.targetProjectId = targetProjectId;
+        this.appliedAt = appliedAt;
+        this.appliedBy = appliedBy;
     }
 
     public Long getId() { return id; }
@@ -146,6 +216,12 @@ public class ResourceScenarioJpaEntity {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public Long getVersion() { return version; }
     public void setVersion(Long version) { this.version = version; }
+    public Long getTargetProjectId() { return targetProjectId; }
+    public void setTargetProjectId(Long targetProjectId) { this.targetProjectId = targetProjectId; }
+    public LocalDateTime getAppliedAt() { return appliedAt; }
+    public void setAppliedAt(LocalDateTime appliedAt) { this.appliedAt = appliedAt; }
+    public Long getAppliedBy() { return appliedBy; }
+    public void setAppliedBy(Long appliedBy) { this.appliedBy = appliedBy; }
 
     @PrePersist
     @PreUpdate
