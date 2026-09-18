@@ -200,6 +200,12 @@ export function canAccessTab(
             // Danh mục vai trò chuyên môn (NCL-12-CN-001): VT-01 -> VT-06 đều có quyền xem
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
+        case "data-import":
+        case "employee-import":
+            // NCL-12-CN-004: Nhập dữ liệu nhân sự từ tệp (Quản trị viên VT-06 hoặc quyền DATA_IMPORT)
+            return permissions?.includes("DATA_IMPORT") === true ||
+                ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+
         default:
             return true;
     }
