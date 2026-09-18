@@ -16,6 +16,7 @@ import {
   Info,
   Send,
   Lock,
+  Sliders,
 } from "lucide-react";
 import {
   getMyWeeklyTimesheet,
@@ -25,6 +26,7 @@ import {
   type WorkLogResult,
   type DailyWorkLogGroupDto,
 } from "@/lib/api/work-logs";
+import { adjustApprovedTimesheetEntry } from "@/lib/api/timesheet-approvals";
 import WorkLogModal from "./WorkLogModal";
 import { useAuthUser } from "@/lib/auth-session";
 
@@ -43,6 +45,15 @@ export default function WorkLogView() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingEntry, setEditingEntry] = useState<WorkLogResult | null>(null);
   const [targetDateForNewLog, setTargetDateForNewLog] = useState<string | undefined>(undefined);
+
+  // Adjust Approved Entry State
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState<boolean>(false);
+  const [adjustingEntry, setAdjustingEntry] = useState<WorkLogResult | null>(null);
+  const [adjustHours, setAdjustHours] = useState<string>("");
+  const [adjustDescription, setAdjustDescription] = useState<string>("");
+  const [adjustBillable, setAdjustBillable] = useState<boolean>(true);
+  const [adjustReason, setAdjustReason] = useState<string>("");
+  const [isAdjusting, setIsAdjusting] = useState<boolean>(false);
 
   // Toast Notification
   const [toast, setToast] = useState<{ message: string; visible: boolean; type?: "success" | "error" }>({
@@ -116,6 +127,59 @@ export default function WorkLogView() {
         err instanceof Error ? err.message : "Không thể xóa dòng ghi giờ.",
         "error"
       );
+    }
+  };
+
+  const handleOpenAdjustModal = (entry: WorkLogResult) => {
+    setAdjustingEntry(entry);
+    setAdjustHours(String(entry.hours || ""));
+    setAdjustDescription(entry.description || "");
+    setAdjustBillable(entry.isBillable ?? true);
+    setAdjustReason("");
+    setIsAdjustModalOpen(true);
+  };
+
+  const handleSaveAdjust = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustingEntry) return;
+
+    const numHours = parseFloat(adjustHours);
+    if (isNaN(numHours) || numHours <= 0 || numHours > 24) {
+      showToast("Số giờ làm việc phải lớn hơn 0 và không vượt quá 24h.", "error");
+      return;
+    }
+
+    if (!adjustReason.trim() || adjustReason.trim().length < 10) {
+      showToast("Lý do điều chỉnh không được để trống và phải có ít nhất 10 ký tự giải trình.", "error");
+      return;
+    }
+
+    setIsAdjusting(true);
+    try {
+      const res = await adjustApprovedTimesheetEntry(adjustingEntry.id, {
+        hours: numHours,
+        description: adjustDescription.trim(),
+        isBillable: adjustBillable,
+        reason: adjustReason.trim(),
+        version: adjustingEntry.version,
+      });
+
+      if (res.warnings && res.warnings.length > 0) {
+        alert("Cảnh báo ngân sách:\n" + res.warnings.join("\n"));
+      }
+
+      showToast("Điều chỉnh dòng giờ công đã duyệt thành công!", "success");
+      setIsAdjustModalOpen(false);
+      setAdjustingEntry(null);
+      loadWeeklyTimesheet(currentDate);
+    } catch (err: unknown) {
+      console.error("Lỗi điều chỉnh giờ đã duyệt:", err);
+      showToast(
+        err instanceof Error ? err.message : "Không thể điều chỉnh dòng giờ công đã duyệt.",
+        "error"
+      );
+    } finally {
+      setIsAdjusting(false);
     }
   };
 
@@ -561,6 +625,20 @@ export default function WorkLogView() {
                                   </button>
                                 </div>
                               )}
+
+                              {entry.status === "APPROVED" && (
+                                <div className="flex items-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenAdjustModal(entry)}
+                                    title="Điều chỉnh giờ đã duyệt"
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition cursor-pointer shadow-2xs"
+                                  >
+                                    <Sliders className="h-3.5 w-3.5" />
+                                    <span>Điều chỉnh</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -651,6 +729,140 @@ export default function WorkLogView() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Adjust Approved Work Log Modal */}
+      {isAdjustModalOpen && adjustingEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                  <Sliders className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Điều chỉnh giờ làm đã duyệt
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {adjustingEntry.projectName} &bull; {adjustingEntry.taskName} &bull; {adjustingEntry.workDate}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAdjustModalOpen(false);
+                  setAdjustingEntry(null);
+                }}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAdjust} className="space-y-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
+                <span className="font-bold">Lưu ý nghiệp vụ:</span> Dòng ghi giờ này đã được duyệt ({Number(adjustingEntry.hours || 0).toFixed(1)}h). Việc điều chỉnh sẽ cập nhật lại tổng giờ tuần và được ghi vết kiểm toán (Audit Trail) cùng lý do giải trình bắt buộc.
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Số giờ làm việc mới <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="0.25"
+                    max="24"
+                    value={adjustHours}
+                    onChange={(e) => setAdjustHours(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none"
+                    placeholder="VD: 6.5"
+                  />
+                </div>
+
+                <div className="flex items-center pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={adjustBillable}
+                      onChange={(e) => setAdjustBillable(e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4"
+                    />
+                    <span>Tính phí khách hàng (Billable)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Mô tả nội dung công việc
+                </label>
+                <textarea
+                  value={adjustDescription}
+                  onChange={(e) => setAdjustDescription(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none"
+                  placeholder="Mô tả công việc chi tiết..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Lý do điều chỉnh giải trình <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  required
+                  rows={3}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none"
+                  placeholder="Bắt buộc nhập lý do giải trình thay đổi giờ đã duyệt (tối thiểu 10 ký tự)..."
+                />
+                <div className="flex justify-between items-center mt-1 text-[11px] text-slate-400">
+                  <span>Tối thiểu 10 ký tự</span>
+                  <span className={adjustReason.trim().length >= 10 ? "text-emerald-600 font-bold" : "text-amber-600 font-semibold"}>
+                    {adjustReason.trim().length}/10 ký tự
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdjustModalOpen(false);
+                    setAdjustingEntry(null);
+                  }}
+                  disabled={isAdjusting}
+                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAdjusting || adjustReason.trim().length < 10}
+                  className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition disabled:opacity-50 cursor-pointer"
+                >
+                  {isAdjusting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Xác nhận điều chỉnh</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

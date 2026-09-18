@@ -276,4 +276,32 @@ public class TimesheetUseCaseConfig {
         );
         return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalGetPendingApprovalsUseCase(pureService);
     }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.timesheet.AdjustApprovedWorkLogUseCase adjustApprovedWorkLogUseCase(
+            LoadTimesheetEntryPort loadTimesheetEntryPort,
+            SaveTimesheetEntryPort saveTimesheetEntryPort,
+            LoadTimesheetPort loadTimesheetPort,
+            SaveTimesheetPort saveTimesheetPort,
+            LoadProjectPort loadProjectPort,
+            LoadTaskPort loadTaskPort,
+            LoadEmployeePort loadEmployeePort,
+            com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetAuditLogPort saveTimesheetAuditLogPort,
+            AuthorizationService authorizationService,
+            java.util.Optional<com.hrm.employeemanagement.application.port.inbound.allocation.period.CheckAllocationPeriodLockUseCase> checkAllocationPeriodLockUseCaseOpt) {
+        com.hrm.employeemanagement.application.service.timesheet.AdjustApprovedWorkLogService pureService =
+                new com.hrm.employeemanagement.application.service.timesheet.AdjustApprovedWorkLogService(
+                        loadTimesheetEntryPort,
+                        saveTimesheetEntryPort,
+                        loadTimesheetPort,
+                        saveTimesheetPort,
+                        loadProjectPort,
+                        loadTaskPort,
+                        loadEmployeePort,
+                        saveTimesheetAuditLogPort,
+                        authorizationService,
+                        checkAllocationPeriodLockUseCaseOpt.orElse(null)
+                );
+        return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalAdjustApprovedWorkLogUseCase(pureService);
+    }
 }
