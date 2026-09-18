@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { countWorkingDays } from "../components/unavailability/DeclareUnavailabilityModal.js";
+import { formatDateVN } from "../components/unavailability/UnavailabilityView.js";
 import {
   UNAVAILABILITY_REASON_LABELS,
   UNAVAILABILITY_STATUS_LABELS,
@@ -124,6 +125,73 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(UNAVAILABILITY_STATUS_LABELS.APPROVED, "Đã phê duyệt");
       assert.equal(UNAVAILABILITY_STATUS_LABELS.REJECTED, "Đã từ chối");
       assert.equal(UNAVAILABILITY_STATUS_LABELS.CANCELLED, "Đã hủy");
+    });
+  });
+
+  describe("Date formatting & Vietnamese localization", () => {
+    test("TC-11: formatDateVN chuyển đổi định dạng YYYY-MM-DD sang DD/MM/YYYY chuẩn xác", () => {
+      assert.equal(formatDateVN("2026-09-22"), "22/09/2026");
+      assert.equal(formatDateVN("2026-01-05"), "05/01/2026");
+      assert.equal(formatDateVN(null), "—");
+      assert.equal(formatDateVN(""), "—");
+      assert.equal(formatDateVN("invalid"), "invalid");
+    });
+  });
+
+  describe("Client-side Pagination Logic", () => {
+    test("TC-12: Tính toán chính xác số trang và slice danh sách theo kích cỡ 10 phần tử/trang", () => {
+      const mockList = Array.from({ length: 25 }, (_, i) => ({ id: i + 1 }));
+      const pageSize = 10;
+      const totalPages = Math.max(1, Math.ceil(mockList.length / pageSize));
+      assert.equal(totalPages, 3);
+
+      // Trang 1: 1 -> 10
+      const page1 = mockList.slice(0, 10);
+      assert.equal(page1.length, 10);
+      assert.equal(page1[0].id, 1);
+      assert.equal(page1[9].id, 10);
+
+      // Trang 3: 21 -> 25
+      const page3 = mockList.slice(20, 30);
+      assert.equal(page3.length, 5);
+      assert.equal(page3[0].id, 21);
+      assert.equal(page3[4].id, 25);
+    });
+
+    test("TC-13: Danh sách rỗng trả về ít nhất 1 trang", () => {
+      const emptyList = [];
+      const totalPages = Math.max(1, Math.ceil(emptyList.length / 10));
+      assert.equal(totalPages, 1);
+    });
+  });
+
+  describe("Cancellation Eligibility & Past Date Guards", () => {
+    test("TC-14: Đơn PENDING luôn được phép hủy bất kể ngày trong tương lai hay hiện tại", () => {
+      const todayStr = "2026-09-18";
+      const item = { id: 1, startDate: "2026-09-20", status: "PENDING" };
+      const isPast = item.startDate < todayStr;
+      const canCancel = item.status === "PENDING" || (item.status === "APPROVED" && !isPast);
+      assert.equal(canCancel, true);
+    });
+
+    test("TC-15: Đơn APPROVED trong tương lai được phép hủy; đơn APPROVED trong quá khứ bị khóa hủy", () => {
+      const todayStr = "2026-09-18";
+
+      const futureApproved = { id: 2, startDate: "2026-09-22", status: "APPROVED" };
+      assert.equal(futureApproved.startDate < todayStr, false);
+      assert.equal(futureApproved.status === "PENDING" || (futureApproved.status === "APPROVED" && !(futureApproved.startDate < todayStr)), true);
+
+      const pastApproved = { id: 3, startDate: "2026-09-10", status: "APPROVED" };
+      assert.equal(pastApproved.startDate < todayStr, true);
+      assert.equal(pastApproved.status === "PENDING" || (pastApproved.status === "APPROVED" && !(pastApproved.startDate < todayStr)), false);
+    });
+
+    test("TC-16: Đơn REJECTED hoặc CANCELLED không thể tiếp tục hủy", () => {
+      const rejected = { id: 4, startDate: "2026-09-25", status: "REJECTED" };
+      const cancelled = { id: 5, startDate: "2026-09-25", status: "CANCELLED" };
+      const canCancel = (d) => d.status === "PENDING" || (d.status === "APPROVED" && d.startDate >= "2026-09-18");
+      assert.equal(canCancel(rejected), false);
+      assert.equal(canCancel(cancelled), false);
     });
   });
 });

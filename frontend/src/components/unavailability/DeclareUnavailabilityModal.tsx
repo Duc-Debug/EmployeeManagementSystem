@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { X, AlertCircle, Clock, Loader2, Info } from "lucide-react";
 import {
   submitUnavailability,
@@ -62,6 +62,51 @@ export default function DeclareUnavailabilityModal({
     return workingDays * 8;
   }, [workingDays]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isSubmitting) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isSubmitting, onClose]);
+
+  const applyPreset = (preset: "today" | "next3days" | "thisWeek" | "nextWeek") => {
+    const now = new Date();
+    const formatDate = (d: Date) => d.toISOString().split("T")[0];
+
+    if (preset === "today") {
+      const s = formatDate(now);
+      setStartDate(s);
+      setEndDate(s);
+    } else if (preset === "next3days") {
+      const s = formatDate(now);
+      const end = new Date(now);
+      end.setDate(now.getDate() + 2);
+      setStartDate(s);
+      setEndDate(formatDate(end));
+    } else if (preset === "thisWeek") {
+      const s = formatDate(now);
+      const end = new Date(now);
+      const day = now.getDay();
+      const diffToFriday = day <= 5 ? 5 - day : 0;
+      end.setDate(now.getDate() + diffToFriday);
+      setStartDate(s);
+      setEndDate(formatDate(end));
+    } else if (preset === "nextWeek") {
+      const mon = new Date(now);
+      const day = now.getDay();
+      const diffToNextMon = (8 - day) % 7 || 7;
+      mon.setDate(now.getDate() + diffToNextMon);
+      const fri = new Date(mon);
+      fri.setDate(mon.getDate() + 4);
+      setStartDate(formatDate(mon));
+      setEndDate(formatDate(fri));
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,7 +153,14 @@ export default function DeclareUnavailabilityModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+    >
       <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
@@ -135,6 +187,43 @@ export default function DeclareUnavailabilityModal({
               <span>{errorMessage}</span>
             </div>
           )}
+
+          {/* Quick Presets */}
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              Chọn nhanh khoảng thời gian
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyPreset("today")}
+                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition"
+              >
+                Hôm nay
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("next3days")}
+                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition"
+              >
+                3 ngày tới
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("thisWeek")}
+                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition"
+              >
+                Hết tuần này
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("nextWeek")}
+                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition"
+              >
+                Tuần sau
+              </button>
+            </div>
+          </div>
 
           {/* Date Range */}
           <div className="grid grid-cols-2 gap-4">

@@ -68,6 +68,32 @@ export default function ApproveWithConflictModal({
     };
   }, [isOpen, declaration]);
 
+  const handleRetryCheck = async () => {
+    if (!declaration) return;
+    try {
+      setIsChecking(true);
+      setCheckError(null);
+      const res = await checkUnavailabilityConflict(declaration.id);
+      setConflictResult(res);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Không thể kiểm tra xung đột phân bổ.";
+      setCheckError(msg);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isApproving) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isApproving, onClose]);
+
   if (!isOpen || !declaration) return null;
 
   const handleApprove = async () => {
@@ -96,7 +122,14 @@ export default function ApproveWithConflictModal({
   const hasConflict = conflictResult?.hasConflict === true;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isApproving) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+    >
       <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
@@ -130,8 +163,15 @@ export default function ApproveWithConflictModal({
               <span>Đang kiểm tra xung đột với kế hoạch phân bổ dự án...</span>
             </div>
           ) : checkError ? (
-            <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs">
-              Không thể kiểm tra xung đột tự động: {checkError}
+            <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs flex items-center justify-between gap-3">
+              <span>Không thể kiểm tra xung đột tự động: {checkError}</span>
+              <button
+                type="button"
+                onClick={handleRetryCheck}
+                className="px-2.5 py-1 text-xs font-semibold text-amber-900 bg-amber-200/70 hover:bg-amber-200 rounded-lg transition shrink-0"
+              >
+                Thử lại
+              </button>
             </div>
           ) : hasConflict ? (
             /* Conflict Warning Banner per QTN-24 */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   CalendarX,
   Plus,
@@ -16,7 +16,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
-import { getEmployeeProfileByUserId, type EmployeeProfile } from "@/lib/api/employees";
+import {
+  getEmployeeProfileByUserId,
+  getEmployees,
+  type EmployeeProfile,
+} from "@/lib/api/employees";
 import {
   getMyUnavailabilityDeclarations,
   getPendingUnavailabilityDeclarations,
@@ -28,6 +32,13 @@ import {
 import DeclareUnavailabilityModal from "./DeclareUnavailabilityModal";
 import ApproveWithConflictModal from "./ApproveWithConflictModal";
 import RejectUnavailabilityModal from "./RejectUnavailabilityModal";
+
+export function formatDateVN(dateStr?: string | null): string {
+  if (!dateStr) return "—";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
 
 export default function UnavailabilityView() {
   const user = useAuthUser();
@@ -44,17 +55,42 @@ export default function UnavailabilityView() {
   const [myDeclarations, setMyDeclarations] = useState<UnavailabilityDeclarationResult[]>([]);
   const [pendingDeclarations, setPendingDeclarations] = useState<UnavailabilityDeclarationResult[]>([]);
   const [currentEmployee, setCurrentEmployee] = useState<EmployeeProfile | null>(null);
+  const [employeesMap, setEmployeesMap] = useState<Record<number, string>>({});
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
-  // Notification toast
+  // Client-side pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
+
+  // Reset page when tab or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeSubTab, statusFilter, searchTerm]);
+
+  // Notification toast with ref cleanup
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const showToast = (type: "success" | "error", message: string) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
     setNotification({ type, message });
-    setTimeout(() => setNotification(null), 4000);
+    toastTimeoutRef.current = setTimeout(() => {
+      setNotification(null);
+      toastTimeoutRef.current = null;
+    }, 4000);
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Modals state
   const [isDeclareModalOpen, setIsDeclareModalOpen] = useState<boolean>(false);
@@ -80,6 +116,29 @@ export default function UnavailabilityView() {
       isMounted = false;
     };
   }, [user]);
+
+  // Load employee directory for name mapping in manager view
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDirectory() {
+      try {
+        const res = await getEmployees(1, 200);
+        if (isMounted && res?.content) {
+          const map: Record<number, string> = {};
+          for (const emp of res.content) {
+            map[emp.id] = emp.fullName;
+          }
+          setEmployeesMap(map);
+        }
+      } catch {
+        // Silently ignore if not authorized
+      }
+    }
+    loadDirectory();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Load declarations data
   const loadData = useCallback(async () => {
@@ -123,17 +182,30 @@ export default function UnavailabilityView() {
   // Filtered list
   const currentList = useMemo(() => {
     const list = activeSubTab === "my" ? myDeclarations : pendingDeclarations;
+    const lowerSearch = searchTerm.trim().toLowerCase();
+
     return list.filter((item) => {
       const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
+      const empName = employeesMap[item.employeeId] || "";
       const matchesSearch =
-        searchTerm === "" ||
-        String(item.id).includes(searchTerm) ||
-        (item.reasonDetail && item.reasonDetail.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        lowerSearch === "" ||
+        String(item.id).includes(lowerSearch) ||
+        empName.toLowerCase().includes(lowerSearch) ||
+        (item.reasonDetail && item.reasonDetail.toLowerCase().includes(lowerSearch)) ||
         (UNAVAILABILITY_REASON_LABELS[item.reasonType] &&
-          UNAVAILABILITY_REASON_LABELS[item.reasonType].toLowerCase().includes(searchTerm.toLowerCase()));
+          UNAVAILABILITY_REASON_LABELS[item.reasonType].toLowerCase().includes(lowerSearch));
       return matchesStatus && matchesSearch;
     });
-  }, [activeSubTab, myDeclarations, pendingDeclarations, statusFilter, searchTerm]);
+  }, [activeSubTab, myDeclarations, pendingDeclarations, statusFilter, searchTerm, employeesMap]);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(currentList.length / pageSize));
+  }, [currentList.length, pageSize]);
+
+  const paginatedList = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return currentList.slice(startIndex, startIndex + pageSize);
+  }, [currentList, currentPage, pageSize]);
 
   // Stats KPI
   const stats = useMemo(() => {
@@ -331,137 +403,205 @@ export default function UnavailabilityView() {
               <div className="p-4 rounded-2xl bg-slate-100/80 mb-3 text-slate-400">
                 <CalendarX className="w-8 h-8" />
               </div>
-              <p className="text-xs font-semibold text-slate-600">Không có bản ghi nào</p>
-              <p className="text-[11px] text-slate-400 mt-1 max-w-sm">
-                {activeSubTab === "my"
-                  ? "Bạn chưa có đơn khai báo thời gian không sẵn sàng nào trong danh mục này."
-                  : "Hiện không có đơn khai báo nào đang chờ bạn phê duyệt."}
-              </p>
+              {searchTerm || statusFilter !== "ALL" ? (
+                <>
+                  <p className="text-xs font-semibold text-slate-700">Không tìm thấy kết quả phù hợp</p>
+                  <p className="text-[11px] text-slate-400 mt-1 max-w-sm">
+                    Không có đơn khai báo nào khớp với bộ lọc hoặc từ khóa tìm kiếm &quot;{searchTerm}&quot;.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setStatusFilter("ALL");
+                    }}
+                    className="mt-3 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition"
+                  >
+                    Xóa bộ lọc
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold text-slate-600">Không có bản ghi nào</p>
+                  <p className="text-[11px] text-slate-400 mt-1 max-w-sm">
+                    {activeSubTab === "my"
+                      ? "Bạn chưa có đơn khai báo thời gian không sẵn sàng nào trong danh mục này."
+                      : "Hiện không có đơn khai báo nào đang chờ bạn phê duyệt."}
+                  </p>
+                </>
+              )}
             </div>
           ) : (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-semibold">
-                  <th className="py-3 px-4 w-20">Mã đơn</th>
-                  {activeSubTab === "pending" && <th className="py-3 px-4">Nhân sự</th>}
-                  <th className="py-3 px-4">Khoảng thời gian</th>
-                  <th className="py-3 px-4">Giờ khấu trừ</th>
-                  <th className="py-3 px-4">Loại lý do</th>
-                  <th className="py-3 px-4">Chi tiết / Ghi chú</th>
-                  <th className="py-3 px-4">Trạng thái</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {currentList.map((item) => {
-                  const isPast = item.startDate < todayStr;
-                  const canCancel =
-                    activeSubTab === "my" &&
-                    (item.status === "PENDING" || (item.status === "APPROVED" && !isPast));
+            <>
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-semibold">
+                    <th className="py-3 px-4 w-20">Mã đơn</th>
+                    {activeSubTab === "pending" && <th className="py-3 px-4">Nhân sự</th>}
+                    <th className="py-3 px-4">Khoảng thời gian</th>
+                    <th className="py-3 px-4">Giờ khấu trừ</th>
+                    <th className="py-3 px-4">Loại lý do</th>
+                    <th className="py-3 px-4">Chi tiết / Ghi chú</th>
+                    <th className="py-3 px-4">Trạng thái</th>
+                    <th className="py-3 px-4 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paginatedList.map((item) => {
+                    const isPast = item.startDate < todayStr;
+                    const canCancel =
+                      activeSubTab === "my" &&
+                      (item.status === "PENDING" || (item.status === "APPROVED" && !isPast));
 
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50/50 transition">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">#{item.id}</td>
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition">
+                        <td className="py-3.5 px-4 font-bold text-slate-900">#{item.id}</td>
 
-                      {activeSubTab === "pending" && (
-                        <td className="py-3.5 px-4">
-                          <span className="font-semibold text-slate-900">NV #{item.employeeId}</span>
-                        </td>
-                      )}
-
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-1.5 font-medium text-slate-800">
-                          <span>{item.startDate}</span>
-                          <span className="text-slate-400">&rarr;</span>
-                          <span>{item.endDate}</span>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100/60">
-                          {item.totalHoursDeducted}h
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <span className="font-medium text-slate-700">
-                          {UNAVAILABILITY_REASON_LABELS[item.reasonType] || item.reasonType}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4 max-w-xs">
-                        <p className="truncate text-slate-600" title={item.reasonDetail || ""}>
-                          {item.reasonDetail || "—"}
-                        </p>
-                        {item.approverComment && (
-                          <p className="text-[11px] text-slate-400 italic mt-0.5 truncate" title={item.approverComment}>
-                            Phản hồi: {item.approverComment}
-                          </p>
+                        {activeSubTab === "pending" && (
+                          <td className="py-3.5 px-4">
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-slate-900">
+                                {employeesMap[item.employeeId] || `Nhân sự #${item.employeeId}`}
+                              </span>
+                              <span className="text-[11px] text-slate-400">Mã NV: #{item.employeeId}</span>
+                            </div>
+                          </td>
                         )}
-                      </td>
 
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={cn(
-                            "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border",
-                            item.status === "PENDING" && "bg-amber-50 text-amber-700 border-amber-200",
-                            item.status === "APPROVED" && "bg-emerald-50 text-emerald-700 border-emerald-200",
-                            item.status === "REJECTED" && "bg-rose-50 text-rose-700 border-rose-200",
-                            item.status === "CANCELLED" && "bg-slate-100 text-slate-600 border-slate-200"
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                            <span>{formatDateVN(item.startDate)}</span>
+                            <span className="text-slate-400">&rarr;</span>
+                            <span>{formatDateVN(item.endDate)}</span>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100/60">
+                            {item.totalHoursDeducted}h
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span className="font-medium text-slate-700">
+                            {UNAVAILABILITY_REASON_LABELS[item.reasonType] || item.reasonType}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 max-w-xs">
+                          <p className="truncate text-slate-600" title={item.reasonDetail || ""}>
+                            {item.reasonDetail || "—"}
+                          </p>
+                          {item.approverComment && (
+                            <p className="text-[11px] text-slate-400 italic mt-0.5 truncate" title={item.approverComment}>
+                              Phản hồi: {item.approverComment}
+                            </p>
                           )}
-                        >
-                          {UNAVAILABILITY_STATUS_LABELS[item.status]}
-                        </span>
-                      </td>
+                        </td>
 
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* Approval actions for managers */}
-                          {activeSubTab === "pending" && item.status === "PENDING" && (
-                            <>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={cn(
+                              "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border",
+                              item.status === "PENDING" && "bg-amber-50 text-amber-700 border-amber-200",
+                              item.status === "APPROVED" && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                              item.status === "REJECTED" && "bg-rose-50 text-rose-700 border-rose-200",
+                              item.status === "CANCELLED" && "bg-slate-100 text-slate-600 border-slate-200"
+                            )}
+                          >
+                            {UNAVAILABILITY_STATUS_LABELS[item.status]}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Approval actions for managers */}
+                            {activeSubTab === "pending" && item.status === "PENDING" && (
+                              <>
+                                <button
+                                  onClick={() => setApprovingDeclaration(item)}
+                                  className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
+                                >
+                                  Duyệt
+                                </button>
+                                <button
+                                  onClick={() => setRejectingDeclaration(item)}
+                                  className="px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition"
+                                >
+                                  Từ chối
+                                </button>
+                              </>
+                            )}
+
+                            {/* Cancel action for owner */}
+                            {canCancel && (
                               <button
-                                onClick={() => setApprovingDeclaration(item)}
-                                className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
+                                onClick={() => setCancellingDeclaration(item)}
+                                className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition border border-slate-200 hover:border-rose-200"
+                                title="Hủy đơn khai báo này"
                               >
-                                Duyệt
+                                Hủy đơn
                               </button>
-                              <button
-                                onClick={() => setRejectingDeclaration(item)}
-                                className="px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition"
-                              >
-                                Từ chối
-                              </button>
-                            </>
-                          )}
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-                          {/* Cancel action for owner */}
-                          {canCancel && (
-                            <button
-                              onClick={() => setCancellingDeclaration(item)}
-                              className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition border border-slate-200 hover:border-rose-200"
-                              title="Hủy đơn khai báo này"
-                            >
-                              Hủy đơn
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+              {/* Pagination Bar */}
+              {currentList.length > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500">
+                  <div>
+                    Hiển thị{" "}
+                    <span className="font-semibold text-slate-700">
+                      {(currentPage - 1) * pageSize + 1}
+                    </span>{" "}
+                    đến{" "}
+                    <span className="font-semibold text-slate-700">
+                      {Math.min(currentPage * pageSize, currentList.length)}
+                    </span>{" "}
+                    trên tổng số{" "}
+                    <span className="font-semibold text-slate-700">{currentList.length}</span> đơn
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="px-3 py-1.5 font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Trang trước
+                    </button>
+                    <span className="px-2 font-medium">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                      className="px-3 py-1.5 font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Trang sau
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
       {/* Modals */}
-      {currentEmployee && (
+      {isDeclareModalOpen && (
         <DeclareUnavailabilityModal
           isOpen={isDeclareModalOpen}
           onClose={() => setIsDeclareModalOpen(false)}
-          employeeId={currentEmployee.id}
-          employeeName={currentEmployee.fullName}
+          employeeId={currentEmployee?.id || user?.id || 0}
+          employeeName={currentEmployee?.fullName || user?.fullName || user?.username}
           onSuccess={(newDecl) => {
             showToast("success", `Khai báo #${newDecl.id} đã được gửi thành công.`);
             loadData();
@@ -497,7 +637,14 @@ export default function UnavailabilityView() {
 
       {/* Cancellation Confirmation Dialog */}
       {cancellingDeclaration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isCancelling) setCancellingDeclaration(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+        >
           <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4">
             <div className="flex items-center gap-3 text-rose-600">
               <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-100">
