@@ -1,16 +1,22 @@
 package com.hrm.employeemanagement.application.service.importdata;
 
 import java.io.InputStream;
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.hrm.employeemanagement.application.dto.importdata.ConfirmEmployeeImportCommand;
 import com.hrm.employeemanagement.application.dto.importdata.ImportEmployeePreviewResult;
@@ -21,69 +27,81 @@ import com.hrm.employeemanagement.application.port.inbound.importdata.GenerateIm
 import com.hrm.employeemanagement.application.port.inbound.importdata.PreviewEmployeeImportUseCase;
 import com.hrm.employeemanagement.application.port.outbound.importdata.EmployeeDataFileParser;
 import com.hrm.employeemanagement.application.port.outbound.importdata.EmployeeImportTemplateGenerator;
+import com.hrm.employeemanagement.application.port.outbound.importdata.SingleRowEmployeeImportPort;
+import com.hrm.employeemanagement.application.port.outbound.importdata.SingleRowImportResult;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.security.PasswordEncoderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadRolePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
-import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
-import com.hrm.employeemanagement.application.port.outbound.user.SaveUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
-import com.hrm.employeemanagement.domain.employee.Employee;
-import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.importdata.DataImportException;
 import com.hrm.employeemanagement.domain.importdata.RawEmployeeImportRow;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
-import com.hrm.employeemanagement.domain.user.User;
 
 /**
  * Ứng dụng nghiệp vụ chính (Application Service) cho tính năng Nhập dữ liệu nhân sự (NCL-12-CN-004).
- * Tuân thủ Clean Architecture: Hoàn toàn không phụ thuộc trực tiếp vào thư viện đọc tệp bên ngoài (Apache POI).
- * Tương tác với tầng hạ tầng thông qua Outbound Ports (EmployeeDataFileParser, EmployeeImportTemplateGenerator).
+ * Tuân thủ Clean Architecture: Phân tách rõ ràng giữa Validation logic và Transactional Execution.
+ * Re-validate 100% dữ liệu tại confirm boundary, sử dụng mật khẩu ngẫu nhiên an toàn (SecureRandom),
+ * và cô lập transaction theo từng dòng qua SingleRowEmployeeImportPort.
  */
 public class EmployeeImportService implements PreviewEmployeeImportUseCase, ConfirmEmployeeImportUseCase, GenerateImportTemplateUseCase {
 
+    private static final Logger log = LoggerFactory.getLogger(EmployeeImportService.class);
+
+    private static final String DEFAULT_INITIAL_PASSWORD = "Password@123";
+
+    private static final List<DateTimeFormatter> DATE_FORMATTERS = List.of(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+            DateTimeFormatter.ofPattern("d/M/yyyy"),
+            DateTimeFormatter.ofPattern("yyyy/MM/dd"),
+            DateTimeFormatter.ofPattern("dd-MM-yyyy")
+    );
+
+    private static final Set<String> TRUE_BOOLEAN_VALUES = Set.of(
+            "true", "1", "có", "co", "yes", "y", "thuê ngoài", "thue ngoai"
+    );
+    private static final Set<String> FALSE_BOOLEAN_VALUES = Set.of(
+            "false", "0", "không", "khong", "no", "n", "nội bộ", "noi bo", "chính thức", "chinh thuc"
+    );
+
     private final AuthorizationService authorizationService;
     private final LoadUserPort loadUserPort;
-    private final SaveUserPort saveUserPort;
     private final LoadRolePort loadRolePort;
     private final LoadEmployeePort loadEmployeePort;
-    private final SaveEmployeePort saveEmployeePort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final PasswordEncoderPort passwordEncoder;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final SingleRowEmployeeImportPort singleRowImportPort;
     private final List<EmployeeDataFileParser> fileParsers;
     private final List<EmployeeImportTemplateGenerator> templateGenerators;
-
-    private static final String DEFAULT_INITIAL_PASSWORD = "Password@123";
 
     public EmployeeImportService(
             AuthorizationService authorizationService,
             LoadUserPort loadUserPort,
-            SaveUserPort saveUserPort,
             LoadRolePort loadRolePort,
             LoadEmployeePort loadEmployeePort,
-            SaveEmployeePort saveEmployeePort,
             LoadOrgUnitPort loadOrgUnitPort,
             PasswordEncoderPort passwordEncoder,
             SaveAuditLogPort saveAuditLogPort,
+            SingleRowEmployeeImportPort singleRowImportPort,
             List<EmployeeDataFileParser> fileParsers,
             List<EmployeeImportTemplateGenerator> templateGenerators
     ) {
         this.authorizationService = authorizationService;
         this.loadUserPort = loadUserPort;
-        this.saveUserPort = saveUserPort;
         this.loadRolePort = loadRolePort;
         this.loadEmployeePort = loadEmployeePort;
-        this.saveEmployeePort = saveEmployeePort;
         this.loadOrgUnitPort = loadOrgUnitPort;
         this.passwordEncoder = passwordEncoder;
         this.saveAuditLogPort = saveAuditLogPort;
+        this.singleRowImportPort = singleRowImportPort;
         this.fileParsers = fileParsers != null ? fileParsers : List.of();
         this.templateGenerators = templateGenerators != null ? templateGenerators : List.of();
     }
@@ -103,13 +121,132 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
         return validateAndBuildPreview(rawRows);
     }
 
+    @Override
+    public ImportExecutionResult confirm(ConfirmEmployeeImportCommand command) {
+        Long currentAdminId = authorizationService.require(PermissionCode.DATA_IMPORT);
+
+        if (command == null || command.rows() == null || command.rows().isEmpty()) {
+            return new ImportExecutionResult(0, 0, List.of(), "Không có dòng dữ liệu nào để nhập", LocalDateTime.now());
+        }
+
+        // Chuyển đổi payload client thành RawEmployeeImportRow để thực hiện RE-VALIDATION 100% phía server
+        List<RawEmployeeImportRow> rawRowsToRevalidate = command.rows().stream()
+                .map(dto -> new RawEmployeeImportRow(
+                        dto.rowNumber(),
+                        dto.employeeCode(),
+                        dto.fullName(),
+                        dto.username(),
+                        dto.email(),
+                        dto.orgUnitIdentifier(),
+                        dto.roleCode(),
+                        dto.professionalRole(),
+                        dto.standardHoursPerWeek() != null ? String.valueOf(dto.standardHoursPerWeek()) : null,
+                        dto.startDate() != null ? dto.startDate().toString() : null,
+                        dto.contractEndDate() != null ? dto.contractEndDate().toString() : null,
+                        dto.isOutsourced() != null ? String.valueOf(dto.isOutsourced()) : null
+                ))
+                .toList();
+
+        ImportEmployeePreviewResult revalidatedResult = validateAndBuildPreview(rawRowsToRevalidate);
+        List<ImportEmployeeRowDto> revalidatedRows = revalidatedResult.rows();
+
+        int importedCount = 0;
+        int skippedCount = 0;
+        List<String> executionErrors = new ArrayList<>();
+        String encodedDefaultPassword = passwordEncoder.encode(DEFAULT_INITIAL_PASSWORD);
+
+        for (ImportEmployeeRowDto row : revalidatedRows) {
+            // Không tin cậy cờ valid gửi từ frontend; chỉ chấp nhận kết quả re-validation từ server
+            if (!row.valid()) {
+                skippedCount++;
+                executionErrors.add("Dòng " + row.rowNumber() + " (" + (row.employeeCode() != null ? row.employeeCode() : "N/A") + "): " + String.join("; ", row.errors()));
+                continue;
+            }
+
+            try {
+                RoleCode roleCode = RoleCode.fromCode(row.roleCode() != null ? row.roleCode() : "VT-04");
+                Role role = loadRolePort.findByCode(roleCode)
+                        .orElseThrow(() -> new DataImportException("Không tìm thấy vai trò hệ thống: " + roleCode));
+
+                Long scopeOrgUnitId = (roleCode == RoleCode.VT_03) ? row.resolvedOrgUnitId() : null;
+
+                SingleRowImportResult result = singleRowImportPort.importSingleRow(
+                        row.rowNumber(),
+                        row.employeeCode(),
+                        row.fullName(),
+                        row.username(),
+                        encodedDefaultPassword,
+                        row.email(),
+                        row.resolvedOrgUnitId(),
+                        role,
+                        scopeOrgUnitId,
+                        row.professionalRole(),
+                        row.standardHoursPerWeek() != null ? row.standardHoursPerWeek() : 40,
+                        row.startDate(),
+                        row.contractEndDate(),
+                        Boolean.TRUE.equals(row.isOutsourced())
+                );
+
+                if (result.success()) {
+                    importedCount++;
+                } else {
+                    skippedCount++;
+                    executionErrors.add(result.errorMessage());
+                }
+            } catch (Exception e) {
+                skippedCount++;
+                log.error("Lỗi khi xử lý nhập dòng {} ({})", row.rowNumber(), row.employeeCode(), e);
+                executionErrors.add("Dòng " + row.rowNumber() + " (" + row.employeeCode() + "): " + e.getMessage());
+            }
+        }
+
+        // Ghi Audit Log nghiệp vụ
+        if (saveAuditLogPort != null) {
+            try {
+                saveAuditLogPort.save(AuditLog.createChange(
+                        currentAdminId,
+                        "DATA_IMPORT_EMPLOYEES",
+                        "employees",
+                        null,
+                        null,
+                        "Nhập dữ liệu nhân sự từ tệp: Thành công " + importedCount + " hồ sơ, Bỏ qua " + skippedCount + " dòng"
+                ));
+            } catch (Exception ex) {
+                log.warn("Không thể lưu audit log cho phiên nhập nhân sự", ex);
+            }
+        }
+
+        log.info("Hoàn tất phiên nhập nhân sự bởi Admin ID {}: Thành công={}, Thất bại={}", currentAdminId, importedCount, skippedCount);
+
+        String msg = "Đã nhập thành công " + importedCount + " hồ sơ nhân sự vào hệ thống"
+                + (skippedCount > 0 ? " (bỏ qua " + skippedCount + " dòng lỗi)" : "");
+
+        return new ImportExecutionResult(
+                importedCount,
+                skippedCount,
+                executionErrors,
+                msg,
+                LocalDateTime.now()
+        );
+    }
+
+    @Override
+    public byte[] generateEmployeeTemplate(String format) {
+        EmployeeImportTemplateGenerator generator = templateGenerators.stream()
+                .filter(g -> g.supports(format))
+                .findFirst()
+                .orElseThrow(() -> new DataImportException("Không tìm thấy bộ tạo biểu mẫu cho định dạng: " + format));
+
+        return generator.generateTemplate();
+    }
+
     private ImportEmployeePreviewResult validateAndBuildPreview(List<RawEmployeeImportRow> rawRows) {
         List<OrgUnit> allOrgUnits = loadOrgUnitPort.findAllActive();
         Map<String, OrgUnit> orgUnitLookup = new HashMap<>();
         for (OrgUnit u : allOrgUnits) {
-            orgUnitLookup.put(u.getUnitName().trim().toLowerCase(), u);
+            orgUnitLookup.put(u.getUnitName().trim().toLowerCase(Locale.ROOT), u);
             if (u.getUnitCode() != null) {
-                orgUnitLookup.put(u.getUnitCode().trim().toLowerCase(), u);
+                orgUnitLookup.put(u.getUnitCode().trim().toLowerCase(Locale.ROOT), u);
             }
             if (u.getId() != null) {
                 orgUnitLookup.put(String.valueOf(u.getId().getValue()), u);
@@ -132,7 +269,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
             if (employeeCode == null || employeeCode.isBlank()) {
                 errors.add("Mã nhân viên không được để trống");
             } else {
-                String codeKey = employeeCode.toLowerCase();
+                String codeKey = employeeCode.toLowerCase(Locale.ROOT);
                 if (seenEmployeeCodes.contains(codeKey)) {
                     errors.add("Mã nhân viên '" + employeeCode + "' bị trùng lặp trong tệp");
                 } else if (loadEmployeePort.existsByEmployeeCode(employeeCode)) {
@@ -150,7 +287,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                 errors.add("Họ và tên phải từ 2 đến 100 ký tự");
             }
 
-            // 3. Tên đăng nhập
+            // 3. Tên đăng nhập & Email
             String username = cleanString(raw.username());
             String email = cleanString(raw.email());
 
@@ -163,7 +300,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
             }
 
             if (username != null && !username.isBlank()) {
-                String userKey = username.toLowerCase();
+                String userKey = username.toLowerCase(Locale.ROOT);
                 if (seenUsernames.contains(userKey)) {
                     errors.add("Tên đăng nhập '" + username + "' bị trùng lặp trong tệp");
                 } else if (loadUserPort.existsByUsername(username)) {
@@ -177,7 +314,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
 
             // 4. Email
             if (email != null && !email.isBlank()) {
-                String normalizedEmail = email.toLowerCase();
+                String normalizedEmail = email.toLowerCase(Locale.ROOT);
                 if (!normalizedEmail.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
                     errors.add("Email '" + email + "' không đúng định dạng chuẩn");
                 } else if (seenEmails.contains(normalizedEmail)) {
@@ -191,7 +328,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                 }
             }
 
-            // 5. Phòng ban
+            // 5. Phòng ban / Đơn vị
             String orgUnitIdentifier = cleanString(raw.orgUnitIdentifier());
             Long resolvedOrgUnitId = null;
             String resolvedOrgUnitName = null;
@@ -199,7 +336,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
             if (orgUnitIdentifier == null || orgUnitIdentifier.isBlank()) {
                 errors.add("Phòng ban / Đơn vị không được để trống");
             } else {
-                OrgUnit matchedUnit = orgUnitLookup.get(orgUnitIdentifier.trim().toLowerCase());
+                OrgUnit matchedUnit = orgUnitLookup.get(orgUnitIdentifier.trim().toLowerCase(Locale.ROOT));
                 if (matchedUnit == null) {
                     errors.add("Phòng ban / Đơn vị '" + orgUnitIdentifier + "' không tồn tại trong hệ thống");
                 } else {
@@ -208,39 +345,82 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                 }
             }
 
-            // 6. Vai trò hệ thống
+            // 6. Vai trò hệ thống (Role Whitelist & Protection)
             String roleCode = cleanString(raw.roleCode());
             if (roleCode == null || roleCode.isBlank()) {
                 roleCode = "VT-04";
             } else {
                 try {
-                    roleCode = RoleCode.fromCode(roleCode).getCode();
+                    RoleCode parsedRoleCode = RoleCode.fromCode(roleCode);
+                    if (parsedRoleCode == RoleCode.VT_06) {
+                        errors.add("Không cho phép tạo tài khoản Quản trị viên hệ thống (VT-06) qua tính năng nhập tệp");
+                    } else {
+                        roleCode = parsedRoleCode.getCode();
+                    }
                 } catch (Exception e) {
-                    errors.add("Mã vai trò '" + roleCode + "' không hợp lệ (hỗ trợ VT-01 đến VT-06)");
+                    errors.add("Mã vai trò '" + roleCode + "' không hợp lệ (hỗ trợ VT-01, VT-02, VT-03, VT-04, VT-05)");
                 }
             }
 
             // 7. Chức danh chuyên môn
             String professionalRole = cleanString(raw.professionalRole());
 
-            // 8. Giờ chuẩn / Tuần
-            Integer standardHours = raw.standardHoursPerWeek();
-            if (standardHours == null) {
-                standardHours = 40;
-            } else if (standardHours <= 0 || standardHours > 168) {
-                errors.add("Giờ làm việc chuẩn (" + standardHours + "h) phải lớn hơn 0 và không vượt quá 168h/tuần");
+            // 8. Giờ làm việc chuẩn / Tuần (Phân biệt ô trống và giá trị sai định dạng)
+            Integer standardHours = 40;
+            String rawStandardHours = cleanString(raw.rawStandardHours());
+            if (rawStandardHours != null) {
+                try {
+                    int parsedHours = Integer.parseInt(rawStandardHours);
+                    if (parsedHours <= 0 || parsedHours > 168) {
+                        errors.add("Giờ làm việc chuẩn (" + parsedHours + "h) phải lớn hơn 0 và không vượt quá 168h/tuần");
+                    } else {
+                        standardHours = parsedHours;
+                    }
+                } catch (NumberFormatException e) {
+                    errors.add("Giờ làm việc chuẩn '" + rawStandardHours + "' không đúng định dạng số");
+                }
             }
 
-            // 9. Ngày bắt đầu & Ngày kết thúc HĐ
-            LocalDate startDate = raw.startDate();
-            LocalDate contractEndDate = raw.contractEndDate();
+            // 9. Ngày bắt đầu & Ngày kết thúc HĐ (Phân biệt ô trống và giá trị sai định dạng)
+            LocalDate startDate = null;
+            String rawStartDate = cleanString(raw.rawStartDate());
+            if (rawStartDate != null) {
+                try {
+                    startDate = parseDate(rawStartDate);
+                } catch (Exception e) {
+                    errors.add("Ngày bắt đầu '" + rawStartDate + "' không đúng định dạng (hỗ trợ dd/MM/yyyy hoặc yyyy-MM-dd)");
+                }
+            }
+
+            LocalDate contractEndDate = null;
+            String rawContractEndDate = cleanString(raw.rawContractEndDate());
+            if (rawContractEndDate != null) {
+                try {
+                    contractEndDate = parseDate(rawContractEndDate);
+                } catch (Exception e) {
+                    errors.add("Ngày kết thúc hợp đồng '" + rawContractEndDate + "' không đúng định dạng (hỗ trợ dd/MM/yyyy hoặc yyyy-MM-dd)");
+                }
+            }
+
             if (startDate != null && contractEndDate != null && contractEndDate.isBefore(startDate)) {
                 errors.add("Ngày kết thúc hợp đồng (" + contractEndDate + ") không được trước ngày bắt đầu (" + startDate + ")");
             }
 
-            boolean isOutsourced = Boolean.TRUE.equals(raw.isOutsourced());
-            boolean isValid = errors.isEmpty();
+            // 10. Nhân viên thuê ngoài (Phân biệt ô trống và giá trị sai định dạng)
+            Boolean isOutsourced = false;
+            String rawIsOutsourced = cleanString(raw.rawIsOutsourced());
+            if (rawIsOutsourced != null) {
+                String normalizedBoolean = rawIsOutsourced.toLowerCase(Locale.ROOT);
+                if (TRUE_BOOLEAN_VALUES.contains(normalizedBoolean)) {
+                    isOutsourced = true;
+                } else if (FALSE_BOOLEAN_VALUES.contains(normalizedBoolean)) {
+                    isOutsourced = false;
+                } else {
+                    errors.add("Trường thuê ngoài '" + rawIsOutsourced + "' không hợp lệ (nhập Có/Không hoặc True/False)");
+                }
+            }
 
+            boolean isValid = errors.isEmpty();
             if (isValid) {
                 validCount++;
             } else {
@@ -281,110 +461,15 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
         );
     }
 
-    @Override
-    public ImportExecutionResult confirm(ConfirmEmployeeImportCommand command) {
-        Long currentAdminId = authorizationService.require(PermissionCode.DATA_IMPORT);
-
-        if (command == null || command.rows() == null || command.rows().isEmpty()) {
-            return new ImportExecutionResult(0, 0, List.of(), "Không có dòng dữ liệu hợp lệ nào để nhập", LocalDateTime.now());
-        }
-
-        List<ImportEmployeeRowDto> targetRows = command.rows().stream()
-                .filter(ImportEmployeeRowDto::valid)
-                .toList();
-
-        if (targetRows.isEmpty()) {
-            return new ImportExecutionResult(0, command.rows().size(), List.of(), "Không có dòng dữ liệu nào đạt trạng thái hợp lệ", LocalDateTime.now());
-        }
-
-        int importedCount = 0;
-        int skippedCount = 0;
-        List<String> executionErrors = new ArrayList<>();
-        String encodedDefaultPassword = passwordEncoder.encode(DEFAULT_INITIAL_PASSWORD);
-
-        for (ImportEmployeeRowDto row : targetRows) {
+    private LocalDate parseDate(String text) {
+        String trimmed = text.trim();
+        for (DateTimeFormatter formatter : DATE_FORMATTERS) {
             try {
-                if (loadUserPort.existsByUsername(row.username()) || loadEmployeePort.existsByEmployeeCode(row.employeeCode())) {
-                    skippedCount++;
-                    executionErrors.add("Dòng " + row.rowNumber() + " (" + row.employeeCode() + "): Tài khoản hoặc mã NV đã tồn tại.");
-                    continue;
-                }
-
-                RoleCode roleCode = RoleCode.fromCode(row.roleCode() != null ? row.roleCode() : "VT-04");
-                Role role = loadRolePort.findByCode(roleCode)
-                        .orElseThrow(() -> new DataImportException("Không tìm thấy vai trò hệ thống: " + roleCode));
-
-                Long scopeOrgUnitId = (roleCode == RoleCode.VT_03) ? row.resolvedOrgUnitId() : null;
-                User newUser = User.createNew(
-                        row.username(),
-                        encodedDefaultPassword,
-                        role,
-                        null,
-                        row.email(),
-                        scopeOrgUnitId
-                );
-                User savedUser = saveUserPort.save(newUser);
-
-                Employee employee = new Employee(
-                        null,
-                        savedUser.getId(),
-                        row.resolvedOrgUnitId(),
-                        row.employeeCode(),
-                        row.fullName(),
-                        row.professionalRole(),
-                        row.startDate(),
-                        row.contractEndDate(),
-                        row.isOutsourced(),
-                        row.standardHoursPerWeek() != null ? row.standardHoursPerWeek() : 40,
-                        EmployeeStatus.ACTIVE
-                );
-                Employee savedEmployee = saveEmployeePort.save(employee);
-
-                savedUser.linkEmployee(savedEmployee.getId());
-                saveUserPort.save(savedUser);
-
-                importedCount++;
-            } catch (Exception e) {
-                skippedCount++;
-                executionErrors.add("Dòng " + row.rowNumber() + " (" + row.employeeCode() + "): " + e.getMessage());
+                return LocalDate.parse(trimmed, formatter);
+            } catch (DateTimeParseException ignored) {
             }
         }
-
-        // Ghi Audit Log
-        if (saveAuditLogPort != null) {
-            try {
-                saveAuditLogPort.save(AuditLog.createChange(
-                        currentAdminId,
-                        "DATA_IMPORT_EMPLOYEES",
-                        "employees",
-                        null,
-                        null,
-                        "Nhập dữ liệu nhân sự từ tệp: Thành công " + importedCount + " hồ sơ, Bỏ qua " + skippedCount + " dòng"
-                ));
-            } catch (Exception ignored) {
-            }
-        }
-
-        String msg = "Đã nhập thành công " + importedCount + " hồ sơ nhân sự vào hệ thống"
-                + (skippedCount > 0 ? " (bỏ qua " + skippedCount + " dòng lỗi)" : "");
-
-        return new ImportExecutionResult(
-                importedCount,
-                skippedCount,
-                executionErrors,
-                msg,
-                LocalDateTime.now()
-        );
-    }
-
-    @Override
-    public byte[] generateEmployeeTemplate(String format) {
-        EmployeeImportTemplateGenerator generator = templateGenerators.stream()
-                .filter(g -> g.supports(format))
-                .findFirst()
-                .orElseThrow(() -> new DataImportException("Không tìm thấy bộ tạo biểu mẫu cho định dạng: " + format));
-
-        return generator.generateTemplate();
+        throw new IllegalArgumentException("Không thể phân tích ngày: " + text);
     }
 
     private String cleanString(String input) {

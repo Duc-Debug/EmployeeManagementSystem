@@ -36,7 +36,6 @@ public class TransactionalImportUseCaseDecorator implements
     }
 
     @Override
-    @Transactional
     public ImportExecutionResult confirm(ConfirmEmployeeImportCommand command) {
         return confirmUseCase.confirm(command);
     }

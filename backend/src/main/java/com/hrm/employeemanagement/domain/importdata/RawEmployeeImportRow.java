@@ -1,10 +1,9 @@
 package com.hrm.employeemanagement.domain.importdata;
 
-import java.time.LocalDate;
-
 /**
  * Đối tượng dữ liệu thô (POJO Record) thu được từ tầng phân tích tệp (Infrastructure Parser).
- * Không chứa logic nghiệp vụ, hoàn toàn độc lập với định dạng tệp vật lý (Excel, CSV, JSON, ...).
+ * Lưu trữ các giá trị dạng văn bản thô từ tệp nguồn để tầng Validation phân biệt chính xác
+ * giữa trường để trống (dùng giá trị mặc định) và trường có giá trị nhưng sai định dạng (báo lỗi).
  */
 public record RawEmployeeImportRow(
         int rowNumber,
@@ -15,9 +14,9 @@ public record RawEmployeeImportRow(
         String orgUnitIdentifier,
         String roleCode,
         String professionalRole,
-        Integer standardHoursPerWeek,
-        LocalDate startDate,
-        LocalDate contractEndDate,
-        Boolean isOutsourced
+        String rawStandardHours,
+        String rawStartDate,
+        String rawContractEndDate,
+        String rawIsOutsourced
 ) {
 }

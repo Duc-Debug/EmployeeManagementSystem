@@ -42,7 +42,7 @@ export interface ImportExecutionResult {
 }
 
 /**
- * Gửi tệp (.xlsx, .xls, .csv) lên backend để phân tích cú pháp và kiểm tra hợp lệ
+ * Gửi tệp (.xlsx, .xls) lên backend để phân tích cú pháp và kiểm tra hợp lệ
  */
 export async function previewEmployeeImport(file: File): Promise<ImportEmployeePreviewResult> {
   const formData = new FormData();
@@ -65,9 +65,9 @@ export async function confirmEmployeeImport(rows: ImportEmployeeRowDto[]): Promi
 }
 
 /**
- * Tải tệp biểu mẫu chuẩn (.xlsx hoặc .csv)
+ * Tải tệp biểu mẫu chuẩn (.xlsx)
  */
-export async function downloadEmployeeTemplate(format: "xlsx" | "csv" = "xlsx"): Promise<void> {
+export async function downloadEmployeeTemplate(format: "xlsx" = "xlsx"): Promise<void> {
   const token = getAuthToken();
   const url = `${API_BASE_URL}/imports/employees/template?format=${format}`;
 
@@ -89,7 +89,7 @@ export async function downloadEmployeeTemplate(format: "xlsx" | "csv" = "xlsx"):
   const downloadUrl = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = downloadUrl;
-  a.download = format === "xlsx" ? "Bieu_mau_nhap_nhan_vien.xlsx" : "Bieu_mau_nhap_nhan_vien.csv";
+  a.download = "Bieu_mau_nhap_nhan_vien.xlsx";
   document.body.appendChild(a);
   a.click();
   window.URL.revokeObjectURL(downloadUrl);

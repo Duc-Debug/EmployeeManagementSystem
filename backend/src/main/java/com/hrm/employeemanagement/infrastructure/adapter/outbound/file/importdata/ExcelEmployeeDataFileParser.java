@@ -4,10 +4,10 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DateUtil;
@@ -24,17 +24,21 @@ import com.hrm.employeemanagement.domain.importdata.RawEmployeeImportRow;
 
 /**
  * Bộ chuyển đổi hạ tầng (Infrastructure Adapter) đọc và phân tích tệp Excel (.xlsx, .xls)
- * sử dụng thư viện Apache POI.
+ * sử dụng thư viện Apache POI với các lớp bảo vệ chống Zip-bomb và giới hạn tài nguyên.
  */
 @Component
 public class ExcelEmployeeDataFileParser implements EmployeeDataFileParser {
 
-    private static final DateTimeFormatter[] DATE_FORMATTERS = {
-            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-            DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-            DateTimeFormatter.ofPattern("d/M/yyyy"),
-            DateTimeFormatter.ofPattern("yyyy/MM/dd")
-    };
+    public static final int MAX_IMPORT_ROWS = 2000;
+
+    static {
+        // POI Zip Security Safeguards
+        try {
+            ZipSecureFile.setMinInflateRatio(0.01);
+            ZipSecureFile.setMaxEntrySize(50L * 1024 * 1024); // 50MB
+        } catch (Throwable ignored) {
+        }
+    }
 
     @Override
     public boolean supports(String filename) {
@@ -67,10 +71,18 @@ public class ExcelEmployeeDataFileParser implements EmployeeDataFileParser {
 
             validateHeader(headerRow);
 
+            int dataRowCount = 0;
             for (int r = firstRowNum + 1; r <= lastRowNum; r++) {
                 Row row = sheet.getRow(r);
                 if (row == null || isRowCompletelyEmpty(row)) {
                     continue;
+                }
+
+                dataRowCount++;
+                if (dataRowCount > MAX_IMPORT_ROWS) {
+                    throw new InvalidImportTemplateException(
+                            "Tệp dữ liệu vượt quá giới hạn tối đa cho phép (" + MAX_IMPORT_ROWS + " dòng). Vui lòng chia nhỏ tệp để xử lý."
+                    );
                 }
 
                 String employeeCode = getCellValueAsString(row.getCell(0));
@@ -80,10 +92,10 @@ public class ExcelEmployeeDataFileParser implements EmployeeDataFileParser {
                 String orgUnitIdentifier = getCellValueAsString(row.getCell(4));
                 String roleCode = getCellValueAsString(row.getCell(5));
                 String professionalRole = getCellValueAsString(row.getCell(6));
-                Integer standardHours = getCellValueAsInteger(row.getCell(7));
-                LocalDate startDate = getCellValueAsDate(row.getCell(8));
-                LocalDate contractEndDate = getCellValueAsDate(row.getCell(9));
-                Boolean isOutsourced = getCellValueAsBoolean(row.getCell(10));
+                String rawStandardHours = getCellValueAsString(row.getCell(7));
+                String rawStartDate = getCellValueAsString(row.getCell(8));
+                String rawContractEndDate = getCellValueAsString(row.getCell(9));
+                String rawIsOutsourced = getCellValueAsString(row.getCell(10));
 
                 rows.add(new RawEmployeeImportRow(
                         r + 1,
@@ -94,10 +106,10 @@ public class ExcelEmployeeDataFileParser implements EmployeeDataFileParser {
                         orgUnitIdentifier,
                         roleCode,
                         professionalRole,
-                        standardHours,
-                        startDate,
-                        contractEndDate,
-                        isOutsourced
+                        rawStandardHours,
+                        rawStartDate,
+                        rawContractEndDate,
+                        rawIsOutsourced
                 ));
             }
 
@@ -145,7 +157,10 @@ public class ExcelEmployeeDataFileParser implements EmployeeDataFileParser {
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return null;
         return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue().trim();
+            case STRING -> {
+                String s = cell.getStringCellValue().trim();
+                yield s.isEmpty() ? null : s;
+            }
             case NUMERIC -> {
                 if (DateUtil.isCellDateFormatted(cell)) {
                     LocalDate d = cell.getLocalDateTimeCellValue().toLocalDate();
@@ -167,49 +182,5 @@ public class ExcelEmployeeDataFileParser implements EmployeeDataFileParser {
             }
             default -> null;
         };
-    }
-
-    private Integer getCellValueAsInteger(Cell cell) {
-        if (cell == null) return null;
-        if (cell.getCellType() == CellType.NUMERIC) {
-            return (int) cell.getNumericCellValue();
-        }
-        String str = getCellValueAsString(cell);
-        if (str == null || str.isBlank()) return null;
-        try {
-            return Integer.parseInt(str.trim());
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private LocalDate getCellValueAsDate(Cell cell) {
-        if (cell == null) return null;
-        if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-            Date date = cell.getDateCellValue();
-            return new java.sql.Date(date.getTime()).toLocalDate();
-        }
-        String str = getCellValueAsString(cell);
-        if (str == null || str.isBlank()) return null;
-
-        String clean = str.trim();
-        for (DateTimeFormatter dtf : DATE_FORMATTERS) {
-            try {
-                return LocalDate.parse(clean, dtf);
-            } catch (Exception ignored) {
-            }
-        }
-        return null;
-    }
-
-    private Boolean getCellValueAsBoolean(Cell cell) {
-        if (cell == null) return false;
-        if (cell.getCellType() == CellType.BOOLEAN) {
-            return cell.getBooleanCellValue();
-        }
-        String str = getCellValueAsString(cell);
-        if (str == null || str.isBlank()) return false;
-        String s = str.trim().toLowerCase(Locale.ROOT);
-        return "true".equals(s) || "1".equals(s) || "có".equals(s) || "yes".equals(s) || "thuê ngoài".equals(s);
     }
 }

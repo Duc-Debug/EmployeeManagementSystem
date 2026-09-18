@@ -3,12 +3,12 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.file.importda
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +20,7 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import com.hrm.employeemanagement.domain.exception.importdata.DataImportException;
 import com.hrm.employeemanagement.domain.exception.importdata.InvalidImportTemplateException;
 import com.hrm.employeemanagement.domain.importdata.RawEmployeeImportRow;
 
@@ -65,14 +66,15 @@ class ExcelEmployeeDataFileParserTest {
         assertEquals("an.nguyen", row1.username());
         assertEquals("an.nguyen@test.com", row1.email());
         assertEquals("Trung tâm Phần mềm", row1.orgUnitIdentifier());
-        assertEquals(40, row1.standardHoursPerWeek());
-        assertEquals(LocalDate.of(2026, 1, 1), row1.startDate());
-        assertEquals(LocalDate.of(2027, 12, 31), row1.contractEndDate());
-        assertFalse(row1.isOutsourced());
+        assertEquals("40", row1.rawStandardHours());
+        assertEquals("2026-01-01", row1.rawStartDate());
+        assertEquals("2027-12-31", row1.rawContractEndDate());
+        assertEquals("FALSE", row1.rawIsOutsourced());
 
         RawEmployeeImportRow row2 = rows.get(1);
         assertEquals("EMP002", row2.employeeCode());
-        assertTrue(row2.isOutsourced());
+        assertNull(row2.rawContractEndDate());
+        assertEquals("TRUE", row2.rawIsOutsourced());
     }
 
     @Test
@@ -90,6 +92,38 @@ class ExcelEmployeeDataFileParserTest {
 
             InputStream is = new ByteArrayInputStream(bytes);
             assertThrows(InvalidImportTemplateException.class, () -> parser.parse(is));
+        }
+    }
+
+    @Test
+    @DisplayName("Tệp Excel vượt quá giới hạn MAX_IMPORT_ROWS (2000 dòng) -> Ném DataImportException")
+    void testParse_ExceedsMaxRows_ThrowsException() throws Exception {
+        try (Workbook wb = new XSSFWorkbook()) {
+            Sheet sheet = wb.createSheet("Employees");
+            Row header = sheet.createRow(0);
+            String[] headers = {
+                    "Mã nhân viên", "Họ và tên", "Tên đăng nhập", "Email",
+                    "Phòng ban / Đơn vị", "Mã vai trò", "Chức danh", "Giờ chuẩn",
+                    "Ngày bắt đầu", "Ngày kết thúc HĐ", "Thuê ngoài"
+            };
+            for (int i = 0; i < headers.length; i++) {
+                header.createCell(i).setCellValue(headers[i]);
+            }
+
+            // Tạo 2001 dòng dữ liệu
+            for (int r = 1; r <= 2001; r++) {
+                Row row = sheet.createRow(r);
+                row.createCell(0).setCellValue("EMP" + r);
+                row.createCell(1).setCellValue("Employee " + r);
+            }
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            wb.write(baos);
+            byte[] bytes = baos.toByteArray();
+
+            InputStream is = new ByteArrayInputStream(bytes);
+            InvalidImportTemplateException ex = assertThrows(InvalidImportTemplateException.class, () -> parser.parse(is));
+            assertTrue(ex.getMessage().contains("vượt quá giới hạn tối đa cho phép (2000 dòng)"));
         }
     }
 
