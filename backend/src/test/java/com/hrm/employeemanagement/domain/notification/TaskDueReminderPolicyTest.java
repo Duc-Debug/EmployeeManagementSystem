@@ -54,10 +54,13 @@ class TaskDueReminderPolicyTest {
     }
 
     @Test
-    @DisplayName("buildSourceEventKey: Tạo khóa sự kiện duy nhất theo QTN-19")
+    @DisplayName("buildSourceEventKey: Tạo khóa sự kiện duy nhất theo QTN-19 (có và không có recipientUserId)")
     void buildSourceEventKey_QTN19() {
-        String key = TaskDueReminderPolicy.buildSourceEventKey(55L, LocalDate.of(2026, 9, 20));
-        assertEquals("TASK_DUE_REMINDER:55:2026-09-20", key);
+        String keyWithRecipient = TaskDueReminderPolicy.buildSourceEventKey(55L, 100L, LocalDate.of(2026, 9, 20));
+        assertEquals("TASK_DUE_REMINDER:55:100:2026-09-20", keyWithRecipient);
+
+        String legacyKey = TaskDueReminderPolicy.buildSourceEventKey(55L, LocalDate.of(2026, 9, 20));
+        assertEquals("TASK_DUE_REMINDER:55:2026-09-20", legacyKey);
     }
 
     @Test

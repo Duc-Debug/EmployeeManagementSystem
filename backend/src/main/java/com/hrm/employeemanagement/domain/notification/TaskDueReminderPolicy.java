@@ -91,9 +91,13 @@ public final class TaskDueReminderPolicy {
 
     /**
      * Tạo source_event_key duy nhất tuân thủ quy tắc QTN-19:
-     * Định danh sự kiện: TASK_DUE_REMINDER:{taskId}:{dueDate}
-     * Đảm bảo một sự kiện hạn chót của một công việc chỉ sinh tối đa 1 thông báo, các lần rà soát sau bỏ qua.
+     * Định danh sự kiện: TASK_DUE_REMINDER:{taskId}:{recipientUserId}:{dueDate}
+     * Đảm bảo một sự kiện hạn chót của một công việc chỉ sinh tối đa 1 thông báo cho mỗi người nhận, các lần rà soát sau bỏ qua.
      */
+    public static String buildSourceEventKey(Long taskId, Long recipientUserId, LocalDate dueDate) {
+        return "TASK_DUE_REMINDER:" + taskId + ":" + recipientUserId + ":" + dueDate;
+    }
+
     public static String buildSourceEventKey(Long taskId, LocalDate dueDate) {
         return "TASK_DUE_REMINDER:" + taskId + ":" + dueDate;
     }
