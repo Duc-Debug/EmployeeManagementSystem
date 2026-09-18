@@ -234,10 +234,14 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                 safeOldVal = alloc.getAllocatedHours() + "h"
                         + (alloc.getAllocationPercentage() != null ? " (" + alloc.getAllocationPercentage() + "%)" : "");
                 alloc.updateAllocation(effectiveHours, effectivePercentage);
+                if (command.projectRoleId() != null) {
+                    alloc.setProjectRoleId(command.projectRoleId());
+                }
             } else {
                 alloc = WeeklyProjectAllocation.createNew(
                         employee.getIdValue(),
                         command.projectId(),
+                        command.projectRoleId(),
                         yw,
                         effectiveHours,
                         effectivePercentage);

@@ -39,17 +39,17 @@ class WeeklyProjectAllocationPersistenceAdapterTest {
     class SaveOptimisticLockingTests {
 
         @Test
-        @DisplayName("Should successfully save when version matches DB version")
+        @DisplayName("Should successfully save when version matches DB version including projectRoleId")
         void shouldSaveWhenVersionMatches() {
             Long allocationId = 100L;
             WeeklyProjectAllocation domain = new WeeklyProjectAllocation(
-                    allocationId, 1L, 2L, YearWeek.of(2026, 10),
+                    allocationId, 1L, 2L, 5L, YearWeek.of(2026, 10),
                     BigDecimal.valueOf(30), BigDecimal.valueOf(75),
                     false, null, null, null, "Note", 10L, 5L
             );
 
             WeeklyProjectAllocationJpaEntity dbEntity = new WeeklyProjectAllocationJpaEntity(
-                    allocationId, 1L, 2L, 2026, 10,
+                    allocationId, 1L, 2L, 4L, 2026, 10,
                     BigDecimal.valueOf(20), BigDecimal.valueOf(50),
                     false, null, null, null, null, null, 5L
             );
@@ -60,9 +60,33 @@ class WeeklyProjectAllocationPersistenceAdapterTest {
             WeeklyProjectAllocation saved = adapter.save(domain);
 
             assertNotNull(saved);
+            assertEquals(5L, saved.getProjectRoleId());
             assertEquals(BigDecimal.valueOf(30), saved.getAllocatedHours());
             assertEquals("Note", saved.getVarianceNote());
             verify(repository).save(dbEntity);
+            assertEquals(5L, dbEntity.getProjectRoleId());
+        }
+
+        @Test
+        @DisplayName("Should insert new allocation with projectRoleId")
+        void shouldInsertNewAllocationWithProjectRoleId() {
+            WeeklyProjectAllocation domain = WeeklyProjectAllocation.createNew(
+                    1L, 2L, 5L, YearWeek.of(2026, 10),
+                    BigDecimal.valueOf(40), BigDecimal.valueOf(100)
+            );
+
+            WeeklyProjectAllocationJpaEntity savedEntity = new WeeklyProjectAllocationJpaEntity(
+                    200L, 1L, 2L, 5L, 2026, 10,
+                    BigDecimal.valueOf(40), BigDecimal.valueOf(100), 0L
+            );
+
+            when(repository.save(any(WeeklyProjectAllocationJpaEntity.class))).thenReturn(savedEntity);
+
+            WeeklyProjectAllocation saved = adapter.save(domain);
+
+            assertNotNull(saved);
+            assertEquals(200L, saved.getId());
+            assertEquals(5L, saved.getProjectRoleId());
         }
 
         @Test
