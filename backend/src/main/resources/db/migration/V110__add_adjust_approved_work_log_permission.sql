@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V106: Add Adjust Approved Work Log Permission
+-- FLYWAY MIGRATION V110: Add Adjust Approved Work Log Permission
 -- Epic: NCL-09 (Giờ làm thực tế và đối chiếu kế hoạch)
 -- Story: NCL-09-CN-005 (Điều chỉnh giờ làm đã duyệt)
 -- ============================================================
