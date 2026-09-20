@@ -10,3 +10,4 @@ public record AdjustApprovedWorkLogResult(
         List<String> warnings
 ) {
 }
+

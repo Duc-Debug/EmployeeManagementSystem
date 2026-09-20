@@ -18,3 +18,4 @@ public class TransactionalAdjustApprovedWorkLogUseCase implements AdjustApproved
         return delegate.adjustApprovedWorkLog(command);
     }
 }
+

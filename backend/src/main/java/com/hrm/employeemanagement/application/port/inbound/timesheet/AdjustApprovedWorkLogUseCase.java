@@ -6,3 +6,4 @@ import com.hrm.employeemanagement.application.dto.timesheet.AdjustApprovedWorkLo
 public interface AdjustApprovedWorkLogUseCase {
     AdjustApprovedWorkLogResult adjustApprovedWorkLog(AdjustApprovedWorkLogCommand command);
 }
+

@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.application.port.inbound.timesheet.UpdateWorkL
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
+import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.DeleteTimesheetEntryPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetEntryPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetPort;
@@ -285,6 +286,7 @@ public class TimesheetUseCaseConfig {
             SaveTimesheetPort saveTimesheetPort,
             LoadProjectPort loadProjectPort,
             LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
             LoadEmployeePort loadEmployeePort,
             com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetAuditLogPort saveTimesheetAuditLogPort,
             AuthorizationService authorizationService,
@@ -297,6 +299,7 @@ public class TimesheetUseCaseConfig {
                         saveTimesheetPort,
                         loadProjectPort,
                         loadTaskPort,
+                        saveTaskPort,
                         loadEmployeePort,
                         saveTimesheetAuditLogPort,
                         authorizationService,

@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.application.port.inbound.allocation.period.Che
 import com.hrm.employeemanagement.application.port.inbound.timesheet.AdjustApprovedWorkLogUseCase;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
+import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetEntryPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetAuditLogPort;
@@ -25,6 +26,7 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExceededException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryNotFoundException;
+import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotApprovedException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotFoundException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogAdjustmentReasonRequiredException;
@@ -48,6 +50,7 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
     private final SaveTimesheetPort saveTimesheetPort;
     private final LoadProjectPort loadProjectPort;
     private final LoadTaskPort loadTaskPort;
+    private final SaveTaskPort saveTaskPort;
     private final LoadEmployeePort loadEmployeePort;
     private final SaveTimesheetAuditLogPort saveTimesheetAuditLogPort;
     private final AuthorizationService authorizationService;
@@ -60,6 +63,7 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
             SaveTimesheetPort saveTimesheetPort,
             LoadProjectPort loadProjectPort,
             LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
             LoadEmployeePort loadEmployeePort,
             SaveTimesheetAuditLogPort saveTimesheetAuditLogPort,
             AuthorizationService authorizationService,
@@ -70,6 +74,7 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
         this.saveTimesheetPort = Objects.requireNonNull(saveTimesheetPort, "SaveTimesheetPort must not be null");
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
+        this.saveTaskPort = Objects.requireNonNull(saveTaskPort, "SaveTaskPort must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.saveTimesheetAuditLogPort = Objects.requireNonNull(saveTimesheetAuditLogPort, "SaveTimesheetAuditLogPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
@@ -109,8 +114,12 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
         }
 
         // 5. Kiểm tra phiên bản Optimistic Locking
-        if (command.version() != null && entry.getVersion() != null && !entry.getVersion().equals(command.version())) {
-            throw new IllegalStateException("Dữ liệu đã bị thay đổi bởi người khác, vui lòng tải lại trang.");
+        if (command.version() == null) {
+            throw new IllegalArgumentException("Phiên bản (version) không được để trống.");
+        }
+        if (entry.getVersion() != null && !entry.getVersion().equals(command.version())) {
+            throw new TimesheetEntryVersionConflictException(
+                    "Dòng giờ công đã bị thay đổi bởi người khác. Vui lòng tải lại trang và thử lại.");
         }
 
         // 6. Kiểm tra dự án và quyền sở hữu (PM phụ trách hoặc Admin có quyền WORK_LOG_ADJUST)
@@ -130,16 +139,34 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
             checkAllocationPeriodLockUseCase.validateWeekNotLocked(year, weekNumber);
         }
 
-        // 8. Kiểm tra Task hợp lệ nếu có thay đổi Task
-        TaskId targetTaskId = command.taskId() != null ? new TaskId(command.taskId()) : entry.getTaskId();
-        Task task = loadTaskPort.findById(targetTaskId)
-                .orElseThrow(() -> new IllegalStateException("Không tìm thấy công việc"));
+        // 8. Kiểm tra Task hợp lệ
+        TaskId sourceTaskId = entry.getTaskId();
+        TaskId targetTaskId = command.taskId() != null ? new TaskId(command.taskId()) : sourceTaskId;
 
-        if (!Objects.equals(task.getProjectIdValue(), project.getIdValue())) {
-            throw new IllegalArgumentException("Công việc không thuộc dự án của dòng ghi giờ.");
-        }
-        if (task.getTaskType() == TaskType.CATEGORY) {
-            throw new IllegalArgumentException("Không thể ghi nhận giờ công cho hạng mục công việc (CATEGORY).");
+        Task sourceTask;
+        Task targetTask;
+
+        if (sourceTaskId.equals(targetTaskId)) {
+            targetTask = loadTaskPort.findById(sourceTaskId)
+                    .orElseThrow(() -> new IllegalStateException("Không tìm thấy công việc"));
+            if (!Objects.equals(targetTask.getProjectIdValue(), project.getIdValue())) {
+                throw new IllegalArgumentException("Công việc không thuộc dự án của dòng ghi giờ.");
+            }
+            if (targetTask.getTaskType() == TaskType.CATEGORY) {
+                throw new IllegalArgumentException("Không thể ghi nhận giờ công cho hạng mục công việc (CATEGORY).");
+            }
+            sourceTask = targetTask;
+        } else {
+            sourceTask = loadTaskPort.findById(sourceTaskId)
+                    .orElseThrow(() -> new IllegalStateException("Không tìm thấy công việc gốc"));
+            targetTask = loadTaskPort.findById(targetTaskId)
+                    .orElseThrow(() -> new IllegalStateException("Không tìm thấy công việc mới"));
+            if (!Objects.equals(targetTask.getProjectIdValue(), project.getIdValue())) {
+                throw new IllegalArgumentException("Công việc không thuộc dự án của dòng ghi giờ.");
+            }
+            if (targetTask.getTaskType() == TaskType.CATEGORY) {
+                throw new IllegalArgumentException("Không thể ghi nhận giờ công cho hạng mục công việc (CATEGORY).");
+            }
         }
 
         // 9. Kiểm tra giới hạn số giờ và giới hạn 12h/ngày (QTN-09)
@@ -168,7 +195,23 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
         );
         TimesheetEntry savedEntry = saveTimesheetEntryPort.save(entry);
 
-        // 11. Tính toán lại tổng giờ tuần của Timesheet
+        // 11. Đồng bộ Task.actualHours và kiểm tra ngân sách
+        if (sourceTaskId.equals(targetTaskId)) {
+            targetTask.subtractActualHours(oldHours);
+            targetTask.addActualHours(newHours);
+            saveTaskPort.save(targetTask);
+        } else {
+            sourceTask.subtractActualHours(oldHours);
+            saveTaskPort.save(sourceTask);
+
+            targetTask.addActualHours(newHours);
+            saveTaskPort.save(targetTask);
+        }
+
+        List<String> warnings = new ArrayList<>();
+        checkBudgetWarning(targetTask, warnings);
+
+        // 12. Tính toán lại tổng giờ tuần của Timesheet
         Timesheet timesheet = loadTimesheetPort.findById(entry.getTimesheetId())
                 .orElseThrow(() -> new TimesheetNotFoundException("Không tìm thấy bảng chấm công"));
         List<TimesheetEntry> allEntries = loadTimesheetEntryPort.findByTimesheetId(timesheet.getId());
@@ -177,18 +220,22 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
         timesheet.syncStatusFromEntries(currentUserId);
         saveTimesheetPort.save(timesheet);
 
-        // 12. Cảnh báo ngân sách Task nếu có
-        List<String> warnings = new ArrayList<>();
-        checkBudgetWarning(task, newHours, oldHours, warnings);
-
         // 13. Lưu vết kiểm toán (Audit Log)
+        String auditDetail;
+        if (sourceTaskId.equals(targetTaskId)) {
+            auditDetail = String.format("[ĐIỀU CHỈNH GIỜ ĐÃ DUYỆT] Giờ cũ: %sh -> Giờ mới: %sh | Lý do: %s",
+                    oldHours, newHours, command.reason().trim());
+        } else {
+            auditDetail = String.format("[ĐIỀU CHỈNH GIỜ ĐÃ DUYỆT] Chuyển việc: %s -> %s | Giờ cũ: %sh -> Giờ mới: %sh | Lý do: %s",
+                    sourceTask.getTaskCode(), targetTask.getTaskCode(), oldHours, newHours, command.reason().trim());
+        }
+
         TimesheetAuditLog auditLog = TimesheetAuditLog.create(
                 timesheet.getId(),
                 savedEntry.getId(),
                 "ADJUST_APPROVED",
                 actorId,
-                String.format("[ĐIỀU CHỈNH GIỜ ĐÃ DUYỆT] Giờ cũ: %sh -> Giờ mới: %sh | Lý do: %s",
-                        oldHours, newHours, command.reason().trim())
+                auditDetail
         );
         saveTimesheetAuditLogPort.save(auditLog);
 
@@ -205,8 +252,8 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
                 project.getProjectCode(),
                 project.getProjectName(),
                 savedEntry.getTaskIdValue(),
-                task.getTaskCode(),
-                task.getName(),
+                targetTask.getTaskCode(),
+                targetTask.getName(),
                 savedEntry.getWorkDate(),
                 savedEntry.getHours(),
                 savedEntry.isBillable(),
@@ -221,24 +268,28 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
         return new AdjustApprovedWorkLogResult(result, warnings);
     }
 
-    private void checkBudgetWarning(Task task, BigDecimal newHours, BigDecimal oldHours, List<String> warnings) {
-        if (task.getEstimatedHours() != null && task.getEstimatedHours().compareTo(BigDecimal.ZERO) > 0) {
+    private void checkBudgetWarning(Task task, List<String> warnings) {
+        BigDecimal baseHours = task.getBudgetHours() != null && task.getBudgetHours().compareTo(BigDecimal.ZERO) > 0
+                ? task.getBudgetHours()
+                : task.getEstimatedHours();
+
+        if (baseHours != null && baseHours.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal actual = task.getActualHours() != null ? task.getActualHours() : BigDecimal.ZERO;
-            BigDecimal projectedTotal = actual.subtract(oldHours).add(newHours);
-            BigDecimal threshold = task.getEstimatedHours().multiply(new BigDecimal("0.8"));
+            BigDecimal threshold = baseHours.multiply(new BigDecimal("0.8"));
 
-            if (projectedTotal.compareTo(threshold) >= 0) {
-                BigDecimal percentage = projectedTotal.multiply(new BigDecimal("100"))
-                        .divide(task.getEstimatedHours(), 0, java.math.RoundingMode.HALF_UP);
+            if (actual.compareTo(threshold) >= 0) {
+                BigDecimal percentage = actual.multiply(new BigDecimal("100"))
+                        .divide(baseHours, 0, java.math.RoundingMode.HALF_UP);
 
-                if (projectedTotal.compareTo(task.getEstimatedHours()) > 0) {
-                    warnings.add("Thời gian thực tế (" + projectedTotal + "h) đã VƯỢT quỹ thời gian ("
-                            + task.getEstimatedHours() + "h) - Đạt " + percentage + "%.");
+                if (actual.compareTo(baseHours) > 0) {
+                    warnings.add("Thời gian thực tế (" + actual + "h) đã VƯỢT quỹ thời gian ("
+                            + baseHours + "h) - Đạt " + percentage + "%.");
                 } else {
-                    warnings.add("Thời gian thực tế (" + projectedTotal + "h) đã đạt "
-                            + percentage + "% quỹ thời gian (" + task.getEstimatedHours() + "h).");
+                    warnings.add("Thời gian thực tế (" + actual + "h) đã đạt "
+                            + percentage + "% quỹ thời gian (" + baseHours + "h).");
                 }
             }
         }
     }
 }
+
