@@ -10,3 +10,4 @@ public class WorkLogAdjustmentReasonRequiredException extends DomainException {
         super(message);
     }
 }
+

@@ -10,3 +10,4 @@ public class TimesheetNotApprovedException extends DomainException {
         super(message);
     }
 }
+
