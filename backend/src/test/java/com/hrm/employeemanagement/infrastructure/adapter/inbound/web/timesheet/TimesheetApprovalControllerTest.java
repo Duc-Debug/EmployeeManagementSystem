@@ -30,6 +30,7 @@ import com.hrm.employeemanagement.application.port.inbound.timesheet.GetPendingA
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExceededException;
+import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotApprovedException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogAdjustmentReasonRequiredException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
@@ -169,5 +170,42 @@ class TimesheetApprovalControllerTest {
                         .content(jsonBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("TIMESHEET_NOT_APPROVED"));
+    }
+
+    @Test
+    @DisplayName("TC-05: Thất bại khi xung đột phiên bản (HTTP 409 CONFLICT)")
+    void testAdjustApprovedWorkLog_ThrowsConflict_WhenVersionConflict() throws Exception {
+        when(adjustApprovedWorkLogUseCase.adjustApprovedWorkLog(any(AdjustApprovedWorkLogCommand.class)))
+                .thenThrow(new TimesheetEntryVersionConflictException("Dòng giờ công đã bị thay đổi bởi người khác"));
+
+        String jsonBody = """
+                {
+                    "hours": 6.00,
+                    "reason": "Điều chỉnh do ghi nhận thiếu giờ họp",
+                    "version": 0
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/work-logs/approvals/entries/1/adjust")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TIMESHEET_ENTRY_VERSION_CONFLICT"));
+    }
+
+    @Test
+    @DisplayName("TC-06: Thất bại khi thiếu trường version trong request (HTTP 400 BAD REQUEST)")
+    void testAdjustApprovedWorkLog_ThrowsBadRequest_WhenVersionMissing() throws Exception {
+        String jsonBody = """
+                {
+                    "hours": 6.00,
+                    "reason": "Điều chỉnh do ghi nhận thiếu giờ họp"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/work-logs/approvals/entries/1/adjust")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isBadRequest());
     }
 }

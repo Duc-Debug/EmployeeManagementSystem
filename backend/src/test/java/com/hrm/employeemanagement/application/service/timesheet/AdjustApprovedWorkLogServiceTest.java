@@ -25,6 +25,7 @@ import com.hrm.employeemanagement.application.dto.timesheet.AdjustApprovedWorkLo
 import com.hrm.employeemanagement.application.port.inbound.allocation.period.CheckAllocationPeriodLockUseCase;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
+import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetEntryPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetAuditLogPort;
@@ -38,6 +39,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExceededException;
+import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotApprovedException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogAdjustmentReasonRequiredException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogInvalidHoursException;
@@ -71,6 +73,8 @@ class AdjustApprovedWorkLogServiceTest {
     @Mock
     private LoadTaskPort loadTaskPort;
     @Mock
+    private SaveTaskPort saveTaskPort;
+    @Mock
     private LoadEmployeePort loadEmployeePort;
     @Mock
     private SaveTimesheetAuditLogPort saveTimesheetAuditLogPort;
@@ -97,6 +101,7 @@ class AdjustApprovedWorkLogServiceTest {
                 saveTimesheetPort,
                 loadProjectPort,
                 loadTaskPort,
+                saveTaskPort,
                 loadEmployeePort,
                 saveTimesheetAuditLogPort,
                 authorizationService,
@@ -231,6 +236,8 @@ class AdjustApprovedWorkLogServiceTest {
         assertNotNull(result);
         assertEquals(new BigDecimal("6.00"), result.entry().hours());
         assertEquals("APPROVED", result.entry().status());
+        verify(saveTaskPort).save(task);
+        assertEquals(new BigDecimal("6.00"), task.getActualHours());
         verify(saveTimesheetAuditLogPort).save(any(TimesheetAuditLog.class));
         verify(saveTimesheetPort).save(any(Timesheet.class));
     }
@@ -409,5 +416,138 @@ class AdjustApprovedWorkLogServiceTest {
         assertNotNull(result);
         assertFalse(result.warnings().isEmpty());
         assertTrue(result.warnings().get(0).contains("đạt 90% quỹ thời gian"));
+        verify(saveTaskPort).save(task);
+        assertEquals(new BigDecimal("9.00"), task.getActualHours());
+    }
+
+    @Test
+    @DisplayName("TC-07: Điều chỉnh chuyển Task (từ Task A sang Task B) - đồng bộ đúng actualHours của cả 2 task và cảnh báo ngân sách Task B")
+    void testAdjustApproved_TaskMove() {
+        when(authorizationService.requireAny(PermissionCode.WORK_LOG_ADJUST, PermissionCode.WORK_LOG_APPROVE))
+                .thenReturn(pmUserId);
+
+        Employee pm = createEmployee(pmEmployeeId, "PM Nguyễn Văn A");
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(pm));
+
+        TimesheetEntry entry = createApprovedEntry(new TimesheetEntryId(1L), new TimesheetId(10L), new BigDecimal("8.00"));
+        when(loadTimesheetEntryPort.findById(new TimesheetEntryId(1L))).thenReturn(Optional.of(entry));
+
+        Project project = createProject(projectId, pmEmployeeId);
+        when(loadProjectPort.findById(projectId)).thenReturn(Optional.of(project));
+
+        TaskId taskBId = new TaskId(6L);
+        Task taskA = createTask(taskId, projectId, new BigDecimal("40.00"), new BigDecimal("20.00"));
+        Task taskB = new Task(
+                taskBId,
+                projectId,
+                null,
+                "TASK-02",
+                "Viết Unit Test",
+                null,
+                TaskType.TASK,
+                null,
+                new BigDecimal("18.00"),
+                new BigDecimal("10.00"),
+                BigDecimal.ZERO,
+                com.hrm.employeemanagement.domain.task.TaskStatus.IN_PROGRESS,
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                0L
+        );
+
+        when(loadTaskPort.findById(taskId)).thenReturn(Optional.of(taskA));
+        when(loadTaskPort.findById(taskBId)).thenReturn(Optional.of(taskB));
+
+        when(loadTimesheetEntryPort.sumHoursByEmployeeAndDate(devEmployeeId, workDate, entry.getId()))
+                .thenReturn(BigDecimal.ZERO);
+
+        when(saveTimesheetEntryPort.save(any(TimesheetEntry.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Timesheet timesheet = Timesheet.create(devEmployeeId, workDate);
+        timesheet.setId(new TimesheetId(10L));
+        when(loadTimesheetPort.findById(new TimesheetId(10L))).thenReturn(Optional.of(timesheet));
+        when(loadTimesheetEntryPort.findByTimesheetId(new TimesheetId(10L))).thenReturn(List.of(entry));
+
+        Employee dev = createEmployee(devEmployeeId, "Lê Văn Dev");
+        when(loadEmployeePort.findById(devEmployeeId)).thenReturn(Optional.of(dev));
+
+        // Chuyển từ Task A (8h) sang Task B thành 6h
+        AdjustApprovedWorkLogCommand command = new AdjustApprovedWorkLogCommand(
+                1L,
+                new BigDecimal("6.00"),
+                6L,
+                true,
+                "Chuyển nhầm công việc, ghi nhận lại sang Task B",
+                "Lý do giải trình chi tiết về việc chuyển công việc",
+                0L
+        );
+
+        AdjustApprovedWorkLogResult result = service.adjustApprovedWorkLog(command);
+
+        assertNotNull(result);
+        assertEquals(6L, result.entry().taskId());
+        assertEquals("TASK-02", result.entry().taskCode());
+        assertEquals(new BigDecimal("6.00"), result.entry().hours());
+
+        // Task A phải giảm 8h (20 - 8 = 12h)
+        assertEquals(new BigDecimal("12.00"), taskA.getActualHours());
+        verify(saveTaskPort).save(taskA);
+
+        // Task B phải tăng 6h (10 + 6 = 16h)
+        assertEquals(new BigDecimal("16.00"), taskB.getActualHours());
+        verify(saveTaskPort).save(taskB);
+
+        // Cảnh báo ngân sách cho Task B: 16h / 18h = 89% (>= 80%)
+        assertFalse(result.warnings().isEmpty());
+        assertTrue(result.warnings().get(0).contains("đạt 89% quỹ thời gian (18.00h)"));
+    }
+
+    @Test
+    @DisplayName("TC-08: Thất bại khi xung đột phiên bản (Optimistic Locking - version mismatch)")
+    void testAdjustApproved_ThrowsException_WhenVersionConflict() {
+        when(authorizationService.requireAny(PermissionCode.WORK_LOG_ADJUST, PermissionCode.WORK_LOG_APPROVE))
+                .thenReturn(pmUserId);
+
+        Employee pm = createEmployee(pmEmployeeId, "PM Nguyễn Văn A");
+        when(loadEmployeePort.findByUserId(new UserId(pmUserId))).thenReturn(Optional.of(pm));
+
+        // Entry trong DB đang có version = 1
+        TimesheetEntry entry = new TimesheetEntry(
+                new TimesheetEntryId(1L),
+                new TimesheetId(10L),
+                devEmployeeId,
+                projectId,
+                taskId,
+                workDate,
+                new BigDecimal("8.00"),
+                true,
+                "Làm việc bình thường",
+                TimesheetStatus.APPROVED,
+                null,
+                null,
+                1L
+        );
+        when(loadTimesheetEntryPort.findById(new TimesheetEntryId(1L))).thenReturn(Optional.of(entry));
+
+        // Request gửi lên version = 0 (stale)
+        AdjustApprovedWorkLogCommand command = new AdjustApprovedWorkLogCommand(
+                1L,
+                new BigDecimal("6.00"),
+                null,
+                true,
+                "Mô tả",
+                "Lý do giải trình hợp lệ trên 10 ký tự",
+                0L
+        );
+
+        assertThrows(TimesheetEntryVersionConflictException.class, () -> service.adjustApprovedWorkLog(command));
     }
 }
