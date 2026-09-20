@@ -584,6 +584,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryVersionConflictException.class)
+    public ResponseEntity<ErrorResponse> handleTimesheetEntryVersionConflict(com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryVersionConflictException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TIMESHEET_ENTRY_VERSION_CONFLICT",
+                ex.getMessage() != null ? ex.getMessage() : "Dữ liệu dòng giờ công đã bị thay đổi bởi người khác. Vui lòng tải lại trang và thử lại.",
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoResourceFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
         log.warn("Resource or endpoint not found: {}", ex.getMessage());

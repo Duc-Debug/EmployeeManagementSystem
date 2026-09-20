@@ -22,6 +22,8 @@ public record AdjustApprovedWorkLogRequest(
         @Size(min = 10, message = "Lý do điều chỉnh phải có ít nhất 10 ký tự.")
         String reason,
 
+        @NotNull(message = "Phiên bản (version) không được để trống.")
         Long version
 ) {
 }
+
