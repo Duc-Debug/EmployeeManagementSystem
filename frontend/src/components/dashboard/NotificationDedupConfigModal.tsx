@@ -43,17 +43,6 @@ export default function NotificationDedupConfigModal({
   // Modal xác nhận thao tác (TC-04)
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadConfig();
-    } else {
-      setErrorMessage(null);
-      setSuccessMessage(null);
-      setScanResult(null);
-      setShowConfirmModal(false);
-    }
-  }, [isOpen]);
-
   const loadConfig = async () => {
     try {
       setIsLoading(true);
@@ -74,6 +63,17 @@ export default function NotificationDedupConfigModal({
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadConfig();
+    } else {
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setScanResult(null);
+      setShowConfirmModal(false);
+    }
+  }, [isOpen]);
 
   const handleOpenConfirm = (e: React.FormEvent) => {
     e.preventDefault();
