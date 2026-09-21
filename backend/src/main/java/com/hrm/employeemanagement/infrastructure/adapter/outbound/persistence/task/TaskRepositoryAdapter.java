@@ -87,7 +87,9 @@ public class TaskRepositoryAdapter implements LoadTaskPort, SaveTaskPort {
     @Override
     public Task save(Task task) {
         TaskJpaEntity entity = mapper.toJpaEntity(task);
-        TaskJpaEntity saved = taskRepository.save(entity);
+        // TaskJpaEntity uses @Version. Flush here so a concurrent actualHours update
+        // fails inside the use-case transaction and rolls every related write back.
+        TaskJpaEntity saved = taskRepository.saveAndFlush(entity);
         return mapper.toDomain(saved);
     }
 
