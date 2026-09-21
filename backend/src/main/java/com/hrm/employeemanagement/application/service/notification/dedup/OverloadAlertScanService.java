@@ -5,23 +5,20 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hrm.employeemanagement.application.dto.notification.CreateNotificationEventCommand;
 import com.hrm.employeemanagement.application.dto.notification.dedup.EmployeeWeeklyOverloadCandidate;
 import com.hrm.employeemanagement.application.dto.notification.dedup.OverloadScanResult;
-import com.hrm.employeemanagement.application.port.inbound.notification.CreateNotificationEventUseCase;
 import com.hrm.employeemanagement.application.port.inbound.notification.dedup.ScanOverloadAndAlertUseCase;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.LoadWeeklyOverloadCandidatesPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.NotificationDedupConfigRepositoryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.NotificationDedupRepositoryPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.dedup.OverloadAlertDispatchResult;
+import com.hrm.employeemanagement.application.port.outbound.notification.dedup.OverloadAlertDispatcherPort;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
-import com.hrm.employeemanagement.domain.notification.NotificationLevel;
 import com.hrm.employeemanagement.domain.notification.dedup.NotificationDedupConfig;
-import com.hrm.employeemanagement.domain.notification.dedup.NotificationDedupKeyPolicy;
 import com.hrm.employeemanagement.domain.notification.dedup.NotificationDedupRecord;
 
 /**
@@ -29,30 +26,30 @@ import com.hrm.employeemanagement.domain.notification.dedup.NotificationDedupRec
  * Đáp ứng:
  * - TC-01: Chạy lại sau 1 giờ -> không gửi lại cho cùng tuần và cùng nhân sự nếu khóa active đã tồn tại (SKIP).
  * - TC-02: Thoát quá tải rồi quá tải lại trong cùng tuần -> resolve khóa cũ, kích hoạt sự kiện mới và gửi cảnh báo lại.
+ * - Concurrency & Atomicity: Cấp phát khóa dedup và phát sinh notification được thực hiện nguyên tử qua OverloadAlertDispatcherPort.
  */
 public class OverloadAlertScanService implements ScanOverloadAndAlertUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(OverloadAlertScanService.class);
-    public static final String EVENT_TYPE = "OVERLOAD_WARNING";
     public static final String TARGET_ENTITY_TYPE = "EMPLOYEE";
 
     private final NotificationDedupConfigRepositoryPort configRepositoryPort;
     private final NotificationDedupRepositoryPort dedupRepositoryPort;
     private final LoadWeeklyOverloadCandidatesPort loadCandidatesPort;
-    private final CreateNotificationEventUseCase createNotificationEventUseCase;
+    private final OverloadAlertDispatcherPort overloadAlertDispatcherPort;
     private final Clock clock;
 
     public OverloadAlertScanService(
             NotificationDedupConfigRepositoryPort configRepositoryPort,
             NotificationDedupRepositoryPort dedupRepositoryPort,
             LoadWeeklyOverloadCandidatesPort loadCandidatesPort,
-            CreateNotificationEventUseCase createNotificationEventUseCase,
+            OverloadAlertDispatcherPort overloadAlertDispatcherPort,
             Clock clock
     ) {
         this.configRepositoryPort = Objects.requireNonNull(configRepositoryPort, "configRepositoryPort must not be null");
         this.dedupRepositoryPort = Objects.requireNonNull(dedupRepositoryPort, "dedupRepositoryPort must not be null");
         this.loadCandidatesPort = Objects.requireNonNull(loadCandidatesPort, "loadCandidatesPort must not be null");
-        this.createNotificationEventUseCase = Objects.requireNonNull(createNotificationEventUseCase, "createNotificationEventUseCase must not be null");
+        this.overloadAlertDispatcherPort = Objects.requireNonNull(overloadAlertDispatcherPort, "overloadAlertDispatcherPort must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -107,59 +104,21 @@ public class OverloadAlertScanService implements ScanOverloadAndAlertUseCase {
                     continue;
                 }
 
-                String dedupKey = NotificationDedupKeyPolicy.buildKey(
-                        EVENT_TYPE,
-                        TARGET_ENTITY_TYPE,
-                        targetEntityId,
+                OverloadAlertDispatchResult dispatchResult = overloadAlertDispatcherPort.dispatchOverloadAlert(
+                        candidate,
+                        recipientUserId,
                         yearWeek,
-                        recipientUserId
+                        now,
+                        expiresAt
                 );
 
-                Optional<NotificationDedupRecord> activeRecordOpt = dedupRepositoryPort.findActiveByDedupKey(dedupKey);
-
-                if (activeRecordOpt.isPresent()) {
-                    // TC-01: Khóa thông báo đã tồn tại ở trạng thái ACTIVE -> Bỏ qua, không gửi lại
-                    skippedDedupCount++;
-                    log.debug("Khóa chống trùng {} đã tồn tại và active. Bỏ qua cảnh báo lặp lại theo QTN-19.", dedupKey);
-                } else {
-                    // Chưa có khóa ACTIVE (lần đầu hoặc là sự kiện mới sau khi thoát quá tải theo TC-02)
-                    NotificationDedupRecord newRecord = NotificationDedupRecord.createActive(
-                            dedupKey,
-                            EVENT_TYPE,
-                            TARGET_ENTITY_TYPE,
-                            targetEntityId,
-                            yearWeek,
-                            recipientUserId,
-                            now,
-                            expiresAt
-                    );
-                    dedupRepositoryPort.save(newRecord);
-
-                    // Phát sinh thông báo qua hạ tầng NCL-11-CN-001
-                    String title = "Cảnh báo quá tải nhân sự: " + candidate.employeeName();
-                    String message = String.format(
-                            "Nhân sự %s (%s) bị phân bổ vượt năng lực khả dụng trong tuần %s: %.1fh / %.1fh. Vui lòng rà soát và điều chỉnh kế hoạch phân bổ.",
-                            candidate.employeeName(),
-                            candidate.employeeCode(),
-                            yearWeek,
-                            candidate.allocatedHours() != null ? candidate.allocatedHours() : java.math.BigDecimal.ZERO,
-                            candidate.availableHours() != null ? candidate.availableHours() : java.math.BigDecimal.ZERO
-                    );
-
-                    CreateNotificationEventCommand command = new CreateNotificationEventCommand(
-                            EVENT_TYPE,
-                            NotificationLevel.CAO,
-                            title,
-                            message,
-                            TARGET_ENTITY_TYPE,
-                            targetEntityId,
-                            dedupKey,
-                            List.of(recipientUserId)
-                    );
-
-                    createNotificationEventUseCase.execute(command);
+                if (dispatchResult == OverloadAlertDispatchResult.ALERTED) {
                     newlyAlertedCount++;
-                    log.info("Đã tạo và gửi cảnh báo quá tải mới (key={}) cho người nhận {}", dedupKey, recipientUserId);
+                } else if (dispatchResult == OverloadAlertDispatchResult.SKIPPED_DEDUP) {
+                    skippedDedupCount++;
+                } else {
+                    log.warn("Gửi cảnh báo quá tải thất bại cho nhân sự {} (người nhận {}). Lần quét sau sẽ thử lại.",
+                            candidate.employeeId(), recipientUserId);
                 }
             }
         }

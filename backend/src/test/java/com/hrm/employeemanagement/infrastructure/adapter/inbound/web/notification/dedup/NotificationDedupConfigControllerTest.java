@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,8 +21,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.hrm.employeemanagement.application.dto.notification.dedup.NotificationDedupConfigResult;
+import com.hrm.employeemanagement.application.dto.notification.dedup.OverloadScanResult;
 import com.hrm.employeemanagement.application.port.inbound.notification.dedup.GetNotificationDedupConfigUseCase;
-import com.hrm.employeemanagement.application.port.inbound.notification.dedup.ScanOverloadAndAlertUseCase;
+import com.hrm.employeemanagement.application.port.inbound.notification.dedup.TriggerManualOverloadScanUseCase;
 import com.hrm.employeemanagement.application.port.inbound.notification.dedup.UpdateNotificationDedupConfigUseCase;
 import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -34,14 +36,14 @@ class NotificationDedupConfigControllerTest {
 
     private GetNotificationDedupConfigUseCase getConfigUseCase;
     private UpdateNotificationDedupConfigUseCase updateConfigUseCase;
-    private ScanOverloadAndAlertUseCase scanUseCase;
+    private TriggerManualOverloadScanUseCase triggerManualScanUseCase;
     private CurrentUserPort currentUserPort;
 
     @BeforeEach
     void setUp() {
         getConfigUseCase = mock(GetNotificationDedupConfigUseCase.class);
         updateConfigUseCase = mock(UpdateNotificationDedupConfigUseCase.class);
-        scanUseCase = mock(ScanOverloadAndAlertUseCase.class);
+        triggerManualScanUseCase = mock(TriggerManualOverloadScanUseCase.class);
         currentUserPort = mock(CurrentUserPort.class);
 
         when(currentUserPort.getCurrentUserId()).thenReturn(Optional.of(1L));
@@ -49,7 +51,7 @@ class NotificationDedupConfigControllerTest {
         NotificationDedupConfigController controller = new NotificationDedupConfigController(
                 getConfigUseCase,
                 updateConfigUseCase,
-                scanUseCase,
+                triggerManualScanUseCase,
                 currentUserPort
         );
 
@@ -138,5 +140,44 @@ class NotificationDedupConfigControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidRequestJson))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/admin/notification-dedup-config/trigger-scan: Kích hoạt quét thành công -> Trả về 200 OK")
+    void triggerScan_success() throws Exception {
+        OverloadScanResult mockResult = new OverloadScanResult(10, 2, 2, 0, 0);
+        when(triggerManualScanUseCase.triggerManualScan(null, null)).thenReturn(mockResult);
+
+        mockMvc.perform(post("/api/v1/admin/notification-dedup-config/trigger-scan")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.totalScanned").value(10))
+                .andExpect(jsonPath("$.data.newlyAlertedCount").value(2));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/admin/notification-dedup-config/trigger-scan: Tham số không hợp lệ -> Trả về 400 Bad Request")
+    void triggerScan_validationError_returns400() throws Exception {
+        when(triggerManualScanUseCase.triggerManualScan(eq(2026), eq(null)))
+                .thenThrow(new IllegalArgumentException("Cả hai tham số 'year' và 'weekNumber' phải cùng được cung cấp hoặc cùng để trống."));
+
+        mockMvc.perform(post("/api/v1/admin/notification-dedup-config/trigger-scan")
+                        .param("year", "2026")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Cả hai tham số 'year' và 'weekNumber' phải cùng được cung cấp hoặc cùng để trống."));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/admin/notification-dedup-config/trigger-scan: Không có quyền truy cập -> Trả về 403 Forbidden")
+    void triggerScan_accessDenied_returns403() throws Exception {
+        when(triggerManualScanUseCase.triggerManualScan(any(), any()))
+                .thenThrow(new PermissionDeniedException(PermissionCode.NOTIFICATION_DEDUPLICATION_MANAGE));
+
+        mockMvc.perform(post("/api/v1/admin/notification-dedup-config/trigger-scan")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 }

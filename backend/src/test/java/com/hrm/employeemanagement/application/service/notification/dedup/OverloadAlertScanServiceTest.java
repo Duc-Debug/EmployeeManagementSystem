@@ -2,7 +2,6 @@ package com.hrm.employeemanagement.application.service.notification.dedup;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -16,20 +15,18 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.hrm.employeemanagement.application.dto.notification.CreateNotificationEventCommand;
 import com.hrm.employeemanagement.application.dto.notification.dedup.EmployeeWeeklyOverloadCandidate;
 import com.hrm.employeemanagement.application.dto.notification.dedup.OverloadScanResult;
-import com.hrm.employeemanagement.application.port.inbound.notification.CreateNotificationEventUseCase;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.LoadWeeklyOverloadCandidatesPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.NotificationDedupConfigRepositoryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.NotificationDedupRepositoryPort;
-import com.hrm.employeemanagement.domain.notification.dedup.DedupRecordStatus;
+import com.hrm.employeemanagement.application.port.outbound.notification.dedup.OverloadAlertDispatchResult;
+import com.hrm.employeemanagement.application.port.outbound.notification.dedup.OverloadAlertDispatcherPort;
 import com.hrm.employeemanagement.domain.notification.dedup.NotificationDedupConfig;
 import com.hrm.employeemanagement.domain.notification.dedup.NotificationDedupRecord;
 
@@ -38,7 +35,7 @@ class OverloadAlertScanServiceTest {
     private NotificationDedupConfigRepositoryPort configRepositoryPort;
     private NotificationDedupRepositoryPort dedupRepositoryPort;
     private LoadWeeklyOverloadCandidatesPort loadCandidatesPort;
-    private CreateNotificationEventUseCase createNotificationEventUseCase;
+    private OverloadAlertDispatcherPort overloadAlertDispatcherPort;
     private Clock fixedClock;
 
     private OverloadAlertScanService scanService;
@@ -48,7 +45,7 @@ class OverloadAlertScanServiceTest {
         configRepositoryPort = mock(NotificationDedupConfigRepositoryPort.class);
         dedupRepositoryPort = mock(NotificationDedupRepositoryPort.class);
         loadCandidatesPort = mock(LoadWeeklyOverloadCandidatesPort.class);
-        createNotificationEventUseCase = mock(CreateNotificationEventUseCase.class);
+        overloadAlertDispatcherPort = mock(OverloadAlertDispatcherPort.class);
 
         fixedClock = Clock.fixed(Instant.parse("2026-09-21T10:00:00Z"), ZoneId.of("UTC"));
 
@@ -56,7 +53,7 @@ class OverloadAlertScanServiceTest {
                 configRepositoryPort,
                 dedupRepositoryPort,
                 loadCandidatesPort,
-                createNotificationEventUseCase,
+                overloadAlertDispatcherPort,
                 fixedClock
         );
 
@@ -80,9 +77,9 @@ class OverloadAlertScanServiceTest {
 
         when(loadCandidatesPort.loadOverloadCandidates(2026, 38)).thenReturn(List.of(candidate));
 
-        // Lần 1: Chưa có khóa active -> Hệ thống tạo khóa và gửi cảnh báo
-        when(dedupRepositoryPort.findActiveByDedupKey("OVERLOAD_WARNING:EMPLOYEE:101:2026-W38:USER:201"))
-                .thenReturn(Optional.empty());
+        // Lần 1: Dispatcher gửi cảnh báo thành công
+        when(overloadAlertDispatcherPort.dispatchOverloadAlert(eq(candidate), eq(201L), eq("2026-W38"), any(), any()))
+                .thenReturn(OverloadAlertDispatchResult.ALERTED);
 
         OverloadScanResult firstResult = scanService.scanAndAlert(2026, 38);
 
@@ -90,23 +87,11 @@ class OverloadAlertScanServiceTest {
         assertEquals(1, firstResult.overloadedCount());
         assertEquals(1, firstResult.newlyAlertedCount());
         assertEquals(0, firstResult.skippedDedupCount());
-        verify(dedupRepositoryPort, times(1)).save(any(NotificationDedupRecord.class));
-        verify(createNotificationEventUseCase, times(1)).execute(any(CreateNotificationEventCommand.class));
+        verify(overloadAlertDispatcherPort, times(1)).dispatchOverloadAlert(any(), any(), any(), any(), any());
 
-        // Lần 2 (chạy lại sau 1 giờ theo TC-01): Khóa active đã tồn tại
-        NotificationDedupRecord existingActiveRecord = NotificationDedupRecord.createActive(
-                "OVERLOAD_WARNING:EMPLOYEE:101:2026-W38:USER:201",
-                "OVERLOAD_WARNING",
-                "EMPLOYEE",
-                "101",
-                "2026-W38",
-                201L,
-                LocalDateTime.now(fixedClock),
-                LocalDateTime.now(fixedClock).plusDays(7)
-        );
-
-        when(dedupRepositoryPort.findActiveByDedupKey("OVERLOAD_WARNING:EMPLOYEE:101:2026-W38:USER:201"))
-                .thenReturn(Optional.of(existingActiveRecord));
+        // Lần 2 (chạy lại sau 1 giờ theo TC-01): Dispatcher phát hiện khóa active -> trả về SKIPPED_DEDUP
+        when(overloadAlertDispatcherPort.dispatchOverloadAlert(eq(candidate), eq(201L), eq("2026-W38"), any(), any()))
+                .thenReturn(OverloadAlertDispatchResult.SKIPPED_DEDUP);
 
         OverloadScanResult secondResult = scanService.scanAndAlert(2026, 38);
 
@@ -114,9 +99,7 @@ class OverloadAlertScanServiceTest {
         assertEquals(1, secondResult.overloadedCount());
         assertEquals(0, secondResult.newlyAlertedCount());
         assertEquals(1, secondResult.skippedDedupCount()); // Bỏ qua trùng lặp thành công!
-
-        // createNotificationEventUseCase KHÔNG được gọi thêm lần nào nữa (vẫn là 1 lần từ trước)
-        verify(createNotificationEventUseCase, times(1)).execute(any(CreateNotificationEventCommand.class));
+        verify(overloadAlertDispatcherPort, times(2)).dispatchOverloadAlert(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -169,18 +152,56 @@ class OverloadAlertScanServiceTest {
         );
 
         when(loadCandidatesPort.loadOverloadCandidates(2026, 38)).thenReturn(List.of(reOverloadedCandidate));
-        // Vì bản ghi cũ đã được resolve (status = INACTIVE, active_dedup_key = null), findActiveByDedupKey trả về Empty
-        when(dedupRepositoryPort.findActiveByDedupKey("OVERLOAD_WARNING:EMPLOYEE:101:2026-W38:USER:201"))
-                .thenReturn(Optional.empty());
+        when(overloadAlertDispatcherPort.dispatchOverloadAlert(eq(reOverloadedCandidate), eq(201L), eq("2026-W38"), any(), any()))
+                .thenReturn(OverloadAlertDispatchResult.ALERTED);
 
         OverloadScanResult reAlertResult = scanService.scanAndAlert(2026, 38);
 
         assertEquals(1, reAlertResult.newlyAlertedCount());
         assertEquals(0, reAlertResult.skippedDedupCount());
 
-        // Kiểm tra hệ thống tạo bản ghi mới và gửi cảnh báo lại (TC-02)
-        verify(dedupRepositoryPort, times(1)).save(any(NotificationDedupRecord.class));
-        verify(createNotificationEventUseCase, times(1)).execute(any(CreateNotificationEventCommand.class));
+        // Kiểm tra hệ thống dispatch cảnh báo sự kiện mới (TC-02)
+        verify(overloadAlertDispatcherPort).dispatchOverloadAlert(eq(reOverloadedCandidate), eq(201L), eq("2026-W38"), any(), any());
+    }
+
+    @Test
+    @DisplayName("Reliability/Retry: Nếu lần đầu dispatch thông báo thất bại (FAILED), lần scan kế tiếp vẫn retry gửi thành công")
+    void retryScan_whenPreviousDispatchFailed_retriesAndSucceeds() {
+        EmployeeWeeklyOverloadCandidate candidate = new EmployeeWeeklyOverloadCandidate(
+                101L,
+                "NV001",
+                "Nguyễn Văn A",
+                2026,
+                38,
+                BigDecimal.valueOf(50),
+                BigDecimal.valueOf(40),
+                true,
+                List.of(201L)
+        );
+
+        when(loadCandidatesPort.loadOverloadCandidates(2026, 38)).thenReturn(List.of(candidate));
+
+        // Lần 1: Lỗi khi dispatch (notification event ném exception -> FAILED)
+        when(overloadAlertDispatcherPort.dispatchOverloadAlert(eq(candidate), eq(201L), eq("2026-W38"), any(), any()))
+                .thenReturn(OverloadAlertDispatchResult.FAILED);
+
+        OverloadScanResult firstResult = scanService.scanAndAlert(2026, 38);
+
+        assertEquals(1, firstResult.totalScanned());
+        assertEquals(1, firstResult.overloadedCount());
+        assertEquals(0, firstResult.newlyAlertedCount()); // Thất bại, chưa ghi nhận gửi thành công
+        assertEquals(0, firstResult.skippedDedupCount());
+
+        // Lần 2 (quét lại / retry): Hạ tầng thông báo đã phục hồi -> ALERTED
+        when(overloadAlertDispatcherPort.dispatchOverloadAlert(eq(candidate), eq(201L), eq("2026-W38"), any(), any()))
+                .thenReturn(OverloadAlertDispatchResult.ALERTED);
+
+        OverloadScanResult retryResult = scanService.scanAndAlert(2026, 38);
+
+        assertEquals(1, retryResult.totalScanned());
+        assertEquals(1, retryResult.overloadedCount());
+        assertEquals(1, retryResult.newlyAlertedCount()); // Retry thành công!
+        assertEquals(0, retryResult.skippedDedupCount());
     }
 
     @Test
@@ -201,6 +222,6 @@ class OverloadAlertScanServiceTest {
 
         assertEquals(0, result.totalScanned());
         verify(loadCandidatesPort, never()).loadOverloadCandidates(any(int.class), any(int.class));
-        verify(createNotificationEventUseCase, never()).execute(any());
+        verify(overloadAlertDispatcherPort, never()).dispatchOverloadAlert(any(), any(), any(), any(), any());
     }
 }

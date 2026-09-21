@@ -5,13 +5,14 @@ import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.hrm.employeemanagement.application.port.inbound.notification.CreateNotificationEventUseCase;
+import com.hrm.employeemanagement.application.port.inbound.notification.dedup.ScanOverloadAndAlertUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.LoadWeeklyOverloadCandidatesPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.NotificationDedupConfigRepositoryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.NotificationDedupRepositoryPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.dedup.OverloadAlertDispatcherPort;
 import com.hrm.employeemanagement.application.service.notification.dedup.NotificationDedupConfigService;
 import com.hrm.employeemanagement.application.service.notification.dedup.OverloadAlertScanService;
 
@@ -25,34 +26,36 @@ public class NotificationDedupUseCaseConfig {
     }
 
     @Bean
-    public NotificationDedupConfigService notificationDedupConfigService(
-            NotificationDedupConfigRepositoryPort configRepositoryPort,
-            GetAuthenticatedUserPort authenticatedUserPort,
-            PermissionQueryPort permissionQueryPort,
-            SaveAuditLogInNewTransactionPort deniedAuditLogPort
-    ) {
-        return new NotificationDedupConfigService(
-                configRepositoryPort,
-                authenticatedUserPort,
-                permissionQueryPort,
-                deniedAuditLogPort
-        );
-    }
-
-    @Bean
     public OverloadAlertScanService overloadAlertScanService(
             NotificationDedupConfigRepositoryPort configRepositoryPort,
             NotificationDedupRepositoryPort dedupRepositoryPort,
             LoadWeeklyOverloadCandidatesPort loadCandidatesPort,
-            CreateNotificationEventUseCase createNotificationEventUseCase,
+            OverloadAlertDispatcherPort overloadAlertDispatcherPort,
             Clock clock
     ) {
         return new OverloadAlertScanService(
                 configRepositoryPort,
                 dedupRepositoryPort,
                 loadCandidatesPort,
-                createNotificationEventUseCase,
+                overloadAlertDispatcherPort,
                 clock
+        );
+    }
+
+    @Bean
+    public NotificationDedupConfigService notificationDedupConfigService(
+            NotificationDedupConfigRepositoryPort configRepositoryPort,
+            GetAuthenticatedUserPort authenticatedUserPort,
+            PermissionQueryPort permissionQueryPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort,
+            ScanOverloadAndAlertUseCase scanOverloadAndAlertUseCase
+    ) {
+        return new NotificationDedupConfigService(
+                configRepositoryPort,
+                authenticatedUserPort,
+                permissionQueryPort,
+                deniedAuditLogPort,
+                scanOverloadAndAlertUseCase
         );
     }
 }

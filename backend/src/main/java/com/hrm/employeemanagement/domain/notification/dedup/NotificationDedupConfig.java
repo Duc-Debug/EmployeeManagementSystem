@@ -105,4 +105,9 @@ public class NotificationDedupConfig {
     public void setVersion(Long version) {
         this.version = version;
     }
+
+    public String toAuditSnapshot() {
+        return String.format("isEnabled=%b;dedupWindowDays=%d;scanIntervalMinutes=%d",
+                isEnabled, dedupWindowDays, scanIntervalMinutes);
+    }
 }

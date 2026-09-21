@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -16,7 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.hrm.employeemanagement.application.dto.notification.dedup.NotificationDedupConfigResult;
+import com.hrm.employeemanagement.application.dto.notification.dedup.OverloadScanResult;
 import com.hrm.employeemanagement.application.dto.notification.dedup.UpdateNotificationDedupConfigCommand;
+import com.hrm.employeemanagement.application.port.inbound.notification.dedup.ScanOverloadAndAlertUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
@@ -39,6 +40,7 @@ class NotificationDedupConfigServiceTest {
     private GetAuthenticatedUserPort authenticatedUserPort;
     private PermissionQueryPort permissionQueryPort;
     private SaveAuditLogInNewTransactionPort deniedAuditLogPort;
+    private ScanOverloadAndAlertUseCase scanOverloadAndAlertUseCase;
     private NotificationDedupConfigService service;
 
     private User adminUser;
@@ -50,12 +52,14 @@ class NotificationDedupConfigServiceTest {
         authenticatedUserPort = mock(GetAuthenticatedUserPort.class);
         permissionQueryPort = mock(PermissionQueryPort.class);
         deniedAuditLogPort = mock(SaveAuditLogInNewTransactionPort.class);
+        scanOverloadAndAlertUseCase = mock(ScanOverloadAndAlertUseCase.class);
 
         service = new NotificationDedupConfigService(
                 configRepositoryPort,
                 authenticatedUserPort,
                 permissionQueryPort,
-                deniedAuditLogPort
+                deniedAuditLogPort,
+                scanOverloadAndAlertUseCase
         );
 
         adminUser = new User(
@@ -155,5 +159,77 @@ class NotificationDedupConfigServiceTest {
         assertNotNull(history.getNewValue());
         assertNotNull(history.getCreatedAt());
         assertNotNull(history.getChangeSummary());
+    }
+
+    @Test
+    @DisplayName("triggerManualScan: Cả year và weekNumber là null -> Quét tuần hiện tại")
+    void triggerManualScan_bothNull_scansCurrentWeek() {
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(adminUser);
+        when(permissionQueryPort.hasPermission(1L, PermissionCode.NOTIFICATION_DEDUPLICATION_MANAGE))
+                .thenReturn(true);
+
+        OverloadScanResult mockResult = new OverloadScanResult(10, 2, 2, 0, 0);
+        when(scanOverloadAndAlertUseCase.scanCurrentWeek()).thenReturn(mockResult);
+
+        OverloadScanResult result = service.triggerManualScan(null, null);
+
+        assertNotNull(result);
+        assertEquals(10, result.totalScanned());
+        assertEquals(2, result.newlyAlertedCount());
+        verify(scanOverloadAndAlertUseCase).scanCurrentWeek();
+    }
+
+    @Test
+    @DisplayName("triggerManualScan: Cung cấp đầy đủ year và weekNumber hợp lệ -> Quét tuần chỉ định")
+    void triggerManualScan_validYearAndWeek_scansSpecifiedWeek() {
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(adminUser);
+        when(permissionQueryPort.hasPermission(1L, PermissionCode.NOTIFICATION_DEDUPLICATION_MANAGE))
+                .thenReturn(true);
+
+        OverloadScanResult mockResult = new OverloadScanResult(5, 1, 1, 0, 0);
+        when(scanOverloadAndAlertUseCase.scanAndAlert(2026, 38)).thenReturn(mockResult);
+
+        OverloadScanResult result = service.triggerManualScan(2026, 38);
+
+        assertNotNull(result);
+        assertEquals(1, result.newlyAlertedCount());
+        verify(scanOverloadAndAlertUseCase).scanAndAlert(2026, 38);
+    }
+
+    @Test
+    @DisplayName("triggerManualScan: Chỉ truyền một trong hai tham số -> Ném IllegalArgumentException (Bad Request)")
+    void triggerManualScan_onlyOneParamProvided_throwsIllegalArgumentException() {
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(adminUser);
+        when(permissionQueryPort.hasPermission(1L, PermissionCode.NOTIFICATION_DEDUPLICATION_MANAGE))
+                .thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> service.triggerManualScan(2026, null));
+        assertThrows(IllegalArgumentException.class, () -> service.triggerManualScan(null, 38));
+    }
+
+    @Test
+    @DisplayName("triggerManualScan: Tuần ISO không hợp lệ cho năm -> Ném IllegalArgumentException")
+    void triggerManualScan_invalidWeekForYear_throwsIllegalArgumentException() {
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(adminUser);
+        when(permissionQueryPort.hasPermission(1L, PermissionCode.NOTIFICATION_DEDUPLICATION_MANAGE))
+                .thenReturn(true);
+
+        // Năm 2026 chỉ có 53 tuần? Năm 2026 thực tế có 53 tuần. Năm 2025 có 52 tuần.
+        // Tuần 53 của năm 2025 sẽ không hợp lệ.
+        assertThrows(IllegalArgumentException.class, () -> service.triggerManualScan(2025, 53));
+        assertThrows(IllegalArgumentException.class, () -> service.triggerManualScan(2026, 0));
+        assertThrows(IllegalArgumentException.class, () -> service.triggerManualScan(2026, 54));
+    }
+
+    @Test
+    @DisplayName("triggerManualScan: Người dùng không có quyền gọi -> Bị từ chối và ghi log bảo mật")
+    void triggerManualScan_unauthorized_deniedAndLogsAudit() {
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(nonAdminUser);
+        when(permissionQueryPort.hasPermission(2L, PermissionCode.NOTIFICATION_DEDUPLICATION_MANAGE))
+                .thenReturn(false);
+
+        assertThrows(PermissionDeniedException.class, () -> service.triggerManualScan(null, null));
+        verify(deniedAuditLogPort).save(any());
+        verify(scanOverloadAndAlertUseCase, never()).scanCurrentWeek();
     }
 }

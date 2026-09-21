@@ -16,7 +16,7 @@ import com.hrm.employeemanagement.application.dto.notification.dedup.Notificatio
 import com.hrm.employeemanagement.application.dto.notification.dedup.OverloadScanResult;
 import com.hrm.employeemanagement.application.dto.notification.dedup.UpdateNotificationDedupConfigCommand;
 import com.hrm.employeemanagement.application.port.inbound.notification.dedup.GetNotificationDedupConfigUseCase;
-import com.hrm.employeemanagement.application.port.inbound.notification.dedup.ScanOverloadAndAlertUseCase;
+import com.hrm.employeemanagement.application.port.inbound.notification.dedup.TriggerManualOverloadScanUseCase;
 import com.hrm.employeemanagement.application.port.inbound.notification.dedup.UpdateNotificationDedupConfigUseCase;
 import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.notification.dedup.dto.UpdateNotificationDedupConfigRequest;
@@ -30,22 +30,23 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/v1/admin/notification-dedup-config")
+@PreAuthorize("hasAuthority('NOTIFICATION_DEDUPLICATION_MANAGE') or hasAuthority('VT-06')")
 public class NotificationDedupConfigController {
 
     private final GetNotificationDedupConfigUseCase getConfigUseCase;
     private final UpdateNotificationDedupConfigUseCase updateConfigUseCase;
-    private final ScanOverloadAndAlertUseCase scanUseCase;
+    private final TriggerManualOverloadScanUseCase triggerManualScanUseCase;
     private final CurrentUserPort currentUserPort;
 
     public NotificationDedupConfigController(
             GetNotificationDedupConfigUseCase getConfigUseCase,
             UpdateNotificationDedupConfigUseCase updateConfigUseCase,
-            ScanOverloadAndAlertUseCase scanUseCase,
+            TriggerManualOverloadScanUseCase triggerManualScanUseCase,
             CurrentUserPort currentUserPort
     ) {
         this.getConfigUseCase = Objects.requireNonNull(getConfigUseCase, "getConfigUseCase must not be null");
         this.updateConfigUseCase = Objects.requireNonNull(updateConfigUseCase, "updateConfigUseCase must not be null");
-        this.scanUseCase = Objects.requireNonNull(scanUseCase, "scanUseCase must not be null");
+        this.triggerManualScanUseCase = Objects.requireNonNull(triggerManualScanUseCase, "triggerManualScanUseCase must not be null");
         this.currentUserPort = Objects.requireNonNull(currentUserPort, "currentUserPort must not be null");
     }
 
@@ -74,12 +75,7 @@ public class NotificationDedupConfigController {
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer weekNumber
     ) {
-        OverloadScanResult result;
-        if (year != null && weekNumber != null) {
-            result = scanUseCase.scanAndAlert(year, weekNumber);
-        } else {
-            result = scanUseCase.scanCurrentWeek();
-        }
+        OverloadScanResult result = triggerManualScanUseCase.triggerManualScan(year, weekNumber);
         return ResponseEntity.ok(ApiResponse.success("Kích hoạt rà soát quá tải thành công", result));
     }
 }
