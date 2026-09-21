@@ -59,6 +59,11 @@ public class ResourceScenarioPersistenceAdapter implements SaveResourceScenarioP
     }
 
     @Override
+    public Optional<ResourceScenario> findByIdForUpdate(Long id) {
+        return repository.findByIdForUpdate(id).map(this::toDomain);
+    }
+
+    @Override
     public Optional<ResourceScenario> findByCode(String code) {
         return repository.findByCode(code).map(this::toDomain);
     }
@@ -102,7 +107,10 @@ public class ResourceScenarioPersistenceAdapter implements SaveResourceScenarioP
                 domain.getCreatedBy(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt(),
-                domain.getVersion()
+                domain.getVersion(),
+                domain.getTargetProjectId(),
+                domain.getAppliedAt(),
+                domain.getAppliedBy()
         );
     }
 
@@ -123,7 +131,10 @@ public class ResourceScenarioPersistenceAdapter implements SaveResourceScenarioP
                 entity.getCreatedBy(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                entity.getVersion()
+                entity.getVersion(),
+                entity.getTargetProjectId(),
+                entity.getAppliedAt(),
+                entity.getAppliedBy()
         );
     }
 }
