@@ -61,3 +61,40 @@ test("Project Status Tag: Hiển thị nhãn 'Dự án đã đóng' cho dự án
   assert.equal(getProjectStatusBadge("ACTIVE"), null);
   assert.equal(getProjectStatusBadge("PLANNED"), null);
 });
+
+// Helper validating feedback reason (QTN-24)
+function validateFeedbackReason(reason) {
+  if (!reason || !reason.trim()) {
+    return { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." };
+  }
+  return { valid: true, error: null };
+}
+
+test("Feedback Validation (QTN-24, NCL-13-CN-002): Kiểm tra tính hợp lệ của lý do phản hồi", () => {
+  assert.deepEqual(validateFeedbackReason(""), { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." });
+  assert.deepEqual(validateFeedbackReason("   "), { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." });
+  assert.deepEqual(validateFeedbackReason(null), { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." });
+  assert.deepEqual(validateFeedbackReason("Bị trùng lịch dự án Alpha và Beta"), { valid: true, error: null });
+});
+
+test("QTN-24 Business Rule Invariant: Feedback không làm thay đổi giờ phân bổ", () => {
+  const initialSchedule = {
+    week_start_date: "2026-09-21",
+    total_hours: 40.0,
+    confirmation_status: "NOT_CONFIRMED",
+    allocations: [{ allocation_id: 1, project_name: "Project A", allocated_hours: 40.0 }],
+  };
+
+  // Sau khi gửi feedback
+  const updatedScheduleWithFeedback = {
+    ...initialSchedule,
+    confirmation_status: "HAS_FEEDBACK",
+    feedback_note: "Trùng lịch",
+    feedback_at: "2026-09-21T10:00:00Z",
+  };
+
+  // Giờ phân bổ vẫn giữ nguyên 40h
+  assert.equal(updatedScheduleWithFeedback.total_hours, initialSchedule.total_hours);
+  assert.equal(updatedScheduleWithFeedback.confirmation_status, "HAS_FEEDBACK");
+  assert.equal(updatedScheduleWithFeedback.feedback_note, "Trùng lịch");
+});

@@ -1,21 +1,27 @@
 import React from "react";
-import { CheckCircle2, AlertTriangle, Clock } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Clock, MessageSquareQuote } from "lucide-react";
 import type { ConfirmationStatus } from "../types";
 
 interface ConfirmationStatusBadgeProps {
   status: ConfirmationStatus;
   confirmedAt: string | null;
+  feedbackAt?: string | null;
+  feedbackNote?: string | null;
   onConfirm: () => void;
+  onOpenFeedback?: () => void;
   isConfirming?: boolean;
 }
 
 export const ConfirmationStatusBadge: React.FC<ConfirmationStatusBadgeProps> = ({
   status,
   confirmedAt,
+  feedbackAt,
+  feedbackNote,
   onConfirm,
+  onOpenFeedback,
   isConfirming = false,
 }) => {
-  const formatTime = (isoString: string | null) => {
+  const formatTime = (isoString: string | null | undefined) => {
     if (!isoString) return "";
     try {
       const date = new Date(isoString);
@@ -30,6 +36,34 @@ export const ConfirmationStatusBadge: React.FC<ConfirmationStatusBadgeProps> = (
       return isoString;
     }
   };
+
+  if (status === "HAS_FEEDBACK") {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="flex items-center gap-1.5 text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-full text-xs font-medium shadow-xs"
+          title={feedbackNote ? `Ý kiến: "${feedbackNote}" (${formatTime(feedbackAt)})` : "Đã gửi ý kiến phản hồi"}
+        >
+          <MessageSquareQuote className="w-3.5 h-3.5 text-purple-600" />
+          <span>Đã gửi phản hồi</span>
+          {feedbackAt && (
+            <span className="text-purple-600 text-[11px] font-normal border-l border-purple-200 pl-1.5 ml-1">
+              {formatTime(feedbackAt)}
+            </span>
+          )}
+        </div>
+        {onOpenFeedback && (
+          <button
+            type="button"
+            onClick={onOpenFeedback}
+            className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-md text-xs font-medium transition cursor-pointer"
+          >
+            Chỉnh sửa phản hồi
+          </button>
+        )}
+      </div>
+    );
+  }
 
   if (status === "CONFIRMED") {
     return (
@@ -67,14 +101,25 @@ export const ConfirmationStatusBadge: React.FC<ConfirmationStatusBadgeProps> = (
 
   // NOT_CONFIRMED
   return (
-    <button
-      type="button"
-      onClick={onConfirm}
-      disabled={isConfirming}
-      className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-medium transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-    >
-      <CheckCircle2 className="w-4 h-4" />
-      <span>{isConfirming ? "Đang xác nhận..." : "Xác nhận đã xem lịch"}</span>
-    </button>
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={isConfirming}
+        className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-medium transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+      >
+        <CheckCircle2 className="w-4 h-4" />
+        <span>{isConfirming ? "Đang xác nhận..." : "Xác nhận đã xem lịch"}</span>
+      </button>
+      {onOpenFeedback && (
+        <button
+          type="button"
+          onClick={onOpenFeedback}
+          className="inline-flex items-center gap-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition cursor-pointer"
+        >
+          <span>Phản hồi</span>
+        </button>
+      )}
+    </div>
   );
 };
