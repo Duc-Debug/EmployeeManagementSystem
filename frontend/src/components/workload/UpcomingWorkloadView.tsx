@@ -23,6 +23,7 @@ import {
   type UpcomingWorkloadResult,
   type WeeklyWorkloadItemResult,
 } from "@/lib/api/workload";
+import { useAuthUser } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
 
 interface UpcomingWorkloadViewProps {
@@ -36,6 +37,10 @@ export default function UpcomingWorkloadView({
   onNavigateToProjects,
   onNavigateToLeave,
 }: UpcomingWorkloadViewProps) {
+  const user = useAuthUser();
+  const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const isSpecialist = ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalizedRole);
+
   const [data, setData] = useState<UpcomingWorkloadResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +112,22 @@ export default function UpcomingWorkloadView({
 
   const overloadThreshold = data?.effectiveOverloadThreshold ?? 100;
   const idleThreshold = data?.effectiveIdleThreshold ?? 70;
+
+  if (user && !isSpecialist) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xs animate-in fade-in duration-150">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 mb-4 border border-amber-100">
+          <ShieldAlert className="h-8 w-8" />
+        </div>
+        <h3 className="text-base font-bold text-slate-900 mb-1">
+          Chức năng dành riêng cho Nhân viên chuyên môn (VT-04)
+        </h3>
+        <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
+          Chức năng "Xem khối lượng công việc sắp tới" chỉ áp dụng cho vai trò Nhân viên chuyên môn (VT-04) để theo dõi mức bận và chủ động phân bổ công việc.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

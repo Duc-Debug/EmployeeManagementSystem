@@ -56,6 +56,7 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -112,6 +113,10 @@ public class GetUpcomingWorkloadService implements GetUpcomingWorkloadUseCase {
     @Override
     public UpcomingWorkloadResult getMyUpcomingWorkload(Integer fromYear, Integer fromWeek, Integer durationWeeks) {
         Long currentUserId = authorizationService.require(PermissionCode.EMPLOYEE_READ);
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
+
+        enforceSpecialistRole(currentUser, currentUserId);
 
         Employee employee = loadEmployeePort.findByUserId(new UserId(currentUserId))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự của tài khoản hiện tại"));
@@ -122,6 +127,10 @@ public class GetUpcomingWorkloadService implements GetUpcomingWorkloadUseCase {
     @Override
     public UpcomingWorkloadResult getUpcomingWorkload(GetUpcomingWorkloadQuery query) {
         Long currentUserId = authorizationService.require(PermissionCode.EMPLOYEE_READ);
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
+
+        enforceSpecialistRole(currentUser, currentUserId);
 
         Employee employee;
         boolean isSelfAccess = false;
@@ -134,10 +143,6 @@ public class GetUpcomingWorkloadService implements GetUpcomingWorkloadUseCase {
             employee = loadEmployeePort.findById(new EmployeeId(query.employeeId()))
                     .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy hồ sơ nhân sự với ID: " + query.employeeId()));
 
-            // Kiểm tra Data Scope
-            User currentUser = loadUserPort.findById(new UserId(currentUserId))
-                    .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
-
             if (currentUser.getIdValue() != null && currentUser.getIdValue().equals(employee.getUserIdValue())) {
                 isSelfAccess = true;
             } else {
@@ -146,6 +151,18 @@ public class GetUpcomingWorkloadService implements GetUpcomingWorkloadUseCase {
         }
 
         return executeWorkloadQuery(currentUserId, employee, query.fromYear(), query.fromWeek(), query.durationWeeks(), isSelfAccess);
+    }
+
+    private void enforceSpecialistRole(User currentUser, Long currentUserId) {
+        boolean isSpecialist = currentUser.getRole() != null &&
+                (currentUser.getRole().getCode() == RoleCode.VT_04 || "VT-04".equalsIgnoreCase(currentUser.getRole().getCode().getCode()));
+        if (!isSpecialist) {
+            String roleCodeStr = currentUser.getRole() != null && currentUser.getRole().getCode() != null
+                    ? currentUser.getRole().getCode().getCode()
+                    : "UNKNOWN";
+            recordDeniedAuditLog(currentUserId, null, "ROLE_NOT_SPECIALIST;role=" + roleCodeStr);
+            throw new PermissionDeniedException(PermissionCode.EMPLOYEE_READ);
+        }
     }
 
     private UpcomingWorkloadResult executeWorkloadQuery(

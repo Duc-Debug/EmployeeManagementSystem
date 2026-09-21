@@ -148,6 +148,7 @@ class GetUpcomingWorkloadServiceTest {
 
         orgUnit = mock(OrgUnit.class);
         when(orgUnit.getUnitName()).thenReturn("Phòng Phát Triển Phần Mềm");
+        when(loadUserPort.findById(any(UserId.class))).thenReturn(Optional.of(employeeUser));
     }
 
     @Test
@@ -297,5 +298,21 @@ class GetUpcomingWorkloadServiceTest {
         assertEquals("IDLE", week1.status());
         assertEquals(BigDecimal.valueOf(25.0).setScale(1), week1.utilizationPercentage());
         assertTrue(result.summary().idleWeeksCount() >= 1);
+    }
+
+    @Test
+    @DisplayName("NCL-13-CN-004: Người dùng không phải nhân viên chuyên môn (VT-04) bị chặn và ghi log từ chối")
+    void testNonSpecialistRole_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.EMPLOYEE_READ)).thenReturn(100L);
+        Role managerRole = new Role(new RoleId(1L), RoleCode.VT_01, "Ban giám đốc");
+        User managerUser = new User(new UserId(100L), "boss", "hash", managerRole, UserStatus.ACTIVE, new EmployeeId(10L), DataScope.COMPANY, null, 0L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(managerUser));
+
+        assertThrows(PermissionDeniedException.class, () -> service.getMyUpcomingWorkload(2026, 40, 8));
+
+        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(captor.capture());
+        assertEquals("ACCESS_DENIED_EMPLOYEE_WORKLOAD", captor.getValue().getAction());
+        assertTrue(captor.getValue().getNewValue().contains("ROLE_NOT_SPECIALIST"));
     }
 }

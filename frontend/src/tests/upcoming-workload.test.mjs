@@ -47,20 +47,15 @@ export function getStatusColorClass(status) {
     }
 }
 
+// Specialist-only check for NCL-13-CN-004 view
+export function isSpecialistRole(role) {
+    if (!role) return false;
+    const normalized = String(role).toUpperCase().trim();
+    return ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalized);
+}
+
 export function canAccessEmployeeWorkload(currentUser, targetEmployee) {
-    if (!currentUser) return false;
-    
-    // Admin / Director / HR with COMPANY scope
-    if (currentUser.dataScope === "COMPANY" || currentUser.roleCode === "VT-01" || currentUser.roleCode === "VT-02") {
-        return true;
-    }
-    
-    // Resource Manager with ORGANIZATION_BRANCH scope
-    if (currentUser.dataScope === "ORGANIZATION_BRANCH" || currentUser.roleCode === "VT-03") {
-        return currentUser.scopeOrgUnitId === targetEmployee.orgUnitId;
-    }
-    
-    // Specialist / Default with SELF scope
+    if (!currentUser || !isSpecialistRole(currentUser.roleCode)) return false;
     return currentUser.employeeId === targetEmployee.id;
 }
 
@@ -147,25 +142,23 @@ describe("NCL-13-CN-004: Upcoming Workload Frontend Logic Tests", () => {
         assert.ok(colors.bar.includes("amber"), "Trạng thái IDLE sử dụng màu vàng amber");
     });
 
-    test("Phân quyền DataScope: SELF chỉ xem được của chính mình, RM xem được chi nhánh, HR/Admin xem toàn công ty", () => {
+    test("Phân quyền: Chỉ nhân viên chuyên môn (VT-04) mới có quyền truy cập khối lượng công việc của chính mình", () => {
         const employeeSelf = { id: 10, orgUnitId: "ORG-01" };
-        const employeeOtherBranch = { id: 20, orgUnitId: "ORG-02" };
-        const employeeSameBranch = { id: 30, orgUnitId: "ORG-01" };
+        const employeeOther = { id: 20, orgUnitId: "ORG-01" };
 
-        const specialistUser = { employeeId: 10, dataScope: "SELF", roleCode: "VT-04", scopeOrgUnitId: null };
-        const rmUser = { employeeId: 99, dataScope: "ORGANIZATION_BRANCH", roleCode: "VT-03", scopeOrgUnitId: "ORG-01" };
-        const adminUser = { employeeId: 1, dataScope: "COMPANY", roleCode: "VT-01", scopeOrgUnitId: null };
+        const specialistUser = { employeeId: 10, dataScope: "SELF", roleCode: "VT-04" };
+        const rmUser = { employeeId: 99, dataScope: "ORGANIZATION_BRANCH", roleCode: "VT-03" };
+        const adminUser = { employeeId: 1, dataScope: "COMPANY", roleCode: "VT-01" };
 
         // Specialist
+        assert.equal(isSpecialistRole("VT-04"), true, "VT-04 là chuyên môn");
         assert.equal(canAccessEmployeeWorkload(specialistUser, employeeSelf), true, "Specialist xem được chính mình");
-        assert.equal(canAccessEmployeeWorkload(specialistUser, employeeSameBranch), false, "Specialist không thể xem người khác");
+        assert.equal(canAccessEmployeeWorkload(specialistUser, employeeOther), false, "Specialist không thể xem người khác");
 
-        // RM
-        assert.equal(canAccessEmployeeWorkload(rmUser, employeeSameBranch), true, "RM xem được nhân sự cùng chi nhánh");
-        assert.equal(canAccessEmployeeWorkload(rmUser, employeeOtherBranch), false, "RM không thể xem nhân sự khác chi nhánh");
-
-        // Admin / Company
-        assert.equal(canAccessEmployeeWorkload(adminUser, employeeSelf), true, "Admin xem được bất kỳ nhân viên nào");
-        assert.equal(canAccessEmployeeWorkload(adminUser, employeeOtherBranch), true, "Admin xem được chi nhánh khác");
+        // Non-specialist (RM, Admin/BGĐ) cannot access this feature view
+        assert.equal(isSpecialistRole("VT-03"), false, "VT-03 không phải chuyên môn");
+        assert.equal(isSpecialistRole("VT-01"), false, "VT-01 không phải chuyên môn");
+        assert.equal(canAccessEmployeeWorkload(rmUser, employeeSelf), false, "RM không được truy cập tính năng chuyên môn này");
+        assert.equal(canAccessEmployeeWorkload(adminUser, employeeSelf), false, "Admin/BGĐ không truy cập tính năng chuyên môn cá nhân này");
     });
 });

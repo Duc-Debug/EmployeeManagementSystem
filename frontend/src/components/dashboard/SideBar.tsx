@@ -184,8 +184,8 @@ export function canAccessTab(
 
         case "workload":
         case "upcoming-workload":
-            // NCL-13-CN-004: Xem khối lượng công việc 8 tuần tới (mở cho mọi nhân sự xem của mình / phân quyền DataScope)
-            return true;
+            // NCL-13-CN-004: Xem khối lượng công việc 8 tuần tới (Dành riêng cho Nhân viên chuyên môn VT-04)
+            return ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalized);
 
         case "availability":
         case "weekly-availability":
