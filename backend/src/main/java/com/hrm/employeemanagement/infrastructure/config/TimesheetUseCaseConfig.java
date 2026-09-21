@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.application.port.inbound.timesheet.UpdateWorkL
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
+import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.DeleteTimesheetEntryPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetEntryPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetPort;
@@ -275,5 +276,35 @@ public class TimesheetUseCaseConfig {
                 authorizationService
         );
         return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalGetPendingApprovalsUseCase(pureService);
+    }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.timesheet.AdjustApprovedWorkLogUseCase adjustApprovedWorkLogUseCase(
+            LoadTimesheetEntryPort loadTimesheetEntryPort,
+            SaveTimesheetEntryPort saveTimesheetEntryPort,
+            LoadTimesheetPort loadTimesheetPort,
+            SaveTimesheetPort saveTimesheetPort,
+            LoadProjectPort loadProjectPort,
+            LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
+            LoadEmployeePort loadEmployeePort,
+            com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetAuditLogPort saveTimesheetAuditLogPort,
+            AuthorizationService authorizationService,
+            java.util.Optional<com.hrm.employeemanagement.application.port.inbound.allocation.period.CheckAllocationPeriodLockUseCase> checkAllocationPeriodLockUseCaseOpt) {
+        com.hrm.employeemanagement.application.service.timesheet.AdjustApprovedWorkLogService pureService =
+                new com.hrm.employeemanagement.application.service.timesheet.AdjustApprovedWorkLogService(
+                        loadTimesheetEntryPort,
+                        saveTimesheetEntryPort,
+                        loadTimesheetPort,
+                        saveTimesheetPort,
+                        loadProjectPort,
+                        loadTaskPort,
+                        saveTaskPort,
+                        loadEmployeePort,
+                        saveTimesheetAuditLogPort,
+                        authorizationService,
+                        checkAllocationPeriodLockUseCaseOpt.orElse(null)
+                );
+        return new com.hrm.employeemanagement.infrastructure.transaction.timesheet.TransactionalAdjustApprovedWorkLogUseCase(pureService);
     }
 }

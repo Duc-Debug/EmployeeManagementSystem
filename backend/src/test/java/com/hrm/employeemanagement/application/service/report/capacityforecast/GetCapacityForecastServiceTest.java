@@ -46,6 +46,9 @@ import static org.mockito.Mockito.*;
 @DisplayName("GetCapacityForecastService Unit Tests (NCL-10-CN-004)")
 class GetCapacityForecastServiceTest {
 
+    // Keep forecast tests independent from the calendar date on which the build runs.
+    private static final YearWeek TEST_WEEK = YearWeek.from(LocalDate.now());
+
     private AuthorizationService authorizationService;
     private LoadUserPort loadUserPort;
     private LoadEmployeePort loadEmployeePort;
@@ -125,15 +128,15 @@ class GetCapacityForecastServiceTest {
         when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1, emp2));
 
         WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(
-                101L, 1L, 500L, YearWeek.of(2026, 38), BigDecimal.valueOf(30)
+                101L, 1L, 500L, TEST_WEEK, BigDecimal.valueOf(30)
         );
         WeeklyProjectAllocation alloc2 = new WeeklyProjectAllocation(
-                102L, 2L, 500L, YearWeek.of(2026, 38), BigDecimal.valueOf(20)
+                102L, 2L, 500L, TEST_WEEK, BigDecimal.valueOf(20)
         );
         when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(alloc1, alloc2));
         when(loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(any(), any())).thenReturn(List.of());
 
-        CapacityForecastQuery query = new CapacityForecastQuery(null, 2026, 38, 12);
+        CapacityForecastQuery query = new CapacityForecastQuery(null, TEST_WEEK.year(), TEST_WEEK.weekNumber(), 12);
 
         // Act
         CapacityForecastResult result = service.execute(query);
@@ -141,12 +144,12 @@ class GetCapacityForecastServiceTest {
         // Assert
         assertNotNull(result);
         assertEquals(12, result.weeks().size());
-        assertEquals(2026, result.fromYear());
-        assertEquals(38, result.fromWeek());
+        assertEquals(TEST_WEEK.year(), result.fromYear());
+        assertEquals(TEST_WEEK.weekNumber(), result.fromWeek());
 
         CapacityForecastResult.WeeklyForecastItem week38 = result.weeks().get(0);
-        assertEquals(2026, week38.year());
-        assertEquals(38, week38.weekNumber());
+        assertEquals(TEST_WEEK.year(), week38.year());
+        assertEquals(TEST_WEEK.weekNumber(), week38.weekNumber());
         assertEquals(new BigDecimal("80.0"), week38.availableHours());
         assertEquals(new BigDecimal("50.0"), week38.committedHours());
         assertEquals(new BigDecimal("0.0"), week38.reservedHours());
@@ -175,17 +178,17 @@ class GetCapacityForecastServiceTest {
         when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
 
         WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(
-                101L, 1L, 500L, YearWeek.of(2026, 38), BigDecimal.valueOf(25)
+                101L, 1L, 500L, TEST_WEEK, BigDecimal.valueOf(25)
         );
         when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(alloc));
 
         ResourceReservation reservation = new ResourceReservation(
-                201L, 1000L, 1L, YearWeek.of(2026, 38), BigDecimal.valueOf(10),
+                201L, 1000L, 1L, TEST_WEEK, BigDecimal.valueOf(10),
                 ReservationStatus.ACTIVE, null, null, "Dự án dự kiến", 100L, LocalDateTime.now(), null, null, 0L
         );
         when(loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(any(), any())).thenReturn(List.of(reservation));
 
-        CapacityForecastQuery query = new CapacityForecastQuery(null, 2026, 38, 4);
+        CapacityForecastQuery query = new CapacityForecastQuery(null, TEST_WEEK.year(), TEST_WEEK.weekNumber(), 4);
 
         // Act
         CapacityForecastResult result = service.execute(query);
@@ -270,13 +273,13 @@ class GetCapacityForecastServiceTest {
 
         // WeeklyAvailability đã lưu có standard 40h nhưng netAvailableHours = 24h
         WeeklyAvailability savedAvail = new WeeklyAvailability(
-                50L, 1L, YearWeek.of(2026, 38), 40, 16, BigDecimal.ZERO, BigDecimal.valueOf(24)
+                50L, 1L, TEST_WEEK, 40, 16, BigDecimal.ZERO, BigDecimal.valueOf(24)
         );
         when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of(savedAvail));
         when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
         when(loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(any(), any())).thenReturn(List.of());
 
-        CapacityForecastQuery query = new CapacityForecastQuery(null, 2026, 38, 4);
+        CapacityForecastQuery query = new CapacityForecastQuery(null, TEST_WEEK.year(), TEST_WEEK.weekNumber(), 4);
 
         // Act
         CapacityForecastResult result = service.execute(query);
@@ -312,8 +315,9 @@ class GetCapacityForecastServiceTest {
         when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
         when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
 
-        // Tuần 2026-W20 là trước tuần hiện tại (2026-W38)
-        CapacityForecastQuery pastWeekQuery = new CapacityForecastQuery(null, 2026, 20, 12);
+        YearWeek pastWeek = YearWeek.from(LocalDate.now().minusWeeks(1));
+        CapacityForecastQuery pastWeekQuery = new CapacityForecastQuery(
+                null, pastWeek.year(), pastWeek.weekNumber(), 12);
 
         // Act & Assert
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.execute(pastWeekQuery));
@@ -366,11 +370,11 @@ class GetCapacityForecastServiceTest {
         Employee emp1 = mock(Employee.class);
         when(emp1.getIdValue()).thenReturn(1L);
         when(emp1.getStandardHoursPerWeek()).thenReturn(40);
-        // Hợp đồng hết hạn vào giữa tuần (Thứ Tư 16/09/2026) -> Chỉ làm việc 3 ngày (24h)
-        when(emp1.getContractEndDate()).thenReturn(LocalDate.of(2026, 9, 16));
+        // Hợp đồng hết hạn vào thứ Tư của tuần kiểm thử -> chỉ làm việc 3 ngày (24h).
+        when(emp1.getContractEndDate()).thenReturn(TEST_WEEK.getStartDate().plusDays(2));
         when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
 
-        CapacityForecastQuery query = new CapacityForecastQuery(null, 2026, 38, 4);
+        CapacityForecastQuery query = new CapacityForecastQuery(null, TEST_WEEK.year(), TEST_WEEK.weekNumber(), 4);
 
         // Act
         CapacityForecastResult result = service.execute(query);
