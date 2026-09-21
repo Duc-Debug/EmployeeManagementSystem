@@ -25,6 +25,7 @@ import CapacityDashboardView from "../capacity/CapacityDashboardView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWarningView";
 import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
+import MyWeeklySchedulePage from "../../features/my-schedule/pages/MyWeeklySchedulePage";
 import EmployeeImportView from "../import/EmployeeImportView";
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
@@ -62,6 +63,7 @@ export default function Dashboard() {
         ) {
             return "roles";
         }
+        if (path.includes("my-schedule") || path.includes("my-allocations") || path.includes("lich-phan-bo")) return "my-schedule";
         if (path.includes("access") || path.includes("phan-quyen")) return "access";
         if (path.includes("working-calendar") || path.includes("lich-lam-viec") || path.includes("ngay-le") || path.includes("calendar-config")) return "working-calendar";
         if (path.includes("unavailability") || path.includes("khong-san-sang")) return "unavailability";
@@ -253,6 +255,8 @@ export default function Dashboard() {
                                 {activeTab === "capacity-dashboard" && <CapacityDashboardView onNavigate={handleTabChange} />}
 
                                 {activeTab === "capacity" && <CompanyWeeklyCapacityView />}
+
+                                {activeTab === "my-schedule" && <MyWeeklySchedulePage />}
 
                                 {activeTab === "availability" && <WeeklyAvailabilityView />}
 
