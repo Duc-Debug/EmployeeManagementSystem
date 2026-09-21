@@ -140,16 +140,8 @@ class TaskDueReminderApplicationServiceTest {
         verify(loadEmployeePort).findAllByIdIn(List.of(new EmployeeId(5L)));
         verify(loadEmployeePort, never()).findById(any());
 
-        // Kiểm tra thông báo lưu vào SaveNotificationPort
-        ArgumentCaptor<Notification> notifCaptor = ArgumentCaptor.forClass(Notification.class);
-        verify(saveNotificationPort).save(notifCaptor.capture());
-        Notification savedNotif = notifCaptor.getValue();
-        assertEquals(50L, savedNotif.getRecipientId().value());
-        assertEquals(NotificationType.TASK_DUE_REMINDER, savedNotif.getType());
-        assertEquals("TASK", savedNotif.getTargetType());
-        assertEquals(101L, savedNotif.getTargetId());
-        assertTrue(savedNotif.getTitle().contains("Xây dựng tính năng đăng nhập"));
-        assertTrue(savedNotif.getContent().contains("/projects/10/tasks/101"));
+        // Notification Center is canonical; do not duplicate the same reminder in legacy storage.
+        verify(saveNotificationPort, never()).save(any());
 
         // Kiểm tra thông báo lưu vào CreateNotificationEventUseCase kèm recipientId trong sourceEventKey
         ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
@@ -157,6 +149,7 @@ class TaskDueReminderApplicationServiceTest {
         CreateNotificationEventCommand savedEvent = eventCaptor.getValue();
         assertEquals("TASK_DUE_REMINDER:101:50:" + taskDueDate, savedEvent.sourceEventKey());
         assertEquals(List.of(50L), savedEvent.recipientUserIds());
+        assertTrue(savedEvent.message().contains("/projects/10/tasks/101"));
     }
 
     @Test
@@ -200,7 +193,7 @@ class TaskDueReminderApplicationServiceTest {
 
         assertEquals(1, result.sentCount());
         assertEquals(0, result.skippedDuplicateCount());
-        verify(saveNotificationPort).save(any());
+        verify(saveNotificationPort, never()).save(any());
 
         ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
         verify(createNotificationEventUseCase).execute(eventCaptor.capture());
@@ -293,13 +286,11 @@ class TaskDueReminderApplicationServiceTest {
         assertEquals(0, result.skippedDuplicateCount());
         assertEquals(List.of(101L), result.notifiedTaskIds());
 
-        // Kiểm tra thông báo được lưu với đúng deadline mới
-        ArgumentCaptor<Notification> notifCaptor = ArgumentCaptor.forClass(Notification.class);
-        verify(saveNotificationPort).save(notifCaptor.capture());
-        assertTrue(notifCaptor.getValue().getContent().contains("2026-09-25"));
+        verify(saveNotificationPort, never()).save(any());
 
         ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
         verify(createNotificationEventUseCase).execute(eventCaptor.capture());
         assertEquals("TASK_DUE_REMINDER:101:50:2026-09-25", eventCaptor.getValue().sourceEventKey());
+        assertTrue(eventCaptor.getValue().message().contains("2026-09-25"));
     }
 }

@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
@@ -21,12 +22,15 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
 
     private final SpringDataNotificationRepository notificationRepository;
     private final NotificationPersistenceMapper mapper;
+    private final TransactionalLegacyDigestHelper digestHelper;
 
     public NotificationRepositoryAdapter(
             SpringDataNotificationRepository notificationRepository,
-            NotificationPersistenceMapper mapper) {
+            NotificationPersistenceMapper mapper,
+            TransactionalLegacyDigestHelper digestHelper) {
         this.notificationRepository = Objects.requireNonNull(notificationRepository, "notificationRepository không được null");
         this.mapper = Objects.requireNonNull(mapper, "NotificationPersistenceMapper không được null");
+        this.digestHelper = Objects.requireNonNull(digestHelper, "digestHelper must not be null");
     }
 
     @Override
@@ -54,7 +58,7 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
         return mapper.toDomain(saved);
     }
 
-    public synchronized Notification appendToDigest(
+    public Notification appendToDigest(
             Notification notification,
             java.time.LocalDateTime availableAt,
             NotificationFrequency frequency,
@@ -70,8 +74,8 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
                         NotificationType.NOTIFICATION_DIGEST.name(), batchId, availableAt);
         if (existing.isPresent()) {
             NotificationJpaEntity entity = existing.get();
-            entity.setContent(entity.getContent() + System.lineSeparator() + item);
-            return mapper.toDomain(notificationRepository.save(entity));
+            digestHelper.append(entity.getId(), item);
+            return mapper.toDomain(notificationRepository.findById(entity.getId()).orElseThrow());
         }
         Notification digest = new Notification(
                 null, notification.getRecipientId(), null, NotificationType.NOTIFICATION_DIGEST,
@@ -79,7 +83,17 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
                 frequency == NotificationFrequency.DAILY_DIGEST
                         ? "Bản tin thông báo hàng ngày" : "Bản tin thông báo hàng tuần",
                 item, false, notification.getCreatedAt(), availableAt);
-        return save(digest);
+        try {
+            return mapper.toDomain(digestHelper.create(mapper.toJpaEntity(digest)));
+        } catch (DataIntegrityViolationException concurrentInsert) {
+            NotificationJpaEntity winner = notificationRepository
+                    .findFirstByRecipientIdAndTypeAndTargetIdAndAvailableAt(
+                            notification.getRecipientId().value(),
+                            NotificationType.NOTIFICATION_DIGEST.name(), batchId, availableAt)
+                    .orElseThrow(() -> concurrentInsert);
+            digestHelper.append(winner.getId(), item);
+            return mapper.toDomain(notificationRepository.findById(winner.getId()).orElseThrow());
+        }
     }
 
     @Override

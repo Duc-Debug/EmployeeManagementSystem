@@ -47,6 +47,9 @@ public class NotificationJpaEntity {
     @Column(name = "available_at", nullable = false)
     private LocalDateTime availableAt;
 
+    @Column(name = "digest_batch_key", unique = true, length = 255)
+    private String digestBatchKey;
+
     public NotificationJpaEntity() {
     }
 
@@ -80,6 +83,9 @@ public class NotificationJpaEntity {
         this.isRead = isRead;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
         this.availableAt = availableAt != null ? availableAt : this.createdAt;
+        this.digestBatchKey = "NOTIFICATION_DIGEST".equals(type)
+                ? recipientId + ":" + targetId + ":" + this.availableAt
+                : null;
     }
 
     public Long getId() {

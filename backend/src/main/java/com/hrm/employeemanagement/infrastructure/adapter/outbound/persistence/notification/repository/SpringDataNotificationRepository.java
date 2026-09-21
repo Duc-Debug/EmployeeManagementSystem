@@ -16,6 +16,10 @@ public interface SpringDataNotificationRepository extends JpaRepository<Notifica
     java.util.Optional<NotificationJpaEntity> findFirstByRecipientIdAndTypeAndTargetIdAndAvailableAt(
             Long recipientId, String type, Long targetId, java.time.LocalDateTime availableAt);
 
+    @Modifying
+    @Query("UPDATE NotificationJpaEntity n SET n.content = concat(concat(n.content, '\n'), :item) WHERE n.id = :id")
+    int appendDigestItem(@Param("id") Long id, @Param("item") String item);
+
     @org.springframework.data.jpa.repository.Query("SELECT n FROM NotificationJpaEntity n " +
             "WHERE n.recipientId = :recipientId AND n.availableAt <= CURRENT_TIMESTAMP ORDER BY n.availableAt DESC, n.createdAt DESC")
     List<NotificationJpaEntity> findReleasedByRecipientId(

@@ -34,6 +34,39 @@ class NotificationDeliveryTimePolicyTest {
     }
 
     @Test
+    void criticalEmailBypassesQuietHoursWhileNormalEmailUsesItsNextDigestWindow() {
+        NotificationPreference preference = NotificationPreference.createDefault(
+                new com.hrm.employeemanagement.domain.user.UserId(1L));
+        preference.update(
+                true, true,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationFrequency.DAILY_DIGEST, 3,
+                QuietHours.of(true, java.time.LocalTime.of(22, 0), java.time.LocalTime.of(7, 0)));
+        LocalDateTime now = LocalDateTime.of(2026, 9, 21, 22, 30);
+
+        assertEquals(now, NotificationDeliveryTimePolicy.decide(
+                preference, NotificationType.SCHEDULE_CONFLICT, true, now).availableAt());
+        assertEquals(LocalDateTime.of(2026, 9, 22, 17, 0), NotificationDeliveryTimePolicy.decide(
+                preference, NotificationType.TASK_COMMENT, true, now).availableAt());
+    }
+
+    @Test
+    void exactDailyCutoffBelongsToNextBatch() {
+        LocalDateTime cutoff = LocalDateTime.of(2026, 9, 21, 17, 0);
+        assertEquals(cutoff.plusDays(1), NotificationDeliveryTimePolicy.releaseAt(
+                NotificationFrequency.DAILY_DIGEST, NotificationType.TASK_COMMENT, cutoff));
+    }
+
+    @Test
+    void exactWeeklyCutoffBelongsToNextBatch() {
+        LocalDateTime cutoff = LocalDateTime.of(2026, 9, 21, 9, 0);
+        assertEquals(cutoff.plusWeeks(1), NotificationDeliveryTimePolicy.releaseAt(
+                NotificationFrequency.WEEKLY_DIGEST, NotificationType.TASK_COMMENT, cutoff));
+    }
+
+    @Test
     void quietHoursDelayEmailButNotInAppNotification() {
         NotificationPreference preference = NotificationPreference.createDefault(
                 new com.hrm.employeemanagement.domain.user.UserId(1L));

@@ -140,23 +140,16 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
                 + decision.frequency().name() + ":" + decision.availableAt();
         String item = "• " + command.title()
                 + (command.message() == null || command.message().isBlank() ? "" : ": " + command.message());
-        var existing = eventRepositoryPort.findBySourceEventKey(key);
-        if (existing.isPresent()) {
-            NotificationEvent current = existing.get();
-            return eventRepositoryPort.save(new NotificationEvent(
-                    current.getId(), current.getEventType(), current.getLevel(), current.getTitle(),
-                    current.getMessage() + System.lineSeparator() + item,
-                    current.getRelatedEntityType(), current.getRelatedEntityId(),
-                    current.getSourceEventKey(), current.getCreatedAt()));
-        }
-        return eventRepositoryPort.getOrCreate(new NotificationEvent(
+        NotificationEvent digestEvent = eventRepositoryPort.getOrCreate(new NotificationEvent(
                 null,
                 NotificationType.NOTIFICATION_DIGEST.name(),
                 com.hrm.employeemanagement.domain.notification.NotificationLevel.THAP,
                 decision.frequency() == com.hrm.employeemanagement.domain.notification.NotificationFrequency.DAILY_DIGEST
                         ? "Bản tin thông báo hàng ngày" : "Bản tin thông báo hàng tuần",
-                item, "NOTIFICATION_DIGEST", String.valueOf(recipientUserId.value()), key,
+                "", "NOTIFICATION_DIGEST", String.valueOf(recipientUserId.value()), key,
                 LocalDateTime.now(clock)));
+        return eventRepositoryPort.appendDigestItemIfAbsent(
+                digestEvent, command.sourceEventKey(), item, LocalDateTime.now(clock));
     }
 
     private NotificationType typeOf(String eventType) {

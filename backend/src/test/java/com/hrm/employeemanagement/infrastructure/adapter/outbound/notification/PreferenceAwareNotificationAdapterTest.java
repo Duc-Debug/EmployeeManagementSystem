@@ -23,6 +23,7 @@ import com.hrm.employeemanagement.domain.notification.NotificationType;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.NotificationRepositoryAdapter;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.TransactionalEmailDigestHelper;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.entity.NotificationEmailOutboxJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.repository.SpringDataNotificationEmailOutboxRepository;
 
@@ -34,6 +35,7 @@ class PreferenceAwareNotificationAdapterTest {
         LoadNotificationPreferencePort preferencePort = mock(LoadNotificationPreferencePort.class);
         LoadUserPort userPort = mock(LoadUserPort.class);
         SpringDataNotificationEmailOutboxRepository outbox = mock(SpringDataNotificationEmailOutboxRepository.class);
+        TransactionalEmailDigestHelper emailDigestHelper = mock(TransactionalEmailDigestHelper.class);
         Clock clock = Clock.fixed(Instant.parse("2026-09-21T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
         UserId userId = new UserId(1L);
         NotificationPreference preference = NotificationPreference.createDefault(userId);
@@ -52,7 +54,7 @@ class PreferenceAwareNotificationAdapterTest {
                 any(), any(), any())).thenReturn(Optional.empty());
 
         PreferenceAwareNotificationAdapter adapter = new PreferenceAwareNotificationAdapter(
-                delegate, preferencePort, clock, userPort, outbox);
+                delegate, preferencePort, clock, userPort, outbox, emailDigestHelper);
         Notification notification = Notification.create(
                 userId, null, NotificationType.TASK_ASSIGNED, "TASK", 10L, "Task", "Assigned");
 
@@ -61,6 +63,6 @@ class PreferenceAwareNotificationAdapterTest {
         verify(preferencePort, times(1)).findByUserId(userId);
         verify(delegate).appendToDigest(eq(notification), any(), eq(NotificationFrequency.DAILY_DIGEST),
                 eq(clock.getZone()));
-        verify(outbox).save(any(NotificationEmailOutboxJpaEntity.class));
+        verify(emailDigestHelper).create(any(NotificationEmailOutboxJpaEntity.class));
     }
 }

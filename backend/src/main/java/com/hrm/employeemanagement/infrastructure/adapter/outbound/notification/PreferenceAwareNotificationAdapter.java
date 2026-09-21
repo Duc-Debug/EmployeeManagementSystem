@@ -7,6 +7,7 @@ import java.util.Objects;
 
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
@@ -17,6 +18,7 @@ import com.hrm.employeemanagement.domain.notification.NotificationDeliveryTimePo
 import com.hrm.employeemanagement.domain.notification.NotificationDeliveryDecision;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.NotificationRepositoryAdapter;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.TransactionalEmailDigestHelper;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.entity.NotificationEmailOutboxJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.repository.SpringDataNotificationEmailOutboxRepository;
 
@@ -30,19 +32,22 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
     private final Clock clock;
     private final LoadUserPort loadUserPort;
     private final SpringDataNotificationEmailOutboxRepository emailOutboxRepository;
+    private final TransactionalEmailDigestHelper emailDigestHelper;
 
     public PreferenceAwareNotificationAdapter(
             NotificationRepositoryAdapter delegate,
             LoadNotificationPreferencePort preferencePort,
             Clock clock,
             LoadUserPort loadUserPort,
-            SpringDataNotificationEmailOutboxRepository emailOutboxRepository
+            SpringDataNotificationEmailOutboxRepository emailOutboxRepository,
+            TransactionalEmailDigestHelper emailDigestHelper
     ) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
         this.preferencePort = Objects.requireNonNull(preferencePort, "preferencePort must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
         this.emailOutboxRepository = Objects.requireNonNull(emailOutboxRepository, "emailOutboxRepository must not be null");
+        this.emailDigestHelper = Objects.requireNonNull(emailDigestHelper, "emailDigestHelper must not be null");
     }
 
     @Override
@@ -102,7 +107,7 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
                 .ifPresent(user -> enqueueEmail(notification, user.getEmail(), user.getUsername(), decision));
     }
 
-    private synchronized void enqueueEmail(Notification notification, String email, String name,
+    private void enqueueEmail(Notification notification, String email, String name,
             NotificationDeliveryDecision decision) {
         String digestFrequency = decision.isDigest() ? decision.frequency().name() : null;
         String item = "• " + notification.getTitle()
@@ -113,8 +118,7 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
                     .findFirstByRecipientUserIdAndAvailableAtAndDigestFrequencyAndDeliveredAtIsNull(
                             notification.getRecipientId().value(), decision.availableAt(), digestFrequency);
             if (existing.isPresent()) {
-                existing.get().append(item);
-                emailOutboxRepository.save(existing.get());
+                emailDigestHelper.append(existing.get().getId(), item);
                 return;
             }
         }
@@ -122,9 +126,22 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
                 : decision.frequency() == com.hrm.employeemanagement.domain.notification.NotificationFrequency.DAILY_DIGEST
                         ? "Bản tin thông báo hàng ngày" : "Bản tin thông báo hàng tuần";
         String body = digestFrequency == null ? notification.getContent() : item;
-        emailOutboxRepository.save(new NotificationEmailOutboxJpaEntity(
+        NotificationEmailOutboxJpaEntity newMessage = new NotificationEmailOutboxJpaEntity(
                 notification.getRecipientId().value(), email, name, subject,
-                body == null ? "" : body, decision.availableAt(), LocalDateTime.now(clock), digestFrequency));
+                body == null ? "" : body, decision.availableAt(), LocalDateTime.now(clock), digestFrequency);
+        if (digestFrequency == null) {
+            emailOutboxRepository.save(newMessage);
+            return;
+        }
+        try {
+            emailDigestHelper.create(newMessage);
+        } catch (DataIntegrityViolationException concurrentInsert) {
+            var winner = emailOutboxRepository
+                    .findFirstByRecipientUserIdAndAvailableAtAndDigestFrequencyAndDeliveredAtIsNull(
+                            notification.getRecipientId().value(), decision.availableAt(), digestFrequency)
+                    .orElseThrow(() -> concurrentInsert);
+            emailDigestHelper.append(winner.getId(), item);
+        }
     }
 
     private record PreparedNotification(Notification notification, NotificationDeliveryDecision decision) {}

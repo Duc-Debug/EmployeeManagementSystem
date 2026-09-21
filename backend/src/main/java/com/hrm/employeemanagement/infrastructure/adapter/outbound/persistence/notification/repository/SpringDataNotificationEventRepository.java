@@ -15,6 +15,10 @@ public interface SpringDataNotificationEventRepository extends JpaRepository<Not
     Optional<NotificationEventJpaEntity> findBySourceEventKey(String sourceEventKey);
 
     @Modifying
+    @Query("UPDATE NotificationEventJpaEntity e SET e.message = CASE WHEN e.message = '' THEN :item ELSE concat(concat(e.message, '\n'), :item) END WHERE e.id = :eventId")
+    int appendDigestItem(@Param("eventId") Long eventId, @Param("item") String item);
+
+    @Modifying
     @Query("DELETE FROM NotificationEventJpaEntity e WHERE e.createdAt < :cutoff AND NOT EXISTS (SELECT 1 FROM NotificationRecipientJpaEntity r WHERE r.notificationEventId = e.id)")
     int deleteOrphanEventsOlderThan(@Param("cutoff") LocalDateTime cutoff);
 }
