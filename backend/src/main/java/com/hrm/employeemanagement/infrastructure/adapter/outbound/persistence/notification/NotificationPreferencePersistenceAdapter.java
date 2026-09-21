@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPreferencePort;
+import com.hrm.employeemanagement.application.port.outbound.notification.GetOrCreateNotificationPreferencePort;
 import com.hrm.employeemanagement.domain.notification.NotificationDeliveryChannel;
 import com.hrm.employeemanagement.domain.notification.NotificationFrequency;
 import com.hrm.employeemanagement.domain.notification.NotificationPreference;
@@ -16,10 +17,17 @@ import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.entity.NotificationPreferenceJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.repository.SpringDataNotificationPreferenceRepository;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 @Component
-public class NotificationPreferencePersistenceAdapter implements LoadNotificationPreferencePort, SaveNotificationPreferencePort {
+public class NotificationPreferencePersistenceAdapter implements LoadNotificationPreferencePort,
+        SaveNotificationPreferencePort, GetOrCreateNotificationPreferencePort {
 
     private final SpringDataNotificationPreferenceRepository repository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public NotificationPreferencePersistenceAdapter(SpringDataNotificationPreferenceRepository repository) {
         this.repository = Objects.requireNonNull(repository, "repository must not be null");
@@ -31,6 +39,19 @@ public class NotificationPreferencePersistenceAdapter implements LoadNotificatio
             return Optional.empty();
         }
         return repository.findByUserId(userId.value()).map(this::toDomain);
+    }
+
+    @Override
+    public NotificationPreference getOrCreate(UserId userId) {
+        Objects.requireNonNull(userId, "userId must not be null");
+
+        entityManager.createNativeQuery("SELECT id FROM users WHERE id = ? FOR UPDATE")
+                .setParameter(1, userId.value())
+                .getSingleResult();
+
+        return repository.findByUserId(userId.value())
+                .map(this::toDomain)
+                .orElseGet(() -> save(NotificationPreference.createDefault(userId)));
     }
 
     @Override

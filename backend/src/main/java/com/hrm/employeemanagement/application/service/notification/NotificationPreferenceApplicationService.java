@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.dto.notification.UpdateNotificatio
 import com.hrm.employeemanagement.application.port.inbound.notification.GetNotificationPreferenceUseCase;
 import com.hrm.employeemanagement.application.port.inbound.notification.ResetNotificationPreferenceUseCase;
 import com.hrm.employeemanagement.application.port.inbound.notification.UpdateNotificationPreferenceUseCase;
+import com.hrm.employeemanagement.application.port.outbound.notification.GetOrCreateNotificationPreferencePort;
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPreferencePort;
 import com.hrm.employeemanagement.domain.notification.NotificationPreference;
@@ -24,20 +25,23 @@ public class NotificationPreferenceApplicationService implements
 
     private final LoadNotificationPreferencePort loadNotificationPreferencePort;
     private final SaveNotificationPreferencePort saveNotificationPreferencePort;
+    private final GetOrCreateNotificationPreferencePort getOrCreateNotificationPreferencePort;
 
     public NotificationPreferenceApplicationService(
             LoadNotificationPreferencePort loadNotificationPreferencePort,
-            SaveNotificationPreferencePort saveNotificationPreferencePort
+            SaveNotificationPreferencePort saveNotificationPreferencePort,
+            GetOrCreateNotificationPreferencePort getOrCreateNotificationPreferencePort
     ) {
         this.loadNotificationPreferencePort = Objects.requireNonNull(loadNotificationPreferencePort, "loadNotificationPreferencePort must not be null");
         this.saveNotificationPreferencePort = Objects.requireNonNull(saveNotificationPreferencePort, "saveNotificationPreferencePort must not be null");
+        this.getOrCreateNotificationPreferencePort = Objects.requireNonNull(getOrCreateNotificationPreferencePort, "getOrCreateNotificationPreferencePort must not be null");
     }
 
     @Override
     public NotificationPreferenceResult getMyPreference(Long currentUserId) {
         UserId userId = requireUserId(currentUserId);
         NotificationPreference preference = loadNotificationPreferencePort.findByUserId(userId)
-                .orElseGet(() -> NotificationPreference.createDefault(userId));
+                .orElseGet(() -> getOrCreateNotificationPreferencePort.getOrCreate(userId));
         return NotificationPreferenceResult.fromDomain(preference);
     }
 
@@ -47,7 +51,7 @@ public class NotificationPreferenceApplicationService implements
         Objects.requireNonNull(command, "UpdateNotificationPreferenceCommand không được null");
 
         NotificationPreference preference = loadNotificationPreferencePort.findByUserId(userId)
-                .orElseGet(() -> NotificationPreference.createDefault(userId));
+                .orElseGet(() -> getOrCreateNotificationPreferencePort.getOrCreate(userId));
 
         boolean quietHoursEnabled = command.quietHoursEnabled() != null
                 ? command.quietHoursEnabled()
@@ -82,7 +86,7 @@ public class NotificationPreferenceApplicationService implements
     public NotificationPreferenceResult resetMyPreference(Long currentUserId) {
         UserId userId = requireUserId(currentUserId);
         NotificationPreference preference = loadNotificationPreferencePort.findByUserId(userId)
-                .orElseGet(() -> NotificationPreference.createDefault(userId));
+                .orElseGet(() -> getOrCreateNotificationPreferencePort.getOrCreate(userId));
 
         preference.resetToDefault();
         NotificationPreference saved = saveNotificationPreferencePort.save(preference);

@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.dto.notification.NotificationPrefe
 import com.hrm.employeemanagement.application.dto.notification.UpdateNotificationPreferenceCommand;
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPreferencePort;
+import com.hrm.employeemanagement.application.port.outbound.notification.GetOrCreateNotificationPreferencePort;
 import com.hrm.employeemanagement.domain.notification.NotificationDeliveryChannel;
 import com.hrm.employeemanagement.domain.notification.NotificationFrequency;
 import com.hrm.employeemanagement.domain.notification.NotificationPreference;
@@ -30,15 +31,18 @@ class NotificationPreferenceApplicationServiceTest {
 
     private LoadNotificationPreferencePort loadNotificationPreferencePort;
     private SaveNotificationPreferencePort saveNotificationPreferencePort;
+    private GetOrCreateNotificationPreferencePort getOrCreateNotificationPreferencePort;
     private NotificationPreferenceApplicationService service;
 
     @BeforeEach
     void setUp() {
         loadNotificationPreferencePort = Mockito.mock(LoadNotificationPreferencePort.class);
         saveNotificationPreferencePort = Mockito.mock(SaveNotificationPreferencePort.class);
+        getOrCreateNotificationPreferencePort = Mockito.mock(GetOrCreateNotificationPreferencePort.class);
         service = new NotificationPreferenceApplicationService(
                 loadNotificationPreferencePort,
-                saveNotificationPreferencePort
+                saveNotificationPreferencePort,
+                getOrCreateNotificationPreferencePort
         );
     }
 
@@ -48,6 +52,8 @@ class NotificationPreferenceApplicationServiceTest {
         Long userIdVal = 101L;
         UserId userId = new UserId(userIdVal);
         when(loadNotificationPreferencePort.findByUserId(userId)).thenReturn(Optional.empty());
+        when(getOrCreateNotificationPreferencePort.getOrCreate(userId))
+                .thenReturn(NotificationPreference.createDefault(userId));
         NotificationPreferenceResult result = service.getMyPreference(userIdVal);
 
         assertNotNull(result);
@@ -55,7 +61,7 @@ class NotificationPreferenceApplicationServiceTest {
         assertTrue(result.inAppEnabled());
         assertTrue(result.emailEnabled());
         assertEquals(3, result.taskDueReminderDays());
-        verify(saveNotificationPreferencePort, never()).save(any(NotificationPreference.class));
+        verify(getOrCreateNotificationPreferencePort).getOrCreate(userId);
     }
 
     @Test
