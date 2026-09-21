@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,9 @@ import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWar
 import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
 import MyWeeklySchedulePage from "../../features/my-schedule/pages/MyWeeklySchedulePage";
 import EmployeeImportView from "../import/EmployeeImportView";
-import OutsourcedContractWarningView from "../outsourcedcontract/OutsourcedContractWarningView";
+
+const OutsourcedContractWarningView = lazy(() => import("../outsourcedcontract/OutsourcedContractWarningView"));
+
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
 import RmDashboardOverview from "./RmDashboardOverview";
@@ -293,7 +295,20 @@ export default function Dashboard() {
 
                                  {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
 
-                                 {activeTab === "outsourced-contracts" && <OutsourcedContractWarningView />}
+                                 {activeTab === "outsourced-contracts" && (
+                                     <Suspense
+                                         fallback={
+                                             <div className="flex h-64 items-center justify-center">
+                                                 <div className="flex flex-col items-center gap-2 text-slate-500">
+                                                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+                                                     <span className="text-xs">Đang tải Hợp đồng thuê ngoài...</span>
+                                                 </div>
+                                             </div>
+                                         }
+                                     >
+                                         <OutsourcedContractWarningView />
+                                     </Suspense>
+                                 )}
 
                                 {activeTab === "data-import" && <EmployeeImportView />}
 

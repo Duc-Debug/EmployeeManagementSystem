@@ -15,10 +15,13 @@ import {
     Sparkles,
     FileCheck2,
     Loader2,
+    Download,
+    ChevronLeft,
 } from "lucide-react";
 import {
     getExpiringOutsourcedContracts,
     scanOutsourcedContractsManually,
+    exportOutsourcedContractsToCsv,
     type ExpiringOutsourcedContract,
 } from "@/lib/api/outsourced-contracts";
 import AcknowledgeContractModal from "./AcknowledgeContractModal";
@@ -30,10 +33,17 @@ export default function OutsourcedContractWarningView() {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
-    // Filters
+    // Search and debounce
     const [searchTerm, setSearchTerm] = useState<string>("");
+    const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+
+    // Filter by status tab
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
     const [thresholdDays, setThresholdDays] = useState<number>(30);
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const pageSize = 10;
 
     // Expanded rows
     const [expandedEmployeeIds, setExpandedEmployeeIds] = useState<Set<number>>(new Set());
@@ -41,11 +51,20 @@ export default function OutsourcedContractWarningView() {
     // Selected contract for acknowledge modal
     const [selectedContractForAck, setSelectedContractForAck] = useState<ExpiringOutsourcedContract | null>(null);
 
-    const loadData = useCallback(async () => {
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setCurrentPage(1); // Reset to page 1 on search
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    const loadData = useCallback(async (forceRefresh: boolean = false) => {
         setLoading(true);
         setErrorMsg(null);
         try {
-            const res = await getExpiringOutsourcedContracts(thresholdDays);
+            const res = await getExpiringOutsourcedContracts(thresholdDays, forceRefresh);
             setContracts(res.items || []);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Không thể tải danh sách hợp đồng thuê ngoài.";
@@ -56,7 +75,7 @@ export default function OutsourcedContractWarningView() {
     }, [thresholdDays]);
 
     useEffect(() => {
-        loadData();
+        loadData(false);
     }, [loadData]);
 
     const handleManualScan = async () => {
@@ -66,13 +85,28 @@ export default function OutsourcedContractWarningView() {
         try {
             const res = await scanOutsourcedContractsManually();
             setSuccessBanner(res.details);
-            await loadData();
+            await loadData(true);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Quét rà soát hợp đồng thất bại.";
             setErrorMsg(msg);
         } finally {
             setScanning(false);
         }
+    };
+
+    const handleExportCsv = () => {
+        if (!contracts.length) return;
+        const csv = exportOutsourcedContractsToCsv(filteredContracts);
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        link.href = url;
+        link.setAttribute("download", `Bao_cao_hop_dong_thue_ngoai_${dateStr}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     const toggleExpandRow = (empId: number) => {
@@ -88,10 +122,10 @@ export default function OutsourcedContractWarningView() {
     const filteredContracts = useMemo(() => {
         return contracts.filter((c) => {
             const matchSearch =
-                !searchTerm.trim() ||
-                c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                c.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (c.orgUnitName && c.orgUnitName.toLowerCase().includes(searchTerm.toLowerCase()));
+                !debouncedSearch.trim() ||
+                c.fullName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                c.employeeCode.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                (c.orgUnitName && c.orgUnitName.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
             if (!matchSearch) return false;
 
@@ -101,7 +135,14 @@ export default function OutsourcedContractWarningView() {
 
             return true;
         });
-    }, [contracts, searchTerm, statusFilter]);
+    }, [contracts, debouncedSearch, statusFilter]);
+
+    // Paginated items
+    const totalPages = Math.max(1, Math.ceil(filteredContracts.length / pageSize));
+    const paginatedContracts = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredContracts.slice(start, start + pageSize);
+    }, [filteredContracts, currentPage, pageSize]);
 
     // Summary statistics
     const stats = useMemo(() => {
@@ -135,9 +176,18 @@ export default function OutsourcedContractWarningView() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
                     <button
-                        onClick={loadData}
+                        onClick={handleExportCsv}
+                        disabled={loading || filteredContracts.length === 0}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition"
+                    >
+                        <Download className="h-4 w-4 text-slate-500" />
+                        <span>Xuất CSV</span>
+                    </button>
+
+                    <button
+                        onClick={() => loadData(true)}
                         disabled={loading || scanning}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition"
                     >
@@ -189,7 +239,14 @@ export default function OutsourcedContractWarningView() {
 
             {/* 4 Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div
+                    onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
+                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
+                        statusFilter === "ALL"
+                            ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/20 dark:bg-indigo-950/20"
+                            : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                    }`}
+                >
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Tổng Cảnh Báo</span>
                         <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -202,7 +259,14 @@ export default function OutsourcedContractWarningView() {
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
+                <div
+                    onClick={() => { setStatusFilter("EXPIRING_SOON"); setCurrentPage(1); }}
+                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
+                        statusFilter === "EXPIRING_SOON"
+                            ? "border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/40 dark:bg-amber-950/40"
+                            : "border-amber-200 bg-amber-50/20 dark:border-amber-900/40 dark:bg-amber-950/20"
+                    }`}
+                >
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-amber-800 dark:text-amber-300">Sắp Hết Hạn (&le; {thresholdDays} ngày)</span>
                         <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300">
@@ -215,7 +279,14 @@ export default function OutsourcedContractWarningView() {
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-4 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20">
+                <div
+                    onClick={() => { setStatusFilter("EXPIRED"); setCurrentPage(1); }}
+                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
+                        statusFilter === "EXPIRED"
+                            ? "border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/40 dark:bg-rose-950/40"
+                            : "border-rose-200 bg-rose-50/20 dark:border-rose-900/40 dark:bg-rose-950/20"
+                    }`}
+                >
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-rose-800 dark:text-rose-300">Đã Quá Hạn Hợp Đồng</span>
                         <div className="rounded-lg bg-rose-100 p-2 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
@@ -228,7 +299,14 @@ export default function OutsourcedContractWarningView() {
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-4 shadow-sm dark:border-purple-900/40 dark:bg-purple-950/20">
+                <div
+                    onClick={() => { setStatusFilter("AFFECTED_ONLY"); setCurrentPage(1); }}
+                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
+                        statusFilter === "AFFECTED_ONLY"
+                            ? "border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/40 dark:bg-purple-950/40"
+                            : "border-purple-200 bg-purple-50/20 dark:border-purple-900/40 dark:bg-purple-950/20"
+                    }`}
+                >
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-purple-800 dark:text-purple-300">Vi Phạm Phân Bổ (QTN-21)</span>
                         <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
@@ -257,17 +335,49 @@ export default function OutsourcedContractWarningView() {
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">Trạng thái:</span>
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                        >
-                            <option value="ALL">Tất cả trạng thái</option>
-                            <option value="EXPIRING_SOON">Sắp hết hạn (&le; 30 ngày)</option>
-                            <option value="EXPIRED">Đã quá hạn</option>
-                            <option value="AFFECTED_ONLY">Chỉ xem vi phạm QTN-21</option>
-                        </select>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">Bộ lọc:</span>
+                        <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 text-xs">
+                            <button
+                                onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
+                                className={`px-2.5 py-1 rounded-md font-medium transition ${
+                                    statusFilter === "ALL"
+                                        ? "bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white"
+                                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                                }`}
+                            >
+                                Tất cả
+                            </button>
+                            <button
+                                onClick={() => { setStatusFilter("EXPIRING_SOON"); setCurrentPage(1); }}
+                                className={`px-2.5 py-1 rounded-md font-medium transition ${
+                                    statusFilter === "EXPIRING_SOON"
+                                        ? "bg-white text-amber-700 shadow-xs dark:bg-slate-700 dark:text-amber-300"
+                                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                                }`}
+                            >
+                                Sắp hết hạn
+                            </button>
+                            <button
+                                onClick={() => { setStatusFilter("EXPIRED"); setCurrentPage(1); }}
+                                className={`px-2.5 py-1 rounded-md font-medium transition ${
+                                    statusFilter === "EXPIRED"
+                                        ? "bg-white text-rose-700 shadow-xs dark:bg-slate-700 dark:text-rose-300"
+                                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                                }`}
+                            >
+                                Đã quá hạn
+                            </button>
+                            <button
+                                onClick={() => { setStatusFilter("AFFECTED_ONLY"); setCurrentPage(1); }}
+                                className={`px-2.5 py-1 rounded-md font-medium transition ${
+                                    statusFilter === "AFFECTED_ONLY"
+                                        ? "bg-white text-purple-700 shadow-xs dark:bg-slate-700 dark:text-purple-300"
+                                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                                }`}
+                            >
+                                Vi phạm QTN-21
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -275,7 +385,10 @@ export default function OutsourcedContractWarningView() {
                     <span className="text-xs text-slate-500 dark:text-slate-400">Ngưỡng cảnh báo:</span>
                     <select
                         value={thresholdDays}
-                        onChange={(e) => setThresholdDays(Number(e.target.value))}
+                        onChange={(e) => {
+                            setThresholdDays(Number(e.target.value));
+                            setCurrentPage(1);
+                        }}
                         className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     >
                         <option value={15}>15 ngày</option>
@@ -311,7 +424,7 @@ export default function OutsourcedContractWarningView() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filteredContracts.length === 0 ? (
+                            ) : paginatedContracts.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="py-12 text-center text-slate-500 dark:text-slate-400">
                                         <div className="flex flex-col items-center justify-center gap-2">
@@ -326,7 +439,7 @@ export default function OutsourcedContractWarningView() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredContracts.map((c) => {
+                                paginatedContracts.map((c) => {
                                     const isExpanded = expandedEmployeeIds.has(c.employeeId);
                                     const hasAllocations = c.affectedAllocations && c.affectedAllocations.length > 0;
 
@@ -483,6 +596,43 @@ export default function OutsourcedContractWarningView() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination Footer */}
+                {filteredContracts.length > pageSize && (
+                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/30 text-xs text-slate-600 dark:text-slate-400">
+                        <div>
+                            Hiển thị <span className="font-semibold">{(currentPage - 1) * pageSize + 1}</span> đến{" "}
+                            <span className="font-semibold">
+                                {Math.min(currentPage * pageSize, filteredContracts.length)}
+                            </span>{" "}
+                            trong tổng số <span className="font-semibold">{filteredContracts.length}</span> hợp đồng
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                            >
+                                <ChevronLeft className="h-3.5 w-3.5" />
+                                <span>Trước</span>
+                            </button>
+
+                            <span className="px-2 font-medium text-slate-700 dark:text-slate-300">
+                                {currentPage} / {totalPages}
+                            </span>
+
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                            >
+                                <span>Sau</span>
+                                <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Acknowledge Modal */}
@@ -493,7 +643,7 @@ export default function OutsourcedContractWarningView() {
                     onClose={() => setSelectedContractForAck(null)}
                     onSuccess={(_empId, message) => {
                         setSuccessBanner(message);
-                        loadData();
+                        loadData(true);
                     }}
                 />
             )}
