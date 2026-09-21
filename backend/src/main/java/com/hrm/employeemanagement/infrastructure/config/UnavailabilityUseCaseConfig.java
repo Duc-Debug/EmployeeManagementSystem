@@ -1,12 +1,5 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
-import com.hrm.employeemanagement.application.port.inbound.unavailability.ApproveUnavailabilityDeclarationUseCase;
-import com.hrm.employeemanagement.application.port.inbound.unavailability.CancelUnavailabilityDeclarationUseCase;
-import com.hrm.employeemanagement.application.port.inbound.unavailability.CheckUnavailabilityConflictUseCase;
-import com.hrm.employeemanagement.application.port.inbound.unavailability.GetDepartmentUnavailabilityDeclarationsUseCase;
-import com.hrm.employeemanagement.application.port.inbound.unavailability.GetMyUnavailabilityDeclarationsUseCase;
-import com.hrm.employeemanagement.application.port.inbound.unavailability.RejectUnavailabilityDeclarationUseCase;
-import com.hrm.employeemanagement.application.port.inbound.unavailability.SubmitUnavailabilityDeclarationUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
@@ -126,47 +119,5 @@ public class UnavailabilityUseCaseConfig {
                 getService,
                 checkService
         );
-    }
-
-    @Bean
-    public SubmitUnavailabilityDeclarationUseCase submitUnavailabilityDeclarationUseCase(
-            TransactionalUnavailabilityServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public ApproveUnavailabilityDeclarationUseCase approveUnavailabilityDeclarationUseCase(
-            TransactionalUnavailabilityServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public RejectUnavailabilityDeclarationUseCase rejectUnavailabilityDeclarationUseCase(
-            TransactionalUnavailabilityServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public CancelUnavailabilityDeclarationUseCase cancelUnavailabilityDeclarationUseCase(
-            TransactionalUnavailabilityServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public GetMyUnavailabilityDeclarationsUseCase getMyUnavailabilityDeclarationsUseCase(
-            TransactionalUnavailabilityServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public GetDepartmentUnavailabilityDeclarationsUseCase getDepartmentUnavailabilityDeclarationsUseCase(
-            TransactionalUnavailabilityServiceDecorator decorator) {
-        return decorator;
-    }
-
-    @Bean
-    public CheckUnavailabilityConflictUseCase checkUnavailabilityConflictUseCase(
-            TransactionalUnavailabilityServiceDecorator decorator) {
-        return decorator;
     }
 }
