@@ -73,26 +73,36 @@ public class ConfirmScheduleViewedService implements ConfirmScheduleViewedUseCas
         );
 
         LocalDateTime finalConfirmedAt;
+        int statusCode = actionResult.httpStatusCode();
+        boolean alreadyConfirmed = actionResult.alreadyConfirmed();
+
         if (actionResult.httpStatusCode() == 201 || actionResult.previousConfirmationWasStale()) {
             // First time hoặc re-confirm khi STALE -> Lưu xuống DB qua port
-            ScheduleConfirmationRecord saved = scheduleConfirmationPort.saveConfirmation(
+            ScheduleConfirmationPort.SaveConfirmationResult saveResult = scheduleConfirmationPort.saveConfirmation(
                     userId,
                     monday,
                     actionResult.confirmedAt(),
                     ipAddress
             );
-            finalConfirmedAt = saved.confirmedAt();
+            finalConfirmedAt = saveResult.record().confirmedAt();
+
+            // Nếu ban đầu dự định 201 Created nhưng thực tế bị race condition thua (newlyCreated = false)
+            // thì chuyển thành idempotent HTTP 200 OK với alreadyConfirmed = true
+            if (statusCode == 201 && !saveResult.newlyCreated()) {
+                statusCode = 200;
+                alreadyConfirmed = true;
+            }
         } else {
             // Double-click / retry khi không đổi -> Giữ mốc confirmed_at cũ
             finalConfirmedAt = actionResult.confirmedAt();
         }
 
         return new ConfirmScheduleViewedResult(
-                actionResult.httpStatusCode(),
+                statusCode,
                 monday,
                 finalConfirmedAt,
                 "CONFIRMED",
-                actionResult.alreadyConfirmed(),
+                alreadyConfirmed,
                 actionResult.previousConfirmationWasStale() ? Boolean.TRUE : null
         );
     }

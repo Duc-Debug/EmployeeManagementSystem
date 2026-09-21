@@ -15,9 +15,14 @@ public interface ScheduleConfirmationPort {
             String ipAddress
     ) {}
 
+    record SaveConfirmationResult(
+            ScheduleConfirmationRecord record,
+            boolean newlyCreated
+    ) {}
+
     Optional<ScheduleConfirmationRecord> findByUserIdAndWeek(Long userId, LocalDate weekStartDate);
 
     List<ScheduleConfirmationRecord> findByUserIdAndWeeks(Long userId, List<LocalDate> weekStartDates);
 
-    ScheduleConfirmationRecord saveConfirmation(Long userId, LocalDate weekStartDate, LocalDateTime confirmedAt, String ipAddress);
+    SaveConfirmationResult saveConfirmation(Long userId, LocalDate weekStartDate, LocalDateTime confirmedAt, String ipAddress);
 }

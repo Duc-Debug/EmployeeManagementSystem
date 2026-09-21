@@ -170,7 +170,10 @@ class MyAllocationsControllerIntegrationTest {
         when(scheduleConfirmationPort.findByUserIdAndWeek(userId.value(), monday))
                 .thenReturn(Optional.empty());
         when(scheduleConfirmationPort.saveConfirmation(eq(userId.value()), eq(monday), any(), any()))
-                .thenReturn(new ScheduleConfirmationRecord(1L, userId.value(), monday, firstConfirmedAt, "127.0.0.1"));
+                .thenReturn(new ScheduleConfirmationPort.SaveConfirmationResult(
+                        new ScheduleConfirmationRecord(1L, userId.value(), monday, firstConfirmedAt, "127.0.0.1"),
+                        true
+                ));
 
         mockMvc.perform(post("/api/v1/my-allocations/2026-09-21/confirm-viewed"))
                 .andExpect(status().isCreated())
@@ -188,32 +191,27 @@ class MyAllocationsControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("TC-05b: Concurrency race condition khi confirm đồng thời -> Xử lý an toàn idempotent 200 OK")
+    @DisplayName("TC-05b: Concurrency race condition khi confirm đồng thời -> Request race thua nhận HTTP 200 OK, already_confirmed: true")
     void tc05b_ConcurrentRaceConditionConfirmation() throws Exception {
         LocalDate monday = LocalDate.of(2026, 9, 21);
         LocalDateTime now = LocalDateTime.now();
 
-        // Giả lập Request 2 thấy bản ghi chưa tồn tại khi đọc, nhưng khi save thì gặp DuplicateKey
+        // Giả lập Request 2 thấy bản ghi chưa tồn tại khi đọc (empty)
         when(scheduleConfirmationPort.findByUserIdAndWeek(userId.value(), monday))
                 .thenReturn(Optional.empty());
 
-        // Lần đầu save ném DataIntegrityViolationException, sau đó catch reload bản ghi đã commit
+        // Adapter bắt duplicate key và trả về newlyCreated = false
         when(scheduleConfirmationPort.saveConfirmation(eq(userId.value()), eq(monday), any(), any()))
-                .thenThrow(new DataIntegrityViolationException("Duplicate entry for key uq_schedule_conf_user_week"));
+                .thenReturn(new ScheduleConfirmationPort.SaveConfirmationResult(
+                        new ScheduleConfirmationRecord(1L, userId.value(), monday, now, "127.0.0.1"),
+                        false
+                ));
 
-        // Khi adapter reload
-        ScheduleConfirmationPort mockPort = mock(ScheduleConfirmationPort.class);
-        when(mockPort.findByUserIdAndWeek(userId.value(), monday))
-                .thenReturn(Optional.of(new ScheduleConfirmationRecord(1L, userId.value(), monday, now, "127.0.0.1")));
-
-        ConfirmScheduleViewedService serviceWithRaceRecovery = new ConfirmScheduleViewedService(
-                authenticatedUserPort, loadEmployeePort, loadMyAllocationsPort, mockPort
-        );
-
-        // Verify recovery flow
-        var recoveryResult = serviceWithRaceRecovery.confirmScheduleViewed(monday, "127.0.0.1");
-        assertThat(recoveryResult.httpStatusCode()).isEqualTo(200);
-        assertThat(recoveryResult.alreadyConfirmed()).isTrue();
+        // Request race thua phải nhận HTTP 200 OK idempotent và already_confirmed = true
+        mockMvc.perform(post("/api/v1/my-allocations/2026-09-21/confirm-viewed"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.already_confirmed").value(true))
+                .andExpect(jsonPath("$.confirmation_status").value("CONFIRMED"));
     }
 
     @Test
@@ -254,7 +252,10 @@ class MyAllocationsControllerIntegrationTest {
 
         LocalDateTime newConfirmedAt = LocalDateTime.of(2026, 9, 18, 12, 0);
         when(scheduleConfirmationPort.saveConfirmation(eq(userId.value()), eq(monday), any(), any()))
-                .thenReturn(new ScheduleConfirmationRecord(1L, userId.value(), monday, newConfirmedAt, "127.0.0.1"));
+                .thenReturn(new ScheduleConfirmationPort.SaveConfirmationResult(
+                        new ScheduleConfirmationRecord(1L, userId.value(), monday, newConfirmedAt, "127.0.0.1"),
+                        false
+                ));
 
         mockMvc.perform(post("/api/v1/my-allocations/2026-09-21/confirm-viewed"))
                 .andExpect(status().isOk())
@@ -272,7 +273,10 @@ class MyAllocationsControllerIntegrationTest {
 
         // TC-08a: Untrusted client trực tiếp gửi X-Forwarded-For -> Bị từ chối, lưu remoteAddr
         when(scheduleConfirmationPort.saveConfirmation(eq(userId.value()), eq(monday), any(), eq("203.0.113.195")))
-                .thenReturn(new ScheduleConfirmationRecord(1L, userId.value(), monday, LocalDateTime.now(), "203.0.113.195"));
+                .thenReturn(new ScheduleConfirmationPort.SaveConfirmationResult(
+                        new ScheduleConfirmationRecord(1L, userId.value(), monday, LocalDateTime.now(), "203.0.113.195"),
+                        true
+                ));
 
         mockMvc.perform(post("/api/v1/my-allocations/2026-09-21/confirm-viewed")
                         .with(request -> {
@@ -284,7 +288,10 @@ class MyAllocationsControllerIntegrationTest {
 
         // TC-08b: Trusted reverse proxy gửi X-Forwarded-For -> Lưu đúng client IP đầu tiên
         when(scheduleConfirmationPort.saveConfirmation(eq(userId.value()), eq(monday), any(), eq("198.51.100.1")))
-                .thenReturn(new ScheduleConfirmationRecord(1L, userId.value(), monday, LocalDateTime.now(), "198.51.100.1"));
+                .thenReturn(new ScheduleConfirmationPort.SaveConfirmationResult(
+                        new ScheduleConfirmationRecord(1L, userId.value(), monday, LocalDateTime.now(), "198.51.100.1"),
+                        true
+                ));
 
         mockMvc.perform(post("/api/v1/my-allocations/2026-09-21/confirm-viewed")
                         .with(request -> {

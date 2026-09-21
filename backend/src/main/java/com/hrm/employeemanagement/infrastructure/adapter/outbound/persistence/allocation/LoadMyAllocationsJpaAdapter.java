@@ -41,7 +41,11 @@ public class LoadMyAllocationsJpaAdapter implements LoadMyAllocationsPort {
                 p.project_name AS project_name,
                 p.status AS project_status,
                 ra.allocated_hours AS allocated_hours,
-                ra.updated_at AS allocation_updated_at
+                CASE 
+                    WHEN p.updated_at IS NOT NULL AND (ra.updated_at IS NULL OR p.updated_at > ra.updated_at)
+                    THEN p.updated_at
+                    ELSE ra.updated_at
+                END AS allocation_updated_at
             FROM weekly_project_allocations ra
             JOIN projects p ON ra.project_id = p.id
             WHERE ra.employee_id = :employeeId

@@ -46,27 +46,31 @@ public class ScheduleConfirmationJpaAdapter implements ScheduleConfirmationPort 
     }
 
     @Override
-    public ScheduleConfirmationRecord saveConfirmation(Long userId, LocalDate weekStartDate, LocalDateTime confirmedAt, String ipAddress) {
+    public SaveConfirmationResult saveConfirmation(Long userId, LocalDate weekStartDate, LocalDateTime confirmedAt, String ipAddress) {
+        boolean isNew = false;
         ScheduleConfirmationJpaEntity entity = repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
-                .orElseGet(() -> {
-                    ScheduleConfirmationJpaEntity newEntity = new ScheduleConfirmationJpaEntity();
-                    newEntity.setUserId(userId);
-                    newEntity.setWeekStartDate(weekStartDate);
-                    return newEntity;
-                });
+                .orElse(null);
+
+        if (entity == null) {
+            isNew = true;
+            entity = new ScheduleConfirmationJpaEntity();
+            entity.setUserId(userId);
+            entity.setWeekStartDate(weekStartDate);
+        }
 
         entity.setConfirmedAt(confirmedAt);
         entity.setIpAddress(ipAddress);
 
         try {
             ScheduleConfirmationJpaEntity saved = saveHelper.saveInIsolatedTransaction(entity);
-            return toRecord(saved);
+            return new SaveConfirmationResult(toRecord(saved), isNew);
         } catch (DataIntegrityViolationException ex) {
             log.warn("Race condition phát hiện khi lưu schedule confirmation cho user {} tuần {}. Đã cô lập transaction và reload bản ghi đã commit thành công.",
                     userId, weekStartDate);
-            return repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
+            ScheduleConfirmationRecord reloaded = repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
                     .map(this::toRecord)
                     .orElseThrow(() -> ex);
+            return new SaveConfirmationResult(reloaded, false);
         }
     }
 
