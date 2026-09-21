@@ -422,7 +422,11 @@ public class Task {
         BigDecimal current = this.actualHours != null ? this.actualHours : BigDecimal.ZERO;
         BigDecimal updated = current.subtract(toSub);
         if (updated.compareTo(BigDecimal.ZERO) < 0) {
-            updated = BigDecimal.ZERO;
+            // A negative value proves Task.actualHours and approved entries disagree.
+            // Fail fast instead of hiding the corruption by clamping the value to zero.
+            throw new InvalidTaskDataException(
+                    "Không thể trừ " + toSub + " giờ khỏi actualHours " + current
+                            + ": dữ liệu Task và bảng chấm công không nhất quán");
         }
         this.actualHours = updated;
         this.updatedAt = LocalDateTime.now();

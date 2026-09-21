@@ -175,6 +175,11 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
             throw new WorkLogInvalidHoursException("Số giờ làm việc phải lớn hơn 0 và không vượt quá 24 giờ.");
         }
 
+        // Serialize every write that affects this employee's daily aggregate. Locking
+        // only the entry cannot protect two concurrent edits of different entries.
+        loadEmployeePort.findByIdForUpdate(entry.getEmployeeId())
+                .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên của dòng giờ công"));
+
         BigDecimal existingDayHours = loadTimesheetEntryPort.sumHoursByEmployeeAndDate(
                 entry.getEmployeeId(),
                 entry.getWorkDate(),
@@ -187,6 +192,8 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
 
         // 10. Điều chỉnh entry
         BigDecimal oldHours = entry.getHours();
+        boolean oldBillable = entry.isBillable();
+        String oldDescription = entry.getDescription();
         entry.adjustApproved(
                 targetTaskId,
                 newHours,
@@ -221,14 +228,15 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
         saveTimesheetPort.save(timesheet);
 
         // 13. Lưu vết kiểm toán (Audit Log)
-        String auditDetail;
-        if (sourceTaskId.equals(targetTaskId)) {
-            auditDetail = String.format("[ĐIỀU CHỈNH GIỜ ĐÃ DUYỆT] Giờ cũ: %sh -> Giờ mới: %sh | Lý do: %s",
-                    oldHours, newHours, command.reason().trim());
-        } else {
-            auditDetail = String.format("[ĐIỀU CHỈNH GIỜ ĐÃ DUYỆT] Chuyển việc: %s -> %s | Giờ cũ: %sh -> Giờ mới: %sh | Lý do: %s",
-                    sourceTask.getTaskCode(), targetTask.getTaskCode(), oldHours, newHours, command.reason().trim());
-        }
+        // Include every editable field, even when unchanged, so billable-only or
+        // description-only adjustments remain fully reconstructable from the audit.
+        String auditDetail = String.format(
+                "[ĐIỀU CHỈNH GIỜ ĐÃ DUYỆT] Giờ: %sh -> %sh | Công việc: %s -> %s | Tính phí: %s -> %s | Mô tả: %s -> %s | Lý do: %s",
+                oldHours, newHours,
+                sourceTask.getTaskCode(), targetTask.getTaskCode(),
+                oldBillable, savedEntry.isBillable(),
+                auditValue(oldDescription), auditValue(savedEntry.getDescription()),
+                command.reason().trim());
 
         TimesheetAuditLog auditLog = TimesheetAuditLog.create(
                 timesheet.getId(),
@@ -290,6 +298,10 @@ public class AdjustApprovedWorkLogService implements AdjustApprovedWorkLogUseCas
                 }
             }
         }
+    }
+
+    private String auditValue(String value) {
+        return value == null ? "<null>" : "\"" + value + "\"";
     }
 }
 

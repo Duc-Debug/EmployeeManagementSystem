@@ -16,7 +16,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -107,6 +109,9 @@ class AdjustApprovedWorkLogServiceTest {
                 authorizationService,
                 checkAllocationPeriodLockUseCase
         );
+        // Successful adjustments must acquire the aggregate lock before checking 12h/day.
+        lenient().when(loadEmployeePort.findByIdForUpdate(devEmployeeId))
+                .thenReturn(Optional.of(createEmployee(devEmployeeId, "Lê Văn Dev")));
     }
 
     private Employee createEmployee(EmployeeId empId, String fullName) {
@@ -236,10 +241,18 @@ class AdjustApprovedWorkLogServiceTest {
         assertNotNull(result);
         assertEquals(new BigDecimal("6.00"), result.entry().hours());
         assertEquals("APPROVED", result.entry().status());
+        verify(loadEmployeePort).findByIdForUpdate(devEmployeeId);
         verify(saveTaskPort).save(task);
         assertEquals(new BigDecimal("6.00"), task.getActualHours());
-        verify(saveTimesheetAuditLogPort).save(any(TimesheetAuditLog.class));
         verify(saveTimesheetPort).save(any(Timesheet.class));
+
+        ArgumentCaptor<TimesheetAuditLog> auditCaptor = ArgumentCaptor.forClass(TimesheetAuditLog.class);
+        verify(saveTimesheetAuditLogPort).save(auditCaptor.capture());
+        String auditNote = auditCaptor.getValue().getNote();
+        assertTrue(auditNote.contains("Giờ: 8.00h -> 6.00h"));
+        assertTrue(auditNote.contains("Công việc: TASK-01 -> TASK-01"));
+        assertTrue(auditNote.contains("Tính phí: true -> true"));
+        assertTrue(auditNote.contains("Mô tả: \"Làm việc bình thường\" -> \"Điều chỉnh lại số giờ làm việc thực tế\""));
     }
 
     @Test
