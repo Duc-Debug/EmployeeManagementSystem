@@ -53,7 +53,8 @@ public class StandardWorkWeekConfigJpaEntity {
     @OneToMany(mappedBy = "config", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StandardWorkWeekDayJpaEntity> days = new ArrayList<>();
 
-    @Column(name = "created_by", nullable = false)
+    // The audit user may be absent for seeded rows or become null via FK ON DELETE SET NULL.
+    @Column(name = "created_by")
     private Long createdBy;
 
     @Column(name = "updated_by")

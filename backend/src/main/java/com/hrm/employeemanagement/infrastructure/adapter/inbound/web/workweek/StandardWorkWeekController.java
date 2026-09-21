@@ -72,7 +72,8 @@ public class StandardWorkWeekController {
                 request.capacityUnit(),
                 request.weekStartDay(),
                 request.standardHoursPerDay(),
-                dayDtos
+                dayDtos,
+                request.version()
         );
 
         StandardWorkWeekConfigResult result = updateConfigUseCase.execute(command);
@@ -127,6 +128,7 @@ public class StandardWorkWeekController {
                 result.createdBy(),
                 result.updatedBy(),
                 result.updatedAt(),
+                result.version(),
                 result.isInherited()
         );
     }

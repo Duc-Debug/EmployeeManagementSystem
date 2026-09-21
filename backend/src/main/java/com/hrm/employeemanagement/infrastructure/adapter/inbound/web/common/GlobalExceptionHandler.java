@@ -121,6 +121,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.workweek.StandardWorkWeekVersionConflictException.class)
+    public ResponseEntity<ErrorResponse> handleStandardWorkWeekVersionConflict(
+            com.hrm.employeemanagement.domain.exception.workweek.StandardWorkWeekVersionConflictException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "STANDARD_WORK_WEEK_VERSION_CONFLICT",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     @ExceptionHandler(PermissionDeniedException.class)
     public ResponseEntity<ErrorResponse> handlePermissionDenied(PermissionDeniedException ex) {
         ErrorResponse response = ErrorResponse.of(

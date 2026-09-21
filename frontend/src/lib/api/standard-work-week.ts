@@ -22,9 +22,10 @@ export interface StandardWorkWeekConfig {
   standardHoursPerDay: number;
   standardHoursPerWeek: number;
   days: StandardWorkWeekDay[];
-  createdBy: number;
+  createdBy: number | null;
   updatedBy: number | null;
   updatedAt: string | null;
+  version: number;
   isInherited: boolean;
 }
 
@@ -35,6 +36,7 @@ export interface UpdateStandardWorkWeekPayload {
   weekStartDay?: WeekStartDay;
   standardHoursPerDay?: number;
   days: StandardWorkWeekDay[];
+  version?: number;
 }
 
 export interface CapacityConversionPayload {

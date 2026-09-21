@@ -16,6 +16,8 @@ public record UpdateStandardWorkWeekRequest(
         @NotNull(message = "Danh sách ngày làm việc không được null")
         @NotEmpty(message = "Danh sách ngày làm việc không được rỗng")
         @Valid
-        List<StandardWorkWeekDayRequest> days
+        List<StandardWorkWeekDayRequest> days,
+
+        Long version
 ) {}
 

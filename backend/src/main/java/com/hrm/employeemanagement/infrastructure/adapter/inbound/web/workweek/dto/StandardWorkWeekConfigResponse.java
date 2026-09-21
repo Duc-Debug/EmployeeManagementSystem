@@ -17,6 +17,7 @@ public record StandardWorkWeekConfigResponse(
         Long createdBy,
         Long updatedBy,
         LocalDateTime updatedAt,
+        Long version,
         boolean isInherited
 ) {}
 

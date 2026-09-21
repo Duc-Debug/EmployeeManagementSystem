@@ -329,6 +329,8 @@ export default function WorkingCalendarConfigView() {
         capacityUnit,
         weekStartDay,
         standardHoursPerDay: Number(standardHoursPerDay),
+        // Send the loaded snapshot version so the API can reject stale admin edits.
+        version: initialConfig?.isInherited ? undefined : initialConfig?.version,
         days: workDays.map((d) => ({
           dayOfWeek: d.dayOfWeek,
           isWorkingDay: d.isWorkingDay,

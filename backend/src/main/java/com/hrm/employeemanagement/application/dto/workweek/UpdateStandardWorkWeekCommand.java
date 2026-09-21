@@ -9,6 +9,7 @@ public record UpdateStandardWorkWeekCommand(
         String capacityUnit,
         String weekStartDay,
         BigDecimal standardHoursPerDay,
-        List<StandardWorkWeekDayDto> days
+        List<StandardWorkWeekDayDto> days,
+        Long version
 ) {}
 

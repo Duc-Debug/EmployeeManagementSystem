@@ -49,7 +49,8 @@ public class StandardWorkWeekRepositoryAdapter implements LoadStandardWorkWeekPo
         }
 
         StandardWorkWeekConfigJpaEntity toSave = mapper.toJpaEntity(config, existing);
-        StandardWorkWeekConfigJpaEntity saved = repository.save(toSave);
+        // Flush before mapping so the response carries the incremented @Version value.
+        StandardWorkWeekConfigJpaEntity saved = repository.saveAndFlush(toSave);
         return mapper.toDomain(saved);
     }
 }

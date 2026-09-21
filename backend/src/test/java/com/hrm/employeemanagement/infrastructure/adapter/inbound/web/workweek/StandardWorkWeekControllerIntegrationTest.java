@@ -16,6 +16,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.us
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.UserJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataRoleRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataUserRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.workweek.repository.SpringDataStandardWorkWeekConfigRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +63,9 @@ class StandardWorkWeekControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private SpringDataStandardWorkWeekConfigRepository workWeekRepository;
 
     @BeforeEach
     void setUp() {
@@ -154,7 +158,8 @@ class StandardWorkWeekControllerIntegrationTest {
                 "HOURS",
                 "MONDAY",
                 BigDecimal.valueOf(8),
-                days
+                days,
+                companyVersion()
         );
 
         mockMvc.perform(put("/api/v1/work-week-configs")
@@ -163,7 +168,8 @@ class StandardWorkWeekControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.standardHoursPerWeek").value(44.00));
+                .andExpect(jsonPath("$.data.standardHoursPerWeek").value(44.00))
+                .andExpect(jsonPath("$.data.version").isNumber());
     }
 
     @Test
@@ -179,7 +185,8 @@ class StandardWorkWeekControllerIntegrationTest {
                 "HOURS",
                 "MONDAY",
                 BigDecimal.valueOf(8),
-                days
+                days,
+                companyVersion()
         );
 
         mockMvc.perform(put("/api/v1/work-week-configs")
@@ -227,7 +234,8 @@ class StandardWorkWeekControllerIntegrationTest {
                 "HOURS",
                 "MONDAY",
                 BigDecimal.valueOf(8),
-                days
+                days,
+                companyVersion()
         );
 
         mockMvc.perform(put("/api/v1/work-week-configs")
@@ -235,5 +243,30 @@ class StandardWorkWeekControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("TC-06: Version cũ trả về 409 Conflict")
+    void updateConfig_staleVersion_conflict() throws Exception {
+        UserJpaEntity hrUser = createUser("test-hr-stale", "VT-05", DataScope.COMPANY);
+        UsernamePasswordAuthenticationToken auth = authFor(
+                hrUser, RoleCode.VT_05, DataScope.COMPANY, "STANDARD_WORK_WEEK_MANAGE");
+        UpdateStandardWorkWeekRequest request = new UpdateStandardWorkWeekRequest(
+                "COMPANY", null, "HOURS", "MONDAY", BigDecimal.valueOf(8),
+                createStandardDayRequests(BigDecimal.valueOf(8), BigDecimal.ZERO),
+                companyVersion() + 100L);
+
+        mockMvc.perform(put("/api/v1/work-week-configs")
+                        .with(authentication(auth))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("STANDARD_WORK_WEEK_VERSION_CONFLICT"));
+    }
+
+    private Long companyVersion() {
+        return workWeekRepository.findCompanyDefaultWithDays()
+                .orElseThrow(() -> new IllegalStateException("Company work-week config not found"))
+                .getVersion();
     }
 }

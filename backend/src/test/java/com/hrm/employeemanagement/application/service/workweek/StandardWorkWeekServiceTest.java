@@ -13,6 +13,8 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.workweek.StandardWorkWeekVersionConflictException;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.workweek.CapacityUnit;
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -37,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class StandardWorkWeekServiceTest {
@@ -126,14 +130,18 @@ class StandardWorkWeekServiceTest {
                 "HOURS",
                 "MONDAY",
                 BigDecimal.valueOf(8),
-                days
+                days,
+                0L
         );
 
         StandardWorkWeekConfigResult result = service.execute(command);
 
         assertThat(result.standardHoursPerWeek()).isEqualByComparingTo("44.00");
         verify(saveStandardWorkWeekPort).save(any());
-        verify(saveAuditLogPort).save(any());
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().getOldValue()).contains("totalHours=40.00");
+        assertThat(auditCaptor.getValue().getNewValue()).contains("totalHours=44.00");
     }
 
     @Test
@@ -149,7 +157,8 @@ class StandardWorkWeekServiceTest {
                 "HOURS",
                 "MONDAY",
                 BigDecimal.valueOf(8),
-                days
+                days,
+                null
         );
 
         assertThatThrownBy(() -> service.execute(command))
@@ -185,5 +194,33 @@ class StandardWorkWeekServiceTest {
 
         assertThatThrownBy(() -> service.execute("COMPANY", null))
                 .isInstanceOf(PermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("Không fallback authorization khi permission service gặp lỗi hệ thống")
+    void authorizationInfrastructureFailure_isPropagated() {
+        IllegalStateException failure = new IllegalStateException("authorization store unavailable");
+        when(authorizationService.require(PermissionCode.STANDARD_WORK_WEEK_READ)).thenThrow(failure);
+
+        assertThatThrownBy(() -> service.execute("COMPANY", null)).isSameAs(failure);
+        verify(authorizationService, never()).require(PermissionCode.WORKING_CALENDAR_READ);
+    }
+
+    @Test
+    @DisplayName("Từ chối cập nhật bằng version cũ trước khi ghi dữ liệu")
+    void updateConfig_staleVersion_throwsConflict() {
+        when(authorizationService.require(PermissionCode.STANDARD_WORK_WEEK_MANAGE)).thenReturn(100L);
+        StandardWorkWeekConfig existing = StandardWorkWeekConfig.createDefaultCompany(1L);
+        existing.setId(1L);
+        when(loadStandardWorkWeekPort.findByScope(WorkWeekScope.company())).thenReturn(Optional.of(existing));
+
+        UpdateStandardWorkWeekCommand command = new UpdateStandardWorkWeekCommand(
+                "COMPANY", null, "HOURS", "MONDAY", BigDecimal.valueOf(8),
+                createStandardDayDtos(BigDecimal.valueOf(8), BigDecimal.ZERO), 99L);
+
+        assertThatThrownBy(() -> service.execute(command))
+                .isInstanceOf(StandardWorkWeekVersionConflictException.class);
+        verify(saveStandardWorkWeekPort, never()).save(any());
+        verify(saveAuditLogPort, never()).save(any());
     }
 }

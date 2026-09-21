@@ -16,7 +16,9 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.workweek.InvalidStandardWorkWeekException;
+import com.hrm.employeemanagement.domain.exception.workweek.StandardWorkWeekVersionConflictException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.workweek.CapacityUnit;
 import com.hrm.employeemanagement.domain.workweek.StandardWorkWeekConfig;
@@ -58,7 +60,7 @@ public class StandardWorkWeekService implements
     private void requireReadPermission() {
         try {
             authorizationService.require(PermissionCode.STANDARD_WORK_WEEK_READ);
-        } catch (Exception e) {
+        } catch (PermissionDeniedException e) {
             authorizationService.require(PermissionCode.WORKING_CALENDAR_READ);
         }
     }
@@ -66,7 +68,7 @@ public class StandardWorkWeekService implements
     private Long requireManagePermission() {
         try {
             return authorizationService.require(PermissionCode.STANDARD_WORK_WEEK_MANAGE);
-        } catch (Exception e) {
+        } catch (PermissionDeniedException e) {
             return authorizationService.require(PermissionCode.WORKING_CALENDAR_MANAGE);
         }
     }
@@ -110,9 +112,14 @@ public class StandardWorkWeekService implements
 
         Optional<StandardWorkWeekConfig> existingOpt = loadStandardWorkWeekPort.findByScope(scope);
         StandardWorkWeekConfig configToSave;
+        String oldValue;
 
         if (existingOpt.isPresent()) {
             configToSave = existingOpt.get();
+            validateVersion(command.version(), configToSave.getVersion());
+
+            // Capture the immutable audit snapshot before update mutates this aggregate in place.
+            oldValue = formatAuditValue(configToSave);
             configToSave.update(
                     capacityUnit,
                     weekStartDay,
@@ -121,6 +128,7 @@ public class StandardWorkWeekService implements
                     currentUserId
             );
         } else {
+            oldValue = "NONE";
             configToSave = new StandardWorkWeekConfig(
                     null,
                     scope,
@@ -138,9 +146,6 @@ public class StandardWorkWeekService implements
 
         StandardWorkWeekConfig saved = saveStandardWorkWeekPort.save(configToSave);
 
-        String oldValue = existingOpt
-                .map(c -> "totalHours=" + c.getStandardHoursPerWeek() + ", unit=" + c.getCapacityUnit())
-                .orElse("NONE");
         String newValue = "scope=" + scope.toScopeKey() + ", totalHours=" + saved.getStandardHoursPerWeek() + ", unit=" + saved.getCapacityUnit();
 
         saveAuditLogPort.save(AuditLog.createChange(
@@ -259,7 +264,23 @@ public class StandardWorkWeekService implements
                 config.getCreatedBy(),
                 config.getUpdatedBy(),
                 config.getUpdatedAt(),
+                config.getVersion(),
                 isInherited
         );
+    }
+
+    private void validateVersion(Long expectedVersion, Long currentVersion) {
+        if (expectedVersion == null) {
+            throw new InvalidStandardWorkWeekException(
+                    "Phiên bản cấu hình (version) là bắt buộc khi cập nhật cấu hình đã tồn tại");
+        }
+        if (!Objects.equals(expectedVersion, currentVersion)) {
+            throw new StandardWorkWeekVersionConflictException(
+                    "Cấu hình tuần làm việc đã được cập nhật bởi thao tác khác. Vui lòng tải lại dữ liệu mới nhất.");
+        }
+    }
+
+    private String formatAuditValue(StandardWorkWeekConfig config) {
+        return "totalHours=" + config.getStandardHoursPerWeek() + ", unit=" + config.getCapacityUnit();
     }
 }
