@@ -16,6 +16,9 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.service.outsourcedcontract.AcknowledgeOutsourcedContractWarningService;
 import com.hrm.employeemanagement.application.service.outsourcedcontract.GetExpiringOutsourcedContractsService;
 import com.hrm.employeemanagement.application.service.outsourcedcontract.ScanOutsourcedContractExpirationsService;
+import com.hrm.employeemanagement.infrastructure.transaction.outsourcedcontract.TransactionalAcknowledgeOutsourcedContractWarningDecorator;
+import com.hrm.employeemanagement.infrastructure.transaction.outsourcedcontract.TransactionalGetExpiringOutsourcedContractsDecorator;
+import com.hrm.employeemanagement.infrastructure.transaction.outsourcedcontract.TransactionalScanOutsourcedContractExpirationsDecorator;
 
 @Configuration
 public class OutsourcedContractUseCaseConfig {
@@ -27,12 +30,13 @@ public class OutsourcedContractUseCaseConfig {
             LoadOutsourcedContractPort loadContractPort,
             LoadOutsourcedAllocationPort loadAllocationPort
     ) {
-        return new GetExpiringOutsourcedContractsService(
+        GetExpiringOutsourcedContractsService pureService = new GetExpiringOutsourcedContractsService(
                 authenticatedUserPort,
                 deniedAuditLogPort,
                 loadContractPort,
                 loadAllocationPort
         );
+        return new TransactionalGetExpiringOutsourcedContractsDecorator(pureService);
     }
 
     @Bean
@@ -45,7 +49,7 @@ public class OutsourcedContractUseCaseConfig {
             LoadNotificationRecipientUserPort recipientUserPort,
             CreateNotificationEventUseCase createNotificationEventUseCase
     ) {
-        return new ScanOutsourcedContractExpirationsService(
+        ScanOutsourcedContractExpirationsService pureService = new ScanOutsourcedContractExpirationsService(
                 authenticatedUserPort,
                 deniedAuditLogPort,
                 saveAuditLogPort,
@@ -54,6 +58,7 @@ public class OutsourcedContractUseCaseConfig {
                 recipientUserPort,
                 createNotificationEventUseCase
         );
+        return new TransactionalScanOutsourcedContractExpirationsDecorator(pureService);
     }
 
     @Bean
@@ -63,11 +68,12 @@ public class OutsourcedContractUseCaseConfig {
             SaveAuditLogPort saveAuditLogPort,
             LoadOutsourcedContractPort loadContractPort
     ) {
-        return new AcknowledgeOutsourcedContractWarningService(
+        AcknowledgeOutsourcedContractWarningService pureService = new AcknowledgeOutsourcedContractWarningService(
                 authenticatedUserPort,
                 deniedAuditLogPort,
                 saveAuditLogPort,
                 loadContractPort
         );
+        return new TransactionalAcknowledgeOutsourcedContractWarningDecorator(pureService);
     }
 }

@@ -101,7 +101,21 @@ public class OutsourcedContractPersistenceAdapter implements
         if (employeeIds == null || employeeIds.isEmpty()) {
             return Collections.emptyList();
         }
-        List<WeeklyProjectAllocationJpaEntity> entities = allocationRepository.findByEmployeeIdIn(employeeIds);
+        int minYear = java.time.LocalDate.now().getYear() - 1;
+        return findAllocationsByEmployeeIds(employeeIds, minYear);
+    }
+
+    @Override
+    public List<OutsourcedAllocationRecord> findAllocationsByEmployeeIds(List<Long> employeeIds, Integer minYear) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<WeeklyProjectAllocationJpaEntity> entities;
+        if (minYear != null) {
+            entities = allocationRepository.findByEmployeeIdInAndYearGreaterThanEqual(employeeIds, minYear);
+        } else {
+            entities = allocationRepository.findByEmployeeIdIn(employeeIds);
+        }
         return mapAllocations(entities);
     }
 

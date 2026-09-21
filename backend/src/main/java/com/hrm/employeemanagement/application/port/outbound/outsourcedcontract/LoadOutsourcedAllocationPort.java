@@ -18,5 +18,8 @@ public interface LoadOutsourcedAllocationPort {
 
     List<OutsourcedAllocationRecord> findAllocationsByEmployeeId(Long employeeId);
     List<OutsourcedAllocationRecord> findAllocationsByEmployeeIds(List<Long> employeeIds);
+    default List<OutsourcedAllocationRecord> findAllocationsByEmployeeIds(List<Long> employeeIds, Integer minYear) {
+        return findAllocationsByEmployeeIds(employeeIds);
+    }
     Map<Long, String> findProjectNamesByIds(List<Long> projectIds);
 }

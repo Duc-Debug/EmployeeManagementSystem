@@ -227,4 +227,28 @@ class ScanOutsourcedContractExpirationsServiceTest {
         assertThat(log.getNewValue()).contains("totalScanned=1");
         assertThat(log.getNewValue()).contains("notificationsSent=1");
     }
+
+    @Test
+    @DisplayName("Cơ chế Cooldown: Quét thủ công 2 lần liên tiếp trong khoảng thời gian ngắn -> Lần 2 trả về kết quả gần nhất kèm thông báo chờ")
+    void shouldEnforceCooldownOnConsecutiveManualScans() {
+        User rmUser = createMockUser(33L, RoleCode.VT_03);
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(rmUser);
+
+        LocalDate contractEnd = today.plusDays(20);
+        Employee emp = createMockOutsourcedEmployee(103L, "EXT-003", "Lê Thuê", contractEnd);
+        when(loadContractPort.findAllOutsourcedEmployeesWithContract()).thenReturn(List.of(emp));
+        when(loadContractPort.findOrgUnitNamesByIds(any())).thenReturn(Map.of());
+        when(loadAllocationPort.findAllocationsByEmployeeIds(any())).thenReturn(List.of());
+        when(loadAllocationPort.findProjectNamesByIds(any())).thenReturn(Map.of());
+        when(recipientUserPort.findResourceManagersAndHrUserIds()).thenReturn(List.of(33L));
+
+        // Lần quét 1: Thực hiện đầy đủ
+        ScanOutsourcedContractsResult firstResult = service.execute(true);
+        assertThat(firstResult.notificationsSent()).isEqualTo(1);
+
+        // Lần quét 2 (ngay lập tức): Kích hoạt cooldown
+        ScanOutsourcedContractsResult secondResult = service.execute(true);
+        assertThat(secondResult.notificationsSent()).isEqualTo(0);
+        assertThat(secondResult.details()).contains("vừa rà soát cách đây");
+    }
 }

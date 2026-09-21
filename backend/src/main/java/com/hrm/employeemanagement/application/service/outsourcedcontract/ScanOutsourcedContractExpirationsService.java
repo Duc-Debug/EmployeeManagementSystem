@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.service.outsourcedcontract;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.hrm.employeemanagement.application.dto.notification.CreateNotificationEventCommand;
 import com.hrm.employeemanagement.application.dto.outsourcedcontract.ScanOutsourcedContractsResult;
@@ -42,6 +44,8 @@ import com.hrm.employeemanagement.domain.user.User;
  */
 public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedContractExpirationsUseCase {
 
+    private static final int MANUAL_SCAN_COOLDOWN_SECONDS = 10;
+
     private final GetAuthenticatedUserPort authenticatedUserPort;
     private final SaveAuditLogInNewTransactionPort deniedAuditLogPort;
     private final SaveAuditLogPort saveAuditLogPort;
@@ -49,6 +53,9 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
     private final LoadOutsourcedAllocationPort loadAllocationPort;
     private final LoadNotificationRecipientUserPort recipientUserPort;
     private final CreateNotificationEventUseCase createNotificationEventUseCase;
+
+    private final AtomicReference<LocalDateTime> lastManualScanTime = new AtomicReference<>(null);
+    private final AtomicReference<ScanOutsourcedContractsResult> lastManualScanResult = new AtomicReference<>(null);
 
     public ScanOutsourcedContractExpirationsService(
             GetAuthenticatedUserPort authenticatedUserPort,
@@ -99,6 +106,25 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
         User executingUser = null;
         if (isManualTrigger) {
             executingUser = checkAuthorizationForManualTrigger();
+
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime lastScan = lastManualScanTime.get();
+            if (lastScan != null) {
+                long elapsedSeconds = Duration.between(lastScan, now).getSeconds();
+                if (elapsedSeconds < MANUAL_SCAN_COOLDOWN_SECONDS) {
+                    ScanOutsourcedContractsResult cached = lastManualScanResult.get();
+                    if (cached != null) {
+                        return new ScanOutsourcedContractsResult(
+                                cached.scannedAt(),
+                                cached.totalScanned(),
+                                cached.totalExpiringContractsFound(),
+                                0,
+                                String.format("Hệ thống vừa rà soát cách đây %d giây (vui lòng đợi tối thiểu %d giây giữa 2 lần quét thủ công).",
+                                        elapsedSeconds, MANUAL_SCAN_COOLDOWN_SECONDS)
+                        );
+                    }
+                }
+            }
         }
 
         LocalDate today = LocalDate.now();
@@ -107,10 +133,15 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
 
         if (totalScanned == 0) {
             // [TC-02] Dữ liệu rỗng: Không có hợp đồng nào
-            return new ScanOutsourcedContractsResult(
+            ScanOutsourcedContractsResult emptyResult = new ScanOutsourcedContractsResult(
                     LocalDateTime.now(), 0, 0, 0,
                     "Không tìm thấy nhân sự thuê ngoài nào có hợp đồng trong hệ thống."
             );
+            if (isManualTrigger) {
+                lastManualScanTime.set(LocalDateTime.now());
+                lastManualScanResult.set(emptyResult);
+            }
+            return emptyResult;
         }
 
         List<Long> employeeIds = outsourcedEmployees.stream()
@@ -187,10 +218,15 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
 
         // [TC-02] Dữ liệu rỗng: Không có hợp đồng thuê nào sắp hết hạn
         if (expiringContracts.isEmpty()) {
-            return new ScanOutsourcedContractsResult(
+            ScanOutsourcedContractsResult emptyExpiringResult = new ScanOutsourcedContractsResult(
                     LocalDateTime.now(), totalScanned, 0, 0,
                     "Không có hợp đồng thuê ngoài nào sắp hết hạn trong vòng 30 ngày tới. Hệ thống không gửi cảnh báo nào."
             );
+            if (isManualTrigger) {
+                lastManualScanTime.set(LocalDateTime.now());
+                lastManualScanResult.set(emptyExpiringResult);
+            }
+            return emptyExpiringResult;
         }
 
         // [TC-01] Gửi thông báo tới Quản lý nguồn lực (VT-03) và Nhân sự (VT-05)
@@ -261,8 +297,15 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
                 totalScanned, expiringContracts.size(), notificationsSent
         );
 
-        return new ScanOutsourcedContractsResult(
+        ScanOutsourcedContractsResult finalResult = new ScanOutsourcedContractsResult(
                 LocalDateTime.now(), totalScanned, expiringContracts.size(), notificationsSent, details
         );
+
+        if (isManualTrigger) {
+            lastManualScanTime.set(LocalDateTime.now());
+            lastManualScanResult.set(finalResult);
+        }
+
+        return finalResult;
     }
 }
