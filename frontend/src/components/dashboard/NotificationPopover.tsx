@@ -9,8 +9,11 @@ import {
   Info,
   ExternalLink,
   ChevronDown,
+  Sliders,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuthUser } from "@/lib/auth-session";
+import NotificationDedupConfigModal from "./NotificationDedupConfigModal";
 import {
   getNotificationCenter,
   getUnreadNotificationCount,
@@ -27,10 +30,16 @@ interface NotificationPopoverProps {
 
 export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) {
   const navigate = useNavigate();
+  const user = useAuthUser();
   const [notifications, setNotifications] = useState<NotificationCenterItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDedupModalOpen, setIsDedupModalOpen] = useState(false);
+
+  const canManageDedup =
+    user?.roleCode?.toUpperCase().replace(/_/g, "-") === "VT-06" ||
+    user?.permissions?.includes("NOTIFICATION_DEDUPLICATION_MANAGE");
 
   // Filters & Pagination
   const [statusFilter, setStatusFilter] = useState<"ALL" | "UNREAD">("ALL");
@@ -265,16 +274,29 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                 </span>
               )}
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllRead}
-                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
-                type="button"
-              >
-                <CheckCheck className="h-3.5 w-3.5" />
-                Đọc tất cả
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {canManageDedup && (
+                <button
+                  onClick={() => setIsDedupModalOpen(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600 transition px-1.5 py-0.5 rounded hover:bg-slate-100"
+                  type="button"
+                  title="Cấu hình chống gửi trùng thông báo (VT-06)"
+                >
+                  <Sliders className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Chống trùng</span>
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+                  type="button"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Đọc tất cả
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Filter Bar */}
@@ -456,6 +478,12 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
           )}
         </div>
       )}
+
+      {/* Modal Cấu hình chống gửi trùng thông báo (VT-06) */}
+      <NotificationDedupConfigModal
+        isOpen={isDedupModalOpen}
+        onClose={() => setIsDedupModalOpen(false)}
+      />
     </div>
   );
 }
