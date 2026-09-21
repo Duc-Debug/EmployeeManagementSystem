@@ -27,6 +27,8 @@ public class NotificationEmailOutboxJpaEntity {
     private LocalDateTime deliveredAt;
     @Column(name = "digest_frequency", length = 30)
     private String digestFrequency;
+    @Column(name = "source_event_key", length = 255)
+    private String sourceEventKey;
 
     protected NotificationEmailOutboxJpaEntity() {}
 
@@ -43,6 +45,8 @@ public class NotificationEmailOutboxJpaEntity {
         this.digestFrequency = digestFrequency;
     }
 
+    public void setSourceEventKey(String sourceEventKey) { this.sourceEventKey = sourceEventKey; }
+
     public void append(String item) { this.body += System.lineSeparator() + item; }
     public void markDelivered(LocalDateTime when) { this.deliveredAt = when; }
     public Long getId() { return id; }
@@ -55,4 +59,5 @@ public class NotificationEmailOutboxJpaEntity {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getDeliveredAt() { return deliveredAt; }
     public String getDigestFrequency() { return digestFrequency; }
+    public String getSourceEventKey() { return sourceEventKey; }
 }

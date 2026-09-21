@@ -17,6 +17,9 @@ public interface SpringDataNotificationEmailOutboxRepository
             findFirstByRecipientUserIdAndAvailableAtAndDigestFrequencyAndDeliveredAtIsNull(
                     Long recipientUserId, LocalDateTime availableAt, String digestFrequency);
 
+    Optional<NotificationEmailOutboxJpaEntity>
+            findByRecipientUserIdAndSourceEventKey(Long recipientUserId, String sourceEventKey);
+
     List<NotificationEmailOutboxJpaEntity>
             findTop100ByDeliveredAtIsNullAndAvailableAtLessThanEqualOrderByAvailableAtAsc(LocalDateTime now);
 

@@ -28,6 +28,9 @@ public class NotificationDigestItemJpaEntity {
     @Column(name = "item_text", nullable = false, columnDefinition = "TEXT")
     private String itemText;
 
+    @Column(name = "channel", nullable = false, length = 20)
+    private String channel;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -38,6 +41,7 @@ public class NotificationDigestItemJpaEntity {
         this.notificationEventId = notificationEventId;
         this.sourceEventKey = sourceEventKey;
         this.itemText = itemText;
+        this.channel = "IN_APP";
         this.createdAt = createdAt;
     }
 }

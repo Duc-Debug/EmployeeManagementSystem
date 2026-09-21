@@ -9,6 +9,7 @@ import com.hrm.employeemanagement.application.port.inbound.notification.CreateNo
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationEventRepositoryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationRecipientRepositoryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
+import com.hrm.employeemanagement.application.port.outbound.notification.NotificationEmailDeliveryPort;
 import com.hrm.employeemanagement.domain.notification.NotificationEvent;
 import com.hrm.employeemanagement.domain.notification.NotificationRecipientItem;
 import com.hrm.employeemanagement.domain.notification.NotificationPreference;
@@ -29,12 +30,13 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
     private final NotificationRecipientRepositoryPort recipientRepositoryPort;
     private final LoadNotificationPreferencePort preferencePort;
     private final Clock clock;
+    private final NotificationEmailDeliveryPort emailDeliveryPort;
 
     public CreateNotificationEventService(
             NotificationEventRepositoryPort eventRepositoryPort,
             NotificationRecipientRepositoryPort recipientRepositoryPort
     ) {
-        this(eventRepositoryPort, recipientRepositoryPort, null, Clock.systemDefaultZone());
+        this(eventRepositoryPort, recipientRepositoryPort, null, Clock.systemDefaultZone(), null);
     }
 
     public CreateNotificationEventService(
@@ -42,7 +44,7 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
             NotificationRecipientRepositoryPort recipientRepositoryPort,
             LoadNotificationPreferencePort preferencePort
     ) {
-        this(eventRepositoryPort, recipientRepositoryPort, preferencePort, Clock.systemDefaultZone());
+        this(eventRepositoryPort, recipientRepositoryPort, preferencePort, Clock.systemDefaultZone(), null);
     }
 
     public CreateNotificationEventService(
@@ -51,10 +53,21 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
             LoadNotificationPreferencePort preferencePort,
             Clock clock
     ) {
+        this(eventRepositoryPort, recipientRepositoryPort, preferencePort, clock, null);
+    }
+
+    public CreateNotificationEventService(
+            NotificationEventRepositoryPort eventRepositoryPort,
+            NotificationRecipientRepositoryPort recipientRepositoryPort,
+            LoadNotificationPreferencePort preferencePort,
+            Clock clock,
+            NotificationEmailDeliveryPort emailDeliveryPort
+    ) {
         this.eventRepositoryPort = Objects.requireNonNull(eventRepositoryPort, "eventRepositoryPort must not be null");
         this.recipientRepositoryPort = Objects.requireNonNull(recipientRepositoryPort, "recipientRepositoryPort must not be null");
         this.preferencePort = preferencePort;
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.emailDeliveryPort = emailDeliveryPort;
     }
 
     @Override
@@ -85,25 +98,28 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
                 UserId recipientUserId = new UserId(recipientUserIdVal);
                 NotificationPreference preference = loadPreference(recipientUserId);
                 NotificationType notificationType = typeOf(command.eventType());
-                NotificationDeliveryDecision decision = NotificationDeliveryTimePolicy.decide(
-                        preference, notificationType, false, LocalDateTime.now(clock));
-                if (!decision.enabled()) {
-                    continue;
+                LocalDateTime decisionTime = LocalDateTime.now(clock);
+                NotificationDeliveryDecision inAppDecision = NotificationDeliveryTimePolicy.decide(
+                        preference, notificationType, false, decisionTime);
+                NotificationDeliveryDecision emailDecision = NotificationDeliveryTimePolicy.decide(
+                        preference, notificationType, true, decisionTime);
+
+                if (emailDecision.enabled() && emailDeliveryPort != null) {
+                    emailDeliveryPort.schedule(event, recipientUserId, emailDecision);
                 }
 
-                NotificationEvent recipientEvent = decision.isDigest()
-                        ? appendToDigestEvent(command, recipientUserId, decision)
-                        : event;
-                var existingRecipientOpt = recipientRepositoryPort.findByEventIdAndRecipientUserId(
-                        recipientEvent.getId(),
-                        recipientUserId
-                );
+                if (inAppDecision.enabled()) {
+                    NotificationEvent recipientEvent = inAppDecision.isDigest()
+                            ? appendToDigestEvent(command, recipientUserId, inAppDecision)
+                            : event;
+                    var existingRecipientOpt = recipientRepositoryPort.findByEventIdAndRecipientUserId(
+                            recipientEvent.getId(), recipientUserId);
 
-                if (existingRecipientOpt.isEmpty()) {
-                    // Chưa từng có bản ghi -> Thêm mới với cơ chế saveIfAbsent an toàn đồng thời (idempotent)
-                    NotificationRecipientItem newRecipient = createRecipient(
-                            recipientEvent.getId(), recipientUserId, decision.availableAt());
-                    recipientRepositoryPort.saveIfAbsent(newRecipient);
+                    if (existingRecipientOpt.isEmpty()) {
+                        NotificationRecipientItem newRecipient = createRecipient(
+                                recipientEvent.getId(), recipientUserId, inAppDecision.availableAt());
+                        recipientRepositoryPort.saveIfAbsent(newRecipient);
+                    }
                 }
                 // Nếu đã tồn tại:
                 // - Dù is_deleted = false hay is_deleted = true, theo phương án A đã chốt:
@@ -136,7 +152,7 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
             UserId recipientUserId,
             NotificationDeliveryDecision decision
     ) {
-        String key = "notification-digest:" + recipientUserId.value() + ":"
+        String key = "notification-digest:" + recipientUserId.value() + ":IN_APP:"
                 + decision.frequency().name() + ":" + decision.availableAt();
         String item = "• " + command.title()
                 + (command.message() == null || command.message().isBlank() ? "" : ": " + command.message());
