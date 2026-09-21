@@ -268,4 +268,38 @@ class TaskDueReminderApplicationServiceTest {
         assertTrue(savedAudit.getNewValue().contains("notifiedTaskIds=[101]"));
         assertTrue(savedAudit.getNewValue().length() <= 2000);
     }
+
+    @Test
+    @DisplayName("NCL-11-CN-004-TC-01 + QTN-19: Deadline đổi từ 20/09 sang 25/09 -> Lần scan mới phải gửi reminder cho deadline mới")
+    void tc01_qtn19_sendReminderWhenDeadlineChanged() {
+        LocalDate oldDueDate = LocalDate.of(2026, 9, 20);
+        LocalDate newDueDate = LocalDate.of(2026, 9, 25);
+        LocalDate currentScanDate = LocalDate.of(2026, 9, 23);
+
+        Task taskWithNewDeadline = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 5L, newDueDate, TaskStatus.IN_PROGRESS);
+        Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
+
+        when(loadTaskDueReminderPort.findTasksDueBetween(currentScanDate, currentScanDate.plusDays(3)))
+                .thenReturn(List.of(taskWithNewDeadline));
+        when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
+        // Reminder cho deadline cũ 20/09 đã gửi trong quá khứ, nhưng cho deadline mới 25/09 thì chưa gửi
+        when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(50L), 101L, oldDueDate)).thenReturn(true);
+        when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(50L), 101L, newDueDate)).thenReturn(false);
+
+        TaskDueReminderScanResult result = service.execute(currentScanDate);
+
+        assertEquals(1, result.totalScanned());
+        assertEquals(1, result.sentCount(), "Phải gửi thông báo cho deadline mới 25/09");
+        assertEquals(0, result.skippedDuplicateCount());
+        assertEquals(List.of(101L), result.notifiedTaskIds());
+
+        // Kiểm tra thông báo được lưu với đúng deadline mới
+        ArgumentCaptor<Notification> notifCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(saveNotificationPort).save(notifCaptor.capture());
+        assertTrue(notifCaptor.getValue().getContent().contains("2026-09-25"));
+
+        ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
+        verify(createNotificationEventUseCase).execute(eventCaptor.capture());
+        assertEquals("TASK_DUE_REMINDER:101:50:2026-09-25", eventCaptor.getValue().sourceEventKey());
+    }
 }

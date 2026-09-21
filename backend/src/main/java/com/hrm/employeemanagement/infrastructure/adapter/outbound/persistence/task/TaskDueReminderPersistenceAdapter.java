@@ -96,11 +96,12 @@ public class TaskDueReminderPersistenceAdapter implements LoadTaskDueReminderPor
             }
         }
 
-        // 2. Kiểm tra trong bảng notifications truyền thống (QTN-19)
-        return notificationRepository.existsByRecipientIdAndTypeAndTargetId(
+        // 2. Kiểm tra trong bảng notifications truyền thống (QTN-19: taskId + recipientId + dueDate)
+        return notificationRepository.existsByRecipientIdAndTypeAndTargetIdAndContentContaining(
                 recipientId.value(),
                 "TASK_DUE_REMINDER",
-                taskId
+                taskId,
+                dueDate.toString()
         );
     }
 }

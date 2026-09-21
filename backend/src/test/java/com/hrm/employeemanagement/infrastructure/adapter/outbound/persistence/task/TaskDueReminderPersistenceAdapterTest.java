@@ -64,7 +64,7 @@ class TaskDueReminderPersistenceAdapterTest {
         // Nhưng transaction ngoài rollback khiến recipient record không tồn tại trong DB
         when(recipientRepository.findByNotificationEventIdAndRecipientUserId(888L, 42L)).thenReturn(Optional.empty());
         // Và bảng notifications cũng không có
-        when(notificationRepository.existsByRecipientIdAndTypeAndTargetId(42L, "TASK_DUE_REMINDER", taskId)).thenReturn(false);
+        when(notificationRepository.existsByRecipientIdAndTypeAndTargetIdAndContentContaining(42L, "TASK_DUE_REMINDER", taskId, dueDate.toString())).thenReturn(false);
 
         boolean sent = adapter.hasReminderBeenSent(recipientId, taskId, dueDate);
 
@@ -93,18 +93,35 @@ class TaskDueReminderPersistenceAdapterTest {
     }
 
     @Test
-    @DisplayName("QTN-19: Tồn tại trong bảng notifications truyền thống -> Trả về true")
+    @DisplayName("QTN-19: Tồn tại trong bảng notifications truyền thống đúng dueDate -> Trả về true")
     void hasReminderBeenSent_legacyNotificationExists_returnsTrue() {
         UserId recipientId = new UserId(42L);
         Long taskId = 100L;
         LocalDate dueDate = LocalDate.of(2026, 9, 20);
 
         when(eventRepository.findBySourceEventKey(anyString())).thenReturn(Optional.empty());
-        when(notificationRepository.existsByRecipientIdAndTypeAndTargetId(42L, "TASK_DUE_REMINDER", taskId)).thenReturn(true);
+        when(notificationRepository.existsByRecipientIdAndTypeAndTargetIdAndContentContaining(42L, "TASK_DUE_REMINDER", taskId, dueDate.toString())).thenReturn(true);
 
         boolean sent = adapter.hasReminderBeenSent(recipientId, taskId, dueDate);
 
-        assertTrue(sent, "Phải trả về true khi bảng notifications truyền thống có bản ghi");
+        assertTrue(sent, "Phải trả về true khi bảng notifications truyền thống có bản ghi đúng dueDate");
+    }
+
+    @Test
+    @DisplayName("QTN-19: Bảng notifications truyền thống chỉ có hạn cũ (20/09), hạn mới (25/09) chưa có -> Trả về false")
+    void hasReminderBeenSent_legacyNotificationExistsForDifferentDueDate_returnsFalse() {
+        UserId recipientId = new UserId(42L);
+        Long taskId = 100L;
+        LocalDate oldDueDate = LocalDate.of(2026, 9, 20);
+        LocalDate newDueDate = LocalDate.of(2026, 9, 25);
+
+        when(eventRepository.findBySourceEventKey(anyString())).thenReturn(Optional.empty());
+        // Giả lập: Bản ghi chỉ có cho hạn cũ 20/09, với hạn mới 25/09 repository trả về false
+        when(notificationRepository.existsByRecipientIdAndTypeAndTargetIdAndContentContaining(42L, "TASK_DUE_REMINDER", taskId, newDueDate.toString())).thenReturn(false);
+
+        boolean sent = adapter.hasReminderBeenSent(recipientId, taskId, newDueDate);
+
+        assertFalse(sent, "Phải trả về false khi deadline thay đổi để hệ thống gửi reminder cho deadline mới");
     }
 
     @Test
@@ -115,7 +132,7 @@ class TaskDueReminderPersistenceAdapterTest {
         LocalDate dueDate = LocalDate.of(2026, 9, 20);
 
         when(eventRepository.findBySourceEventKey(anyString())).thenReturn(Optional.empty());
-        when(notificationRepository.existsByRecipientIdAndTypeAndTargetId(anyLong(), anyString(), anyLong())).thenReturn(false);
+        when(notificationRepository.existsByRecipientIdAndTypeAndTargetIdAndContentContaining(anyLong(), anyString(), anyLong(), anyString())).thenReturn(false);
 
         boolean sent = adapter.hasReminderBeenSent(recipientId, taskId, dueDate);
 

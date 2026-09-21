@@ -13,4 +13,6 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.no
 public interface SpringDataTaskDueReminderNotificationRepository extends JpaRepository<NotificationJpaEntity, Long> {
 
     boolean existsByRecipientIdAndTypeAndTargetId(Long recipientId, String type, Long targetId);
+
+    boolean existsByRecipientIdAndTypeAndTargetIdAndContentContaining(Long recipientId, String type, Long targetId, String content);
 }
