@@ -85,8 +85,15 @@ public class GetMyAllocationsService implements GetMyAllocationsUseCase {
             var maxUpdatedAt = WeeklyAllocationCalculator.findMaxUpdatedAt(weekAllocations);
             ScheduleConfirmationRecord conf = confirmationMap.get(monday);
             LocalDateTime confirmedAt = conf != null ? conf.confirmedAt() : null;
+            String feedbackNote = conf != null ? conf.feedbackNote() : null;
+            LocalDateTime feedbackAt = conf != null ? conf.feedbackAt() : null;
 
-            ConfirmationStatus status = ScheduleConfirmationPolicy.determineConfirmationStatus(confirmedAt, maxUpdatedAt);
+            ConfirmationStatus status = ScheduleConfirmationPolicy.determineConfirmationStatus(
+                    confirmedAt,
+                    feedbackAt,
+                    feedbackNote,
+                    maxUpdatedAt
+            );
 
             List<AllocationItemDto> allocationDtos = weekAllocations.stream()
                     .map(item -> new AllocationItemDto(
@@ -103,6 +110,8 @@ public class GetMyAllocationsService implements GetMyAllocationsUseCase {
                     totalHours,
                     status.name(),
                     confirmedAt,
+                    feedbackNote,
+                    feedbackAt,
                     allocationDtos
             ));
         }
