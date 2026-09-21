@@ -19,6 +19,7 @@ import {
     AlertTriangle,
     Sparkles,
     CalendarX,
+    DollarSign,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -70,6 +71,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
         id: "reports_analytics",
         title: "Báo cáo & Phân tích",
         items: [
+            { name: "Tỷ lệ giờ tính phí", icon: DollarSign, id: "billable-rate" },
             { name: "Phân bổ theo dự án", icon: FolderKanban, id: "project-allocation-report" },
             { name: "Đối chiếu giờ công", icon: Clock, id: "timesheet-variance" },
             { name: "Nhu cầu tuyển dụng", icon: TrendingUp, id: "recruitment-demand" },
@@ -108,6 +110,13 @@ export function canAccessTab(
         case "overview":
             // Tất cả vai trò đều có quyền truy cập trang Tổng quan
             return true;
+
+        case "billable-rate":
+        case "billable-report":
+        case "billable-hours":
+            // NCL-10-CN-002: Báo cáo tỷ lệ giờ tính phí (Ban giám đốc VT-01, Quản lý nguồn lực VT-03, Admin VT-06)
+            return permissions?.includes("BILLABLE_HOURS_REPORT_READ") === true ||
+                ["VT-01", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "capacity-forecast":
         case "forecast":

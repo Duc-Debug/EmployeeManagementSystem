@@ -224,6 +224,52 @@ class ResourceAllocationServiceTest {
     }
 
     @Test
+    @DisplayName("Single-Role per Project-Week: Cập nhật phân bổ cùng nhân sự và dự án sẽ cập nhật vai trò projectRoleId mới")
+    void testUpdateExistingAllocation_UpdatesProjectRoleId_Success() {
+        setupCurrentUserWithCompanyScope();
+
+        Employee employee = new Employee(
+                new EmployeeId(employeeId), null, 1L, "EMP001", "Nguyễn Văn A",
+                "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
+        );
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
+        when(loadProjectPort.findById(new ProjectId(projectId))).thenReturn(Optional.of(projectMock));
+        when(projectMock.getOrgUnitId()).thenReturn(1L);
+        when(projectMock.getStatus()).thenReturn(ProjectStatus.ACTIVE);
+
+        YearWeek yearWeek = YearWeek.of(year, weekNumber);
+        WeeklyAvailability availability = new WeeklyAvailability(1L, employeeId, yearWeek, 40, 0, BigDecimal.ZERO, BigDecimal.valueOf(40));
+        when(loadWeeklyAvailabilityPort.findByEmployeeIdAndYearWeek(employeeId, yearWeek)).thenReturn(Optional.of(availability));
+
+        // Phân bổ hiện tại có vai trò roleId = 10L (DEV)
+        WeeklyProjectAllocation existingAllocation = new WeeklyProjectAllocation(
+                1L, employeeId, projectId, 10L, yearWeek, BigDecimal.valueOf(15), null, 0L);
+        // Phân bổ sau cập nhật có vai trò mới roleId = 20L (TECH_LEAD)
+        WeeklyProjectAllocation updatedAllocation = new WeeklyProjectAllocation(
+                1L, employeeId, projectId, 20L, yearWeek, BigDecimal.valueOf(25), null, 1L);
+
+        when(loadAllocationPort.loadAllocationsForEmployee(employeeId, yearWeek))
+                .thenReturn(List.of(existingAllocation))
+                .thenReturn(List.of(updatedAllocation));
+
+        when(saveAllocationPort.save(any(WeeklyProjectAllocation.class))).thenAnswer(invocation -> {
+            WeeklyProjectAllocation saved = invocation.getArgument(0);
+            assertEquals(20L, saved.getProjectRoleId());
+            assertEquals(BigDecimal.valueOf(25), saved.getAllocatedHours());
+            return updatedAllocation;
+        });
+
+        AllocateResourceCommand command = new AllocateResourceCommand(
+                employeeId, projectId, 20L, year, weekNumber, BigDecimal.valueOf(25));
+
+        WeeklyCapacityResult result = service.allocateResource(command);
+
+        assertNotNull(result);
+        assertEquals(BigDecimal.valueOf(15), result.remainingAvailableHours());
+        verify(saveAllocationPort, times(1)).save(any());
+    }
+
+    @Test
     @DisplayName("TC-02: Chặn phân bổ cho nhân sự có hợp đồng lao động đã hết hạn trước tuần chọn")
     void testTC02_Exception_EmployeeContractExpired() {
         setupCurrentUserWithCompanyScope();
