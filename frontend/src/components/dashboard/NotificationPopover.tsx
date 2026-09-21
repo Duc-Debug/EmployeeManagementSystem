@@ -9,6 +9,7 @@ import {
   Info,
   ExternalLink,
   ChevronDown,
+  Settings,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -20,6 +21,7 @@ import {
   type NotificationCenterItem,
   type NotificationLevel,
 } from "@/lib/api/notifications";
+import NotificationSettingsModal from "@/components/notification/NotificationSettingsModal";
 
 interface NotificationPopoverProps {
   onSelectTask?: (taskId: number) => void;
@@ -41,6 +43,9 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
 
   // Item deletion confirmation
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  // Cấu hình thông báo (NCL-11-CN-002)
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -265,16 +270,30 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                 </span>
               )}
             </div>
-            {unreadCount > 0 && (
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+                  type="button"
+                  title="Đánh dấu đọc tất cả"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Đọc tất cả
+                </button>
+              )}
               <button
-                onClick={handleMarkAllRead}
-                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsSettingsOpen(true);
+                }}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
                 type="button"
+                title="Cài đặt thông báo"
               >
-                <CheckCheck className="h-3.5 w-3.5" />
-                Đọc tất cả
+                <Settings className="h-4 w-4" />
               </button>
-            )}
+            </div>
           </div>
 
           {/* Filter Bar */}
@@ -456,6 +475,12 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
           )}
         </div>
       )}
+
+      {/* Modal cài đặt thông báo (NCL-11-CN-002) */}
+      <NotificationSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }
