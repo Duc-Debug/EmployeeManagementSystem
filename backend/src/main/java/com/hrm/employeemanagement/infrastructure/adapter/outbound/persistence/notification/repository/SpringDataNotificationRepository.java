@@ -13,10 +13,21 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.no
 @Repository
 public interface SpringDataNotificationRepository extends JpaRepository<NotificationJpaEntity, Long> {
 
-    List<NotificationJpaEntity> findByRecipientIdOrderByCreatedAtDesc(Long recipientId);
+    java.util.Optional<NotificationJpaEntity> findFirstByRecipientIdAndTypeAndTargetIdAndAvailableAt(
+            Long recipientId, String type, Long targetId, java.time.LocalDateTime availableAt);
 
     @Modifying
-    @Query("UPDATE NotificationJpaEntity n SET n.isRead = true WHERE n.recipientId = :recipientId AND n.isRead = false")
+    @Query("UPDATE NotificationJpaEntity n SET n.content = concat(concat(n.content, '\n'), :item) WHERE n.id = :id")
+    int appendDigestItem(@Param("id") Long id, @Param("item") String item);
+
+    @org.springframework.data.jpa.repository.Query("SELECT n FROM NotificationJpaEntity n " +
+            "WHERE n.recipientId = :recipientId AND n.availableAt <= CURRENT_TIMESTAMP ORDER BY n.availableAt DESC, n.createdAt DESC")
+    List<NotificationJpaEntity> findReleasedByRecipientId(
+            @org.springframework.data.repository.query.Param("recipientId") Long recipientId);
+
+    @Modifying
+    @Query("UPDATE NotificationJpaEntity n SET n.isRead = true WHERE n.recipientId = :recipientId " +
+            "AND n.isRead = false AND n.availableAt <= CURRENT_TIMESTAMP")
     void markAllAsReadByRecipientId(@Param("recipientId") Long recipientId);
 
     @Query("SELECT n FROM NotificationJpaEntity n WHERE n.type = 'ALLOCATION_CHANGED' ORDER BY n.createdAt DESC")

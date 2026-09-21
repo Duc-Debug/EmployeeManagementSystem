@@ -106,7 +106,7 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
         if (recipientUserId == null || recipientUserId.value() == null) {
             return 0L;
         }
-        return repository.countByRecipientUserIdAndIsDeletedFalseAndIsReadFalse(recipientUserId.value());
+        return repository.countReleasedUnread(recipientUserId.value());
     }
 
     @Override
@@ -154,7 +154,8 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
                 domain.getReadAt(),
                 domain.isDeleted(),
                 domain.getDeletedAt(),
-                domain.getCreatedAt()
+                domain.getCreatedAt(),
+                domain.getAvailableAt()
         );
     }
 
@@ -167,7 +168,8 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
                 entity.getReadAt(),
                 entity.isDeleted(),
                 entity.getDeletedAt(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getAvailableAt()
         );
     }
 }
