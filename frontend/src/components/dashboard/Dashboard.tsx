@@ -14,6 +14,7 @@ import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
+import UpcomingWorkloadView from "../workload/UpcomingWorkloadView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CapacityForecastReportView from "../reports/CapacityForecastReportView";
 import ProjectAllocationReportView from "../reports/ProjectAllocationReportView";
@@ -51,6 +52,7 @@ export default function Dashboard() {
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
         if (path.includes("billable-rate") || path.includes("ty-le-gio-tinh-phi") || path.includes("billable")) return "billable-rate";
+        if (path.includes("workload") || path.includes("khoi-luong-cong-viec") || path.includes("muc-ban")) return "workload";
         if (path.includes("capacity-dashboard") || path.includes("bang-dieu-khien-nang-luc") || path.includes("dashboard-capacity")) return "capacity-dashboard";
         if (path.includes("capacity-forecast") || path.includes("du-bao-nang-luc") || path.includes("forecast")) return "capacity-forecast";
         if (path.includes("timesheet-variance") || path.includes("doi-chieu-gio-cong") || path.includes("variance")) return "timesheet-variance";
@@ -257,6 +259,13 @@ export default function Dashboard() {
                                 {activeTab === "my-schedule" && <MyWeeklySchedulePage />}
 
                                 {activeTab === "availability" && <WeeklyAvailabilityView />}
+
+                                {activeTab === "workload" && (
+                                    <UpcomingWorkloadView
+                                        onNavigateToProjects={() => handleTabChange("project")}
+                                        onNavigateToLeave={() => handleTabChange("leave")}
+                                    />
+                                )}
 
                                 {activeTab === "working-calendar" && <WorkingCalendarConfigView />}
 
