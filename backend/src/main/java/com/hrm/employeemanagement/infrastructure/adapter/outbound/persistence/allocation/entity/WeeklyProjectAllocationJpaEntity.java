@@ -11,8 +11,26 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
+import jakarta.persistence.UniqueConstraint;
+
+/**
+ * Entity lưu trữ phân bổ nguồn lực theo tuần.
+ * 
+ * Quy tắc nghiệp vụ (Business Rule):
+ * - Mỗi nhân sự trong 1 dự án tại 1 tuần cụ thể chỉ có DUY NHẤT 1 bản ghi phân bổ tương ứng với 1 vai trò chuyên môn (projectRoleId).
+ * - Ràng buộc duy nhất: uk_emp_proj_year_week (employee_id, project_id, year_number, week_number).
+ * - Khi phân bổ lại cùng nhân sự - dự án - tuần, hệ thống sẽ CẬP NHẬT (update) số giờ và vai trò (projectRoleId) mới.
+ */
 @Entity
-@Table(name = "weekly_project_allocations")
+@Table(
+        name = "weekly_project_allocations",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_emp_proj_year_week",
+                        columnNames = {"employee_id", "project_id", "year_number", "week_number"}
+                )
+        }
+)
 public class WeeklyProjectAllocationJpaEntity {
 
     @Id
