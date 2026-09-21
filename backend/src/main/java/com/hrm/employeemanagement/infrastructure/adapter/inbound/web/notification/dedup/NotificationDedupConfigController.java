@@ -30,7 +30,7 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/v1/admin/notification-dedup-config")
-@PreAuthorize("hasAuthority('NOTIFICATION_DEDUPLICATION_MANAGE') or hasAuthority('VT-06')")
+@PreAuthorize("hasAuthority('NOTIFICATION_DEDUPLICATION_MANAGE')")
 public class NotificationDedupConfigController {
 
     private final GetNotificationDedupConfigUseCase getConfigUseCase;

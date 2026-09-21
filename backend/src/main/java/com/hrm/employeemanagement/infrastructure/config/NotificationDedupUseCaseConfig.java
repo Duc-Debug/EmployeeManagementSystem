@@ -4,6 +4,7 @@ import java.time.Clock;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import com.hrm.employeemanagement.application.port.inbound.notification.dedup.ScanOverloadAndAlertUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
@@ -15,6 +16,7 @@ import com.hrm.employeemanagement.application.port.outbound.notification.dedup.N
 import com.hrm.employeemanagement.application.port.outbound.notification.dedup.OverloadAlertDispatcherPort;
 import com.hrm.employeemanagement.application.service.notification.dedup.NotificationDedupConfigService;
 import com.hrm.employeemanagement.application.service.notification.dedup.OverloadAlertScanService;
+import com.hrm.employeemanagement.infrastructure.transaction.notification.TransactionalNotificationDedupConfigServiceDecorator;
 
 @Configuration
 public class NotificationDedupUseCaseConfig {
@@ -57,5 +59,13 @@ public class NotificationDedupUseCaseConfig {
                 deniedAuditLogPort,
                 scanOverloadAndAlertUseCase
         );
+    }
+
+    @Bean
+    @Primary
+    public TransactionalNotificationDedupConfigServiceDecorator transactionalNotificationDedupConfigService(
+            NotificationDedupConfigService delegate
+    ) {
+        return new TransactionalNotificationDedupConfigServiceDecorator(delegate);
     }
 }

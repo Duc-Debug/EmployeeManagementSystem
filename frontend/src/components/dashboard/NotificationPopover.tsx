@@ -9,6 +9,7 @@ import {
   Info,
   ExternalLink,
   ChevronDown,
+  Settings,
   Sliders,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -23,6 +24,7 @@ import {
   type NotificationCenterItem,
   type NotificationLevel,
 } from "@/lib/api/notifications";
+import NotificationSettingsModal from "@/components/notification/NotificationSettingsModal";
 
 interface NotificationPopoverProps {
   onSelectTask?: (taskId: number) => void;
@@ -50,6 +52,9 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
 
   // Item deletion confirmation
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  // Cấu hình thông báo (NCL-11-CN-002)
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -277,8 +282,11 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
             <div className="flex items-center gap-2">
               {canManageDedup && (
                 <button
-                  onClick={() => setIsDedupModalOpen(true)}
-                  className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600 transition px-1.5 py-0.5 rounded hover:bg-slate-100"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsDedupModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-indigo-600"
                   type="button"
                   title="Cấu hình chống gửi trùng thông báo (VT-06)"
                 >
@@ -291,11 +299,23 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                   onClick={handleMarkAllRead}
                   className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
                   type="button"
+                  title="Đánh dấu đọc tất cả"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
                   Đọc tất cả
                 </button>
               )}
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsSettingsOpen(true);
+                }}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
+                type="button"
+                title="Cài đặt thông báo"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
@@ -479,7 +499,13 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
         </div>
       )}
 
-      {/* Modal Cấu hình chống gửi trùng thông báo (VT-06) */}
+      {/* Modal cài đặt thông báo (NCL-11-CN-002) */}
+      <NotificationSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* Modal cấu hình chống gửi trùng thông báo (VT-06) */}
       <NotificationDedupConfigModal
         isOpen={isDedupModalOpen}
         onClose={() => setIsDedupModalOpen(false)}

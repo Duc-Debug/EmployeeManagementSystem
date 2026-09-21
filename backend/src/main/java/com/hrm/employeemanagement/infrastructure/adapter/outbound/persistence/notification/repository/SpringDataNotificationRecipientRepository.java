@@ -16,10 +16,12 @@ public interface SpringDataNotificationRecipientRepository extends JpaRepository
 
     Optional<NotificationRecipientJpaEntity> findByNotificationEventIdAndRecipientUserId(Long notificationEventId, Long recipientUserId);
 
-    long countByRecipientUserIdAndIsDeletedFalseAndIsReadFalse(Long recipientUserId);
+    @Query("SELECT COUNT(r) FROM NotificationRecipientJpaEntity r WHERE r.recipientUserId = :userId " +
+            "AND r.isDeleted = false AND r.isRead = false AND r.availableAt <= CURRENT_TIMESTAMP")
+    long countReleasedUnread(@Param("userId") Long recipientUserId);
 
     @Query("SELECT r FROM NotificationRecipientJpaEntity r JOIN NotificationEventJpaEntity e ON r.notificationEventId = e.id " +
-            "WHERE r.recipientUserId = :userId AND r.isDeleted = false " +
+            "WHERE r.recipientUserId = :userId AND r.isDeleted = false AND r.availableAt <= CURRENT_TIMESTAMP " +
             "AND (:readFilter IS NULL OR r.isRead = :readFilter) " +
             "AND (:level IS NULL OR e.level = :level) " +
             "ORDER BY r.createdAt DESC")
@@ -31,7 +33,7 @@ public interface SpringDataNotificationRecipientRepository extends JpaRepository
     );
 
     @Query("SELECT COUNT(r) FROM NotificationRecipientJpaEntity r JOIN NotificationEventJpaEntity e ON r.notificationEventId = e.id " +
-            "WHERE r.recipientUserId = :userId AND r.isDeleted = false " +
+            "WHERE r.recipientUserId = :userId AND r.isDeleted = false AND r.availableAt <= CURRENT_TIMESTAMP " +
             "AND (:readFilter IS NULL OR r.isRead = :readFilter) " +
             "AND (:level IS NULL OR e.level = :level)")
     long countByFilters(
@@ -42,7 +44,8 @@ public interface SpringDataNotificationRecipientRepository extends JpaRepository
 
     @Modifying
     @Query("UPDATE NotificationRecipientJpaEntity r SET r.isRead = true, r.readAt = :now " +
-            "WHERE r.recipientUserId = :userId AND r.isDeleted = false AND r.isRead = false")
+            "WHERE r.recipientUserId = :userId AND r.isDeleted = false AND r.isRead = false " +
+            "AND r.availableAt <= CURRENT_TIMESTAMP")
     int markAllAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
     @Modifying

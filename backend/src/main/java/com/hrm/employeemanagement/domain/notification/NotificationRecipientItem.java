@@ -18,6 +18,7 @@ public class NotificationRecipientItem {
     private boolean isDeleted;
     private LocalDateTime deletedAt;
     private final LocalDateTime createdAt;
+    private final LocalDateTime availableAt;
 
     public NotificationRecipientItem(
             NotificationRecipientId id,
@@ -29,6 +30,20 @@ public class NotificationRecipientItem {
             LocalDateTime deletedAt,
             LocalDateTime createdAt
     ) {
+        this(id, eventId, recipientUserId, isRead, readAt, isDeleted, deletedAt, createdAt, createdAt);
+    }
+
+    public NotificationRecipientItem(
+            NotificationRecipientId id,
+            NotificationEventId eventId,
+            UserId recipientUserId,
+            boolean isRead,
+            LocalDateTime readAt,
+            boolean isDeleted,
+            LocalDateTime deletedAt,
+            LocalDateTime createdAt,
+            LocalDateTime availableAt
+    ) {
         this.id = id;
         this.eventId = Objects.requireNonNull(eventId, "eventId không được null");
         this.recipientUserId = Objects.requireNonNull(recipientUserId, "recipientUserId không được null");
@@ -37,6 +52,7 @@ public class NotificationRecipientItem {
         this.isDeleted = isDeleted;
         this.deletedAt = deletedAt;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.availableAt = availableAt != null ? availableAt : this.createdAt;
     }
 
     public static NotificationRecipientItem create(NotificationEventId eventId, UserId recipientUserId) {
@@ -48,6 +64,7 @@ public class NotificationRecipientItem {
                 null,
                 false,
                 null,
+                LocalDateTime.now(),
                 LocalDateTime.now()
         );
     }
@@ -96,5 +113,9 @@ public class NotificationRecipientItem {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public LocalDateTime getAvailableAt() {
+        return availableAt;
     }
 }

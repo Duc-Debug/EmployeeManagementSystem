@@ -1,7 +1,9 @@
 package com.hrm.employeemanagement.domain.notification;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.UUID;
 
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -16,6 +18,7 @@ public class Notification {
     private final String content;
     private boolean isRead;
     private final LocalDateTime createdAt;
+    private final LocalDateTime availableAt;
 
     public Notification(
             NotificationId id,
@@ -28,6 +31,22 @@ public class Notification {
             String content,
             boolean isRead,
             LocalDateTime createdAt) {
+        this(id, recipientId, senderId, type, targetType, targetId, title, content, isRead,
+                createdAt, createdAt);
+    }
+
+    public Notification(
+            NotificationId id,
+            UserId recipientId,
+            UserId senderId,
+            NotificationType type,
+            String targetType,
+            Long targetId,
+            String title,
+            String content,
+            boolean isRead,
+            LocalDateTime createdAt,
+            LocalDateTime availableAt) {
         this.id = id;
         this.recipientId = Objects.requireNonNull(recipientId, "RecipientId không được null");
         this.senderId = senderId;
@@ -38,6 +57,7 @@ public class Notification {
         this.content = content != null ? content.trim() : null;
         this.isRead = isRead;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.availableAt = availableAt != null ? availableAt : this.createdAt;
     }
 
     public static Notification create(
@@ -58,6 +78,7 @@ public class Notification {
                 title,
                 content,
                 false,
+                LocalDateTime.now(),
                 LocalDateTime.now());
     }
 
@@ -103,6 +124,26 @@ public class Notification {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public LocalDateTime getAvailableAt() {
+        return availableAt;
+    }
+
+    /**
+     * Stable key for retrying delivery of the same legacy notification payload.
+     * Canonical notification events carry their own explicit source event key.
+     */
+    public String getSourceEventKey() {
+        String source = type.name() + "|" + targetType + "|" + targetId + "|"
+                + recipientId.value() + "|" + title + "|" + Objects.toString(content, "");
+        return "LEGACY:" + type.name() + ":"
+                + UUID.nameUUIDFromBytes(source.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public Notification scheduledFor(LocalDateTime releaseAt) {
+        return new Notification(id, recipientId, senderId, type, targetType, targetId, title, content,
+                isRead, createdAt, releaseAt);
     }
 }
 

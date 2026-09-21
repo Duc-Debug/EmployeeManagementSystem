@@ -47,6 +47,9 @@ public class NotificationRecipientJpaEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "available_at", nullable = false)
+    private LocalDateTime availableAt;
+
     public NotificationRecipientJpaEntity() {
     }
 
@@ -60,6 +63,15 @@ public class NotificationRecipientJpaEntity {
             LocalDateTime deletedAt,
             LocalDateTime createdAt
     ) {
+        this(id, notificationEventId, recipientUserId, isRead, readAt, isDeleted, deletedAt,
+                createdAt, createdAt);
+    }
+
+    public NotificationRecipientJpaEntity(
+            Long id, Long notificationEventId, Long recipientUserId, boolean isRead,
+            LocalDateTime readAt, boolean isDeleted, LocalDateTime deletedAt,
+            LocalDateTime createdAt, LocalDateTime availableAt
+    ) {
         this.id = id;
         this.notificationEventId = notificationEventId;
         this.recipientUserId = recipientUserId;
@@ -68,6 +80,7 @@ public class NotificationRecipientJpaEntity {
         this.isDeleted = isDeleted;
         this.deletedAt = deletedAt;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.availableAt = availableAt != null ? availableAt : this.createdAt;
     }
 
     public Long getId() {
@@ -133,4 +146,7 @@ public class NotificationRecipientJpaEntity {
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
+
+    public LocalDateTime getAvailableAt() { return availableAt; }
+    public void setAvailableAt(LocalDateTime availableAt) { this.availableAt = availableAt; }
 }
