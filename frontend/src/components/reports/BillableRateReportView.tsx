@@ -160,17 +160,18 @@ export default function BillableRateReportView() {
     }
   };
 
+  const employeeBreakdown = reportData?.employeeBreakdown;
   const filteredEmployees = useMemo(() => {
-    if (!reportData?.employeeBreakdown) return [];
-    if (!searchEmployeeText.trim()) return reportData.employeeBreakdown;
+    if (!employeeBreakdown) return [];
+    if (!searchEmployeeText.trim()) return employeeBreakdown;
     const q = searchEmployeeText.toLowerCase();
-    return reportData.employeeBreakdown.filter(
+    return employeeBreakdown.filter(
       (e) =>
         e.fullName.toLowerCase().includes(q) ||
         e.employeeCode.toLowerCase().includes(q) ||
         e.orgUnitName.toLowerCase().includes(q)
     );
-  }, [reportData?.employeeBreakdown, searchEmployeeText]);
+  }, [employeeBreakdown, searchEmployeeText]);
 
   const renderRateBadge = (rate: number | null, hasAvailable: boolean) => {
     if (!hasAvailable || rate === null) {
