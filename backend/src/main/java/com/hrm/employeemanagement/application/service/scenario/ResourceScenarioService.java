@@ -756,6 +756,9 @@ public class ResourceScenarioService implements
                 scenario.getUpdatedAt(),
                 demandsCount,
                 snapshotEmployeesCount,
+                scenario.getTargetProjectId(),
+                scenario.getAppliedAt(),
+                scenario.getAppliedBy(),
                 viewMode
         );
     }
