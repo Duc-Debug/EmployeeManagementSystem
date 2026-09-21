@@ -30,6 +30,7 @@ export interface ProjectWeeklyAllocationResult {
   id?: number;
   employeeId: number;
   projectId: number;
+  projectRoleId?: number;
   year: number;
   weekNumber: number;
   allocatedHours: number;

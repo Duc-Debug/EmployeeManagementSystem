@@ -11,6 +11,7 @@ import {
     ChevronRight,
     AlertTriangle,
     Calendar as CalendarIcon,
+    DollarSign,
 } from "lucide-react";
 import { getProjects, type ProjectResult } from "@/lib/api/projects";
 import { getEmployees, type EmployeeProfile } from "@/lib/api/employees";
@@ -318,6 +319,20 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Danh mục Dự án</span>
                             <p className="text-[9px] text-slate-400 truncate">Tiến độ & Giám sát WBS</p>
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onNavigate("billable-rate")}
+                        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-left transition hover:border-emerald-300 hover:bg-emerald-50/40 cursor-pointer"
+                    >
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-white shadow-2xs">
+                            <DollarSign className="h-3 w-3" />
+                        </div>
+                        <div className="min-w-0">
+                            <span className="block text-[11px] font-semibold text-slate-900 truncate">Tỷ lệ Giờ tính phí</span>
+                            <p className="text-[9px] text-slate-400 truncate">Hiệu quả sinh lời</p>
                         </div>
                     </button>
 

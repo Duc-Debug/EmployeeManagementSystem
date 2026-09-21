@@ -18,11 +18,13 @@ import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView"
 import CapacityForecastReportView from "../reports/CapacityForecastReportView";
 import ProjectAllocationReportView from "../reports/ProjectAllocationReportView";
 import TimesheetVarianceReportView from "../reports/TimesheetVarianceReportView";
+import BillableRateReportView from "../reports/BillableRateReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
 import CapacityDashboardView from "../capacity/CapacityDashboardView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWarningView";
 import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
+import MyWeeklySchedulePage from "../../features/my-schedule/pages/MyWeeklySchedulePage";
 import EmployeeImportView from "../import/EmployeeImportView";
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
@@ -48,6 +50,7 @@ export default function Dashboard() {
     // Đồng bộ URL trình duyệt với tab tương ứng
     const activeTab = useMemo(() => {
         const path = location.pathname.toLowerCase();
+        if (path.includes("billable-rate") || path.includes("ty-le-gio-tinh-phi") || path.includes("billable")) return "billable-rate";
         if (path.includes("capacity-dashboard") || path.includes("bang-dieu-khien-nang-luc") || path.includes("dashboard-capacity")) return "capacity-dashboard";
         if (path.includes("capacity-forecast") || path.includes("du-bao-nang-luc") || path.includes("forecast")) return "capacity-forecast";
         if (path.includes("timesheet-variance") || path.includes("doi-chieu-gio-cong") || path.includes("variance")) return "timesheet-variance";
@@ -59,6 +62,7 @@ export default function Dashboard() {
         ) {
             return "roles";
         }
+        if (path.includes("my-schedule") || path.includes("my-allocations") || path.includes("lich-phan-bo")) return "my-schedule";
         if (path.includes("access") || path.includes("phan-quyen")) return "access";
         if (path.includes("working-calendar") || path.includes("lich-lam-viec") || path.includes("ngay-le") || path.includes("calendar-config")) return "working-calendar";
         if (path.includes("availability") || path.includes("kha-dung") || path.includes("gio-tuan")) return "availability";
@@ -250,6 +254,8 @@ export default function Dashboard() {
 
                                 {activeTab === "capacity" && <CompanyWeeklyCapacityView />}
 
+                                {activeTab === "my-schedule" && <MyWeeklySchedulePage />}
+
                                 {activeTab === "availability" && <WeeklyAvailabilityView />}
 
                                 {activeTab === "working-calendar" && <WorkingCalendarConfigView />}
@@ -285,10 +291,11 @@ export default function Dashboard() {
 
                                  {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
 
-                                 {activeTab === "data-import" && <EmployeeImportView />}
+                                {activeTab === "data-import" && <EmployeeImportView />}
 
                                 {activeTab === "project-allocation-report" && <ProjectAllocationReportView />}
 
+                                {activeTab === "billable-rate" && <BillableRateReportView />}
                                 {(activeTab === "overview" || activeTab === "reports") && (() => {
                                     const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
                                     if (role === "VT-01" || role === "ROLE-EXECUTIVE" || role === "EXECUTIVE" || role === "DIRECTOR") {

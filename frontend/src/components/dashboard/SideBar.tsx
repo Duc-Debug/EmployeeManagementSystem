@@ -18,6 +18,7 @@ import {
     Briefcase,
     AlertTriangle,
     Sparkles,
+    DollarSign,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
         id: "time_attendance",
         title: "Thời gian & Lịch trình",
         items: [
+            { name: "Lịch phân bổ tuần", icon: CalendarRange, id: "my-schedule" },
             { name: "Chấm công & Giờ làm", icon: Clock, id: "attendance" },
             { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
             { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
@@ -68,6 +70,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
         id: "reports_analytics",
         title: "Báo cáo & Phân tích",
         items: [
+            { name: "Tỷ lệ giờ tính phí", icon: DollarSign, id: "billable-rate" },
             { name: "Phân bổ theo dự án", icon: FolderKanban, id: "project-allocation-report" },
             { name: "Đối chiếu giờ công", icon: Clock, id: "timesheet-variance" },
             { name: "Nhu cầu tuyển dụng", icon: TrendingUp, id: "recruitment-demand" },
@@ -106,6 +109,13 @@ export function canAccessTab(
         case "overview":
             // Tất cả vai trò đều có quyền truy cập trang Tổng quan
             return true;
+
+        case "billable-rate":
+        case "billable-report":
+        case "billable-hours":
+            // NCL-10-CN-002: Báo cáo tỷ lệ giờ tính phí (Ban giám đốc VT-01, Quản lý nguồn lực VT-03, Admin VT-06)
+            return permissions?.includes("BILLABLE_HOURS_REPORT_READ") === true ||
+                ["VT-01", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "capacity-forecast":
         case "forecast":
@@ -155,6 +165,11 @@ export function canAccessTab(
         case "projects":
             // Quản lý dự án: VT-01 (Xem toàn bộ), VT-02 (Dự án của mình), VT-03 (Xem dự án liên quan), VT-04 (Dự án tham gia); HR (VT-05) & Admin (VT-06) bị ẩn theo quy tắc vai trò
             return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalized);
+
+        case "my-schedule":
+        case "my-allocations":
+            // NCL-13-CN-001: Tất cả nhân sự đều có quyền xem và xác nhận lịch phân bổ tuần của chính mình
+            return true;
 
         case "attendance":
         case "timesheets":

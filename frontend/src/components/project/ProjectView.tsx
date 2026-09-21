@@ -18,6 +18,7 @@ import {
 } from '@/lib/api/projects';
 import { setTaskBudget, type CloneProjectWbsResult } from '@/lib/api/tasks';
 import { getTaskDependencies, type TaskDependencyResult } from '@/lib/api/taskDependencies';
+import { getProjectRoles, type ProjectRoleResponse } from '@/lib/api/project-roles';
 
 import {
     Boxes,
@@ -283,12 +284,19 @@ export default function ProjectView() {
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
+    const [projectRoles, setProjectRoles] = useState<ProjectRoleResponse[]>([]);
     const [budgetModalOpen, setBudgetModalOpen] = useState(false);
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [selectedAssignTask, setSelectedAssignTask] = useState<TaskItem | null>(null);
     const [dependencyModalOpen, setDependencyModalOpen] = useState<boolean>(false);
     const [taskDependenciesList, setTaskDependenciesList] = useState<TaskDependencyResult[]>([]);
+
+    useEffect(() => {
+        getProjectRoles(false)
+            .then((roles) => setProjectRoles((roles || []).filter((r) => r.status === 'ACTIVE')))
+            .catch((err) => console.warn('Failed to load project roles in ProjectView:', err));
+    }, []);
 
     // Mốc tiến độ (NCL-03-CN-006)
     const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
@@ -536,12 +544,16 @@ export default function ProjectView() {
                 const updated = currentBase.map((member) => {
                     const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
                     const weeklyHours: Record<string, number> = {};
+                    let allocRoleId = member.projectRoleId;
                     rowsByWeek.forEach(({ key, rows }) => {
-                        weeklyHours[key] = rows
-                            .filter((row) => row.employeeId === employeeId)
-                            .reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                        const matchingRows = rows.filter((row) => row.employeeId === employeeId);
+                        weeklyHours[key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                        if (!allocRoleId) {
+                            const found = matchingRows.find((r) => r.projectRoleId);
+                            if (found?.projectRoleId) allocRoleId = found.projectRoleId;
+                        }
                     });
-                    return { ...member, weeklyHours };
+                    return { ...member, weeklyHours, projectRoleId: allocRoleId };
                 });
 
                 // Tự động bổ sung nhân sự đã có phân bổ giờ vào danh sách nếu chưa có trong WBS
@@ -561,12 +573,16 @@ export default function ProjectView() {
                         );
                         if (empObj) {
                             const weeklyHours: Record<string, number> = {};
+                            let allocRoleId = empObj.projectRoleId;
                             rowsByWeek.forEach(({ key, rows }) => {
-                                weeklyHours[key] = rows
-                                    .filter((row) => row.employeeId === empId)
-                                    .reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                                const matchingRows = rows.filter((row) => row.employeeId === empId);
+                                weeklyHours[key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                                if (!allocRoleId) {
+                                    const found = matchingRows.find((r) => r.projectRoleId);
+                                    if (found?.projectRoleId) allocRoleId = found.projectRoleId;
+                                }
                             });
-                            updated.push({ ...empObj, weeklyHours });
+                            updated.push({ ...empObj, weeklyHours, projectRoleId: allocRoleId });
                         }
                     });
                 }
@@ -897,10 +913,23 @@ export default function ProjectView() {
         if (!canManageAllocations || !selectedProjectId || !member) return;
         const employeeId = Number(member.id.replace('u-', ''));
         const isoWeek = getDisplayedIsoWeek(weekKey);
+
+        // Xác định projectRoleId: ưu tiên member.projectRoleId, tìm theo tên/code vai trò của member, hoặc vai trò active đầu tiên
+        let projectRoleId = member.projectRoleId;
+        if (!projectRoleId && projectRoles.length > 0) {
+            const matched = projectRoles.find((r) =>
+                (member.role && r.name.toLowerCase().includes(member.role.toLowerCase())) ||
+                (member.role && member.role.toLowerCase().includes(r.name.toLowerCase())) ||
+                (member.role && r.code.toLowerCase() === member.role.toLowerCase())
+            );
+            projectRoleId = matched ? matched.id : projectRoles[0].id;
+        }
+
         try {
             await allocateProjectHours({
                 employeeId,
                 projectId: selectedProjectId,
+                projectRoleId,
                 year: isoWeek.year,
                 weekNumber: isoWeek.week,
                 allocatedHours: percentage !== undefined ? undefined : newHours,
