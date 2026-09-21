@@ -41,6 +41,7 @@ public class GetProjectWeeklyAllocationsService implements GetProjectWeeklyAlloc
                         a.getId(),
                         a.getEmployeeId(),
                         a.getProjectId(),
+                        a.getProjectRoleId(),
                         a.getYear(),
                         a.getWeekNumber(),
                         a.getAllocatedHours(),

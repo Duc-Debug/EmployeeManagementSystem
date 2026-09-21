@@ -37,6 +37,7 @@ export interface ProjectMember {
     employeeId?: number;
     name: string;
     role: string;
+    projectRoleId?: number;
     avatar: string;
     capacity: number; // e.g. 40h/week
     weeklyHours: Record<string, number>; // e.g. { W1: 40, W2: 35, W3: 20... }
