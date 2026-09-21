@@ -1,11 +1,11 @@
 -- ============================================================
--- FLYWAY MIGRATION V115: ADD SCHEDULE CONFIRMATION FEEDBACK & QTN-24
+-- FLYWAY MIGRATION V114: ADD SCHEDULE CONFIRMATION FEEDBACK & QTN-24
 -- Feature: NCL-13-CN-002 (Xac nhan phan bo duoc giao - Quy tac QTN-24)
 -- ============================================================
 
-DROP PROCEDURE IF EXISTS upgrade_employee_schedule_confirmation_v115;
+DROP PROCEDURE IF EXISTS upgrade_employee_schedule_confirmation_v114;
 DELIMITER //
-CREATE PROCEDURE upgrade_employee_schedule_confirmation_v115()
+CREATE PROCEDURE upgrade_employee_schedule_confirmation_v114()
 BEGIN
     -- 1. Modify confirmed_at to NULLABLE
     IF EXISTS (
@@ -49,8 +49,8 @@ BEGIN
 END //
 DELIMITER ;
 
-CALL upgrade_employee_schedule_confirmation_v115();
-DROP PROCEDURE IF EXISTS upgrade_employee_schedule_confirmation_v115;
+CALL upgrade_employee_schedule_confirmation_v114();
+DROP PROCEDURE IF EXISTS upgrade_employee_schedule_confirmation_v114;
 
 -- Enforce MY_ALLOCATION_CONFIRM & MY_ALLOCATION_READ permissions
 INSERT INTO permissions (code, name, description)
