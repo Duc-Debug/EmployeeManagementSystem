@@ -9,8 +9,12 @@ import {
   Info,
   ExternalLink,
   ChevronDown,
+  Settings,
+  Sliders,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuthUser } from "@/lib/auth-session";
+import NotificationDedupConfigModal from "./NotificationDedupConfigModal";
 import {
   getNotificationCenter,
   getUnreadNotificationCount,
@@ -20,6 +24,7 @@ import {
   type NotificationCenterItem,
   type NotificationLevel,
 } from "@/lib/api/notifications";
+import NotificationSettingsModal from "@/components/notification/NotificationSettingsModal";
 
 interface NotificationPopoverProps {
   onSelectTask?: (taskId: number) => void;
@@ -27,10 +32,16 @@ interface NotificationPopoverProps {
 
 export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) {
   const navigate = useNavigate();
+  const user = useAuthUser();
   const [notifications, setNotifications] = useState<NotificationCenterItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDedupModalOpen, setIsDedupModalOpen] = useState(false);
+
+  const canManageDedup =
+    user?.roleCode?.toUpperCase().replace(/_/g, "-") === "VT-06" ||
+    user?.permissions?.includes("NOTIFICATION_DEDUPLICATION_MANAGE");
 
   // Filters & Pagination
   const [statusFilter, setStatusFilter] = useState<"ALL" | "UNREAD">("ALL");
@@ -41,6 +52,9 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
 
   // Item deletion confirmation
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  // Cấu hình thông báo (NCL-11-CN-002)
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -265,16 +279,44 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                 </span>
               )}
             </div>
-            {unreadCount > 0 && (
+            <div className="flex items-center gap-2">
+              {canManageDedup && (
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsDedupModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-indigo-600"
+                  type="button"
+                  title="Cấu hình chống gửi trùng thông báo (VT-06)"
+                >
+                  <Sliders className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Chống trùng</span>
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+                  type="button"
+                  title="Đánh dấu đọc tất cả"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Đọc tất cả
+                </button>
+              )}
               <button
-                onClick={handleMarkAllRead}
-                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsSettingsOpen(true);
+                }}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
                 type="button"
+                title="Cài đặt thông báo"
               >
-                <CheckCheck className="h-3.5 w-3.5" />
-                Đọc tất cả
+                <Settings className="h-4 w-4" />
               </button>
-            )}
+            </div>
           </div>
 
           {/* Filter Bar */}
@@ -456,6 +498,18 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
           )}
         </div>
       )}
+
+      {/* Modal cài đặt thông báo (NCL-11-CN-002) */}
+      <NotificationSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* Modal cấu hình chống gửi trùng thông báo (VT-06) */}
+      <NotificationDedupConfigModal
+        isOpen={isDedupModalOpen}
+        onClose={() => setIsDedupModalOpen(false)}
+      />
     </div>
   );
 }

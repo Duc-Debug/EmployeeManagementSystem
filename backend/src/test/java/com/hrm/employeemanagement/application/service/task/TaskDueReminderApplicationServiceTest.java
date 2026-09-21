@@ -124,7 +124,7 @@ class TaskDueReminderApplicationServiceTest {
         Task task = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 5L, taskDueDate, TaskStatus.IN_PROGRESS);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(task));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(50L), 101L, taskDueDate)).thenReturn(false);
 
@@ -140,16 +140,8 @@ class TaskDueReminderApplicationServiceTest {
         verify(loadEmployeePort).findAllByIdIn(List.of(new EmployeeId(5L)));
         verify(loadEmployeePort, never()).findById(any());
 
-        // Kiểm tra thông báo lưu vào SaveNotificationPort
-        ArgumentCaptor<Notification> notifCaptor = ArgumentCaptor.forClass(Notification.class);
-        verify(saveNotificationPort).save(notifCaptor.capture());
-        Notification savedNotif = notifCaptor.getValue();
-        assertEquals(50L, savedNotif.getRecipientId().value());
-        assertEquals(NotificationType.TASK_DUE_REMINDER, savedNotif.getType());
-        assertEquals("TASK", savedNotif.getTargetType());
-        assertEquals(101L, savedNotif.getTargetId());
-        assertTrue(savedNotif.getTitle().contains("Xây dựng tính năng đăng nhập"));
-        assertTrue(savedNotif.getContent().contains("/projects/10/tasks/101"));
+        // Notification Center is canonical; do not duplicate the same reminder in legacy storage.
+        verify(saveNotificationPort, never()).save(any());
 
         // Kiểm tra thông báo lưu vào CreateNotificationEventUseCase kèm recipientId trong sourceEventKey
         ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
@@ -157,6 +149,7 @@ class TaskDueReminderApplicationServiceTest {
         CreateNotificationEventCommand savedEvent = eventCaptor.getValue();
         assertEquals("TASK_DUE_REMINDER:101:50:" + taskDueDate, savedEvent.sourceEventKey());
         assertEquals(List.of(50L), savedEvent.recipientUserIds());
+        assertTrue(savedEvent.message().contains("/projects/10/tasks/101"));
     }
 
     @Test
@@ -166,7 +159,7 @@ class TaskDueReminderApplicationServiceTest {
         Task task = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 5L, taskDueDate, TaskStatus.IN_PROGRESS);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(task));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         // QTN-19: Đã gửi trước đó!
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(50L), 101L, taskDueDate)).thenReturn(true);
@@ -191,7 +184,7 @@ class TaskDueReminderApplicationServiceTest {
         Task task = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 6L, taskDueDate, TaskStatus.IN_PROGRESS);
         Employee newEmployee = createEmployee(6L, 60L, "Trần Văn Mới");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(task));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(6L)))).thenReturn(List.of(newEmployee));
         // User 60 chưa từng nhận thông báo cho công việc này
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(60L), 101L, taskDueDate)).thenReturn(false);
@@ -200,7 +193,7 @@ class TaskDueReminderApplicationServiceTest {
 
         assertEquals(1, result.sentCount());
         assertEquals(0, result.skippedDuplicateCount());
-        verify(saveNotificationPort).save(any());
+        verify(saveNotificationPort, never()).save(any());
 
         ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
         verify(createNotificationEventUseCase).execute(eventCaptor.capture());
@@ -214,7 +207,7 @@ class TaskDueReminderApplicationServiceTest {
         LocalDate taskDueDate = scanDate.plusDays(2);
         Task completedTask = createTask(102L, 10L, "Viết Unit Test", 5L, taskDueDate, TaskStatus.DONE);
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(completedTask));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(completedTask));
 
         TaskDueReminderScanResult result = service.execute(scanDate);
 
@@ -233,7 +226,7 @@ class TaskDueReminderApplicationServiceTest {
         LocalDate taskDueDate = scanDate.plusDays(1);
         Task cancelledTask = createTask(103L, 10L, "Nghiên cứu thư viện", 5L, taskDueDate, TaskStatus.CANCELLED);
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(cancelledTask));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(cancelledTask));
 
         TaskDueReminderScanResult result = service.execute(scanDate);
 
@@ -251,7 +244,7 @@ class TaskDueReminderApplicationServiceTest {
         Task task = createTask(101L, 10L, "Xây dựng tính năng", 5L, taskDueDate, TaskStatus.TODO);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn A");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(task));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(any(), anyLong(), any())).thenReturn(false);
 
@@ -279,7 +272,7 @@ class TaskDueReminderApplicationServiceTest {
         Task taskWithNewDeadline = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 5L, newDueDate, TaskStatus.IN_PROGRESS);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(currentScanDate, currentScanDate.plusDays(3)))
+        when(loadTaskDueReminderPort.findTasksDueBetween(currentScanDate, currentScanDate.plusDays(14)))
                 .thenReturn(List.of(taskWithNewDeadline));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         // Reminder cho deadline cũ 20/09 đã gửi trong quá khứ, nhưng cho deadline mới 25/09 thì chưa gửi
@@ -293,13 +286,11 @@ class TaskDueReminderApplicationServiceTest {
         assertEquals(0, result.skippedDuplicateCount());
         assertEquals(List.of(101L), result.notifiedTaskIds());
 
-        // Kiểm tra thông báo được lưu với đúng deadline mới
-        ArgumentCaptor<Notification> notifCaptor = ArgumentCaptor.forClass(Notification.class);
-        verify(saveNotificationPort).save(notifCaptor.capture());
-        assertTrue(notifCaptor.getValue().getContent().contains("2026-09-25"));
+        verify(saveNotificationPort, never()).save(any());
 
         ArgumentCaptor<CreateNotificationEventCommand> eventCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
         verify(createNotificationEventUseCase).execute(eventCaptor.capture());
         assertEquals("TASK_DUE_REMINDER:101:50:2026-09-25", eventCaptor.getValue().sourceEventKey());
+        assertTrue(eventCaptor.getValue().message().contains("2026-09-25"));
     }
 }

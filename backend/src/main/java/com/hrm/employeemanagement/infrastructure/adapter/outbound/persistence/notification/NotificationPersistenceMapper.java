@@ -34,7 +34,8 @@ public class NotificationPersistenceMapper {
                 entity.getTitle(),
                 entity.getContent(),
                 entity.isRead(),
-                entity.getCreatedAt());
+                entity.getCreatedAt(),
+                entity.getAvailableAt());
     }
 
     public NotificationJpaEntity toJpaEntity(Notification domain) {
@@ -52,7 +53,8 @@ public class NotificationPersistenceMapper {
                 domain.getTitle(),
                 domain.getContent(),
                 domain.isRead(),
-                domain.getCreatedAt());
+                domain.getCreatedAt(),
+                domain.getAvailableAt());
     }
 }
 

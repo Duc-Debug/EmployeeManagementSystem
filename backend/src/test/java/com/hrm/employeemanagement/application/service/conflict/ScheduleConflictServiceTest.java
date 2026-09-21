@@ -252,7 +252,7 @@ class ScheduleConflictServiceTest {
 
         assertNotNull(result);
         assertEquals(ScheduleConflictStatus.NOTIFIED, result.status());
-        verify(notificationPort).sendScheduleConflictWarningNotification(any(), any(), any(), any(), any());
+        verify(notificationPort).sendScheduleConflictWarningNotification(any(), any(), any(), any(), any(), any(), any());
         verify(auditLogPort).save(any());
     }
 

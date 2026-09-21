@@ -97,6 +97,21 @@ public class NotificationEventPersistenceAdapter implements NotificationEventRep
     }
 
     @Override
+    public NotificationEvent appendDigestItemIfAbsent(
+            NotificationEvent digestEvent, String itemSourceKey, String itemText, LocalDateTime itemCreatedAt) {
+        try {
+            txHelper.appendDigestItemRequiresNew(
+                    digestEvent.getId().value(), itemSourceKey, itemText, itemCreatedAt);
+        } catch (DataIntegrityViolationException duplicateItem) {
+            log.info("Digest item already aggregated: {}", itemSourceKey);
+        }
+        return repository.findById(digestEvent.getId().value())
+                .map(this::toDomain)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Digest event disappeared: " + digestEvent.getId().value()));
+    }
+
+    @Override
     public long purgeOrphanEventsOlderThan(LocalDateTime cutoff) {
         if (cutoff == null) {
             return 0L;
