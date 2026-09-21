@@ -138,4 +138,50 @@ class GetExpiringOutsourcedContractsServiceTest {
         assertThat(log.getTableName()).isEqualTo("OUTSOURCED_CONTRACT_EXPIRATION");
         assertThat(log.getUserId()).isEqualTo(88L);
     }
+
+    @Test
+    @DisplayName("Bảo mật DataScope: Quản lý nguồn lực (VT-03) chỉ xem nhân sự thuộc chi nhánh của mình")
+    void shouldFilterByOrgUnitScopeWhenUserIsVt03() {
+        User branchManager = createMockUser(30L, RoleCode.VT_03); // scopeOrgUnitId = 10L
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(branchManager);
+
+        Employee inScopeEmp = createMockOutsourcedEmployee(101L, "EXT-101", "Nhân Viên Chi Nhánh Mình", today.plusDays(10));
+        Employee outScopeEmp = new Employee(
+                new EmployeeId(102L), new UserId(102L), 20L, "EXT-102", "Nhân Viên Chi Nhánh Khác",
+                "Tester", today.minusMonths(3), today.plusDays(15), true, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadContractPort.findAllOutsourcedEmployeesWithContract()).thenReturn(List.of(inScopeEmp, outScopeEmp));
+        when(loadContractPort.findOrgUnitNamesByIds(List.of(10L))).thenReturn(Map.of(10L, "Chi Nhánh 10"));
+        when(loadAllocationPort.findAllocationsByEmployeeIds(List.of(101L))).thenReturn(List.of());
+
+        ExpiringOutsourcedContractListResult result = service.execute(30);
+
+        assertThat(result.totalExpiringContracts()).isEqualTo(1);
+        assertThat(result.items().get(0).employeeId()).isEqualTo(101L);
+        assertThat(result.items().get(0).fullName()).isEqualTo("Nhân Viên Chi Nhánh Mình");
+    }
+
+    @Test
+    @DisplayName("Sắp xếp kết quả ưu tiên hợp đồng gấp nhất: daysRemaining tăng dần")
+    void shouldSortExpiringContractsByDaysRemainingAscending() {
+        User hrUser = createMockUser(50L, RoleCode.VT_05);
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(hrUser);
+
+        Employee empLater = createMockOutsourcedEmployee(101L, "EXT-101", "Hết hạn sau 25 ngày", today.plusDays(25));
+        Employee empUrgent = createMockOutsourcedEmployee(102L, "EXT-102", "Hết hạn sau 5 ngày", today.plusDays(5));
+
+        when(loadContractPort.findAllOutsourcedEmployeesWithContract()).thenReturn(List.of(empLater, empUrgent));
+        when(loadContractPort.findOrgUnitNamesByIds(List.of(10L))).thenReturn(Map.of(10L, "Phòng Kỹ Thuật"));
+        when(loadAllocationPort.findAllocationsByEmployeeIds(List.of(101L, 102L))).thenReturn(List.of());
+
+        ExpiringOutsourcedContractListResult result = service.execute(30);
+
+        assertThat(result.totalExpiringContracts()).isEqualTo(2);
+        // Hợp đồng khẩn cấp hơn (5 ngày) phải đứng trước hợp đồng 25 ngày
+        assertThat(result.items().get(0).employeeId()).isEqualTo(102L);
+        assertThat(result.items().get(0).daysRemaining()).isEqualTo(5);
+        assertThat(result.items().get(1).employeeId()).isEqualTo(101L);
+        assertThat(result.items().get(1).daysRemaining()).isEqualTo(25);
+    }
 }

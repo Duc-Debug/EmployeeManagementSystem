@@ -48,7 +48,10 @@ public class OutsourcedContractExpirationController {
     public ResponseEntity<ExpiringOutsourcedContractListResult> getExpiringContracts(
             @RequestParam(name = "thresholdDays", defaultValue = "30") Integer thresholdDays
     ) {
-        ExpiringOutsourcedContractListResult result = getExpiringOutsourcedContractsUseCase.execute(thresholdDays);
+        int effectiveThreshold = (thresholdDays != null && thresholdDays > 0)
+                ? Math.min(thresholdDays, 365)
+                : 30;
+        ExpiringOutsourcedContractListResult result = getExpiringOutsourcedContractsUseCase.execute(effectiveThreshold);
         return ResponseEntity.ok(result);
     }
 

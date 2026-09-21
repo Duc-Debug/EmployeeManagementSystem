@@ -51,7 +51,7 @@ public class GetExpiringOutsourcedContractsService implements GetExpiringOutsour
         this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "loadAllocationPort must not be null");
     }
 
-    private void checkAuthorization() {
+    private User checkAuthorization() {
         User currentUser = authenticatedUserPort.getAuthenticatedUser();
         if (currentUser == null) {
             deniedAuditLogPort.save(AuditLog.create(
@@ -74,19 +74,30 @@ public class GetExpiringOutsourcedContractsService implements GetExpiringOutsour
             ));
             throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
         }
+        return currentUser;
     }
 
     @Override
     public ExpiringOutsourcedContractListResult execute(Integer thresholdDays) {
-        checkAuthorization();
+        User currentUser = checkAuthorization();
 
         int threshold = (thresholdDays != null && thresholdDays > 0)
-                ? thresholdDays
+                ? Math.min(thresholdDays, 365)
                 : OutsourcedContractExpirationPolicy.DEFAULT_WARNING_THRESHOLD_DAYS;
 
         List<Employee> outsourcedEmployees = loadContractPort.findAllOutsourcedEmployeesWithContract();
         if (outsourcedEmployees.isEmpty()) {
             return ExpiringOutsourcedContractListResult.of(Collections.emptyList());
+        }
+
+        // DataScope enforcement: VT-03 (Quản lý chi nhánh) chỉ xem nhân sự thuộc chi nhánh mình phụ trách
+        if (currentUser.getRole().getCode() == RoleCode.VT_03 && currentUser.getScopeOrgUnitId() != null) {
+            outsourcedEmployees = outsourcedEmployees.stream()
+                    .filter(e -> Objects.equals(e.getOrgUnitId(), currentUser.getScopeOrgUnitId()))
+                    .toList();
+            if (outsourcedEmployees.isEmpty()) {
+                return ExpiringOutsourcedContractListResult.of(Collections.emptyList());
+            }
         }
 
         List<Long> employeeIds = outsourcedEmployees.stream()
@@ -160,6 +171,9 @@ public class GetExpiringOutsourcedContractsService implements GetExpiringOutsour
                 results.add(ExpiringOutsourcedContractResult.fromDomain(contract));
             }
         }
+
+        // Ưu tiên hiển thị: Hợp đồng quá hạn và sắp hết hạn gấp nhất (daysRemaining nhỏ nhất) lên đầu danh sách
+        results.sort(java.util.Comparator.comparingLong(ExpiringOutsourcedContractResult::daysRemaining));
 
         return ExpiringOutsourcedContractListResult.of(results);
     }

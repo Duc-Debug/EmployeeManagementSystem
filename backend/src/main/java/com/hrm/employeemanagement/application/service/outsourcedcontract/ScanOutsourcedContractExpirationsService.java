@@ -182,6 +182,9 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
             }
         }
 
+        // Ưu tiên hợp đồng quá hạn và sắp hết hạn gấp nhất lên đầu danh sách
+        expiringContracts.sort(java.util.Comparator.comparingLong(ExpiringOutsourcedContract::getDaysRemaining));
+
         // [TC-02] Dữ liệu rỗng: Không có hợp đồng thuê nào sắp hết hạn
         if (expiringContracts.isEmpty()) {
             return new ScanOutsourcedContractsResult(
