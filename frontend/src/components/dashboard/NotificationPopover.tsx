@@ -270,6 +270,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                 </span>
               )}
             </div>
+            {unreadCount > 0 && (
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <button
@@ -283,6 +284,8 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                 </button>
               )}
               <button
+                onClick={handleMarkAllRead}
+                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
                 onClick={() => {
                   setIsOpen(false);
                   setIsSettingsOpen(true);
@@ -291,8 +294,11 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                 type="button"
                 title="Cài đặt thông báo"
               >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Đọc tất cả
                 <Settings className="h-4 w-4" />
               </button>
+            )}
             </div>
           </div>
 
