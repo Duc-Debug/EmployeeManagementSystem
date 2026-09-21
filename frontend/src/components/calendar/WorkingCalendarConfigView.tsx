@@ -139,6 +139,7 @@ export default function WorkingCalendarConfigView() {
   const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(true);
   const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [versionConflict, setVersionConflict] = useState<string | null>(null);
 
   // Quick Converter Modal / State
   const [converterValue, setConverterValue] = useState<number>(40);
@@ -168,6 +169,7 @@ export default function WorkingCalendarConfigView() {
   const fetchWorkWeekConfig = useCallback(async () => {
     setIsLoadingConfig(true);
     setConfigError(null);
+    setVersionConflict(null);
     try {
       const res = await getStandardWorkWeekConfig(
         scopeType,
@@ -190,6 +192,28 @@ export default function WorkingCalendarConfigView() {
       setConfigError(msg);
       showNotification("error", msg);
       setWorkDays((prev) => (prev.length > 0 ? prev : DEFAULT_STANDARD_DAYS));
+    } finally {
+      setIsLoadingConfig(false);
+    }
+  }, [scopeType, selectedOrgUnitId]);
+
+  const keepLocalChangesOnLatestVersion = useCallback(async () => {
+    setIsLoadingConfig(true);
+    setConfigError(null);
+    try {
+      const latest = await getStandardWorkWeekConfig(
+        scopeType,
+        scopeType === "ORG_UNIT" ? selectedOrgUnitId : null
+      );
+      // Refresh only the concurrency baseline; form fields intentionally remain untouched.
+      setConfig(latest);
+      setInitialConfig(latest);
+      setVersionConflict(null);
+      showNotification("success", "Đã tải phiên bản mới nhất và giữ lại các thay đổi của bạn.");
+    } catch (err: unknown) {
+      const msg = err instanceof ApiError ? err.message : "Không thể tải phiên bản cấu hình mới nhất";
+      setConfigError(msg);
+      showNotification("error", msg);
     } finally {
       setIsLoadingConfig(false);
     }
@@ -341,11 +365,26 @@ export default function WorkingCalendarConfigView() {
       const res = await updateStandardWorkWeekConfig(payload);
       setConfig(res);
       setInitialConfig(res);
+      setVersionConflict(null);
       showNotification(
         "success",
         `Lưu cấu hình tuần chuẩn thành công! Tổng giờ: ${res.standardHoursPerWeek}h/tuần.`
       );
     } catch (err: unknown) {
+      const errorCode = err instanceof ApiError && err.data && typeof err.data === "object"
+        ? (err.data as { code?: unknown }).code
+        : undefined;
+      if (
+        err instanceof ApiError &&
+        err.status === 409 &&
+        errorCode === "STANDARD_WORK_WEEK_VERSION_CONFLICT"
+      ) {
+        // Keep the local form untouched until the user explicitly chooses which version to keep.
+        setVersionConflict(
+          "Cấu hình này vừa được người khác cập nhật. Các thay đổi chưa lưu của bạn vẫn được giữ lại."
+        );
+        return;
+      }
       const msg = err instanceof ApiError ? err.message : "Không thể lưu cấu hình tuần làm việc chuẩn";
       showNotification("error", msg);
     } finally {
@@ -613,6 +652,35 @@ export default function WorkingCalendarConfigView() {
       {/* ========================================================= */}
       {activeTab === "work-week" && (
         <div className="space-y-6">
+          {versionConflict && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-xs">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="text-sm font-bold">Phát hiện thay đổi từ người dùng khác</p>
+                  <p className="mt-1 text-xs text-amber-800">{versionConflict}</p>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void keepLocalChangesOnLatestVersion()}
+                  className="rounded-xl border border-amber-300 bg-white px-3.5 py-2 text-xs font-bold text-amber-900 transition hover:bg-amber-100"
+                >
+                  Giữ thay đổi của tôi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void fetchWorkWeekConfig()}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-amber-700 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-amber-800"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Tải bản mới &amp; bỏ thay đổi
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Scope Selector Bar */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
