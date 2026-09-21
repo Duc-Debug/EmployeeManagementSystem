@@ -22,7 +22,7 @@ import com.hrm.employeemanagement.application.port.inbound.outsourcedcontract.Ge
 import com.hrm.employeemanagement.application.port.inbound.outsourcedcontract.ScanOutsourcedContractExpirationsUseCase;
 
 @RestController
-@RequestMapping("/api/outsourced-contracts")
+@RequestMapping({"/api/v1/outsourced-contracts", "/api/outsourced-contracts"})
 public class OutsourcedContractExpirationController {
 
     private final GetExpiringOutsourcedContractsUseCase getExpiringOutsourcedContractsUseCase;
