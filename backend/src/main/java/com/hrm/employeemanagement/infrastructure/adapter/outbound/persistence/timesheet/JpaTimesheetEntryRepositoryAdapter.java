@@ -7,11 +7,14 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.hrm.employeemanagement.application.port.outbound.timesheet.DeleteTimesheetEntryPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.LoadTimesheetEntryPort;
 import com.hrm.employeemanagement.application.port.outbound.timesheet.SaveTimesheetEntryPort;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExceededException;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.timesheet.TimesheetEntry;
@@ -20,14 +23,19 @@ import com.hrm.employeemanagement.domain.timesheet.TimesheetId;
 import com.hrm.employeemanagement.domain.timesheet.TimesheetStatus;
 import com.hrm.employeemanagement.infrastructure.persistence.timesheet.SpringDataTimesheetEntryRepository;
 import com.hrm.employeemanagement.infrastructure.persistence.timesheet.TimesheetEntryJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
 
 @Component
 public class JpaTimesheetEntryRepositoryAdapter implements LoadTimesheetEntryPort, SaveTimesheetEntryPort, DeleteTimesheetEntryPort {
 
     private final SpringDataTimesheetEntryRepository repository;
+    private final SpringDataEmployeeRepository employeeRepository;
 
-    public JpaTimesheetEntryRepositoryAdapter(SpringDataTimesheetEntryRepository repository) {
+    public JpaTimesheetEntryRepositoryAdapter(
+            SpringDataTimesheetEntryRepository repository,
+            SpringDataEmployeeRepository employeeRepository) {
         this.repository = repository;
+        this.employeeRepository = employeeRepository;
     }
 
     @Override
@@ -71,7 +79,21 @@ public class JpaTimesheetEntryRepositoryAdapter implements LoadTimesheetEntryPor
     }
 
     @Override
+    @Transactional
     public TimesheetEntry save(TimesheetEntry entry) {
+        // Repository-level safety net: every current or future TimesheetEntry writer
+        // uses this port, so none can bypass the employee-row serialization contract.
+        employeeRepository.findByIdForUpdate(entry.getEmployeeIdValue())
+                .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên của dòng giờ công"));
+
+        Long excludeId = entry.getId() != null ? entry.getIdValue() : null;
+        BigDecimal existingDayHours = repository.sumHoursByEmployeeIdAndWorkDate(
+                entry.getEmployeeIdValue(), entry.getWorkDate(), excludeId);
+        existingDayHours = existingDayHours != null ? existingDayHours : BigDecimal.ZERO;
+        if (existingDayHours.add(entry.getHours()).compareTo(BigDecimal.valueOf(12)) > 0) {
+            throw new DailyHoursLimitExceededException(entry.getWorkDate(), existingDayHours, entry.getHours());
+        }
+
         TimesheetEntryJpaEntity entity = toJpaEntity(entry);
         TimesheetEntryJpaEntity saved = repository.save(entity);
         return toDomain(saved);
