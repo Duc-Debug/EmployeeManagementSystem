@@ -12,5 +12,7 @@ public interface NotificationEventRepositoryPort {
     Optional<NotificationEvent> findById(NotificationEventId id);
     java.util.List<NotificationEvent> findAllByIds(java.util.List<NotificationEventId> ids);
     Optional<NotificationEvent> findBySourceEventKey(String sourceEventKey);
+    NotificationEvent appendDigestItemIfAbsent(
+            NotificationEvent digestEvent, String itemSourceKey, String itemText, LocalDateTime itemCreatedAt);
     long purgeOrphanEventsOlderThan(LocalDateTime cutoff);
 }
