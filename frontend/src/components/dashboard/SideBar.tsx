@@ -58,6 +58,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
         id: "time_attendance",
         title: "Thời gian & Lịch trình",
         items: [
+            { name: "Lịch phân bổ tuần", icon: CalendarRange, id: "my-schedule" },
             { name: "Chấm công & Giờ làm", icon: Clock, id: "attendance" },
             { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
             { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
@@ -155,6 +156,11 @@ export function canAccessTab(
         case "projects":
             // Quản lý dự án: VT-01 (Xem toàn bộ), VT-02 (Dự án của mình), VT-03 (Xem dự án liên quan), VT-04 (Dự án tham gia); HR (VT-05) & Admin (VT-06) bị ẩn theo quy tắc vai trò
             return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalized);
+
+        case "my-schedule":
+        case "my-allocations":
+            // NCL-13-CN-001: Tất cả nhân sự đều có quyền xem và xác nhận lịch phân bổ tuần của chính mình
+            return true;
 
         case "attendance":
         case "timesheets":
