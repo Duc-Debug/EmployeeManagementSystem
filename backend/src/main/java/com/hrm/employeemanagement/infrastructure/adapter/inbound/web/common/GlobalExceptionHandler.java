@@ -720,6 +720,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.workweek.InvalidStandardWorkWeekException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStandardWorkWeek(com.hrm.employeemanagement.domain.exception.workweek.InvalidStandardWorkWeekException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_STANDARD_WORK_WEEK",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.workweek.StandardWorkWeekNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleStandardWorkWeekNotFound(com.hrm.employeemanagement.domain.exception.workweek.StandardWorkWeekNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "STANDARD_WORK_WEEK_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
