@@ -32,4 +32,45 @@ class NotificationDeliveryTimePolicyTest {
         assertEquals(now, NotificationDeliveryTimePolicy.releaseAt(
                 NotificationFrequency.DAILY_DIGEST, NotificationType.ALLOCATION_CHANGED, now));
     }
+
+    @Test
+    void quietHoursDelayEmailButNotInAppNotification() {
+        NotificationPreference preference = NotificationPreference.createDefault(
+                new com.hrm.employeemanagement.domain.user.UserId(1L));
+        preference.update(
+                true, true,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationFrequency.IMMEDIATE, 3,
+                QuietHours.of(true, java.time.LocalTime.of(22, 0), java.time.LocalTime.of(7, 0)));
+        LocalDateTime now = LocalDateTime.of(2026, 9, 21, 22, 30);
+
+        NotificationDeliveryDecision email = NotificationDeliveryTimePolicy.decide(
+                preference, NotificationType.TASK_COMMENT, true, now);
+        NotificationDeliveryDecision inApp = NotificationDeliveryTimePolicy.decide(
+                preference, NotificationType.TASK_COMMENT, false, now);
+
+        assertEquals(LocalDateTime.of(2026, 9, 22, 7, 0), email.availableAt());
+        assertEquals(now, inApp.availableAt());
+    }
+
+    @Test
+    void dailyDigestInsideQuietHoursMovesToQuietHoursEnd() {
+        NotificationPreference preference = NotificationPreference.createDefault(
+                new com.hrm.employeemanagement.domain.user.UserId(1L));
+        preference.update(
+                true, true,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationFrequency.DAILY_DIGEST, 3,
+                QuietHours.of(true, java.time.LocalTime.of(16, 0), java.time.LocalTime.of(18, 0)));
+
+        NotificationDeliveryDecision decision = NotificationDeliveryTimePolicy.decide(
+                preference, NotificationType.TASK_ASSIGNED, true,
+                LocalDateTime.of(2026, 9, 21, 10, 0));
+
+        assertEquals(LocalDateTime.of(2026, 9, 21, 18, 0), decision.availableAt());
+    }
 }

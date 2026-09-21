@@ -31,6 +31,45 @@ public final class NotificationDeliveryTimePolicy {
         return effectiveNow.isBefore(nextMonday) ? nextMonday : nextMonday.plusWeeks(1);
     }
 
+    public static NotificationDeliveryDecision decide(
+            NotificationPreference preference,
+            NotificationType type,
+            boolean email,
+            LocalDateTime now
+    ) {
+        LocalDateTime effectiveNow = now != null ? now : LocalDateTime.now();
+        NotificationPreference effectivePreference = java.util.Objects.requireNonNull(preference);
+        NotificationDeliveryChannel channel = effectivePreference.getDeliveryChannelFor(type);
+        boolean channelEnabled = email
+                ? effectivePreference.isEmailEnabled() && channel.isEmailEnabled()
+                : effectivePreference.isInAppEnabled() && channel.isInAppEnabled();
+        if (!channelEnabled) {
+            return NotificationDeliveryDecision.skip();
+        }
+        if (isCritical(type)) {
+            return new NotificationDeliveryDecision(true, effectiveNow, NotificationFrequency.IMMEDIATE);
+        }
+
+        NotificationFrequency frequency = effectivePreference.getFrequency();
+        LocalDateTime availableAt = releaseAt(frequency, type, effectiveNow);
+        if (email && effectivePreference.getQuietHours().isInQuietHours(availableAt.toLocalTime())) {
+            availableAt = endOfQuietHours(effectivePreference.getQuietHours(), availableAt);
+        }
+        return new NotificationDeliveryDecision(true, availableAt, frequency);
+    }
+
+    private static LocalDateTime endOfQuietHours(QuietHours quietHours, LocalDateTime time) {
+        LocalTime start = quietHours.startTime();
+        LocalTime end = quietHours.endTime();
+        if (start.isBefore(end)) {
+            return time.toLocalDate().atTime(end);
+        }
+        if (!time.toLocalTime().isBefore(start)) {
+            return time.toLocalDate().plusDays(1).atTime(end);
+        }
+        return time.toLocalDate().atTime(end);
+    }
+
     private static boolean isCritical(NotificationType type) {
         return type == NotificationType.SCHEDULE_CONFLICT || type == NotificationType.ALLOCATION_CHANGED;
     }

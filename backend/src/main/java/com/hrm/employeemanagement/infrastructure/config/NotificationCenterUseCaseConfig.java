@@ -44,12 +44,14 @@ public class NotificationCenterUseCaseConfig {
     public TransactionalCreateNotificationEventDecorator transactionalCreateNotificationEventDecorator(
             NotificationEventRepositoryPort eventRepositoryPort,
             NotificationRecipientRepositoryPort recipientRepositoryPort,
-            com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort preferencePort
+            com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort preferencePort,
+            java.time.Clock clock
     ) {
         CreateNotificationEventService pureService = new CreateNotificationEventService(
                 eventRepositoryPort,
                 recipientRepositoryPort,
-                preferencePort
+                preferencePort,
+                clock
         );
         return new TransactionalCreateNotificationEventDecorator(pureService);
     }

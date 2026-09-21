@@ -1,7 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.notification;
 
 import java.time.Clock;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -10,11 +10,15 @@ import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.domain.notification.Notification;
 import com.hrm.employeemanagement.domain.notification.NotificationPreference;
 import com.hrm.employeemanagement.domain.notification.NotificationDeliveryTimePolicy;
+import com.hrm.employeemanagement.domain.notification.NotificationDeliveryDecision;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.NotificationRepositoryAdapter;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.entity.NotificationEmailOutboxJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.repository.SpringDataNotificationEmailOutboxRepository;
 
 /** Applies the recipient's in-app preference before a legacy notification is persisted. */
 @Component
@@ -24,23 +28,41 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
     private final NotificationRepositoryAdapter delegate;
     private final LoadNotificationPreferencePort preferencePort;
     private final Clock clock;
+    private final LoadUserPort loadUserPort;
+    private final SpringDataNotificationEmailOutboxRepository emailOutboxRepository;
 
     public PreferenceAwareNotificationAdapter(
             NotificationRepositoryAdapter delegate,
             LoadNotificationPreferencePort preferencePort,
-            Clock clock
+            Clock clock,
+            LoadUserPort loadUserPort,
+            SpringDataNotificationEmailOutboxRepository emailOutboxRepository
     ) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
         this.preferencePort = Objects.requireNonNull(preferencePort, "preferencePort must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
+        this.emailOutboxRepository = Objects.requireNonNull(emailOutboxRepository, "emailOutboxRepository must not be null");
     }
 
     @Override
     public Notification save(Notification notification) {
-        if (notification == null || !isInAppEnabled(notification)) {
+        if (notification == null) {
             return notification;
         }
-        return delegate.save(schedule(notification));
+        NotificationPreference preference = loadPreference(notification);
+        if (notification.getId() == null) {
+            queueEmailIfEnabled(notification, preference);
+        }
+        PreparedNotification prepared = prepare(notification, preference);
+        if (prepared == null) {
+            return notification;
+        }
+        if (prepared.decision().isDigest()) {
+            return delegate.appendToDigest(notification, prepared.decision().availableAt(),
+                    prepared.decision().frequency(), clock.getZone());
+        }
+        return delegate.save(prepared.notification());
     }
 
     @Override
@@ -48,7 +70,7 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
         if (notifications == null || notifications.isEmpty()) {
             return;
         }
-        delegate.saveAll(notifications.stream().filter(this::isInAppEnabled).map(this::schedule).toList());
+        notifications.forEach(this::save);
     }
 
     @Override
@@ -56,24 +78,54 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
         delegate.markAllAsRead(recipientId);
     }
 
-    private boolean isInAppEnabled(Notification notification) {
-        NotificationPreference preference = preferencePort.findByUserId(notification.getRecipientId())
-                .orElseGet(() -> NotificationPreference.createDefault(notification.getRecipientId()));
-        return preference.isChannelActiveFor(
-                notification.getType(),
-                false,
-                LocalTime.now(clock)
-        );
+    private PreparedNotification prepare(Notification notification, NotificationPreference preference) {
+        NotificationDeliveryDecision decision = NotificationDeliveryTimePolicy.decide(
+                preference, notification.getType(), false, LocalDateTime.now(clock));
+        return decision.enabled()
+                ? new PreparedNotification(notification.scheduledFor(decision.availableAt()), decision)
+                : null;
     }
 
-    private Notification schedule(Notification notification) {
-        NotificationPreference preference = preferencePort.findByUserId(notification.getRecipientId())
+    private NotificationPreference loadPreference(Notification notification) {
+        return preferencePort.findByUserId(notification.getRecipientId())
                 .orElseGet(() -> NotificationPreference.createDefault(notification.getRecipientId()));
-        java.time.LocalDateTime releaseAt = NotificationDeliveryTimePolicy.releaseAt(
-                preference.getFrequency(), notification.getType(), java.time.LocalDateTime.now(clock));
-        return new Notification(
-                notification.getId(), notification.getRecipientId(), notification.getSenderId(),
-                notification.getType(), notification.getTargetType(), notification.getTargetId(),
-                notification.getTitle(), notification.getContent(), notification.isRead(), releaseAt);
     }
+
+    private void queueEmailIfEnabled(Notification notification, NotificationPreference preference) {
+        NotificationDeliveryDecision decision = NotificationDeliveryTimePolicy.decide(
+                preference, notification.getType(), true, LocalDateTime.now(clock));
+        if (!decision.enabled()) {
+            return;
+        }
+        loadUserPort.findById(notification.getRecipientId())
+                .filter(user -> user.getEmail() != null && !user.getEmail().isBlank())
+                .ifPresent(user -> enqueueEmail(notification, user.getEmail(), user.getUsername(), decision));
+    }
+
+    private synchronized void enqueueEmail(Notification notification, String email, String name,
+            NotificationDeliveryDecision decision) {
+        String digestFrequency = decision.isDigest() ? decision.frequency().name() : null;
+        String item = "• " + notification.getTitle()
+                + (notification.getContent() == null || notification.getContent().isBlank()
+                        ? "" : ": " + notification.getContent());
+        if (digestFrequency != null) {
+            var existing = emailOutboxRepository
+                    .findFirstByRecipientUserIdAndAvailableAtAndDigestFrequencyAndDeliveredAtIsNull(
+                            notification.getRecipientId().value(), decision.availableAt(), digestFrequency);
+            if (existing.isPresent()) {
+                existing.get().append(item);
+                emailOutboxRepository.save(existing.get());
+                return;
+            }
+        }
+        String subject = digestFrequency == null ? notification.getTitle()
+                : decision.frequency() == com.hrm.employeemanagement.domain.notification.NotificationFrequency.DAILY_DIGEST
+                        ? "Bản tin thông báo hàng ngày" : "Bản tin thông báo hàng tuần";
+        String body = digestFrequency == null ? notification.getContent() : item;
+        emailOutboxRepository.save(new NotificationEmailOutboxJpaEntity(
+                notification.getRecipientId().value(), email, name, subject,
+                body == null ? "" : body, decision.availableAt(), LocalDateTime.now(clock), digestFrequency));
+    }
+
+    private record PreparedNotification(Notification notification, NotificationDeliveryDecision decision) {}
 }

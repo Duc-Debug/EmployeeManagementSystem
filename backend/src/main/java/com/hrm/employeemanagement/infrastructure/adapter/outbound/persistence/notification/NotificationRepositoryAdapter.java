@@ -10,6 +10,8 @@ import com.hrm.employeemanagement.application.port.outbound.notification.LoadNot
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
 import com.hrm.employeemanagement.domain.notification.Notification;
 import com.hrm.employeemanagement.domain.notification.NotificationId;
+import com.hrm.employeemanagement.domain.notification.NotificationFrequency;
+import com.hrm.employeemanagement.domain.notification.NotificationType;
 import com.hrm.employeemanagement.domain.user.UserId;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.entity.NotificationJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.notification.repository.SpringDataNotificationRepository;
@@ -50,6 +52,34 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
         NotificationJpaEntity entity = mapper.toJpaEntity(notification);
         NotificationJpaEntity saved = notificationRepository.save(entity);
         return mapper.toDomain(saved);
+    }
+
+    public synchronized Notification appendToDigest(
+            Notification notification,
+            java.time.LocalDateTime availableAt,
+            NotificationFrequency frequency,
+            java.time.ZoneId zone
+    ) {
+        long batchId = availableAt.atZone(zone).toInstant().toEpochMilli();
+        String item = "• " + notification.getTitle()
+                + (notification.getContent() == null || notification.getContent().isBlank()
+                        ? "" : ": " + notification.getContent());
+        var existing = notificationRepository
+                .findFirstByRecipientIdAndTypeAndTargetIdAndAvailableAt(
+                        notification.getRecipientId().value(),
+                        NotificationType.NOTIFICATION_DIGEST.name(), batchId, availableAt);
+        if (existing.isPresent()) {
+            NotificationJpaEntity entity = existing.get();
+            entity.setContent(entity.getContent() + System.lineSeparator() + item);
+            return mapper.toDomain(notificationRepository.save(entity));
+        }
+        Notification digest = new Notification(
+                null, notification.getRecipientId(), null, NotificationType.NOTIFICATION_DIGEST,
+                "NOTIFICATION_DIGEST", batchId,
+                frequency == NotificationFrequency.DAILY_DIGEST
+                        ? "Bản tin thông báo hàng ngày" : "Bản tin thông báo hàng tuần",
+                item, false, notification.getCreatedAt(), availableAt);
+        return save(digest);
     }
 
     @Override

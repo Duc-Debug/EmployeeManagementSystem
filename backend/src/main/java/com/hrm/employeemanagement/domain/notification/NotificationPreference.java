@@ -205,6 +205,7 @@ public class NotificationPreference {
             case TIMESHEET_REMINDER -> timesheetReminderChannel;
             case SCHEDULE_CONFLICT -> scheduleConflictChannel;
             case ALLOCATION_CHANGED -> allocationChangedChannel;
+            case NOTIFICATION_DIGEST -> NotificationDeliveryChannel.ALL;
         };
     }
 
