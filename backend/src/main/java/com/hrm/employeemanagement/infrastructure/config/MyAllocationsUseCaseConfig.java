@@ -5,14 +5,17 @@ import org.springframework.context.annotation.Configuration;
 
 import com.hrm.employeemanagement.application.port.inbound.allocation.ConfirmScheduleViewedUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.GetMyAllocationsUseCase;
+import com.hrm.employeemanagement.application.port.inbound.allocation.ProvideScheduleFeedbackUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadMyAllocationsPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.ScheduleConfirmationPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.service.allocation.ConfirmScheduleViewedService;
 import com.hrm.employeemanagement.application.service.allocation.GetMyAllocationsService;
+import com.hrm.employeemanagement.application.service.allocation.ProvideScheduleFeedbackService;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalConfirmScheduleViewedUseCase;
 import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalGetMyAllocationsUseCase;
+import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalProvideScheduleFeedbackUseCase;
 
 @Configuration
 public class MyAllocationsUseCaseConfig {
@@ -45,5 +48,16 @@ public class MyAllocationsUseCaseConfig {
                 scheduleConfirmationPort
         );
         return new TransactionalConfirmScheduleViewedUseCase(pureService);
+    }
+
+    @Bean
+    public ProvideScheduleFeedbackUseCase provideScheduleFeedbackUseCase(
+            GetAuthenticatedUserPort authenticatedUserPort,
+            ScheduleConfirmationPort scheduleConfirmationPort) {
+        ProvideScheduleFeedbackService pureService = new ProvideScheduleFeedbackService(
+                authenticatedUserPort,
+                scheduleConfirmationPort
+        );
+        return new TransactionalProvideScheduleFeedbackUseCase(pureService);
     }
 }

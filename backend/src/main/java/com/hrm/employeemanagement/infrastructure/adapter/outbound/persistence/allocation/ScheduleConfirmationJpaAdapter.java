@@ -58,6 +58,7 @@ public class ScheduleConfirmationJpaAdapter implements ScheduleConfirmationPort 
             entity.setUserId(userId);
             entity.setWeekStartDate(weekStartDate);
             entity.setConfirmedAt(confirmedAt);
+            entity.setConfirmationStatus("CONFIRMED");
             entity.setIpAddress(ipAddress);
         } else {
             // Safeguard: Never overwrite with an older confirmation timestamp (atomic greatest)
@@ -65,6 +66,7 @@ public class ScheduleConfirmationJpaAdapter implements ScheduleConfirmationPort 
                 return new SaveConfirmationResult(toRecord(entity), false);
             }
             entity.setConfirmedAt(confirmedAt);
+            entity.setConfirmationStatus("CONFIRMED");
             entity.setIpAddress(ipAddress);
         }
 
@@ -81,13 +83,52 @@ public class ScheduleConfirmationJpaAdapter implements ScheduleConfirmationPort 
         }
     }
 
+    @Override
+    public SaveConfirmationResult saveFeedback(Long userId, LocalDate weekStartDate, String feedbackNote, LocalDateTime feedbackAt, String ipAddress) {
+        boolean isNew = false;
+        ScheduleConfirmationJpaEntity entity = repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
+                .orElse(null);
+
+        if (entity == null) {
+            isNew = true;
+            entity = new ScheduleConfirmationJpaEntity();
+            entity.setUserId(userId);
+            entity.setWeekStartDate(weekStartDate);
+            entity.setConfirmedAt(feedbackAt);
+            entity.setFeedbackNote(feedbackNote);
+            entity.setFeedbackAt(feedbackAt);
+            entity.setConfirmationStatus("HAS_FEEDBACK");
+            entity.setIpAddress(ipAddress);
+        } else {
+            entity.setFeedbackNote(feedbackNote);
+            entity.setFeedbackAt(feedbackAt);
+            entity.setConfirmationStatus("HAS_FEEDBACK");
+            entity.setIpAddress(ipAddress);
+        }
+
+        try {
+            ScheduleConfirmationJpaEntity saved = saveHelper.saveInIsolatedTransaction(entity);
+            return new SaveConfirmationResult(toRecord(saved), isNew);
+        } catch (DataIntegrityViolationException | ConcurrencyFailureException ex) {
+            log.warn("Race condition hoặc optimistic lock conflict khi lưu schedule feedback cho user {} tuần {}. Đã cô lập transaction và reload bản ghi đã commit thành công.",
+                    userId, weekStartDate);
+            ScheduleConfirmationRecord reloaded = repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
+                    .map(this::toRecord)
+                    .orElseThrow(() -> ex);
+            return new SaveConfirmationResult(reloaded, false);
+        }
+    }
+
     private ScheduleConfirmationRecord toRecord(ScheduleConfirmationJpaEntity entity) {
         return new ScheduleConfirmationRecord(
                 entity.getId(),
                 entity.getUserId(),
                 entity.getWeekStartDate(),
                 entity.getConfirmedAt(),
-                entity.getIpAddress()
+                entity.getIpAddress(),
+                entity.getFeedbackNote(),
+                entity.getFeedbackAt(),
+                entity.getConfirmationStatus()
         );
     }
 }
