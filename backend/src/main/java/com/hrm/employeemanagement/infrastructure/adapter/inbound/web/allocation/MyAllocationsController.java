@@ -1,9 +1,10 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -69,6 +70,9 @@ public class MyAllocationsController {
             } catch (DateTimeParseException ex) {
                 throw new InvalidWeekFormatException("Sai định dạng ngày: '" + weekStartStr + "'. Định dạng hợp lệ là YYYY-MM-DD");
             }
+            if (weekStartDate.getDayOfWeek() != DayOfWeek.MONDAY) {
+                throw new WeekStartNotMondayException("week_start phải là ngày Thứ Hai (Monday), giá trị nhận được: " + weekStartStr);
+            }
         }
 
         String weeksStr = request.getParameter("weeks");
@@ -88,7 +92,7 @@ public class MyAllocationsController {
                         w.weekStartDate(),
                         w.totalHours(),
                         w.confirmationStatus(),
-                        w.confirmedAt() != null ? w.confirmedAt().toInstant(ZoneOffset.UTC) : null,
+                        w.confirmedAt() != null ? w.confirmedAt().atZone(ZoneId.systemDefault()).toInstant() : null,
                         w.allocations() != null ? w.allocations().stream()
                                 .map(a -> new MyAllocationsWebResponse.AllocationResponse(
                                         a.allocationId(),
@@ -114,13 +118,16 @@ public class MyAllocationsController {
         } catch (DateTimeParseException ex) {
             throw new InvalidWeekFormatException("Sai định dạng ngày: '" + weekStartStr + "'. Định dạng hợp lệ là YYYY-MM-DD");
         }
+        if (weekStartDate.getDayOfWeek() != DayOfWeek.MONDAY) {
+            throw new WeekStartNotMondayException("week_start phải là ngày Thứ Hai (Monday), giá trị nhận được: " + weekStartStr);
+        }
 
         String clientIp = clientIpResolver.resolveClientIp(request);
         ConfirmScheduleViewedResult result = confirmScheduleViewedUseCase.confirmScheduleViewed(weekStartDate, clientIp);
 
         ConfirmScheduleWebResponse responseBody = new ConfirmScheduleWebResponse(
                 result.weekStartDate(),
-                result.confirmedAt() != null ? result.confirmedAt().toInstant(ZoneOffset.UTC) : null,
+                result.confirmedAt() != null ? result.confirmedAt().atZone(ZoneId.systemDefault()).toInstant() : null,
                 result.confirmationStatus(),
                 result.alreadyConfirmed(),
                 result.previousConfirmationWasStale()

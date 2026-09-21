@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -359,5 +360,53 @@ class MyAllocationsControllerIntegrationTest {
                 .andExpect(status().isOk())
                 // Do MAX(updated_at) của các bản ghi còn lại vẫn < confirmedAt, hệ thống vẫn báo CONFIRMED (đúng theo giới hạn đã đặc tả)
                 .andExpect(jsonPath("$.weeks[0].confirmation_status").value("CONFIRMED"));
+    }
+
+    @Test
+    @DisplayName("TC-12: week_start không phải là Thứ Hai (Tuesday - Sunday) -> HTTP 400 WEEK_START_NOT_MONDAY")
+    void tc12_NonMondayRejected() throws Exception {
+        // 2026-09-22 là Thứ Ba
+        mockMvc.perform(get("/api/v1/my-allocations?week_start=2026-09-22"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error_code").value("WEEK_START_NOT_MONDAY"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("week_start phải là ngày Thứ Hai (Monday)")));
+
+        mockMvc.perform(post("/api/v1/my-allocations/2026-09-22/confirm-viewed"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error_code").value("WEEK_START_NOT_MONDAY"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("week_start phải là ngày Thứ Hai (Monday)")));
+    }
+
+    @Test
+    @DisplayName("TC-13: Concurrent re-confirm khi lịch STALE -> Trả về HTTP 200 OK, không lỗi")
+    void tc13_ConcurrentReconfirmStale() throws Exception {
+        LocalDate monday = LocalDate.of(2026, 9, 21);
+        LocalDateTime initialConfirmedAt = LocalDateTime.of(2026, 9, 18, 9, 0);
+        LocalDateTime updateTime = LocalDateTime.of(2026, 9, 19, 14, 0);
+
+        AllocationItem item = new AllocationItem(
+                101L, 1L, "Dự án NCL", "ACTIVE", new BigDecimal("40.00"), updateTime
+        );
+        when(loadMyAllocationsPort.loadAllocationsForEmployeeInWeek(employeeId.value(), monday))
+                .thenReturn(List.of(item));
+
+        // Ban đầu đã xác nhận nhưng giờ đã STALE do updateTime > initialConfirmedAt
+        when(scheduleConfirmationPort.findByUserIdAndWeek(userId.value(), monday))
+                .thenReturn(Optional.of(new ScheduleConfirmationRecord(1L, userId.value(), monday, initialConfirmedAt, "127.0.0.1")));
+
+        LocalDateTime reconfirmedAt = LocalDateTime.of(2026, 9, 21, 10, 0);
+        when(scheduleConfirmationPort.saveConfirmation(eq(userId.value()), eq(monday), any(LocalDateTime.class), anyString()))
+                .thenReturn(new ScheduleConfirmationPort.SaveConfirmationResult(
+                        new ScheduleConfirmationRecord(1L, userId.value(), monday, reconfirmedAt, "127.0.0.1"),
+                        false
+                ));
+
+        mockMvc.perform(post("/api/v1/my-allocations/2026-09-21/confirm-viewed"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.confirmation_status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.already_confirmed").value(false))
+                .andExpect(jsonPath("$.previous_confirmation_was_stale").value(true));
     }
 }

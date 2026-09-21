@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -56,16 +57,22 @@ public class ScheduleConfirmationJpaAdapter implements ScheduleConfirmationPort 
             entity = new ScheduleConfirmationJpaEntity();
             entity.setUserId(userId);
             entity.setWeekStartDate(weekStartDate);
+            entity.setConfirmedAt(confirmedAt);
+            entity.setIpAddress(ipAddress);
+        } else {
+            // Safeguard: Never overwrite with an older confirmation timestamp (atomic greatest)
+            if (entity.getConfirmedAt() != null && confirmedAt.isBefore(entity.getConfirmedAt())) {
+                return new SaveConfirmationResult(toRecord(entity), false);
+            }
+            entity.setConfirmedAt(confirmedAt);
+            entity.setIpAddress(ipAddress);
         }
-
-        entity.setConfirmedAt(confirmedAt);
-        entity.setIpAddress(ipAddress);
 
         try {
             ScheduleConfirmationJpaEntity saved = saveHelper.saveInIsolatedTransaction(entity);
             return new SaveConfirmationResult(toRecord(saved), isNew);
-        } catch (DataIntegrityViolationException ex) {
-            log.warn("Race condition phát hiện khi lưu schedule confirmation cho user {} tuần {}. Đã cô lập transaction và reload bản ghi đã commit thành công.",
+        } catch (DataIntegrityViolationException | ConcurrencyFailureException ex) {
+            log.warn("Race condition hoặc optimistic lock conflict khi lưu schedule confirmation cho user {} tuần {}. Đã cô lập transaction và reload bản ghi đã commit thành công.",
                     userId, weekStartDate);
             ScheduleConfirmationRecord reloaded = repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
                     .map(this::toRecord)

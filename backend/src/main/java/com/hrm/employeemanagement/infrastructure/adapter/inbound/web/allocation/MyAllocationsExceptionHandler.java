@@ -28,4 +28,10 @@ public class MyAllocationsExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(MyAllocationsErrorResponse.of(400, "INVALID_WEEKS_FORMAT", ex.getMessage()));
     }
+
+    @ExceptionHandler(WeekStartNotMondayException.class)
+    public ResponseEntity<MyAllocationsErrorResponse> handleWeekStartNotMonday(WeekStartNotMondayException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(MyAllocationsErrorResponse.of(400, "WEEK_START_NOT_MONDAY", ex.getMessage()));
+    }
 }

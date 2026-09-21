@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V109: CREATE EMPLOYEE SCHEDULE CONFIRMATION
+-- FLYWAY MIGRATION V114: CREATE EMPLOYEE SCHEDULE CONFIRMATION
 -- Feature: NCL-13-CN-001 (Xem lịch phân bổ tuần của tôi)
 -- ============================================================
 
@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS employee_schedule_confirmation (
     week_start_date DATE NOT NULL,
     confirmed_at DATETIME(6) NOT NULL,
     ip_address VARCHAR(45) NULL,
+    version BIGINT NOT NULL DEFAULT 0,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     CONSTRAINT uq_schedule_conf_user_week UNIQUE (user_id, week_start_date)
