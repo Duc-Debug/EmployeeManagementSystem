@@ -130,7 +130,17 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
                 notification.getRecipientId().value(), email, name, subject,
                 body == null ? "" : body, decision.availableAt(), LocalDateTime.now(clock), digestFrequency);
         if (digestFrequency == null) {
-            emailOutboxRepository.save(newMessage);
+            String sourceEventKey = notification.getSourceEventKey();
+            if (emailOutboxRepository.findByRecipientUserIdAndSourceEventKey(
+                    notification.getRecipientId().value(), sourceEventKey).isPresent()) {
+                return;
+            }
+            newMessage.setSourceEventKey(sourceEventKey);
+            try {
+                emailDigestHelper.create(newMessage);
+            } catch (DataIntegrityViolationException duplicate) {
+                // A concurrent retry already created this recipient/source email.
+            }
             return;
         }
         try {

@@ -1,7 +1,9 @@
 package com.hrm.employeemanagement.domain.notification;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.UUID;
 
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -126,6 +128,17 @@ public class Notification {
 
     public LocalDateTime getAvailableAt() {
         return availableAt;
+    }
+
+    /**
+     * Stable key for retrying delivery of the same legacy notification payload.
+     * Canonical notification events carry their own explicit source event key.
+     */
+    public String getSourceEventKey() {
+        String source = type.name() + "|" + targetType + "|" + targetId + "|"
+                + recipientId.value() + "|" + title + "|" + Objects.toString(content, "");
+        return "LEGACY:" + type.name() + ":"
+                + UUID.nameUUIDFromBytes(source.getBytes(StandardCharsets.UTF_8));
     }
 
     public Notification scheduledFor(LocalDateTime releaseAt) {
