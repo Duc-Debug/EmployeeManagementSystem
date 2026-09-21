@@ -1,6 +1,9 @@
 package com.hrm.employeemanagement.application.service.notification;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,11 +14,16 @@ import org.junit.jupiter.api.Test;
 import com.hrm.employeemanagement.application.dto.notification.CreateNotificationEventCommand;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationEventRepositoryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationRecipientRepositoryPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.NotificationEmailDeliveryPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
 import com.hrm.employeemanagement.domain.notification.NotificationEvent;
 import com.hrm.employeemanagement.domain.notification.NotificationEventId;
 import com.hrm.employeemanagement.domain.notification.NotificationLevel;
 import com.hrm.employeemanagement.domain.notification.NotificationRecipientId;
 import com.hrm.employeemanagement.domain.notification.NotificationRecipientItem;
+import com.hrm.employeemanagement.domain.notification.NotificationPreference;
+import com.hrm.employeemanagement.domain.notification.NotificationDeliveryChannel;
+import com.hrm.employeemanagement.domain.notification.NotificationFrequency;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -166,5 +174,91 @@ class CreateNotificationEventServiceTest {
         // Tôn trọng quyền xóa của user: không save tạo mới hay khôi phục
         verify(recipientRepo, never()).saveIfAbsent(any());
         assertTrue(softDeletedRecipient.isDeleted());
+    }
+
+    @Test
+    void emailOnlyImmediateCreatesEmailWithoutInAppRecipient() {
+        LoadNotificationPreferencePort preferences = mock(LoadNotificationPreferencePort.class);
+        NotificationEmailDeliveryPort emailDelivery = mock(NotificationEmailDeliveryPort.class);
+        Clock clock = Clock.fixed(Instant.parse("2026-09-21T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+        NotificationEvent source = event(70L, "TASK_DUE_REMINDER", "SOURCE:EMAIL");
+        NotificationPreference preference = preference(NotificationDeliveryChannel.EMAIL_ONLY,
+                NotificationFrequency.IMMEDIATE);
+        when(eventRepo.getOrCreate(any())).thenReturn(source);
+        when(preferences.findByUserId(new UserId(101L))).thenReturn(Optional.of(preference));
+
+        var canonicalService = new CreateNotificationEventService(
+                eventRepo, recipientRepo, preferences, clock, emailDelivery);
+        canonicalService.execute(command("TASK_DUE_REMINDER", "SOURCE:EMAIL"));
+
+        verify(emailDelivery).schedule(eq(source), eq(new UserId(101L)), any());
+        verify(recipientRepo, never()).saveIfAbsent(any());
+    }
+
+    @Test
+    void inAppOnlyImmediateCreatesRecipientWithoutEmail() {
+        LoadNotificationPreferencePort preferences = mock(LoadNotificationPreferencePort.class);
+        NotificationEmailDeliveryPort emailDelivery = mock(NotificationEmailDeliveryPort.class);
+        Clock clock = Clock.fixed(Instant.parse("2026-09-21T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+        NotificationEvent source = event(71L, "TASK_DUE_REMINDER", "SOURCE:INAPP");
+        NotificationPreference preference = preference(NotificationDeliveryChannel.IN_APP_ONLY,
+                NotificationFrequency.IMMEDIATE);
+        when(eventRepo.getOrCreate(any())).thenReturn(source);
+        when(preferences.findByUserId(new UserId(101L))).thenReturn(Optional.of(preference));
+        when(recipientRepo.findByEventIdAndRecipientUserId(source.getId(), new UserId(101L)))
+                .thenReturn(Optional.empty());
+
+        var canonicalService = new CreateNotificationEventService(
+                eventRepo, recipientRepo, preferences, clock, emailDelivery);
+        canonicalService.execute(command("TASK_DUE_REMINDER", "SOURCE:INAPP"));
+
+        verify(recipientRepo).saveIfAbsent(any());
+        verify(emailDelivery, never()).schedule(any(), any(), any());
+    }
+
+    @Test
+    void allDailyDigestCreatesBothChannelProjections() {
+        LoadNotificationPreferencePort preferences = mock(LoadNotificationPreferencePort.class);
+        NotificationEmailDeliveryPort emailDelivery = mock(NotificationEmailDeliveryPort.class);
+        Clock clock = Clock.fixed(Instant.parse("2026-09-21T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+        NotificationEvent source = event(72L, "TASK_DUE_REMINDER", "SOURCE:ALL");
+        NotificationEvent digest = event(73L, "NOTIFICATION_DIGEST", "DIGEST:INAPP");
+        NotificationPreference preference = preference(NotificationDeliveryChannel.ALL,
+                NotificationFrequency.DAILY_DIGEST);
+        when(eventRepo.getOrCreate(any())).thenReturn(source, digest);
+        when(eventRepo.appendDigestItemIfAbsent(eq(digest), eq("SOURCE:ALL"), any(), any()))
+                .thenReturn(digest);
+        when(preferences.findByUserId(new UserId(101L))).thenReturn(Optional.of(preference));
+        when(recipientRepo.findByEventIdAndRecipientUserId(digest.getId(), new UserId(101L)))
+                .thenReturn(Optional.empty());
+
+        var canonicalService = new CreateNotificationEventService(
+                eventRepo, recipientRepo, preferences, clock, emailDelivery);
+        canonicalService.execute(command("TASK_DUE_REMINDER", "SOURCE:ALL"));
+
+        verify(emailDelivery).schedule(eq(source), eq(new UserId(101L)), argThat(d -> d.isDigest()));
+        verify(eventRepo).appendDigestItemIfAbsent(eq(digest), eq("SOURCE:ALL"), any(), any());
+        verify(recipientRepo).saveIfAbsent(any());
+    }
+
+    private NotificationPreference preference(
+            NotificationDeliveryChannel taskDueChannel, NotificationFrequency frequency) {
+        NotificationPreference preference = NotificationPreference.createDefault(new UserId(101L));
+        preference.update(true, true,
+                NotificationDeliveryChannel.ALL, taskDueChannel,
+                NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                frequency, 3, preference.getQuietHours());
+        return preference;
+    }
+
+    private NotificationEvent event(Long id, String type, String sourceKey) {
+        return new NotificationEvent(new NotificationEventId(id), type, NotificationLevel.THAP,
+                "Title", "Message", "TASK", "10", sourceKey, LocalDateTime.now());
+    }
+
+    private CreateNotificationEventCommand command(String type, String sourceKey) {
+        return new CreateNotificationEventCommand(type, NotificationLevel.THAP, "Title", "Message",
+                "TASK", "10", sourceKey, List.of(101L));
     }
 }
