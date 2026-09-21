@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -128,6 +129,14 @@ class NotificationPreferenceControllerTest {
                 .andExpect(jsonPath("$.data.frequency").value("DAILY_DIGEST"));
 
         verify(updateNotificationPreferenceUseCase).updateMyPreference(eq(currentUserId), any(UpdateNotificationPreferenceCommand.class));
+    }
+
+    @Test
+    void invalidFrequencyMustReturnBadRequest() throws Exception {
+        mockMvc.perform(patch("/api/v1/notification-preferences/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"frequency\":\"DIALY_DIGEST\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

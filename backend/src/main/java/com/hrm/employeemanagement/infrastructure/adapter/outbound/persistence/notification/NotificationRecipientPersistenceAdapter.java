@@ -106,7 +106,7 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
         if (recipientUserId == null || recipientUserId.value() == null) {
             return 0L;
         }
-        return repository.countByRecipientUserIdAndIsDeletedFalseAndIsReadFalse(recipientUserId.value());
+        return repository.countReleasedUnread(recipientUserId.value());
     }
 
     @Override

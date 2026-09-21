@@ -13,7 +13,10 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.no
 @Repository
 public interface SpringDataNotificationRepository extends JpaRepository<NotificationJpaEntity, Long> {
 
-    List<NotificationJpaEntity> findByRecipientIdOrderByCreatedAtDesc(Long recipientId);
+    @org.springframework.data.jpa.repository.Query("SELECT n FROM NotificationJpaEntity n " +
+            "WHERE n.recipientId = :recipientId AND n.createdAt <= CURRENT_TIMESTAMP ORDER BY n.createdAt DESC")
+    List<NotificationJpaEntity> findReleasedByRecipientId(
+            @org.springframework.data.repository.query.Param("recipientId") Long recipientId);
 
     @Modifying
     @Query("UPDATE NotificationJpaEntity n SET n.isRead = true WHERE n.recipientId = :recipientId AND n.isRead = false")

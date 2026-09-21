@@ -5,22 +5,56 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.notification.SimulatedNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
+import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
+import com.hrm.employeemanagement.domain.notification.Notification;
+import com.hrm.employeemanagement.domain.notification.NotificationPreference;
+import com.hrm.employeemanagement.domain.notification.NotificationType;
+import com.hrm.employeemanagement.domain.user.UserId;
 
 @Component
 public class ConsoleSimulatedNotificationAdapter implements SimulatedNotificationPort {
 
     private static final Logger log = LoggerFactory.getLogger(ConsoleSimulatedNotificationAdapter.class);
+    private final LoadNotificationPreferencePort preferencePort;
+    private final SaveNotificationPort saveNotificationPort;
+
+    public ConsoleSimulatedNotificationAdapter(
+            LoadNotificationPreferencePort preferencePort,
+            SaveNotificationPort saveNotificationPort
+    ) {
+        this.preferencePort = preferencePort;
+        this.saveNotificationPort = saveNotificationPort;
+    }
 
     @Override
     public void sendScheduleConflictWarningNotification(
+            Long recipientUserId,
+            Long targetId,
             String recipientEmail,
             String recipientName,
             String employeeName,
             String conflictSummary,
             String details
     ) {
-        log.info("[SIMULATED NOTIFICATION] Sent to: {} ({}) | Subject: Cảnh báo xung đột lịch nhân sự [{}] | Summary: {} | Details: {}",
-                recipientName, recipientEmail, employeeName, conflictSummary, details);
+        if (recipientUserId == null || targetId == null) {
+            log.warn("Bỏ qua cảnh báo xung đột do thiếu recipientUserId hoặc targetId");
+            return;
+        }
+        UserId userId = new UserId(recipientUserId);
+        NotificationPreference preference = preferencePort.findByUserId(userId)
+                .orElseGet(() -> NotificationPreference.createDefault(userId));
+        String title = "Cảnh báo xung đột lịch nhân sự [" + employeeName + "]";
+        if (preference.isChannelActiveFor(NotificationType.SCHEDULE_CONFLICT, false, java.time.LocalTime.now())) {
+            saveNotificationPort.save(Notification.create(
+                    userId, null, NotificationType.SCHEDULE_CONFLICT,
+                    "SCHEDULE_CONFLICT", targetId, title,
+                    conflictSummary + (details == null || details.isBlank() ? "" : " - " + details)));
+        }
+        if (preference.isChannelActiveFor(NotificationType.SCHEDULE_CONFLICT, true, java.time.LocalTime.now())) {
+            log.info("[SIMULATED NOTIFICATION] Sent to: {} ({}) | Subject: {} | Summary: {} | Details: {}",
+                    recipientName, recipientEmail, title, conflictSummary, details);
+        }
     }
     @Override
     public void sendReplacementSuggestionNotification(

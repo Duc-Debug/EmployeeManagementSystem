@@ -35,6 +35,7 @@ public class TaskDueReminderUseCaseConfig {
             @Autowired(required = false) SaveNotificationPort saveNotificationPort,
             @Autowired(required = false) CreateNotificationEventUseCase createNotificationEventUseCase,
             @Autowired(required = false) SaveAuditLogPort saveAuditLogPort,
+            com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort loadNotificationPreferencePort,
             @Autowired(required = false) Clock clock
     ) {
         TaskDueReminderApplicationService service = new TaskDueReminderApplicationService(
@@ -44,6 +45,7 @@ public class TaskDueReminderUseCaseConfig {
                 saveNotificationPort,
                 createNotificationEventUseCase,
                 saveAuditLogPort,
+                loadNotificationPreferencePort,
                 clock
         );
         return new TransactionalTaskDueReminderServiceDecorator(service);

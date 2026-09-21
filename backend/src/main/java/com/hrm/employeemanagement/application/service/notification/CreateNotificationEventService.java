@@ -6,8 +6,12 @@ import com.hrm.employeemanagement.application.dto.notification.CreateNotificatio
 import com.hrm.employeemanagement.application.port.inbound.notification.CreateNotificationEventUseCase;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationEventRepositoryPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.NotificationRecipientRepositoryPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
 import com.hrm.employeemanagement.domain.notification.NotificationEvent;
 import com.hrm.employeemanagement.domain.notification.NotificationRecipientItem;
+import com.hrm.employeemanagement.domain.notification.NotificationPreference;
+import com.hrm.employeemanagement.domain.notification.NotificationType;
+import com.hrm.employeemanagement.domain.notification.NotificationDeliveryTimePolicy;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 /**
@@ -20,13 +24,23 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
 
     private final NotificationEventRepositoryPort eventRepositoryPort;
     private final NotificationRecipientRepositoryPort recipientRepositoryPort;
+    private final LoadNotificationPreferencePort preferencePort;
 
     public CreateNotificationEventService(
             NotificationEventRepositoryPort eventRepositoryPort,
             NotificationRecipientRepositoryPort recipientRepositoryPort
     ) {
+        this(eventRepositoryPort, recipientRepositoryPort, null);
+    }
+
+    public CreateNotificationEventService(
+            NotificationEventRepositoryPort eventRepositoryPort,
+            NotificationRecipientRepositoryPort recipientRepositoryPort,
+            LoadNotificationPreferencePort preferencePort
+    ) {
         this.eventRepositoryPort = Objects.requireNonNull(eventRepositoryPort, "eventRepositoryPort must not be null");
         this.recipientRepositoryPort = Objects.requireNonNull(recipientRepositoryPort, "recipientRepositoryPort must not be null");
+        this.preferencePort = preferencePort;
     }
 
     @Override
@@ -53,6 +67,9 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
                     continue;
                 }
                 UserId recipientUserId = new UserId(recipientUserIdVal);
+                if (!isInAppEnabled(recipientUserId, command.eventType())) {
+                    continue;
+                }
 
                 var existingRecipientOpt = recipientRepositoryPort.findByEventIdAndRecipientUserId(
                         event.getId(),
@@ -61,10 +78,7 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
 
                 if (existingRecipientOpt.isEmpty()) {
                     // Chưa từng có bản ghi -> Thêm mới với cơ chế saveIfAbsent an toàn đồng thời (idempotent)
-                    NotificationRecipientItem newRecipient = NotificationRecipientItem.create(
-                            event.getId(),
-                            recipientUserId
-                    );
+                    NotificationRecipientItem newRecipient = createRecipient(event.getId(), recipientUserId, typeOf(command.eventType()));
                     recipientRepositoryPort.saveIfAbsent(newRecipient);
                 }
                 // Nếu đã tồn tại:
@@ -74,5 +88,43 @@ public class CreateNotificationEventService implements CreateNotificationEventUs
         }
 
         return event.getId().value();
+    }
+
+    private boolean isInAppEnabled(UserId recipientUserId, String eventType) {
+        if (preferencePort == null) {
+            return true;
+        }
+        NotificationType type;
+        try {
+            type = NotificationType.valueOf(eventType);
+        } catch (IllegalArgumentException | NullPointerException ignored) {
+            return true;
+        }
+        NotificationPreference preference = preferencePort.findByUserId(recipientUserId)
+                .orElseGet(() -> NotificationPreference.createDefault(recipientUserId));
+        return preference.isChannelActiveFor(type, false, java.time.LocalTime.now());
+    }
+
+    private NotificationRecipientItem createRecipient(
+            com.hrm.employeemanagement.domain.notification.NotificationEventId eventId,
+            UserId recipientUserId,
+            NotificationType type
+    ) {
+        NotificationPreference preference = preferencePort == null
+                ? NotificationPreference.createDefault(recipientUserId)
+                : preferencePort.findByUserId(recipientUserId)
+                        .orElseGet(() -> NotificationPreference.createDefault(recipientUserId));
+        java.time.LocalDateTime releaseAt = NotificationDeliveryTimePolicy.releaseAt(
+                preference.getFrequency(), type, java.time.LocalDateTime.now());
+        return new NotificationRecipientItem(
+                null, eventId, recipientUserId, false, null, false, null, releaseAt);
+    }
+
+    private NotificationType typeOf(String eventType) {
+        try {
+            return NotificationType.valueOf(eventType);
+        } catch (IllegalArgumentException | NullPointerException ignored) {
+            return null;
+        }
     }
 }

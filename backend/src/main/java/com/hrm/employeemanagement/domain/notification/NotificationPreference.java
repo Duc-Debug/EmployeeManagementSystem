@@ -141,16 +141,23 @@ public class NotificationPreference {
      * BR-03: Cảnh báo trọng yếu (Xung đột lịch & Phân bổ) bắt buộc phải bật ít nhất 1 kênh.
      */
     private void validateCriticalChannelConstraints() {
-        if (this.scheduleConflictChannel == NotificationDeliveryChannel.NONE) {
+        if (!hasActiveChannel(this.scheduleConflictChannel)) {
             throw new NotificationPreferenceValidationException(
                     "Cảnh báo xung đột lịch là thông tin trọng yếu, bắt buộc phải bật ít nhất 1 kênh nhận thông báo."
             );
         }
-        if (this.allocationChangedChannel == NotificationDeliveryChannel.NONE) {
+        if (!hasActiveChannel(this.allocationChangedChannel)) {
             throw new NotificationPreferenceValidationException(
                     "Cảnh báo thay đổi phân bổ nhân sự là thông tin trọng yếu, bắt buộc phải bật ít nhất 1 kênh nhận thông báo."
             );
         }
+    }
+
+    private boolean hasActiveChannel(NotificationDeliveryChannel channel) {
+        return channel != null
+                && channel != NotificationDeliveryChannel.NONE
+                && ((inAppEnabled && channel.isInAppEnabled())
+                || (emailEnabled && channel.isEmailEnabled()));
     }
 
     private static int validateReminderDays(int days) {
@@ -173,7 +180,8 @@ public class NotificationPreference {
             }
             if (this.quietHours.isInQuietHours(currentTime)) {
                 // Trong giờ yên tĩnh: hoãn gửi email trừ khi là cảnh báo xung đột khẩn cấp
-                if (type != NotificationType.ALLOCATION_CHANGED) {
+                if (type != NotificationType.ALLOCATION_CHANGED
+                        && type != NotificationType.SCHEDULE_CONFLICT) {
                     return false;
                 }
             }
@@ -195,6 +203,7 @@ public class NotificationPreference {
             case TASK_DUE_REMINDER -> taskDueReminderChannel;
             case TASK_COMMENT, TASK_MENTION -> taskCommentChannel;
             case TIMESHEET_REMINDER -> timesheetReminderChannel;
+            case SCHEDULE_CONFLICT -> scheduleConflictChannel;
             case ALLOCATION_CHANGED -> allocationChangedChannel;
         };
     }

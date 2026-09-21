@@ -13,6 +13,7 @@ import com.hrm.employeemanagement.application.dto.task.TaskDueReminderScanResult
 import com.hrm.employeemanagement.application.port.inbound.notification.CreateNotificationEventUseCase;
 import com.hrm.employeemanagement.application.port.inbound.task.ScanAndSendTaskDueRemindersUseCase;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort;
 import com.hrm.employeemanagement.application.port.outbound.task.CheckTaskDueReminderSentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskDueReminderPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
@@ -41,6 +42,7 @@ public class TaskDueReminderApplicationService implements ScanAndSendTaskDueRemi
     private final SaveNotificationPort saveNotificationPort;
     private final CreateNotificationEventUseCase createNotificationEventUseCase;
     private final SaveAuditLogPort saveAuditLogPort;
+    private final LoadNotificationPreferencePort loadNotificationPreferencePort;
     private final Clock clock;
 
     public TaskDueReminderApplicationService(
@@ -50,6 +52,7 @@ public class TaskDueReminderApplicationService implements ScanAndSendTaskDueRemi
             SaveNotificationPort saveNotificationPort,
             CreateNotificationEventUseCase createNotificationEventUseCase,
             SaveAuditLogPort saveAuditLogPort,
+            LoadNotificationPreferencePort loadNotificationPreferencePort,
             Clock clock
     ) {
         this.loadTaskDueReminderPort = Objects.requireNonNull(loadTaskDueReminderPort, "loadTaskDueReminderPort must not be null");
@@ -58,6 +61,7 @@ public class TaskDueReminderApplicationService implements ScanAndSendTaskDueRemi
         this.saveNotificationPort = saveNotificationPort;
         this.createNotificationEventUseCase = createNotificationEventUseCase;
         this.saveAuditLogPort = saveAuditLogPort;
+        this.loadNotificationPreferencePort = loadNotificationPreferencePort;
         this.clock = clock != null ? clock : Clock.systemDefaultZone();
     }
 
@@ -69,13 +73,15 @@ public class TaskDueReminderApplicationService implements ScanAndSendTaskDueRemi
             CreateNotificationEventUseCase createNotificationEventUseCase,
             SaveAuditLogPort saveAuditLogPort
     ) {
-        this(loadTaskDueReminderPort, checkTaskDueReminderSentPort, loadEmployeePort, saveNotificationPort, createNotificationEventUseCase, saveAuditLogPort, Clock.systemDefaultZone());
+        this(loadTaskDueReminderPort, checkTaskDueReminderSentPort, loadEmployeePort, saveNotificationPort,
+                createNotificationEventUseCase, saveAuditLogPort, null, Clock.systemDefaultZone());
     }
 
     @Override
     public TaskDueReminderScanResult execute(LocalDate scanDate) {
         LocalDate effectiveScanDate = scanDate != null ? scanDate : LocalDate.now(clock);
-        LocalDate toDate = effectiveScanDate.plusDays(TaskDueReminderPolicy.DEFAULT_DUE_SOON_DAYS);
+        LocalDate toDate = effectiveScanDate.plusDays(
+                com.hrm.employeemanagement.domain.notification.NotificationPreference.MAX_TASK_DUE_REMINDER_DAYS);
 
         List<Task> candidateTasks = loadTaskDueReminderPort.findTasksDueBetween(effectiveScanDate, toDate);
 
@@ -108,7 +114,7 @@ public class TaskDueReminderApplicationService implements ScanAndSendTaskDueRemi
             }
 
             LocalDate dueDate = task.getDueDate() != null ? task.getDueDate() : task.getPlannedEndDate();
-            if (dueDate == null || !TaskDueReminderPolicy.isDueWithinDays(dueDate, effectiveScanDate, TaskDueReminderPolicy.DEFAULT_DUE_SOON_DAYS)) {
+            if (dueDate == null) {
                 continue;
             }
 
@@ -123,6 +129,14 @@ public class TaskDueReminderApplicationService implements ScanAndSendTaskDueRemi
             }
 
             UserId recipientUserId = employee.getUserId();
+            int reminderDays = loadNotificationPreferencePort == null
+                    ? TaskDueReminderPolicy.DEFAULT_DUE_SOON_DAYS
+                    : loadNotificationPreferencePort.findByUserId(recipientUserId)
+                            .map(com.hrm.employeemanagement.domain.notification.NotificationPreference::getTaskDueReminderDays)
+                            .orElse(TaskDueReminderPolicy.DEFAULT_DUE_SOON_DAYS);
+            if (!TaskDueReminderPolicy.isDueWithinDays(dueDate, effectiveScanDate, reminderDays)) {
+                continue;
+            }
 
             // 3. Quy tắc QTN-19: Kiểm tra thông báo đã từng gửi cho sự kiện này hay chưa
             if (checkTaskDueReminderSentPort.hasReminderBeenSent(recipientUserId, task.getIdValue(), dueDate)) {

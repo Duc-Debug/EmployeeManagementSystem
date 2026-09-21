@@ -124,7 +124,7 @@ class TaskDueReminderApplicationServiceTest {
         Task task = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 5L, taskDueDate, TaskStatus.IN_PROGRESS);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(task));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(50L), 101L, taskDueDate)).thenReturn(false);
 
@@ -166,7 +166,7 @@ class TaskDueReminderApplicationServiceTest {
         Task task = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 5L, taskDueDate, TaskStatus.IN_PROGRESS);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(task));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         // QTN-19: Đã gửi trước đó!
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(50L), 101L, taskDueDate)).thenReturn(true);
@@ -191,7 +191,7 @@ class TaskDueReminderApplicationServiceTest {
         Task task = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 6L, taskDueDate, TaskStatus.IN_PROGRESS);
         Employee newEmployee = createEmployee(6L, 60L, "Trần Văn Mới");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(task));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(6L)))).thenReturn(List.of(newEmployee));
         // User 60 chưa từng nhận thông báo cho công việc này
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(new UserId(60L), 101L, taskDueDate)).thenReturn(false);
@@ -214,7 +214,7 @@ class TaskDueReminderApplicationServiceTest {
         LocalDate taskDueDate = scanDate.plusDays(2);
         Task completedTask = createTask(102L, 10L, "Viết Unit Test", 5L, taskDueDate, TaskStatus.DONE);
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(completedTask));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(completedTask));
 
         TaskDueReminderScanResult result = service.execute(scanDate);
 
@@ -233,7 +233,7 @@ class TaskDueReminderApplicationServiceTest {
         LocalDate taskDueDate = scanDate.plusDays(1);
         Task cancelledTask = createTask(103L, 10L, "Nghiên cứu thư viện", 5L, taskDueDate, TaskStatus.CANCELLED);
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(cancelledTask));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(cancelledTask));
 
         TaskDueReminderScanResult result = service.execute(scanDate);
 
@@ -251,7 +251,7 @@ class TaskDueReminderApplicationServiceTest {
         Task task = createTask(101L, 10L, "Xây dựng tính năng", 5L, taskDueDate, TaskStatus.TODO);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn A");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(3))).thenReturn(List.of(task));
+        when(loadTaskDueReminderPort.findTasksDueBetween(scanDate, scanDate.plusDays(14))).thenReturn(List.of(task));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         when(checkTaskDueReminderSentPort.hasReminderBeenSent(any(), anyLong(), any())).thenReturn(false);
 
@@ -279,7 +279,7 @@ class TaskDueReminderApplicationServiceTest {
         Task taskWithNewDeadline = createTask(101L, 10L, "Xây dựng tính năng đăng nhập", 5L, newDueDate, TaskStatus.IN_PROGRESS);
         Employee employee = createEmployee(5L, 50L, "Nguyễn Văn Chuyên Môn");
 
-        when(loadTaskDueReminderPort.findTasksDueBetween(currentScanDate, currentScanDate.plusDays(3)))
+        when(loadTaskDueReminderPort.findTasksDueBetween(currentScanDate, currentScanDate.plusDays(14)))
                 .thenReturn(List.of(taskWithNewDeadline));
         when(loadEmployeePort.findAllByIdIn(List.of(new EmployeeId(5L)))).thenReturn(List.of(employee));
         // Reminder cho deadline cũ 20/09 đã gửi trong quá khứ, nhưng cho deadline mới 25/09 thì chưa gửi

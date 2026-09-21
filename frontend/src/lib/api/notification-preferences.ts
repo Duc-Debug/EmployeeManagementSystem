@@ -54,7 +54,7 @@ export async function updateMyNotificationPreference(
   data: UpdateNotificationPreferenceRequest
 ): Promise<NotificationPreference> {
   return await apiRequest<NotificationPreference>("/notification-preferences/me", {
-    method: "PUT",
+    method: "PATCH",
     body: JSON.stringify(data),
   });
 }

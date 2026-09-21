@@ -12,6 +12,9 @@ public record QuietHours(
         if (enabled) {
             Objects.requireNonNull(startTime, "startTime không được để trống khi bật chế độ yên tĩnh");
             Objects.requireNonNull(endTime, "endTime không được để trống khi bật chế độ yên tĩnh");
+            if (startTime.equals(endTime)) {
+                throw new IllegalArgumentException("Giờ bắt đầu và kết thúc khung giờ yên tĩnh phải khác nhau");
+            }
         }
     }
 

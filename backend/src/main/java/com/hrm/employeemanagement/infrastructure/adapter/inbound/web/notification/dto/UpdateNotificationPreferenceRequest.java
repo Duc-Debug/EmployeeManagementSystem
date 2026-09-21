@@ -23,41 +23,41 @@ public record UpdateNotificationPreferenceRequest(
 ) {
     public UpdateNotificationPreferenceCommand toCommand() {
         return new UpdateNotificationPreferenceCommand(
-                inAppEnabled != null ? inAppEnabled : true,
-                emailEnabled != null ? emailEnabled : true,
-                parseChannel(taskAssignedChannel, NotificationDeliveryChannel.ALL),
-                parseChannel(taskDueReminderChannel, NotificationDeliveryChannel.ALL),
-                parseChannel(taskCommentChannel, NotificationDeliveryChannel.IN_APP_ONLY),
-                parseChannel(timesheetReminderChannel, NotificationDeliveryChannel.ALL),
-                parseChannel(allocationChangedChannel, NotificationDeliveryChannel.ALL),
-                parseChannel(scheduleConflictChannel, NotificationDeliveryChannel.ALL),
-                parseFrequency(frequency, NotificationFrequency.IMMEDIATE),
-                taskDueReminderDays != null ? taskDueReminderDays : 3,
-                quietHoursEnabled != null ? quietHoursEnabled : false,
+                inAppEnabled,
+                emailEnabled,
+                parseChannel(taskAssignedChannel),
+                parseChannel(taskDueReminderChannel),
+                parseChannel(taskCommentChannel),
+                parseChannel(timesheetReminderChannel),
+                parseChannel(allocationChangedChannel),
+                parseChannel(scheduleConflictChannel),
+                parseFrequency(frequency),
+                taskDueReminderDays,
+                quietHoursEnabled,
                 quietHoursStart,
                 quietHoursEnd
         );
     }
 
-    private NotificationDeliveryChannel parseChannel(String val, NotificationDeliveryChannel defaultChannel) {
+    private NotificationDeliveryChannel parseChannel(String val) {
         if (val == null || val.isBlank()) {
-            return defaultChannel;
+            return null;
         }
         try {
             return NotificationDeliveryChannel.valueOf(val.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            return defaultChannel;
+            throw new IllegalArgumentException("Kênh thông báo không hợp lệ: " + val, e);
         }
     }
 
-    private NotificationFrequency parseFrequency(String val, NotificationFrequency defaultFreq) {
+    private NotificationFrequency parseFrequency(String val) {
         if (val == null || val.isBlank()) {
-            return defaultFreq;
+            return null;
         }
         try {
             return NotificationFrequency.valueOf(val.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            return defaultFreq;
+            throw new IllegalArgumentException("Tần suất thông báo không hợp lệ: " + val, e);
         }
     }
 }

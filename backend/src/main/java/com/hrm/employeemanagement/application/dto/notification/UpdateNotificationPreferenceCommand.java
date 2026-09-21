@@ -6,8 +6,8 @@ import com.hrm.employeemanagement.domain.notification.NotificationDeliveryChanne
 import com.hrm.employeemanagement.domain.notification.NotificationFrequency;
 
 public record UpdateNotificationPreferenceCommand(
-        boolean inAppEnabled,
-        boolean emailEnabled,
+        Boolean inAppEnabled,
+        Boolean emailEnabled,
         NotificationDeliveryChannel taskAssignedChannel,
         NotificationDeliveryChannel taskDueReminderChannel,
         NotificationDeliveryChannel taskCommentChannel,
@@ -15,8 +15,8 @@ public record UpdateNotificationPreferenceCommand(
         NotificationDeliveryChannel allocationChangedChannel,
         NotificationDeliveryChannel scheduleConflictChannel,
         NotificationFrequency frequency,
-        int taskDueReminderDays,
-        boolean quietHoursEnabled,
+        Integer taskDueReminderDays,
+        Boolean quietHoursEnabled,
         LocalTime quietHoursStart,
         LocalTime quietHoursEnd
 ) {

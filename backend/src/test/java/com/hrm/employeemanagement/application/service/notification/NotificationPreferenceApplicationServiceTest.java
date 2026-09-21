@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mockito;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,18 +43,11 @@ class NotificationPreferenceApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy cấu hình khi chưa tồn tại phải tự động khởi tạo mặc định và lưu vào DB")
+    @DisplayName("Lấy cấu hình khi chưa tồn tại trả mặc định mà không ghi DB")
     void shouldCreateDefaultWhenNotFound() {
         Long userIdVal = 101L;
         UserId userId = new UserId(userIdVal);
         when(loadNotificationPreferencePort.findByUserId(userId)).thenReturn(Optional.empty());
-        when(saveNotificationPreferencePort.save(any(NotificationPreference.class)))
-                .thenAnswer(invocation -> {
-                    NotificationPreference p = invocation.getArgument(0);
-                    p.setId(new NotificationPreferenceId(1L));
-                    return p;
-                });
-
         NotificationPreferenceResult result = service.getMyPreference(userIdVal);
 
         assertNotNull(result);
@@ -61,7 +55,36 @@ class NotificationPreferenceApplicationServiceTest {
         assertTrue(result.inAppEnabled());
         assertTrue(result.emailEnabled());
         assertEquals(3, result.taskDueReminderDays());
-        verify(saveNotificationPreferencePort).save(any(NotificationPreference.class));
+        verify(saveNotificationPreferencePort, never()).save(any(NotificationPreference.class));
+    }
+
+    @Test
+    void partialUpdateMustPreserveUnspecifiedFields() {
+        Long userIdVal = 101L;
+        UserId userId = new UserId(userIdVal);
+        NotificationPreference existing = NotificationPreference.createDefault(userId);
+        existing.update(
+                true, true,
+                NotificationDeliveryChannel.EMAIL_ONLY, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationFrequency.IMMEDIATE, 7,
+                com.hrm.employeemanagement.domain.notification.QuietHours.of(
+                        true, LocalTime.of(22, 0), LocalTime.of(7, 0))
+        );
+        when(loadNotificationPreferencePort.findByUserId(userId)).thenReturn(Optional.of(existing));
+        when(saveNotificationPreferencePort.save(any(NotificationPreference.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        NotificationPreferenceResult result = service.updateMyPreference(userIdVal,
+                new UpdateNotificationPreferenceCommand(
+                        null, null, null, null, null, null, null, null,
+                        NotificationFrequency.DAILY_DIGEST, null, null, null, null));
+
+        assertEquals(NotificationFrequency.DAILY_DIGEST, result.frequency());
+        assertEquals(NotificationDeliveryChannel.EMAIL_ONLY, result.taskAssignedChannel());
+        assertEquals(7, result.taskDueReminderDays());
+        assertTrue(result.quietHoursEnabled());
     }
 
     @Test
@@ -111,7 +134,7 @@ class NotificationPreferenceApplicationServiceTest {
         NotificationPreference existing = NotificationPreference.createDefault(userId);
         existing.setId(new NotificationPreferenceId(1L));
         existing.update(
-                false, false,
+                true, false,
                 NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.IN_APP_ONLY,
                 NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.IN_APP_ONLY,
                 NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.IN_APP_ONLY,

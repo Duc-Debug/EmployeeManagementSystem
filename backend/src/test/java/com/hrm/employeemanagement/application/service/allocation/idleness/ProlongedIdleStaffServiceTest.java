@@ -338,6 +338,8 @@ class ProlongedIdleStaffServiceTest {
         verify(notificationPort).sendScheduleConflictWarningNotification(
                 any(),
                 any(),
+                any(),
+                any(),
                 eq("Lê Văn C"),
                 eq("Xử lý cảnh báo nhân sự nhàn rỗi kéo dài"),
                 any()

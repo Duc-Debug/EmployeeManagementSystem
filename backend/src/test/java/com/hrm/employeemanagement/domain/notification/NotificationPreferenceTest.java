@@ -143,7 +143,7 @@ class NotificationPreferenceTest {
     void shouldResetToDefaultSuccessfully() {
         NotificationPreference pref = NotificationPreference.createDefault(new UserId(100L));
         pref.update(
-                false, false,
+                true, false,
                 NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.IN_APP_ONLY,
                 NotificationDeliveryChannel.NONE, NotificationDeliveryChannel.IN_APP_ONLY,
                 NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.IN_APP_ONLY,
@@ -160,6 +160,42 @@ class NotificationPreferenceTest {
         assertEquals(NotificationFrequency.IMMEDIATE, pref.getFrequency());
         assertEquals(3, pref.getTaskDueReminderDays());
         assertFalse(pref.getQuietHours().enabled());
+    }
+
+    @Test
+    void shouldRejectCriticalChannelsDisabledByMasterToggles() {
+        NotificationPreference pref = NotificationPreference.createDefault(new UserId(100L));
+
+        assertThrows(NotificationPreferenceValidationException.class, () -> pref.update(
+                false, false,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationFrequency.IMMEDIATE, 3, QuietHours.disabled()
+        ));
+    }
+
+    @Test
+    void shouldResolveScheduleConflictChannelAndBypassQuietHours() {
+        NotificationPreference pref = NotificationPreference.createDefault(new UserId(100L));
+        pref.update(
+                true, true,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.IN_APP_ONLY, NotificationDeliveryChannel.ALL,
+                NotificationDeliveryChannel.ALL, NotificationDeliveryChannel.EMAIL_ONLY,
+                NotificationFrequency.IMMEDIATE, 3,
+                QuietHours.of(true, LocalTime.of(22, 0), LocalTime.of(7, 0))
+        );
+
+        assertEquals(NotificationDeliveryChannel.EMAIL_ONLY,
+                pref.getDeliveryChannelFor(NotificationType.SCHEDULE_CONFLICT));
+        assertTrue(pref.isChannelActiveFor(NotificationType.SCHEDULE_CONFLICT, true, LocalTime.of(23, 0)));
+    }
+
+    @Test
+    void shouldRejectEqualQuietHoursBounds() {
+        assertThrows(IllegalArgumentException.class,
+                () -> QuietHours.of(true, LocalTime.of(22, 0), LocalTime.of(22, 0)));
     }
 
     @Test

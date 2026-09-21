@@ -40,7 +40,7 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
         if (recipientId == null || recipientId.value() == null) {
             return List.of();
         }
-        return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(recipientId.value()).stream()
+        return notificationRepository.findReleasedByRecipientId(recipientId.value()).stream()
                 .map(mapper::toDomain)
                 .toList();
     }

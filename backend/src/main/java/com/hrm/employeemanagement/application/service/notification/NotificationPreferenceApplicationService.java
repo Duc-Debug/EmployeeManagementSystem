@@ -37,10 +37,7 @@ public class NotificationPreferenceApplicationService implements
     public NotificationPreferenceResult getMyPreference(Long currentUserId) {
         UserId userId = requireUserId(currentUserId);
         NotificationPreference preference = loadNotificationPreferencePort.findByUserId(userId)
-                .orElseGet(() -> {
-                    NotificationPreference defaultPref = NotificationPreference.createDefault(userId);
-                    return saveNotificationPreferencePort.save(defaultPref);
-                });
+                .orElseGet(() -> NotificationPreference.createDefault(userId));
         return NotificationPreferenceResult.fromDomain(preference);
     }
 
@@ -52,23 +49,28 @@ public class NotificationPreferenceApplicationService implements
         NotificationPreference preference = loadNotificationPreferencePort.findByUserId(userId)
                 .orElseGet(() -> NotificationPreference.createDefault(userId));
 
-        QuietHours quietHours = QuietHours.of(
-                command.quietHoursEnabled(),
-                command.quietHoursStart(),
-                command.quietHoursEnd()
-        );
+        boolean quietHoursEnabled = command.quietHoursEnabled() != null
+                ? command.quietHoursEnabled()
+                : preference.getQuietHours().enabled();
+        java.time.LocalTime quietHoursStart = command.quietHoursStart() != null
+                ? command.quietHoursStart()
+                : preference.getQuietHours().startTime();
+        java.time.LocalTime quietHoursEnd = command.quietHoursEnd() != null
+                ? command.quietHoursEnd()
+                : preference.getQuietHours().endTime();
+        QuietHours quietHours = QuietHours.of(quietHoursEnabled, quietHoursStart, quietHoursEnd);
 
         preference.update(
-                command.inAppEnabled(),
-                command.emailEnabled(),
-                command.taskAssignedChannel(),
-                command.taskDueReminderChannel(),
-                command.taskCommentChannel(),
-                command.timesheetReminderChannel(),
-                command.allocationChangedChannel(),
-                command.scheduleConflictChannel(),
-                command.frequency(),
-                command.taskDueReminderDays(),
+                command.inAppEnabled() != null ? command.inAppEnabled() : preference.isInAppEnabled(),
+                command.emailEnabled() != null ? command.emailEnabled() : preference.isEmailEnabled(),
+                command.taskAssignedChannel() != null ? command.taskAssignedChannel() : preference.getTaskAssignedChannel(),
+                command.taskDueReminderChannel() != null ? command.taskDueReminderChannel() : preference.getTaskDueReminderChannel(),
+                command.taskCommentChannel() != null ? command.taskCommentChannel() : preference.getTaskCommentChannel(),
+                command.timesheetReminderChannel() != null ? command.timesheetReminderChannel() : preference.getTimesheetReminderChannel(),
+                command.allocationChangedChannel() != null ? command.allocationChangedChannel() : preference.getAllocationChangedChannel(),
+                command.scheduleConflictChannel() != null ? command.scheduleConflictChannel() : preference.getScheduleConflictChannel(),
+                command.frequency() != null ? command.frequency() : preference.getFrequency(),
+                command.taskDueReminderDays() != null ? command.taskDueReminderDays() : preference.getTaskDueReminderDays(),
                 quietHours
         );
 

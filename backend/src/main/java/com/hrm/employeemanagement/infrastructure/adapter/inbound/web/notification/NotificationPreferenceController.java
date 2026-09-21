@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -55,7 +54,8 @@ public class NotificationPreferenceController {
         return ResponseEntity.ok(ApiResponse.success("Lấy cấu hình thông báo thành công", result));
     }
 
-    @PutMapping("/me")
+    @RequestMapping(value = "/me", method = {org.springframework.web.bind.annotation.RequestMethod.PUT,
+            org.springframework.web.bind.annotation.RequestMethod.PATCH})
     public ResponseEntity<ApiResponse<NotificationPreferenceResult>> updateMyPreference(
             @RequestBody UpdateNotificationPreferenceRequest request
     ) {

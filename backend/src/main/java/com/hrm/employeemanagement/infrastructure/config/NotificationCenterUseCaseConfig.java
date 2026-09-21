@@ -43,11 +43,13 @@ public class NotificationCenterUseCaseConfig {
     @Bean
     public TransactionalCreateNotificationEventDecorator transactionalCreateNotificationEventDecorator(
             NotificationEventRepositoryPort eventRepositoryPort,
-            NotificationRecipientRepositoryPort recipientRepositoryPort
+            NotificationRecipientRepositoryPort recipientRepositoryPort,
+            com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPreferencePort preferencePort
     ) {
         CreateNotificationEventService pureService = new CreateNotificationEventService(
                 eventRepositoryPort,
-                recipientRepositoryPort
+                recipientRepositoryPort,
+                preferencePort
         );
         return new TransactionalCreateNotificationEventDecorator(pureService);
     }

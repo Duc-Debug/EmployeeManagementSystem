@@ -111,6 +111,21 @@ export default function NotificationSettingsModal({
       setErrorMessage("Cảnh báo thay đổi phân bổ bắt buộc phải chọn ít nhất 1 kênh nhận.");
       return;
     }
+    const hasActiveChannel = (channel: NotificationDeliveryChannel | undefined) =>
+      Boolean(
+        (formData.inAppEnabled && (channel === "ALL" || channel === "IN_APP_ONLY")) ||
+        (formData.emailEnabled && (channel === "ALL" || channel === "EMAIL_ONLY"))
+      );
+    if (!hasActiveChannel(formData.scheduleConflictChannel) ||
+        !hasActiveChannel(formData.allocationChangedChannel)) {
+      setErrorMessage("Cảnh báo trọng yếu phải còn ít nhất một kênh In-App hoặc Email đang bật.");
+      return;
+    }
+    if (formData.quietHoursEnabled &&
+        formData.quietHoursStart === formData.quietHoursEnd) {
+      setErrorMessage("Giờ bắt đầu và kết thúc khung giờ yên tĩnh phải khác nhau.");
+      return;
+    }
 
     try {
       setIsSaving(true);
