@@ -32,18 +32,18 @@ export interface SubmitUnavailabilityRequest {
 
 export interface UnavailabilityConflictDetail {
   allocationId: number;
-  employeeId: number;
   projectId: number;
-  yearWeek: string;
+  year: number;
+  weekNumber: number;
   allocatedHours: number;
 }
 
 export interface UnavailabilityConflictCheckResult {
   hasConflict: boolean;
-  conflictCount: number;
+  conflictingAllocationsCount: number;
+  totalConflictingHours: number;
+  conflictingAllocations: UnavailabilityConflictDetail[];
   warningMessage?: string | null;
-  affectedWeeks: string[];
-  conflicts: UnavailabilityConflictDetail[];
 }
 
 export interface ApproveUnavailabilityRequest {

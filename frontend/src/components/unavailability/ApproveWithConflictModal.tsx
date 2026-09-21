@@ -183,22 +183,25 @@ export default function ApproveWithConflictModal({
                     <p className="text-sm font-bold text-amber-900">Cảnh báo xung đột phân bổ dự án</p>
                     <p className="font-normal text-amber-800 mt-1 leading-relaxed">
                       Khoảng thời gian khai báo này trùng với{" "}
-                      <strong>{conflictResult?.conflictCount} phân bổ dự án</strong> đã lên lịch trong tuần.
+                      <strong>{conflictResult?.conflictingAllocationsCount} phân bổ dự án</strong> đã lên lịch trong tuần
+                      {conflictResult?.totalConflictingHours !== undefined && (
+                        <> (tổng <strong>{conflictResult.totalConflictingHours} giờ</strong>)</>
+                      )}.
                     </p>
                   </div>
                 </div>
 
                 {/* Conflicting allocations list */}
-                {conflictResult?.conflicts && conflictResult.conflicts.length > 0 && (
+                {conflictResult?.conflictingAllocations && conflictResult.conflictingAllocations.length > 0 && (
                   <div className="mt-2 space-y-1.5 bg-white/80 p-3 rounded-xl border border-amber-200/60 text-slate-700">
                     <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
                       Chi tiết phân bổ bị ảnh hưởng:
                     </p>
                     <div className="divide-y divide-amber-100 text-xs">
-                      {conflictResult.conflicts.map((c, idx) => (
+                      {conflictResult.conflictingAllocations.map((c, idx) => (
                         <div key={idx} className="py-1.5 flex items-center justify-between">
                           <span>
-                            Dự án #{c.projectId} &bull; Tuần <strong>{c.yearWeek}</strong>
+                            Dự án #{c.projectId} &bull; Tuần <strong>W{c.weekNumber}/{c.year}</strong>
                           </span>
                           <span className="font-bold text-amber-800">{c.allocatedHours} giờ</span>
                         </div>

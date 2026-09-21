@@ -5,12 +5,20 @@ import com.hrm.employeemanagement.application.dto.unavailability.UnavailabilityC
 import com.hrm.employeemanagement.application.port.inbound.unavailability.CheckUnavailabilityConflictUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.unavailability.LoadUnavailabilityDeclarationPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.unavailability.UnavailabilityDeclarationNotFoundException;
+import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.unavailability.UnavailabilityDeclaration;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,24 +36,42 @@ public class CheckUnavailabilityConflictService implements CheckUnavailabilityCo
     private final LoadUnavailabilityDeclarationPort loadUnavailabilityPort;
     private final LoadWeeklyProjectAllocationPort loadAllocationPort;
     private final AuthorizationService authorizationService;
+    private final LoadUserPort loadUserPort;
+    private final LoadEmployeePort loadEmployeePort;
+    private final UnavailabilityDataScopeValidator dataScopeValidator;
 
     public CheckUnavailabilityConflictService(
             LoadUnavailabilityDeclarationPort loadUnavailabilityPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            UnavailabilityDataScopeValidator dataScopeValidator
     ) {
         this.loadUnavailabilityPort = Objects.requireNonNull(loadUnavailabilityPort, "loadUnavailabilityPort must not be null");
         this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "loadAllocationPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
+        this.dataScopeValidator = Objects.requireNonNull(dataScopeValidator, "dataScopeValidator must not be null");
     }
 
     @Override
     public UnavailabilityConflictCheckResult checkConflict(Long declarationId) {
-        authorizationService.require(PermissionCode.UNAVAILABILITY_APPROVE);
+        Long currentUserId = authorizationService.require(PermissionCode.UNAVAILABILITY_APPROVE);
+
+        User currentUser = loadUserPort.findById(new UserId(currentUserId))
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
         UnavailabilityDeclaration declaration = loadUnavailabilityPort.findById(declarationId)
                 .orElseThrow(() -> new UnavailabilityDeclarationNotFoundException(
                         "Không tìm thấy khai báo thời gian không sẵn sàng với mã: " + declarationId));
+
+        Employee employee = loadEmployeePort.findById(new EmployeeId(declaration.getEmployeeId()))
+                .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên: " + declaration.getEmployeeId()));
+
+        // Kiểm tra Data Scope của người duyệt đối với nhân viên sở hữu đơn
+        dataScopeValidator.requireEmployeeInScope(currentUser, employee, PermissionCode.UNAVAILABILITY_APPROVE);
 
         Set<YearWeek> affectedWeeks = extractAffectedWeeks(declaration.getStartDate(), declaration.getEndDate());
         List<ConflictingAllocationInfo> conflicts = new ArrayList<>();

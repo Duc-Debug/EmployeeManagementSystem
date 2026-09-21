@@ -59,6 +59,7 @@ public class ApproveUnavailabilityDeclarationService implements ApproveUnavailab
     private final LoadEmployeePort loadEmployeePort;
     private final LoadUserPort loadUserPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
+    private final UnavailabilityDataScopeValidator dataScopeValidator;
     private final AuthorizationService authorizationService;
     private final SaveAuditLogPort saveAuditLogPort;
     private final LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
@@ -90,6 +91,7 @@ public class ApproveUnavailabilityDeclarationService implements ApproveUnavailab
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
         this.loadOrgUnitPort = loadOrgUnitPort;
+        this.dataScopeValidator = new UnavailabilityDataScopeValidator(loadOrgUnitPort);
         this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "saveAuditLogPort must not be null");
         this.loadWeeklyAvailabilityPort = loadWeeklyAvailabilityPort;
@@ -314,17 +316,6 @@ public class ApproveUnavailabilityDeclarationService implements ApproveUnavailab
     }
 
     private void requireEmployeeInScope(User currentUser, Employee employee) {
-        boolean allowed = switch (currentUser.getDataScope()) {
-            case COMPANY -> true;
-            case SELF -> currentUser.getIdValue() != null && currentUser.getIdValue().equals(employee.getUserIdValue());
-            case ORGANIZATION_BRANCH -> employee.getOrgUnitId() != null
-                    && currentUser.getScopeOrgUnitId() != null
-                    && loadOrgUnitPort != null
-                    && loadOrgUnitPort.existsInOrgUnitBranch(
-                            employee.getOrgUnitId(), currentUser.getScopeOrgUnitId());
-        };
-        if (!allowed) {
-            throw new PermissionDeniedException(PermissionCode.UNAVAILABILITY_APPROVE);
-        }
+        dataScopeValidator.requireEmployeeInScope(currentUser, employee, PermissionCode.UNAVAILABILITY_APPROVE);
     }
 }

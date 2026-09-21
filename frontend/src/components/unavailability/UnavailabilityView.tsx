@@ -42,14 +42,14 @@ export function formatDateVN(dateStr?: string | null): string {
 
 export default function UnavailabilityView() {
   const user = useAuthUser();
-  const roleCode = user?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
 
   const canApprove = useMemo(() => {
-    return (
-      user?.permissions?.includes("UNAVAILABILITY_APPROVE") === true ||
-      ["VT-01", "VT-03", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(roleCode)
-    );
-  }, [user, roleCode]);
+    return user?.permissions?.includes("UNAVAILABILITY_APPROVE") === true;
+  }, [user]);
+
+  const canDeclare = useMemo(() => {
+    return user?.permissions?.includes("UNAVAILABILITY_DECLARE") === true;
+  }, [user]);
 
   const [activeSubTab, setActiveSubTab] = useState<"my" | "pending">("my");
   const [myDeclarations, setMyDeclarations] = useState<UnavailabilityDeclarationResult[]>([]);
@@ -144,10 +144,18 @@ export default function UnavailabilityView() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const myPromise = getMyUnavailabilityDeclarations();
-      const pendingPromise = canApprove ? getPendingUnavailabilityDeclarations() : Promise.resolve([]);
-
-      const [myRes, pendingRes] = await Promise.all([myPromise, pendingPromise]);
+      const [myRes, pendingRes] = await Promise.all([
+        getMyUnavailabilityDeclarations().catch((err) => {
+          console.error("Lỗi tải danh sách khai báo cá nhân:", err);
+          return [];
+        }),
+        canApprove
+          ? getPendingUnavailabilityDeclarations().catch((err) => {
+              console.error("Lỗi tải danh sách khai báo chờ duyệt:", err);
+              return [];
+            })
+          : Promise.resolve([]),
+      ]);
       setMyDeclarations(myRes);
       setPendingDeclarations(pendingRes);
     } catch (err: unknown) {
@@ -261,15 +269,17 @@ export default function UnavailabilityView() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsDeclareModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition"
-          >
-            <Plus className="w-4 h-4" />
-            Khai báo không sẵn sàng
-          </button>
-        </div>
+        {canDeclare && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsDeclareModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition"
+            >
+              <Plus className="w-4 h-4" />
+              Khai báo không sẵn sàng
+            </button>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}

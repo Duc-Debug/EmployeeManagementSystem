@@ -20,6 +20,7 @@ import com.hrm.employeemanagement.application.service.unavailability.CheckUnavai
 import com.hrm.employeemanagement.application.service.unavailability.GetUnavailabilityDeclarationsService;
 import com.hrm.employeemanagement.application.service.unavailability.RejectUnavailabilityDeclarationService;
 import com.hrm.employeemanagement.application.service.unavailability.SubmitUnavailabilityDeclarationService;
+import com.hrm.employeemanagement.application.service.unavailability.UnavailabilityDataScopeValidator;
 import com.hrm.employeemanagement.infrastructure.transaction.unavailability.TransactionalUnavailabilityServiceDecorator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -105,10 +106,15 @@ public class UnavailabilityUseCaseConfig {
                 authorizationService
         );
 
+        UnavailabilityDataScopeValidator dataScopeValidator = new UnavailabilityDataScopeValidator(loadOrgUnitPort);
+
         CheckUnavailabilityConflictService checkService = new CheckUnavailabilityConflictService(
                 loadUnavailabilityPort,
                 loadAllocationPort,
-                authorizationService
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                dataScopeValidator
         );
 
         return new TransactionalUnavailabilityServiceDecorator(

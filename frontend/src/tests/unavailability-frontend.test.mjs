@@ -45,12 +45,12 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
     test("TC-06: Khi có xung đột phân bổ dự án (hasConflict = true), duyệt bắt buộc phải có confirmConflictWarning = true", () => {
       const conflictResult = {
         hasConflict: true,
-        conflictCount: 2,
-        warningMessage: "Trùng với 2 phân bổ dự án",
-        affectedWeeks: ["2026-W39"],
-        conflicts: [
-          { allocationId: 1, employeeId: 5, projectId: 10, yearWeek: "2026-W39", allocatedHours: 32 },
-          { allocationId: 2, employeeId: 5, projectId: 12, yearWeek: "2026-W39", allocatedHours: 8 }
+        conflictingAllocationsCount: 2,
+        totalConflictingHours: 40,
+        warningMessage: "Trùng với 2 phân bổ dự án (tổng 40 giờ)",
+        conflictingAllocations: [
+          { allocationId: 1, projectId: 10, year: 2026, weekNumber: 39, allocatedHours: 32 },
+          { allocationId: 2, projectId: 12, year: 2026, weekNumber: 39, allocatedHours: 8 }
         ]
       };
 
@@ -78,10 +78,10 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
     test("TC-07: Khi không có xung đột (hasConflict = false), không bắt buộc confirmConflictWarning", () => {
       const conflictResult = {
         hasConflict: false,
-        conflictCount: 0,
+        conflictingAllocationsCount: 0,
+        totalConflictingHours: 0,
         warningMessage: null,
-        affectedWeeks: [],
-        conflicts: []
+        conflictingAllocations: []
       };
 
       function validateApprovalPayload(conflict, userConfirmed) {
@@ -192,6 +192,34 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       const canCancel = (d) => d.status === "PENDING" || (d.status === "APPROVED" && d.startDate >= "2026-09-18");
       assert.equal(canCancel(rejected), false);
       assert.equal(canCancel(cancelled), false);
+    });
+  });
+
+  describe("Permission-based action guards (canApprove, canDeclare)", () => {
+    test("TC-17: canApprove chỉ trả về true khi user có quyền UNAVAILABILITY_APPROVE, không bị ảnh hưởng bởi roleCode", () => {
+      function checkCanApprove(user) {
+        return user?.permissions?.includes("UNAVAILABILITY_APPROVE") === true;
+      }
+
+      // VT-01 (Ban Giám Đốc) không có UNAVAILABILITY_APPROVE
+      assert.equal(checkCanApprove({ roleCode: "VT-01", permissions: ["UNAVAILABILITY_READ"] }), false);
+      // VT-05 (HR) không có UNAVAILABILITY_APPROVE
+      assert.equal(checkCanApprove({ roleCode: "VT-05", permissions: ["UNAVAILABILITY_READ"] }), false);
+      // VT-03 (RM) có UNAVAILABILITY_APPROVE
+      assert.equal(checkCanApprove({ roleCode: "VT-03", permissions: ["UNAVAILABILITY_READ", "UNAVAILABILITY_APPROVE"] }), true);
+      // VT-06 (Admin) có UNAVAILABILITY_APPROVE
+      assert.equal(checkCanApprove({ roleCode: "VT-06", permissions: ["UNAVAILABILITY_READ", "UNAVAILABILITY_APPROVE"] }), true);
+    });
+
+    test("TC-18: canDeclare chỉ trả về true khi user có quyền UNAVAILABILITY_DECLARE", () => {
+      function checkCanDeclare(user) {
+        return user?.permissions?.includes("UNAVAILABILITY_DECLARE") === true;
+      }
+
+      // VT-04 có UNAVAILABILITY_DECLARE
+      assert.equal(checkCanDeclare({ roleCode: "VT-04", permissions: ["UNAVAILABILITY_DECLARE"] }), true);
+      // VT-01 không có UNAVAILABILITY_DECLARE
+      assert.equal(checkCanDeclare({ roleCode: "VT-01", permissions: ["UNAVAILABILITY_READ"] }), false);
     });
   });
 });
