@@ -246,18 +246,10 @@ public class GetUpcomingWorkloadService implements GetUpcomingWorkloadUseCase {
 
         // Nạp giờ nghỉ phép đã duyệt
         Map<YearWeek, BigDecimal> approvedLeavesMap = new HashMap<>();
-        try {
-            Map<Long, Map<YearWeek, BigDecimal>> batchLeaves = loadApprovedLeavesPort
-                    .loadApprovedLeaveHoursForEmployeesAndWeeks(List.of(employeeId), targetWeeks);
-            if (batchLeaves != null && batchLeaves.containsKey(employeeId)) {
-                approvedLeavesMap.putAll(batchLeaves.get(employeeId));
-            }
-        } catch (Exception e) {
-            for (YearWeek yw : targetWeeks) {
-                BigDecimal leaves = loadApprovedLeavesPort.getTotalApprovedLeaveHoursBetween(
-                        employeeId, yw.getStartDate(), yw.getEndDate());
-                approvedLeavesMap.put(yw, leaves != null ? leaves : BigDecimal.ZERO);
-            }
+        Map<Long, Map<YearWeek, BigDecimal>> batchLeaves = loadApprovedLeavesPort
+                .loadApprovedLeaveHoursForEmployeesAndWeeks(List.of(employeeId), targetWeeks);
+        if (batchLeaves != null && batchLeaves.containsKey(employeeId)) {
+            approvedLeavesMap.putAll(batchLeaves.get(employeeId));
         }
 
         // Nạp giờ khả dụng tùy biến nếu có
@@ -282,14 +274,11 @@ public class GetUpcomingWorkloadService implements GetUpcomingWorkloadUseCase {
 
         Map<Long, ProjectRole> projectRolesMap = new HashMap<>();
         if (loadProjectRolePort != null) {
-            try {
-                loadProjectRolePort.findAll().forEach(r -> {
-                    if (r.getId() != null) {
-                        projectRolesMap.put(r.getId().value(), r);
-                    }
-                });
-            } catch (Exception ignored) {
-            }
+            loadProjectRolePort.findAll().forEach(r -> {
+                if (r.getId() != null) {
+                    projectRolesMap.put(r.getId().value(), r);
+                }
+            });
         }
 
         Map<YearWeek, List<WeeklyProjectAllocation>> allocationsByWeek = allocations.stream()

@@ -25,6 +25,10 @@ import {
 } from "@/lib/api/workload";
 import { useAuthUser } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
+import {
+  getISOWeeksInYear,
+  isSpecialistRole,
+} from "./workloadUtils";
 
 interface UpcomingWorkloadViewProps {
   employeeId?: number;
@@ -38,8 +42,7 @@ export default function UpcomingWorkloadView({
   onNavigateToLeave,
 }: UpcomingWorkloadViewProps) {
   const user = useAuthUser();
-  const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const isSpecialist = ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalizedRole);
+  const isSpecialist = isSpecialistRole(user?.roleCode);
 
   const [data, setData] = useState<UpcomingWorkloadResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -88,7 +91,7 @@ export default function UpcomingWorkloadView({
     let prevY = currentFirstWeek.year;
     if (prevW < 1) {
       prevY -= 1;
-      prevW = 52;
+      prevW = getISOWeeksInYear(prevY);
     }
     setStartYear(prevY);
     setStartWeek(prevW);
@@ -99,7 +102,8 @@ export default function UpcomingWorkloadView({
     const currentFirstWeek = data.weeklyWorkloads[0];
     let nextW = currentFirstWeek.weekNumber + 1;
     let nextY = currentFirstWeek.year;
-    if (nextW > 52) {
+    const maxWeeks = getISOWeeksInYear(nextY);
+    if (nextW > maxWeeks) {
       nextY += 1;
       nextW = 1;
     }
@@ -410,13 +414,13 @@ export default function UpcomingWorkloadView({
 
                     {/* Bar visualization */}
                     <div className="w-full h-36 flex items-end justify-center px-2 py-1 bg-slate-100/70 rounded-lg relative overflow-hidden">
-                      {/* 100% threshold guideline */}
+                      {/* Overload threshold guideline */}
                       <div
                         className="absolute w-full border-t border-dashed border-rose-400 left-0 z-10 pointer-events-none opacity-60"
-                        style={{ bottom: `${(100 / 150) * 100}%` }}
-                        title="Ngưỡng quá tải 100%"
+                        style={{ bottom: `${Math.min((overloadThreshold / 150) * 100, 100)}%` }}
+                        title={`Ngưỡng quá tải ${overloadThreshold}%`}
                       />
-                      {/* 70% threshold guideline */}
+                      {/* Idle threshold guideline */}
                       <div
                         className="absolute w-full border-t border-dashed border-amber-400 left-0 z-10 pointer-events-none opacity-60"
                         style={{ bottom: `${(idleThreshold / 150) * 100}%` }}

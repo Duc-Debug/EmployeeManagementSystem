@@ -40,6 +40,8 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -314,5 +316,76 @@ class GetUpcomingWorkloadServiceTest {
         verify(saveAuditLogPort).save(captor.capture());
         assertEquals("ACCESS_DENIED_EMPLOYEE_WORKLOAD", captor.getValue().getAction());
         assertTrue(captor.getValue().getNewValue().contains("ROLE_NOT_SPECIALIST"));
+    }
+
+    @Test
+    @DisplayName("ISO week boundary: W52 -> W53 -> W01")
+    void testUpcomingWorkload_CrossesIsoWeek53Boundary() {
+        when(authorizationService.require(PermissionCode.EMPLOYEE_READ)).thenReturn(100L);
+        when(loadEmployeePort.findByUserId(new UserId(100L))).thenReturn(Optional.of(employee));
+        when(loadOrgUnitPort.findById(any())).thenReturn(Optional.of(orgUnit));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(Collections.emptyList());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Collections.emptyList());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Collections.emptyList());
+
+        UpcomingWorkloadResult result = service.getMyUpcomingWorkload(2026, 52, 3);
+
+        assertEquals(3, result.weeklyWorkloads().size());
+        assertEquals(2026, result.weeklyWorkloads().get(0).year());
+        assertEquals(52, result.weeklyWorkloads().get(0).weekNumber());
+
+        assertEquals(2026, result.weeklyWorkloads().get(1).year());
+        assertEquals(53, result.weeklyWorkloads().get(1).weekNumber());
+
+        assertEquals(2027, result.weeklyWorkloads().get(2).year());
+        assertEquals(1, result.weeklyWorkloads().get(2).weekNumber());
+    }
+
+    @Test
+    @DisplayName("Custom Threshold: Ngưỡng quá tải cấu hình 110% thì 105% tải được đánh giá là NORMAL")
+    void testUpcomingWorkload_CustomThreshold_Overload110Percent() {
+        when(authorizationService.require(PermissionCode.EMPLOYEE_READ)).thenReturn(100L);
+        when(loadEmployeePort.findByUserId(new UserId(100L))).thenReturn(Optional.of(employee));
+        when(loadOrgUnitPort.findById(any())).thenReturn(Optional.of(orgUnit));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(Collections.emptyList());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Collections.emptyList());
+
+        CapacityThresholdConfig config = mock(CapacityThresholdConfig.class);
+        when(config.getOverloadThreshold()).thenReturn(BigDecimal.valueOf(110.0));
+        when(config.getIdleThreshold()).thenReturn(BigDecimal.valueOf(70.0));
+        when(loadCapacityThresholdPort.findByScope(eq(CapacityThresholdScope.ORG_UNIT), eq(1L)))
+                .thenReturn(Optional.of(config));
+
+        // 42h / 40h standard = 105%
+        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(
+                1L, 10L, 50L, null, YearWeek.of(2026, 40), BigDecimal.valueOf(42.0), BigDecimal.valueOf(105.0), 0L
+        );
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of(alloc));
+        when(loadProjectPort.findAllById(anyList())).thenReturn(Collections.emptyList());
+
+        UpcomingWorkloadResult result = service.getMyUpcomingWorkload(2026, 40, 1);
+
+        var week1 = result.weeklyWorkloads().get(0);
+        assertEquals("NORMAL", week1.status());
+        assertEquals(BigDecimal.valueOf(105.0).setScale(1), week1.utilizationPercentage());
+        assertEquals(BigDecimal.valueOf(110.0).setScale(1), result.effectiveOverloadThreshold());
+        assertEquals(0, result.summary().overloadedWeeksCount());
+    }
+
+    @Test
+    @DisplayName("ProjectRole query failure propagates Exception without being swallowed silently")
+    void testUpcomingWorkload_ProjectRoleFailure_PropagatesException() {
+        when(authorizationService.require(PermissionCode.EMPLOYEE_READ)).thenReturn(100L);
+        when(loadEmployeePort.findByUserId(new UserId(100L))).thenReturn(Optional.of(employee));
+        when(loadOrgUnitPort.findById(any())).thenReturn(Optional.of(orgUnit));
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(Collections.emptyList());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Collections.emptyList());
+
+        when(loadProjectRolePort.findAll()).thenThrow(new RuntimeException("DB project role connection error"));
+
+        assertThrows(RuntimeException.class, () -> service.getMyUpcomingWorkload(2026, 40, 8));
     }
 }

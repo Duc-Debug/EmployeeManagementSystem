@@ -1,58 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-
-// Helper functions mirroring business logic in UpcomingWorkloadView and backend service
-export function calculateNetAvailableHours(standardHours, holidayHours = 0, approvedLeaveHours = 0) {
-    return Math.max(0, standardHours - holidayHours - approvedLeaveHours);
-}
-
-export function calculateUtilization(allocatedHours, netAvailableHours) {
-    if (netAvailableHours <= 0) {
-        return allocatedHours > 0 ? 100 : 0;
-    }
-    return Math.round((allocatedHours / netAvailableHours) * 1000) / 10;
-}
-
-export function getWorkloadStatus(utilizationRate, overloadThreshold = 100, idleThreshold = 70) {
-    if (utilizationRate > overloadThreshold) {
-        return "OVERLOADED";
-    }
-    if (utilizationRate < idleThreshold) {
-        return "IDLE";
-    }
-    return "NORMAL";
-}
-
-export function getStatusColorClass(status) {
-    switch (status) {
-        case "OVERLOADED":
-            return {
-                bar: "bg-red-500",
-                badge: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border-red-200 dark:border-red-800",
-                border: "border-red-300 dark:border-red-800"
-            };
-        case "IDLE":
-            return {
-                bar: "bg-amber-500",
-                badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border-amber-200 dark:border-amber-800",
-                border: "border-amber-300 dark:border-amber-800"
-            };
-        case "NORMAL":
-        default:
-            return {
-                bar: "bg-emerald-500",
-                badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
-                border: "border-emerald-300 dark:border-emerald-800"
-            };
-    }
-}
-
-// Specialist-only check for NCL-13-CN-004 view
-export function isSpecialistRole(role) {
-    if (!role) return false;
-    const normalized = String(role).toUpperCase().trim();
-    return ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalized);
-}
+import {
+    getISOWeeksInYear,
+    calculateNetAvailableHours,
+    calculateUtilization,
+    getWorkloadStatus,
+    getStatusColorClass,
+    isSpecialistRole,
+} from "../components/workload/workloadUtils.ts";
 
 export function canAccessEmployeeWorkload(currentUser, targetEmployee) {
     if (!currentUser || !isSpecialistRole(currentUser.roleCode)) return false;
@@ -60,6 +15,12 @@ export function canAccessEmployeeWorkload(currentUser, targetEmployee) {
 }
 
 describe("NCL-13-CN-004: Upcoming Workload Frontend Logic Tests", () => {
+
+    test("ISO Weeks in year: Tính đúng năm có 52 và 53 tuần ISO", () => {
+        assert.equal(getISOWeeksInYear(2025), 52, "2025 có 52 tuần ISO");
+        assert.equal(getISOWeeksInYear(2026), 53, "2026 có 53 tuần ISO");
+        assert.equal(getISOWeeksInYear(2027), 52, "2027 có 52 tuần ISO");
+    });
 
     test("TC-01: Luồng thành công - Tính toán khối lượng 8 tuần bình thường và năng lực khả dụng", () => {
         const standardHours = 40;
