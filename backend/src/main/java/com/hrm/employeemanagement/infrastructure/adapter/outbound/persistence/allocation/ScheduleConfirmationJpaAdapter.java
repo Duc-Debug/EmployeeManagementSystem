@@ -94,7 +94,6 @@ public class ScheduleConfirmationJpaAdapter implements ScheduleConfirmationPort 
             entity = new ScheduleConfirmationJpaEntity();
             entity.setUserId(userId);
             entity.setWeekStartDate(weekStartDate);
-            entity.setConfirmedAt(feedbackAt);
             entity.setFeedbackNote(feedbackNote);
             entity.setFeedbackAt(feedbackAt);
             entity.setConfirmationStatus("HAS_FEEDBACK");

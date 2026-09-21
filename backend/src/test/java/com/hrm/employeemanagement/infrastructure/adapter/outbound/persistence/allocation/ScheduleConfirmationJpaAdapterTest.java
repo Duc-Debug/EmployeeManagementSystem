@@ -118,4 +118,72 @@ class ScheduleConfirmationJpaAdapterTest {
         assertThat(result.newlyCreated()).isFalse();
         assertThat(result.record().confirmedAt()).isEqualTo(latestTime);
     }
+
+    @Test
+    @DisplayName("saveFeedback lần đầu (chưa có confirmation record) -> confirmedAt phải giữ NULL")
+    void saveFeedback_NewRecord_KeepsConfirmedAtNull() {
+        when(repository.findByUserIdAndWeekStartDate(userId, monday)).thenReturn(Optional.empty());
+
+        LocalDateTime feedbackTime = LocalDateTime.now();
+        String reason = "Cần điều chỉnh giờ";
+        ScheduleConfirmationJpaEntity savedEntity = new ScheduleConfirmationJpaEntity();
+        savedEntity.setId(2L);
+        savedEntity.setUserId(userId);
+        savedEntity.setWeekStartDate(monday);
+        savedEntity.setConfirmedAt(null);
+        savedEntity.setFeedbackNote(reason);
+        savedEntity.setFeedbackAt(feedbackTime);
+        savedEntity.setConfirmationStatus("HAS_FEEDBACK");
+        savedEntity.setIpAddress("127.0.0.1");
+
+        when(saveHelper.saveInIsolatedTransaction(any(ScheduleConfirmationJpaEntity.class))).thenAnswer(invocation -> {
+            ScheduleConfirmationJpaEntity entityPassed = invocation.getArgument(0);
+            assertThat(entityPassed.getConfirmedAt()).isNull();
+            assertThat(entityPassed.getFeedbackNote()).isEqualTo(reason);
+            assertThat(entityPassed.getFeedbackAt()).isEqualTo(feedbackTime);
+            return savedEntity;
+        });
+
+        SaveConfirmationResult result = adapter.saveFeedback(userId, monday, reason, feedbackTime, "127.0.0.1");
+
+        assertThat(result.newlyCreated()).isTrue();
+        assertThat(result.record().confirmedAt()).isNull();
+        assertThat(result.record().feedbackNote()).isEqualTo(reason);
+        assertThat(result.record().feedbackAt()).isEqualTo(feedbackTime);
+        assertThat(result.record().confirmationStatus()).isEqualTo("HAS_FEEDBACK");
+    }
+
+    @Test
+    @DisplayName("saveFeedback trên bản ghi đã có confirmation -> giữ nguyên confirmedAt trước đó")
+    void saveFeedback_ExistingRecord_PreservesConfirmedAt() {
+        LocalDateTime previousConfirmedAt = LocalDateTime.now().minusDays(2);
+        ScheduleConfirmationJpaEntity existing = new ScheduleConfirmationJpaEntity(1L, userId, monday, previousConfirmedAt, "127.0.0.1");
+        when(repository.findByUserIdAndWeekStartDate(userId, monday)).thenReturn(Optional.of(existing));
+
+        LocalDateTime feedbackTime = LocalDateTime.now();
+        String reason = "Ý kiến phản hồi bổ sung";
+        ScheduleConfirmationJpaEntity savedEntity = new ScheduleConfirmationJpaEntity();
+        savedEntity.setId(1L);
+        savedEntity.setUserId(userId);
+        savedEntity.setWeekStartDate(monday);
+        savedEntity.setConfirmedAt(previousConfirmedAt);
+        savedEntity.setFeedbackNote(reason);
+        savedEntity.setFeedbackAt(feedbackTime);
+        savedEntity.setConfirmationStatus("HAS_FEEDBACK");
+        savedEntity.setIpAddress("127.0.0.1");
+
+        when(saveHelper.saveInIsolatedTransaction(any(ScheduleConfirmationJpaEntity.class))).thenAnswer(invocation -> {
+            ScheduleConfirmationJpaEntity entityPassed = invocation.getArgument(0);
+            assertThat(entityPassed.getConfirmedAt()).isEqualTo(previousConfirmedAt);
+            assertThat(entityPassed.getFeedbackNote()).isEqualTo(reason);
+            return savedEntity;
+        });
+
+        SaveConfirmationResult result = adapter.saveFeedback(userId, monday, reason, feedbackTime, "127.0.0.1");
+
+        assertThat(result.newlyCreated()).isFalse();
+        assertThat(result.record().confirmedAt()).isEqualTo(previousConfirmedAt);
+        assertThat(result.record().feedbackNote()).isEqualTo(reason);
+        assertThat(result.record().confirmationStatus()).isEqualTo("HAS_FEEDBACK");
+    }
 }

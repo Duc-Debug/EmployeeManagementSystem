@@ -463,4 +463,49 @@ class MyAllocationsControllerIntegrationTest {
                 .andExpect(jsonPath("$.error_code").value("WEEK_START_NOT_MONDAY"))
                 .andExpect(jsonPath("$.status").value(400));
     }
+
+    @Test
+    @DisplayName("TC-17: Feedback-only flow - Chưa có confirmation -> POST feedback -> confirmed_at IS NULL -> GET schedule trả về HAS_FEEDBACK")
+    void tc17_FeedbackOnlyFlow_ConfirmedAtNull_GetScheduleHasFeedback() throws Exception {
+        LocalDate monday = LocalDate.of(2026, 9, 21);
+        LocalDateTime feedbackTime = LocalDateTime.of(2026, 9, 21, 14, 30);
+        String reason = "Khối lượng công việc tuần này vượt quá 40h, đề xuất giảm tải.";
+
+        // 1. Chưa có confirmation record ban đầu
+        when(scheduleConfirmationPort.findByUserIdAndWeek(userId.value(), monday))
+                .thenReturn(Optional.empty());
+
+        // 2. POST /feedback thành công, lưu record với confirmedAt = NULL
+        when(scheduleConfirmationPort.saveFeedback(eq(userId.value()), eq(monday), eq(reason), any(LocalDateTime.class), anyString()))
+                .thenReturn(new ScheduleConfirmationPort.SaveConfirmationResult(
+                        new ScheduleConfirmationRecord(10L, userId.value(), monday, null, "127.0.0.1", reason, feedbackTime, "HAS_FEEDBACK"),
+                        true
+                ));
+
+        mockMvc.perform(post("/api/v1/my-allocations/2026-09-21/feedback")
+                        .contentType("application/json")
+                        .content("{\"reason\": \"" + reason + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.confirmation_status").value("HAS_FEEDBACK"))
+                .andExpect(jsonPath("$.feedback_note").value(reason));
+
+        // 3. GET /api/v1/my-allocations
+        AllocationItem allocationItem = new AllocationItem(
+                200L, 5L, "Dự án NCL Core", "ACTIVE", new BigDecimal("40.00"), feedbackTime.minusHours(1)
+        );
+        when(loadMyAllocationsPort.loadAllocationsForEmployeeInWeek(employeeId.value(), monday))
+                .thenReturn(List.of(allocationItem));
+        when(scheduleConfirmationPort.findByUserIdAndWeeks(eq(userId.value()), eq(List.of(monday))))
+                .thenReturn(List.of(new ScheduleConfirmationRecord(
+                        10L, userId.value(), monday, null, "127.0.0.1", reason, feedbackTime, "HAS_FEEDBACK"
+                )));
+
+        mockMvc.perform(get("/api/v1/my-allocations?week_start=2026-09-21&weeks=1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weeks[0].week_start_date").value("2026-09-21"))
+                .andExpect(jsonPath("$.weeks[0].confirmation_status").value("HAS_FEEDBACK"))
+                .andExpect(jsonPath("$.weeks[0].confirmed_at").doesNotExist())
+                .andExpect(jsonPath("$.weeks[0].feedback_note").value(reason))
+                .andExpect(jsonPath("$.weeks[0].feedback_at").exists());
+    }
 }
