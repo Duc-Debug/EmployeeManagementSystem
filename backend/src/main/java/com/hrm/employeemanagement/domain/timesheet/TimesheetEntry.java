@@ -7,6 +7,7 @@ import java.util.Objects;
 
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetImmutableException;
+import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotApprovedException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogDescriptionBlankException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogInvalidHoursException;
 import com.hrm.employeemanagement.domain.project.ProjectId;
@@ -170,6 +171,32 @@ public class TimesheetEntry {
         }
         this.status = TimesheetStatus.REJECTED;
         this.rejectionReason = reason.trim();
+        touch();
+    }
+
+    public void adjustApproved(
+            TaskId newTaskId,
+            BigDecimal newHours,
+            Boolean newBillable,
+            String newDescription) {
+        if (this.status != TimesheetStatus.APPROVED) {
+            throw new TimesheetNotApprovedException(
+                    "Chỉ có thể điều chỉnh dòng giờ công đã được duyệt (APPROVED). Trạng thái hiện tại: [" + this.status + "].");
+        }
+        if (newTaskId != null) {
+            this.taskId = newTaskId;
+        }
+        if (newHours != null) {
+            validateHours(newHours);
+            this.hours = newHours;
+        }
+        if (newBillable != null) {
+            this.billable = newBillable;
+        }
+        if (newDescription != null) {
+            validateDescription(newDescription);
+            this.description = newDescription.trim();
+        }
         touch();
     }
 
