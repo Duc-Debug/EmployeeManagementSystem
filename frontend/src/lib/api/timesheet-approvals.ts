@@ -27,3 +27,22 @@ export const rejectTimesheetEntry = async (
     body: JSON.stringify({ version, rejectionReason }),
   });
 };
+
+export interface AdjustApprovedWorkLogRequest {
+  hours: number;
+  taskId?: number;
+  isBillable?: boolean;
+  description?: string;
+  reason: string;
+  version: number;
+}
+
+export const adjustApprovedTimesheetEntry = async (
+  entryId: number,
+  data: AdjustApprovedWorkLogRequest
+): Promise<ApprovalResult> => {
+  return await apiRequest(`/work-logs/approvals/entries/${entryId}/adjust`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};

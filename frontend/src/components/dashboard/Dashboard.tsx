@@ -23,6 +23,7 @@ import CapacityDashboardView from "../capacity/CapacityDashboardView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
 import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWarningView";
 import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
+import EmployeeImportView from "../import/EmployeeImportView";
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
 import RmDashboardOverview from "./RmDashboardOverview";
@@ -72,6 +73,7 @@ export default function Dashboard() {
         if (path.includes("recruitment") || path.includes("tuyen-dung")) return "recruitment-demand";
         if (path.includes("simulation-scenario") || path.includes("mo-phong-kich-ban") || path.includes("scenarios")) return "simulation-scenarios";
         if (path.includes("schedule-conflict") || path.includes("xung-dot-lich") || path.includes("conflict")) return "schedule-conflict";
+        if (path.includes("data-import") || path.includes("nhap-du-lieu") || path.includes("employee-import") || path.includes("import")) return "data-import";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         return "overview";
     }, [location.pathname]);
@@ -282,6 +284,8 @@ export default function Dashboard() {
                                  {activeTab === "timesheet-variance" && <TimesheetVarianceReportView />}
 
                                  {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
+
+                                 {activeTab === "data-import" && <EmployeeImportView />}
 
                                 {activeTab === "project-allocation-report" && <ProjectAllocationReportView />}
 

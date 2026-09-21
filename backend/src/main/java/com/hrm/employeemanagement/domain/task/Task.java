@@ -406,6 +406,32 @@ public class Task {
         return TaskBudgetPolicy.determineBurnStatus(this.budgetHours, calculateBurnedPercentage());
     }
 
+    public void addActualHours(BigDecimal hours) {
+        BigDecimal toAdd = hours != null ? hours : BigDecimal.ZERO;
+        BigDecimal current = this.actualHours != null ? this.actualHours : BigDecimal.ZERO;
+        BigDecimal updated = current.add(toAdd);
+        if (updated.compareTo(BigDecimal.ZERO) < 0) {
+            updated = BigDecimal.ZERO;
+        }
+        this.actualHours = updated;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void subtractActualHours(BigDecimal hours) {
+        BigDecimal toSub = hours != null ? hours : BigDecimal.ZERO;
+        BigDecimal current = this.actualHours != null ? this.actualHours : BigDecimal.ZERO;
+        BigDecimal updated = current.subtract(toSub);
+        if (updated.compareTo(BigDecimal.ZERO) < 0) {
+            // A negative value proves Task.actualHours and approved entries disagree.
+            // Fail fast instead of hiding the corruption by clamping the value to zero.
+            throw new InvalidTaskDataException(
+                    "Không thể trừ " + toSub + " giờ khỏi actualHours " + current
+                            + ": dữ liệu Task và bảng chấm công không nhất quán");
+        }
+        this.actualHours = updated;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Validations
     private void validateProjectId(ProjectId projectId) {
         if (projectId == null || projectId.value() == null) {

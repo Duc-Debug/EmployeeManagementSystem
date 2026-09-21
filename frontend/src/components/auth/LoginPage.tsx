@@ -252,7 +252,12 @@ export default function LoginPage({ onLogin, initialError }: AdminLoginPageProps
                     </button>
                 </form>
 
-                <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+                <div className="mt-4 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100/80 text-[11px] text-indigo-700 leading-relaxed flex items-start gap-1.5">
+                    <span className="font-semibold shrink-0">💡 Lưu ý:</span>
+                    <span>Nhân viên mới tham gia hệ thống vui lòng sử dụng chức năng <strong>Quên mật khẩu</strong> với Email/Tên đăng nhập đã đăng ký để thiết lập mật khẩu lần đầu.</span>
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-slate-100 text-center">
                     <p className="text-[11px] text-slate-400">
                         Hệ thống nội bộ • Cần hỗ trợ?{" "}
                         <a
