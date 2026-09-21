@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
     AlertTriangle,
     RefreshCw,
@@ -119,42 +119,37 @@ export default function OutsourcedContractWarningView() {
     };
 
     // Filtered data
-    const filteredContracts = useMemo(() => {
-        return contracts.filter((c) => {
-            const matchSearch =
-                !debouncedSearch.trim() ||
-                c.fullName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                c.employeeCode.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                (c.orgUnitName && c.orgUnitName.toLowerCase().includes(debouncedSearch.toLowerCase()));
+    const filteredContracts = contracts.filter((c) => {
+        const matchSearch =
+            !debouncedSearch.trim() ||
+            c.fullName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            c.employeeCode.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            (c.orgUnitName && c.orgUnitName.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
-            if (!matchSearch) return false;
+        if (!matchSearch) return false;
 
-            if (statusFilter === "EXPIRING_SOON") return c.status === "EXPIRING_SOON";
-            if (statusFilter === "EXPIRED") return c.status === "EXPIRED";
-            if (statusFilter === "AFFECTED_ONLY") return c.affectedAllocations && c.affectedAllocations.length > 0;
+        if (statusFilter === "EXPIRING_SOON") return c.status === "EXPIRING_SOON";
+        if (statusFilter === "EXPIRED") return c.status === "EXPIRED";
+        if (statusFilter === "AFFECTED_ONLY") return c.affectedAllocations && c.affectedAllocations.length > 0;
 
-            return true;
-        });
-    }, [contracts, debouncedSearch, statusFilter]);
+        return true;
+    });
 
     // Paginated items
     const totalPages = Math.max(1, Math.ceil(filteredContracts.length / pageSize));
-    const paginatedContracts = useMemo(() => {
-        const start = (currentPage - 1) * pageSize;
-        return filteredContracts.slice(start, start + pageSize);
-    }, [filteredContracts, currentPage, pageSize]);
+    const start = (currentPage - 1) * pageSize;
+    const paginatedContracts = filteredContracts.slice(start, start + pageSize);
 
     // Summary statistics
-    const stats = useMemo(() => {
-        const total = contracts.length;
-        const expiringSoon = contracts.filter((c) => c.status === "EXPIRING_SOON").length;
-        const expired = contracts.filter((c) => c.status === "EXPIRED").length;
-        const totalAffectedAllocations = contracts.reduce(
+    const stats = {
+        total: contracts.length,
+        expiringSoon: contracts.filter((c) => c.status === "EXPIRING_SOON").length,
+        expired: contracts.filter((c) => c.status === "EXPIRED").length,
+        totalAffectedAllocations: contracts.reduce(
             (acc, c) => acc + (c.affectedAllocations ? c.affectedAllocations.length : 0),
             0
-        );
-        return { total, expiringSoon, expired, totalAffectedAllocations };
-    }, [contracts]);
+        ),
+    };
 
     return (
         <div className="space-y-6">
