@@ -3,54 +3,17 @@
 -- Feature: NCL-13-CN-002 (Xac nhan phan bo duoc giao - Quy tac QTN-24)
 -- ============================================================
 
-DROP PROCEDURE IF EXISTS upgrade_employee_schedule_confirmation_v114;
-DELIMITER //
-CREATE PROCEDURE upgrade_employee_schedule_confirmation_v114()
-BEGIN
-    -- 1. Modify confirmed_at to NULLABLE
-    IF EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS 
-        WHERE TABLE_SCHEMA = DATABASE() 
-          AND TABLE_NAME = 'employee_schedule_confirmation' 
-          AND COLUMN_NAME = 'confirmed_at'
-    ) THEN
-        ALTER TABLE employee_schedule_confirmation MODIFY COLUMN confirmed_at DATETIME(6) NULL;
-    END IF;
+ALTER TABLE employee_schedule_confirmation 
+    MODIFY COLUMN confirmed_at DATETIME(6) NULL;
 
-    -- 2. Add feedback_note if not exists
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS 
-        WHERE TABLE_SCHEMA = DATABASE() 
-          AND TABLE_NAME = 'employee_schedule_confirmation' 
-          AND COLUMN_NAME = 'feedback_note'
-    ) THEN
-        ALTER TABLE employee_schedule_confirmation ADD COLUMN feedback_note TEXT NULL AFTER ip_address;
-    END IF;
+ALTER TABLE employee_schedule_confirmation 
+    ADD COLUMN feedback_note TEXT NULL;
 
-    -- 3. Add feedback_at if not exists
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS 
-        WHERE TABLE_SCHEMA = DATABASE() 
-          AND TABLE_NAME = 'employee_schedule_confirmation' 
-          AND COLUMN_NAME = 'feedback_at'
-    ) THEN
-        ALTER TABLE employee_schedule_confirmation ADD COLUMN feedback_at DATETIME(6) NULL AFTER feedback_note;
-    END IF;
+ALTER TABLE employee_schedule_confirmation 
+    ADD COLUMN feedback_at DATETIME(6) NULL;
 
-    -- 4. Add confirmation_status if not exists
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS 
-        WHERE TABLE_SCHEMA = DATABASE() 
-          AND TABLE_NAME = 'employee_schedule_confirmation' 
-          AND COLUMN_NAME = 'confirmation_status'
-    ) THEN
-        ALTER TABLE employee_schedule_confirmation ADD COLUMN confirmation_status VARCHAR(30) NOT NULL DEFAULT 'CONFIRMED' AFTER feedback_at;
-    END IF;
-END //
-DELIMITER ;
-
-CALL upgrade_employee_schedule_confirmation_v114();
-DROP PROCEDURE IF EXISTS upgrade_employee_schedule_confirmation_v114;
+ALTER TABLE employee_schedule_confirmation 
+    ADD COLUMN confirmation_status VARCHAR(30) NOT NULL DEFAULT 'CONFIRMED';
 
 -- Enforce MY_ALLOCATION_CONFIRM & MY_ALLOCATION_READ permissions
 INSERT INTO permissions (code, name, description)
