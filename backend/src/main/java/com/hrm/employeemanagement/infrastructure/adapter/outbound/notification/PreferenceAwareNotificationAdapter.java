@@ -118,14 +118,14 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
                     .findFirstByRecipientUserIdAndAvailableAtAndDigestFrequencyAndDeliveredAtIsNull(
                             notification.getRecipientId().value(), decision.availableAt(), digestFrequency);
             if (existing.isPresent()) {
-                emailDigestHelper.append(existing.get().getId(), item);
+                appendDigestItemIfAbsent(existing.get().getId(), notification, item);
                 return;
             }
         }
         String subject = digestFrequency == null ? notification.getTitle()
                 : decision.frequency() == com.hrm.employeemanagement.domain.notification.NotificationFrequency.DAILY_DIGEST
                         ? "Bản tin thông báo hàng ngày" : "Bản tin thông báo hàng tuần";
-        String body = digestFrequency == null ? notification.getContent() : item;
+        String body = digestFrequency == null ? notification.getContent() : "";
         NotificationEmailOutboxJpaEntity newMessage = new NotificationEmailOutboxJpaEntity(
                 notification.getRecipientId().value(), email, name, subject,
                 body == null ? "" : body, decision.availableAt(), LocalDateTime.now(clock), digestFrequency);
@@ -144,13 +144,23 @@ public class PreferenceAwareNotificationAdapter implements SaveNotificationPort 
             return;
         }
         try {
-            emailDigestHelper.create(newMessage);
+            NotificationEmailOutboxJpaEntity created = emailDigestHelper.create(newMessage);
+            appendDigestItemIfAbsent(created.getId(), notification, item);
         } catch (DataIntegrityViolationException concurrentInsert) {
             var winner = emailOutboxRepository
                     .findFirstByRecipientUserIdAndAvailableAtAndDigestFrequencyAndDeliveredAtIsNull(
                             notification.getRecipientId().value(), decision.availableAt(), digestFrequency)
                     .orElseThrow(() -> concurrentInsert);
-            emailDigestHelper.append(winner.getId(), item);
+            appendDigestItemIfAbsent(winner.getId(), notification, item);
+        }
+    }
+
+    private void appendDigestItemIfAbsent(Long outboxId, Notification notification, String item) {
+        try {
+            emailDigestHelper.appendIfAbsent(
+                    outboxId, notification.getSourceEventKey(), item, LocalDateTime.now(clock));
+        } catch (DataIntegrityViolationException duplicateItem) {
+            // This source notification is already part of the digest batch.
         }
     }
 
