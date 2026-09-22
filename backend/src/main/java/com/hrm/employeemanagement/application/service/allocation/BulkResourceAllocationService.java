@@ -183,9 +183,7 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
             // 2. QTN-05 / QTN-21: Kiểm tra thời hạn hợp đồng lao động / thuê ngoài
             if (employee.isOutsourced()) {
                 if (!employee.isWithinContractPeriod(yw)) {
-                    String reasonCode = (employee.getStartDate() != null && yw.getEndDate().isBefore(employee.getStartDate()))
-                            ? "CONTRACT_NOT_STARTED"
-                            : "CONTRACT_EXPIRED";
+                    String reasonCode = "CONTRACT_OUT_OF_BOUNDS";
                     String reasonMsg = (employee.getStartDate() != null && yw.getEndDate().isBefore(employee.getStartDate()))
                             ? "Hợp đồng thuê ngoài chưa có hiệu lực tại tuần " + yw.weekNumber() + "/" + yw.year()
                             : "Hợp đồng thuê ngoài đã kết thúc trước tuần " + yw.weekNumber() + "/" + yw.year();
@@ -350,9 +348,10 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                     ? command.allocationPercentagePerWeek() + "%/tuần"
                     : command.allocatedHoursPerWeek() + "h/tuần";
 
+            String auditAction = employee.isOutsourced() ? "ALLOCATE_OUTSOURCED_RESOURCE" : "RESOURCE_BULK_ALLOCATED";
             saveAuditLogPort.save(AuditLog.createChange(
                     currentUserId,
-                    "RESOURCE_BULK_ALLOCATED",
+                    auditAction,
                     "weekly_project_allocations",
                     null,
                     "Phân bổ hàng loạt: " + successWeeks.size() + " tuần thành công, " + blockedWeeks.size()

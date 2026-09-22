@@ -381,10 +381,11 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             ));
         }
 
-        // [TC-04, TC-05] Ghi nhật ký kiểm toán (Audit Log)
+        // [TC-04, TC-05, BR-07] Ghi nhật ký kiểm toán (Audit Log)
+        String auditAction = employee.isOutsourced() ? "ALLOCATE_OUTSOURCED_RESOURCE" : "RESOURCE_ALLOCATED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "RESOURCE_ALLOCATED",
+                auditAction,
                 "weekly_project_allocations",
                 saved.getId(),
                 "Phân bổ cũ: " + oldValue,

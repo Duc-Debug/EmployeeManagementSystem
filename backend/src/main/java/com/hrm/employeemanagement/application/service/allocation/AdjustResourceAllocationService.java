@@ -358,9 +358,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
                 notifiedPmIds
         ));
 
+        String auditAction = employee.isOutsourced() ? "ADJUST_OUTSOURCED_ALLOCATION" : "ALLOCATION_HOURS_EDITED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "ALLOCATION_HOURS_EDITED",
+                auditAction,
                 "weekly_project_allocations",
                 saved.getId(),
                 "Phân bổ cũ: " + oldValue,
@@ -498,9 +499,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
                 notifiedPmIds
         ));
 
+        String auditAction = employee.isOutsourced() ? "ADJUST_OUTSOURCED_ALLOCATION" : "ALLOCATION_WEEK_MOVED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "ALLOCATION_WEEK_MOVED",
+                auditAction,
                 "weekly_project_allocations",
                 saved.getId(),
                 "Tuần cũ: " + oldValue,
@@ -550,9 +552,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
                 notifiedPmIds
         ));
 
+        String auditAction = employee.isOutsourced() ? "ADJUST_OUTSOURCED_ALLOCATION" : "ALLOCATION_REMOVED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "ALLOCATION_REMOVED",
+                auditAction,
                 "weekly_project_allocations",
                 allocation.getId(),
                 "Phân bổ cũ: " + oldValue,

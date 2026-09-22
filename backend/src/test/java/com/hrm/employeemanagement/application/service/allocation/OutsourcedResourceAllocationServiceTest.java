@@ -274,7 +274,7 @@ class OutsourcedResourceAllocationServiceTest {
         assertFalse(result.isOverAllocated());
 
         verify(saveAllocationPort).save(any(WeeklyProjectAllocation.class));
-        verify(saveAuditLogPort).save(any());
+        verify(saveAuditLogPort).save(org.mockito.ArgumentMatchers.argThat(a -> "ALLOCATE_OUTSOURCED_RESOURCE".equals(a.getAction())));
     }
 
     @Test
@@ -362,8 +362,9 @@ class OutsourcedResourceAllocationServiceTest {
         assertEquals(3, result.successWeeks().size()); // Tuần 22, 23, 24
         assertEquals(2, result.blockedWeeks().size()); // Tuần 20, 21
 
-        assertTrue(result.blockedWeeks().stream().anyMatch(b -> b.weekNumber() == 20 && "CONTRACT_NOT_STARTED".equals(b.reasonCode())));
-        assertTrue(result.blockedWeeks().stream().anyMatch(b -> b.weekNumber() == 21 && "CONTRACT_NOT_STARTED".equals(b.reasonCode())));
+        assertTrue(result.blockedWeeks().stream().anyMatch(b -> b.weekNumber() == 20 && "CONTRACT_OUT_OF_BOUNDS".equals(b.reasonCode())));
+        assertTrue(result.blockedWeeks().stream().anyMatch(b -> b.weekNumber() == 21 && "CONTRACT_OUT_OF_BOUNDS".equals(b.reasonCode())));
+        verify(saveAuditLogPort).save(org.mockito.ArgumentMatchers.argThat(a -> "ALLOCATE_OUTSOURCED_RESOURCE".equals(a.getAction())));
     }
 
     @Test
@@ -433,6 +434,6 @@ class OutsourcedResourceAllocationServiceTest {
         assertNotNull(result);
         assertEquals(outsourcedEmpId, result.employeeId());
         verify(saveAllocationPort).save(any(WeeklyProjectAllocation.class));
-        verify(commonSaveAuditLogPort).save(any());
+        verify(commonSaveAuditLogPort).save(org.mockito.ArgumentMatchers.argThat(a -> "ADJUST_OUTSOURCED_ALLOCATION".equals(a.getAction())));
     }
 }
