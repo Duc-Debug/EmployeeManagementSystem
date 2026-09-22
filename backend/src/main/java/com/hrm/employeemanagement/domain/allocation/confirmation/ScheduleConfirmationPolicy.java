@@ -10,8 +10,9 @@ import java.util.Objects;
  * Domain Policy chuyên trách về trạng thái xác nhận và chuyển đổi trạng thái:
  * - Chuẩn hóa ngày về Thứ Hai (Monday)
  * - Ép dải số tuần (clamping [1, 8])
- * - Đánh giá trạng thái xác nhận (NOT_CONFIRMED, CONFIRMED, STALE)
+ * - Đánh giá trạng thái xác nhận (NOT_CONFIRMED, CONFIRMED, STALE, HAS_FEEDBACK)
  * - Xác định kết quả hành động xác nhận (first-time 201, idempotent 200, re-confirm stale 200)
+ * - Nghiệp vụ QTN-24: Ghi nhận ý kiến phản hồi kèm lý do bắt buộc mà không làm tự động thay đổi phân bổ.
  */
 public final class ScheduleConfirmationPolicy {
 
@@ -34,7 +35,20 @@ public final class ScheduleConfirmationPolicy {
         return Math.max(MIN_WEEKS, Math.min(MAX_WEEKS, weeks));
     }
 
-    public static ConfirmationStatus determineConfirmationStatus(LocalDateTime confirmedAt, LocalDateTime maxAllocationUpdatedAt) {
+    public static ConfirmationStatus determineConfirmationStatus(
+            LocalDateTime confirmedAt,
+            LocalDateTime feedbackAt,
+            String feedbackNote,
+            LocalDateTime maxAllocationUpdatedAt) {
+        boolean hasFeedback = feedbackNote != null && !feedbackNote.isBlank() && feedbackAt != null;
+
+        if (hasFeedback && (confirmedAt == null || feedbackAt.isAfter(confirmedAt))) {
+            if (maxAllocationUpdatedAt != null && maxAllocationUpdatedAt.isAfter(feedbackAt)) {
+                return ConfirmationStatus.STALE;
+            }
+            return ConfirmationStatus.HAS_FEEDBACK;
+        }
+
         if (confirmedAt == null) {
             return ConfirmationStatus.NOT_CONFIRMED;
         }
@@ -42,6 +56,10 @@ public final class ScheduleConfirmationPolicy {
             return ConfirmationStatus.STALE;
         }
         return ConfirmationStatus.CONFIRMED;
+    }
+
+    public static ConfirmationStatus determineConfirmationStatus(LocalDateTime confirmedAt, LocalDateTime maxAllocationUpdatedAt) {
+        return determineConfirmationStatus(confirmedAt, null, null, maxAllocationUpdatedAt);
     }
 
     public record ConfirmationActionResult(
@@ -71,5 +89,11 @@ public final class ScheduleConfirmationPolicy {
 
         // Double click / Retry khi dữ liệu không đổi: 200 OK, already_confirmed: true, giữ confirmed_at cũ
         return new ConfirmationActionResult(200, true, false, currentConfirmedAt);
+    }
+
+    public static void validateFeedbackReason(String reason) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Lý do hoặc ý kiến phản hồi không được để trống theo quy định QTN-24");
+        }
     }
 }

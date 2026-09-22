@@ -48,31 +48,28 @@ public class ScheduleConfirmationJpaAdapter implements ScheduleConfirmationPort 
 
     @Override
     public SaveConfirmationResult saveConfirmation(Long userId, LocalDate weekStartDate, LocalDateTime confirmedAt, String ipAddress) {
-        boolean isNew = false;
-        ScheduleConfirmationJpaEntity entity = repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
-                .orElse(null);
-
-        if (entity == null) {
-            isNew = true;
-            entity = new ScheduleConfirmationJpaEntity();
-            entity.setUserId(userId);
-            entity.setWeekStartDate(weekStartDate);
-            entity.setConfirmedAt(confirmedAt);
-            entity.setIpAddress(ipAddress);
-        } else {
-            // Safeguard: Never overwrite with an older confirmation timestamp (atomic greatest)
-            if (entity.getConfirmedAt() != null && confirmedAt.isBefore(entity.getConfirmedAt())) {
-                return new SaveConfirmationResult(toRecord(entity), false);
-            }
-            entity.setConfirmedAt(confirmedAt);
-            entity.setIpAddress(ipAddress);
-        }
-
         try {
-            ScheduleConfirmationJpaEntity saved = saveHelper.saveInIsolatedTransaction(entity);
-            return new SaveConfirmationResult(toRecord(saved), isNew);
+            TransactionalScheduleConfirmationSaveHelper.IsolatedSaveResult result =
+                    saveHelper.saveConfirmationInIsolatedTransaction(userId, weekStartDate, confirmedAt, ipAddress);
+            return new SaveConfirmationResult(toRecord(result.entity()), result.isNew());
         } catch (DataIntegrityViolationException | ConcurrencyFailureException ex) {
             log.warn("Race condition hoặc optimistic lock conflict khi lưu schedule confirmation cho user {} tuần {}. Đã cô lập transaction và reload bản ghi đã commit thành công.",
+                    userId, weekStartDate);
+            ScheduleConfirmationRecord reloaded = repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
+                    .map(this::toRecord)
+                    .orElseThrow(() -> ex);
+            return new SaveConfirmationResult(reloaded, false);
+        }
+    }
+
+    @Override
+    public SaveConfirmationResult saveFeedback(Long userId, LocalDate weekStartDate, String feedbackNote, LocalDateTime feedbackAt, String ipAddress) {
+        try {
+            TransactionalScheduleConfirmationSaveHelper.IsolatedSaveResult result =
+                    saveHelper.saveFeedbackInIsolatedTransaction(userId, weekStartDate, feedbackNote, feedbackAt, ipAddress);
+            return new SaveConfirmationResult(toRecord(result.entity()), result.isNew());
+        } catch (DataIntegrityViolationException | ConcurrencyFailureException ex) {
+            log.warn("Race condition hoặc optimistic lock conflict khi lưu schedule feedback cho user {} tuần {}. Đã cô lập transaction và reload bản ghi đã commit thành công.",
                     userId, weekStartDate);
             ScheduleConfirmationRecord reloaded = repository.findByUserIdAndWeekStartDate(userId, weekStartDate)
                     .map(this::toRecord)
@@ -87,7 +84,10 @@ public class ScheduleConfirmationJpaAdapter implements ScheduleConfirmationPort 
                 entity.getUserId(),
                 entity.getWeekStartDate(),
                 entity.getConfirmedAt(),
-                entity.getIpAddress()
+                entity.getIpAddress(),
+                entity.getFeedbackNote(),
+                entity.getFeedbackAt(),
+                entity.getConfirmationStatus()
         );
     }
 }
