@@ -510,6 +510,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 int weekWorkingDaysCount = workingDays.isEmpty() ? 5 : workingDays.size();
                 BigDecimal availableHours = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
                         baseAvailableHours,
+                        emp.getStartDate(),
                         emp.getContractEndDate(),
                         yw.getStartDate(),
                         yw.getEndDate(),
@@ -569,7 +570,11 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     empTotalAllocated,
                     empTotalAvailable,
                     empAvgUtilization,
-                    overloadedWeeksCount
+                    overloadedWeeksCount,
+                    emp.getIsOutsourced(),
+                    emp.getProviderName(),
+                    emp.getStartDate(),
+                    emp.getContractEndDate()
             ));
         }
 

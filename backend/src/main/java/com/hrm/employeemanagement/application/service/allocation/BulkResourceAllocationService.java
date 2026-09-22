@@ -180,18 +180,38 @@ public class BulkResourceAllocationService implements BulkAllocateResourceUseCas
                 }
             }
 
-            // 2. QTN-05: Kiểm tra ngày kết thúc hợp đồng
-            LocalDate weekStartDate = yw.getStartDate();
-            if (employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(weekStartDate)) {
-                blockedWeeks.add(new BulkAllocationResult.BlockedWeekSummary(
-                        yw.year(),
-                        yw.weekNumber(),
-                        "CONTRACT_EXPIRED",
-                        "Nhân sự đã kết thúc hợp đồng lao động trước tuần " + yw.weekNumber() + "/" + yw.year(),
-                        BigDecimal.ZERO,
-                        BigDecimal.ZERO,
-                        effectiveHours));
-                continue;
+            // 2. QTN-05 / QTN-21: Kiểm tra thời hạn hợp đồng lao động / thuê ngoài
+            if (employee.isOutsourced()) {
+                if (!employee.isWithinContractPeriod(yw)) {
+                    String reasonCode = (employee.getStartDate() != null && yw.getEndDate().isBefore(employee.getStartDate()))
+                            ? "CONTRACT_NOT_STARTED"
+                            : "CONTRACT_EXPIRED";
+                    String reasonMsg = (employee.getStartDate() != null && yw.getEndDate().isBefore(employee.getStartDate()))
+                            ? "Hợp đồng thuê ngoài chưa có hiệu lực tại tuần " + yw.weekNumber() + "/" + yw.year()
+                            : "Hợp đồng thuê ngoài đã kết thúc trước tuần " + yw.weekNumber() + "/" + yw.year();
+                    blockedWeeks.add(new BulkAllocationResult.BlockedWeekSummary(
+                            yw.year(),
+                            yw.weekNumber(),
+                            reasonCode,
+                            reasonMsg,
+                            BigDecimal.ZERO,
+                            BigDecimal.ZERO,
+                            effectiveHours));
+                    continue;
+                }
+            } else {
+                LocalDate weekStartDate = yw.getStartDate();
+                if (employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(weekStartDate)) {
+                    blockedWeeks.add(new BulkAllocationResult.BlockedWeekSummary(
+                            yw.year(),
+                            yw.weekNumber(),
+                            "CONTRACT_EXPIRED",
+                            "Nhân sự đã kết thúc hợp đồng lao động trước tuần " + yw.weekNumber() + "/" + yw.year(),
+                            BigDecimal.ZERO,
+                            BigDecimal.ZERO,
+                            effectiveHours));
+                    continue;
+                }
             }
 
             // 3. Tính tổng giờ phân bổ cho các dự án KHÁC và tổng hiện tại của tất cả dự án

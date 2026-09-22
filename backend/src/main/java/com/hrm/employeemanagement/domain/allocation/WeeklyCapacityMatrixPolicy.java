@@ -195,6 +195,52 @@ public class WeeklyCapacityMatrixPolicy {
      * - Nếu hợp đồng hết hạn sau tuần kết thúc: giữ nguyên baseHours.
      * - Nếu hợp đồng hết hạn trong tuần: scale theo số ngày làm việc thực tế còn lại trước hoặc đúng ngày hết hạn.
      */
+    /**
+     * Điều chỉnh số giờ khả dụng cơ sở dựa trên ngày bắt đầu và kết thúc hợp đồng (QTN-21):
+     * - Nếu hợp đồng chưa bắt đầu trước khi tuần kết thúc: 0 giờ khả dụng.
+     * - Nếu hợp đồng hết hạn trước khi tuần bắt đầu: 0 giờ khả dụng.
+     * - Nếu hợp đồng bắt đầu hoặc kết thúc trong tuần: scale theo số ngày làm việc thực tế trong khoảng hiệu lực.
+     */
+    public static BigDecimal adjustAvailableHoursForContract(
+            BigDecimal baseHours,
+            LocalDate startDate,
+            LocalDate contractEndDate,
+            LocalDate weekStart,
+            LocalDate weekEnd,
+            int weekWorkingDaysCount
+    ) {
+        BigDecimal safeBase = baseHours != null ? baseHours : BigDecimal.ZERO;
+        if (startDate == null && contractEndDate == null) {
+            return safeBase;
+        }
+
+        if (startDate != null && startDate.isAfter(weekEnd)) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        if (contractEndDate != null && contractEndDate.isBefore(weekStart)) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        LocalDate effectiveStart = (startDate != null && startDate.isAfter(weekStart)) ? startDate : weekStart;
+        LocalDate effectiveEnd = (contractEndDate != null && contractEndDate.isBefore(weekEnd)) ? contractEndDate : weekEnd;
+
+        if (effectiveStart.isAfter(effectiveEnd)) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        int effectiveWorkingDays = weekWorkingDaysCount > 0 ? weekWorkingDaysCount : 5;
+        int activeDays = WeeklyAvailabilityPolicy.countWorkingDaysBetween(effectiveStart, effectiveEnd);
+        if (activeDays == 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        if (activeDays < effectiveWorkingDays) {
+            return safeBase.multiply(BigDecimal.valueOf(activeDays))
+                    .divide(BigDecimal.valueOf(effectiveWorkingDays), 2, RoundingMode.HALF_UP);
+        }
+        return safeBase;
+    }
+
     public static BigDecimal adjustAvailableHoursForContract(
             BigDecimal baseHours,
             LocalDate contractEndDate,
@@ -202,29 +248,7 @@ public class WeeklyCapacityMatrixPolicy {
             LocalDate weekEnd,
             int weekWorkingDaysCount
     ) {
-        BigDecimal safeBase = baseHours != null ? baseHours : BigDecimal.ZERO;
-        if (contractEndDate == null) {
-            return safeBase;
-        }
-
-        if (contractEndDate.isBefore(weekStart)) {
-            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        }
-
-        if (contractEndDate.isAfter(weekEnd)) {
-            return safeBase;
-        }
-
-        int effectiveWorkingDays = weekWorkingDaysCount > 0 ? weekWorkingDaysCount : 5;
-        int remainingDays = WeeklyAvailabilityPolicy.countWorkingDaysBetween(weekStart, contractEndDate);
-        if (remainingDays == 0) {
-            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        }
-        if (remainingDays < effectiveWorkingDays) {
-            return safeBase.multiply(BigDecimal.valueOf(remainingDays))
-                    .divide(BigDecimal.valueOf(effectiveWorkingDays), 2, RoundingMode.HALF_UP);
-        }
-        return safeBase;
+        return adjustAvailableHoursForContract(baseHours, null, contractEndDate, weekStart, weekEnd, weekWorkingDaysCount);
     }
 
     /**
