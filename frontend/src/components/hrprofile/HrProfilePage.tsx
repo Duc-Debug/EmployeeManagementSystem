@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Search, X, Check, AlertTriangle, Users, Loader2 } from "lucide-react";
+import { Plus, Search, X, Check, AlertTriangle, Users, Loader2, UserPlus } from "lucide-react";
 import type { HrProfileData } from "./hrprofile.types";
 import HrProfileCard from "./HrProfileCard";
 import HrProfileForm from "./HrProfileForm";
+import OutsourcedEmployeeModal from "./OutsourcedEmployeeModal";
 import { useAuthUser } from "@/lib/auth-session";
 import { getEmployees, getEmployeeProfile, updateEmployeeProfile } from "@/lib/api/employees";
 import { getUsers } from "@/lib/api/users";
@@ -23,6 +24,7 @@ export default function HrProfilePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isOutsourcedModalOpen, setIsOutsourcedModalOpen] = useState(false);
     const [editingProfile, setEditingProfile] = useState<HrProfileData | undefined>(undefined);
     const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -95,7 +97,7 @@ export default function HrProfilePage() {
                         employeeId: p.id,
                         employeeCode: empCode,
                         fullName: p.fullName || u?.fullName || "",
-                        email: p.email || u?.email || (empCode ? `${empCode.toLowerCase().replace(/[^a-z0-9]/g, "")}@company.com` : ""),
+                        email: p.email || u?.email || (p.isOutsourced ? "" : (empCode ? `${empCode.toLowerCase().replace(/[^a-z0-9]/g, "")}@company.com` : "")),
                         username: u?.username || "",
                         orgUnitId: p.orgUnitId ? String(p.orgUnitId) : undefined,
                         department: deptName,
@@ -103,6 +105,8 @@ export default function HrProfilePage() {
                         startDate: p.startDate || dates?.joinDate || "",
                         contractEndDate: p.contractEndDate || dates?.contractEndDate || "",
                         standardHoursPerWeek: p.standardHoursPerWeek || 40,
+                        isOutsourced: Boolean(p.isOutsourced),
+                        providerName: p.providerName || "",
                         version: p.version ?? 0,
                     };
                 });
@@ -154,6 +158,7 @@ export default function HrProfilePage() {
         p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.email && p.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.providerName && p.providerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         p.department.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -255,6 +260,18 @@ export default function HrProfilePage() {
                         Quản lý thông tin hành chính, hợp đồng và định mức giờ làm việc của nhân viên.
                     </p>
                 </div>
+                {canManage && (
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setIsOutsourcedModalOpen(true)}
+                            className="flex items-center gap-2 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95 cursor-pointer"
+                        >
+                            <UserPlus className="size-4" />
+                            <span>Khai báo nhân sự thuê ngoài</span>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Notification */}
@@ -357,6 +374,17 @@ export default function HrProfilePage() {
                 orgUnitOptions={orgUnitOptions}
                 onClose={() => setIsFormOpen(false)}
                 onSave={handleSave}
+            />
+
+            {/* Outsourced Employee Modal */}
+            <OutsourcedEmployeeModal
+                open={isOutsourcedModalOpen}
+                onClose={() => setIsOutsourcedModalOpen(false)}
+                onSuccess={() => {
+                    showNotification("success", "Khai báo hồ sơ nhân sự thuê ngoài thành công.");
+                    loadProfiles();
+                }}
+                orgUnitOptions={orgUnitOptions}
             />
         </div>
     );
