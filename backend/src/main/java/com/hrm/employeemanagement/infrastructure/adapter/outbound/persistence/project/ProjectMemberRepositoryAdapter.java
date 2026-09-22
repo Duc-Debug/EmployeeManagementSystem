@@ -88,10 +88,12 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
             }
         }
 
-        Map<Long, String> orgUnitNames = orgUnitIds.isEmpty()
-                ? Collections.emptyMap()
-                : orgUnitRepository.findAllById(orgUnitIds).stream()
-                        .collect(Collectors.toMap(OrgUnitJpaEntity::getId, OrgUnitJpaEntity::getUnitName, (a, b) -> a));
+        Map<Long, String> orgUnitNames = new HashMap<>();
+        if (!orgUnitIds.isEmpty()) {
+            for (OrgUnitJpaEntity org : orgUnitRepository.findAllById(orgUnitIds)) {
+                orgUnitNames.put(org.getId(), org.getUnitName());
+            }
+        }
 
         // 4. Gom userIds để truy vấn email hàng loạt (tránh N+1)
         Set<Long> userIds = new HashSet<>();
@@ -104,10 +106,12 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
             }
         }
 
-        Map<Long, String> userEmails = userIds.isEmpty()
-                ? Collections.emptyMap()
-                : userRepository.findAllById(userIds).stream()
-                        .collect(Collectors.toMap(UserJpaEntity::getId, UserJpaEntity::getEmail, (a, b) -> a));
+        Map<Long, String> userEmails = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            for (UserJpaEntity u : userRepository.findAllById(userIds)) {
+                userEmails.put(u.getId(), u.getEmail());
+            }
+        }
 
         Map<Long, ProjectMemberResult> resultMap = new LinkedHashMap<>();
 
