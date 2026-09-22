@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SideBar, { canAccessTab } from "./SideBar";
+import { resolveActiveTab } from "./dashboard-routing";
 import Header from "./Header";
 import DepartmentsView from "../department/DepartmentsView";
 import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
@@ -13,6 +14,7 @@ import ProjectView from "../project/ProjectView";
 import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
+import UnavailabilityView from "../unavailability/UnavailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
 import UpcomingWorkloadView from "../workload/UpcomingWorkloadView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
@@ -28,6 +30,8 @@ import { SimulationScenarioListView } from "../scenario/SimulationScenarioListVi
 import MyWeeklySchedulePage from "../../features/my-schedule/pages/MyWeeklySchedulePage";
 import EmployeeImportView from "../import/EmployeeImportView";
 import BackupManagementWorkspace from "@/features/backup/BackupManagementWorkspace";
+
+const OutsourcedContractWarningView = lazy(() => import("../outsourcedcontract/OutsourcedContractWarningView"));
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
 import RmDashboardOverview from "./RmDashboardOverview";
@@ -50,41 +54,7 @@ export default function Dashboard() {
     const user = useAuthUser();
 
     // Đồng bộ URL trình duyệt với tab tương ứng
-    const activeTab = useMemo(() => {
-        const path = location.pathname.toLowerCase();
-        if (path.includes("billable-rate") || path.includes("ty-le-gio-tinh-phi") || path.includes("billable")) return "billable-rate";
-        if (path.includes("workload") || path.includes("khoi-luong-cong-viec") || path.includes("muc-ban")) return "workload";
-        if (path.includes("capacity-dashboard") || path.includes("bang-dieu-khien-nang-luc") || path.includes("dashboard-capacity")) return "capacity-dashboard";
-        if (path.includes("capacity-forecast") || path.includes("du-bao-nang-luc") || path.includes("forecast")) return "capacity-forecast";
-        if (path.includes("timesheet-variance") || path.includes("doi-chieu-gio-cong") || path.includes("variance")) return "timesheet-variance";
-        if (path.includes("capacity") || path.includes("nang-luc")) return "capacity";
-        if (
-            path.includes("roles") ||
-            path.includes("vai-tro") ||
-            path.includes("project-role")
-        ) {
-            return "roles";
-        }
-        if (path.includes("my-schedule") || path.includes("my-allocations") || path.includes("lich-phan-bo")) return "my-schedule";
-        if (path.includes("access") || path.includes("phan-quyen")) return "access";
-        if (path.includes("working-calendar") || path.includes("lich-lam-viec") || path.includes("ngay-le") || path.includes("calendar-config")) return "working-calendar";
-        if (path.includes("availability") || path.includes("kha-dung") || path.includes("gio-tuan")) return "availability";
-        if (path.includes("hrprofile") || path.includes("ho-so") || path.includes("employee")) return "hrprofile";
-        if (path.includes("user") || path.includes("tai-khoan")) return "users";
-        if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
-        if (path.includes("attendance") || path.includes("cham-cong") || path.includes("timesheet") || path.includes("work-log") || path.includes("gio-lam")) return "attendance";
-        if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
-        if (path.includes("skills") || path.includes("ky-nang")) return "skills";
-        if (path.includes("project-allocation") || path.includes("phan-bo-du-an") || path.includes("project-report")) return "project-allocation-report";
-        if (path.includes("project") || path.includes("du-an")) return "project";
-        if (path.includes("recruitment") || path.includes("tuyen-dung")) return "recruitment-demand";
-        if (path.includes("simulation-scenario") || path.includes("mo-phong-kich-ban") || path.includes("scenarios")) return "simulation-scenarios";
-        if (path.includes("schedule-conflict") || path.includes("xung-dot-lich") || path.includes("conflict")) return "schedule-conflict";
-        if (path.includes("data-import") || path.includes("nhap-du-lieu") || path.includes("employee-import") || path.includes("import")) return "data-import";
-        if (path.includes("backup") || path.includes("sao-luu") || path.includes("phuc-hoi")) return "backup";
-        if (path.includes("report") || path.includes("bao-cao")) return "reports";
-        return "overview";
-    }, [location.pathname]);
+    const activeTab = useMemo(() => resolveActiveTab(location.pathname), [location.pathname]);
 
     const isTabAllowed = canAccessTab(user?.roleCode, activeTab, user?.dataScope, user?.permissions);
 
@@ -262,6 +232,8 @@ export default function Dashboard() {
 
                                 {activeTab === "availability" && <WeeklyAvailabilityView />}
 
+                                {activeTab === "unavailability" && <UnavailabilityView />}
+
                                 {activeTab === "workload" && (
                                     <UpcomingWorkloadView
                                         onNavigateToProjects={() => handleTabChange("project")}
@@ -301,6 +273,21 @@ export default function Dashboard() {
                                  {activeTab === "timesheet-variance" && <TimesheetVarianceReportView />}
 
                                  {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
+
+                                 {activeTab === "outsourced-contracts" && (
+                                     <Suspense
+                                         fallback={
+                                             <div className="flex h-64 items-center justify-center">
+                                                 <div className="flex flex-col items-center gap-2 text-slate-500">
+                                                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+                                                     <span className="text-xs">Đang tải Hợp đồng thuê ngoài...</span>
+                                                 </div>
+                                             </div>
+                                         }
+                                     >
+                                         <OutsourcedContractWarningView />
+                                     </Suspense>
+                                 )}
 
                                 {activeTab === "data-import" && <EmployeeImportView />}
 
