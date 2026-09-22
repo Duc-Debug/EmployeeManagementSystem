@@ -54,6 +54,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
             { name: "Bảng năng lực & Phân bổ", icon: CalendarRange, id: "capacity" },
             { name: "Cảnh báo xung đột lịch", icon: AlertTriangle, id: "schedule-conflict" },
             { name: "Mô phỏng kịch bản", icon: Sparkles, id: "simulation-scenarios" },
+            { name: "Hợp đồng thuê ngoài", icon: FileText, id: "outsourced-contracts" },
         ],
     },
     {
@@ -163,6 +164,11 @@ export function canAccessTab(
             // NCL-07-CN-001: Cảnh báo xung đột lịch dành cho VT-02 (PM), VT-03 (RM), VT-06 (Admin)
             return permissions?.includes("RESOURCE_SCHEDULE_CONFLICT_READ") === true ||
                 ["VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+
+        case "outsourced-contracts":
+        case "outsourced-contract":
+            // NCL-14-CN-003: Theo dõi thời hạn hợp đồng thuê ngoài chỉ dành cho VT-03 (Quản lý nguồn lực) và VT-05 (Nhân sự)
+            return ["VT-03", "VT-05"].includes(normalized);
 
         case "project":
         case "projects":
