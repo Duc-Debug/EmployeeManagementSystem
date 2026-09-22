@@ -24,4 +24,28 @@ public class EmployeeProfileUseCaseConfig {
                 loadUserPort, loadOrgUnitPort, authorizationService);
         return new TransactionalEmployeeProfileServiceDecorator(service);
     }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.employee.DeclareOutsourcedEmployeeUseCase declareOutsourcedEmployeeUseCase(
+            LoadEmployeePort loadEmployeePort,
+            SaveEmployeePort saveEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadUserPort loadUserPort,
+            AuthorizationService authorizationService,
+            com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort saveAuditLogPort,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.hrm.employeemanagement.application.port.outbound.skill.SkillCatalogRepository skillCatalogRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository employeeSkillRepository) {
+        com.hrm.employeemanagement.application.service.employee.DeclareOutsourcedEmployeeService service =
+                new com.hrm.employeemanagement.application.service.employee.DeclareOutsourcedEmployeeService(
+                        loadEmployeePort,
+                        saveEmployeePort,
+                        loadOrgUnitPort,
+                        loadUserPort,
+                        authorizationService,
+                        saveAuditLogPort,
+                        skillCatalogRepository,
+                        employeeSkillRepository
+                );
+        return new com.hrm.employeemanagement.infrastructure.transaction.employee.TransactionalDeclareOutsourcedEmployeeServiceDecorator(service);
+    }
 }
