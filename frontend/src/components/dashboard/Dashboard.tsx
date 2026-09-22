@@ -29,9 +29,9 @@ import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWar
 import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
 import MyWeeklySchedulePage from "../../features/my-schedule/pages/MyWeeklySchedulePage";
 import EmployeeImportView from "../import/EmployeeImportView";
+import BackupManagementWorkspace from "@/features/backup/BackupManagementWorkspace";
 
 const OutsourcedContractWarningView = lazy(() => import("../outsourcedcontract/OutsourcedContractWarningView"));
-
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
 import RmDashboardOverview from "./RmDashboardOverview";
@@ -290,6 +290,8 @@ export default function Dashboard() {
                                  )}
 
                                 {activeTab === "data-import" && <EmployeeImportView />}
+
+                                {activeTab === "backup" && <BackupManagementWorkspace />}
 
                                 {activeTab === "project-allocation-report" && <ProjectAllocationReportView />}
 
