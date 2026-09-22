@@ -19,6 +19,7 @@ import {
     AlertTriangle,
     Sparkles,
     DollarSign,
+    Database,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -93,6 +94,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
         title: "Cài đặt & Danh mục",
         items: [
             { name: "Vai trò chuyên môn", icon: Briefcase, id: "roles" },
+            { name: "Sao lưu & Phục hồi", icon: Database, id: "backup" },
         ],
     },
 ];
@@ -226,6 +228,13 @@ export function canAccessTab(
         case "employee-import":
             // NCL-12-CN-004: Nhập dữ liệu nhân sự từ tệp (Quản trị viên VT-06 hoặc quyền DATA_IMPORT)
             return permissions?.includes("DATA_IMPORT") === true ||
+                ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+
+        case "backup":
+        case "data-backup":
+        case "backup-restore":
+            // Epic NCL-12-CN-003: Sao lưu và phục hồi dữ liệu (Dành riêng cho Quản trị viên VT-06 / DATA_BACKUP_MANAGE)
+            return permissions?.includes("DATA_BACKUP_MANAGE") === true ||
                 ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "project-allocation-report":

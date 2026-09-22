@@ -27,6 +27,7 @@ import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWar
 import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
 import MyWeeklySchedulePage from "../../features/my-schedule/pages/MyWeeklySchedulePage";
 import EmployeeImportView from "../import/EmployeeImportView";
+import BackupManagementWorkspace from "@/features/backup/BackupManagementWorkspace";
 import AdminDashboardOverview from "./AdminDashboardOverview";
 import PmDashboardOverview from "./PmDashboardOverview";
 import RmDashboardOverview from "./RmDashboardOverview";
@@ -80,6 +81,7 @@ export default function Dashboard() {
         if (path.includes("simulation-scenario") || path.includes("mo-phong-kich-ban") || path.includes("scenarios")) return "simulation-scenarios";
         if (path.includes("schedule-conflict") || path.includes("xung-dot-lich") || path.includes("conflict")) return "schedule-conflict";
         if (path.includes("data-import") || path.includes("nhap-du-lieu") || path.includes("employee-import") || path.includes("import")) return "data-import";
+        if (path.includes("backup") || path.includes("sao-luu") || path.includes("phuc-hoi")) return "backup";
         if (path.includes("report") || path.includes("bao-cao")) return "reports";
         return "overview";
     }, [location.pathname]);
@@ -301,6 +303,8 @@ export default function Dashboard() {
                                  {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
 
                                 {activeTab === "data-import" && <EmployeeImportView />}
+
+                                {activeTab === "backup" && <BackupManagementWorkspace />}
 
                                 {activeTab === "project-allocation-report" && <ProjectAllocationReportView />}
 
