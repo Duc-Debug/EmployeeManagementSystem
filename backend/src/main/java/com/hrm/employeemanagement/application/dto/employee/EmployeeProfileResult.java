@@ -15,16 +15,25 @@ public record EmployeeProfileResult(
     LocalDate startDate,
     LocalDate contractEndDate,
     Boolean isOutsourced,
+    String providerName,
     Integer standardHoursPerWeek,
     String status,
     Long version
 ) {
     public EmployeeProfileResult(Long id, Long userId, Long orgUnitId, String employeeCode,
+                                 String fullName, String email, String professionalRole, LocalDate startDate,
+                                 LocalDate contractEndDate, Boolean isOutsourced,
+                                 Integer standardHoursPerWeek, String status, Long version) {
+        this(id, userId, orgUnitId, employeeCode, fullName, email, professionalRole, startDate,
+                contractEndDate, isOutsourced, null, standardHoursPerWeek, status, version);
+    }
+
+    public EmployeeProfileResult(Long id, Long userId, Long orgUnitId, String employeeCode,
                                  String fullName, String professionalRole, LocalDate startDate,
                                  LocalDate contractEndDate, Boolean isOutsourced,
                                  Integer standardHoursPerWeek, String status) {
         this(id, userId, orgUnitId, employeeCode, fullName, null, professionalRole, startDate,
-                contractEndDate, isOutsourced, standardHoursPerWeek, status, null);
+                contractEndDate, isOutsourced, null, standardHoursPerWeek, status, null);
     }
 
     public EmployeeProfileResult(Long id, Long userId, Long orgUnitId, String employeeCode,
@@ -32,7 +41,7 @@ public record EmployeeProfileResult(
                                  LocalDate contractEndDate, Boolean isOutsourced,
                                  Integer standardHoursPerWeek, String status, Long version) {
         this(id, userId, orgUnitId, employeeCode, fullName, null, professionalRole, startDate,
-                contractEndDate, isOutsourced, standardHoursPerWeek, status, version);
+                contractEndDate, isOutsourced, null, standardHoursPerWeek, status, version);
     }
 
     public static EmployeeProfileResult fromDomain(Employee employee) {
@@ -51,6 +60,7 @@ public record EmployeeProfileResult(
             employee.getStartDate(),
             employee.getContractEndDate(),
             employee.getIsOutsourced(),
+            employee.getProviderName(),
             employee.getStandardHoursPerWeek(),
             employee.getStatusValue(),
             employee.getVersion()

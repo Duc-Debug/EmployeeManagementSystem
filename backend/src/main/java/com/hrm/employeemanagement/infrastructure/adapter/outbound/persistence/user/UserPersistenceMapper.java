@@ -199,6 +199,7 @@ public class UserPersistenceMapper {
                 entity.getIsOutsourced(),
                 entity.getStandardHoursPerWeek(),
                 status,
+                entity.getProviderName(),
                 entity.getVersion()
         );
     }
@@ -222,6 +223,7 @@ public class UserPersistenceMapper {
                 domain.getIsOutsourced(),
                 domain.getStandardHoursPerWeek(),
                 domain.getStatusValue(),
+                domain.getProviderName(),
                 domain.getVersion()
         );
     }
@@ -264,6 +266,10 @@ public class UserPersistenceMapper {
 
         target.setIsOutsourced(
                 domain.getIsOutsourced()
+        );
+
+        target.setProviderName(
+                domain.getProviderName()
         );
 
         target.setStandardHoursPerWeek(
