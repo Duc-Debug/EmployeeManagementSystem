@@ -33,8 +33,8 @@ public class EmployeeProfileUseCaseConfig {
             LoadUserPort loadUserPort,
             AuthorizationService authorizationService,
             com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort saveAuditLogPort,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) com.hrm.employeemanagement.application.port.outbound.skill.SkillCatalogRepository skillCatalogRepository,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository employeeSkillRepository) {
+            com.hrm.employeemanagement.application.port.outbound.skill.SkillCatalogRepository skillCatalogRepository,
+            com.hrm.employeemanagement.application.port.outbound.skill.EmployeeSkillRepository employeeSkillRepository) {
         com.hrm.employeemanagement.application.service.employee.DeclareOutsourcedEmployeeService service =
                 new com.hrm.employeemanagement.application.service.employee.DeclareOutsourcedEmployeeService(
                         loadEmployeePort,

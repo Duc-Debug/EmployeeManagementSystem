@@ -191,6 +191,59 @@ class OutsourcedEmployeeControllerSecurityIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Ngày kết thúc hợp đồng thuê không được sớm hơn ngày bắt đầu"));
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = RoleCode.class, names = {"VT_01", "VT_02", "VT_03", "VT_04", "VT_06"})
+    void otherRolesWithEmployeeUpdateReturn403(RoleCode roleCode) throws Exception {
+        OrgUnitJpaEntity root = orgUnitRepository.findByUnitCode("COMPANY_ROOT").orElseThrow();
+        DataScope scope = User.defaultDataScopeFor(roleCode);
+        UserJpaEntity user = createUser("denied_" + System.nanoTime(), roleCode.getCode(), scope,
+                scope == DataScope.ORGANIZATION_BRANCH ? root.getId() : null);
+        String payload = """
+                {"orgUnitId": %d, "fullName": "Person", "providerName": "Vendor",
+                 "startDate": "2026-10-01", "contractEndDate": "2026-12-31"}
+                """.formatted(root.getId());
+        mockMvc.perform(post("/api/v1/employees/outsourced")
+                        .with(authentication(authenticationFor(user, roleCode, "EMPLOYEE_UPDATE")))
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isForbidden());
+    }
+
+
+    @Autowired
+    private com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.repository.SpringDataSkillRepository skillRepository;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"ACTIVE", "INACTIVE", "MERGED", "MISSING"})
+    void validatesPersistedSkillStatus(String skillStatus) throws Exception {
+        String suffix = String.valueOf(System.nanoTime());
+        UserJpaEntity user = createUser("skills_" + suffix, "VT-05", DataScope.COMPANY, null);
+        OrgUnitJpaEntity root = orgUnitRepository.findByUnitCode("COMPANY_ROOT").orElseThrow();
+        var skill = new com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.entity.SkillJpaEntity(
+                null, "SK_" + suffix, "Skill " + suffix, "Backend", null, null);
+        skill.setStatus(skillStatus.equals("MISSING") ? "ACTIVE" : skillStatus);
+        skill = skillRepository.saveAndFlush(skill);
+        Long skillId = skillStatus.equals("MISSING") ? Long.MAX_VALUE : skill.getId();
+        String code = "EXT-SK-" + suffix;
+        String payload = """
+                {"orgUnitId": %d, "employeeCode": "%s", "fullName": "Person", "providerName": "Vendor",
+                 "startDate": "2026-10-01", "contractEndDate": "2026-12-31", "skillIds": [%d]}
+                """.formatted(root.getId(), code, skillId);
+        mockMvc.perform(post("/api/v1/employees/outsourced")
+                        .with(authentication(authenticationFor(user, RoleCode.VT_05, "EMPLOYEE_UPDATE")))
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(skillStatus.equals("ACTIVE") ? status().isCreated() : status().isBadRequest());
+        org.junit.jupiter.api.Assertions.assertEquals(skillStatus.equals("ACTIVE") ? 1 : 0,
+                jdbcTemplate.queryForObject("select count(*) from employees where employee_code = ?", Integer.class, code));
+        if (skillStatus.equals("ACTIVE")) {
+            org.junit.jupiter.api.Assertions.assertEquals(1, jdbcTemplate.queryForObject(
+                    "select count(*) from employee_skills where skill_id = ?", Integer.class, skillId));
+        }
+    }
+
     private UserJpaEntity createUser(String username, String roleCode, DataScope dataScope, Long scopeOrgUnitId) {
         RoleJpaEntity role = roleRepository.findByCode(roleCode).orElseThrow();
         UserJpaEntity user = new UserJpaEntity(null, username, "dummy_hash", role, true);

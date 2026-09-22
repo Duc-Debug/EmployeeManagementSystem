@@ -5,7 +5,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.dto.employee.DeclareOutsourcedEmployeeCommand;
 import com.hrm.employeemanagement.application.dto.employee.OutsourcedEmployeeResult;
@@ -19,7 +21,7 @@ import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPor
 import com.hrm.employeemanagement.application.port.outbound.user.SaveEmployeePort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
-import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -63,8 +65,8 @@ public class DeclareOutsourcedEmployeeService implements DeclareOutsourcedEmploy
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
-        this.skillCatalogRepository = skillCatalogRepository;
-        this.employeeSkillRepository = employeeSkillRepository;
+        this.skillCatalogRepository = Objects.requireNonNull(skillCatalogRepository, "SkillCatalogRepository must not be null");
+        this.employeeSkillRepository = Objects.requireNonNull(employeeSkillRepository, "EmployeeSkillRepository must not be null");
     }
 
     @Override
@@ -73,6 +75,10 @@ public class DeclareOutsourcedEmployeeService implements DeclareOutsourcedEmploy
         Long currentUserId = authorizationService.require(PermissionCode.EMPLOYEE_UPDATE);
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
+
+        if (currentUser.getRole().getCode() != RoleCode.VT_05) {
+            throw new PermissionDeniedException(PermissionCode.EMPLOYEE_UPDATE);
+        }
 
         // 2. Kiểm tra Đơn vị tổ chức tiếp nhận (OrgUnit)
         if (command.orgUnitId() == null) {
@@ -85,11 +91,8 @@ public class DeclareOutsourcedEmployeeService implements DeclareOutsourcedEmploy
         }
 
         // Kiểm tra DataScope của user
-        if (currentUser.getDataScope() == DataScope.ORGANIZATION_BRANCH) {
-            Long scopeOrgUnitId = currentUser.getScopeOrgUnitId();
-            if (scopeOrgUnitId == null || !loadOrgUnitPort.existsInOrgUnitBranch(command.orgUnitId(), scopeOrgUnitId)) {
-                throw new PermissionDeniedException(PermissionCode.EMPLOYEE_UPDATE);
-            }
+        if (!AuthorizationService.isOrgUnitInUserScope(currentUser, command.orgUnitId(), loadOrgUnitPort)) {
+            throw new PermissionDeniedException(PermissionCode.EMPLOYEE_UPDATE);
         }
 
         // 3. Kiểm tra mã nhân viên (Employee Code)
@@ -118,6 +121,8 @@ public class DeclareOutsourcedEmployeeService implements DeclareOutsourcedEmploy
             throw new InvalidEmployeeDataException("Ngày kết thúc hợp đồng thuê không được sớm hơn ngày bắt đầu");
         }
 
+        List<Skill> skills = validateSkills(command.skillIds());
+
         int standardHours = (command.standardHoursPerWeek() != null) ? command.standardHoursPerWeek() : 40;
 
         // 5. Khởi tạo Domain Entity
@@ -137,9 +142,7 @@ public class DeclareOutsourcedEmployeeService implements DeclareOutsourcedEmploy
 
         // 7. Gán kỹ năng nếu có
         List<String> skillNames = new ArrayList<>();
-        if (command.skillIds() != null && !command.skillIds().isEmpty()
-                && skillCatalogRepository != null && employeeSkillRepository != null) {
-            List<Skill> skills = skillCatalogRepository.findAllByIdIn(command.skillIds());
+        if (!skills.isEmpty()) {
             LocalDateTime now = LocalDateTime.now();
             for (Skill skill : skills) {
                 EmployeeSkill employeeSkill = new EmployeeSkill(
@@ -178,6 +181,25 @@ public class DeclareOutsourcedEmployeeService implements DeclareOutsourcedEmploy
         ));
 
         return OutsourcedEmployeeResult.fromDomain(saved, orgUnit.getUnitName(), skillNames);
+    }
+
+    private List<Skill> validateSkills(List<Long> skillIds) {
+        if (skillIds == null || skillIds.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> requestedIds = new LinkedHashSet<>(skillIds);
+        if (requestedIds.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw new InvalidEmployeeDataException("ID kỹ năng không hợp lệ");
+        }
+        List<Skill> skills = skillCatalogRepository.findAllByIdIn(List.copyOf(requestedIds));
+        Set<Long> foundIds = skills.stream().map(Skill::getId).collect(Collectors.toSet());
+        if (!requestedIds.equals(foundIds)) {
+            throw new InvalidEmployeeDataException("Có kỹ năng không tồn tại trong danh mục");
+        }
+        if (skills.stream().anyMatch(skill -> skill.getStatus() != SkillStatus.ACTIVE)) {
+            throw new InvalidEmployeeDataException("Chỉ được chọn kỹ năng đang hoạt động");
+        }
+        return skills;
     }
 
     private String generateUniqueEmployeeCode() {

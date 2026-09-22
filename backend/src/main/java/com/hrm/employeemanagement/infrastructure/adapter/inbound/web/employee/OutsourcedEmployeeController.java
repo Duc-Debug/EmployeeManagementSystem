@@ -34,7 +34,7 @@ public class OutsourcedEmployeeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('VT-05') or (hasAuthority('EMPLOYEE_UPDATE') and !hasAuthority('VT-06'))")
+    @PreAuthorize("hasAuthority('VT-05')")
     public ResponseEntity<ApiResponse<OutsourcedEmployeeResult>> declareOutsourcedEmployee(
             @Valid @RequestBody DeclareOutsourcedEmployeeRequest request
     ) {

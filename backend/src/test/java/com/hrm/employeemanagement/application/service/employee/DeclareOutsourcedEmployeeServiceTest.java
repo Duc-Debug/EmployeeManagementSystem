@@ -312,4 +312,75 @@ class DeclareOutsourcedEmployeeServiceTest {
         InvalidEmployeeDataException ex = assertThrows(InvalidEmployeeDataException.class, () -> service.execute(command));
         assertTrue(ex.getMessage().contains("đã tồn tại"));
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = RoleCode.class, names = {"VT_01", "VT_02", "VT_03", "VT_04", "VT_06"})
+    void rejectsOtherRolesEvenWithUpdatePermission(RoleCode roleCode) {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(user.getRole()).thenReturn(new Role(new RoleId(1L), roleCode, roleCode.getName()));
+        when(authorizationService.require(PermissionCode.EMPLOYEE_UPDATE)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(user));
+        assertThrows(com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException.class,
+                () -> service.execute(validCommand(null)));
+        org.mockito.Mockito.verifyNoInteractions(saveEmployeePort, employeeSkillRepository, saveAuditLogPort, loadOrgUnitPort);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"SELF,false", "ORGANIZATION_BRANCH,false", "ORGANIZATION_BRANCH,true"})
+    void validatesDataScope(DataScope scope, boolean inBranch) {
+        // Mock legacy/configured scope independently of User's current role/scope constructor constraints.
+        User user = org.mockito.Mockito.mock(User.class);
+        when(user.getRole()).thenReturn(hrUser.getRole());
+        when(user.getDataScope()).thenReturn(scope);
+        when(user.getScopeOrgUnitId()).thenReturn(scope == DataScope.SELF ? null : 2L);
+        when(authorizationService.require(PermissionCode.EMPLOYEE_UPDATE)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(user));
+        when(loadOrgUnitPort.findById(new OrgUnitId(1L))).thenReturn(Optional.of(activeOrgUnit));
+        if (scope == DataScope.ORGANIZATION_BRANCH) {
+            when(loadOrgUnitPort.existsInOrgUnitBranch(1L, 2L)).thenReturn(inBranch);
+        }
+        if (inBranch) {
+            when(saveEmployeePort.save(any())).thenAnswer(invocation -> {
+                Employee employee = invocation.getArgument(0);
+                return new Employee(new EmployeeId(50L), null, 1L, employee.getEmployeeCode(),
+                        employee.getFullName(), "Dev", employee.getStartDate(), employee.getContractEndDate(),
+                        true, 40, EmployeeStatus.ACTIVE, "Vendor", 0L);
+            });
+            assertNotNull(service.execute(validCommand(null)));
+        } else {
+            assertThrows(com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException.class,
+                    () -> service.execute(validCommand(null)));
+            org.mockito.Mockito.verifyNoInteractions(saveEmployeePort, employeeSkillRepository, saveAuditLogPort);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MISSING", "INACTIVE", "MERGED"})
+    void rejectsInvalidSkillsBeforeSaving(String status) {
+        when(authorizationService.require(PermissionCode.EMPLOYEE_UPDATE)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(hrUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(1L))).thenReturn(Optional.of(activeOrgUnit));
+        Skill active = new Skill(10L, "JAVA", "Java", "Backend", null, null);
+        List<Skill> found = status.equals("MISSING") ? List.of(active) : List.of(active,
+                new Skill(20L, "OLD", "Old", "Backend", null, 1L, null,
+                        com.hrm.employeemanagement.domain.skill.SkillStatus.valueOf(status)));
+        when(skillCatalogRepository.findAllByIdIn(List.of(10L, 20L))).thenReturn(found);
+        assertThrows(InvalidEmployeeDataException.class, () -> service.execute(validCommand(List.of(10L, 20L))));
+        org.mockito.Mockito.verifyNoInteractions(saveEmployeePort, employeeSkillRepository, saveAuditLogPort);
+    }
+
+    @Test
+    void requiresSkillRepositories() {
+        assertThrows(NullPointerException.class, () -> new DeclareOutsourcedEmployeeService(loadEmployeePort,
+                saveEmployeePort, loadOrgUnitPort, loadUserPort, authorizationService, saveAuditLogPort,
+                null, employeeSkillRepository));
+        assertThrows(NullPointerException.class, () -> new DeclareOutsourcedEmployeeService(loadEmployeePort,
+                saveEmployeePort, loadOrgUnitPort, loadUserPort, authorizationService, saveAuditLogPort,
+                skillCatalogRepository, null));
+    }
+
+    private DeclareOutsourcedEmployeeCommand validCommand(List<Long> skills) {
+        return new DeclareOutsourcedEmployeeCommand(1L, "EXT-TEST", "Person", "Vendor", "Dev",
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 12, 31), 40, skills);
+    }
+
 }
