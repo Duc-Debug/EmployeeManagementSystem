@@ -151,6 +151,7 @@ class GetUpcomingWorkloadServiceTest {
         orgUnit = mock(OrgUnit.class);
         when(orgUnit.getUnitName()).thenReturn("Phòng Phát Triển Phần Mềm");
         when(loadUserPort.findById(any(UserId.class))).thenReturn(Optional.of(employeeUser));
+        when(loadProjectRolePort.findAll()).thenReturn(Collections.emptyList());
     }
 
     @Test

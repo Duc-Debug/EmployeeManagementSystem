@@ -100,7 +100,7 @@ public class GetUpcomingWorkloadService implements GetUpcomingWorkloadUseCase {
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "loadOrgUnitPort must not be null");
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "loadProjectPort must not be null");
-        this.loadProjectRolePort = loadProjectRolePort;
+        this.loadProjectRolePort = Objects.requireNonNull(loadProjectRolePort, "loadProjectRolePort must not be null");
         this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "loadAllocationPort must not be null");
         this.loadWeeklyAvailabilityPort = Objects.requireNonNull(loadWeeklyAvailabilityPort, "loadWeeklyAvailabilityPort must not be null");
         this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "loadHolidaysPort must not be null");
@@ -273,13 +273,11 @@ public class GetUpcomingWorkloadService implements GetUpcomingWorkloadUseCase {
         }
 
         Map<Long, ProjectRole> projectRolesMap = new HashMap<>();
-        if (loadProjectRolePort != null) {
-            loadProjectRolePort.findAll().forEach(r -> {
-                if (r.getId() != null) {
-                    projectRolesMap.put(r.getId().value(), r);
-                }
-            });
-        }
+        loadProjectRolePort.findAll().forEach(r -> {
+            if (r.getId() != null) {
+                projectRolesMap.put(r.getId().value(), r);
+            }
+        });
 
         Map<YearWeek, List<WeeklyProjectAllocation>> allocationsByWeek = allocations.stream()
                 .collect(Collectors.groupingBy(a -> YearWeek.of(a.getYear(), a.getWeekNumber())));
