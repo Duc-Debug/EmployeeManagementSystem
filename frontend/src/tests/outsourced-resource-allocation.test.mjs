@@ -3,20 +3,20 @@ import assert from "node:assert/strict";
 
 describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic & Contract Boundary Tests", () => {
 
-    // Helper: Xác định tuần có nằm trong hạn hợp đồng thuê ngoài hay không (QTN-21)
+    // Helper: Xác định tuần có nằm trong hạn hợp đồng thuê ngoài hay không (QTN-21 / BR-03)
     const isWeekWithinOutsourcedContract = (weekStartDate, weekEndDate, contractStartDate, contractEndDate) => {
         if (!contractStartDate && !contractEndDate) return true;
         if (contractStartDate && weekEndDate < contractStartDate) {
             return {
                 valid: false,
-                reasonCode: "CONTRACT_NOT_STARTED",
+                reasonCode: "CONTRACT_OUT_OF_BOUNDS",
                 reasonMessage: `Hợp đồng thuê ngoài chưa có hiệu lực (bắt đầu từ ${contractStartDate})`
             };
         }
         if (contractEndDate && weekStartDate > contractEndDate) {
             return {
                 valid: false,
-                reasonCode: "CONTRACT_EXPIRED",
+                reasonCode: "CONTRACT_OUT_OF_BOUNDS",
                 reasonMessage: `Hợp đồng thuê ngoài đã hết hạn (kết thúc ngày ${contractEndDate})`
             };
         }
@@ -53,25 +53,25 @@ describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic
         assert.equal(result.valid, true);
     });
 
-    test("TC-02: Chặn phân bổ tuần kết thúc trước ngày bắt đầu hợp đồng thuê ngoài (CONTRACT_NOT_STARTED)", () => {
+    test("TC-02: Chặn phân bổ tuần kết thúc trước ngày bắt đầu hợp đồng thuê ngoài (CONTRACT_OUT_OF_BOUNDS)", () => {
         // Tuần 18/2027: 03/05/2027 - 09/05/2027 (trước 01/06/2027)
         const weekStart = "2027-05-03";
         const weekEnd = "2027-05-09";
 
         const result = isWeekWithinOutsourcedContract(weekStart, weekEnd, mockContractStart, mockContractEnd);
         assert.equal(result.valid, false);
-        assert.equal(result.reasonCode, "CONTRACT_NOT_STARTED");
+        assert.equal(result.reasonCode, "CONTRACT_OUT_OF_BOUNDS");
         assert.ok(result.reasonMessage.includes("chưa có hiệu lực"));
     });
 
-    test("TC-03: Chặn phân bổ tuần bắt đầu sau ngày kết thúc hợp đồng thuê ngoài (CONTRACT_EXPIRED)", () => {
+    test("TC-03: Chặn phân bổ tuần bắt đầu sau ngày kết thúc hợp đồng thuê ngoài (CONTRACT_OUT_OF_BOUNDS)", () => {
         // Tuần 40/2027: 04/10/2027 - 10/10/2027 (sau 31/08/2027)
         const weekStart = "2027-10-04";
         const weekEnd = "2027-10-10";
 
         const result = isWeekWithinOutsourcedContract(weekStart, weekEnd, mockContractStart, mockContractEnd);
         assert.equal(result.valid, false);
-        assert.equal(result.reasonCode, "CONTRACT_EXPIRED");
+        assert.equal(result.reasonCode, "CONTRACT_OUT_OF_BOUNDS");
         assert.ok(result.reasonMessage.includes("đã hết hạn"));
     });
 
