@@ -44,7 +44,7 @@ public class OutsourcedContractExpirationController {
      * kèm chi tiết các phân bổ dự án bị ảnh hưởng/vắt qua ngày hết hạn theo QTN-21.
      */
     @GetMapping("/expiring")
-    @PreAuthorize("hasAuthority('VT-03') or hasAuthority('VT-05') or hasRole('VT-03') or hasRole('VT-05') or hasAuthority('RESOURCE_ALLOCATION_MANAGE')")
+    @PreAuthorize("hasAuthority('VT-03') or hasAuthority('VT-05') or hasRole('VT-03') or hasRole('VT-05')")
     public ResponseEntity<ExpiringOutsourcedContractListResult> getExpiringContracts(
             @RequestParam(name = "thresholdDays", defaultValue = "30") Integer thresholdDays
     ) {
@@ -59,7 +59,7 @@ public class OutsourcedContractExpirationController {
      * Kích hoạt rà soát thủ công thời hạn hợp đồng thuê ngoài và gửi cảnh báo tới Quản lý nguồn lực (VT-03) và Nhân sự (VT-05).
      */
     @PostMapping("/scan")
-    @PreAuthorize("hasAuthority('VT-03') or hasAuthority('VT-05') or hasRole('VT-03') or hasRole('VT-05') or hasAuthority('RESOURCE_ALLOCATION_MANAGE')")
+    @PreAuthorize("hasAuthority('VT-03') or hasAuthority('VT-05') or hasRole('VT-03') or hasRole('VT-05')")
     public ResponseEntity<ScanOutsourcedContractsResult> scanContractsManually() {
         ScanOutsourcedContractsResult result = scanOutsourcedContractExpirationsUseCase.execute(true);
         return ResponseEntity.ok(result);
@@ -77,7 +77,7 @@ public class OutsourcedContractExpirationController {
      * Xác nhận xử lý cảnh báo thời hạn hợp đồng và ghi nhận nhật ký kiểm toán (TC-04).
      */
     @PostMapping("/{employeeId}/acknowledge")
-    @PreAuthorize("hasAuthority('VT-03') or hasAuthority('VT-05') or hasRole('VT-03') or hasRole('VT-05') or hasAuthority('RESOURCE_ALLOCATION_MANAGE')")
+    @PreAuthorize("hasAuthority('VT-03') or hasAuthority('VT-05') or hasRole('VT-03') or hasRole('VT-05')")
     public ResponseEntity<AcknowledgeOutsourcedContractResult> acknowledgeContractWarning(
             @PathVariable("employeeId") Long employeeId,
             @RequestBody(required = false) AcknowledgeRequest request

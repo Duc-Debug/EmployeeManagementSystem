@@ -138,7 +138,8 @@ class ScanOutsourcedContractExpirationsServiceTest {
         // Then: Gửi cảnh báo kèm phân bổ vắt qua ngày hết hạn
         assertThat(result.totalScanned()).isEqualTo(1);
         assertThat(result.totalExpiringContractsFound()).isEqualTo(1);
-        assertThat(result.notificationsSent()).isEqualTo(1);
+        assertThat(result.notificationEventsCreated()).isEqualTo(1);
+        assertThat(result.notificationsSent()).isEqualTo(2);
 
         ArgumentCaptor<CreateNotificationEventCommand> notifCaptor = ArgumentCaptor.forClass(CreateNotificationEventCommand.class);
         verify(createNotificationEventUseCase).execute(notifCaptor.capture());
@@ -169,6 +170,7 @@ class ScanOutsourcedContractExpirationsServiceTest {
         // Then: Hệ thống không gửi cảnh báo nào
         assertThat(result.totalScanned()).isEqualTo(1);
         assertThat(result.totalExpiringContractsFound()).isEqualTo(0);
+        assertThat(result.notificationEventsCreated()).isEqualTo(0);
         assertThat(result.notificationsSent()).isEqualTo(0);
         assertThat(result.details()).contains("Không có hợp đồng thuê ngoài nào sắp hết hạn");
 
@@ -215,6 +217,7 @@ class ScanOutsourcedContractExpirationsServiceTest {
         ScanOutsourcedContractsResult result = service.execute(true);
 
         // Then: Hệ thống ghi lại người thực hiện, nội dung và thời điểm vào audit_logs
+        assertThat(result.notificationEventsCreated()).isEqualTo(1);
         assertThat(result.notificationsSent()).isEqualTo(1);
 
         ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
@@ -225,7 +228,86 @@ class ScanOutsourcedContractExpirationsServiceTest {
         assertThat(log.getTableName()).isEqualTo("OUTSOURCED_CONTRACT_EXPIRATION");
         assertThat(log.getUserId()).isEqualTo(33L);
         assertThat(log.getNewValue()).contains("totalScanned=1");
+        assertThat(log.getNewValue()).contains("notificationEventsCreated=1");
         assertThat(log.getNewValue()).contains("notificationsSent=1");
+    }
+
+    @Test
+    @DisplayName("NCL-14-CN-003-TC-04: Rà soát thủ công không có hợp đồng hết hạn vẫn phải ghi nhật ký kiểm toán")
+    void tc04_NoExpiringContracts_ShouldStillRecordAuditLogOnManualScan() {
+        User rmUser = createMockUser(34L, RoleCode.VT_03);
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(rmUser);
+
+        LocalDate contractEnd = today.plusDays(90);
+        Employee emp = createMockOutsourcedEmployee(104L, "EXT-004", "Phạm Thuê", contractEnd);
+        when(loadContractPort.findAllOutsourcedEmployeesWithContract()).thenReturn(List.of(emp));
+        when(loadContractPort.findOrgUnitNamesByIds(any())).thenReturn(Map.of(10L, "Phòng Phần mềm"));
+        when(loadAllocationPort.findAllocationsByEmployeeIds(List.of(104L))).thenReturn(List.of());
+        when(loadAllocationPort.findProjectNamesByIds(any())).thenReturn(Map.of());
+
+        ScanOutsourcedContractsResult result = service.execute(true);
+
+        assertThat(result.totalExpiringContractsFound()).isEqualTo(0);
+        assertThat(result.notificationEventsCreated()).isEqualTo(0);
+
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(auditCaptor.capture());
+
+        AuditLog log = auditCaptor.getValue();
+        assertThat(log.getAction()).isEqualTo("MANUAL_SCAN");
+        assertThat(log.getUserId()).isEqualTo(34L);
+        assertThat(log.getNewValue()).contains("totalScanned=1;expiringFound=0;notificationEventsCreated=0;notificationsSent=0");
+    }
+
+    @Test
+    @DisplayName("NCL-14-CN-003-TC-04: Rà soát thủ công khi không có nhân sự thuê ngoài nào vẫn phải ghi nhật ký kiểm toán")
+    void tc04_EmptyEmployees_ShouldStillRecordAuditLogOnManualScan() {
+        User rmUser = createMockUser(35L, RoleCode.VT_03);
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(rmUser);
+        when(loadContractPort.findAllOutsourcedEmployeesWithContract()).thenReturn(List.of());
+
+        ScanOutsourcedContractsResult result = service.execute(true);
+
+        assertThat(result.totalScanned()).isEqualTo(0);
+
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(auditCaptor.capture());
+
+        AuditLog log = auditCaptor.getValue();
+        assertThat(log.getAction()).isEqualTo("MANUAL_SCAN");
+        assertThat(log.getUserId()).isEqualTo(35L);
+        assertThat(log.getNewValue()).contains("totalScanned=0;expiringFound=0;notificationEventsCreated=0;notificationsSent=0");
+    }
+
+    @Test
+    @DisplayName("DataScope: VT-03 chỉ rà soát nhân sự thuộc chi nhánh mình phụ trách khi quét thủ công")
+    void dataScope_VT03ManualScan_ShouldFilterByScopeOrgUnitId() {
+        User rmUser = createMockUser(36L, RoleCode.VT_03); // scopeOrgUnitId = 10L
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(rmUser);
+
+        LocalDate contractEnd = today.plusDays(15);
+        Employee empBranchA = createMockOutsourcedEmployee(105L, "EXT-105", "Nhân Viên Chi Nhánh A", contractEnd); // orgUnitId = 10L
+        Employee empBranchB = new Employee(
+                new EmployeeId(106L), new UserId(106L), 20L, // orgUnitId = 20L (chi nhánh khác)
+                "EXT-106", "Nhân Viên Chi Nhánh B", "Tester",
+                today.minusMonths(6), contractEnd, true, 40, EmployeeStatus.ACTIVE
+        );
+
+        when(loadContractPort.findAllOutsourcedEmployeesWithContract()).thenReturn(List.of(empBranchA, empBranchB));
+        when(loadContractPort.findOrgUnitNamesByIds(any())).thenReturn(Map.of(10L, "Chi Nhánh A"));
+        when(loadAllocationPort.findAllocationsByEmployeeIds(List.of(105L))).thenReturn(List.of());
+        when(loadAllocationPort.findProjectNamesByIds(any())).thenReturn(Map.of());
+        when(recipientUserPort.findResourceManagersAndHrUserIds()).thenReturn(List.of(36L));
+
+        ScanOutsourcedContractsResult result = service.execute(true);
+
+        // Chỉ quét duy nhất 1 nhân sự thuộc orgUnitId 10L của RM
+        assertThat(result.totalScanned()).isEqualTo(1);
+        assertThat(result.totalExpiringContractsFound()).isEqualTo(1);
+
+        ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(saveAuditLogPort).save(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().getNewValue()).contains("totalScanned=1");
     }
 
     @Test

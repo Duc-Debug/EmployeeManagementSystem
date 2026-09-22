@@ -11,7 +11,7 @@ import com.hrm.employeemanagement.application.dto.outsourcedcontract.ScanOutsour
 import com.hrm.employeemanagement.application.port.inbound.outsourcedcontract.ScanOutsourcedContractExpirationsUseCase;
 
 /**
- * Tác vụ nền quét rà soát tự động thời hạn các hợp đồng thuê ngoài định kỳ hàng ngày (06:00 AM)
+ * Tác vụ nền quét rà soát tự động thời hạn các hợp đồng thuê ngoài định kỳ hàng ngày (08:00 AM)
  * và phát hiện các phân bổ vắt qua ngày hết hạn theo quy tắc QTN-21.
  */
 @Component
@@ -30,9 +30,9 @@ public class OutsourcedContractExpirationScheduler {
     }
 
     /**
-     * Chạy định kỳ lúc 06:00 sáng hàng ngày.
+     * Chạy định kỳ lúc 08:00 sáng hàng ngày.
      */
-    @Scheduled(cron = "${app.scheduler.outsourced-contract-scan.cron:0 0 6 * * *}")
+    @Scheduled(cron = "${app.scheduler.outsourced-contract-scan.cron:0 0 8 * * *}")
     public void runDailyOutsourcedContractScan() {
         log.info("[SCHEDULED] Bắt đầu tác vụ rà soát thời hạn hợp đồng thuê ngoài tự động hàng ngày...");
         try {

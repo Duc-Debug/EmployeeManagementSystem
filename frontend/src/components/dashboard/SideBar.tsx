@@ -164,9 +164,8 @@ export function canAccessTab(
 
         case "outsourced-contracts":
         case "outsourced-contract":
-            // NCL-14-CN-003: Theo dõi thời hạn hợp đồng thuê ngoài dành cho VT-03 (Quản lý nguồn lực), VT-05 (Nhân sự), VT-01 (Ban Giám Đốc), VT-06 (Admin)
-            return permissions?.includes("RESOURCE_ALLOCATION_MANAGE") === true ||
-                ["VT-01", "VT-03", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // NCL-14-CN-003: Theo dõi thời hạn hợp đồng thuê ngoài chỉ dành cho VT-03 (Quản lý nguồn lực) và VT-05 (Nhân sự)
+            return ["VT-03", "VT-05"].includes(normalized);
 
         case "project":
         case "projects":

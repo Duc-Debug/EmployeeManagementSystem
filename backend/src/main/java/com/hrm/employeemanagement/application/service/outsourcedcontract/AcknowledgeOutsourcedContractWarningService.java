@@ -82,6 +82,19 @@ public class AcknowledgeOutsourcedContractWarningService implements AcknowledgeO
             throw new IllegalArgumentException("Nhân viên " + employee.getFullName() + " không phải là nhân sự thuê ngoài");
         }
 
+        // DataScope enforcement: VT-03 (Quản lý chi nhánh) chỉ được xử lý nhân sự thuộc chi nhánh mình phụ trách
+        if (currentUser.getRole().getCode() == RoleCode.VT_03 && currentUser.getScopeOrgUnitId() != null) {
+            if (!Objects.equals(employee.getOrgUnitId(), currentUser.getScopeOrgUnitId())) {
+                deniedAuditLogPort.save(AuditLog.create(
+                        currentUser.getIdValue(),
+                        "ACCESS_DENIED",
+                        "OUTSOURCED_CONTRACT_EXPIRATION",
+                        employee.getIdValue()
+                ));
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+            }
+        }
+
         // [TC-04] Lưu lịch sử: Hệ thống ghi lại người thực hiện, nội dung và thời điểm vào audit_logs
         String note = command.actionNote() != null && !command.actionNote().isBlank()
                 ? command.actionNote().trim()

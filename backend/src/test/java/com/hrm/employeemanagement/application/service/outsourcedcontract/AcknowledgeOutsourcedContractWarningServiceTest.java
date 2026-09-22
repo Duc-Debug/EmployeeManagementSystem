@@ -142,4 +142,44 @@ class AcknowledgeOutsourcedContractWarningServiceTest {
         assertThat(log.getTableName()).isEqualTo("OUTSOURCED_CONTRACT_EXPIRATION");
         assertThat(log.getUserId()).isEqualTo(77L);
     }
+
+    @Test
+    @DisplayName("DataScope: VT-03 xác nhận nhân sự thuộc chi nhánh khác -> Bị chặn và ghi log ACCESS_DENIED")
+    void dataScope_VT03AcknowledgeOtherBranch_ShouldDenyAndLogAccessDenied() {
+        // User VT-03 quản lý chi nhánh 10L
+        User rmUser = createMockUser(40L, RoleCode.VT_03);
+        when(authenticatedUserPort.getAuthenticatedUser()).thenReturn(rmUser);
+
+        // Nhân viên thuộc chi nhánh 20L (chi nhánh khác)
+        Employee otherBranchEmp = new Employee(
+                new EmployeeId(111L),
+                new UserId(111L),
+                20L,
+                "EXT-011",
+                "Nhân Viên Chi Nhánh Khác",
+                "Backend Developer",
+                LocalDate.now().minusMonths(6),
+                LocalDate.now().plusDays(25),
+                true,
+                40,
+                EmployeeStatus.ACTIVE
+        );
+        when(loadContractPort.findById(111L)).thenReturn(Optional.of(otherBranchEmp));
+
+        AcknowledgeOutsourcedContractCommand command = new AcknowledgeOutsourcedContractCommand(
+                111L, "Thử xác nhận", null
+        );
+
+        assertThatThrownBy(() -> service.execute(command))
+                .isInstanceOf(PermissionDeniedException.class);
+
+        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(deniedAuditLogPort).save(captor.capture());
+
+        AuditLog log = captor.getValue();
+        assertThat(log.getAction()).isEqualTo("ACCESS_DENIED");
+        assertThat(log.getTableName()).isEqualTo("OUTSOURCED_CONTRACT_EXPIRATION");
+        assertThat(log.getUserId()).isEqualTo(40L);
+        assertThat(log.getRecordId()).isEqualTo(111L);
+    }
 }

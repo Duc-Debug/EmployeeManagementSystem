@@ -28,7 +28,7 @@
   - **`AFTER_EXPIRY` (Sau ngày hết hạn)**: Tuần phân bổ bắt đầu hoàn toàn sau ngày hết hạn (`weekStartDate > contractEndDate`). Đây là phân bổ ngoài hạn hợp đồng.
 
 ### BR-02: Quy tắc chống gửi trùng lặp thông báo (QTN-19)
-- Hệ thống quét rà soát định kỳ hàng ngày (Scheduled Scanner lúc 06:00 AM) hoặc khi Quản lý nguồn lực / Nhân sự bấm nút rà soát thủ công.
+- Hệ thống quét rà soát định kỳ hàng ngày (Scheduled Scanner lúc 08:00 AM) hoặc khi Quản lý nguồn lực / Nhân sự bấm nút rà soát thủ công.
 - Mỗi sự kiện hợp đồng sắp hết hạn chỉ gửi một thông báo duy nhất cho mỗi người nhận.
 - Áp dụng `source_event_key = OUTSOURCED_CONTRACT_EXPIRY_{employeeId}_{contractEndDate}` qua `CreateNotificationEventUseCase`. Các lần rà soát sau sẽ không gửi lại thông báo trùng lặp nếu ngày hết hạn hợp đồng chưa thay đổi.
 

@@ -119,6 +119,7 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
                                 cached.totalScanned(),
                                 cached.totalExpiringContractsFound(),
                                 0,
+                                0,
                                 String.format("Hệ thống vừa rà soát cách đây %d giây (vui lòng đợi tối thiểu %d giây giữa 2 lần quét thủ công).",
                                         elapsedSeconds, MANUAL_SCAN_COOLDOWN_SECONDS)
                         );
@@ -129,15 +130,27 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
 
         LocalDate today = LocalDate.now();
         List<Employee> outsourcedEmployees = loadContractPort.findAllOutsourcedEmployeesWithContract();
+
+        // DataScope enforcement: VT-03 (Quản lý chi nhánh) chỉ rà soát nhân sự thuộc chi nhánh mình phụ trách
+        if (isManualTrigger && executingUser != null
+                && executingUser.getRole().getCode() == RoleCode.VT_03
+                && executingUser.getScopeOrgUnitId() != null) {
+            Long scopeOrgUnitId = executingUser.getScopeOrgUnitId();
+            outsourcedEmployees = outsourcedEmployees.stream()
+                    .filter(e -> Objects.equals(e.getOrgUnitId(), scopeOrgUnitId))
+                    .toList();
+        }
+
         int totalScanned = outsourcedEmployees.size();
 
         if (totalScanned == 0) {
             // [TC-02] Dữ liệu rỗng: Không có hợp đồng nào
             ScanOutsourcedContractsResult emptyResult = new ScanOutsourcedContractsResult(
-                    LocalDateTime.now(), 0, 0, 0,
+                    LocalDateTime.now(), 0, 0, 0, 0,
                     "Không tìm thấy nhân sự thuê ngoài nào có hợp đồng trong hệ thống."
             );
             if (isManualTrigger) {
+                recordManualScanAudit(executingUser, 0, 0, 0, 0);
                 lastManualScanTime.set(LocalDateTime.now());
                 lastManualScanResult.set(emptyResult);
             }
@@ -219,10 +232,11 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
         // [TC-02] Dữ liệu rỗng: Không có hợp đồng thuê nào sắp hết hạn
         if (expiringContracts.isEmpty()) {
             ScanOutsourcedContractsResult emptyExpiringResult = new ScanOutsourcedContractsResult(
-                    LocalDateTime.now(), totalScanned, 0, 0,
+                    LocalDateTime.now(), totalScanned, 0, 0, 0,
                     "Không có hợp đồng thuê ngoài nào sắp hết hạn trong vòng 30 ngày tới. Hệ thống không gửi cảnh báo nào."
             );
             if (isManualTrigger) {
+                recordManualScanAudit(executingUser, totalScanned, 0, 0, 0);
                 lastManualScanTime.set(LocalDateTime.now());
                 lastManualScanResult.set(emptyExpiringResult);
             }
@@ -231,6 +245,7 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
 
         // [TC-01] Gửi thông báo tới Quản lý nguồn lực (VT-03) và Nhân sự (VT-05)
         List<Long> recipientUserIds = recipientUserPort.findResourceManagersAndHrUserIds();
+        int notificationEventsCreated = 0;
         int notificationsSent = 0;
 
         for (ExpiringOutsourcedContract contract : expiringContracts) {
@@ -276,29 +291,22 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
             );
 
             createNotificationEventUseCase.execute(notifCmd);
-            notificationsSent++;
+            notificationEventsCreated++;
+            notificationsSent += (recipientUserIds != null ? recipientUserIds.size() : 0);
         }
 
         // [TC-04] Lưu lịch sử thao tác rà soát nếu là kích hoạt thủ công
-        if (isManualTrigger && executingUser != null) {
-            saveAuditLogPort.save(AuditLog.createChange(
-                    executingUser.getIdValue(),
-                    "MANUAL_SCAN",
-                    "OUTSOURCED_CONTRACT_EXPIRATION",
-                    null,
-                    null,
-                    String.format("totalScanned=%d;expiringFound=%d;notificationsSent=%d",
-                            totalScanned, expiringContracts.size(), notificationsSent)
-            ));
+        if (isManualTrigger) {
+            recordManualScanAudit(executingUser, totalScanned, expiringContracts.size(), notificationEventsCreated, notificationsSent);
         }
 
         String details = String.format(
-                "Đã rà soát %d nhân sự thuê ngoài, phát hiện %d hợp đồng sắp hết hạn/quá hạn và đã gửi %d cảnh báo cho Quản lý nguồn lực và Nhân sự.",
-                totalScanned, expiringContracts.size(), notificationsSent
+                "Đã rà soát %d nhân sự thuê ngoài, phát hiện %d hợp đồng sắp hết hạn/quá hạn, tạo %d sự kiện cảnh báo và gửi %d thông báo cho Quản lý nguồn lực và Nhân sự.",
+                totalScanned, expiringContracts.size(), notificationEventsCreated, notificationsSent
         );
 
         ScanOutsourcedContractsResult finalResult = new ScanOutsourcedContractsResult(
-                LocalDateTime.now(), totalScanned, expiringContracts.size(), notificationsSent, details
+                LocalDateTime.now(), totalScanned, expiringContracts.size(), notificationEventsCreated, notificationsSent, details
         );
 
         if (isManualTrigger) {
@@ -307,5 +315,25 @@ public class ScanOutsourcedContractExpirationsService implements ScanOutsourcedC
         }
 
         return finalResult;
+    }
+
+    private void recordManualScanAudit(
+            User executingUser,
+            int totalScanned,
+            int expiringFound,
+            int notificationEventsCreated,
+            int notificationsSent
+    ) {
+        if (executingUser != null) {
+            saveAuditLogPort.save(AuditLog.createChange(
+                    executingUser.getIdValue(),
+                    "MANUAL_SCAN",
+                    "OUTSOURCED_CONTRACT_EXPIRATION",
+                    null,
+                    null,
+                    String.format("totalScanned=%d;expiringFound=%d;notificationEventsCreated=%d;notificationsSent=%d",
+                            totalScanned, expiringFound, notificationEventsCreated, notificationsSent)
+            ));
+        }
     }
 }

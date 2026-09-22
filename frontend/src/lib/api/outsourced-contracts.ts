@@ -46,6 +46,7 @@ export interface ScanOutsourcedContractsResult {
   scannedAt: string;
   totalScanned: number;
   expiringContractsFound: number;
+  notificationEventsCreated?: number;
   notificationsSent: number;
   details: string;
 }

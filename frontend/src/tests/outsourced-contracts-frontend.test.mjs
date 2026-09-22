@@ -1,36 +1,12 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { exportOutsourcedContractsToCsv } from "../lib/api/outsourced-contracts.ts";
+import { resolveActiveTab } from "../components/dashboard/dashboard-routing.ts";
+import { canAccessTab } from "../components/dashboard/SideBar.tsx";
 
 describe("Outsourced Contract Expiration Tracking Frontend Tests (NCL-14-CN-003)", () => {
 
-    // Helper tương ứng logic trong exportOutsourcedContractsToCsv
-    function exportToCsv(contracts) {
-        const headers = [
-            "Mã NV",
-            "Họ và Tên",
-            "Vị Trí Chuyên Môn",
-            "Đơn Vị / Chi Nhánh",
-            "Ngày Hết Hạn",
-            "Số Ngày Còn Lại",
-            "Trạng Thái Hợp Đồng",
-            "Số Phân Bổ Vi Phạm QTN-21",
-        ];
-
-        const rows = contracts.map((c) => [
-            `"${c.employeeCode}"`,
-            `"${c.fullName.replace(/"/g, '""')}"`,
-            `"${(c.professionalRole || "N/A").replace(/"/g, '""')}"`,
-            `"${(c.orgUnitName || "N/A").replace(/"/g, '""')}"`,
-            `"${c.contractEndDate}"`,
-            c.daysRemaining,
-            `"${c.status === "EXPIRED" ? "Đã quá hạn" : "Sắp hết hạn"}"`,
-            c.affectedAllocations ? c.affectedAllocations.length : 0,
-        ]);
-
-        return "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
-    }
-
-    test("TC-01: Xuất CSV chuẩn định dạng UTF-8 BOM cho Excel", () => {
+    test("TC-01: Xuất CSV chuẩn định dạng UTF-8 BOM cho Excel từ exportOutsourcedContractsToCsv thực tế", () => {
         const mockContracts = [
             {
                 employeeId: 101,
@@ -56,7 +32,7 @@ describe("Outsourced Contract Expiration Tracking Frontend Tests (NCL-14-CN-003)
             },
         ];
 
-        const csv = exportToCsv(mockContracts);
+        const csv = exportOutsourcedContractsToCsv(mockContracts);
         assert.ok(csv.startsWith("\uFEFF"), "Phải bắt đầu bằng UTF-8 BOM");
         assert.ok(csv.includes("Nguyễn Văn Thuê"), "Phải chứa tên nhân viên 1");
         assert.ok(csv.includes("Trần Thị Hết Hạn"), "Phải chứa tên nhân viên 2");
@@ -80,36 +56,27 @@ describe("Outsourced Contract Expiration Tracking Frontend Tests (NCL-14-CN-003)
         assert.equal(afterExpiryAllocation.affectedType, "AFTER_EXPIRY");
     });
 
-    test("TC-03: Dashboard Route Resolution cho tab 'outsourced-contracts'", () => {
-        function resolveActiveTab(pathname) {
-            const path = pathname.toLowerCase();
-            if (path.includes("outsourced-contract") || path.includes("hop-dong-thue-ngoai")) return "outsourced-contracts";
-            if (path.includes("schedule-conflict") || path.includes("xung-dot-lich")) return "schedule-conflict";
-            return "overview";
-        }
-
+    test("TC-03: Dashboard Route Resolution thực tế cho tab 'outsourced-contracts'", () => {
         assert.equal(resolveActiveTab("/outsourced-contracts"), "outsourced-contracts");
         assert.equal(resolveActiveTab("/hop-dong-thue-ngoai"), "outsourced-contracts");
         assert.equal(resolveActiveTab("/schedule-conflict"), "schedule-conflict");
         assert.equal(resolveActiveTab("/"), "overview");
     });
 
-    test("TC-04: Role Guard: Chỉ cho phép VT-01, VT-03, VT-05, VT-06 truy cập", () => {
-        function canAccessOutsourcedContracts(roleCode, permissions = []) {
-            const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-            if (permissions.includes("RESOURCE_ALLOCATION_MANAGE")) return true;
-            return ["VT-01", "VT-03", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
-        }
+    test("TC-04: Role Guard: Chỉ cho phép VT-03 và VT-05 truy cập theo BR-04 & TC-03", () => {
+        // Allowed roles (Quản lý nguồn lực VT-03, Nhân sự VT-05)
+        assert.equal(canAccessTab("VT-03", "outsourced-contracts"), true, "VT-03 (Quản lý nguồn lực) được phép");
+        assert.equal(canAccessTab("VT-05", "outsourced-contracts"), true, "VT-05 (Nhân sự) được phép");
+        assert.equal(canAccessTab("vt_03", "outsourced-contracts"), true, "vt_03 (lowercase/underscore) được phép");
+        assert.equal(canAccessTab("vt_05", "outsourced-contracts"), true, "vt_05 (lowercase/underscore) được phép");
 
-        // Allowed roles
-        assert.equal(canAccessOutsourcedContracts("VT-03"), true, "VT-03 (Quản lý nguồn lực) được phép");
-        assert.equal(canAccessOutsourcedContracts("VT-05"), true, "VT-05 (Nhân sự) được phép");
-        assert.equal(canAccessOutsourcedContracts("VT-01"), true, "VT-01 (Ban Giám Đốc) được phép");
-        assert.equal(canAccessOutsourcedContracts("VT-06"), true, "VT-06 (Admin) được phép");
-        assert.equal(canAccessOutsourcedContracts("UNKNOWN", ["RESOURCE_ALLOCATION_MANAGE"]), true, "Có quyền RESOURCE_ALLOCATION_MANAGE được phép");
-
-        // Denied role
-        assert.equal(canAccessOutsourcedContracts("VT-04"), false, "VT-04 (Nhân viên) bị chặn truy cập");
+        // Denied roles: VT-01 (BGĐ), VT-02 (PM), VT-04 (Nhân viên), VT-06 (Admin), user chỉ có authority
+        assert.equal(canAccessTab("VT-01", "outsourced-contracts"), false, "VT-01 (Ban Giám Đốc) bị chặn");
+        assert.equal(canAccessTab("VT-02", "outsourced-contracts"), false, "VT-02 (PM) bị chặn");
+        assert.equal(canAccessTab("VT-04", "outsourced-contracts"), false, "VT-04 (Nhân viên) bị chặn");
+        assert.equal(canAccessTab("VT-06", "outsourced-contracts"), false, "VT-06 (Admin) bị chặn");
+        assert.equal(canAccessTab("ADMIN", "outsourced-contracts"), false, "ADMIN bị chặn");
+        assert.equal(canAccessTab("UNKNOWN", "outsourced-contracts", null, ["RESOURCE_ALLOCATION_MANAGE"]), false, "Có quyền RESOURCE_ALLOCATION_MANAGE nhưng không phải VT-03/VT-05 vẫn bị chặn");
     });
 
     test("TC-05: In-Memory Cache TTL và Invalidation Logic", () => {
