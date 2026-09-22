@@ -108,6 +108,8 @@ export function BulkAllocationResultModal({
                           ? 'Vượt khả dụng'
                           : bw.reasonCode === 'CONTRACT_EXPIRED'
                           ? 'Hết hạn HĐ'
+                          : bw.reasonCode === 'CONTRACT_OUT_OF_BOUNDS'
+                          ? 'Ngoài hạn HĐ'
                           : 'Bị chặn'}
                       </span>
                     </div>

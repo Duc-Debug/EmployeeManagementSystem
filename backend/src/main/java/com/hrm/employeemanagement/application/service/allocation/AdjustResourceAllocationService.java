@@ -44,6 +44,7 @@ import com.hrm.employeemanagement.domain.exception.allocation.AllocationNotFound
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
 import com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationAdjustmentException;
+import com.hrm.employeemanagement.domain.exception.allocation.OutsourcedContractPeriodException;
 import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
@@ -357,9 +358,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
                 notifiedPmIds
         ));
 
+        String auditAction = employee.isOutsourced() ? "ADJUST_OUTSOURCED_ALLOCATION" : "ALLOCATION_HOURS_EDITED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "ALLOCATION_HOURS_EDITED",
+                auditAction,
                 "weekly_project_allocations",
                 saved.getId(),
                 "Phân bổ cũ: " + oldValue,
@@ -384,6 +386,34 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
         YearWeek targetWeek = YearWeek.of(command.targetYear(), command.targetWeek());
 
         AllocationAdjustmentPolicy.validateTargetWeek(sourceWeek, targetWeek, LocalDate.now());
+
+        // [QTN-21 / NCL-14-CN-002] Ràng buộc hạn hợp đồng cho tuần đích
+        if (employee.isOutsourced()) {
+            if (!employee.isWithinContractPeriod(targetWeek)) {
+                String providerInfo = (employee.getProviderName() != null && !employee.getProviderName().isBlank())
+                        ? " (đơn vị cung cấp: " + employee.getProviderName() + ")"
+                        : "";
+                String periodInfo = (employee.getStartDate() != null && employee.getContractEndDate() != null)
+                        ? " từ " + employee.getStartDate() + " đến " + employee.getContractEndDate()
+                        : "";
+                throw new OutsourcedContractPeriodException(
+                        "Không thể chuyển phân bổ: Tuần đích " + targetWeek.weekNumber() + "/" + targetWeek.year()
+                                + " nằm ngoài thời hạn hợp đồng của nhân sự thuê ngoài " + employee.getFullName() + providerInfo
+                                + " (" + periodInfo + ")",
+                        employee.getIdValue(),
+                        employee.getEmployeeCode(),
+                        employee.getProviderName(),
+                        employee.getStartDate(),
+                        employee.getContractEndDate(),
+                        targetWeek
+                );
+            }
+        } else {
+            LocalDate weekStartDate = targetWeek.getStartDate();
+            if (employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(weekStartDate)) {
+                throw new EmployeeInactiveException("Nhân sự đã kết thúc hợp đồng lao động trước tuần đích (" + targetWeek.weekNumber() + "/" + targetWeek.year() + ")");
+            }
+        }
 
         if (checkActualHoursPort.hasActualHours(employee.getIdValue(), project.getIdValue(), sourceWeek)
                 && AllocationAdjustmentPolicy.isWeekEnded(sourceWeek, LocalDate.now())) {
@@ -469,9 +499,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
                 notifiedPmIds
         ));
 
+        String auditAction = employee.isOutsourced() ? "ADJUST_OUTSOURCED_ALLOCATION" : "ALLOCATION_WEEK_MOVED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "ALLOCATION_WEEK_MOVED",
+                auditAction,
                 "weekly_project_allocations",
                 saved.getId(),
                 "Tuần cũ: " + oldValue,
@@ -521,9 +552,10 @@ public class AdjustResourceAllocationService implements AdjustResourceAllocation
                 notifiedPmIds
         ));
 
+        String auditAction = employee.isOutsourced() ? "ADJUST_OUTSOURCED_ALLOCATION" : "ALLOCATION_REMOVED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "ALLOCATION_REMOVED",
+                auditAction,
                 "weekly_project_allocations",
                 allocation.getId(),
                 "Phân bổ cũ: " + oldValue,
