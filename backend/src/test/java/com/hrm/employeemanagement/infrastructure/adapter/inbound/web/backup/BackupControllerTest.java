@@ -62,7 +62,7 @@ class BackupControllerTest {
                 .build();
     }
 
-    private void setSecurityContext(String roleCode, Long userId, String email) {
+    private void setSecurityContext(String roleCode, Long userId, String email, String... permissions) {
         Role role = new Role(new RoleId(1L), RoleCode.fromCode(roleCode), roleCode);
         User user = new User(
                 new UserId(userId),
@@ -75,15 +75,22 @@ class BackupControllerTest {
                 null,
                 1L
         );
-        UserPrincipal principal = new UserPrincipal(user, Collections.singletonList(new SimpleGrantedAuthority(roleCode)));
+        List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority(roleCode));
+        if (permissions != null) {
+            for (String perm : permissions) {
+                authorities.add(new SimpleGrantedAuthority(perm));
+            }
+        }
+        UserPrincipal principal = new UserPrincipal(user, authorities);
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     @Test
-    @DisplayName("Admin (VT-06) lấy danh sách bản sao lưu thành công (HTTP 200)")
+    @DisplayName("Admin (VT-06) có quyền DATA_BACKUP_MANAGE lấy danh sách bản sao lưu thành công (HTTP 200)")
     void testListBackups_Admin_Success() throws Exception {
-        setSecurityContext("VT-06", 1L, "admin@company.com");
+        setSecurityContext("VT-06", 1L, "admin@company.com", "DATA_BACKUP_MANAGE");
 
         Backup backup = new Backup(
                 1L, "BCK-001", "Bản sao lưu 1", "Mô tả", BackupType.FULL,
@@ -111,9 +118,19 @@ class BackupControllerTest {
     }
 
     @Test
+    @DisplayName("Admin (VT-06) nhưng không có quyền DATA_BACKUP_MANAGE bị từ chối truy cập (HTTP 403)")
+    void testListBackups_AdminWithoutPermission_Forbidden() throws Exception {
+        setSecurityContext("VT-06", 1L, "admin@company.com");
+
+        mockMvc.perform(get("/api/v1/backups"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("FORBIDDEN"));
+    }
+
+    @Test
     @DisplayName("Tạo bản sao lưu thành công (HTTP 200)")
     void testCreateBackup_Admin_Success() throws Exception {
-        setSecurityContext("VT-06", 1L, "admin@company.com");
+        setSecurityContext("VT-06", 1L, "admin@company.com", "DATA_BACKUP_MANAGE");
 
         CreateBackupRequest request = new CreateBackupRequest("Sao lưu mới", "Ghi chú", BackupType.FULL);
         Backup created = new Backup(
@@ -135,7 +152,7 @@ class BackupControllerTest {
     @Test
     @DisplayName("Phục hồi bản sao lưu 2 bước thành công (HTTP 200)")
     void testRestoreBackup_Admin_Success() throws Exception {
-        setSecurityContext("VT-06", 1L, "admin@company.com");
+        setSecurityContext("VT-06", 1L, "admin@company.com", "DATA_BACKUP_MANAGE");
 
         RestoreBackupRequest request = new RestoreBackupRequest("RESTORE", "Phục hồi kế hoạch dự án tuần 38");
 
@@ -149,7 +166,7 @@ class BackupControllerTest {
     @Test
     @DisplayName("Phục hồi thất bại khi mã xác nhận sai (HTTP 400)")
     void testRestoreBackup_InvalidConfirmation_BadRequest() throws Exception {
-        setSecurityContext("VT-06", 1L, "admin@company.com");
+        setSecurityContext("VT-06", 1L, "admin@company.com", "DATA_BACKUP_MANAGE");
 
         RestoreBackupRequest request = new RestoreBackupRequest("WRONG", "Phục hồi kế hoạch dự án tuần 38");
         doThrow(new InvalidRestoreConfirmationException("Mã xác nhận không đúng"))
@@ -165,7 +182,7 @@ class BackupControllerTest {
     @Test
     @DisplayName("Cập nhật lịch sao lưu tự động thành công (HTTP 200)")
     void testUpdateSchedule_Admin_Success() throws Exception {
-        setSecurityContext("VT-06", 1L, "admin@company.com");
+        setSecurityContext("VT-06", 1L, "admin@company.com", "DATA_BACKUP_MANAGE");
 
         UpdateBackupScheduleRequest request = new UpdateBackupScheduleRequest();
         request.setEnabled(true);
@@ -185,25 +202,19 @@ class BackupControllerTest {
     }
 
     @Test
-    @DisplayName("Người dùng có quyền DATA_BACKUP_MANAGE truy cập thành công (HTTP 200)")
-    void testListBackups_Permission_Success() throws Exception {
-        Role role = new Role(new RoleId(1L), RoleCode.fromCode("VT-01"), "VT-01");
-        User user = new User(new UserId(5L), "user_with_perm", "hash", role, UserStatus.ACTIVE, null, "user@hrm.com", null, 1L);
-        UserPrincipal principal = new UserPrincipal(user, List.of(new SimpleGrantedAuthority("DATA_BACKUP_MANAGE")));
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-        SecurityContextHolder.getContext().setAuthentication(auth);
-
-        when(backupService.getBackups(any(), any(), any())).thenReturn(List.of());
+    @DisplayName("Người dùng không phải Admin dù có quyền DATA_BACKUP_MANAGE vẫn bị từ chối (HTTP 403)")
+    void testListBackups_NonAdminWithPerm_Forbidden() throws Exception {
+        setSecurityContext("VT-01", 5L, "director@company.com", "DATA_BACKUP_MANAGE");
 
         mockMvc.perform(get("/api/v1/backups"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("FORBIDDEN"));
     }
 
     @Test
     @DisplayName("Tải lên file sao lưu .json thành công (HTTP 200)")
     void testUploadBackup_Json_Success() throws Exception {
-        setSecurityContext("VT-06", 1L, "admin@company.com");
+        setSecurityContext("VT-06", 1L, "admin@company.com", "DATA_BACKUP_MANAGE");
 
         org.springframework.mock.web.MockMultipartFile file = new org.springframework.mock.web.MockMultipartFile(
                 "file", "backup.json", "application/json", "{\"tables\": {}}".getBytes()
@@ -227,7 +238,7 @@ class BackupControllerTest {
     @Test
     @DisplayName("Tải lên file không phải .json bị từ chối (HTTP 400)")
     void testUploadBackup_Sql_BadRequest() throws Exception {
-        setSecurityContext("VT-06", 1L, "admin@company.com");
+        setSecurityContext("VT-06", 1L, "admin@company.com", "DATA_BACKUP_MANAGE");
 
         org.springframework.mock.web.MockMultipartFile file = new org.springframework.mock.web.MockMultipartFile(
                 "file", "dump.sql", "text/plain", "SELECT 1;".getBytes()

@@ -249,9 +249,9 @@ export function canAccessTab(
         case "backup":
         case "data-backup":
         case "backup-restore":
-            // Epic NCL-12-CN-003: Sao lưu và phục hồi dữ liệu (Dành riêng cho Quản trị viên VT-06 / DATA_BACKUP_MANAGE)
-            return permissions?.includes("DATA_BACKUP_MANAGE") === true ||
-                ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // Epic NCL-12-CN-003: Sao lưu và phục hồi dữ liệu (Dành riêng cho Quản trị viên VT-06 có quyền DATA_BACKUP_MANAGE)
+            return ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized) &&
+                permissions?.includes("DATA_BACKUP_MANAGE") === true;
 
         case "project-allocation-report":
         case "project-allocation":

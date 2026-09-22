@@ -26,69 +26,132 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
+    private static final java.util.regex.Pattern IDENTIFIER_PATTERN = java.util.regex.Pattern.compile("^[a-zA-Z0-9_]+$");
+
     // Ordered list of tables to backup/restore (dependencies handled)
-    private static final List<String> FULL_BACKUP_TABLES = List.of(
+    public static final List<String> FULL_BACKUP_TABLES = List.of(
+            // Core Identity & Organization
             "roles",
             "permissions",
             "role_permissions",
             "org_units",
+            "departments",
             "users",
-            "user_roles",
-            "skills",
+            "employees",
+            "audit_logs",
+            "password_reset_tokens",
+            "password_reset_email_outbox",
+            // Skills & Qualifications
             "skill_groups",
+            "skills",
             "employee_skills",
+            // Calendar, Availability & Leaves
+            "working_calendar_configs",
+            "holidays",
+            "employee_leave_balances",
+            "leave_requests",
+            "employee_weekly_availabilities",
+            "unavailability_declarations",
+            // Projects, Templates & WBS
             "project_templates",
             "project_template_tasks",
             "projects",
+            "project_members",
             "project_roles",
             "project_role_skills",
-            "tasks",
-            "task_dependencies",
             "project_milestones",
+            "tasks",
+            "task_assignments",
+            "task_dependencies",
+            "milestone_tasks",
+            "task_comments",
+            "task_attachments",
+            "task_comment_mentions",
+            // Resource Demands & Allocations
             "project_resource_demands",
-            "weekly_availabilities",
             "weekly_project_allocations",
-            "allocation_change_logs",
             "allocation_planning_periods",
             "allocation_plan_snapshots",
             "allocation_plan_snapshot_items",
+            "allocation_change_logs",
             "capacity_threshold_configs",
-            "role_allocation_templates",
-            "role_allocation_template_items",
+            "project_role_allocation_templates",
+            "project_role_allocation_template_items",
+            // Timesheets & Work Logs
+            "timesheets",
+            "timesheet_entries",
+            "timesheet_histories",
+            "timesheet_audit_logs",
+            // Work Week & Schedule Rules
+            "standard_work_week_configs",
+            "standard_work_week_days",
+            "employee_schedule_confirmation",
+            "resource_reservations",
+            "schedule_conflict_warnings",
+            "schedule_conflict_replacements",
+            "prolonged_idleness_acknowledgements",
+            // Simulation Scenarios
+            "simulation_scenarios",
+            "resource_scenarios",
+            "scenario_demands",
+            "scenario_simulated_employees",
+            "scenario_allocation_snapshot",
+            "scenario_shares",
+            // Notification Center
+            "notification_preferences",
+            "notification_dedup_configs",
+            "notification_dedup_config_histories",
+            "notification_dedup_records",
+            "notification_events",
+            "notification_recipients",
+            "notifications",
+            "notification_audit_logs",
+            "notification_digest_items",
+            "notification_email_outbox",
+            "notification_email_digest_items"
+    );
+
+    public static final List<String> RESOURCE_PLAN_TABLES = List.of(
+            "project_templates",
+            "project_template_tasks",
+            "projects",
+            "project_members",
+            "project_roles",
+            "project_role_skills",
+            "project_milestones",
+            "tasks",
+            "task_assignments",
+            "task_dependencies",
+            "milestone_tasks",
+            "task_comments",
+            "task_attachments",
+            "task_comment_mentions",
+            "project_resource_demands",
+            "weekly_project_allocations",
+            "allocation_planning_periods",
+            "allocation_plan_snapshots",
+            "allocation_plan_snapshot_items",
+            "allocation_change_logs",
+            "capacity_threshold_configs",
+            "project_role_allocation_templates",
+            "project_role_allocation_template_items",
             "timesheets",
             "timesheet_entries",
             "timesheet_histories",
             "timesheet_audit_logs",
             "standard_work_week_configs",
-            "org_unit_work_week_configs",
-            "employee_schedule_confirmations",
+            "standard_work_week_days",
+            "employee_schedule_confirmation",
+            "resource_reservations",
             "schedule_conflict_warnings",
-            "resource_reservations"
-    );
-
-    private static final List<String> RESOURCE_PLAN_TABLES = List.of(
-            "projects",
-            "project_roles",
-            "project_role_skills",
-            "tasks",
-            "task_dependencies",
-            "project_milestones",
-            "project_resource_demands",
-            "weekly_availabilities",
-            "weekly_project_allocations",
-            "allocation_change_logs",
-            "allocation_planning_periods",
-            "allocation_plan_snapshots",
-            "allocation_plan_snapshot_items",
-            "capacity_threshold_configs",
-            "role_allocation_templates",
-            "role_allocation_template_items",
-            "timesheets",
-            "timesheet_entries",
-            "timesheet_histories",
-            "employee_schedule_confirmations",
-            "schedule_conflict_warnings",
-            "resource_reservations"
+            "schedule_conflict_replacements",
+            "prolonged_idleness_acknowledgements",
+            "simulation_scenarios",
+            "resource_scenarios",
+            "scenario_demands",
+            "scenario_simulated_employees",
+            "scenario_allocation_snapshot",
+            "scenario_shares"
     );
 
     public DatabaseBackupRestoreEngineAdapter(JdbcTemplate jdbcTemplate) {
@@ -97,6 +160,11 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
         this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+    }
+
+    @Override
+    public List<String> getSupportedTables() {
+        return FULL_BACKUP_TABLES;
     }
 
     @Override
@@ -186,6 +254,9 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
     }
 
     private boolean tableExists(String tableName) {
+        if (!IDENTIFIER_PATTERN.matcher(tableName).matches()) {
+            return false;
+        }
         try {
             jdbcTemplate.execute("SELECT 1 FROM " + tableName + " LIMIT 1");
             return true;
@@ -194,7 +265,30 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
         }
     }
 
+    private Set<String> getTableColumns(String tableName) {
+        if (!IDENTIFIER_PATTERN.matcher(tableName).matches()) {
+            throw new IllegalArgumentException("Tên bảng không hợp lệ: " + tableName);
+        }
+        Set<String> columns = new HashSet<>();
+        try {
+            jdbcTemplate.query("SELECT * FROM " + tableName + " WHERE 1=0", rs -> {
+                ResultSetMetaData meta = rs.getMetaData();
+                int count = meta.getColumnCount();
+                for (int i = 1; i <= count; i++) {
+                    columns.add(meta.getColumnLabel(i).toLowerCase(Locale.ROOT));
+                }
+                return null;
+            });
+        } catch (Exception e) {
+            log.warn("Không thể lấy siêu dữ liệu cột cho bảng {}: {}", tableName, e.getMessage());
+        }
+        return columns;
+    }
+
     private List<Map<String, Object>> extractTableData(String tableName) {
+        if (!IDENTIFIER_PATTERN.matcher(tableName).matches()) {
+            throw new IllegalArgumentException("Tên bảng không hợp lệ: " + tableName);
+        }
         String sql = "SELECT * FROM " + tableName;
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             ResultSetMetaData meta = rs.getMetaData();
@@ -210,23 +304,47 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
     }
 
     private void truncateTable(String tableName) {
+        if (!IDENTIFIER_PATTERN.matcher(tableName).matches()) {
+            throw new IllegalArgumentException("Tên bảng không hợp lệ: " + tableName);
+        }
         jdbcTemplate.execute("DELETE FROM " + tableName);
     }
 
     private void insertTableData(String tableName, List<Map<String, Object>> rows) {
         if (rows == null || rows.isEmpty()) return;
+        if (!IDENTIFIER_PATTERN.matcher(tableName).matches()) {
+            throw new IllegalArgumentException("Tên bảng không hợp lệ: " + tableName);
+        }
+
+        Set<String> allowedColumns = getTableColumns(tableName);
+        if (allowedColumns.isEmpty()) {
+            log.warn("Bảng {} không có cột hợp lệ hoặc không tồn tại trong DB schema, bỏ qua chèn dữ liệu.", tableName);
+            return;
+        }
 
         Map<String, Object> firstRow = rows.get(0);
-        List<String> columns = new ArrayList<>(firstRow.keySet());
+        List<String> validColumns = new ArrayList<>();
+        for (String col : firstRow.keySet()) {
+            if (col != null && IDENTIFIER_PATTERN.matcher(col).matches() && allowedColumns.contains(col.toLowerCase(Locale.ROOT))) {
+                validColumns.add(col);
+            } else {
+                log.warn("Cột '{}' bị loại bỏ do không hợp lệ hoặc không nằm trong schema bảng '{}'", col, tableName);
+            }
+        }
+
+        if (validColumns.isEmpty()) {
+            log.warn("Không tìm thấy cột hợp lệ nào cho bảng {}, bỏ qua bản ghi.", tableName);
+            return;
+        }
 
         StringBuilder sql = new StringBuilder("INSERT INTO ").append(tableName).append(" (");
         StringBuilder placeholders = new StringBuilder();
-        for (int i = 0; i < columns.size(); i++) {
+        for (int i = 0; i < validColumns.size(); i++) {
             if (i > 0) {
                 sql.append(", ");
                 placeholders.append(", ");
             }
-            sql.append(columns.get(i));
+            sql.append(validColumns.get(i));
             placeholders.append("?");
         }
         sql.append(") VALUES (").append(placeholders).append(")");
@@ -235,9 +353,9 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
 
         List<Object[]> batchArgs = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            Object[] args = new Object[columns.size()];
-            for (int i = 0; i < columns.size(); i++) {
-                args[i] = row.get(columns.get(i));
+            Object[] args = new Object[validColumns.size()];
+            for (int i = 0; i < validColumns.size(); i++) {
+                args[i] = row.get(validColumns.get(i));
             }
             batchArgs.add(args);
         }

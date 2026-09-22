@@ -40,6 +40,7 @@ public class BackupService implements
     private final BackupAuditLogPort backupAuditLogPort;
     private final BackupStoragePort backupStoragePort;
     private final DatabaseBackupRestoreEnginePort backupRestoreEnginePort;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public BackupService(
             BackupRepositoryPort backupRepositoryPort,
@@ -53,6 +54,7 @@ public class BackupService implements
         this.backupAuditLogPort = backupAuditLogPort;
         this.backupStoragePort = backupStoragePort;
         this.backupRestoreEnginePort = backupRestoreEnginePort;
+        this.objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
     }
 
     @Override
@@ -447,10 +449,39 @@ public class BackupService implements
 
         // 2. Validate cấu trúc nội dung JSON Snapshot trước khi xác nhận COMPLETED
         try (InputStream checkStream = backupStoragePort.readBackupFile(resolvedPath.toString())) {
-            java.util.Map<?, ?> parsed = objectMapper.readValue(checkStream, java.util.Map.class);
-            if (parsed == null || !parsed.containsKey("tables")) {
+            Object parsedObj = objectMapper.readValue(checkStream, Object.class);
+            if (!(parsedObj instanceof java.util.Map<?, ?> rootMap)) {
                 backupStoragePort.deleteBackupFile(resolvedPath.toString());
-                throw new IllegalArgumentException("Tệp tải lên không phải là bản sao lưu hợp lệ (thiếu dữ liệu bảng 'tables').");
+                throw new IllegalArgumentException("Tệp tải lên không phải là đối tượng JSON Snapshot hợp lệ.");
+            }
+
+            Object tablesObj = rootMap.get("tables");
+            if (!(tablesObj instanceof java.util.Map<?, ?> tablesMap) || tablesMap.isEmpty()) {
+                backupStoragePort.deleteBackupFile(resolvedPath.toString());
+                throw new IllegalArgumentException("Tệp tải lên không chứa dữ liệu bảng hợp lệ (thiếu hoặc rỗng mục 'tables').");
+            }
+
+            for (java.util.Map.Entry<?, ?> entry : tablesMap.entrySet()) {
+                if (!(entry.getKey() instanceof String tableName) || tableName.trim().isEmpty()) {
+                    backupStoragePort.deleteBackupFile(resolvedPath.toString());
+                    throw new IllegalArgumentException("Tên bảng trong tệp JSON không hợp lệ.");
+                }
+                if (!backupRestoreEnginePort.isSupportedTable(tableName)) {
+                    backupStoragePort.deleteBackupFile(resolvedPath.toString());
+                    throw new IllegalArgumentException("Tệp sao lưu chứa bảng không thuộc danh mục hệ thống cho phép: " + tableName);
+                }
+                if (entry.getValue() != null && !(entry.getValue() instanceof List<?>)) {
+                    backupStoragePort.deleteBackupFile(resolvedPath.toString());
+                    throw new IllegalArgumentException("Dữ liệu của bảng " + tableName + " phải là một danh sách các bản ghi.");
+                }
+                if (entry.getValue() instanceof List<?> rowList) {
+                    for (Object row : rowList) {
+                        if (row != null && !(row instanceof java.util.Map<?, ?>)) {
+                            backupStoragePort.deleteBackupFile(resolvedPath.toString());
+                            throw new IllegalArgumentException("Bản ghi trong bảng " + tableName + " không đúng định dạng đối tượng JSON.");
+                        }
+                    }
+                }
             }
         } catch (IllegalArgumentException e) {
             throw e;

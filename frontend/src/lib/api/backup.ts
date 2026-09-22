@@ -101,12 +101,9 @@ export function canAccessBackupWorkspace(
   permissions?: readonly string[] | null
 ): boolean {
   const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-  return (
-    normalized === "VT-06" ||
-    normalized === "ROLE-ADMIN" ||
-    normalized === "ADMIN" ||
-    (permissions !== undefined && permissions !== null && permissions.includes("DATA_BACKUP_MANAGE"))
-  );
+  const isAdmin = normalized === "VT-06" || normalized === "ROLE-ADMIN" || normalized === "ADMIN";
+  const hasPermission = permissions !== undefined && permissions !== null && permissions.includes("DATA_BACKUP_MANAGE");
+  return isAdmin && hasPermission;
 }
 
 export function canRestoreBackup(status: BackupStatus): boolean {

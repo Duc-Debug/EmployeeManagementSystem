@@ -59,35 +59,39 @@ public class BackupController {
         }
 
         Object principal = auth.getPrincipal();
+        boolean isAdminRole = false;
+        boolean hasBackupPermission = hasAuthority(auth, "DATA_BACKUP_MANAGE");
+
         if (principal instanceof User user) {
             info.id = user.getIdValue();
             info.email = user.getEmail();
             String roleCode = user.getRole() != null && user.getRole().getCode() != null ? user.getRole().getCode().getCode() : "";
-            info.isAdmin = "VT-06".equalsIgnoreCase(roleCode)
+            isAdminRole = "VT-06".equalsIgnoreCase(roleCode)
                     || "ROLE_ADMIN".equalsIgnoreCase(roleCode)
-                    || "ADMIN".equalsIgnoreCase(roleCode)
-                    || hasAuthority(auth, "DATA_BACKUP_MANAGE");
+                    || "ADMIN".equalsIgnoreCase(roleCode);
         } else if (principal instanceof UserPrincipal up) {
             info.id = up.getId();
             info.email = up.getUsername();
             String roleCode = up.getDomainUser() != null && up.getDomainUser().getRole() != null && up.getDomainUser().getRole().getCode() != null
                     ? up.getDomainUser().getRole().getCode().getCode() : "";
-            info.isAdmin = hasAuthority(auth, "DATA_BACKUP_MANAGE")
+            isAdminRole = "VT-06".equalsIgnoreCase(roleCode)
+                    || "ROLE_ADMIN".equalsIgnoreCase(roleCode)
+                    || "ADMIN".equalsIgnoreCase(roleCode)
                     || hasAuthority(auth, "VT-06")
                     || hasAuthority(auth, "ROLE_ADMIN")
-                    || hasAuthority(auth, "ADMIN")
-                    || "VT-06".equalsIgnoreCase(roleCode);
+                    || hasAuthority(auth, "ADMIN");
         } else {
             info.email = auth.getName();
-            info.isAdmin = hasAuthority(auth, "DATA_BACKUP_MANAGE")
-                    || hasAuthority(auth, "VT-06")
+            isAdminRole = hasAuthority(auth, "VT-06")
                     || hasAuthority(auth, "ROLE_ADMIN")
                     || hasAuthority(auth, "ADMIN");
         }
 
+        info.isAdmin = isAdminRole && hasBackupPermission;
+
         if (!info.isAdmin) {
-            backupService.recordAccessDenied(info.id, info.email, action, "Người dùng không có quyền quản lý sao lưu (DATA_BACKUP_MANAGE / VT-06)", clientIp);
-            throw new BackupAccessDeniedException("Truy cập bị từ chối: Chỉ Quản trị viên có quyền DATA_BACKUP_MANAGE mới có quyền truy cập module sao lưu và phục hồi dữ liệu.");
+            backupService.recordAccessDenied(info.id, info.email, action, "Người dùng không có quyền quản lý sao lưu (Yêu cầu vai trò Quản trị viên VT-06 và quyền DATA_BACKUP_MANAGE)", clientIp);
+            throw new BackupAccessDeniedException("Truy cập bị từ chối: Chỉ Quản trị viên (VT-06) có quyền DATA_BACKUP_MANAGE mới có quyền truy cập module sao lưu và phục hồi dữ liệu.");
         }
 
         return info;

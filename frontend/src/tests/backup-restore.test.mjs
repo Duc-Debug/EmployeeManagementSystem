@@ -21,12 +21,9 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
 
   function canAccessBackupWorkspace(roleCode, permissions) {
     const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-    return (
-      normalized === "VT-06" ||
-      normalized === "ROLE-ADMIN" ||
-      normalized === "ADMIN" ||
-      (permissions !== undefined && permissions !== null && permissions.includes("DATA_BACKUP_MANAGE"))
-    );
+    const isAdmin = normalized === "VT-06" || normalized === "ROLE-ADMIN" || normalized === "ADMIN";
+    const hasPermission = permissions !== undefined && permissions !== null && permissions.includes("DATA_BACKUP_MANAGE");
+    return isAdmin && hasPermission;
   }
 
   function canRestoreBackup(status) {
@@ -91,17 +88,17 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
     assert.equal(filterBackups(list, "ALL", "ALL", "BCK-3").length, 1);
   });
 
-  test("TC-04: RBAC access guard allows VT-06, ADMIN and users with DATA_BACKUP_MANAGE permission", () => {
-    assert.equal(canAccessBackupWorkspace("VT-06", []), true);
-    assert.equal(canAccessBackupWorkspace("ROLE_ADMIN", []), true);
-    assert.equal(canAccessBackupWorkspace("ADMIN", []), true);
-    assert.equal(canAccessBackupWorkspace("VT-01", ["DATA_BACKUP_MANAGE"]), true);
-    assert.equal(canAccessBackupWorkspace("VT-02", ["OTHER_PERMISSION", "DATA_BACKUP_MANAGE"]), true);
-    assert.equal(canAccessBackupWorkspace("VT-01", []), false);
-    assert.equal(canAccessBackupWorkspace("VT-02", ["PROJECT_READ"]), false);
-    assert.equal(canAccessBackupWorkspace("VT-03", null), false);
-    assert.equal(canAccessBackupWorkspace("VT-04", undefined), false);
-    assert.equal(canAccessBackupWorkspace("VT-05", []), false);
+  test("TC-04: Strict BR-01 RBAC guard requires Admin (VT-06) AND DATA_BACKUP_MANAGE permission", () => {
+    assert.equal(canAccessBackupWorkspace("VT-06", ["DATA_BACKUP_MANAGE"]), true);
+    assert.equal(canAccessBackupWorkspace("ROLE_ADMIN", ["DATA_BACKUP_MANAGE"]), true);
+    assert.equal(canAccessBackupWorkspace("ADMIN", ["OTHER", "DATA_BACKUP_MANAGE"]), true);
+    assert.equal(canAccessBackupWorkspace("VT-06", []), false);
+    assert.equal(canAccessBackupWorkspace("VT-06", null), false);
+    assert.equal(canAccessBackupWorkspace("VT-01", ["DATA_BACKUP_MANAGE"]), false);
+    assert.equal(canAccessBackupWorkspace("VT-02", ["OTHER_PERMISSION", "DATA_BACKUP_MANAGE"]), false);
+    assert.equal(canAccessBackupWorkspace("VT-03", ["DATA_BACKUP_MANAGE"]), false);
+    assert.equal(canAccessBackupWorkspace("VT-04", []), false);
+    assert.equal(canAccessBackupWorkspace("VT-05", ["DATA_BACKUP_MANAGE"]), false);
   });
 
   test("TC-05: Restore button is disabled when backup status is FAILED or IN_PROGRESS", () => {

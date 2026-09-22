@@ -91,11 +91,11 @@ export function BackupManagementWorkspace() {
   };
 
   const normalizedRole = authUser?.roleCode ? authUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const hasAccess =
+  const isAdminRole =
     normalizedRole === "VT-06" ||
     normalizedRole === "ROLE-ADMIN" ||
-    normalizedRole === "ADMIN" ||
-    (authUser?.permissions && authUser.permissions.includes("DATA_BACKUP_MANAGE"));
+    normalizedRole === "ADMIN";
+  const hasAccess = isAdminRole && authUser?.permissions?.includes("DATA_BACKUP_MANAGE") === true;
 
   useEffect(() => {
     if (hasAccess) {
