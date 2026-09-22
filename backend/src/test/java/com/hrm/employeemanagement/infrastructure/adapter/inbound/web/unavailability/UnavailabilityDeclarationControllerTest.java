@@ -73,6 +73,9 @@ class UnavailabilityDeclarationControllerTest {
     @Mock
     private CheckUnavailabilityConflictUseCase checkConflictUseCase;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.unavailability.PreviewUnavailabilityUseCase previewUseCase;
+
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
@@ -85,7 +88,8 @@ class UnavailabilityDeclarationControllerTest {
                 cancelUseCase,
                 getMyDeclarationsUseCase,
                 getDepartmentDeclarationsUseCase,
-                checkConflictUseCase
+                checkConflictUseCase,
+                previewUseCase
         );
 
         this.mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -295,5 +299,82 @@ class UnavailabilityDeclarationControllerTest {
                 .andExpect(jsonPath("$.data.status").value("CANCELLED"));
 
         verify(cancelUseCase).cancel(10L);
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/unavailability-declarations - reasonDetail vượt quá 500 ký tự trả về 400 Bad Request")
+    void testSubmitReasonDetailExceeds500Chars() throws Exception {
+        String longReason = "a".repeat(501);
+        SubmitUnavailabilityRequest request = new SubmitUnavailabilityRequest(
+                1L,
+                LocalDate.of(2026, 9, 21),
+                LocalDate.of(2026, 9, 22),
+                UnavailabilityReasonType.TRAINING,
+                longReason
+        );
+
+        mockMvc.perform(post("/api/v1/unavailability-declarations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Chi tiết lý do không được vượt quá 500 ký tự")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/unavailability-declarations/{id}/approve - approverComment vượt quá 500 ký tự trả về 400 Bad Request")
+    void testApproveCommentExceeds500Chars() throws Exception {
+        String longComment = "b".repeat(501);
+        ApproveUnavailabilityRequest request = new ApproveUnavailabilityRequest(longComment, true);
+
+        mockMvc.perform(post("/api/v1/unavailability-declarations/1/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Ý kiến người phê duyệt không được vượt quá 500 ký tự")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/unavailability-declarations/{id}/reject - rejectReason vượt quá 500 ký tự trả về 400 Bad Request")
+    void testRejectReasonExceeds500Chars() throws Exception {
+        String longReason = "c".repeat(501);
+        RejectUnavailabilityRequest request = new RejectUnavailabilityRequest(longReason);
+
+        mockMvc.perform(post("/api/v1/unavailability-declarations/1/reject")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Lý do từ chối không được vượt quá 500 ký tự")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/unavailability-declarations/preview - Tính toán số ngày và số giờ thành công (200 OK)")
+    void testPreviewSuccess() throws Exception {
+        LocalDate start = LocalDate.of(2026, 9, 21);
+        LocalDate end = LocalDate.of(2026, 9, 22);
+        com.hrm.employeemanagement.application.dto.unavailability.UnavailabilityPreviewResult previewResult =
+                new com.hrm.employeemanagement.application.dto.unavailability.UnavailabilityPreviewResult(
+                        start,
+                        end,
+                        2,
+                        BigDecimal.valueOf(16.00).setScale(2)
+                );
+
+        when(previewUseCase.preview(start, end)).thenReturn(previewResult);
+
+        mockMvc.perform(get("/api/v1/unavailability-declarations/preview")
+                        .param("startDate", "2026-09-21")
+                        .param("endDate", "2026-09-22"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.workingDays").value(2))
+                .andExpect(jsonPath("$.data.totalHoursDeducted").value(16.00));
+
+        verify(previewUseCase).preview(start, end);
     }
 }

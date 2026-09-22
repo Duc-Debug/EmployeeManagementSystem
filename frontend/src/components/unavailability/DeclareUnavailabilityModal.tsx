@@ -4,10 +4,18 @@ import { useState, useMemo, useEffect } from "react";
 import { X, AlertCircle, Clock, Loader2, Info } from "lucide-react";
 import {
   submitUnavailability,
+  previewUnavailability,
   type UnavailabilityReasonType,
   UNAVAILABILITY_REASON_LABELS,
   type UnavailabilityDeclarationResult,
+  type UnavailabilityPreviewResult,
 } from "@/lib/api/unavailability";
+import {
+  getWorkingCalendar,
+  type CompanyWorkingCalendar,
+  type WorkingCalendarDay,
+  type DayOfWeek,
+} from "@/lib/api/working-calendar";
 
 interface DeclareUnavailabilityModalProps {
   isOpen: boolean;
@@ -17,17 +25,53 @@ interface DeclareUnavailabilityModalProps {
   employeeName?: string;
 }
 
-export function countWorkingDays(startDateStr: string, endDateStr: string): number {
+const JS_DAY_TO_DAY_OF_WEEK: Record<number, DayOfWeek> = {
+  0: "SUNDAY",
+  1: "MONDAY",
+  2: "TUESDAY",
+  3: "WEDNESDAY",
+  4: "THURSDAY",
+  5: "FRIDAY",
+  6: "SATURDAY",
+};
+
+export function countWorkingDays(
+  startDateStr: string,
+  endDateStr: string,
+  calendarDays?: WorkingCalendarDay[] | Set<DayOfWeek | string> | string[]
+): number {
   if (!startDateStr || !endDateStr) return 0;
   const start = new Date(startDateStr);
   const end = new Date(endDateStr);
   if (end < start) return 0;
 
+  let isWorkingDayFn: (dow: DayOfWeek, jsDay: number) => boolean;
+
+  if (calendarDays) {
+    if (Array.isArray(calendarDays)) {
+      if (calendarDays.length > 0 && typeof calendarDays[0] === "object" && "dayOfWeek" in calendarDays[0]) {
+        const workingMap = new Map<string, boolean>();
+        (calendarDays as WorkingCalendarDay[]).forEach((d) => workingMap.set(d.dayOfWeek, d.isWorkingDay));
+        isWorkingDayFn = (dow) => workingMap.get(dow) ?? (dow !== "SATURDAY" && dow !== "SUNDAY");
+      } else {
+        const workingSet = new Set(calendarDays as string[]);
+        isWorkingDayFn = (dow) => workingSet.has(dow);
+      }
+    } else if (calendarDays instanceof Set) {
+      isWorkingDayFn = (dow) => calendarDays.has(dow);
+    } else {
+      isWorkingDayFn = (_dow, jsDay) => jsDay !== 0 && jsDay !== 6;
+    }
+  } else {
+    isWorkingDayFn = (_dow, jsDay) => jsDay !== 0 && jsDay !== 6;
+  }
+
   let count = 0;
   const cur = new Date(start);
   while (cur <= end) {
-    const day = cur.getDay(); // 0 is Sunday, 6 is Saturday
-    if (day !== 0 && day !== 6) {
+    const jsDay = cur.getDay(); // 0 is Sunday, 6 is Saturday
+    const dow = JS_DAY_TO_DAY_OF_WEEK[jsDay];
+    if (isWorkingDayFn(dow, jsDay)) {
       count++;
     }
     cur.setDate(cur.getDate() + 1);
@@ -54,13 +98,66 @@ export default function DeclareUnavailabilityModal({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const workingDays = useMemo(() => {
-    return countWorkingDays(startDate, endDate);
+  const [calendar, setCalendar] = useState<CompanyWorkingCalendar | null>(null);
+  const [backendPreview, setBackendPreview] = useState<UnavailabilityPreviewResult | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    getWorkingCalendar()
+      .then((cal) => {
+        if (isMounted) setCalendar(cal);
+      })
+      .catch((err) => {
+        console.warn("Could not load working calendar, defaulting to Mon-Fri:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!startDate || !endDate || startDate > endDate) {
+      setBackendPreview(null);
+      setIsPreviewLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsPreviewLoading(true);
+    previewUnavailability(startDate, endDate)
+      .then((res) => {
+        if (isMounted) {
+          setBackendPreview(res);
+          setIsPreviewLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("Backend preview calculation error:", err);
+        if (isMounted) {
+          setIsPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [startDate, endDate]);
 
+  const workingDays = useMemo(() => {
+    if (backendPreview && backendPreview.startDate === startDate && backendPreview.endDate === endDate) {
+      return backendPreview.workingDays;
+    }
+    return countWorkingDays(startDate, endDate, calendar?.days);
+  }, [startDate, endDate, backendPreview, calendar]);
+
   const estimatedHours = useMemo(() => {
+    if (backendPreview && backendPreview.startDate === startDate && backendPreview.endDate === endDate) {
+      return backendPreview.totalHoursDeducted;
+    }
     return workingDays * 8;
-  }, [workingDays]);
+  }, [workingDays, backendPreview, startDate, endDate]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -274,7 +371,8 @@ export default function DeclareUnavailabilityModal({
                   Số ngày làm việc: <strong className="font-semibold">{workingDays} ngày</strong>
                 </span>
               </div>
-              <span className="font-bold text-indigo-700 bg-indigo-100/80 px-2.5 py-1 rounded-lg">
+              <span className="inline-flex items-center gap-1.5 font-bold text-indigo-700 bg-indigo-100/80 px-2.5 py-1 rounded-lg">
+                {isPreviewLoading && <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />}
                 Khấu trừ: {estimatedHours}h
               </span>
             </div>
@@ -299,12 +397,18 @@ export default function DeclareUnavailabilityModal({
 
           {/* Reason Detail */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Mô tả chi tiết / Nội dung công việc
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700">
+                Mô tả chi tiết / Nội dung công việc
+              </label>
+              <span className={`text-[10px] ${reasonDetail.length > 500 ? "text-rose-600 font-semibold" : "text-slate-400"}`}>
+                {reasonDetail.length}/500
+              </span>
+            </div>
             <textarea
               rows={3}
               value={reasonDetail}
+              maxLength={500}
               onChange={(e) => setReasonDetail(e.target.value)}
               placeholder="VD: Tham gia khóa đào tạo chuyên sâu về kiến trúc hệ thống, đi công tác chi nhánh..."
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition resize-none placeholder:text-slate-400"

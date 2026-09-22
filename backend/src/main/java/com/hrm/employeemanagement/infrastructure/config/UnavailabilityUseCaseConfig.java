@@ -126,4 +126,15 @@ public class UnavailabilityUseCaseConfig {
                 checkService
         );
     }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.unavailability.PreviewUnavailabilityUseCase previewUnavailabilityUseCase(
+            AuthorizationService authorizationService,
+            LoadWorkingCalendarPort loadWorkingCalendarPort
+    ) {
+        return new com.hrm.employeemanagement.application.service.unavailability.PreviewUnavailabilityDeclarationService(
+                authorizationService,
+                loadWorkingCalendarPort
+        );
+    }
 }

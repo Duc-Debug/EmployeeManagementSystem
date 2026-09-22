@@ -98,13 +98,19 @@ export default function RejectUnavailabilityModal({
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Lý do từ chối <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700">
+                Lý do từ chối <span className="text-rose-500">*</span>
+              </label>
+              <span className={`text-[10px] ${rejectReason.length > 500 ? "text-rose-600 font-semibold" : "text-slate-400"}`}>
+                {rejectReason.length}/500
+              </span>
+            </div>
             <textarea
               rows={3}
               required
               value={rejectReason}
+              maxLength={500}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="VD: Dự án đang trong giai đoạn nước rút cần tập trung toàn bộ nguồn lực..."
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition resize-none placeholder:text-slate-400"

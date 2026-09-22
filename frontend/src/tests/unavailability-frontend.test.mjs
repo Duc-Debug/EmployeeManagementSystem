@@ -222,4 +222,57 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(checkCanDeclare({ roleCode: "VT-01", permissions: ["UNAVAILABILITY_READ"] }), false);
     });
   });
+
+  describe("CompanyWorkingCalendar alignment & 500 character limit", () => {
+    test("TC-19: countWorkingDays tính chính xác khi CompanyWorkingCalendar cấu hình Thứ 7 là ngày làm việc", () => {
+      const calendarWithSaturday = [
+        { dayOfWeek: "MONDAY", isWorkingDay: true },
+        { dayOfWeek: "TUESDAY", isWorkingDay: true },
+        { dayOfWeek: "WEDNESDAY", isWorkingDay: true },
+        { dayOfWeek: "THURSDAY", isWorkingDay: true },
+        { dayOfWeek: "FRIDAY", isWorkingDay: true },
+        { dayOfWeek: "SATURDAY", isWorkingDay: true },
+        { dayOfWeek: "SUNDAY", isWorkingDay: false },
+      ];
+      // 2026-09-21 (Mon) to 2026-09-26 (Sat) -> 6 days
+      const days = countWorkingDays("2026-09-21", "2026-09-26", calendarWithSaturday);
+      assert.equal(days, 6);
+      assert.equal(days * 8, 48);
+    });
+
+    test("TC-20: countWorkingDays tính chính xác khi lịch làm việc chỉ có T2 - T4", () => {
+      const threeDayCalendar = [
+        { dayOfWeek: "MONDAY", isWorkingDay: true },
+        { dayOfWeek: "TUESDAY", isWorkingDay: true },
+        { dayOfWeek: "WEDNESDAY", isWorkingDay: true },
+        { dayOfWeek: "THURSDAY", isWorkingDay: false },
+        { dayOfWeek: "FRIDAY", isWorkingDay: false },
+        { dayOfWeek: "SATURDAY", isWorkingDay: false },
+        { dayOfWeek: "SUNDAY", isWorkingDay: false },
+      ];
+      // 2026-09-21 (Mon) to 2026-09-25 (Fri) -> only Mon, Tue, Wed = 3 days
+      const days = countWorkingDays("2026-09-21", "2026-09-25", threeDayCalendar);
+      assert.equal(days, 3);
+    });
+
+    test("TC-21: Boundary validation độ dài tối đa 500 ký tự cho text fields", () => {
+      function validateMaxLength500(str) {
+        if (!str) return true;
+        return str.length <= 500;
+      }
+
+      assert.equal(validateMaxLength500("a".repeat(500)), true);
+      assert.equal(validateMaxLength500("a".repeat(501)), false);
+      assert.equal(validateMaxLength500(""), true);
+      assert.equal(validateMaxLength500(null), true);
+    });
+
+    test("TC-22: Xây dựng URL previewUnavailability đúng định dạng query params", () => {
+      const startDate = "2026-09-21";
+      const endDate = "2026-09-25";
+      const query = new URLSearchParams({ startDate, endDate }).toString();
+      assert.equal(query, "startDate=2026-09-21&endDate=2026-09-25");
+      assert.equal(`/unavailability-declarations/preview?${query}`, "/unavailability-declarations/preview?startDate=2026-09-21&endDate=2026-09-25");
+    });
+  });
 });

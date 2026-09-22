@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.unavailabi
 
 import com.hrm.employeemanagement.domain.unavailability.UnavailabilityReasonType;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
@@ -18,5 +19,6 @@ public record SubmitUnavailabilityRequest(
         @NotNull(message = "reasonType không được để trống")
         UnavailabilityReasonType reasonType,
 
+        @Size(max = 500, message = "Chi tiết lý do không được vượt quá 500 ký tự")
         String reasonDetail
 ) {}

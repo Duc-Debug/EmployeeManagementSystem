@@ -22,6 +22,13 @@ export interface UnavailabilityDeclarationResult {
   updatedAt?: string | null;
 }
 
+export interface UnavailabilityPreviewResult {
+  startDate: string;
+  endDate: string;
+  workingDays: number;
+  totalHoursDeducted: number;
+}
+
 export interface SubmitUnavailabilityRequest {
   employeeId: number;
   startDate: string;
@@ -161,6 +168,22 @@ export async function cancelUnavailability(
     `/unavailability-declarations/${id}`,
     {
       method: "DELETE",
+    }
+  );
+}
+
+/**
+ * Tính toán trước số ngày làm việc và số giờ khấu trừ theo cấu hình CompanyWorkingCalendar của hệ thống.
+ */
+export async function previewUnavailability(
+  startDate: string,
+  endDate: string
+): Promise<UnavailabilityPreviewResult> {
+  const query = new URLSearchParams({ startDate, endDate }).toString();
+  return await apiRequest<UnavailabilityPreviewResult>(
+    `/unavailability-declarations/preview?${query}`,
+    {
+      method: "GET",
     }
   );
 }

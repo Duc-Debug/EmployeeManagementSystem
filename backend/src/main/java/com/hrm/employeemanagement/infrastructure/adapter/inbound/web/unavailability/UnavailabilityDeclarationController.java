@@ -28,11 +28,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.hrm.employeemanagement.application.dto.unavailability.UnavailabilityPreviewResult;
+import com.hrm.employeemanagement.application.port.inbound.unavailability.PreviewUnavailabilityUseCase;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.validation.annotation.Validated;
+
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/v1/unavailability-declarations")
+@Validated
 public class UnavailabilityDeclarationController {
 
     private final SubmitUnavailabilityDeclarationUseCase submitUseCase;
@@ -42,6 +49,7 @@ public class UnavailabilityDeclarationController {
     private final GetMyUnavailabilityDeclarationsUseCase getMyDeclarationsUseCase;
     private final GetDepartmentUnavailabilityDeclarationsUseCase getDepartmentDeclarationsUseCase;
     private final CheckUnavailabilityConflictUseCase checkConflictUseCase;
+    private final PreviewUnavailabilityUseCase previewUseCase;
 
     public UnavailabilityDeclarationController(
             SubmitUnavailabilityDeclarationUseCase submitUseCase,
@@ -50,7 +58,8 @@ public class UnavailabilityDeclarationController {
             CancelUnavailabilityDeclarationUseCase cancelUseCase,
             GetMyUnavailabilityDeclarationsUseCase getMyDeclarationsUseCase,
             GetDepartmentUnavailabilityDeclarationsUseCase getDepartmentDeclarationsUseCase,
-            CheckUnavailabilityConflictUseCase checkConflictUseCase
+            CheckUnavailabilityConflictUseCase checkConflictUseCase,
+            PreviewUnavailabilityUseCase previewUseCase
     ) {
         this.submitUseCase = Objects.requireNonNull(submitUseCase, "submitUseCase must not be null");
         this.approveUseCase = Objects.requireNonNull(approveUseCase, "approveUseCase must not be null");
@@ -59,6 +68,7 @@ public class UnavailabilityDeclarationController {
         this.getMyDeclarationsUseCase = Objects.requireNonNull(getMyDeclarationsUseCase, "getMyDeclarationsUseCase must not be null");
         this.getDepartmentDeclarationsUseCase = Objects.requireNonNull(getDepartmentDeclarationsUseCase, "getDepartmentDeclarationsUseCase must not be null");
         this.checkConflictUseCase = Objects.requireNonNull(checkConflictUseCase, "checkConflictUseCase must not be null");
+        this.previewUseCase = Objects.requireNonNull(previewUseCase, "previewUseCase must not be null");
     }
 
     @PostMapping
@@ -99,10 +109,19 @@ public class UnavailabilityDeclarationController {
         return ResponseEntity.ok(ApiResponse.success("Kiểm tra xung đột phân bổ thành công", result));
     }
 
+    @GetMapping("/preview")
+    public ResponseEntity<ApiResponse<UnavailabilityPreviewResult>> preview(
+            @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        UnavailabilityPreviewResult result = previewUseCase.preview(startDate, endDate);
+        return ResponseEntity.ok(ApiResponse.success("Tính toán thời gian không sẵn sàng thành công", result));
+    }
+
     @PostMapping("/{id}/approve")
     public ResponseEntity<ApiResponse<UnavailabilityDeclarationResult>> approve(
             @PathVariable("id") Long id,
-            @RequestBody(required = false) ApproveUnavailabilityRequest request
+            @Valid @RequestBody(required = false) ApproveUnavailabilityRequest request
     ) {
         String comment = request != null ? request.approverComment() : null;
         boolean confirmConflict = request != null && Boolean.TRUE.equals(request.confirmConflictWarning());
@@ -114,7 +133,7 @@ public class UnavailabilityDeclarationController {
     @PostMapping("/{id}/reject")
     public ResponseEntity<ApiResponse<UnavailabilityDeclarationResult>> reject(
             @PathVariable("id") Long id,
-            @RequestBody(required = false) RejectUnavailabilityRequest request
+            @Valid @RequestBody(required = false) RejectUnavailabilityRequest request
     ) {
         String rejectReason = request != null ? request.rejectReason() : null;
         RejectUnavailabilityCommand command = new RejectUnavailabilityCommand(id, rejectReason);
