@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V120: CREATE SYSTEM BACKUP AND RESTORE SCHEMA
+-- FLYWAY MIGRATION V121: CREATE SYSTEM BACKUP AND RESTORE SCHEMA
 -- Epic: NCL-12 (Quản trị hệ thống và cấu hình nâng cao)
 -- Story: NCL-12-CN-003 (Sao lưu và phục hồi dữ liệu)
 -- ============================================================
