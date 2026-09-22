@@ -1,10 +1,11 @@
 package com.hrm.employeemanagement.domain.employee;
 
-import com.hrm.employeemanagement.domain.exception.employee.InvalidEmployeeDataException;
-import com.hrm.employeemanagement.domain.user.UserId;
-
 import java.time.LocalDate;
 import java.util.Objects;
+
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.exception.employee.InvalidEmployeeDataException;
+import com.hrm.employeemanagement.domain.user.UserId;
 
 public class Employee {
     private EmployeeId id;
@@ -199,5 +200,45 @@ public class Employee {
 
     public void changeStatus(EmployeeStatus newStatus) {
         this.status = Objects.requireNonNull(newStatus, "Trạng thái nhân viên không được null");
+    }
+
+    public boolean isOutsourced() {
+        return Boolean.TRUE.equals(this.isOutsourced);
+    }
+
+    /**
+     * Kiểm tra một tuần (ISO YearWeek) có nằm trong khoảng thời gian hợp đồng hay không.
+     * Áp dụng theo QTN-21: Tuần hợp lệ khi không kết thúc trước startDate và không bắt đầu sau contractEndDate.
+     */
+    public boolean isWithinContractPeriod(YearWeek yearWeek) {
+        if (yearWeek == null) {
+            return false;
+        }
+        LocalDate weekStart = yearWeek.getStartDate();
+        LocalDate weekEnd = yearWeek.getEndDate();
+
+        if (this.startDate != null && weekEnd.isBefore(this.startDate)) {
+            return false;
+        }
+        if (this.contractEndDate != null && weekStart.isAfter(this.contractEndDate)) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Kiểm tra một ngày cụ thể có nằm trong khoảng thời gian hợp đồng hay không.
+     */
+    public boolean isWithinContractPeriod(LocalDate date) {
+        if (date == null) {
+            return false;
+        }
+        if (this.startDate != null && date.isBefore(this.startDate)) {
+            return false;
+        }
+        if (this.contractEndDate != null && date.isAfter(this.contractEndDate)) {
+            return false;
+        }
+        return true;
     }
 }

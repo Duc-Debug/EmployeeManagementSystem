@@ -271,6 +271,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.OutsourcedContractPeriodException.class)
+    public ResponseEntity<ErrorResponse> handleOutsourcedContractPeriod(com.hrm.employeemanagement.domain.exception.allocation.OutsourcedContractPeriodException ex) {
+        java.util.Map<String, Object> details = new java.util.HashMap<>();
+        if (ex.getEmployeeId() != null) details.put("employeeId", ex.getEmployeeId());
+        if (ex.getEmployeeCode() != null) details.put("employeeCode", ex.getEmployeeCode());
+        if (ex.getProviderName() != null) details.put("providerName", ex.getProviderName());
+        if (ex.getStartDate() != null) details.put("startDate", ex.getStartDate().toString());
+        if (ex.getContractEndDate() != null) details.put("contractEndDate", ex.getContractEndDate().toString());
+        if (ex.getYearWeek() != null) details.put("yearWeek", ex.getYearWeek().weekNumber() + "/" + ex.getYearWeek().year());
+
+        ErrorResponse response = ErrorResponse.of(
+                "OUTSOURCED_CONTRACT_PERIOD_VIOLATION",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value(),
+                details);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.InvalidCapacityThresholdException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCapacityThreshold(com.hrm.employeemanagement.domain.exception.allocation.InvalidCapacityThresholdException ex) {
         ErrorResponse response = ErrorResponse.of(

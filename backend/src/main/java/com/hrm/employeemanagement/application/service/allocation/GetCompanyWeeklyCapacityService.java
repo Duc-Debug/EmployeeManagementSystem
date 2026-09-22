@@ -507,9 +507,13 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 BigDecimal baseAvailableHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
 
                 // 2. Luôn luôn áp dụng điều chỉnh hợp đồng lao động
+                // QTN-21: Chỉ áp dụng startDate làm giới hạn bắt đầu hợp đồng cho nhân sự thuê ngoài.
+                // Đối với nhân sự nội bộ, bảo toàn hành vi cũ không lấy startDate làm ranh giới khả dụng.
                 int weekWorkingDaysCount = workingDays.isEmpty() ? 5 : workingDays.size();
+                LocalDate contractStartDate = emp.isOutsourced() ? emp.getStartDate() : null;
                 BigDecimal availableHours = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
                         baseAvailableHours,
+                        contractStartDate,
                         emp.getContractEndDate(),
                         yw.getStartDate(),
                         yw.getEndDate(),
@@ -569,7 +573,11 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     empTotalAllocated,
                     empTotalAvailable,
                     empAvgUtilization,
-                    overloadedWeeksCount
+                    overloadedWeeksCount,
+                    emp.getIsOutsourced(),
+                    emp.getProviderName(),
+                    emp.getStartDate(),
+                    emp.getContractEndDate()
             ));
         }
 
