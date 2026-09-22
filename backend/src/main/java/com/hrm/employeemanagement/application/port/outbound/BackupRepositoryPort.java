@@ -4,6 +4,7 @@ import com.hrm.employeemanagement.domain.backup.Backup;
 import com.hrm.employeemanagement.domain.backup.BackupStatus;
 import com.hrm.employeemanagement.domain.backup.BackupType;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,6 +14,7 @@ public interface BackupRepositoryPort {
     Optional<Backup> findByBackupCode(String backupCode);
     List<Backup> findAll();
     List<Backup> findFiltered(BackupType type, BackupStatus status, String search);
+    List<Backup> findExpiredBackups(LocalDateTime cutoffDate);
     void deleteById(Long id);
     long count();
     Optional<Backup> findLatestCompleted();

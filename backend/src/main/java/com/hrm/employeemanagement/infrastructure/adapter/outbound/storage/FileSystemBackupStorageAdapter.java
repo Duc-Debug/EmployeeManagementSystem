@@ -34,7 +34,18 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
 
     @Override
     public Path resolveBackupPath(String fileName) {
-        return backupDirectory.resolve(fileName).normalize();
+        if (fileName == null || fileName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên tệp sao lưu không được để trống");
+        }
+        Path fileNameOnly = Paths.get(fileName).getFileName();
+        if (fileNameOnly == null || fileNameOnly.toString().trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên tệp sao lưu không hợp lệ: " + fileName);
+        }
+        Path target = backupDirectory.resolve(fileNameOnly.toString()).normalize();
+        if (!target.startsWith(backupDirectory)) {
+            throw new IllegalArgumentException("Phát hiện nguy cơ Path Traversal không hợp lệ: " + fileName);
+        }
+        return target;
     }
 
     @Override

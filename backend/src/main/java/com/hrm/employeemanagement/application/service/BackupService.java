@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -160,6 +161,9 @@ public class BackupService implements
             schedule.recordRunSuccess(LocalDateTime.now());
             backupScheduleRepositoryPort.save(schedule);
 
+            // Tự động dọn dẹp các bản sao lưu hết hạn theo cấu hình retentionDays
+            applyRetentionPolicy(schedule.getRetentionDays());
+
             backupAuditLogPort.save(BackupAuditLog.create(
                     null,
                     "system@scheduler",
@@ -176,6 +180,9 @@ public class BackupService implements
             log.error("Lỗi khi chạy sao lưu tự động {}: {}", backupCode, e.getMessage(), e);
             backup.markFailed(e.getMessage());
             backupRepositoryPort.save(backup);
+
+            schedule.recordRunFailure(LocalDateTime.now());
+            backupScheduleRepositoryPort.save(schedule);
 
             backupAuditLogPort.save(BackupAuditLog.create(
                     null,
@@ -228,7 +235,7 @@ public class BackupService implements
             throw new BackupRestoreFailedException("Tệp sao lưu đã bị thay đổi hoặc bị hỏng (Mã băm SHA-256 không khớp).");
         }
 
-        // Tự động tạo điểm an toàn (Safety snapshot) trước khi phục hồi
+        // Tự động tạo điểm an toàn (Safety snapshot) trước khi phục hồi - bắt buộc thành công
         try {
             String safetyCode = "SAFETY-PRE-RESTORE-" + LocalDateTime.now().format(CODE_DATE_FORMAT);
             Path safetyPath = backupStoragePort.resolveBackupPath(safetyCode + ".json");
@@ -248,7 +255,8 @@ public class BackupService implements
             safetyBackup.markCompleted(backupStoragePort.getFileSize(safetyPath.toString()), backupStoragePort.calculateChecksum(safetyPath.toString()));
             backupRepositoryPort.save(safetyBackup);
         } catch (Exception e) {
-            log.warn("Không thể tạo bản snapshot an toàn trước khi phục hồi: {}", e.getMessage());
+            log.error("Không thể tạo bản snapshot an toàn trước khi phục hồi: {}", e.getMessage(), e);
+            throw new BackupRestoreFailedException("Không thể tạo điểm sao lưu an toàn (Safety snapshot) trước khi phục hồi. Tiến trình phục hồi đã bị hủy để đảm bảo toàn vẹn dữ liệu: " + e.getMessage(), e);
         }
 
         // Thực hiện phục hồi
@@ -384,6 +392,32 @@ public class BackupService implements
         return backupAuditLogPort.findRecent(100);
     }
 
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    public void applyRetentionPolicy(int retentionDays) {
+        if (retentionDays <= 0) return;
+        try {
+            LocalDateTime cutoffDate = LocalDateTime.now().minusDays(retentionDays);
+            List<Backup> expiredBackups = backupRepositoryPort.findExpiredBackups(cutoffDate);
+            if (expiredBackups != null && !expiredBackups.isEmpty()) {
+                log.info("Bắt đầu thực thi dọn dẹp các bản sao lưu hết hạn lưu trữ ({} ngày, trước {})...", retentionDays, cutoffDate);
+                for (Backup expired : expiredBackups) {
+                    try {
+                        if (backupStoragePort.exists(expired.getFilePath())) {
+                            backupStoragePort.deleteBackupFile(expired.getFilePath());
+                        }
+                        backupRepositoryPort.deleteById(expired.getId());
+                        log.info("Đã xóa bản sao lưu hết hạn lưu trữ: {} (id: {})", expired.getBackupCode(), expired.getId());
+                    } catch (Exception e) {
+                        log.warn("Không thể xóa tệp bản sao lưu hết hạn {}: {}", expired.getBackupCode(), e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi thực thi chính sách lưu trữ (Retention policy): {}", e.getMessage(), e);
+        }
+    }
+
     @Override
     public Backup uploadBackup(
             String originalFileName,
@@ -396,22 +430,48 @@ public class BackupService implements
             String currentUserEmail,
             String clientIp
     ) {
+        // 1. Kiểm tra phần mở rộng tệp - chỉ chấp nhận .json
+        if (originalFileName == null || !originalFileName.toLowerCase(Locale.ROOT).endsWith(".json")) {
+            throw new IllegalArgumentException("Hệ thống chỉ hỗ trợ tệp sao lưu định dạng JSON Snapshot (.json)");
+        }
+
         String timestamp = LocalDateTime.now().format(CODE_DATE_FORMAT);
         String randomSuffix = UUID.randomUUID().toString().substring(0, 4).toUpperCase(Locale.ROOT);
         String backupCode = "BCK-UPLOAD-" + timestamp + "-" + randomSuffix;
-        String fileName = backupCode + "_" + (originalFileName != null ? originalFileName : "upload.json");
+        // Sử dụng tên tệp an toàn được tạo tự động, không dùng trực tiếp originalFileName làm đường dẫn hệ thống
+        String fileName = backupCode + ".json";
         Path resolvedPath = backupStoragePort.resolveBackupPath(fileName);
 
+        // Lưu tệp vật lý
         backupStoragePort.storeBackupFile(fileName, inputStream);
+
+        // 2. Validate cấu trúc nội dung JSON Snapshot trước khi xác nhận COMPLETED
+        try (InputStream checkStream = backupStoragePort.readBackupFile(resolvedPath.toString())) {
+            java.util.Map<?, ?> parsed = objectMapper.readValue(checkStream, java.util.Map.class);
+            if (parsed == null || !parsed.containsKey("tables")) {
+                backupStoragePort.deleteBackupFile(resolvedPath.toString());
+                throw new IllegalArgumentException("Tệp tải lên không phải là bản sao lưu hợp lệ (thiếu dữ liệu bảng 'tables').");
+            }
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            backupStoragePort.deleteBackupFile(resolvedPath.toString());
+            throw new IllegalArgumentException("Nội dung tệp sao lưu không hợp lệ hoặc không đúng cấu trúc JSON Snapshot: " + e.getMessage(), e);
+        }
+
         long actualSize = backupStoragePort.getFileSize(resolvedPath.toString());
         String checksum = backupStoragePort.calculateChecksum(resolvedPath.toString());
 
         String uploadTitle = (title != null && !title.trim().isEmpty()) ? title.trim() : "Bản sao lưu tải lên " + timestamp;
+        String fullDescription = (description != null && !description.trim().isEmpty())
+                ? description.trim() + " (Tệp gốc: " + Paths.get(originalFileName).getFileName().toString() + ")"
+                : "Tệp gốc: " + Paths.get(originalFileName).getFileName().toString();
+
         Backup backup = new Backup(
                 null,
                 backupCode,
                 uploadTitle,
-                description,
+                fullDescription,
                 backupType != null ? backupType : BackupType.FULL,
                 fileName,
                 resolvedPath.toString(),
@@ -435,7 +495,7 @@ public class BackupService implements
                 backup.getId(),
                 "SUCCESS",
                 "Tải lên bản sao lưu thành công",
-                "Tệp gốc: " + originalFileName + ", Dung lượng: " + actualSize + " bytes",
+                "Tệp gốc: " + Paths.get(originalFileName).getFileName().toString() + ", Dung lượng: " + actualSize + " bytes",
                 clientIp
         ));
 

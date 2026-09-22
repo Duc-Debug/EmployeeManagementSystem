@@ -183,4 +183,60 @@ class BackupControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.enabled").value(true));
     }
+
+    @Test
+    @DisplayName("Người dùng có quyền DATA_BACKUP_MANAGE truy cập thành công (HTTP 200)")
+    void testListBackups_Permission_Success() throws Exception {
+        Role role = new Role(new RoleId(1L), RoleCode.fromCode("VT-01"), "VT-01");
+        User user = new User(new UserId(5L), "user_with_perm", "hash", role, UserStatus.ACTIVE, null, "user@hrm.com", null, 1L);
+        UserPrincipal principal = new UserPrincipal(user, List.of(new SimpleGrantedAuthority("DATA_BACKUP_MANAGE")));
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        when(backupService.getBackups(any(), any(), any())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/backups"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("Tải lên file sao lưu .json thành công (HTTP 200)")
+    void testUploadBackup_Json_Success() throws Exception {
+        setSecurityContext("VT-06", 1L, "admin@company.com");
+
+        org.springframework.mock.web.MockMultipartFile file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "backup.json", "application/json", "{\"tables\": {}}".getBytes()
+        );
+
+        Backup uploaded = new Backup(
+                3L, "BCK-UPLOAD-1", "Upload", "Desc", BackupType.FULL,
+                "BCK-UPLOAD-1.json", "path", 100L, "chk", BackupStatus.COMPLETED,
+                false, 1L, "admin", LocalDateTime.now(), LocalDateTime.now(), null
+        );
+        when(backupService.uploadBackup(anyString(), any(), any(), any(), any(), anyLong(), any(), any(), any()))
+                .thenReturn(uploaded);
+
+        mockMvc.perform(multipart("/api/v1/backups/upload")
+                        .file(file)
+                        .param("title", "My Upload"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("Tải lên file không phải .json bị từ chối (HTTP 400)")
+    void testUploadBackup_Sql_BadRequest() throws Exception {
+        setSecurityContext("VT-06", 1L, "admin@company.com");
+
+        org.springframework.mock.web.MockMultipartFile file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "dump.sql", "text/plain", "SELECT 1;".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/v1/backups/upload")
+                        .file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(".json")));
+    }
 }

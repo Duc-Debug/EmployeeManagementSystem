@@ -39,6 +39,9 @@ public class BackupController {
         this.backupService = backupService;
     }
 
+    private static final java.util.regex.Pattern IPV4_PATTERN = java.util.regex.Pattern.compile("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$");
+    private static final java.util.regex.Pattern IPV6_PATTERN = java.util.regex.Pattern.compile("^[0-9a-fA-F:]+$");
+
     private static class CurrentUserInfo {
         Long id;
         String email;
@@ -59,29 +62,41 @@ public class BackupController {
         if (principal instanceof User user) {
             info.id = user.getIdValue();
             info.email = user.getEmail();
-            info.isAdmin = "VT-06".equalsIgnoreCase(user.getRole().getCode().getCode())
+            String roleCode = user.getRole() != null && user.getRole().getCode() != null ? user.getRole().getCode().getCode() : "";
+            info.isAdmin = "VT-06".equalsIgnoreCase(roleCode)
+                    || "ROLE_ADMIN".equalsIgnoreCase(roleCode)
+                    || "ADMIN".equalsIgnoreCase(roleCode)
                     || hasAuthority(auth, "DATA_BACKUP_MANAGE");
         } else if (principal instanceof UserPrincipal up) {
             info.id = up.getId();
             info.email = up.getUsername();
-            info.isAdmin = hasAuthority(auth, "VT-06") || hasAuthority(auth, "DATA_BACKUP_MANAGE")
-                    || (up.getDomainUser() != null && "VT-06".equalsIgnoreCase(up.getDomainUser().getRole().getCode().getCode()));
+            String roleCode = up.getDomainUser() != null && up.getDomainUser().getRole() != null && up.getDomainUser().getRole().getCode() != null
+                    ? up.getDomainUser().getRole().getCode().getCode() : "";
+            info.isAdmin = hasAuthority(auth, "DATA_BACKUP_MANAGE")
+                    || hasAuthority(auth, "VT-06")
+                    || hasAuthority(auth, "ROLE_ADMIN")
+                    || hasAuthority(auth, "ADMIN")
+                    || "VT-06".equalsIgnoreCase(roleCode);
         } else {
             info.email = auth.getName();
-            info.isAdmin = hasAuthority(auth, "VT-06") || hasAuthority(auth, "DATA_BACKUP_MANAGE");
+            info.isAdmin = hasAuthority(auth, "DATA_BACKUP_MANAGE")
+                    || hasAuthority(auth, "VT-06")
+                    || hasAuthority(auth, "ROLE_ADMIN")
+                    || hasAuthority(auth, "ADMIN");
         }
 
         if (!info.isAdmin) {
-            backupService.recordAccessDenied(info.id, info.email, action, "Người dùng không có quyền quản trị viên (VT-06 / DATA_BACKUP_MANAGE)", clientIp);
-            throw new BackupAccessDeniedException("Truy cập bị từ chối: Chỉ Quản trị viên hệ thống (VT-06) mới có quyền truy cập module sao lưu và phục hồi dữ liệu.");
+            backupService.recordAccessDenied(info.id, info.email, action, "Người dùng không có quyền quản lý sao lưu (DATA_BACKUP_MANAGE / VT-06)", clientIp);
+            throw new BackupAccessDeniedException("Truy cập bị từ chối: Chỉ Quản trị viên có quyền DATA_BACKUP_MANAGE mới có quyền truy cập module sao lưu và phục hồi dữ liệu.");
         }
 
         return info;
     }
 
     private boolean hasAuthority(Authentication auth, String authority) {
+        if (auth == null || auth.getAuthorities() == null) return false;
         for (GrantedAuthority ga : auth.getAuthorities()) {
-            if (ga.getAuthority().equalsIgnoreCase(authority)) {
+            if (ga.getAuthority() != null && (ga.getAuthority().equalsIgnoreCase(authority) || ga.getAuthority().equalsIgnoreCase("ROLE_" + authority))) {
                 return true;
             }
         }
@@ -91,13 +106,19 @@ public class BackupController {
     private String resolveClientIp(HttpServletRequest request) {
         if (request == null) return "127.0.0.1";
         String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            String candidate = ip.split(",")[0].trim();
+            if (isValidIpAddress(candidate)) {
+                return candidate;
+            }
         }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        return (ip != null && !ip.isEmpty()) ? ip.split(",")[0].trim() : "127.0.0.1";
+        String remoteAddr = request.getRemoteAddr();
+        return (remoteAddr != null && isValidIpAddress(remoteAddr)) ? remoteAddr : "127.0.0.1";
+    }
+
+    private boolean isValidIpAddress(String ip) {
+        if (ip == null || ip.isEmpty()) return false;
+        return IPV4_PATTERN.matcher(ip).matches() || IPV6_PATTERN.matcher(ip).matches() || "localhost".equalsIgnoreCase(ip);
     }
 
     @GetMapping
@@ -230,10 +251,14 @@ public class BackupController {
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Tệp tải lên không có nội dung"));
         }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".json")) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Hệ thống chỉ chấp nhận tệp sao lưu định dạng JSON Snapshot (.json)"));
+        }
         String ip = resolveClientIp(request);
         try (InputStream is = file.getInputStream()) {
             Backup uploaded = backupService.uploadBackup(
-                    file.getOriginalFilename(),
+                    originalFilename,
                     title,
                     description,
                     backupType,
@@ -244,6 +269,8 @@ public class BackupController {
                     ip
             );
             return ResponseEntity.ok(ApiResponse.success("Tải lên bản sao lưu thành công", BackupResponse.fromDomain(uploaded)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             throw new RuntimeException("Lỗi tải lên tệp: " + e.getMessage(), e);
         }

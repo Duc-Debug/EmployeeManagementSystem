@@ -110,6 +110,7 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
 
         Map<String, List<Map<String, Object>>> tablesData = new LinkedHashMap<>();
 
+        List<String> failedTables = new ArrayList<>();
         for (String table : targetTables) {
             try {
                 if (tableExists(table)) {
@@ -117,8 +118,13 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
                     tablesData.put(table, rows);
                 }
             } catch (Exception e) {
-                log.warn("Không thể sao lưu bảng {}: {}", table, e.getMessage());
+                log.error("Không thể trích xuất dữ liệu bảng {}: {}", table, e.getMessage(), e);
+                failedTables.add(table + " (" + e.getMessage() + ")");
             }
+        }
+
+        if (!failedTables.isEmpty()) {
+            throw new IllegalStateException("Sao lưu dữ liệu thất bại do lỗi trích xuất các bảng: " + failedTables);
         }
 
         backupData.put("tables", tablesData);
@@ -204,11 +210,7 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
     }
 
     private void truncateTable(String tableName) {
-        try {
-            jdbcTemplate.execute("DELETE FROM " + tableName);
-        } catch (Exception e) {
-            log.warn("Không thể xóa dữ liệu bảng {}: {}", tableName, e.getMessage());
-        }
+        jdbcTemplate.execute("DELETE FROM " + tableName);
     }
 
     private void insertTableData(String tableName, List<Map<String, Object>> rows) {

@@ -70,13 +70,47 @@ interface ApiResponse<T> {
   errorCode?: string;
 }
 
-function extractData<T>(res: unknown): T {
+export function extractData<T>(res: unknown): T {
   if (!res) return res as T;
   if (typeof res === "object" && res !== null && "data" in res) {
     const data = (res as { data: T }).data;
     if (data !== undefined) return data;
   }
   return res as T;
+}
+
+export function formatBackupFileSize(bytes: number): string {
+  if (!bytes || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(Math.floor(Math.log10(bytes) / Math.log10(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}
+
+export function validateRestoreConfirmation(code: string, reason: string): { valid: boolean; error?: string } {
+  if (!code || code.trim().toUpperCase() !== "RESTORE") {
+    return { valid: false, error: "Mã xác nhận phải là RESTORE" };
+  }
+  if (!reason || reason.trim().length < 10) {
+    return { valid: false, error: "Lý do phải từ 10 ký tự trở lên" };
+  }
+  return { valid: true };
+}
+
+export function canAccessBackupWorkspace(
+  roleCode?: string | null,
+  permissions?: readonly string[] | null
+): boolean {
+  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
+  return (
+    normalized === "VT-06" ||
+    normalized === "ROLE-ADMIN" ||
+    normalized === "ADMIN" ||
+    (permissions !== undefined && permissions !== null && permissions.includes("DATA_BACKUP_MANAGE"))
+  );
+}
+
+export function canRestoreBackup(status: BackupStatus): boolean {
+  return status === "COMPLETED";
 }
 
 export async function fetchBackups(

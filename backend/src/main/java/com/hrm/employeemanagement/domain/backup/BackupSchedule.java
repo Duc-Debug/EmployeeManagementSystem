@@ -88,6 +88,11 @@ public class BackupSchedule {
         recalculateNextRun(runTime);
     }
 
+    public void recordRunFailure(LocalDateTime runTime) {
+        this.lastRunAt = runTime;
+        recalculateNextRun(runTime);
+    }
+
     public void recalculateNextRun(LocalDateTime fromTime) {
         if (!isEnabled) {
             this.nextRunAt = null;

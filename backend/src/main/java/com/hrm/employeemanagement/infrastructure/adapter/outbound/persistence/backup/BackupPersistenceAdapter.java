@@ -54,6 +54,13 @@ public class BackupPersistenceAdapter implements BackupRepositoryPort {
     }
 
     @Override
+    public List<Backup> findExpiredBackups(java.time.LocalDateTime cutoffDate) {
+        return backupRepository.findExpiredBackups(cutoffDate).stream()
+                .map(SystemBackupJpaEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public void deleteById(Long id) {
         backupRepository.deleteById(id);
     }

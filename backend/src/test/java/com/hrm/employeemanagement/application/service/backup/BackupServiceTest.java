@@ -308,11 +308,12 @@ class BackupServiceTest {
     @Test
     @DisplayName("Tải lên bản sao lưu thành công, tính toán kích thước, checksum và tạo bản ghi hoàn tất")
     void testUploadBackup_Success() {
-        byte[] content = "{\"test\": true}".getBytes();
+        byte[] content = "{\"tables\": {\"users\": []}}".getBytes();
         ByteArrayInputStream is = new ByteArrayInputStream(content);
         Path mockPath = Paths.get("uploads/backups/upload_test.json");
 
         when(backupStoragePort.resolveBackupPath(anyString())).thenReturn(mockPath);
+        when(backupStoragePort.readBackupFile(anyString())).thenAnswer(inv -> new ByteArrayInputStream(content));
         when(backupStoragePort.getFileSize(anyString())).thenReturn((long) content.length);
         when(backupStoragePort.calculateChecksum(anyString())).thenReturn("upload-sha256");
         when(backupRepositoryPort.save(any(Backup.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -337,5 +338,120 @@ class BackupServiceTest {
         verify(backupAuditLogPort, times(1)).save(argThat(log ->
                 log.getAction() == BackupAction.BACKUP_UPLOAD && "SUCCESS".equals(log.getStatus())
         ));
+    }
+
+    @Test
+    @DisplayName("Tải lên tệp không phải .json ném lỗi IllegalArgumentException")
+    void testUploadBackup_NonJsonExtension_ThrowsException() {
+        byte[] content = "SELECT * FROM users;".getBytes();
+        ByteArrayInputStream is = new ByteArrayInputStream(content);
+
+        assertThatThrownBy(() -> backupService.uploadBackup(
+                "dump.sql",
+                "SQL Dump",
+                "Test",
+                BackupType.FULL,
+                is,
+                content.length,
+                1L,
+                "admin@company.com",
+                "127.0.0.1"
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(".json");
+    }
+
+    @Test
+    @DisplayName("Tải lên tệp JSON không hợp lệ hoặc thiếu dữ liệu bảng ném lỗi IllegalArgumentException")
+    void testUploadBackup_InvalidJsonContent_ThrowsException() {
+        byte[] content = "{\"corrupted_json\": true}".getBytes();
+        ByteArrayInputStream is = new ByteArrayInputStream(content);
+        Path mockPath = Paths.get("uploads/backups/upload_test.json");
+
+        when(backupStoragePort.resolveBackupPath(anyString())).thenReturn(mockPath);
+        when(backupStoragePort.readBackupFile(anyString())).thenAnswer(inv -> new ByteArrayInputStream(content));
+
+        assertThatThrownBy(() -> backupService.uploadBackup(
+                "corrupted.json",
+                "Corrupted JSON",
+                "Test",
+                BackupType.FULL,
+                is,
+                content.length,
+                1L,
+                "admin@company.com",
+                "127.0.0.1"
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tables");
+
+        verify(backupStoragePort, times(1)).deleteBackupFile(anyString());
+    }
+
+    @Test
+    @DisplayName("Khi snapshot an toàn (Safety snapshot) thất bại thì hủy toàn bộ tiến trình phục hồi")
+    void testRestoreBackup_SafetySnapshotFailure_ThrowsExceptionAndAbortsRestore() throws Exception {
+        Backup validBackup = new Backup(
+                90L,
+                "BCK-VALID",
+                "Bản sao hợp lệ",
+                null,
+                BackupType.FULL,
+                "valid.json",
+                "uploads/backups/valid.json",
+                1024L,
+                "valid-chk",
+                BackupStatus.COMPLETED,
+                false,
+                1L,
+                "admin",
+                LocalDateTime.now(),
+                LocalDateTime.now(),
+                null
+        );
+
+        when(backupRepositoryPort.findById(90L)).thenReturn(Optional.of(validBackup));
+        when(backupStoragePort.exists("uploads/backups/valid.json")).thenReturn(true);
+        when(backupStoragePort.calculateChecksum("uploads/backups/valid.json")).thenReturn("valid-chk");
+        when(backupStoragePort.resolveBackupPath(anyString())).thenReturn(Paths.get("uploads/backups/safety.json"));
+        when(backupRepositoryPort.save(any(Backup.class))).thenAnswer(inv -> inv.getArgument(0));
+        doThrow(new RuntimeException("Disk full")).when(backupRestoreEnginePort).performBackup(any(), any());
+
+        RestoreBackupRequest request = new RestoreBackupRequest("RESTORE", "Phục hồi kế hoạch dự án tuần 38");
+
+        assertThatThrownBy(() -> backupService.restoreBackup(90L, request, 1L, "admin@company.com", "127.0.0.1"))
+                .isInstanceOf(BackupRestoreFailedException.class)
+                .hasMessageContaining("Safety snapshot");
+
+        verify(backupRestoreEnginePort, never()).performRestore(any(), any());
+    }
+
+    @Test
+    @DisplayName("Thực thi chính sách retention xóa các bản sao lưu đã hết hạn lưu trữ")
+    void testApplyRetentionPolicy_DeletesExpiredBackups() {
+        Backup expiredBackup = new Backup(
+                95L,
+                "BCK-EXPIRED",
+                "Bản sao hết hạn",
+                null,
+                BackupType.FULL,
+                "expired.json",
+                "uploads/backups/expired.json",
+                1024L,
+                "chk",
+                BackupStatus.COMPLETED,
+                true,
+                1L,
+                "admin",
+                LocalDateTime.now().minusDays(35),
+                LocalDateTime.now().minusDays(35),
+                null
+        );
+
+        when(backupRepositoryPort.findExpiredBackups(any())).thenReturn(List.of(expiredBackup));
+        when(backupStoragePort.exists("uploads/backups/expired.json")).thenReturn(true);
+
+        backupService.applyRetentionPolicy(30);
+
+        verify(backupStoragePort, times(1)).deleteBackupFile("uploads/backups/expired.json");
+        verify(backupRepositoryPort, times(1)).deleteById(95L);
     }
 }

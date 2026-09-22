@@ -90,11 +90,18 @@ export function BackupManagementWorkspace() {
     }
   };
 
+  const normalizedRole = authUser?.roleCode ? authUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const hasAccess =
+    normalizedRole === "VT-06" ||
+    normalizedRole === "ROLE-ADMIN" ||
+    normalizedRole === "ADMIN" ||
+    (authUser?.permissions && authUser.permissions.includes("DATA_BACKUP_MANAGE"));
+
   useEffect(() => {
-    if (authUser?.roleCode === "VT-06") {
+    if (hasAccess) {
       loadData();
     }
-  }, [typeFilter, statusFilter, authUser?.roleCode]);
+  }, [typeFilter, statusFilter, hasAccess]);
 
   // Client-side quick filter for search keyword
   const filteredBackups = useMemo(() => {
@@ -109,7 +116,7 @@ export function BackupManagementWorkspace() {
     );
   }, [backups, search]);
 
-  if (authUser && authUser.roleCode !== "VT-06") {
+  if (authUser && !hasAccess) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6">
         <div className="w-16 h-16 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-center text-rose-600 mb-4 shadow-2xs">
@@ -119,7 +126,7 @@ export function BackupManagementWorkspace() {
           Quyền truy cập bị từ chối (403 Forbidden)
         </h2>
         <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-          Chức năng <strong>Sao lưu và Phục hồi Dữ liệu</strong> chỉ dành riêng cho tài khoản có vai trò <strong>Quản trị viên hệ thống (VT-06)</strong>. Mọi nỗ lực truy cập trái phép đều được ghi nhận vào nhật ký kiểm toán bảo mật.
+          Chức năng <strong>Sao lưu và Phục hồi Dữ liệu</strong> yêu cầu quyền <strong>DATA_BACKUP_MANAGE</strong> (Quản trị viên hệ thống VT-06). Mọi nỗ lực truy cập trái phép đều được ghi nhận vào nhật ký kiểm toán bảo mật.
         </p>
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 font-mono">
           Vai trò hiện tại: <span className="font-bold text-slate-900">{authUser.roleCode}</span> ({authUser.roleName || "Không xác định"})

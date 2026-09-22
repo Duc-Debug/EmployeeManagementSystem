@@ -38,7 +38,11 @@ export function UploadBackupModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) {
-      setError("Vui lòng chọn một tệp sao lưu (.json hoặc .sql)");
+      setError("Vui lòng chọn một tệp sao lưu JSON Snapshot (.json)");
+      return;
+    }
+    if (!selectedFile.name.toLowerCase().endsWith(".json")) {
+      setError("Định dạng tệp không hợp lệ. Hệ thống chỉ hỗ trợ tệp .json");
       return;
     }
 
@@ -100,7 +104,7 @@ export function UploadBackupModal({
           {/* Dropzone */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Chọn tệp dữ liệu sao lưu (.json, .sql) <span className="text-rose-500">*</span>
+              Chọn tệp dữ liệu sao lưu (.json) <span className="text-rose-500">*</span>
             </label>
             <label className="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer bg-slate-50/50 hover:bg-indigo-50/20 transition group">
               <UploadCloud className="w-8 h-8 text-indigo-500 mb-2 group-hover:scale-110 transition-transform" />
@@ -119,14 +123,14 @@ export function UploadBackupModal({
                     Nhấp để duyệt hoặc kéo thả tệp vào đây
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5">
-                    Định dạng hỗ trợ: JSON Snapshot, SQL Dump (Tối đa 50MB)
+                    Định dạng hỗ trợ: JSON Snapshot (.json) (Tối đa 50MB)
                   </span>
                 </div>
               )}
               <input
                 type="file"
                 className="hidden"
-                accept=".json,.sql,.gz"
+                accept=".json,application/json"
                 onChange={handleFileChange}
                 disabled={isUploading}
               />

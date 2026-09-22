@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,4 +33,7 @@ public interface SpringDataSystemBackupRepository extends JpaRepository<SystemBa
 
     @Query("SELECT COALESCE(SUM(b.fileSizeBytes), 0) FROM SystemBackupJpaEntity b")
     long sumTotalFileSizeBytes();
+
+    @Query("SELECT b FROM SystemBackupJpaEntity b WHERE b.createdAt < :cutoffDate")
+    List<SystemBackupJpaEntity> findExpiredBackups(@Param("cutoffDate") LocalDateTime cutoffDate);
 }
