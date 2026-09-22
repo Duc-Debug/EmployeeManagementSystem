@@ -27,14 +27,32 @@ export default function HrProfileCard({ profile, canManage = false, onEdit, onDe
         <div className="group flex flex-col justify-between gap-4 rounded-xl border border-slate-200/80 bg-slate-50/60 p-3.5 transition hover:border-indigo-300 hover:bg-white hover:shadow-xs sm:flex-row sm:items-center">
             {/* Col 1: Icon + Name + Code */}
             <div className="flex w-full sm:w-[220px] sm:flex-none items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 shadow-xs">
+                <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl border shadow-xs ${
+                    profile.isOutsourced
+                        ? "border-amber-200 bg-amber-50 text-amber-600"
+                        : "border-emerald-100 bg-emerald-50 text-emerald-600"
+                }`}>
                     <User className="size-5" />
                 </div>
                 <div className="min-w-0">
-                    <h3 className="truncate text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition">
-                        {profile.fullName}
-                    </h3>
-                    <p className="font-mono text-[11px] font-semibold text-slate-500">{profile.employeeCode}</p>
+                    <div className="flex items-center gap-1.5">
+                        <h3 className="truncate text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition">
+                            {profile.fullName}
+                        </h3>
+                        {profile.isOutsourced && (
+                            <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+                                Thuê ngoài
+                            </span>
+                        )}
+                    </div>
+                    <p className="font-mono text-[11px] font-semibold text-slate-500">
+                        {profile.employeeCode}
+                        {profile.isOutsourced && profile.providerName && (
+                            <span className="ml-1.5 font-sans font-medium text-slate-400" title={`Đơn vị cung cấp: ${profile.providerName}`}>
+                                • {profile.providerName}
+                            </span>
+                        )}
+                    </p>
                 </div>
             </div>
 
@@ -45,7 +63,9 @@ export default function HrProfileCard({ profile, canManage = false, onEdit, onDe
                     {profile.email ? (
                         <span className="truncate font-mono">{profile.email}</span>
                     ) : (
-                        <span className="italic font-normal text-slate-400">Chưa có email</span>
+                        <span className="italic font-normal text-slate-400">
+                            {profile.isOutsourced ? "Không cấp tài khoản" : "Chưa có email"}
+                        </span>
                     )}
                 </span>
                 <span className="flex items-center gap-1.5 truncate">

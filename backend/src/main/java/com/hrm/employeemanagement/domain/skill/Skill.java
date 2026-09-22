@@ -6,6 +6,7 @@ import java.util.Objects;
 public class Skill {
 
     private final Long id;
+    private final SkillStatus status;
     private final String code;
     private String name;
     private String category;
@@ -14,6 +15,13 @@ public class Skill {
     private final LocalDateTime createdAt;
 
     public Skill(Long id, String code, String name, String category, String description, Long groupId, LocalDateTime createdAt) {
+        this(id, code, name, category, description, groupId, createdAt, SkillStatus.ACTIVE);
+    }
+
+    public Skill(Long id, String code, String name, String category, String description, Long groupId,
+                 LocalDateTime createdAt, SkillStatus status) {
+        this.status = status;
+
         if (code == null || code.trim().isEmpty()) {
             throw new IllegalArgumentException("Mã kỹ năng không được để trống");
         }
@@ -39,6 +47,10 @@ public class Skill {
 
     public static Skill create(String code, String name, String category, String description) {
         return create(code, name, category, description, 1L);
+    }
+
+    public SkillStatus getStatus() {
+        return status;
     }
 
     public Long getId() {
