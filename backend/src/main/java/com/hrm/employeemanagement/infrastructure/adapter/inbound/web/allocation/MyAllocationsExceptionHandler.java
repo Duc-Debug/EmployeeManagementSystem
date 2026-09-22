@@ -34,4 +34,21 @@ public class MyAllocationsExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(MyAllocationsErrorResponse.of(400, "WEEK_START_NOT_MONDAY", ex.getMessage()));
     }
+
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<MyAllocationsErrorResponse> handleValidationException(org.springframework.web.bind.MethodArgumentNotValidException ex) {
+        String msg = ex.getBindingResult().getFieldErrors().stream()
+                .map(err -> err.getDefaultMessage())
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse("Dữ liệu không hợp lệ");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(MyAllocationsErrorResponse.of(400, "INVALID_FEEDBACK_REASON", msg));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<MyAllocationsErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(MyAllocationsErrorResponse.of(400, "INVALID_FEEDBACK_REASON", ex.getMessage()));
+    }
 }

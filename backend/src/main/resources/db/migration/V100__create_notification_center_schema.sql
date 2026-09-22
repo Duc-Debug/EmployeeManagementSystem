@@ -77,6 +77,19 @@ CREATE TABLE IF NOT EXISTS notification_audit_logs (
 CREATE INDEX idx_notif_audit_logs_actor_created
     ON notification_audit_logs(actor_user_id, created_at);
 
+CREATE TABLE IF NOT EXISTS notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    recipient_id BIGINT NOT NULL,
+    sender_id BIGINT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'TASK_MENTION',
+    target_type VARCHAR(50) NOT NULL DEFAULT 'TASK',
+    target_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 4. Di trú an toàn dữ liệu lịch sử từ bảng notifications cũ sang mô hình mới
 -- Tất cả thông báo legacy được gán level = 'THAP' theo quyết định thiết kế
 INSERT INTO notification_events (id, event_type, level, title, message, related_entity_type, related_entity_id, source_event_key, created_at)

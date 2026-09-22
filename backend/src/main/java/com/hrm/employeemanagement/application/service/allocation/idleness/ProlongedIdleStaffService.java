@@ -439,6 +439,8 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
 
         // 5. Phát thông báo mô phỏng
         notificationPort.sendScheduleConflictWarningNotification(
+                currentUserId,
+                command.employeeId(),
                 "rm@company.com",
                 "Quản lý nguồn lực",
                 employee.getFullName(),

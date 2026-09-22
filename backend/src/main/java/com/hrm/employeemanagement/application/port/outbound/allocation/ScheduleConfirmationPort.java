@@ -12,8 +12,20 @@ public interface ScheduleConfirmationPort {
             Long userId,
             LocalDate weekStartDate,
             LocalDateTime confirmedAt,
-            String ipAddress
-    ) {}
+            String ipAddress,
+            String feedbackNote,
+            LocalDateTime feedbackAt,
+            String confirmationStatus
+    ) {
+        public ScheduleConfirmationRecord(
+                Long id,
+                Long userId,
+                LocalDate weekStartDate,
+                LocalDateTime confirmedAt,
+                String ipAddress) {
+            this(id, userId, weekStartDate, confirmedAt, ipAddress, null, null, "CONFIRMED");
+        }
+    }
 
     record SaveConfirmationResult(
             ScheduleConfirmationRecord record,
@@ -25,4 +37,6 @@ public interface ScheduleConfirmationPort {
     List<ScheduleConfirmationRecord> findByUserIdAndWeeks(Long userId, List<LocalDate> weekStartDates);
 
     SaveConfirmationResult saveConfirmation(Long userId, LocalDate weekStartDate, LocalDateTime confirmedAt, String ipAddress);
+
+    SaveConfirmationResult saveFeedback(Long userId, LocalDate weekStartDate, String feedbackNote, LocalDateTime feedbackAt, String ipAddress);
 }

@@ -168,6 +168,8 @@ public class ScheduleConflictService implements
                 : "Xung đột phân bổ (" + conflict.getProjectNames() + ") và đơn nghỉ phép đã duyệt (" + conflict.getLeaveInfo() + ")";
 
         notificationPort.sendScheduleConflictWarningNotification(
+                currentUserId,
+                conflictId,
                 "pm.management@company.com",
                 "Quản lý dự án / Resource Manager",
                 empName + " (" + empCode + ")",
