@@ -1,5 +1,5 @@
 -- ============================================================
--- FLYWAY MIGRATION V114: CREATE EMPLOYEE SCHEDULE CONFIRMATION
+-- FLYWAY MIGRATION V113: CREATE EMPLOYEE SCHEDULE CONFIRMATION
 -- Feature: NCL-13-CN-001 (Xem lịch phân bổ tuần của tôi)
 -- ============================================================
 

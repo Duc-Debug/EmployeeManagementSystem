@@ -14,7 +14,9 @@ import ProjectView from "../project/ProjectView";
 import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
+import UnavailabilityView from "../unavailability/UnavailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
+import UpcomingWorkloadView from "../workload/UpcomingWorkloadView";
 import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
 import CapacityForecastReportView from "../reports/CapacityForecastReportView";
 import ProjectAllocationReportView from "../reports/ProjectAllocationReportView";
@@ -229,6 +231,15 @@ export default function Dashboard() {
                                 {activeTab === "my-schedule" && <MyWeeklySchedulePage />}
 
                                 {activeTab === "availability" && <WeeklyAvailabilityView />}
+
+                                {activeTab === "unavailability" && <UnavailabilityView />}
+
+                                {activeTab === "workload" && (
+                                    <UpcomingWorkloadView
+                                        onNavigateToProjects={() => handleTabChange("project")}
+                                        onNavigateToLeave={() => handleTabChange("leave")}
+                                    />
+                                )}
 
                                 {activeTab === "working-calendar" && <WorkingCalendarConfigView />}
 

@@ -1,20 +1,22 @@
 import React from "react";
-import { Calendar, Briefcase, Clock, AlertCircle } from "lucide-react";
+import { Calendar, Briefcase, Clock, AlertCircle, MessageSquareQuote, Info } from "lucide-react";
 import type { WeeklySchedule } from "../types";
 import { ConfirmationStatusBadge } from "./ConfirmationStatusBadge";
 
 interface WeeklyScheduleCardProps {
   schedule: WeeklySchedule;
   onConfirm: (weekStart: string) => void;
+  onOpenFeedback?: (weekStart: string) => void;
   isConfirming?: boolean;
 }
 
 export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   schedule,
   onConfirm,
+  onOpenFeedback,
   isConfirming = false,
 }) => {
-  const { week_start_date, total_hours, confirmation_status, confirmed_at, allocations } = schedule;
+  const { week_start_date, total_hours, confirmation_status, confirmed_at, feedback_note, feedback_at, allocations } = schedule;
 
   const formatDateRange = (mondayStr: string) => {
     try {
@@ -63,12 +65,41 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
             <ConfirmationStatusBadge
               status={confirmation_status}
               confirmedAt={confirmed_at}
+              feedbackAt={feedback_at}
+              feedbackNote={feedback_note}
               onConfirm={() => onConfirm(week_start_date)}
+              onOpenFeedback={onOpenFeedback ? () => onOpenFeedback(week_start_date) : undefined}
               isConfirming={isConfirming}
             />
           </div>
         </div>
       </div>
+
+      {/* Hiển thị Feedback note nếu có (QTN-24) */}
+      {feedback_note && (
+        <div className="mx-5 mt-4 p-3.5 bg-purple-50/70 border border-purple-200 rounded-lg text-xs text-purple-900">
+          <div className="flex items-start gap-2">
+            <MessageSquareQuote className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="font-semibold text-purple-950 flex items-center gap-2">
+                <span>Ý kiến phản hồi của bạn:</span>
+                {feedback_at && (
+                  <span className="text-[11px] font-normal text-purple-600">
+                    ({new Date(feedback_at).toLocaleString("vi-VN")})
+                  </span>
+                )}
+              </div>
+              <p className="text-purple-800 italic bg-white/80 p-2 rounded border border-purple-100">
+                "{feedback_note}"
+              </p>
+              <div className="flex items-center gap-1 text-[11px] text-purple-700">
+                <Info className="w-3 h-3 text-purple-500 shrink-0" />
+                <span>Quy tắc QTN-24: Ý kiến phản hồi không tự động thay đổi số giờ phân bổ dự án. PM/Resource Manager sẽ xem xét điều chỉnh.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Danh sách phân bổ dự án */}
       <div className="p-5">
@@ -79,7 +110,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               Chưa có phân bổ dự án nào cho tuần này.
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Bạn vẫn có thể xác nhận đã xem lịch làm việc trống này.
+              Bạn vẫn có thể xác nhận đã xem lịch làm việc trống này hoặc gửi phản hồi.
             </p>
           </div>
         ) : (

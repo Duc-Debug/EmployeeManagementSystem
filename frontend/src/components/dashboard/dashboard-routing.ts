@@ -4,6 +4,7 @@
 export function resolveActiveTab(pathname: string): string {
     const path = (pathname || "").toLowerCase();
     if (path.includes("billable-rate") || path.includes("ty-le-gio-tinh-phi") || path.includes("billable")) return "billable-rate";
+    if (path.includes("workload") || path.includes("khoi-luong-cong-viec") || path.includes("muc-ban")) return "workload";
     if (path.includes("capacity-dashboard") || path.includes("bang-dieu-khien-nang-luc") || path.includes("dashboard-capacity")) return "capacity-dashboard";
     if (path.includes("capacity-forecast") || path.includes("du-bao-nang-luc") || path.includes("forecast")) return "capacity-forecast";
     if (path.includes("timesheet-variance") || path.includes("doi-chieu-gio-cong") || path.includes("variance")) return "timesheet-variance";
@@ -18,6 +19,7 @@ export function resolveActiveTab(pathname: string): string {
     if (path.includes("my-schedule") || path.includes("my-allocations") || path.includes("lich-phan-bo")) return "my-schedule";
     if (path.includes("access") || path.includes("phan-quyen")) return "access";
     if (path.includes("working-calendar") || path.includes("lich-lam-viec") || path.includes("ngay-le") || path.includes("calendar-config")) return "working-calendar";
+    if (path.includes("unavailability") || path.includes("khong-san-sang")) return "unavailability";
     if (path.includes("availability") || path.includes("kha-dung") || path.includes("gio-tuan")) return "availability";
     if (path.includes("hrprofile") || path.includes("ho-so") || path.includes("employee")) return "hrprofile";
     if (path.includes("user") || path.includes("tai-khoan")) return "users";

@@ -18,6 +18,7 @@ import {
     Briefcase,
     AlertTriangle,
     Sparkles,
+    CalendarX,
     DollarSign,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -62,7 +63,9 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
         items: [
             { name: "Lịch phân bổ tuần", icon: CalendarRange, id: "my-schedule" },
             { name: "Chấm công & Giờ làm", icon: Clock, id: "attendance" },
+            { name: "Khối lượng công việc", icon: TrendingUp, id: "workload" },
             { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
+            { name: "Thời gian không sẵn sàng", icon: CalendarX, id: "unavailability" },
             { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
             { name: "Lịch & Ngày lễ", icon: CalendarDays, id: "working-calendar" },
         ],
@@ -187,10 +190,23 @@ export function canAccessTab(
             // Đơn nghỉ phép: VT-01, VT-02, VT-03, VT-04, VT-05 có quyền; Admin (VT-06) bị ẩn vì không thuộc nghiệp vụ vận hành
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
 
+        case "workload":
+        case "upcoming-workload":
+            // NCL-13-CN-004: Xem khối lượng công việc 8 tuần tới (Dành riêng cho Nhân viên chuyên môn VT-04)
+            return ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalized);
+
         case "availability":
         case "weekly-availability":
             // Giờ khả dụng: VT-01 -> VT-06 (phân quyền theo DataScope)
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+
+        case "unavailability":
+        case "unavailability-declarations":
+            // NCL-13-CN-003: Khai báo và quản lý thời gian không sẵn sàng (VT-01 -> VT-06)
+            return permissions?.includes("UNAVAILABILITY_DECLARE") === true ||
+                permissions?.includes("UNAVAILABILITY_READ") === true ||
+                permissions?.includes("UNAVAILABILITY_APPROVE") === true ||
+                ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "working-calendar":
         case "calendar-config":

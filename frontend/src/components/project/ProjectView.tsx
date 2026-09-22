@@ -778,12 +778,20 @@ export default function ProjectView() {
             return employeeId ? addProjectMember(selectedProjectId, employeeId) : Promise.reject(new Error('Invalid employee id'));
         }));
         const succeeded = results.filter((result) => result.status === 'fulfilled').length;
-        const failed = results.length - succeeded;
-        if (succeeded > 0) await loadWbsForProject(selectedProjectId);
+        const failedResults = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+        const failed = failedResults.length;
+        if (succeeded > 0) {
+            try {
+                await loadWbsForProject(selectedProjectId);
+            } catch (err) {
+                console.error('Lỗi khi tải lại WBS sau khi thêm thành viên:', err);
+            }
+        }
         if (failed > 0) {
-            showToast(`Đã thêm ${succeeded}/${results.length} nhân sự. ${failed} thao tác thất bại; danh sách đã được đồng bộ từ backend.`, 'error');
+            const firstError = failedResults[0]?.reason?.message || 'Có lỗi xảy ra từ máy chủ';
+            showToast(`Đã thêm ${succeeded}/${results.length} nhân sự. Lỗi: ${firstError}`, 'error');
         } else {
-            showToast(`Đã thêm ${succeeded} nhân sự và đồng bộ từ backend.`, 'success');
+            showToast(`Đã thêm thành công ${succeeded} nhân sự vào dự án.`, 'success');
         }
     };
 

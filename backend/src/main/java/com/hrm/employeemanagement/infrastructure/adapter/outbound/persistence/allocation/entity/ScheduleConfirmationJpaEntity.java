@@ -27,11 +27,20 @@ public class ScheduleConfirmationJpaEntity {
     @Column(name = "week_start_date", nullable = false)
     private LocalDate weekStartDate;
 
-    @Column(name = "confirmed_at", nullable = false)
+    @Column(name = "confirmed_at")
     private LocalDateTime confirmedAt;
 
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
+
+    @Column(name = "feedback_note", columnDefinition = "TEXT")
+    private String feedbackNote;
+
+    @Column(name = "feedback_at")
+    private LocalDateTime feedbackAt;
+
+    @Column(name = "confirmation_status", length = 30)
+    private String confirmationStatus;
 
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false)
@@ -92,6 +101,30 @@ public class ScheduleConfirmationJpaEntity {
 
     public void setIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
+    }
+
+    public String getFeedbackNote() {
+        return feedbackNote;
+    }
+
+    public void setFeedbackNote(String feedbackNote) {
+        this.feedbackNote = feedbackNote;
+    }
+
+    public LocalDateTime getFeedbackAt() {
+        return feedbackAt;
+    }
+
+    public void setFeedbackAt(LocalDateTime feedbackAt) {
+        this.feedbackAt = feedbackAt;
+    }
+
+    public String getConfirmationStatus() {
+        return confirmationStatus;
+    }
+
+    public void setConfirmationStatus(String confirmationStatus) {
+        this.confirmationStatus = confirmationStatus;
     }
 
     public Long getVersion() {
