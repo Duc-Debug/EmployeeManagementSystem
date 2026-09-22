@@ -231,6 +231,10 @@ export interface EmployeeCapacityRow {
   orgUnitId?: number | null;
   orgUnitName?: string | null;
   professionalRole?: string | null;
+  isOutsourced?: boolean;
+  providerName?: string | null;
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
   cells: CapacityMatrixCell[];
   totalAllocatedHours: number;
   totalAvailableHours: number;
@@ -333,6 +337,10 @@ export interface ResourceSearchResult {
   skillName: string;
   proficiencyLevel: number;
   yearsOfExperience?: number | null;
+  isOutsourced?: boolean;
+  providerName?: string | null;
+  startDate?: string | null;
+  contractEndDate?: string | null;
   weeklyAvailabilities: WeeklyAvailableHoursResult[];
   totalRemainingHours: number;
 }
