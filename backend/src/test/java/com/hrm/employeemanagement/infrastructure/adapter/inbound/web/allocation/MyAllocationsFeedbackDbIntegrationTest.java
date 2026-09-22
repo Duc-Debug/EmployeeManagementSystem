@@ -183,4 +183,52 @@ class MyAllocationsFeedbackDbIntegrationTest {
                 .andExpect(jsonPath("$.weeks[0].feedback_note").value(reason))
                 .andExpect(jsonPath("$.weeks[0].feedback_at").exists());
     }
+
+    @Test
+    @DisplayName("Review Blocker Verification: POST feedback khi ĐÃ CÓ confirmation trước đó -> không bị OptimisticLock -> confirmed_at bảo lưu -> confirmation_status = HAS_FEEDBACK")
+    void testProvideFeedback_WhenExistingConfirmationRecord_PreservesConfirmedAtAndUpdatesFeedback() throws Exception {
+        LocalDate monday = LocalDate.of(2026, 9, 28);
+        java.time.LocalDateTime initialConfirmedAt = java.time.LocalDateTime.now().minusDays(2).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        String reason = "Đã xem lịch nhưng phát hiện trùng lịch họp Sprint của dự án khác.";
+
+        // 1. Tạo confirmation record trước trong DB
+        ScheduleConfirmationJpaEntity initialEntity = new ScheduleConfirmationJpaEntity();
+        initialEntity.setUserId(testUserEntity.getId());
+        initialEntity.setWeekStartDate(monday);
+        initialEntity.setConfirmedAt(initialConfirmedAt);
+        initialEntity.setConfirmationStatus("CONFIRMED");
+        initialEntity.setIpAddress("127.0.0.1");
+        scheduleConfirmationRepository.saveAndFlush(initialEntity);
+
+        // 2. POST /api/v1/my-allocations/{week_start}/feedback
+        // Phải thành công HTTP 200 OK, tuyệt đối không bị OptimisticLockException / HTTP 500
+        mockMvc.perform(post("/api/v1/my-allocations/2026-09-28/feedback")
+                        .with(authentication(authToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"" + reason + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.week_start_date").value("2026-09-28"))
+                .andExpect(jsonPath("$.confirmation_status").value("HAS_FEEDBACK"))
+                .andExpect(jsonPath("$.feedback_note").value(reason))
+                .andExpect(jsonPath("$.feedback_at").exists());
+
+        // 3. Verify DB record: feedback được update, confirmed_at vẫn giữ nguyên initialConfirmedAt
+        ScheduleConfirmationJpaEntity updatedEntity = scheduleConfirmationRepository
+                .findByUserIdAndWeekStartDate(testUserEntity.getId(), monday)
+                .orElseThrow();
+        assertThat(updatedEntity.getConfirmedAt()).isEqualTo(initialConfirmedAt);
+        assertThat(updatedEntity.getFeedbackNote()).isEqualTo(reason);
+        assertThat(updatedEntity.getFeedbackAt()).isNotNull();
+        assertThat(updatedEntity.getConfirmationStatus()).isEqualTo("HAS_FEEDBACK");
+
+        // 4. GET /api/v1/my-allocations?week_start=2026-09-28&weeks=1
+        mockMvc.perform(get("/api/v1/my-allocations?week_start=2026-09-28&weeks=1")
+                        .with(authentication(authToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weeks[0].week_start_date").value("2026-09-28"))
+                .andExpect(jsonPath("$.weeks[0].confirmation_status").value("HAS_FEEDBACK"))
+                .andExpect(jsonPath("$.weeks[0].confirmed_at").exists())
+                .andExpect(jsonPath("$.weeks[0].feedback_note").value(reason))
+                .andExpect(jsonPath("$.weeks[0].feedback_at").exists());
+    }
 }

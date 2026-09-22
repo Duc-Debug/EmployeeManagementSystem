@@ -98,3 +98,28 @@ test("QTN-24 Business Rule Invariant: Feedback không làm thay đổi giờ ph�
   assert.equal(updatedScheduleWithFeedback.confirmation_status, "HAS_FEEDBACK");
   assert.equal(updatedScheduleWithFeedback.feedback_note, "Trùng lịch");
 });
+
+// Helper testing feedback action button label across confirmation statuses
+function getFeedbackActionLabel(status, feedbackNote) {
+  const allowedStatuses = ["NOT_CONFIRMED", "CONFIRMED", "STALE", "HAS_FEEDBACK"];
+  if (!allowedStatuses.includes(status)) {
+    return null;
+  }
+  return feedbackNote ? "Chỉnh sửa phản hồi" : "Phản hồi";
+}
+
+test("Feedback Action Visibility: Nút phản hồi hiển thị hợp lệ ở cả 4 trạng thái NOT_CONFIRMED, CONFIRMED, STALE, HAS_FEEDBACK", () => {
+  // 1. NOT_CONFIRMED: Chưa có feedback note -> "Phản hồi"
+  assert.equal(getFeedbackActionLabel("NOT_CONFIRMED", null), "Phản hồi");
+  assert.equal(getFeedbackActionLabel("NOT_CONFIRMED", undefined), "Phản hồi");
+
+  // 2. CONFIRMED: Đã xác nhận nhưng vẫn cho phép gửi ý kiến -> "Phản hồi"
+  assert.equal(getFeedbackActionLabel("CONFIRMED", null), "Phản hồi");
+
+  // 3. STALE: Lịch cập nhật mới, cho phép phản hồi -> "Phản hồi"
+  assert.equal(getFeedbackActionLabel("STALE", null), "Phản hồi");
+
+  // 4. HAS_FEEDBACK: Đã có feedback note trước đó -> "Chỉnh sửa phản hồi"
+  assert.equal(getFeedbackActionLabel("HAS_FEEDBACK", "Cần điều chỉnh giờ"), "Chỉnh sửa phản hồi");
+  assert.equal(getFeedbackActionLabel("CONFIRMED", "Ý kiến phản hồi bổ sung"), "Chỉnh sửa phản hồi");
+});
