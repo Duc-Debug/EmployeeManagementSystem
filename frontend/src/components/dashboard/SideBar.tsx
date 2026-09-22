@@ -18,6 +18,7 @@ import {
     Briefcase,
     AlertTriangle,
     Sparkles,
+    CalendarX,
     DollarSign,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -63,6 +64,7 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
             { name: "Chấm công & Giờ làm", icon: Clock, id: "attendance" },
             { name: "Khối lượng công việc", icon: TrendingUp, id: "workload" },
             { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
+            { name: "Thời gian không sẵn sàng", icon: CalendarX, id: "unavailability" },
             { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
             { name: "Lịch & Ngày lễ", icon: CalendarDays, id: "working-calendar" },
         ],
@@ -191,6 +193,14 @@ export function canAccessTab(
         case "weekly-availability":
             // Giờ khả dụng: VT-01 -> VT-06 (phân quyền theo DataScope)
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+
+        case "unavailability":
+        case "unavailability-declarations":
+            // NCL-13-CN-003: Khai báo và quản lý thời gian không sẵn sàng (VT-01 -> VT-06)
+            return permissions?.includes("UNAVAILABILITY_DECLARE") === true ||
+                permissions?.includes("UNAVAILABILITY_READ") === true ||
+                permissions?.includes("UNAVAILABILITY_APPROVE") === true ||
+                ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "working-calendar":
         case "calendar-config":

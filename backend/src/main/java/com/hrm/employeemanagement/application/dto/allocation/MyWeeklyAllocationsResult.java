@@ -13,6 +13,8 @@ public record MyWeeklyAllocationsResult(
             BigDecimal totalHours,
             String confirmationStatus,
             LocalDateTime confirmedAt,
+            String feedbackNote,
+            LocalDateTime feedbackAt,
             List<AllocationItemDto> allocations
     ) {}
 
