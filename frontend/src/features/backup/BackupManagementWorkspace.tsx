@@ -244,9 +244,6 @@ export function BackupManagementWorkspace() {
               <Database className="h-4 w-4" />
             </div>
             <span>Sao lưu & Phục hồi Dữ liệu Hệ thống</span>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-100/70 text-indigo-800 border border-indigo-200">
-              VT-06 Admin Only
-            </span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Quản trị sao lưu snapshot dữ liệu hệ thống, bảo toàn kế hoạch nguồn lực, cấu hình lịch tự động và khôi phục an toàn 2 bước.

@@ -70,6 +70,15 @@ interface ApiResponse<T> {
   errorCode?: string;
 }
 
+function extractData<T>(res: unknown): T {
+  if (!res) return res as T;
+  if (typeof res === "object" && res !== null && "data" in res) {
+    const data = (res as { data: T }).data;
+    if (data !== undefined) return data;
+  }
+  return res as T;
+}
+
 export async function fetchBackups(
   type?: BackupType,
   status?: BackupStatus,
@@ -81,13 +90,13 @@ export async function fetchBackups(
   if (search && search.trim()) params.append("search", search.trim());
 
   const query = params.toString() ? `?${params.toString()}` : "";
-  const res = await apiRequest<ApiResponse<BackupItem[]>>(`/backups${query}`);
-  return res.data || [];
+  const res = await apiRequest<ApiResponse<BackupItem[]> | BackupItem[]>(`/backups${query}`);
+  return extractData<BackupItem[]>(res) || [];
 }
 
 export async function fetchBackupSummary(): Promise<BackupSummary> {
-  const res = await apiRequest<ApiResponse<BackupSummary>>("/backups/summary");
-  return res.data;
+  const res = await apiRequest<ApiResponse<BackupSummary> | BackupSummary>("/backups/summary");
+  return extractData<BackupSummary>(res);
 }
 
 export async function createBackup(
@@ -95,11 +104,11 @@ export async function createBackup(
   description?: string,
   backupType: BackupType = "FULL"
 ): Promise<BackupItem> {
-  const res = await apiRequest<ApiResponse<BackupItem>>("/backups", {
+  const res = await apiRequest<ApiResponse<BackupItem> | BackupItem>("/backups", {
     method: "POST",
     body: JSON.stringify({ title, description, backupType }),
   });
-  return res.data;
+  return extractData<BackupItem>(res);
 }
 
 export async function restoreBackup(
@@ -107,7 +116,7 @@ export async function restoreBackup(
   confirmationCode: string,
   reason: string
 ): Promise<void> {
-  await apiRequest<ApiResponse<void>>(`/backups/${backupId}/restore`, {
+  await apiRequest<ApiResponse<void> | void>(`/backups/${backupId}/restore`, {
     method: "POST",
     body: JSON.stringify({ confirmationCode, reason }),
   });
@@ -118,29 +127,29 @@ export async function deleteBackup(
   reason?: string
 ): Promise<void> {
   const query = reason ? `?reason=${encodeURIComponent(reason)}` : "";
-  await apiRequest<ApiResponse<void>>(`/backups/${backupId}${query}`, {
+  await apiRequest<ApiResponse<void> | void>(`/backups/${backupId}${query}`, {
     method: "DELETE",
   });
 }
 
 export async function fetchBackupSchedule(): Promise<BackupSchedule> {
-  const res = await apiRequest<ApiResponse<BackupSchedule>>("/backups/schedule");
-  return res.data;
+  const res = await apiRequest<ApiResponse<BackupSchedule> | BackupSchedule>("/backups/schedule");
+  return extractData<BackupSchedule>(res);
 }
 
 export async function updateBackupSchedule(
   schedule: Partial<BackupSchedule>
 ): Promise<BackupSchedule> {
-  const res = await apiRequest<ApiResponse<BackupSchedule>>("/backups/schedule", {
+  const res = await apiRequest<ApiResponse<BackupSchedule> | BackupSchedule>("/backups/schedule", {
     method: "PUT",
     body: JSON.stringify(schedule),
   });
-  return res.data;
+  return extractData<BackupSchedule>(res);
 }
 
 export async function fetchBackupAuditLogs(): Promise<BackupAuditLog[]> {
-  const res = await apiRequest<ApiResponse<BackupAuditLog[]>>("/backups/audit-logs");
-  return res.data || [];
+  const res = await apiRequest<ApiResponse<BackupAuditLog[]> | BackupAuditLog[]>("/backups/audit-logs");
+  return extractData<BackupAuditLog[]>(res) || [];
 }
 
 export async function uploadBackupFile(
@@ -155,9 +164,9 @@ export async function uploadBackupFile(
   if (description) formData.append("description", description);
   formData.append("backupType", backupType);
 
-  const res = await apiRequest<ApiResponse<BackupItem>>("/backups/upload", {
+  const res = await apiRequest<ApiResponse<BackupItem> | BackupItem>("/backups/upload", {
     method: "POST",
     body: formData,
   });
-  return res.data;
+  return extractData<BackupItem>(res);
 }
