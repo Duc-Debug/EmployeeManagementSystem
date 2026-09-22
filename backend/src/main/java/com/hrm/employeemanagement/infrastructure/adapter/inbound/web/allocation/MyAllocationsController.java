@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,10 +26,14 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.hrm.employeemanagement.application.dto.allocation.ConfirmScheduleViewedResult;
 import com.hrm.employeemanagement.application.dto.allocation.MyWeeklyAllocationsResult;
+import com.hrm.employeemanagement.application.dto.allocation.ProvideScheduleFeedbackResult;
 import com.hrm.employeemanagement.application.port.inbound.allocation.ConfirmScheduleViewedUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.GetMyAllocationsUseCase;
+import com.hrm.employeemanagement.application.port.inbound.allocation.ProvideScheduleFeedbackUseCase;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 
 @RestController
 @RequestMapping("/api/v1/my-allocations")
@@ -38,14 +43,17 @@ public class MyAllocationsController {
 
     private final GetMyAllocationsUseCase getMyAllocationsUseCase;
     private final ConfirmScheduleViewedUseCase confirmScheduleViewedUseCase;
+    private final ProvideScheduleFeedbackUseCase provideScheduleFeedbackUseCase;
     private final ClientIpResolver clientIpResolver;
 
     public MyAllocationsController(
             GetMyAllocationsUseCase getMyAllocationsUseCase,
             ConfirmScheduleViewedUseCase confirmScheduleViewedUseCase,
+            ProvideScheduleFeedbackUseCase provideScheduleFeedbackUseCase,
             ClientIpResolver clientIpResolver) {
         this.getMyAllocationsUseCase = Objects.requireNonNull(getMyAllocationsUseCase, "GetMyAllocationsUseCase must not be null");
         this.confirmScheduleViewedUseCase = Objects.requireNonNull(confirmScheduleViewedUseCase, "ConfirmScheduleViewedUseCase must not be null");
+        this.provideScheduleFeedbackUseCase = Objects.requireNonNull(provideScheduleFeedbackUseCase, "ProvideScheduleFeedbackUseCase must not be null");
         this.clientIpResolver = Objects.requireNonNull(clientIpResolver, "ClientIpResolver must not be null");
     }
 
@@ -93,6 +101,8 @@ public class MyAllocationsController {
                         w.totalHours(),
                         w.confirmationStatus(),
                         w.confirmedAt() != null ? w.confirmedAt().atZone(ZoneId.systemDefault()).toInstant() : null,
+                        w.feedbackNote(),
+                        w.feedbackAt() != null ? w.feedbackAt().atZone(ZoneId.systemDefault()).toInstant() : null,
                         w.allocations() != null ? w.allocations().stream()
                                 .map(a -> new MyAllocationsWebResponse.AllocationResponse(
                                         a.allocationId(),
@@ -112,15 +122,7 @@ public class MyAllocationsController {
     public ResponseEntity<ConfirmScheduleWebResponse> confirmScheduleViewed(
             @PathVariable("week_start") String weekStartStr,
             HttpServletRequest request) {
-        LocalDate weekStartDate;
-        try {
-            weekStartDate = LocalDate.parse(weekStartStr.trim());
-        } catch (DateTimeParseException ex) {
-            throw new InvalidWeekFormatException("Sai định dạng ngày: '" + weekStartStr + "'. Định dạng hợp lệ là YYYY-MM-DD");
-        }
-        if (weekStartDate.getDayOfWeek() != DayOfWeek.MONDAY) {
-            throw new WeekStartNotMondayException("week_start phải là ngày Thứ Hai (Monday), giá trị nhận được: " + weekStartStr);
-        }
+        LocalDate weekStartDate = parseAndValidateMonday(weekStartStr);
 
         String clientIp = clientIpResolver.resolveClientIp(request);
         ConfirmScheduleViewedResult result = confirmScheduleViewedUseCase.confirmScheduleViewed(weekStartDate, clientIp);
@@ -136,6 +138,53 @@ public class MyAllocationsController {
         return ResponseEntity.status(HttpStatus.valueOf(result.httpStatusCode())).body(responseBody);
     }
 
+    @PostMapping("/{week_start}/feedback")
+    public ResponseEntity<FeedbackScheduleWebResponse> provideScheduleFeedback(
+            @PathVariable("week_start") String weekStartStr,
+            @Valid @RequestBody ProvideScheduleFeedbackRequest requestBody,
+            HttpServletRequest request) {
+        if (provideScheduleFeedbackUseCase == null) {
+            throw new IllegalStateException("ProvideScheduleFeedbackUseCase is not configured");
+        }
+        LocalDate weekStartDate = parseAndValidateMonday(weekStartStr);
+
+        String clientIp = clientIpResolver.resolveClientIp(request);
+        ProvideScheduleFeedbackResult result = provideScheduleFeedbackUseCase.provideFeedback(
+                weekStartDate,
+                requestBody.reason(),
+                clientIp
+        );
+
+        FeedbackScheduleWebResponse responseBody = new FeedbackScheduleWebResponse(
+                result.weekStartDate(),
+                result.feedbackAt() != null ? result.feedbackAt().atZone(ZoneId.systemDefault()).toInstant() : null,
+                result.feedbackNote(),
+                result.confirmationStatus(),
+                result.message()
+        );
+
+        return ResponseEntity.status(HttpStatus.valueOf(result.httpStatusCode())).body(responseBody);
+    }
+
+    private LocalDate parseAndValidateMonday(String weekStartStr) {
+        LocalDate weekStartDate;
+        try {
+            weekStartDate = LocalDate.parse(weekStartStr.trim());
+        } catch (DateTimeParseException ex) {
+            throw new InvalidWeekFormatException("Sai định dạng ngày: '" + weekStartStr + "'. Định dạng hợp lệ là YYYY-MM-DD");
+        }
+        if (weekStartDate.getDayOfWeek() != DayOfWeek.MONDAY) {
+            throw new WeekStartNotMondayException("week_start phải là ngày Thứ Hai (Monday), giá trị nhận được: " + weekStartStr);
+        }
+        return weekStartDate;
+    }
+
+    public record ProvideScheduleFeedbackRequest(
+            @NotBlank(message = "Lý do hoặc ý kiến phản hồi không được để trống")
+            @JsonProperty("reason")
+            String reason
+    ) {}
+
     public record MyAllocationsWebResponse(
             List<WeekResponse> weeks
     ) {
@@ -149,6 +198,13 @@ public class MyAllocationsController {
                 @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
                 @JsonProperty("confirmed_at")
                 Instant confirmedAt,
+                @JsonInclude(JsonInclude.Include.NON_NULL)
+                @JsonProperty("feedback_note")
+                String feedbackNote,
+                @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
+                @JsonInclude(JsonInclude.Include.NON_NULL)
+                @JsonProperty("feedback_at")
+                Instant feedbackAt,
                 List<AllocationResponse> allocations
         ) {}
 
@@ -179,5 +235,19 @@ public class MyAllocationsController {
             @JsonInclude(JsonInclude.Include.NON_NULL)
             @JsonProperty("previous_confirmation_was_stale")
             Boolean previousConfirmationWasStale
+    ) {}
+
+    public record FeedbackScheduleWebResponse(
+            @JsonProperty("week_start_date")
+            LocalDate weekStartDate,
+            @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
+            @JsonProperty("feedback_at")
+            Instant feedbackAt,
+            @JsonProperty("feedback_note")
+            String feedbackNote,
+            @JsonProperty("confirmation_status")
+            String confirmationStatus,
+            @JsonProperty("message")
+            String message
     ) {}
 }

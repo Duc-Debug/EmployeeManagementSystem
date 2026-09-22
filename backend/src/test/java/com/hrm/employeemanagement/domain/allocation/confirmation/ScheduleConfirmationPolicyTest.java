@@ -72,6 +72,40 @@ class ScheduleConfirmationPolicyTest {
     }
 
     @Test
+    @DisplayName("determineConfirmationStatus: HAS_FEEDBACK khi có feedbackNote và chưa bị STALE")
+    void testStatusHasFeedback() {
+        LocalDateTime feedbackAt = LocalDateTime.of(2026, 9, 18, 12, 0);
+        LocalDateTime maxUpdated = LocalDateTime.of(2026, 9, 18, 10, 0);
+        String note = "Ý kiến phản hồi";
+
+        assertThat(ScheduleConfirmationPolicy.determineConfirmationStatus(null, feedbackAt, note, maxUpdated))
+                .isEqualTo(ConfirmationStatus.HAS_FEEDBACK);
+
+        // Khi có update sau feedbackAt -> STALE
+        LocalDateTime laterUpdate = LocalDateTime.of(2026, 9, 18, 14, 0);
+        assertThat(ScheduleConfirmationPolicy.determineConfirmationStatus(null, feedbackAt, note, laterUpdate))
+                .isEqualTo(ConfirmationStatus.STALE);
+
+        // Khi nhân sự xác nhận sau khi đã từng feedback (confirmedAt > feedbackAt) -> CONFIRMED
+        LocalDateTime laterConfirmed = LocalDateTime.of(2026, 9, 18, 15, 0);
+        assertThat(ScheduleConfirmationPolicy.determineConfirmationStatus(laterConfirmed, feedbackAt, note, laterUpdate))
+                .isEqualTo(ConfirmationStatus.CONFIRMED);
+    }
+
+    @Test
+    @DisplayName("validateFeedbackReason: Bắt buộc lý do không được để trống (QTN-24)")
+    void testValidateFeedbackReason() {
+        ScheduleConfirmationPolicy.validateFeedbackReason("Lý do hợp lệ");
+
+        assertThatThrownBy(() -> ScheduleConfirmationPolicy.validateFeedbackReason(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ScheduleConfirmationPolicy.validateFeedbackReason(""))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ScheduleConfirmationPolicy.validateFeedbackReason("   "))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("evaluateConfirmationAction: Xác nhận lần đầu trả HTTP 201 Created")
     void testActionFirstTime() {
         LocalDateTime now = LocalDateTime.of(2026, 9, 18, 10, 0);

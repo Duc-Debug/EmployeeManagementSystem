@@ -1,5 +1,5 @@
 import { apiRequest } from "../../../lib/api-client";
-import type { MyAllocationsResponse, ConfirmScheduleResponse } from "../types";
+import type { MyAllocationsResponse, ConfirmScheduleResponse, ProvideFeedbackResponse } from "../types";
 
 export const myScheduleApi = {
   getMyAllocations: async (weekStart?: string, weeks?: number): Promise<MyAllocationsResponse> => {
@@ -21,6 +21,13 @@ export const myScheduleApi = {
   confirmScheduleViewed: async (weekStart: string): Promise<ConfirmScheduleResponse> => {
     return apiRequest<ConfirmScheduleResponse>(`/my-allocations/${weekStart}/confirm-viewed`, {
       method: "POST",
+    });
+  },
+
+  provideFeedback: async (weekStart: string, reason: string): Promise<ProvideFeedbackResponse> => {
+    return apiRequest<ProvideFeedbackResponse>(`/my-allocations/${weekStart}/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
     });
   },
 };
