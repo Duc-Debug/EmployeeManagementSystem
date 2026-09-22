@@ -306,14 +306,15 @@ class BackupServiceTest {
     }
 
     @Test
-    @DisplayName("Tải lên bản sao lưu thành công, tính toán kích thước, checksum và tạo bản ghi hoàn tất")
+    @DisplayName("Tải lên bản sao lưu thành công, trích xuất backupType từ metadata, tính toán kích thước, checksum và tạo bản ghi hoàn tất")
     void testUploadBackup_Success() {
-        byte[] content = "{\"tables\": {\"users\": []}}".getBytes();
+        byte[] content = "{\"version\":\"1.0\",\"backupType\":\"FULL\",\"tables\":{\"users\":[]}}".getBytes();
         ByteArrayInputStream is = new ByteArrayInputStream(content);
         Path mockPath = Paths.get("uploads/backups/upload_test.json");
 
         when(backupStoragePort.resolveBackupPath(anyString())).thenReturn(mockPath);
         when(backupStoragePort.readBackupFile(anyString())).thenAnswer(inv -> new ByteArrayInputStream(content));
+        when(backupRestoreEnginePort.isSupportedTable("users")).thenReturn(true);
         when(backupStoragePort.getFileSize(anyString())).thenReturn((long) content.length);
         when(backupStoragePort.calculateChecksum(anyString())).thenReturn("upload-sha256");
         when(backupRepositoryPort.save(any(Backup.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -322,7 +323,6 @@ class BackupServiceTest {
                 "custom_backup.json",
                 "Bản tải lên từ server cũ",
                 "Mô tả",
-                BackupType.FULL,
                 is,
                 content.length,
                 1L,
@@ -331,6 +331,7 @@ class BackupServiceTest {
         );
 
         assertThat(uploaded).isNotNull();
+        assertThat(uploaded.getBackupType()).isEqualTo(BackupType.FULL);
         assertThat(uploaded.getStatus()).isEqualTo(BackupStatus.COMPLETED);
         assertThat(uploaded.getFileSizeBytes()).isEqualTo(content.length);
         assertThat(uploaded.getChecksum()).isEqualTo("upload-sha256");
@@ -350,7 +351,6 @@ class BackupServiceTest {
                 "dump.sql",
                 "SQL Dump",
                 "Test",
-                BackupType.FULL,
                 is,
                 content.length,
                 1L,
@@ -361,9 +361,34 @@ class BackupServiceTest {
     }
 
     @Test
+    @DisplayName("Tải lên tệp JSON không có metadata backupType ném lỗi IllegalArgumentException")
+    void testUploadBackup_MissingBackupType_ThrowsException() {
+        byte[] content = "{\"tables\": {\"users\": []}}".getBytes();
+        ByteArrayInputStream is = new ByteArrayInputStream(content);
+        Path mockPath = Paths.get("uploads/backups/upload_test.json");
+
+        when(backupStoragePort.resolveBackupPath(anyString())).thenReturn(mockPath);
+        when(backupStoragePort.readBackupFile(anyString())).thenAnswer(inv -> new ByteArrayInputStream(content));
+
+        assertThatThrownBy(() -> backupService.uploadBackup(
+                "missing_type.json",
+                "Missing Type JSON",
+                "Test",
+                is,
+                content.length,
+                1L,
+                "admin@company.com",
+                "127.0.0.1"
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("backupType");
+
+        verify(backupStoragePort, times(1)).deleteBackupFile(anyString());
+    }
+
+    @Test
     @DisplayName("Tải lên tệp JSON không hợp lệ hoặc thiếu dữ liệu bảng ném lỗi IllegalArgumentException")
     void testUploadBackup_InvalidJsonContent_ThrowsException() {
-        byte[] content = "{\"corrupted_json\": true}".getBytes();
+        byte[] content = "{\"version\":\"1.0\",\"backupType\":\"FULL\",\"corrupted_json\": true}".getBytes();
         ByteArrayInputStream is = new ByteArrayInputStream(content);
         Path mockPath = Paths.get("uploads/backups/upload_test.json");
 
@@ -374,7 +399,6 @@ class BackupServiceTest {
                 "corrupted.json",
                 "Corrupted JSON",
                 "Test",
-                BackupType.FULL,
                 is,
                 content.length,
                 1L,

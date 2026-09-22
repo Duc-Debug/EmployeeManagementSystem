@@ -220,9 +220,23 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
             backupData = objectMapper.readValue(fis, Map.class);
         }
 
+        Object rawType = backupData.get("backupType");
+        if (!(rawType instanceof String typeValue)) {
+            throw new IllegalArgumentException("Backup file thiếu metadata backupType");
+        }
+
+        if (!backupType.name().equalsIgnoreCase(typeValue.trim())) {
+            throw new IllegalArgumentException("backupType trong file (" + typeValue + ") không khớp với backupType metadata (" + backupType.name() + ")");
+        }
+
+        Object rawTables = backupData.get("tables");
+        if (!(rawTables instanceof Map<?, ?>)) {
+            throw new IllegalArgumentException("Metadata 'tables' trong tệp sao lưu phải là một đối tượng JSON");
+        }
+
         @SuppressWarnings("unchecked")
-        Map<String, List<Map<String, Object>>> tablesData = (Map<String, List<Map<String, Object>>>) backupData.get("tables");
-        if (tablesData == null || tablesData.isEmpty()) {
+        Map<String, List<Map<String, Object>>> tablesData = (Map<String, List<Map<String, Object>>>) rawTables;
+        if (tablesData.isEmpty()) {
             throw new IllegalStateException("Tệp sao lưu không chứa dữ liệu bảng hợp lệ.");
         }
 

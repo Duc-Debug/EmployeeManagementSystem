@@ -248,7 +248,6 @@ public class BackupController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String description,
-            @RequestParam(required = false, defaultValue = "FULL") BackupType backupType,
             HttpServletRequest request
     ) {
         CurrentUserInfo user = checkPermissionAndGetUserInfo(request, "UPLOAD_BACKUP");
@@ -265,7 +264,6 @@ public class BackupController {
                     originalFilename,
                     title,
                     description,
-                    backupType,
                     is,
                     file.getSize(),
                     user.id,

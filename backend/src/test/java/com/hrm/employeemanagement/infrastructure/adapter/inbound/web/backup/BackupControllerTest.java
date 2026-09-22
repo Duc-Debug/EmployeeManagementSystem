@@ -225,7 +225,7 @@ class BackupControllerTest {
                 "BCK-UPLOAD-1.json", "path", 100L, "chk", BackupStatus.COMPLETED,
                 false, 1L, "admin", LocalDateTime.now(), LocalDateTime.now(), null
         );
-        when(backupService.uploadBackup(anyString(), any(), any(), any(), any(), anyLong(), any(), any(), any()))
+        when(backupService.uploadBackup(anyString(), any(), any(), any(), anyLong(), any(), any(), any()))
                 .thenReturn(uploaded);
 
         mockMvc.perform(multipart("/api/v1/backups/upload")

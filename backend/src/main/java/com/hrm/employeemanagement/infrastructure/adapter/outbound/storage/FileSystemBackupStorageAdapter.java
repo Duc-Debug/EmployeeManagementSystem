@@ -32,6 +32,20 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
         }
     }
 
+    private Path resolveExistingPath(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            throw new IllegalArgumentException("Đường dẫn file backup không được để trống");
+        }
+        Path path = Paths.get(filePath).toAbsolutePath().normalize();
+        if (!Files.exists(path)) {
+            path = resolveBackupPath(filePath);
+        }
+        if (!Files.exists(path)) {
+            throw new IllegalStateException("File backup không tồn tại: " + filePath);
+        }
+        return path;
+    }
+
     @Override
     public Path resolveBackupPath(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {
@@ -62,10 +76,7 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
     @Override
     public InputStream readBackupFile(String filePath) {
         try {
-            Path path = Paths.get(filePath);
-            if (!Files.exists(path)) {
-                path = resolveBackupPath(filePath);
-            }
+            Path path = resolveExistingPath(filePath);
             return new BufferedInputStream(Files.newInputStream(path));
         } catch (IOException e) {
             throw new RuntimeException("Đọc tệp sao lưu thất bại: " + e.getMessage(), e);
@@ -74,16 +85,21 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
 
     @Override
     public boolean exists(String filePath) {
-        if (filePath == null) return false;
-        Path path = Paths.get(filePath);
+        if (filePath == null || filePath.isBlank()) return false;
+        Path path = Paths.get(filePath).toAbsolutePath().normalize();
         if (Files.exists(path)) return true;
-        return Files.exists(resolveBackupPath(filePath));
+        try {
+            return Files.exists(resolveBackupPath(filePath));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
     public void deleteBackupFile(String filePath) {
+        if (filePath == null || filePath.isBlank()) return;
         try {
-            Path path = Paths.get(filePath);
+            Path path = Paths.get(filePath).toAbsolutePath().normalize();
             if (Files.exists(path)) {
                 Files.delete(path);
             } else {
@@ -93,19 +109,13 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
                 }
             }
         } catch (IOException e) {
-            log.warn("Không thể xóa file sao lưu vật lý: {}", filePath, e);
+            throw new IllegalStateException("Không thể xóa file sao lưu vật lý: " + filePath, e);
         }
     }
 
     @Override
     public String calculateChecksum(String filePath) {
-        Path path = Paths.get(filePath);
-        if (!Files.exists(path)) {
-            path = resolveBackupPath(filePath);
-        }
-        if (!Files.exists(path)) {
-            return null;
-        }
+        Path path = resolveExistingPath(filePath);
         try (InputStream is = Files.newInputStream(path)) {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] buffer = new byte[8192];
@@ -113,23 +123,30 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
             while ((read = is.read(buffer)) != -1) {
                 digest.update(buffer, 0, read);
             }
-            return HexFormat.of().formatHex(digest.digest());
+            String checksum = HexFormat.of().formatHex(digest.digest());
+            if (checksum.isBlank()) {
+                throw new IllegalStateException("Không thể tạo SHA-256 checksum cho file backup");
+            }
+            return checksum;
         } catch (Exception e) {
-            log.error("Tính toán mã băm SHA-256 thất bại: {}", filePath, e);
-            return null;
+            if (e instanceof IllegalStateException) {
+                throw (IllegalStateException) e;
+            }
+            throw new IllegalStateException("Tính SHA-256 checksum thất bại: " + filePath, e);
         }
     }
 
     @Override
     public long getFileSize(String filePath) {
+        Path path = resolveExistingPath(filePath);
         try {
-            Path path = Paths.get(filePath);
-            if (!Files.exists(path)) {
-                path = resolveBackupPath(filePath);
+            long size = Files.size(path);
+            if (size <= 0) {
+                throw new IllegalStateException("File backup rỗng: " + filePath);
             }
-            return Files.exists(path) ? Files.size(path) : 0L;
+            return size;
         } catch (IOException e) {
-            return 0L;
+            throw new IllegalStateException("Không thể đọc kích thước file backup: " + filePath, e);
         }
     }
 }

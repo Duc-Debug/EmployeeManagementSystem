@@ -91,6 +91,13 @@ public class BackupService implements
             long fileSizeBytes = backupStoragePort.getFileSize(resolvedPath.toString());
             String checksum = backupStoragePort.calculateChecksum(resolvedPath.toString());
 
+            if (fileSizeBytes <= 0) {
+                throw new IllegalStateException("File backup được tạo nhưng có kích thước không hợp lệ: " + fileSizeBytes);
+            }
+            if (checksum == null || checksum.isBlank()) {
+                throw new IllegalStateException("File backup được tạo nhưng không có SHA-256 checksum hợp lệ");
+            }
+
             backup.markCompleted(fileSizeBytes, checksum);
             backup = backupRepositoryPort.save(backup);
 
@@ -156,6 +163,13 @@ public class BackupService implements
 
             long fileSizeBytes = backupStoragePort.getFileSize(resolvedPath.toString());
             String checksum = backupStoragePort.calculateChecksum(resolvedPath.toString());
+
+            if (fileSizeBytes <= 0) {
+                throw new IllegalStateException("File backup tự động được tạo nhưng có kích thước không hợp lệ");
+            }
+            if (checksum == null || checksum.isBlank()) {
+                throw new IllegalStateException("File backup tự động được tạo nhưng không có SHA-256 checksum hợp lệ");
+            }
 
             backup.markCompleted(fileSizeBytes, checksum);
             backup = backupRepositoryPort.save(backup);
@@ -394,8 +408,6 @@ public class BackupService implements
         return backupAuditLogPort.findRecent(100);
     }
 
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-
     public void applyRetentionPolicy(int retentionDays) {
         if (retentionDays <= 0) return;
         try {
@@ -425,7 +437,6 @@ public class BackupService implements
             String originalFileName,
             String title,
             String description,
-            BackupType backupType,
             InputStream inputStream,
             long fileSizeBytes,
             Long currentUserId,
@@ -444,93 +455,109 @@ public class BackupService implements
         String fileName = backupCode + ".json";
         Path resolvedPath = backupStoragePort.resolveBackupPath(fileName);
 
-        // Lưu tệp vật lý
-        backupStoragePort.storeBackupFile(fileName, inputStream);
+        try {
+            // Lưu tệp vật lý
+            backupStoragePort.storeBackupFile(fileName, inputStream);
 
-        // 2. Validate cấu trúc nội dung JSON Snapshot trước khi xác nhận COMPLETED
-        try (InputStream checkStream = backupStoragePort.readBackupFile(resolvedPath.toString())) {
-            Object parsedObj = objectMapper.readValue(checkStream, Object.class);
-            if (!(parsedObj instanceof java.util.Map<?, ?> rootMap)) {
-                backupStoragePort.deleteBackupFile(resolvedPath.toString());
-                throw new IllegalArgumentException("Tệp tải lên không phải là đối tượng JSON Snapshot hợp lệ.");
-            }
+            // 2. Validate cấu trúc nội dung JSON Snapshot & trích xuất backupType từ metadata
+            BackupType contentBackupType;
+            try (InputStream checkStream = backupStoragePort.readBackupFile(resolvedPath.toString())) {
+                Object parsedObj = objectMapper.readValue(checkStream, Object.class);
+                if (!(parsedObj instanceof java.util.Map<?, ?> rootMap)) {
+                    throw new IllegalArgumentException("Tệp tải lên không phải là đối tượng JSON Snapshot hợp lệ.");
+                }
 
-            Object tablesObj = rootMap.get("tables");
-            if (!(tablesObj instanceof java.util.Map<?, ?> tablesMap) || tablesMap.isEmpty()) {
-                backupStoragePort.deleteBackupFile(resolvedPath.toString());
-                throw new IllegalArgumentException("Tệp tải lên không chứa dữ liệu bảng hợp lệ (thiếu hoặc rỗng mục 'tables').");
-            }
+                Object rawBackupType = rootMap.get("backupType");
+                if (!(rawBackupType instanceof String typeValue) || typeValue.isBlank()) {
+                    throw new IllegalArgumentException("Tệp backup thiếu metadata 'backupType'");
+                }
+                try {
+                    contentBackupType = BackupType.valueOf(typeValue.trim().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("backupType trong file không hợp lệ: " + typeValue, e);
+                }
 
-            for (java.util.Map.Entry<?, ?> entry : tablesMap.entrySet()) {
-                if (!(entry.getKey() instanceof String tableName) || tableName.trim().isEmpty()) {
-                    backupStoragePort.deleteBackupFile(resolvedPath.toString());
-                    throw new IllegalArgumentException("Tên bảng trong tệp JSON không hợp lệ.");
+                Object tablesObj = rootMap.get("tables");
+                if (!(tablesObj instanceof java.util.Map<?, ?> tablesMap) || tablesMap.isEmpty()) {
+                    throw new IllegalArgumentException("Tệp tải lên không chứa dữ liệu bảng hợp lệ (thiếu hoặc rỗng mục 'tables').");
                 }
-                if (!backupRestoreEnginePort.isSupportedTable(tableName)) {
-                    backupStoragePort.deleteBackupFile(resolvedPath.toString());
-                    throw new IllegalArgumentException("Tệp sao lưu chứa bảng không thuộc danh mục hệ thống cho phép: " + tableName);
-                }
-                if (entry.getValue() != null && !(entry.getValue() instanceof List<?>)) {
-                    backupStoragePort.deleteBackupFile(resolvedPath.toString());
-                    throw new IllegalArgumentException("Dữ liệu của bảng " + tableName + " phải là một danh sách các bản ghi.");
-                }
-                if (entry.getValue() instanceof List<?> rowList) {
-                    for (Object row : rowList) {
-                        if (row != null && !(row instanceof java.util.Map<?, ?>)) {
-                            backupStoragePort.deleteBackupFile(resolvedPath.toString());
-                            throw new IllegalArgumentException("Bản ghi trong bảng " + tableName + " không đúng định dạng đối tượng JSON.");
+
+                for (java.util.Map.Entry<?, ?> entry : tablesMap.entrySet()) {
+                    if (!(entry.getKey() instanceof String tableName) || tableName.trim().isEmpty()) {
+                        throw new IllegalArgumentException("Tên bảng trong tệp JSON không hợp lệ.");
+                    }
+                    if (!backupRestoreEnginePort.isSupportedTable(tableName)) {
+                        throw new IllegalArgumentException("Tệp sao lưu chứa bảng không thuộc danh mục hệ thống cho phép: " + tableName);
+                    }
+                    if (entry.getValue() != null && !(entry.getValue() instanceof List<?>)) {
+                        throw new IllegalArgumentException("Dữ liệu của bảng " + tableName + " phải là một danh sách các bản ghi.");
+                    }
+                    if (entry.getValue() instanceof List<?> rowList) {
+                        for (Object row : rowList) {
+                            if (row != null && !(row instanceof java.util.Map<?, ?>)) {
+                                throw new IllegalArgumentException("Bản ghi trong bảng " + tableName + " không đúng định dạng đối tượng JSON.");
+                            }
                         }
                     }
                 }
             }
-        } catch (IllegalArgumentException e) {
-            throw e;
+
+            long actualSize = backupStoragePort.getFileSize(resolvedPath.toString());
+            String checksum = backupStoragePort.calculateChecksum(resolvedPath.toString());
+
+            if (actualSize <= 0 || checksum == null || checksum.isBlank()) {
+                throw new IllegalArgumentException("Không thể xác minh tính toàn vẹn của file backup (kích thước rỗng hoặc thiếu mã băm)");
+            }
+
+            String uploadTitle = (title != null && !title.trim().isEmpty()) ? title.trim() : "Bản sao lưu tải lên " + timestamp;
+            String fullDescription = (description != null && !description.trim().isEmpty())
+                    ? description.trim() + " (Tệp gốc: " + Paths.get(originalFileName).getFileName().toString() + ")"
+                    : "Tệp gốc: " + Paths.get(originalFileName).getFileName().toString();
+
+            Backup backup = new Backup(
+                    null,
+                    backupCode,
+                    uploadTitle,
+                    fullDescription,
+                    contentBackupType,
+                    fileName,
+                    resolvedPath.toString(),
+                    actualSize > 0 ? actualSize : fileSizeBytes,
+                    checksum,
+                    BackupStatus.COMPLETED,
+                    false,
+                    currentUserId,
+                    currentUserEmail,
+                    LocalDateTime.now(),
+                    LocalDateTime.now(),
+                    null
+            );
+
+            backup = backupRepositoryPort.save(backup);
+
+            backupAuditLogPort.save(BackupAuditLog.create(
+                    currentUserId,
+                    currentUserEmail,
+                    BackupAction.BACKUP_UPLOAD,
+                    backup.getId(),
+                    "SUCCESS",
+                    "Tải lên bản sao lưu thành công (" + contentBackupType.name() + ")",
+                    "Tệp gốc: " + Paths.get(originalFileName).getFileName().toString() + ", Dung lượng: " + actualSize + " bytes",
+                    clientIp
+            ));
+
+            return backup;
         } catch (Exception e) {
-            backupStoragePort.deleteBackupFile(resolvedPath.toString());
-            throw new IllegalArgumentException("Nội dung tệp sao lưu không hợp lệ hoặc không đúng cấu trúc JSON Snapshot: " + e.getMessage(), e);
+            try {
+                backupStoragePort.deleteBackupFile(resolvedPath.toString());
+            } catch (Exception cleanupError) {
+                log.warn("Không thể xóa tệp tạm thời sau khi upload lỗi: {}", resolvedPath, cleanupError);
+            }
+            if (e instanceof IllegalArgumentException) {
+                throw (IllegalArgumentException) e;
+            }
+            throw new IllegalArgumentException("Xử lý tệp sao lưu tải lên thất bại: " + e.getMessage(), e);
         }
-
-        long actualSize = backupStoragePort.getFileSize(resolvedPath.toString());
-        String checksum = backupStoragePort.calculateChecksum(resolvedPath.toString());
-
-        String uploadTitle = (title != null && !title.trim().isEmpty()) ? title.trim() : "Bản sao lưu tải lên " + timestamp;
-        String fullDescription = (description != null && !description.trim().isEmpty())
-                ? description.trim() + " (Tệp gốc: " + Paths.get(originalFileName).getFileName().toString() + ")"
-                : "Tệp gốc: " + Paths.get(originalFileName).getFileName().toString();
-
-        Backup backup = new Backup(
-                null,
-                backupCode,
-                uploadTitle,
-                fullDescription,
-                backupType != null ? backupType : BackupType.FULL,
-                fileName,
-                resolvedPath.toString(),
-                actualSize > 0 ? actualSize : fileSizeBytes,
-                checksum,
-                BackupStatus.COMPLETED,
-                false,
-                currentUserId,
-                currentUserEmail,
-                LocalDateTime.now(),
-                LocalDateTime.now(),
-                null
-        );
-
-        backup = backupRepositoryPort.save(backup);
-
-        backupAuditLogPort.save(BackupAuditLog.create(
-                currentUserId,
-                currentUserEmail,
-                BackupAction.BACKUP_UPLOAD,
-                backup.getId(),
-                "SUCCESS",
-                "Tải lên bản sao lưu thành công",
-                "Tệp gốc: " + Paths.get(originalFileName).getFileName().toString() + ", Dung lượng: " + actualSize + " bytes",
-                clientIp
-        ));
-
-        return backup;
     }
 
     public void recordAccessDenied(Long userId, String userEmail, String action, String reason, String clientIp) {

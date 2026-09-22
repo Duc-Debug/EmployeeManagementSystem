@@ -186,14 +186,12 @@ export async function fetchBackupAuditLogs(): Promise<BackupAuditLog[]> {
 export async function uploadBackupFile(
   file: File,
   title?: string,
-  description?: string,
-  backupType: BackupType = "FULL"
+  description?: string
 ): Promise<BackupItem> {
   const formData = new FormData();
   formData.append("file", file);
   if (title) formData.append("title", title);
   if (description) formData.append("description", description);
-  formData.append("backupType", backupType);
 
   const res = await apiRequest<ApiResponse<BackupItem> | BackupItem>("/backups/upload", {
     method: "POST",
