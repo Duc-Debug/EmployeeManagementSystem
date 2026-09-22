@@ -139,6 +139,10 @@ public class BackupSchedule {
         return isEnabled;
     }
 
+    public void setEnabled(boolean enabled) {
+        this.isEnabled = enabled;
+    }
+
     public BackupFrequency getFrequency() {
         return frequency;
     }

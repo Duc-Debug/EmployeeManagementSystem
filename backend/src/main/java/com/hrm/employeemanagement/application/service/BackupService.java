@@ -11,9 +11,6 @@ import com.hrm.employeemanagement.domain.backup.exception.BackupRestoreFailedExc
 import com.hrm.employeemanagement.domain.backup.exception.InvalidRestoreConfirmationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -23,7 +20,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-@Service
 public class BackupService implements
         CreateBackupUseCase,
         RestoreBackupUseCase,
