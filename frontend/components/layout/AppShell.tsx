@@ -34,6 +34,7 @@ const navSections: ReadonlyArray<NavSection> = [
       { href: "/skills", icon: "shield", label: "Khai báo kỹ năng" },
       { href: "/work-logs", icon: "time", label: "Ghi giờ làm việc" },
       { href: "/reports/timesheet-variance", icon: "chart", label: "Đối chiếu giờ công" },
+      { href: "/backup", icon: "settings", label: "Sao lưu & Phục hồi" },
     ],
   },
 ];
