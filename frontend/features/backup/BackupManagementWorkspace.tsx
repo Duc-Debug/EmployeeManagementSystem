@@ -16,7 +16,7 @@ import { BackupScheduleModal } from "./BackupScheduleModal";
 import { UploadBackupModal } from "./UploadBackupModal";
 import { BackupAuditLogsTable } from "./BackupAuditLogsTable";
 import { API_BASE_URL } from "@/lib/api-client";
-import { getAuthToken } from "@/lib/auth-session";
+import { getAuthToken, useAuthUser } from "@/lib/auth-session";
 import {
   Database,
   Calendar,
@@ -30,6 +30,7 @@ import {
   HardDrive,
   Clock,
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -40,6 +41,7 @@ import {
 } from "lucide-react";
 
 export function BackupManagementWorkspace() {
+  const authUser = useAuthUser();
   const [activeTab, setActiveTab] = useState<"backups" | "audit">("backups");
   const [backups, setBackups] = useState<BackupItem[]>([]);
   const [summary, setSummary] = useState<BackupSummary | null>(null);
@@ -83,8 +85,29 @@ export function BackupManagementWorkspace() {
   };
 
   useEffect(() => {
-    loadData();
-  }, [typeFilter, statusFilter]);
+    if (authUser?.roleCode === "VT-06") {
+      loadData();
+    }
+  }, [typeFilter, statusFilter, authUser?.roleCode]);
+
+  if (authUser && authUser.roleCode !== "VT-06") {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6">
+        <div className="w-16 h-16 bg-red-100 dark:bg-red-950/60 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 mb-4 shadow-sm">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+          Quyền truy cập bị từ chối (403 Forbidden)
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mb-6 leading-relaxed">
+          Chức năng <strong>Sao lưu và Phục hồi Dữ liệu</strong> chỉ dành riêng cho tài khoản có vai trò <strong>Quản trị viên hệ thống (VT-06)</strong>. Mọi nỗ lực truy cập trái phép đều được ghi nhận vào nhật ký kiểm toán bảo mật.
+        </p>
+        <div className="p-3 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-400 font-mono">
+          Vai trò hiện tại: {authUser.roleCode} ({authUser.roleName || "Không xác định"})
+        </div>
+      </div>
+    );
+  }
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
