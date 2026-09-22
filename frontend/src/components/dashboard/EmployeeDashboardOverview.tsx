@@ -22,6 +22,7 @@ import { getMyLeaveRequests, getMyLeaveBalance, type LeaveRequestDto, type Leave
 import { getMySkills, type EmployeeSkillResponse } from "@/lib/api/skills";
 import { getProjects, type ProjectResult } from "@/lib/api/projects";
 import MiniCalendar from "../calendar/MiniCalendar";
+import UpcomingWorkloadCard from "../workload/UpcomingWorkloadCard";
 import { UpcomingDueTasksWidget } from "./UpcomingDueTasksWidget";
 
 interface EmployeeDashboardOverviewProps {
@@ -378,6 +379,9 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                 <div className="space-y-4 lg:col-span-2">
                     {/* NCL-11-CN-004: Nhắc việc sắp đến hạn trong 3 ngày tới cho Nhân viên chuyên môn */}
                     <UpcomingDueTasksWidget onNavigate={onNavigate} />
+
+                    {/* NCL-13-CN-004: Khối lượng công việc 8 tuần tới */}
+                    <UpcomingWorkloadCard onViewDetails={() => onNavigate("workload")} />
 
                     {/* 1. Dự án đang tham gia / Hoạt động */}
                     <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
