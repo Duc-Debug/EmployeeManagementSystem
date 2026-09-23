@@ -32,13 +32,16 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
         }
     }
 
-    private Path resolveExistingPath(String filePath) {
+    private Path resolveExistingBackupPath(String filePath) {
         if (filePath == null || filePath.isBlank()) {
             throw new IllegalArgumentException("Đường dẫn file backup không được để trống");
         }
         Path path = Paths.get(filePath).toAbsolutePath().normalize();
-        if (!Files.exists(path)) {
+        if (!path.startsWith(backupDirectory)) {
             path = resolveBackupPath(filePath);
+        }
+        if (!path.startsWith(backupDirectory)) {
+            throw new IllegalArgumentException("Backup path nằm ngoài thư mục lưu trữ cho phép: " + filePath);
         }
         if (!Files.exists(path)) {
             throw new IllegalStateException("File backup không tồn tại: " + filePath);
@@ -76,7 +79,7 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
     @Override
     public InputStream readBackupFile(String filePath) {
         try {
-            Path path = resolveExistingPath(filePath);
+            Path path = resolveExistingBackupPath(filePath);
             return new BufferedInputStream(Files.newInputStream(path));
         } catch (IOException e) {
             throw new RuntimeException("Đọc tệp sao lưu thất bại: " + e.getMessage(), e);
@@ -86,10 +89,11 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
     @Override
     public boolean exists(String filePath) {
         if (filePath == null || filePath.isBlank()) return false;
-        Path path = Paths.get(filePath).toAbsolutePath().normalize();
-        if (Files.exists(path)) return true;
         try {
-            return Files.exists(resolveBackupPath(filePath));
+            Path path = Paths.get(filePath).toAbsolutePath().normalize();
+            if (path.startsWith(backupDirectory) && Files.exists(path)) return true;
+            Path resolved = resolveBackupPath(filePath);
+            return Files.exists(resolved);
         } catch (Exception e) {
             return false;
         }
@@ -99,15 +103,8 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
     public void deleteBackupFile(String filePath) {
         if (filePath == null || filePath.isBlank()) return;
         try {
-            Path path = Paths.get(filePath).toAbsolutePath().normalize();
-            if (Files.exists(path)) {
-                Files.delete(path);
-            } else {
-                Path altPath = resolveBackupPath(filePath);
-                if (Files.exists(altPath)) {
-                    Files.delete(altPath);
-                }
-            }
+            Path path = resolveExistingBackupPath(filePath);
+            Files.delete(path);
         } catch (IOException e) {
             throw new IllegalStateException("Không thể xóa file sao lưu vật lý: " + filePath, e);
         }
@@ -115,7 +112,7 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
 
     @Override
     public String calculateChecksum(String filePath) {
-        Path path = resolveExistingPath(filePath);
+        Path path = resolveExistingBackupPath(filePath);
         try (InputStream is = Files.newInputStream(path)) {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] buffer = new byte[8192];
@@ -138,7 +135,7 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
 
     @Override
     public long getFileSize(String filePath) {
-        Path path = resolveExistingPath(filePath);
+        Path path = resolveExistingBackupPath(filePath);
         try {
             long size = Files.size(path);
             if (size <= 0) {

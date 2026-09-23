@@ -168,8 +168,14 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
     }
 
     @Override
+    public List<String> getSupportedTables(BackupType backupType) {
+        return (backupType == BackupType.RESOURCE_PLAN) ? RESOURCE_PLAN_TABLES : FULL_BACKUP_TABLES;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public File performBackup(File targetFile, BackupType backupType) throws Exception {
-        List<String> targetTables = (backupType == BackupType.RESOURCE_PLAN) ? RESOURCE_PLAN_TABLES : FULL_BACKUP_TABLES;
+        List<String> targetTables = getSupportedTables(backupType);
 
         Map<String, Object> backupData = new LinkedHashMap<>();
         backupData.put("version", "1.0");
@@ -181,10 +187,12 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
         List<String> failedTables = new ArrayList<>();
         for (String table : targetTables) {
             try {
-                if (tableExists(table)) {
-                    List<Map<String, Object>> rows = extractTableData(table);
-                    tablesData.put(table, rows);
+                if (!tableExists(table)) {
+                    failedTables.add(table + " (Bảng không tồn tại trong cơ sở dữ liệu)");
+                    continue;
                 }
+                List<Map<String, Object>> rows = extractTableData(table);
+                tablesData.put(table, rows);
             } catch (Exception e) {
                 log.error("Không thể trích xuất dữ liệu bảng {}: {}", table, e.getMessage(), e);
                 failedTables.add(table + " (" + e.getMessage() + ")");
@@ -332,23 +340,29 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
 
         Set<String> allowedColumns = getTableColumns(tableName);
         if (allowedColumns.isEmpty()) {
-            log.warn("Bảng {} không có cột hợp lệ hoặc không tồn tại trong DB schema, bỏ qua chèn dữ liệu.", tableName);
-            return;
+            throw new IllegalStateException("Bảng " + tableName + " không tồn tại hoặc không có cột trong DB schema.");
         }
 
         Map<String, Object> firstRow = rows.get(0);
         List<String> validColumns = new ArrayList<>();
         for (String col : firstRow.keySet()) {
-            if (col != null && IDENTIFIER_PATTERN.matcher(col).matches() && allowedColumns.contains(col.toLowerCase(Locale.ROOT))) {
-                validColumns.add(col);
-            } else {
-                log.warn("Cột '{}' bị loại bỏ do không hợp lệ hoặc không nằm trong schema bảng '{}'", col, tableName);
+            if (col == null || !IDENTIFIER_PATTERN.matcher(col).matches() || !allowedColumns.contains(col.toLowerCase(Locale.ROOT))) {
+                throw new IllegalArgumentException("Cột không hợp lệ hoặc không tồn tại trong schema: bảng " + tableName + ", cột " + col);
             }
+            validColumns.add(col);
         }
 
         if (validColumns.isEmpty()) {
-            log.warn("Không tìm thấy cột hợp lệ nào cho bảng {}, bỏ qua bản ghi.", tableName);
-            return;
+            throw new IllegalArgumentException("Dữ liệu bảng " + tableName + " không chứa bất kỳ cột hợp lệ nào.");
+        }
+
+        // Validate schema consistency across all rows
+        Set<String> expectedColumnSet = firstRow.keySet();
+        for (int r = 1; r < rows.size(); r++) {
+            Map<String, Object> row = rows.get(r);
+            if (row == null || !row.keySet().equals(expectedColumnSet)) {
+                throw new IllegalArgumentException("Dữ liệu các dòng trong bảng " + tableName + " không đồng nhất về danh sách cột (dòng index " + r + ")");
+            }
         }
 
         StringBuilder sql = new StringBuilder("INSERT INTO ").append(tableName).append(" (");

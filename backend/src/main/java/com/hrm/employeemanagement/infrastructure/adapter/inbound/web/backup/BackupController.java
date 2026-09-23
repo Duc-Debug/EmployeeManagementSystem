@@ -109,13 +109,6 @@ public class BackupController {
 
     private String resolveClientIp(HttpServletRequest request) {
         if (request == null) return "127.0.0.1";
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            String candidate = ip.split(",")[0].trim();
-            if (isValidIpAddress(candidate)) {
-                return candidate;
-            }
-        }
         String remoteAddr = request.getRemoteAddr();
         return (remoteAddr != null && isValidIpAddress(remoteAddr)) ? remoteAddr : "127.0.0.1";
     }

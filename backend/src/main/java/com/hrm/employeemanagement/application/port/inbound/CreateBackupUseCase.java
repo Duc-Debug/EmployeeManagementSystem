@@ -6,4 +6,5 @@ import com.hrm.employeemanagement.domain.backup.Backup;
 public interface CreateBackupUseCase {
     Backup createBackup(CreateBackupRequest request, Long currentUserId, String currentUserEmail, String clientIp);
     Backup executeAutomaticBackup();
+    void applyRetentionPolicy();
 }

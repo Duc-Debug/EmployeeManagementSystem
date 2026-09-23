@@ -314,7 +314,7 @@ class BackupServiceTest {
 
         when(backupStoragePort.resolveBackupPath(anyString())).thenReturn(mockPath);
         when(backupStoragePort.readBackupFile(anyString())).thenAnswer(inv -> new ByteArrayInputStream(content));
-        when(backupRestoreEnginePort.isSupportedTable("users")).thenReturn(true);
+        when(backupRestoreEnginePort.getSupportedTables(BackupType.FULL)).thenReturn(java.util.List.of("users"));
         when(backupStoragePort.getFileSize(anyString())).thenReturn((long) content.length);
         when(backupStoragePort.calculateChecksum(anyString())).thenReturn("upload-sha256");
         when(backupRepositoryPort.save(any(Backup.class))).thenAnswer(inv -> inv.getArgument(0));

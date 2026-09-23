@@ -34,6 +34,6 @@ public interface SpringDataSystemBackupRepository extends JpaRepository<SystemBa
     @Query("SELECT COALESCE(SUM(b.fileSizeBytes), 0) FROM SystemBackupJpaEntity b")
     long sumTotalFileSizeBytes();
 
-    @Query("SELECT b FROM SystemBackupJpaEntity b WHERE b.createdAt < :cutoffDate")
+    @Query("SELECT b FROM SystemBackupJpaEntity b WHERE b.status = 'COMPLETED' AND b.createdAt < :cutoffDate")
     List<SystemBackupJpaEntity> findExpiredBackups(@Param("cutoffDate") LocalDateTime cutoffDate);
 }

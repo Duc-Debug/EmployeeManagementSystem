@@ -236,8 +236,11 @@ public class BackupService implements
         }
 
         // Kiểm tra mã băm checksum tính toàn vẹn
+        if (backup.getChecksum() == null || backup.getChecksum().isBlank()) {
+            throw new BackupRestoreFailedException("Bản sao lưu không có mã băm Checksum SHA-256 hợp lệ để phục hồi.");
+        }
         String currentChecksum = backupStoragePort.calculateChecksum(backup.getFilePath());
-        if (backup.getChecksum() != null && !backup.getChecksum().equalsIgnoreCase(currentChecksum)) {
+        if (!backup.getChecksum().equalsIgnoreCase(currentChecksum)) {
             backupAuditLogPort.save(BackupAuditLog.create(
                     currentUserId,
                     currentUserEmail,
@@ -408,13 +411,24 @@ public class BackupService implements
         return backupAuditLogPort.findRecent(100);
     }
 
+    public void applyRetentionPolicy() {
+        try {
+            BackupSchedule schedule = getSchedule();
+            if (schedule != null && schedule.getRetentionDays() > 0) {
+                applyRetentionPolicy(schedule.getRetentionDays());
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi kiểm tra chính sách lưu trữ định kỳ: {}", e.getMessage(), e);
+        }
+    }
+
     public void applyRetentionPolicy(int retentionDays) {
         if (retentionDays <= 0) return;
         try {
             LocalDateTime cutoffDate = LocalDateTime.now().minusDays(retentionDays);
             List<Backup> expiredBackups = backupRepositoryPort.findExpiredBackups(cutoffDate);
             if (expiredBackups != null && !expiredBackups.isEmpty()) {
-                log.info("Bắt đầu thực thi dọn dẹp các bản sao lưu hết hạn lưu trữ ({} ngày, trước {})...", retentionDays, cutoffDate);
+                log.info("Bắt đầu thực thi dọn dẹp các bản sao lưu COMPLETED hết hạn lưu trữ ({} ngày, trước {})...", retentionDays, cutoffDate);
                 for (Backup expired : expiredBackups) {
                     try {
                         if (backupStoragePort.exists(expired.getFilePath())) {
@@ -482,13 +496,15 @@ public class BackupService implements
                     throw new IllegalArgumentException("Tệp tải lên không chứa dữ liệu bảng hợp lệ (thiếu hoặc rỗng mục 'tables').");
                 }
 
+                java.util.Set<String> expectedTables = new java.util.HashSet<>(backupRestoreEnginePort.getSupportedTables(contentBackupType));
+                java.util.Set<String> actualTables = new java.util.HashSet<>();
+
                 for (java.util.Map.Entry<?, ?> entry : tablesMap.entrySet()) {
                     if (!(entry.getKey() instanceof String tableName) || tableName.trim().isEmpty()) {
                         throw new IllegalArgumentException("Tên bảng trong tệp JSON không hợp lệ.");
                     }
-                    if (!backupRestoreEnginePort.isSupportedTable(tableName)) {
-                        throw new IllegalArgumentException("Tệp sao lưu chứa bảng không thuộc danh mục hệ thống cho phép: " + tableName);
-                    }
+                    actualTables.add(tableName.trim());
+
                     if (entry.getValue() != null && !(entry.getValue() instanceof List<?>)) {
                         throw new IllegalArgumentException("Dữ liệu của bảng " + tableName + " phải là một danh sách các bản ghi.");
                     }
@@ -499,6 +515,18 @@ public class BackupService implements
                             }
                         }
                     }
+                }
+
+                if (!actualTables.equals(expectedTables)) {
+                    java.util.Set<String> missing = new java.util.HashSet<>(expectedTables);
+                    missing.removeAll(actualTables);
+                    java.util.Set<String> extra = new java.util.HashSet<>(actualTables);
+                    extra.removeAll(expectedTables);
+                    throw new IllegalArgumentException(
+                            "Tệp backup không chứa đúng danh sách bảng yêu cầu cho loại " + contentBackupType +
+                            (missing.isEmpty() ? "" : ". Bảng còn thiếu: " + missing) +
+                            (extra.isEmpty() ? "" : ". Bảng không hợp lệ: " + extra)
+                    );
                 }
             }
 

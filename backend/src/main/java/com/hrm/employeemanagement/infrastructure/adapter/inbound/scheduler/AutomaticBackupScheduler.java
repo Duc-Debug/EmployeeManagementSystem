@@ -19,6 +19,7 @@ public class AutomaticBackupScheduler {
     private final GetBackupScheduleUseCase getBackupScheduleUseCase;
     private final CreateBackupUseCase createBackupUseCase;
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
+    private final AtomicBoolean isRetentionRunning = new AtomicBoolean(false);
 
     public AutomaticBackupScheduler(
             GetBackupScheduleUseCase getBackupScheduleUseCase,
@@ -51,6 +52,23 @@ public class AutomaticBackupScheduler {
             log.error("Lỗi trong quá trình kiểm tra lịch sao lưu tự động: {}", e.getMessage(), e);
         } finally {
             isRunning.set(false);
+        }
+    }
+
+    @Scheduled(cron = "0 0 * * * *") // Chạy mỗi giờ độc lập để dọn dẹp các bản sao lưu hết hạn lưu trữ
+    public void cleanupExpiredBackups() {
+        if (!isRetentionRunning.compareAndSet(false, true)) {
+            log.debug("Tiến trình dọn dẹp bản sao lưu hết hạn đang chạy, bỏ qua.");
+            return;
+        }
+
+        try {
+            log.info("Bắt đầu chạy tiến trình định kỳ dọn dẹp các bản sao lưu hết hạn lưu trữ (Retention Policy)");
+            createBackupUseCase.applyRetentionPolicy();
+        } catch (Exception e) {
+            log.error("Lỗi trong quá trình dọn dẹp bản sao lưu hết hạn: {}", e.getMessage(), e);
+        } finally {
+            isRetentionRunning.set(false);
         }
     }
 }

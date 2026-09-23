@@ -9,6 +9,7 @@ public interface DatabaseBackupRestoreEnginePort {
     File performBackup(File targetFile, BackupType backupType) throws Exception;
     void performRestore(File backupFile, BackupType backupType) throws Exception;
     List<String> getSupportedTables();
+    List<String> getSupportedTables(BackupType backupType);
 
     default boolean isSupportedTable(String tableName) {
         if (tableName == null || tableName.trim().isEmpty()) return false;
@@ -17,4 +18,5 @@ public interface DatabaseBackupRestoreEnginePort {
         return tables.stream().anyMatch(t -> t.equalsIgnoreCase(tableName.trim()));
     }
 }
+
 

@@ -1,44 +1,14 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+  formatBackupFileSize,
+  validateRestoreConfirmation,
+  canAccessBackupWorkspace,
+  canRestoreBackup,
+  extractData,
+} from "../lib/api/backup.ts";
 
 describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
-  function formatBackupFileSize(bytes) {
-    if (!bytes || bytes <= 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.min(Math.floor(Math.log10(bytes) / Math.log10(1024)), units.length - 1);
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-  }
-
-  function validateRestoreConfirmation(code, reason) {
-    if (!code || code.trim().toUpperCase() !== "RESTORE") {
-      return { valid: false, error: "Mã xác nhận phải là RESTORE" };
-    }
-    if (!reason || reason.trim().length < 10) {
-      return { valid: false, error: "Lý do phải từ 10 ký tự trở lên" };
-    }
-    return { valid: true };
-  }
-
-  function canAccessBackupWorkspace(roleCode, permissions) {
-    const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-    const isAdmin = normalized === "VT-06" || normalized === "ROLE-ADMIN" || normalized === "ADMIN";
-    const hasPermission = permissions !== undefined && permissions !== null && permissions.includes("DATA_BACKUP_MANAGE");
-    return isAdmin && hasPermission;
-  }
-
-  function canRestoreBackup(status) {
-    return status === "COMPLETED";
-  }
-
-  function extractData(res) {
-    if (!res) return res;
-    if (typeof res === "object" && res !== null && "data" in res) {
-      const data = res.data;
-      if (data !== undefined) return data;
-    }
-    return res;
-  }
-
   function validateBackupUploadFileName(fileName) {
     if (!fileName || typeof fileName !== "string") return false;
     const lower = fileName.trim().toLowerCase();
