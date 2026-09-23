@@ -18,5 +18,3 @@ public interface DatabaseBackupRestoreEnginePort {
         return tables.stream().anyMatch(t -> t.equalsIgnoreCase(tableName.trim()));
     }
 }
-
-
