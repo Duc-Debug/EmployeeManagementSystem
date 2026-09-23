@@ -32,6 +32,7 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -157,8 +158,14 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
             List<WeeklyAvailableHoursResult> weeklyResults = new ArrayList<>();
 
             for (YearWeek yw : targetWeeks) {
-                // Kiểm tra hợp đồng hết hạn trước tuần mục tiêu
+                // Kiểm tra hợp đồng hết hạn trước tuần mục tiêu hoặc chưa bắt đầu (QTN-21)
                 if (candidate.contractEndDate() != null && candidate.contractEndDate().isBefore(yw.getStartDate())) {
+                    weeklyResults.add(new WeeklyAvailableHoursResult(
+                            yw.year(), yw.weekNumber(), 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
+                    ));
+                    continue;
+                }
+                if (Boolean.TRUE.equals(candidate.isOutsourced()) && candidate.startDate() != null && candidate.startDate().isAfter(yw.getEndDate())) {
                     weeklyResults.add(new WeeklyAvailableHoursResult(
                             yw.year(), yw.weekNumber(), 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
                     ));
@@ -222,7 +229,11 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
                     candidate.proficiencyLevel(),
                     candidate.yearsOfExperience(),
                     weeklyResults,
-                    totalRemainingAccumulated
+                    totalRemainingAccumulated,
+                    candidate.isOutsourced(),
+                    candidate.providerName(),
+                    candidate.startDate(),
+                    candidate.contractEndDate()
             ));
         }
 
@@ -263,7 +274,12 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
     private boolean isCandidateInDataScope(User currentUser, ResourceCandidate candidate, Map<Long, Boolean> orgUnitScopeCache) {
         return switch (currentUser.getDataScope()) {
             case COMPANY -> true;
-            case SELF -> currentUser.getIdValue() != null && currentUser.getIdValue().equals(candidate.userId());
+            case SELF -> {
+                if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
+                    yield true;
+                }
+                yield currentUser.getIdValue() != null && currentUser.getIdValue().equals(candidate.userId());
+            }
             case ORGANIZATION_BRANCH -> {
                 if (candidate.orgUnitId() == null || currentUser.getScopeOrgUnitId() == null) {
                     yield false;

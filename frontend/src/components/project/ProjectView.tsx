@@ -18,6 +18,7 @@ import {
 } from '@/lib/api/projects';
 import { setTaskBudget, type CloneProjectWbsResult } from '@/lib/api/tasks';
 import { getTaskDependencies, type TaskDependencyResult } from '@/lib/api/taskDependencies';
+import { getProjectRoles, type ProjectRoleResponse } from '@/lib/api/project-roles';
 
 import {
     Boxes,
@@ -44,8 +45,12 @@ import {
     Lock,
     Unlock,
     Flag,
+    Kanban,
     Edit3,
     MoreHorizontal,
+    ClipboardCheck,
+    Sparkles,
+    Ban,
 } from 'lucide-react';
 import { TaskDependencyModal } from '../task/TaskDependencyModal';
 import {
@@ -86,7 +91,11 @@ import {
 } from '@/lib/api/resource-demands';
 import { ProjectCloseModal } from './ProjectCloseModal';
 import { ProjectReopenModal } from './ProjectReopenModal';
+import { ProjectApproveModal } from './ProjectApproveModal';
+import { ProjectCancelModal } from './ProjectCancelModal';
 import { MilestoneListView } from './milestone/MilestoneListView';
+import TaskBoardView from '../task/TaskBoardView';
+import { ProjectTaskTrackingView } from './ProjectTaskTrackingView';
 
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
@@ -267,19 +276,27 @@ export default function ProjectView() {
     // Quy định RBAC theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md:
     const canManageAllocations = isRm;
     const canManageProject = isPm;
+    const canManageProjectMembers = isPm || isRm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
     const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones'>(() => {
+    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones' | 'board' | 'tracking'>(() => {
         return canReadAllocations ? 'split' : 'wbs';
     });
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
+    const [projectRoles, setProjectRoles] = useState<ProjectRoleResponse[]>([]);
     const [budgetModalOpen, setBudgetModalOpen] = useState(false);
     const [selectedBudgetTask, setSelectedBudgetTask] = useState<TaskItem | null>(null);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [selectedAssignTask, setSelectedAssignTask] = useState<TaskItem | null>(null);
     const [dependencyModalOpen, setDependencyModalOpen] = useState<boolean>(false);
     const [taskDependenciesList, setTaskDependenciesList] = useState<TaskDependencyResult[]>([]);
+
+    useEffect(() => {
+        getProjectRoles(false)
+            .then((roles) => setProjectRoles((roles || []).filter((r) => r.status === 'ACTIVE')))
+            .catch((err) => console.warn('Failed to load project roles in ProjectView:', err));
+    }, []);
 
     // Mốc tiến độ (NCL-03-CN-006)
     const [milestones, setMilestones] = useState<MilestoneResult[]>([]);
@@ -298,6 +315,8 @@ export default function ProjectView() {
     const [cloneModalOpen, setCloneModalOpen] = useState<boolean>(false);
     const [closeModalOpen, setCloseModalOpen] = useState<boolean>(false);
     const [reopenModalOpen, setReopenModalOpen] = useState<boolean>(false);
+    const [approveModalOpen, setApproveModalOpen] = useState<boolean>(false);
+    const [cancelModalOpen, setCancelModalOpen] = useState<boolean>(false);
     const [moreActionsOpen, setMoreActionsOpen] = useState<boolean>(false);
     const moreActionsRef = useRef<HTMLDivElement>(null);
     const [skillSearchModalOpen, setSkillSearchModalOpen] = useState<boolean>(false);
@@ -321,13 +340,16 @@ export default function ProjectView() {
     const [editingDemandRole, setEditingDemandRole] = useState<RoleResourceDemand | null>(null);
     const [roleToDelete, setRoleToDelete] = useState<RoleResourceDemand | null>(null);
 
-    // Selected project object & Closed status (QTN-08)
+    // Selected project object & Closed/Planned status (QTN-08)
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
     const isProjectClosed = selectedProject?.status === 'CLOSED';
+    const isProjectPlanned = selectedProject?.status === 'PLANNED';
 
-    // Quyền đóng và mở lại dự án (NCL-03-CN-004)
-    const canCloseProject = (isExecutive || isPm) && !isProjectClosed && selectedProject !== null;
+    // Quyền thao tác trạng thái dự án (NCL-03-CN-004)
+    const canCloseProject = (isExecutive || isPm) && selectedProject?.status === 'ACTIVE';
     const canReopenProject = (isExecutive || isPm) && isProjectClosed && selectedProject !== null;
+    const canApproveProject = (isExecutive || isPm) && isProjectPlanned && selectedProject !== null;
+    const canCancelProject = (isExecutive || isPm) && isProjectPlanned && selectedProject !== null;
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -338,6 +360,25 @@ export default function ProjectView() {
             setToast(null);
         }, 3200);
     }, []);
+
+    const handleProjectApproved = (approvedProject: ProjectResult) => {
+        setProjectsList((prev) =>
+            prev.map((p) => (p.id === approvedProject.id ? approvedProject : p))
+        );
+        if (selectedProjectId) {
+            loadWbsForProject(selectedProjectId);
+            loadProjectAllocations();
+            loadProjectDemands(selectedProjectId);
+        }
+        showToast(`Dự án "${approvedProject.projectName}" đã được phê duyệt & khởi động thành công!`, 'success');
+    };
+
+    const handleProjectCancelled = (cancelledProject: ProjectResult) => {
+        setProjectsList((prev) =>
+            prev.map((p) => (p.id === cancelledProject.id ? cancelledProject : p))
+        );
+        showToast(`Dự án "${cancelledProject.projectName}" đã được hủy bỏ.`, 'info');
+    };
 
     const handleCloneSuccess = async (result: CloneProjectWbsResult) => {
         if (selectedProjectId) {
@@ -475,6 +516,92 @@ export default function ProjectView() {
         loadProjects();
     }, [loadProjects]);
 
+    const [months] = useState(buildMonths);
+    const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
+
+    const getDisplayedIsoWeek = useCallback((weekKey: string) => {
+        const month = months[selectedMonthIdx];
+        const [year, monthNumber] = month.id.split('-').map(Number);
+        const index = Math.max(0, month.weeks.findIndex((week) => week.key === weekKey));
+        return getIsoWeek(new Date(year, monthNumber - 1, index * 7 + 1));
+    }, [months, selectedMonthIdx]);
+
+    const loadProjectAllocations = useCallback(async (baseMembersInput?: ProjectMember[]) => {
+        if (!canReadAllocations || !selectedProjectId) return;
+        const month = months[selectedMonthIdx];
+        try {
+            const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
+                const isoWeek = getDisplayedIsoWeek(week.key);
+                const rows = await getProjectWeeklyAllocations(selectedProjectId, isoWeek.year, isoWeek.week, isoWeek.week);
+                return { key: week.key, rows };
+            }));
+            setMembers((previous) => {
+                const currentBase = baseMembersInput && baseMembersInput.length > 0 ? baseMembersInput : previous;
+                const existingEmpIds = new Set(
+                    currentBase.map((m) => m.employeeId || Number(m.id.replace('u-', '')))
+                );
+
+                const updated = currentBase.map((member) => {
+                    const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
+                    const weeklyHours: Record<string, number> = {};
+                    let allocRoleId = member.projectRoleId;
+                    rowsByWeek.forEach(({ key, rows }) => {
+                        const matchingRows = rows.filter((row) => row.employeeId === employeeId);
+                        weeklyHours[key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                        if (!allocRoleId) {
+                            const found = matchingRows.find((r) => r.projectRoleId);
+                            if (found?.projectRoleId) allocRoleId = found.projectRoleId;
+                        }
+                    });
+                    return { ...member, weeklyHours, projectRoleId: allocRoleId };
+                });
+
+                // Tự động bổ sung nhân sự đã có phân bổ giờ vào danh sách nếu chưa có trong WBS
+                const allocatedEmpIds = new Set<number>();
+                rowsByWeek.forEach(({ rows }) => {
+                    rows.forEach((r) => {
+                        if (r.allocatedHours > 0 && !existingEmpIds.has(r.employeeId)) {
+                            allocatedEmpIds.add(r.employeeId);
+                        }
+                    });
+                });
+
+                if (allocatedEmpIds.size > 0 && allEmployees.length > 0) {
+                    allocatedEmpIds.forEach((empId) => {
+                        const empObj = allEmployees.find(
+                            (e) => (e.employeeId || Number(e.id.replace('u-', ''))) === empId
+                        );
+                        if (empObj) {
+                            const weeklyHours: Record<string, number> = {};
+                            let allocRoleId = empObj.projectRoleId;
+                            rowsByWeek.forEach(({ key, rows }) => {
+                                const matchingRows = rows.filter((row) => row.employeeId === empId);
+                                weeklyHours[key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                                if (!allocRoleId) {
+                                    const found = matchingRows.find((r) => r.projectRoleId);
+                                    if (found?.projectRoleId) allocRoleId = found.projectRoleId;
+                                }
+                            });
+                            updated.push({ ...empObj, weeklyHours, projectRoleId: allocRoleId });
+                        }
+                    });
+                }
+
+                return updated;
+            });
+            setAllocationError(null);
+        } catch (error) {
+            setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
+            setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
+        }
+    }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId, allEmployees]);
+
+    useEffect(() => {
+        if (canReadAllocations && selectedProjectId) {
+            void loadProjectAllocations();
+        }
+    }, [canReadAllocations, selectedProjectId, selectedMonthIdx, loadProjectAllocations]);
+
     // 3. Tải cây WBS và danh sách thành viên dự án thật khi chọn một dự án
     const loadWbsForProject = useCallback(async (projId: number) => {
         setIsLoadingWbs(true);
@@ -515,12 +642,24 @@ export default function ProjectView() {
                     return projectRole ? { ...emp, role: projectRole } : emp;
                 });
 
-            setMembers(projectMembers);
+            setMembers((prevMembers) => {
+                const prevHoursMap = new Map(prevMembers.map((m) => [m.id, m.weeklyHours]));
+                return projectMembers.map((emp) => {
+                    const existingHours = prevHoursMap.get(emp.id);
+                    return existingHours && Object.keys(existingHours).length > 0
+                        ? { ...emp, weeklyHours: existingHours }
+                        : emp;
+                });
+            });
             const mapped = mapBackendWbsToUiCategories(wbsNodes, projectMembers);
             setCategories(mapped);
             getTaskDependencies(projId)
                 .then((res) => setTaskDependenciesList(res.dependencies || []))
                 .catch(() => setTaskDependenciesList([]));
+
+            if (canReadAllocations) {
+                void loadProjectAllocations(projectMembers);
+            }
         } catch (err) {
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
             setCategories([]);
@@ -529,7 +668,7 @@ export default function ProjectView() {
         } finally {
             setIsLoadingWbs(false);
         }
-    }, [allEmployees]);
+    }, [allEmployees, canReadAllocations, loadProjectAllocations]);
 
     useEffect(() => {
         if (selectedProjectId) {
@@ -559,44 +698,6 @@ export default function ProjectView() {
         }
     }, [selectedProjectId, loadMilestonesForProject]);
 
-    const [months] = useState(buildMonths);
-    const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
-
-    const getDisplayedIsoWeek = useCallback((weekKey: string) => {
-        const month = months[selectedMonthIdx];
-        const [year, monthNumber] = month.id.split('-').map(Number);
-        const index = Math.max(0, month.weeks.findIndex((week) => week.key === weekKey));
-        return getIsoWeek(new Date(year, monthNumber - 1, index * 7 + 1));
-    }, [months, selectedMonthIdx]);
-
-    const loadProjectAllocations = useCallback(async () => {
-        if (!canReadAllocations || !selectedProjectId) return;
-        const month = months[selectedMonthIdx];
-        try {
-            const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
-                const isoWeek = getDisplayedIsoWeek(week.key);
-                const rows = await getProjectWeeklyAllocations(selectedProjectId, isoWeek.year, isoWeek.week, isoWeek.week);
-                return { key: week.key, rows };
-            }));
-            setMembers((previous) => previous.map((member) => {
-                const employeeId = Number(member.id.replace('u-', ''));
-                const weeklyHours: Record<string, number> = {};
-                rowsByWeek.forEach(({ key, rows }) => {
-                    weeklyHours[key] = rows.filter((row) => row.employeeId === employeeId)
-                        .reduce((sum, row) => sum + Number(row.allocatedHours), 0);
-                });
-                return { ...member, weeklyHours };
-            }));
-            setAllocationError(null);
-        } catch (error) {
-            setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
-            setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
-        }
-    }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId]);
-
-    useEffect(() => {
-        if (canReadAllocations && selectedProjectId && categories.length > 0) void loadProjectAllocations();
-    }, [canReadAllocations, selectedProjectId, selectedMonthIdx, categories, loadProjectAllocations]);
 
     // 4. Tải ước lượng nhu cầu nhân sự thật từ API Backend (NCL-03-CN-007)
     const loadProjectDemands = useCallback(async (projId: number) => {
@@ -677,12 +778,20 @@ export default function ProjectView() {
             return employeeId ? addProjectMember(selectedProjectId, employeeId) : Promise.reject(new Error('Invalid employee id'));
         }));
         const succeeded = results.filter((result) => result.status === 'fulfilled').length;
-        const failed = results.length - succeeded;
-        if (succeeded > 0) await loadWbsForProject(selectedProjectId);
+        const failedResults = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+        const failed = failedResults.length;
+        if (succeeded > 0) {
+            try {
+                await loadWbsForProject(selectedProjectId);
+            } catch (err) {
+                console.error('Lỗi khi tải lại WBS sau khi thêm thành viên:', err);
+            }
+        }
         if (failed > 0) {
-            showToast(`Đã thêm ${succeeded}/${results.length} nhân sự. ${failed} thao tác thất bại; danh sách đã được đồng bộ từ backend.`, 'error');
+            const firstError = failedResults[0]?.reason?.message || 'Có lỗi xảy ra từ máy chủ';
+            showToast(`Đã thêm ${succeeded}/${results.length} nhân sự. Lỗi: ${firstError}`, 'error');
         } else {
-            showToast(`Đã thêm ${succeeded} nhân sự và đồng bộ từ backend.`, 'success');
+            showToast(`Đã thêm thành công ${succeeded} nhân sự vào dự án.`, 'success');
         }
     };
 
@@ -812,10 +921,23 @@ export default function ProjectView() {
         if (!canManageAllocations || !selectedProjectId || !member) return;
         const employeeId = Number(member.id.replace('u-', ''));
         const isoWeek = getDisplayedIsoWeek(weekKey);
+
+        // Xác định projectRoleId: ưu tiên member.projectRoleId, tìm theo tên/code vai trò của member, hoặc vai trò active đầu tiên
+        let projectRoleId = member.projectRoleId;
+        if (!projectRoleId && projectRoles.length > 0) {
+            const matched = projectRoles.find((r) =>
+                (member.role && r.name.toLowerCase().includes(member.role.toLowerCase())) ||
+                (member.role && member.role.toLowerCase().includes(r.name.toLowerCase())) ||
+                (member.role && r.code.toLowerCase() === member.role.toLowerCase())
+            );
+            projectRoleId = matched ? matched.id : projectRoles[0].id;
+        }
+
         try {
             await allocateProjectHours({
                 employeeId,
                 projectId: selectedProjectId,
+                projectRoleId,
                 year: isoWeek.year,
                 weekNumber: isoWeek.week,
                 allocatedHours: percentage !== undefined ? undefined : newHours,
@@ -898,7 +1020,7 @@ export default function ProjectView() {
     };
 
     const handleProjectClosed = async (closedProj: ProjectResult) => {
-        showToast(`Đã đóng dự án ${closedProj.projectName} thành công. Toàn bộ công việc và phân bổ đã được khóa (QTN-08)!`, 'info');
+        showToast(`Đã đóng dự án ${closedProj.projectName} thành công. Toàn bộ công việc và phân bổ đã được khóa!`, 'info');
         await loadProjects();
         if (selectedProjectId) {
             await loadWbsForProject(selectedProjectId);
@@ -1027,6 +1149,16 @@ export default function ProjectView() {
                                             <Lock className="h-3 w-3 text-rose-600" />
                                             <span>Đã đóng</span>
                                         </span>
+                                    ) : selectedProject.status === 'CANCELLED' ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 shadow-2xs">
+                                            <Ban className="h-3 w-3 text-slate-500" />
+                                            <span>Đã hủy</span>
+                                        </span>
+                                    ) : selectedProject.status === 'PLANNED' ? (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 shadow-2xs">
+                                            <Sparkles className="h-3 w-3 text-blue-600" />
+                                            <span>Dự kiến</span>
+                                        </span>
                                     ) : selectedProject.status === 'ACTIVE' ? (
                                         <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 shadow-2xs">
                                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
@@ -1053,7 +1185,7 @@ export default function ProjectView() {
                                             >
                                                 {projectsList.map((p) => (
                                                     <option key={p.id} value={p.id}>
-                                                        {p.projectName} ({p.projectCode}) {p.status === 'CLOSED' ? '— [ĐÃ ĐÓNG]' : ''}
+                                                        {p.projectName} ({p.projectCode}) {p.status === 'CLOSED' ? '— [ĐÃ ĐÓNG]' : p.status === 'PLANNED' ? '— [DỰ KIẾN]' : p.status === 'CANCELLED' ? '— [ĐÃ HỦY]' : ''}
                                                     </option>
                                                 ))}
                                             </select>
@@ -1082,7 +1214,7 @@ export default function ProjectView() {
                                     </span>
                                 )}
 
-                                {canManageProject && selectedProject && (
+                                {canManageProject && selectedProject && !isProjectClosed && selectedProject.status !== 'CANCELLED' && (
                                     <button
                                         type="button"
                                         onClick={() => setProjectEditModalOpen(true)}
@@ -1105,13 +1237,25 @@ export default function ProjectView() {
 
                     {/* Top Actions: Streamlined with More Actions Dropdown */}
                     <div className="flex items-center gap-2 self-start lg:self-auto">
+                        {canApproveProject && (
+                            <button
+                                type="button"
+                                onClick={() => setApproveModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs shadow-emerald-200 hover:bg-emerald-700 transition active:scale-95 cursor-pointer"
+                                title="Phê duyệt và chuyển dự án sang trạng thái Đang thực hiện"
+                            >
+                                <Sparkles className="h-4 w-4 stroke-[2.2]" />
+                                <span>Phê duyệt dự án</span>
+                            </button>
+                        )}
+
                         {canManageProject && (
                             <button
                                 type="button"
-                                disabled={isProjectClosed}
-                                onClick={() => !isProjectClosed && handleQuickAddTask()}
+                                disabled={isProjectClosed || selectedProject?.status === 'CANCELLED'}
+                                onClick={() => !isProjectClosed && selectedProject?.status !== 'CANCELLED' && handleQuickAddTask()}
                                 className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition ${
-                                    isProjectClosed
+                                    isProjectClosed || selectedProject?.status === 'CANCELLED'
                                         ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
                                         : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700 active:scale-95 cursor-pointer'
                                 }`}
@@ -1149,6 +1293,34 @@ export default function ProjectView() {
 
                             {moreActionsOpen && (
                                 <div className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                                    {canApproveProject && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMoreActionsOpen(false);
+                                                setApproveModalOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                                        >
+                                            <Sparkles className="h-4 w-4 text-emerald-500" />
+                                            <span>Phê duyệt & Khởi động</span>
+                                        </button>
+                                    )}
+
+                                    {canCancelProject && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMoreActionsOpen(false);
+                                                setCancelModalOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                        >
+                                            <Ban className="h-4 w-4 text-rose-500" />
+                                            <span>Hủy dự án dự kiến</span>
+                                        </button>
+                                    )}
+
                                     {canManageProject && (
                                         <button
                                             type="button"
@@ -1166,15 +1338,15 @@ export default function ProjectView() {
                                     {canManageWbs && (
                                         <button
                                             type="button"
-                                            disabled={isProjectClosed}
+                                            disabled={isProjectClosed || selectedProject?.status === 'CANCELLED'}
                                             onClick={() => {
-                                                if (!isProjectClosed) {
+                                                if (!isProjectClosed && selectedProject?.status !== 'CANCELLED') {
                                                     setMoreActionsOpen(false);
                                                     setCloneModalOpen(true);
                                                 }
                                             }}
                                             className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition ${
-                                                isProjectClosed
+                                                isProjectClosed || selectedProject?.status === 'CANCELLED'
                                                     ? 'opacity-40 cursor-not-allowed text-slate-400'
                                                     : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer'
                                             }`}
@@ -1196,7 +1368,7 @@ export default function ProjectView() {
                                         <span>Xuất báo cáo Excel</span>
                                     </button>
 
-                                    {(canCloseProject || canReopenProject) && (
+                                    {(canCloseProject || canReopenProject || canCancelProject) && (
                                         <div className="my-1 border-t border-slate-100" />
                                     )}
 
@@ -1271,11 +1443,11 @@ export default function ProjectView() {
                                     Dự án đã đóng ({selectedProject.projectCode})
                                 </h3>
                                 <span className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700">
-                                    Khóa QTN-08
+                                    Đã khóa
                                 </span>
                             </div>
                             <p className="text-rose-700 mt-0.5 leading-relaxed text-[11px]">
-                                Theo quy tắc <strong>QTN-08</strong>, toàn bộ công việc và phân bổ nguồn lực đã được chốt. Hệ thống không cho phép tạo thêm công việc mới hoặc thay đổi giờ phân bổ.
+                                Toàn bộ công việc và phân bổ nguồn lực của dự án đã được chốt. Hệ thống không cho phép tạo thêm công việc mới hoặc thay đổi giờ phân bổ.
                             </p>
                             {selectedProject.closureReason && (
                                 <p className="mt-1 text-[11px] text-rose-800 bg-white/70 p-1.5 rounded-md border border-rose-200/60">
@@ -1293,6 +1465,52 @@ export default function ProjectView() {
                             <Unlock className="h-3.5 w-3.5" />
                             <span>Mở lại dự án</span>
                         </button>
+                    )}
+                </div>
+            )}
+
+            {/* Banner thông báo khi dự án đang ở trạng thái Dự kiến (PLANNED) */}
+            {isProjectPlanned && selectedProject && (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50/90 p-3.5 text-xs text-blue-900 shadow-2xs flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                            <Sparkles className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-blue-950 text-xs sm:text-sm">
+                                    Dự án đang ở giai đoạn Dự kiến ({selectedProject.projectCode})
+                                </h3>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                    PLANNED
+                                </span>
+                            </div>
+                            <p className="text-blue-700 mt-0.5 leading-relaxed text-[11px]">
+                                Dự án đang trong giai đoạn lập kế hoạch, ước lượng nhu cầu nhân lực và giữ chỗ nguồn lực. Khi được phê duyệt, các giữ chỗ nguồn lực sẽ tự động được chuyển thành phân bổ tuần chính thức.
+                            </p>
+                        </div>
+                    </div>
+                    {canApproveProject && (
+                        <div className="flex items-center gap-2">
+                            {canCancelProject && (
+                                <button
+                                    type="button"
+                                    onClick={() => setCancelModalOpen(true)}
+                                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-rose-600 shadow-2xs hover:bg-rose-50 transition shrink-0 cursor-pointer"
+                                >
+                                    <Ban className="h-3.5 w-3.5" />
+                                    <span>Hủy dự án</span>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setApproveModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition shrink-0 cursor-pointer"
+                            >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                <span>Phê duyệt dự án</span>
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
@@ -1466,10 +1684,34 @@ export default function ProjectView() {
                             </span>
                         )}
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('board')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                            viewMode === 'board'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <Kanban className="h-3.5 w-3.5" />
+                        <span>Bảng Kanban</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('tracking')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                            viewMode === 'tracking'
+                                ? 'bg-white text-indigo-700 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <ClipboardCheck className="h-3.5 w-3.5" />
+                        <span>Bảng theo dõi</span>
+                    </button>
                 </div>
 
-                {/* Filters (Ẩn khi ở tab Mốc tiến độ hoặc Ước lượng nhu cầu) */}
-                {viewMode !== 'milestones' && viewMode !== 'demand' && (
+                {/* Filters (Ẩn khi ở tab Mốc tiến độ, Ước lượng nhu cầu, Bảng Kanban hoặc Bảng theo dõi) */}
+                {viewMode !== 'milestones' && viewMode !== 'demand' && viewMode !== 'board' && viewMode !== 'tracking' && (
                     <div className="flex w-full flex-wrap items-center justify-end gap-2 xl:w-auto shrink-0">
                         {/* Search */}
                         <div className="relative flex-1 sm:w-56">
@@ -1535,7 +1777,7 @@ export default function ProjectView() {
                             isClosed={isProjectClosed}
                             onNavigateMonth={handleNavigateMonth}
                             onOpenAdjustModal={handleOpenAdjustModal}
-                            onOpenSkillSearchModal={canManageAllocations ? () => setSkillSearchModalOpen(true) : undefined}
+                            onOpenSkillSearchModal={canManageProjectMembers ? () => setSkillSearchModalOpen(true) : undefined}
                         />
                     </div>
                 )}
@@ -1594,6 +1836,35 @@ export default function ProjectView() {
                         )}
                     </div>
                 )}
+
+                {/* Section 5: Task Board / Kanban (NCL-04-CN-006) */}
+                {viewMode === 'board' && (
+                    <div className="lg:col-span-12">
+                        <TaskBoardView
+                            defaultProjectId={selectedProjectId ? selectedProjectId : undefined}
+                        />
+                    </div>
+                )}
+
+                {/* Section 6: Task Tracking Board (NCL-04-CN-003) */}
+                {viewMode === 'tracking' && (
+                    <div className="lg:col-span-12">
+                        {selectedProjectId ? (
+                            <ProjectTaskTrackingView
+                                projectId={selectedProjectId}
+                                isProjectClosed={isProjectClosed}
+                                members={allEmployees.length > 0 ? allEmployees : members}
+                                onNavigateToWbs={() => setViewMode('wbs')}
+                            />
+                        ) : (
+                            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">
+                                <ClipboardCheck className="mx-auto h-10 w-10 text-slate-300 mb-3" />
+                                <h3 className="text-sm font-bold text-slate-700">Chưa chọn dự án</h3>
+                                <p className="text-xs text-slate-400 mt-1">Vui lòng chọn một dự án ở thanh phía trên để xem bảng theo dõi công việc.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Modals */}
@@ -1619,7 +1890,7 @@ export default function ProjectView() {
             {canManageProject && <ProjectTaskModal
                 open={taskModalOpen}
                 categories={categories}
-                members={members}
+                members={allEmployees.length > 0 ? allEmployees : members}
                 defaultCategoryId={defaultCatId}
                 onClose={() => setTaskModalOpen(false)}
                 onSubmit={handleCreateTask}
@@ -1725,6 +1996,22 @@ export default function ProjectView() {
                 isExecutive={isExecutive}
                 onClose={() => setReopenModalOpen(false)}
                 onSuccess={handleProjectReopened}
+            />
+
+            {/* Modal Phê duyệt dự án (PLANNED -> ACTIVE) */}
+            <ProjectApproveModal
+                open={approveModalOpen}
+                project={selectedProject}
+                onClose={() => setApproveModalOpen(false)}
+                onSuccess={handleProjectApproved}
+            />
+
+            {/* Modal Hủy dự án (PLANNED -> CANCELLED) */}
+            <ProjectCancelModal
+                open={cancelModalOpen}
+                project={selectedProject}
+                onClose={() => setCancelModalOpen(false)}
+                onSuccess={handleProjectCancelled}
             />
 
             {/* Modal Lọc & Chọn Nhân Sự Theo Kỹ Năng */}

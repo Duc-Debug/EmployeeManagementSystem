@@ -48,4 +48,22 @@ class YearWeekTest {
         assertDoesNotThrow(() -> YearWeek.of(2020, 53));
         assertDoesNotThrow(() -> YearWeek.of(2026, 53));
     }
+
+    @Test
+    @DisplayName("ISO week - ngày cuối năm 2026 thuộc 2026-W53")
+    void shouldCalculateIsoWeekBasedYearCorrectly() {
+        YearWeek yearWeek = YearWeek.from(LocalDate.of(2026, 12, 31));
+
+        assertEquals(2026, yearWeek.year());
+        assertEquals(53, yearWeek.weekNumber());
+    }
+
+    @Test
+    @DisplayName("ISO week - ngày đầu năm 2027 vẫn có thể thuộc ISO week 2026-W53")
+    void shouldKeepIsoWeekBasedYearAcrossCalendarYearBoundary() {
+        YearWeek yearWeek = YearWeek.from(LocalDate.of(2027, 1, 1));
+
+        assertEquals(2026, yearWeek.year());
+        assertEquals(53, yearWeek.weekNumber());
+    }
 }

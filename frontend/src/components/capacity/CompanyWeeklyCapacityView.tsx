@@ -16,7 +16,12 @@ import {
   TrendingUp,
   BookmarkCheck,
   Layers,
+  Lock,
+  Bell,
+  Copy,
+  Sparkles,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuthUser } from "@/lib/auth-session";
 import { ResourceReservationModal } from "./ResourceReservationModal";
 import {
@@ -26,18 +31,41 @@ import {
   type CapacityMatrixCell,
   type BulkAllocationResult,
 } from "@/lib/api/allocations";
+import {
+  getAllocationPeriods,
+  type AllocationPeriodResult,
+} from "@/lib/api/allocation-periods";
 import { getOrgTree } from "@/lib/api/org-units";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 import { getCurrentIsoWeek } from "@/components/availability/availability.types";
 import { BulkAllocateResourceModal } from "@/components/capacity/BulkAllocateResourceModal";
 import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationResultModal";
+import { AllocationAdjustmentModal, type AllocationItem } from "@/components/capacity/AllocationAdjustmentModal";
+import { AllocationPeriodManagementModal } from "@/components/capacity/period/AllocationPeriodManagementModal";
+import { AllocationNotificationsModal } from "@/components/capacity/AllocationNotificationsModal";
+import { RoleAllocationTemplateManagementModal } from "@/components/allocation/RoleAllocationTemplateManagementModal";
+import { CapacityThresholdConfigModal } from "@/components/capacity/CapacityThresholdConfigModal";
+import { ProlongedIdlenessWarningModal } from "@/components/capacity/ProlongedIdlenessWarningModal";
 
 export default function CompanyWeeklyCapacityView() {
+  const navigate = useNavigate();
   const currentUser = useAuthUser();
   const isCompanyScope = currentUser?.dataScope === "COMPANY";
-  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "") : "";
   const canManageReservations = normalizedRole === "VT-02";
   const canManageAllocations = normalizedRole === "VT-03";
+  const canAccessPeriods =
+    normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
+  const canAccessAllocationNotifications = normalizedRole === "VT-02" || normalizedRole === "VT-03";
+  const canConfigureThresholds = normalizedRole === "VT-01";
+  const canAccessScenarios = normalizedRole === "VT-01" || normalizedRole === "VT-03";
+  const canViewProlongedIdleness =
+    normalizedRole === "VT-01" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
+
+  // NCL-07-CN-004: State cho Modal Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23)
+  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
+  // NCL-07-CN-006: State cho Modal Cảnh báo nhân sự nhàn rỗi kéo dài (QTN-23)
+  const [isProlongedIdlenessModalOpen, setIsProlongedIdlenessModalOpen] = useState<boolean>(false);
 
   // Current ISO week state
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
@@ -51,12 +79,48 @@ export default function CompanyWeeklyCapacityView() {
   );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED">("ALL");
+  const [employeeTypeFilter, setEmployeeTypeFilter] = useState<"ALL" | "INTERNAL" | "OUTSOURCED">("ALL");
 
   // Data states
   const [matrixData, setMatrixData] = useState<CompanyWeeklyCapacityMatrixData | null>(null);
   const [orgUnits, setOrgUnits] = useState<{ id: number; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // NCL-07-CN-003: State cho Modal Thông báo phân bổ thay đổi
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
+
+  // NCL-06-CN-009: State cho Modal Quản lý kỳ kế hoạch phân bổ (QTN-18)
+  const [isPeriodModalOpen, setIsPeriodModalOpen] = useState<boolean>(false);
+  const [lockedPeriods, setLockedPeriods] = useState<AllocationPeriodResult[]>([]);
+
+  const loadLockedPeriods = useCallback(async () => {
+    try {
+      const data = await getAllocationPeriods({
+        year: selectedYear,
+        status: "LOCKED",
+      });
+      setLockedPeriods(data);
+    } catch (err) {
+      console.warn("Không thể tải danh sách kỳ kế hoạch đã khóa:", err);
+    }
+  }, [selectedYear]);
+
+  useEffect(() => {
+    loadLockedPeriods();
+  }, [loadLockedPeriods]);
+
+  const getLockedPeriodForWeek = useCallback(
+    (year: number, weekNumber: number) => {
+      return lockedPeriods.find(
+        (p) =>
+          p.year === year &&
+          weekNumber >= p.startWeek &&
+          weekNumber <= p.endWeek
+      );
+    },
+    [lockedPeriods]
+  );
 
   // NCL-06-CN-005: State cho Modal Giữ chỗ nguồn lực
   const [isReservationModalOpen, setIsReservationModalOpen] = useState<boolean>(false);
@@ -80,15 +144,44 @@ export default function CompanyWeeklyCapacityView() {
 
   // NCL-06-CN-006: Bulk Allocation Modal States
   const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState<boolean>(false);
   const [bulkResult, setBulkResult] = useState<BulkAllocationResult | null>(null);
   const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
   const [bulkInitialEmployeeId, setBulkInitialEmployeeId] = useState<number | undefined>(undefined);
+
+  // NCL-06-CN-004: Allocation Adjustment Modal State
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState<boolean>(false);
+  const [adjustmentAllocation, setAdjustmentAllocation] = useState<AllocationItem | null>(null);
+
+  const handleOpenAdjustmentModal = (
+    employeeId: number,
+    employeeName: string,
+    year: number,
+    weekNumber: number,
+    allocatedHours: number
+  ) => {
+    if (!canManageAllocations) return;
+    setAdjustmentAllocation({
+      id: 0,
+      employeeId,
+      employeeName,
+      projectId: 1,
+      year,
+      weekNumber,
+      allocatedHours,
+    });
+    setIsAdjustmentModalOpen(true);
+  };
 
   const candidateEmployees = useMemo(() => {
     return (matrixData?.rows || []).map((r) => ({
       id: r.employeeId,
       code: r.employeeCode,
       name: r.fullName,
+      isOutsourced: r.isOutsourced,
+      providerName: r.providerName,
+      contractStartDate: r.contractStartDate,
+      contractEndDate: r.contractEndDate,
     }));
   }, [matrixData?.rows]);
 
@@ -228,13 +321,37 @@ export default function CompanyWeeklyCapacityView() {
     setSelectedWeek(iso.weekNumber);
   };
 
-  const rows = matrixData?.rows || [];
+  const allRows = matrixData?.rows || [];
+  const rows = useMemo(() => {
+    if (employeeTypeFilter === "INTERNAL") {
+      return allRows.filter((r) => !r.isOutsourced);
+    }
+    if (employeeTypeFilter === "OUTSOURCED") {
+      return allRows.filter((r) => r.isOutsourced);
+    }
+    return allRows;
+  }, [allRows, employeeTypeFilter]);
+
   const totalEmployees = matrixData?.totalEmployees ?? 0;
   const totalPages = matrixData?.totalPages ?? 1;
+  const effectiveOverloadThreshold = matrixData?.overloadThreshold ?? 100;
+  const effectiveIdleThreshold = matrixData?.idleThreshold ?? 50;
 
   // Render 1 ô dữ liệu trong ma trận
   const renderCell = (cell: CapacityMatrixCell, row: EmployeeCapacityRow) => {
     const isZeroAvailability = cell.availableHours === 0;
+    const lockedPeriod = getLockedPeriodForWeek(cell.year, cell.weekNumber);
+    const lockSuffix = lockedPeriod
+      ? ` • [QTN-18: Tuần đã bị khóa theo "${lockedPeriod.name}" - Không thể chỉnh sửa phân bổ]`
+      : "";
+
+    const weekInfo = matrixData?.weeks.find(
+      (w) => w.year === cell.year && w.weekNumber === cell.weekNumber
+    );
+    const isOutsourcedOutOfContract =
+      row.isOutsourced &&
+      ((row.contractStartDate && weekInfo?.endDate && weekInfo.endDate < row.contractStartDate) ||
+       (row.contractEndDate && weekInfo?.startDate && weekInfo.startDate > row.contractEndDate));
 
     const reservationBadge = cell.reservedHours != null && cell.reservedHours > 0 ? (
       canManageReservations ? (
@@ -270,13 +387,44 @@ export default function CompanyWeeklyCapacityView() {
       </div>
     ) : null;
 
+    const adjustBadge = canManageAllocations && cell.allocatedHours > 0 ? (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleOpenAdjustmentModal(row.employeeId, row.fullName, cell.year, cell.weekNumber, cell.allocatedHours);
+        }}
+        className="mt-1 flex items-center justify-center gap-1 rounded-md border border-indigo-200 bg-indigo-50/80 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs w-full"
+        title="Điều chỉnh phân bổ nguồn lực (sửa giờ, chuyển tuần, gỡ phân bổ, ghi chú chênh lệch, xem lịch sử - NCL-06-CN-004)"
+      >
+        <SlidersHorizontal className="h-3 w-3 text-indigo-600 shrink-0" />
+        <span>Điều chỉnh</span>
+      </button>
+    ) : null;
+
+    if (isOutsourcedOutOfContract && cell.allocatedHours === 0) {
+      return (
+        <div
+          className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-100/70 border border-dashed border-slate-300 text-slate-400 text-xs min-h-[58px]"
+          title={`QTN-21: Ngoài thời hạn hợp đồng thuê ngoài (${row.contractStartDate || '...'} đến ${row.contractEndDate || '...'}). Không thể phân bổ.`}
+        >
+          <span className="font-semibold text-slate-400">Ngoài HĐ</span>
+          <span className="text-[10px] text-slate-400">0h / 0h</span>
+        </div>
+      );
+    }
+
     if (isZeroAvailability && cell.allocatedHours === 0) {
+      const zeroLabel = row.isOutsourced ? "Hết giờ" : "Nghỉ phép";
+      const zeroTitle = row.isOutsourced
+        ? `Nhân sự thuê ngoài không có giờ khả dụng trong tuần${lockSuffix}`
+        : `Nhân viên không có giờ khả dụng trong tuần (Nghỉ phép cả tuần)${lockSuffix}`;
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-xs min-h-[58px]"
-          title="Nhân viên không có giờ khả dụng trong tuần (Nghỉ phép cả tuần)"
+          title={zeroTitle}
         >
-          <span className="font-semibold text-slate-500">Nghỉ phép</span>
+          <span className="font-semibold text-slate-500">{zeroLabel}</span>
           <span className="text-[10px] text-slate-400">0h / 0h</span>
           {leaveBadge}
           {reservationBadge}
@@ -288,7 +436,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs min-h-[58px] shadow-xs hover:ring-2 hover:ring-rose-400 transition"
-          title={`Quá tải: Tổng phân bổ ${cell.allocatedHours}h vượt quá ${cell.availableHours}h khả dụng!${cell.approvedLeaveHours ? ` (Đã trừ ${cell.approvedLeaveHours}h do đơn nghỉ phép được duyệt)` : ''}`}
+          title={`Quá tải: Phân bổ ${cell.allocatedHours}h / ${cell.availableHours}h khả dụng (${cell.utilizationPercentage != null ? `${cell.utilizationPercentage}%` : "Vô cực"} ≥ ${effectiveOverloadThreshold}%)${cell.approvedLeaveHours ? ` (Đã trừ ${cell.approvedLeaveHours}h do đơn nghỉ phép được duyệt)` : ''}${lockSuffix}`}
         >
           <div className="flex items-center gap-1 font-bold text-rose-700">
             <AlertTriangle className="h-3.5 w-3.5 text-rose-600 animate-pulse" />
@@ -302,6 +450,7 @@ export default function CompanyWeeklyCapacityView() {
           </span>
           {leaveBadge}
           {reservationBadge}
+          {adjustBadge}
         </div>
       );
     }
@@ -310,7 +459,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-800 text-xs min-h-[58px] hover:ring-2 hover:ring-amber-300 transition"
-          title={`Nhàn rỗi: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}%)`}
+          title={`Nhàn rỗi: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}% < ${effectiveIdleThreshold}%)${lockSuffix}`}
         >
           <span className="font-bold text-amber-700">
             {cell.utilizationPercentage != null ? `${cell.utilizationPercentage}%` : "0%"}
@@ -321,15 +470,16 @@ export default function CompanyWeeklyCapacityView() {
           <span className="text-[10px] font-semibold text-amber-600/80">Nhàn rỗi</span>
           {leaveBadge}
           {reservationBadge}
+          {adjustBadge}
         </div>
       );
     }
 
-    // Trạng thái tối ưu (50% - 100%)
+    // Trạng thái tối ưu
     return (
       <div
         className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs min-h-[58px] hover:ring-2 hover:ring-emerald-300 transition"
-        title={`Tối ưu: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}%)`}
+        title={`Tối ưu: Phân bổ ${cell.allocatedHours}h trên ${cell.availableHours}h khả dụng (${cell.utilizationPercentage}% trong khoảng ${effectiveIdleThreshold}% - ${effectiveOverloadThreshold}%)${lockSuffix}`}
       >
         <div className="flex items-center gap-1 font-bold text-emerald-700">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -340,6 +490,7 @@ export default function CompanyWeeklyCapacityView() {
         </span>
         {leaveBadge}
         {reservationBadge}
+        {adjustBadge}
       </div>
     );
   };
@@ -418,6 +569,84 @@ export default function CompanyWeeklyCapacityView() {
               <span>Phân bổ hàng loạt</span>
             </button>
           )}
+
+          {/* Mẫu phân bổ theo vai trò của dự án */}
+          {canManageAllocations && (
+            <button
+              type="button"
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-violet-200 bg-violet-50/80 px-3.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition shadow-2xs cursor-pointer"
+              title="Mẫu phân bổ theo vai trò của dự án"
+            >
+              <Copy className="h-3.5 w-3.5 text-violet-600" />
+              <span>Mẫu phân bổ vai trò</span>
+            </button>
+          )}
+
+          {/* NCL-06-CN-009: Nút Quản lý & Khóa kỳ kế hoạch phân bổ (QTN-18) */}
+          {canAccessPeriods && (
+            <button
+              type="button"
+              onClick={() => setIsPeriodModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
+              title="Khóa & Quản lý kế hoạch phân bổ của kỳ (NCL-06-CN-009 / QTN-18)"
+            >
+              <Lock className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Kế hoạch kỳ (QTN-18)</span>
+            </button>
+          )}
+
+          {/* NCL-07-CN-003: Nút Thông báo phân bổ thay đổi (BR-05 / AC-03: Chỉ VT-02 và VT-03) */}
+          {canAccessAllocationNotifications && (
+            <button
+              type="button"
+              onClick={() => setIsNotificationModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-sky-200 bg-sky-50/70 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition shadow-2xs"
+              title="Xem lịch sử thông báo phân bổ thay đổi (NCL-07-CN-003)"
+            >
+              <Bell className="h-3.5 w-3.5 text-sky-600" />
+              <span>Thông báo phân bổ</span>
+            </button>
+          )}
+
+          {/* NCL-07-CN-004: Nút Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23) */}
+          {canConfigureThresholds && (
+            <button
+              type="button"
+              onClick={() => setIsThresholdModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
+              title="Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (NCL-07-CN-004 / QTN-23)"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
+              <span>Cấu hình ngưỡng (QTN-23)</span>
+            </button>
+          )}
+
+          {/* NCL-07-CN-006: Nút Cảnh báo nhân sự nhàn rỗi kéo dài (QTN-23) */}
+          {canViewProlongedIdleness && (
+            <button
+              type="button"
+              onClick={() => setIsProlongedIdlenessModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50/80 px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition shadow-2xs"
+              title="Cảnh báo nhân sự nhàn rỗi kéo dài nhiều tuần liên tiếp (NCL-07-CN-006 / QTN-23)"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+              <span>Cảnh báo nhàn rỗi (QTN-23)</span>
+            </button>
+          )}
+
+          {/* NCL-08-CN-001: Nút Mô phỏng kịch bản nhận thêm dự án (QTN-14 Sandbox) */}
+          {canAccessScenarios && (
+            <button
+              type="button"
+              onClick={() => navigate("/simulation-scenarios")}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
+              title="Mô phỏng kịch bản nhận thêm dự án (NCL-08-CN-001 / QTN-14 Sandbox)"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Mô phỏng kịch bản (QTN-14)</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -456,7 +685,7 @@ export default function CompanyWeeklyCapacityView() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                {matrixData.summary.overloadedCellsCount} ô tuần vượt &gt; 100% (QTN-12)
+                {matrixData.summary.overloadedCellsCount} ô tuần đạt ngưỡng &ge; {effectiveOverloadThreshold}%
               </p>
             </div>
 
@@ -473,7 +702,7 @@ export default function CompanyWeeklyCapacityView() {
                 {matrixData.summary.underutilizedCellsCount}
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Số ô có mức phân bổ &lt; 50%
+                Số ô có mức phân bổ &lt; {effectiveIdleThreshold}%
               </p>
             </div>
 
@@ -538,23 +767,43 @@ export default function CompanyWeeklyCapacityView() {
           </div>
         </div>
 
-        {/* Lọc trạng thái */}
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              handleStatusFilterChange(
-                e.target.value as "ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED"
-              )
-            }
-            className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="OVERLOADED">Chỉ người quá tải (⚠ &gt; 100%)</option>
-            <option value="OPTIMAL">Tối ưu (50% - 100%)</option>
-            <option value="UNDERUTILIZED">Nhàn rỗi (&lt; 50%)</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Lọc loại nhân sự (NCL-14) */}
+          <div className="flex items-center gap-2">
+            <select
+              value={employeeTypeFilter}
+              onChange={(e) =>
+                setEmployeeTypeFilter(
+                  e.target.value as "ALL" | "INTERNAL" | "OUTSOURCED"
+                )
+              }
+              className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
+              title="Lọc theo loại nhân sự (NCL-14: Nhân sự nội bộ / Nhân sự thuê ngoài)"
+            >
+              <option value="ALL">Tất cả nhân sự</option>
+              <option value="INTERNAL">Chỉ nhân sự nội bộ</option>
+              <option value="OUTSOURCED">Chỉ nhân sự thuê ngoài</option>
+            </select>
+          </div>
+
+          {/* Lọc trạng thái */}
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                handleStatusFilterChange(
+                  e.target.value as "ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED"
+                )
+              }
+              className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="OVERLOADED">Chỉ người quá tải (⚠ &ge; {effectiveOverloadThreshold}%)</option>
+              <option value="OPTIMAL">Tối ưu ({effectiveIdleThreshold}% - {effectiveOverloadThreshold}%)</option>
+              <option value="UNDERUTILIZED">Nhàn rỗi (&lt; {effectiveIdleThreshold}%)</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -590,49 +839,81 @@ export default function CompanyWeeklyCapacityView() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80">
-                    <th className="sticky left-0 z-20 min-w-[200px] border-r border-slate-200 bg-slate-50/95 px-4 py-3 font-bold text-slate-700 backdrop-blur-xs">
-                      Nhân sự
-                    </th>
-                    {matrixData.weeks.map((w) => (
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80">
+                  <th className="sticky left-0 z-20 min-w-[200px] border-r border-slate-200 bg-slate-50/95 px-4 py-3 font-bold text-slate-700 backdrop-blur-xs">
+                    Nhân sự
+                  </th>
+                  {matrixData.weeks.map((w) => {
+                    const lockedPeriod = getLockedPeriodForWeek(w.year, w.weekNumber);
+                    return (
                       <th
                         key={`${w.year}-${w.weekNumber}`}
-                        className="min-w-[110px] px-3 py-3 font-bold text-slate-700 text-center border-r border-slate-200 last:border-r-0"
+                        className={`min-w-[110px] px-3 py-3 font-bold text-center border-r border-slate-200 last:border-r-0 ${
+                          lockedPeriod ? "bg-rose-50/50 text-rose-900" : "text-slate-700"
+                        }`}
+                        title={
+                          lockedPeriod
+                            ? `QTN-18: Tuần ${w.weekNumber}/${w.year} thuộc kỳ "${lockedPeriod.name}" đã bị khóa. Không thể sửa phân bổ.`
+                            : undefined
+                        }
                       >
-                        <div className="text-xs">{w.label}</div>
+                        <div className="text-xs flex items-center justify-center gap-1">
+                          {lockedPeriod && <Lock className="h-3 w-3 text-rose-600 shrink-0" />}
+                          <span>{w.label}</span>
+                        </div>
                         <div className="text-[10px] font-normal text-slate-400 mt-0.5">
-                          Năm {w.year}
+                          {lockedPeriod ? (
+                            <span className="font-semibold text-rose-600">Đã khóa</span>
+                          ) : (
+                            `Năm ${w.year}`
+                          )}
                         </div>
                       </th>
-                    ))}
-                    <th className="min-w-[130px] px-4 py-3 font-bold text-slate-700 text-center bg-slate-50/95">
-                      Tổng kết
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {rows.map((row: EmployeeCapacityRow) => (
-                    <tr key={row.employeeId} className="hover:bg-slate-50/50 transition">
-                      {/* Cột Nhân sự cố định bên trái */}
-                      <td className="sticky left-0 z-10 border-r border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs">
+                    );
+                  })}
+                  <th className="min-w-[130px] px-4 py-3 font-bold text-slate-700 text-center bg-slate-50/95">
+                    Tổng kết
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white">
+                {rows.map((row: EmployeeCapacityRow) => (
+                  <tr key={row.employeeId} className="hover:bg-slate-50/50 transition">
+                    {/* Cột Nhân sự cố định bên trái */}
+                    <td className="sticky left-0 z-10 border-r border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <div className="font-bold text-slate-900">{row.fullName}</div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
-                          <span className="font-mono text-slate-500">{row.employeeCode}</span>
-                          <span>•</span>
-                          <span>{row.professionalRole}</span>
+                        {row.isOutsourced && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                            title={`Nhân sự thuê ngoài từ ${row.providerName || "đơn vị cung cấp"}${row.contractStartDate ? ` (HĐ: ${row.contractStartDate} → ${row.contractEndDate || '...'})` : ''}`}
+                          >
+                            Thuê ngoài
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
+                        <span className="font-mono text-slate-500">{row.employeeCode}</span>
+                        <span>•</span>
+                        <span>{row.professionalRole}</span>
+                      </div>
+                      {row.isOutsourced && row.providerName && (
+                        <div className="text-[10px] text-amber-700 font-medium mt-0.5">
+                          ĐV: {row.providerName}
                         </div>
-                        <div className="text-[10px] text-indigo-600 mt-0.5 font-medium">
-                          {row.orgUnitName}
-                        </div>
-                      </td>
+                      )}
+                      <div className="text-[10px] text-indigo-600 mt-0.5 font-medium">
+                        {row.orgUnitName}
+                      </div>
+                    </td>
 
-                      {/* Các cột tuần */}
-                      {row.cells.map((cell: CapacityMatrixCell) => (
-                        <td
-                          key={`${cell.year}-${cell.weekNumber}`}
-                          className="p-2 border-r border-slate-200 align-middle text-center last:border-r-0"
+                    {/* Các cột tuần */}
+                    {row.cells.map((cell: CapacityMatrixCell) => (
+                      <td
+                        key={`${cell.year}-${cell.weekNumber}`}
+                        className="p-2 border-r border-slate-200 align-middle text-center last:border-r-0"
                         >
                           {renderCell(cell, row)}
                         </td>
@@ -705,20 +986,20 @@ export default function CompanyWeeklyCapacityView() {
         )}
       </div>
 
-      {/* 5. Chú thích màu sắc và quy tắc (QTN-12) */}
+      {/* 5. Chú thích màu sắc và quy tắc (QTN-12 & QTN-23) */}
       <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-xs text-slate-600">
         <span className="font-bold text-slate-700">Chú giải trạng thái:</span>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md bg-rose-500" />
-          <span>Quá tải (&gt; 100% giờ khả dụng - QTN-12)</span>
+          <span>Quá tải (&ge; {effectiveOverloadThreshold}% giờ khả dụng)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md bg-emerald-500" />
-          <span>Tối ưu (50% - 100%)</span>
+          <span>Tối ưu ({effectiveIdleThreshold}% - {effectiveOverloadThreshold}%)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md bg-amber-400" />
-          <span>Nhàn rỗi (&lt; 50%)</span>
+          <span>Nhàn rỗi (&lt; {effectiveIdleThreshold}%)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md bg-slate-300" />
@@ -768,6 +1049,61 @@ export default function CompanyWeeklyCapacityView() {
           setIsResultModalOpen(false);
           setBulkResult(null);
         }}
+      />
+
+      {/* NCL-06-CN-004: Allocation Adjustment Modal */}
+      <AllocationAdjustmentModal
+        open={isAdjustmentModalOpen}
+        allocation={adjustmentAllocation}
+        canManage={canManageAllocations}
+        onClose={() => setIsAdjustmentModalOpen(false)}
+        onSuccess={() => {
+          fetchMatrix();
+        }}
+      />
+
+      {/* NCL-06-CN-009: Allocation Period Management Modal (QTN-18) */}
+      <AllocationPeriodManagementModal
+        open={isPeriodModalOpen}
+        currentYear={selectedYear}
+        onClose={() => setIsPeriodModalOpen(false)}
+        onPeriodChanged={() => {
+          loadLockedPeriods();
+          fetchMatrix();
+        }}
+      />
+
+      {/* NCL-07-CN-003: Allocation Notifications Modal */}
+      <AllocationNotificationsModal
+        open={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+        userRole={normalizedRole}
+      />
+
+      {/* Mẫu phân bổ theo vai trò của dự án */}
+      <RoleAllocationTemplateManagementModal
+        open={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onAppliedSuccess={fetchMatrix}
+      />
+
+      {/* NCL-07-CN-004: Capacity Threshold Config Modal (QTN-23) */}
+      <CapacityThresholdConfigModal
+        open={isThresholdModalOpen}
+        onClose={() => setIsThresholdModalOpen(false)}
+        orgUnitId={selectedOrgUnitId}
+        onSuccess={() => {
+          fetchMatrix();
+        }}
+      />
+
+      {/* NCL-07-CN-006: Prolonged Idleness Warning Modal (QTN-23) */}
+      <ProlongedIdlenessWarningModal
+        open={isProlongedIdlenessModalOpen}
+        onClose={() => setIsProlongedIdlenessModalOpen(false)}
+        initialYear={selectedYear}
+        initialWeek={selectedWeek}
+        initialOrgUnitId={selectedOrgUnitId}
       />
     </div>
   );

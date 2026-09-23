@@ -6,11 +6,16 @@ import { useState, useEffect } from 'react';
 import { X, Layers, AlertCircle, Loader2, Sparkles, Percent, Clock } from 'lucide-react';
 import { bulkAllocateResource, type BulkAllocationResult } from '@/lib/api/allocations';
 import { getProjects, type ProjectResult } from '@/lib/api/projects';
+import { getProjectRoles, type ProjectRoleResponse } from '@/lib/api/project-roles';
 
 export interface BulkAllocateCandidate {
   id: number;
   code: string;
   name: string;
+  isOutsourced?: boolean;
+  providerName?: string | null;
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
 }
 
 interface BulkAllocateResourceModalProps {
@@ -56,10 +61,11 @@ export function BulkAllocateResourceModal({
 }: BulkAllocateResourceModalProps) {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | ''>('');
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
-  const [fromYear, setFromYear] = useState<number>(initialYear);
-  const [fromWeek, setFromWeek] = useState<number>(initialWeek);
-  const [toYear, setToYear] = useState<number>(initialYear);
-  const [toWeek, setToWeek] = useState<number>(12);
+  const [selectedProjectRoleId, setSelectedProjectRoleId] = useState<number | ''>('');
+  const [fromYear, setFromYear] = useState<number | ''>(initialYear);
+  const [fromWeek, setFromWeek] = useState<number | ''>(initialWeek);
+  const [toYear, setToYear] = useState<number | ''>(initialYear);
+  const [toWeek, setToWeek] = useState<number | ''>(12);
 
   // Allocation mode (Hours vs Percentage)
   const [mode, setMode] = useState<'PERCENTAGE' | 'HOURS'>('PERCENTAGE');
@@ -67,6 +73,7 @@ export function BulkAllocateResourceModal({
   const [percentage, setPercentage] = useState<number>(50);
 
   const [projects, setProjects] = useState<ProjectResult[]>([]);
+  const [projectRoles, setProjectRoles] = useState<ProjectRoleResponse[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -93,27 +100,36 @@ export function BulkAllocateResourceModal({
     }
   }, [open, initialEmployeeId, initialYear, initialWeek, employees]);
 
-  // Load Active Projects
+  // Load Active Projects and Project Roles
   useEffect(() => {
     if (!open) return;
     let isMounted = true;
-    async function loadActiveProjects() {
+    async function loadData() {
       setIsLoadingProjects(true);
       try {
-        const res = await getProjects(0, 100);
+        const [projRes, rolesRes] = await Promise.all([
+          getProjects(0, 100),
+          getProjectRoles(false),
+        ]);
         if (!isMounted) return;
-        const activeList = (res.content || []).filter((p) => p.status === 'ACTIVE');
+        const activeList = (projRes.content || []).filter((p) => p.status === 'ACTIVE');
         setProjects(activeList);
         if (activeList.length > 0 && selectedProjectId === '') {
           setSelectedProjectId(activeList[0].id);
         }
+
+        const activeRoles = (rolesRes || []).filter((r) => r.status === 'ACTIVE');
+        setProjectRoles(activeRoles);
+        if (activeRoles.length > 0 && selectedProjectRoleId === '') {
+          setSelectedProjectRoleId(activeRoles[0].id);
+        }
       } catch (err) {
-        console.error('Không thể tải danh sách dự án:', err);
+        console.error('Không thể tải danh sách dự án hoặc vai trò:', err);
       } finally {
         if (isMounted) setIsLoadingProjects(false);
       }
     }
-    loadActiveProjects();
+    loadData();
     return () => {
       isMounted = false;
     };
@@ -121,7 +137,9 @@ export function BulkAllocateResourceModal({
 
   // Preset buttons handler (4, 8, 12 tuần) theo ISO-8601
   const applyPresetWeeks = (weeksCount: number) => {
-    const range = addIsoWeeks(fromYear, fromWeek, weeksCount);
+    const fYear = Number(fromYear) || initialYear;
+    const fWeek = Number(fromWeek) || initialWeek;
+    const range = addIsoWeeks(fYear, fWeek, weeksCount);
     setToYear(range.year);
     setToWeek(range.week);
   };
@@ -155,6 +173,10 @@ export function BulkAllocateResourceModal({
       setErrorMessage('Vui lòng chọn dự án đang hoạt động');
       return;
     }
+    if (!selectedProjectRoleId) {
+      setErrorMessage('Vui lòng chọn vai trò trong dự án');
+      return;
+    }
 
     if (mode === 'HOURS') {
       if (allocatedHours <= 0 || allocatedHours > 168) {
@@ -173,10 +195,11 @@ export function BulkAllocateResourceModal({
       const result = await bulkAllocateResource({
         employeeId: Number(selectedEmployeeId),
         projectId: Number(selectedProjectId),
-        fromYear,
-        fromWeek,
-        toYear,
-        toWeek,
+        projectRoleId: Number(selectedProjectRoleId),
+        fromYear: Number(fromYear) || initialYear,
+        fromWeek: Number(fromWeek) || initialWeek,
+        toYear: Number(toYear) || initialYear,
+        toWeek: Number(toWeek) || 12,
         allocatedHoursPerWeek: mode === 'HOURS' ? allocatedHours : undefined,
         allocationPercentagePerWeek: mode === 'PERCENTAGE' ? percentage : undefined,
       });
@@ -190,6 +213,8 @@ export function BulkAllocateResourceModal({
       setIsSubmitting(false);
     }
   };
+
+  const selectedCandidate = employees.find((e) => e.id === selectedEmployeeId);
 
   if (!open) return null;
 
@@ -242,39 +267,74 @@ export function BulkAllocateResourceModal({
                 <option value="">-- Chọn nhân sự --</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    [{emp.code}] {emp.name}
+                    [{emp.code}] {emp.name} {emp.isOutsourced ? '(Thuê ngoài)' : ''}
                   </option>
                 ))}
               </select>
             </div>
+            {selectedCandidate?.isOutsourced && (
+              <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-[11px] text-amber-900 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Nhân sự thuê ngoài ({selectedCandidate.providerName || 'N/A'}): </span>
+                  <span>
+                    Thời hạn hợp đồng từ <strong>{selectedCandidate.contractStartDate || '...'}</strong> đến <strong>{selectedCandidate.contractEndDate || '...'}</strong>.
+                    Theo quy tắc QTN-21, các tuần ngoài thời hạn hợp đồng sẽ tự động bị từ chối phân bổ.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 2. Chọn Dự án */}
-          <div>
-            <label className="mb-1 block font-semibold text-slate-700">
-              Dự án tiếp nhận <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              {isLoadingProjects ? (
-                <div className="flex items-center gap-2 text-slate-400 py-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                  <span>Đang tải danh sách dự án...</span>
-                </div>
-              ) : (
+          {/* 2. Chọn Dự án & Vai trò */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block font-semibold text-slate-700">
+                Dự án tiếp nhận <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                {isLoadingProjects ? (
+                  <div className="flex items-center gap-2 text-slate-400 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                    <span>Đang tải...</span>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    required
+                  >
+                    <option value="">-- Chọn dự án --</option>
+                    {projects.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        [{proj.projectCode}] {proj.projectName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block font-semibold text-slate-700">
+                Vai trò trong dự án <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
                 <select
-                  value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                  value={selectedProjectRoleId}
+                  onChange={(e) => setSelectedProjectRoleId(Number(e.target.value))}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   required
                 >
-                  <option value="">-- Chọn dự án đang hoạt động --</option>
-                  {projects.map((proj) => (
-                    <option key={proj.id} value={proj.id}>
-                      [{proj.projectCode}] {proj.projectName}
+                  <option value="">-- Chọn vai trò --</option>
+                  {projectRoles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      [{role.code}] {role.name}
                     </option>
                   ))}
                 </select>
-              )}
+              </div>
             </div>
           </div>
 
@@ -320,7 +380,14 @@ export function BulkAllocateResourceModal({
                     min="1"
                     max="53"
                     value={fromWeek}
-                    onChange={(e) => setFromWeek(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFromWeek(v === '' ? '' : parseInt(v, 10));
+                    }}
+                    onBlur={() => {
+                      if (fromWeek === '' || fromWeek < 1) setFromWeek(1);
+                      else if (fromWeek > 53) setFromWeek(53);
+                    }}
                     className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-center font-bold text-slate-800"
                     title="Tuần bắt đầu"
                   />
@@ -330,7 +397,14 @@ export function BulkAllocateResourceModal({
                     min="2000"
                     max="2100"
                     value={fromYear}
-                    onChange={(e) => setFromYear(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFromYear(v === '' ? '' : parseInt(v, 10));
+                    }}
+                    onBlur={() => {
+                      if (fromYear === '' || fromYear < 2000) setFromYear(2000);
+                      else if (fromYear > 2100) setFromYear(2100);
+                    }}
                     className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-center font-bold text-slate-800"
                     title="Năm bắt đầu"
                   />
@@ -346,7 +420,14 @@ export function BulkAllocateResourceModal({
                     min="1"
                     max="53"
                     value={toWeek}
-                    onChange={(e) => setToWeek(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setToWeek(v === '' ? '' : parseInt(v, 10));
+                    }}
+                    onBlur={() => {
+                      if (toWeek === '' || toWeek < 1) setToWeek(1);
+                      else if (toWeek > 53) setToWeek(53);
+                    }}
                     className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-center font-bold text-slate-800"
                     title="Tuần kết thúc"
                   />
@@ -356,7 +437,14 @@ export function BulkAllocateResourceModal({
                     min="2000"
                     max="2100"
                     value={toYear}
-                    onChange={(e) => setToYear(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setToYear(v === '' ? '' : parseInt(v, 10));
+                    }}
+                    onBlur={() => {
+                      if (toYear === '' || toYear < 2000) setToYear(2000);
+                      else if (toYear > 2100) setToYear(2100);
+                    }}
                     className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-center font-bold text-slate-800"
                     title="Năm kết thúc"
                   />

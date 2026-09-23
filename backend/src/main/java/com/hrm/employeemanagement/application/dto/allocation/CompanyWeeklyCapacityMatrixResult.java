@@ -18,8 +18,42 @@ public record CompanyWeeklyCapacityMatrixResult(
         int page,
         int pageSize,
         int totalEmployees,
-        int totalPages
+        int totalPages,
+        BigDecimal overloadThreshold,
+        BigDecimal idleThreshold
 ) {
+
+    public CompanyWeeklyCapacityMatrixResult(
+            Long orgUnitId,
+            String orgUnitName,
+            int fromYear,
+            int fromWeek,
+            int durationWeeks,
+            List<HeaderWeekInfo> weeks,
+            List<EmployeeCapacityRowResult> rows,
+            CapacityMatrixSummaryResult summary,
+            int page,
+            int pageSize,
+            int totalEmployees,
+            int totalPages
+    ) {
+        this(
+                orgUnitId,
+                orgUnitName,
+                fromYear,
+                fromWeek,
+                durationWeeks,
+                weeks,
+                rows,
+                summary,
+                page,
+                pageSize,
+                totalEmployees,
+                totalPages,
+                BigDecimal.valueOf(100.0),
+                BigDecimal.valueOf(50.0)
+        );
+    }
 
     public CompanyWeeklyCapacityMatrixResult(
             Long orgUnitId,
@@ -43,7 +77,9 @@ public record CompanyWeeklyCapacityMatrixResult(
                 0,
                 rows != null ? Math.max(1, rows.size()) : 20,
                 rows != null ? rows.size() : 0,
-                rows != null && !rows.isEmpty() ? 1 : 0
+                rows != null && !rows.isEmpty() ? 1 : 0,
+                BigDecimal.valueOf(100.0),
+                BigDecimal.valueOf(50.0)
         );
     }
 
@@ -109,8 +145,44 @@ public record CompanyWeeklyCapacityMatrixResult(
             BigDecimal totalAllocatedHours,
             BigDecimal totalAvailableHours,
             BigDecimal averageUtilization,
-            int overloadedWeeksCount
-    ) {}
+            int overloadedWeeksCount,
+            Boolean isOutsourced,
+            String providerName,
+            LocalDate contractStartDate,
+            LocalDate contractEndDate
+    ) {
+        public EmployeeCapacityRowResult(
+                Long employeeId,
+                String employeeCode,
+                String fullName,
+                Long orgUnitId,
+                String orgUnitName,
+                String professionalRole,
+                List<CapacityMatrixCellResult> cells,
+                BigDecimal totalAllocatedHours,
+                BigDecimal totalAvailableHours,
+                BigDecimal averageUtilization,
+                int overloadedWeeksCount
+        ) {
+            this(
+                    employeeId,
+                    employeeCode,
+                    fullName,
+                    orgUnitId,
+                    orgUnitName,
+                    professionalRole,
+                    cells,
+                    totalAllocatedHours,
+                    totalAvailableHours,
+                    averageUtilization,
+                    overloadedWeeksCount,
+                    false,
+                    null,
+                    null,
+                    null
+            );
+        }
+    }
 
     /**
      * Chỉ số thống kê KPI được tính toán trên phạm vi lát cắt của trang hiện tại (Page-scoped Summary)

@@ -182,13 +182,14 @@ class LeaveApprovalApplicationServiceTest {
 
         when(authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE)).thenReturn(99L);
         LeaveRequest sample = createSamplePendingRequest();
+        when(loadLeaveRequestPort.findEmployeeIdById(1L)).thenReturn(Optional.of(10L));
         when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(sample));
         when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(i -> i.getArgument(0));
 
         Employee emp = mock(Employee.class);
         when(emp.getIdValue()).thenReturn(10L);
         when(emp.getStandardHoursPerWeek()).thenReturn(40);
-        when(loadEmployeePort.findById(new EmployeeId(10L))).thenReturn(Optional.of(emp));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(10L))).thenReturn(Optional.of(emp));
 
         doThrow(new RuntimeException("Lỗi DB khi truy vấn allocation"))
                 .when(mockLoadAlloc).loadAllocationsForEmployee(eq(10L), any());
@@ -214,13 +215,14 @@ class LeaveApprovalApplicationServiceTest {
 
         when(authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE)).thenReturn(99L);
         LeaveRequest sample = createSamplePendingRequest();
+        when(loadLeaveRequestPort.findEmployeeIdById(1L)).thenReturn(Optional.of(10L));
         when(loadLeaveRequestPort.findByIdForUpdate(1L)).thenReturn(Optional.of(sample));
         when(saveLeaveRequestPort.save(any(LeaveRequest.class))).thenAnswer(i -> i.getArgument(0));
 
         Employee emp = mock(Employee.class);
         when(emp.getIdValue()).thenReturn(10L);
         when(emp.getStandardHoursPerWeek()).thenReturn(40);
-        when(loadEmployeePort.findById(new EmployeeId(10L))).thenReturn(Optional.of(emp));
+        when(loadEmployeePort.findByIdForUpdate(new EmployeeId(10L))).thenReturn(Optional.of(emp));
 
         // Sau khi nghỉ phép 24h, netAvailableHours = 16h
         when(mockSaveAvail.save(any())).thenAnswer(i -> i.getArgument(0));

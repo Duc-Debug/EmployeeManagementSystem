@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.p
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -87,10 +88,12 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
             }
         }
 
-        Map<Long, String> orgUnitNames = orgUnitIds.isEmpty()
-                ? Collections.emptyMap()
-                : orgUnitRepository.findAllById(orgUnitIds).stream()
-                        .collect(Collectors.toMap(OrgUnitJpaEntity::getId, OrgUnitJpaEntity::getUnitName, (a, b) -> a));
+        Map<Long, String> orgUnitNames = new HashMap<>();
+        if (!orgUnitIds.isEmpty()) {
+            for (OrgUnitJpaEntity org : orgUnitRepository.findAllById(orgUnitIds)) {
+                orgUnitNames.put(org.getId(), org.getUnitName());
+            }
+        }
 
         // 4. Gom userIds để truy vấn email hàng loạt (tránh N+1)
         Set<Long> userIds = new HashSet<>();
@@ -103,10 +106,12 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
             }
         }
 
-        Map<Long, String> userEmails = userIds.isEmpty()
-                ? Collections.emptyMap()
-                : userRepository.findAllById(userIds).stream()
-                        .collect(Collectors.toMap(UserJpaEntity::getId, UserJpaEntity::getEmail, (a, b) -> a));
+        Map<Long, String> userEmails = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            for (UserJpaEntity u : userRepository.findAllById(userIds)) {
+                userEmails.put(u.getId(), u.getEmail());
+            }
+        }
 
         Map<Long, ProjectMemberResult> resultMap = new LinkedHashMap<>();
 
@@ -175,5 +180,39 @@ public class ProjectMemberRepositoryAdapter implements LoadProjectMemberPort, Sa
     @Override
     public void removeMember(Long projectId, Long employeeId) {
         projectMemberRepository.deleteByProjectIdAndEmployeeId(projectId, employeeId);
+    }
+
+    @Override
+    public Map<Long, Integer> countMembersByProjectIds(List<Long> projectIds) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<Object[]> managerRows = projectRepository.findManagerIdsByProjectIds(projectIds);
+        Map<Long, Long> projectManagerMap = new HashMap<>();
+        for (Object[] row : managerRows) {
+            Long pid = ((Number) row[0]).longValue();
+            Long mid = row[1] != null ? ((Number) row[1]).longValue() : null;
+            if (mid != null) {
+                projectManagerMap.put(pid, mid);
+            }
+        }
+
+        List<ProjectMemberJpaEntity> allMembers = projectMemberRepository.findByProjectIdIn(projectIds);
+        Map<Long, Set<Long>> projectMembersSetMap = new HashMap<>();
+        for (ProjectMemberJpaEntity pm : allMembers) {
+            projectMembersSetMap.computeIfAbsent(pm.getProjectId(), k -> new HashSet<>()).add(pm.getEmployeeId());
+        }
+
+        Map<Long, Integer> resultMap = new HashMap<>();
+        for (Long pid : projectIds) {
+            Set<Long> memberIds = new HashSet<>(projectMembersSetMap.getOrDefault(pid, Collections.emptySet()));
+            Long managerId = projectManagerMap.get(pid);
+            if (managerId != null) {
+                memberIds.add(managerId);
+            }
+            resultMap.put(pid, memberIds.size());
+        }
+        return resultMap;
     }
 }

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +16,22 @@ import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 class TaskTest {
+
+    @Test
+    @DisplayName("Fail fast khi phép trừ actualHours phát hiện dữ liệu timesheet không nhất quán")
+    void shouldRejectSubtractActualHoursBelowZero() {
+        Task task = Task.createNew(
+                new ProjectId(1L), null, "WBS-01", "Viết code", null,
+                TaskType.TASK, new EmployeeId(2L), BigDecimal.TEN, 1, new UserId(1L));
+        task.addActualHours(new BigDecimal("3.00"));
+
+        InvalidTaskDataException exception = assertThrows(
+                InvalidTaskDataException.class,
+                () -> task.subtractActualHours(new BigDecimal("8.00")));
+
+        assertEquals(new BigDecimal("3.00"), task.getActualHours());
+        assertTrue(exception.getMessage().contains("không nhất quán"));
+    }
 
     @Test
     @DisplayName("Tạo mới Hạng mục (CATEGORY) hợp lệ thành công")

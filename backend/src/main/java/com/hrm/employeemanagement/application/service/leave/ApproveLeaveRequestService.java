@@ -129,14 +129,15 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
         // 1. TC-03: Kiểm tra quyền phê duyệt đơn nghỉ phép
         Long currentUserId = authorizationService.require(PermissionCode.LEAVE_REQUEST_APPROVE);
 
-        // 2. Tìm đơn xin nghỉ kèm khóa pessimistic lock (FOR UPDATE) để đảm bảo atomic state transition
-        LeaveRequest leaveRequest = loadLeaveRequestPort.findByIdForUpdate(leaveRequestId)
-                .orElseThrow(() -> new LeaveRequestNotFoundException("Không tìm thấy đơn xin nghỉ phép với mã: " + leaveRequestId));
-
-        // 3. Kiểm tra Data Scope & chống IDOR
+        // 2-3. Khi có capacity integration, khóa Employee trước LeaveRequest để dùng
+        // cùng serialization key với allocation. Constructor rút gọn chỉ xử lý state
+        // transition nên vẫn khóa trực tiếp LeaveRequest để tương thích độc lập.
         Employee employee = null;
+        LeaveRequest leaveRequest;
         if (loadEmployeePort != null) {
-            Optional<Employee> employeeOpt = loadEmployeePort.findById(new EmployeeId(leaveRequest.getEmployeeId()));
+            Long employeeId = loadLeaveRequestPort.findEmployeeIdById(leaveRequestId)
+                    .orElseThrow(() -> new LeaveRequestNotFoundException("Không tìm thấy đơn xin nghỉ phép với mã: " + leaveRequestId));
+            Optional<Employee> employeeOpt = loadEmployeePort.findByIdForUpdate(new EmployeeId(employeeId));
             if (employeeOpt.isPresent()) {
                 employee = employeeOpt.get();
                 if (loadUserPort != null) {
@@ -145,6 +146,14 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
                     requireEmployeeInScope(currentUser, employee, PermissionCode.LEAVE_REQUEST_APPROVE);
                 }
             }
+            leaveRequest = loadLeaveRequestPort.findByIdForUpdate(leaveRequestId)
+                    .orElseThrow(() -> new LeaveRequestNotFoundException("Không tìm thấy đơn xin nghỉ phép với mã: " + leaveRequestId));
+            if (employee != null && !Objects.equals(leaveRequest.getEmployeeId(), employee.getIdValue())) {
+                throw new IllegalStateException("Nhân sự của đơn nghỉ phép đã thay đổi trong khi xử lý");
+            }
+        } else {
+            leaveRequest = loadLeaveRequestPort.findByIdForUpdate(leaveRequestId)
+                    .orElseThrow(() -> new LeaveRequestNotFoundException("Không tìm thấy đơn xin nghỉ phép với mã: " + leaveRequestId));
         }
 
         // 4. Thực thi nghiệp vụ domain: chuyển trạng thái sang APPROVED, lưu người duyệt

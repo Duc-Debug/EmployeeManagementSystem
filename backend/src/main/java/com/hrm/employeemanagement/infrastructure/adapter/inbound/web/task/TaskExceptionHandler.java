@@ -82,6 +82,11 @@ public class TaskExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.TaskNotAssignedToUserException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTaskNotAssignedToUser(com.hrm.employeemanagement.domain.exception.task.TaskNotAssignedToUserException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, Bell, Settings, Clock, User, LogOut } from "lucide-react";
+import { Menu, Settings, Clock, User, LogOut } from "lucide-react";
 import UserProfileModal from "../profile/UserProfileModal";
 import { useAuthUser, clearAuthSession } from "@/lib/auth-session";
+import { NotificationPopover } from "./NotificationPopover";
+import PageQuickSearch from "./PageQuickSearch";
 
 interface HeaderProps {
     setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -79,9 +81,11 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition">
-                        <Bell className="h-5 w-5" />
-                    </button>
+                    {/* Thanh tìm kiếm nhanh trang khả dụng */}
+                    <PageQuickSearch />
+
+                    {/* Nút thông báo */}
+                    <NotificationPopover />
 
                     {/* Đồng hồ hệ thống */}
                     <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1.5 px-3 shadow-xs">

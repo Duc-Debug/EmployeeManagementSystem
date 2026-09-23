@@ -12,6 +12,8 @@ export interface HrProfileData {
     contractEndDate?: string;
     standardHoursPerWeek: number;
     employeeId?: number;
+    isOutsourced?: boolean;
+    providerName?: string;
     version?: number;
 }
 

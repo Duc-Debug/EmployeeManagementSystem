@@ -79,6 +79,7 @@ class AuthServiceTest {
         assertEquals(1L, result.getUserId());
         assertEquals("admin", result.getUsername());
         assertEquals("VT-06", result.getRoleCode());
+        assertTrue(result.isRequiresPasswordChange());
     }
 
     @Test

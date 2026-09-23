@@ -146,6 +146,28 @@ class GetMyLeaveBalanceServiceTest {
     }
 
     @Test
+    @DisplayName("NCL-05-CN-007: Không hoàn quỹ phép khi yêu cầu hủy vẫn đang chờ duyệt")
+    void cancelRequestedLeave_RemainsCountedAsUsedUntilApproved() {
+        Long userId = 100L;
+        Long empId = 10L;
+        int year = 2026;
+
+        when(authorizationService.require(PermissionCode.LEAVE_BALANCE_READ)).thenReturn(userId);
+        when(loadEmployeePort.findByUserId(new UserId(userId)))
+                .thenReturn(Optional.of(createMockEmployee(empId, userId)));
+        when(loadLeaveBalancePort.findOrCreateDefault(empId, year))
+                .thenReturn(new LeaveBalance(1L, empId, year, new BigDecimal("12.00"), BigDecimal.ZERO));
+        when(loadLeaveRequestPort.findByEmployeeIdAndYear(empId, year))
+                .thenReturn(List.of(createLeaveRequest(1L, empId, LeaveStatus.CANCEL_REQUESTED, 3)));
+
+        LeaveBalanceResult result = service.getMyLeaveBalance(year);
+
+        assertEquals(0, new BigDecimal("3.0").compareTo(result.usedDays()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.pendingDays()));
+        assertEquals(0, new BigDecimal("9.0").compareTo(result.remainingDays()));
+    }
+
+    @Test
     @DisplayName("Ném EmployeeNotFoundException khi user không có hồ sơ nhân viên")
     void testGetMyLeaveBalance_EmployeeNotFound() {
         Long userId = 100L;

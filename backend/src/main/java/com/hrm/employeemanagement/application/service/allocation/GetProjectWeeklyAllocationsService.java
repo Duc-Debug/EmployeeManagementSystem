@@ -37,8 +37,17 @@ public class GetProjectWeeklyAllocationsService implements GetProjectWeeklyAlloc
         getProjectDetailUseCase.getProjectById(projectId);
         return loadAllocationPort.loadAllocationsForProjectInWeekRange(projectId, year, startWeek, endWeek)
                 .stream()
-                .map(a -> new ProjectWeeklyAllocationResult(a.getEmployeeId(), a.getProjectId(),
-                        a.getYear(), a.getWeekNumber(), a.getAllocatedHours()))
+                .map(a -> new ProjectWeeklyAllocationResult(
+                        a.getId(),
+                        a.getEmployeeId(),
+                        a.getProjectId(),
+                        a.getProjectRoleId(),
+                        a.getYear(),
+                        a.getWeekNumber(),
+                        a.getAllocatedHours(),
+                        a.getAllocationPercentage(),
+                        a.getVarianceNote()
+                ))
                 .toList();
     }
 

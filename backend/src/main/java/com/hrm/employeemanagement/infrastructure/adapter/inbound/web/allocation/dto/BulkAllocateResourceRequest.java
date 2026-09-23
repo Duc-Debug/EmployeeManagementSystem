@@ -16,6 +16,8 @@ public record BulkAllocateResourceRequest(
         Long employeeId,
         @NotNull(message = "ID dự án không được null")
         Long projectId,
+        @NotNull(message = "Mã vai trò dự án không được để trống")
+        Long projectRoleId,
         @NotNull(message = "Năm bắt đầu không được null")
         @Min(value = 2000, message = "Năm bắt đầu phải từ 2000 trở lên")
         @Max(value = 2100, message = "Năm bắt đầu không được vượt quá 2100")
@@ -36,19 +38,20 @@ public record BulkAllocateResourceRequest(
         @DecimalMax(value = "168.0", message = "Số giờ phân bổ mỗi tuần không được vượt quá 168 giờ")
         BigDecimal allocatedHoursPerWeek,
         @DecimalMin(value = "0.0", message = "Tỷ lệ phần trăm phân bổ mỗi tuần không được là số âm")
-        @DecimalMax(value = "100.0", message = "Tỷ lệ phần trăm phân bổ mỗi tuần tối đa là 100%")
+        @DecimalMax(value = "200.0", message = "Tỷ lệ phần trăm phân bổ mỗi tuần tối đa là 200%")
         BigDecimal allocationPercentagePerWeek
 ) {
     public BulkAllocateResourceRequest(
             Long employeeId,
             Long projectId,
+            Long projectRoleId,
             Integer fromYear,
             Integer fromWeek,
             Integer toYear,
             Integer toWeek,
             BigDecimal allocatedHoursPerWeek
     ) {
-        this(employeeId, projectId, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, null);
+        this(employeeId, projectId, projectRoleId, fromYear, fromWeek, toYear, toWeek, allocatedHoursPerWeek, null);
     }
 
     public BulkAllocateResourceRequest {

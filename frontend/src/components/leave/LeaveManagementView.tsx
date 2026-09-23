@@ -26,6 +26,8 @@ import {
 } from "@/lib/api/leave";
 import DepartmentLeaveCalendarView from "./DepartmentLeaveCalendarView";
 import LeaveApprovalModal from "./LeaveApprovalModal";
+import LeaveCancellationReviewModal from "./LeaveCancellationReviewModal";
+import RequestLeaveCancellationModal from "./RequestLeaveCancellationModal";
 
 export interface LeaveRequest {
     id: string;
@@ -37,9 +39,11 @@ export interface LeaveRequest {
     endDate: string;
     daysCount: number;
     reason: string;
-    status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+    status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "CANCEL_REQUESTED";
     createdAt: string;
     approverComment?: string;
+    cancellationReason?: string;
+    cancellationRequestedAt?: string;
 }
 
 const LEAVE_TYPE_LABELS: Record<LeaveRequest["leaveType"], string> = {
@@ -94,6 +98,8 @@ export default function LeaveManagementView() {
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [balance, setBalance] = useState<LeaveBalanceDto | null>(null);
     const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<LeaveRequest | null>(null);
+    const [selectedCancelReviewRequest, setSelectedCancelReviewRequest] = useState<LeaveRequest | null>(null);
+    const [selectedCancelRequest, setSelectedCancelRequest] = useState<LeaveRequest | null>(null);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newLeave, setNewLeave] = useState({
@@ -136,6 +142,8 @@ export default function LeaveManagementView() {
                         reason: item.reason || "",
                         status: item.status as any,
                         approverComment: item.approverComment,
+                        cancellationReason: item.cancellationReason,
+                        cancellationRequestedAt: item.cancellationRequestedAt,
                         createdAt: item.createdAt ? item.createdAt.slice(0, 10) : "",
                     }));
                     setRequests(mapped);
@@ -159,6 +167,8 @@ export default function LeaveManagementView() {
                         reason: item.reason || "",
                         status: item.status as any,
                         approverComment: item.approverComment,
+                        cancellationReason: item.cancellationReason,
+                        cancellationRequestedAt: item.cancellationRequestedAt,
                         createdAt: item.createdAt ? item.createdAt.slice(0, 10) : "",
                     }));
                     setRequests(mapped);
@@ -420,8 +430,10 @@ export default function LeaveManagementView() {
                                 {[
                                     { id: "ALL", label: "Tất cả" },
                                     { id: "PENDING", label: "Chờ duyệt" },
+                                    { id: "CANCEL_REQUESTED", label: "Chờ duyệt hủy" },
                                     { id: "APPROVED", label: "Đã duyệt" },
                                     { id: "REJECTED", label: "Từ chối" },
+                                    { id: "CANCELLED", label: "Đã hủy" },
                                 ].map((tab) => (
                                     <button
                                         key={tab.id}
@@ -501,6 +513,11 @@ export default function LeaveManagementView() {
                                             </td>
                                             <td className="px-4 py-3 max-w-xs text-slate-600">
                                                 <p className="truncate" title={req.reason}>{req.reason}</p>
+                                                {req.cancellationReason && (
+                                                    <p className="text-[10px] text-amber-600 font-semibold mt-0.5" title={req.cancellationReason}>
+                                                        Lý do xin hủy: {req.cancellationReason}
+                                                    </p>
+                                                )}
                                                 {req.approverComment && (
                                                     <p className="text-[10px] text-slate-500 italic mt-0.5" title={req.approverComment}>
                                                         Phản hồi: {req.approverComment}
@@ -511,6 +528,11 @@ export default function LeaveManagementView() {
                                                 {req.status === "PENDING" && (
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 border border-amber-200">
                                                         <Clock className="size-3" /> Chờ duyệt
+                                                    </span>
+                                                )}
+                                                {req.status === "CANCEL_REQUESTED" && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-300">
+                                                        <AlertCircle className="size-3 text-amber-700" /> Chờ duyệt hủy
                                                     </span>
                                                 )}
                                                 {req.status === "APPROVED" && (
@@ -530,7 +552,7 @@ export default function LeaveManagementView() {
                                                 )}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                {/* Thao tác Phê duyệt thuộc phạm vi UC NCL-05-CN-003 */}
+                                                {/* Thao tác Phê duyệt / Duyệt hủy thuộc phạm vi Quản lý */}
                                                 {isApprover && req.status === "PENDING" && (
                                                     <button
                                                         type="button"
@@ -539,6 +561,16 @@ export default function LeaveManagementView() {
                                                     >
                                                         <CheckCircle2 className="size-3.5 text-indigo-600" />
                                                         <span>Xem xét &amp; Duyệt</span>
+                                                    </button>
+                                                )}
+                                                {isApprover && req.status === "CANCEL_REQUESTED" && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedCancelReviewRequest(req)}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-300 px-3 py-1 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition cursor-pointer shadow-2xs"
+                                                    >
+                                                        <AlertCircle className="size-3.5 text-amber-700" />
+                                                        <span>Xem xét hủy</span>
                                                     </button>
                                                 )}
 
@@ -551,6 +583,26 @@ export default function LeaveManagementView() {
                                                     >
                                                         Hủy đơn
                                                     </button>
+                                                )}
+                                                {isEmployee && req.status === "APPROVED" && (
+                                                    req.startDate > new Date().toISOString().slice(0, 10) ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedCancelRequest(req)}
+                                                            className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-300 transition cursor-pointer"
+                                                        >
+                                                            Yêu cầu hủy
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-[11px] text-slate-400 italic">
+                                                            Đã đến ngày nghỉ
+                                                        </span>
+                                                    )
+                                                )}
+                                                {isEmployee && req.status === "CANCEL_REQUESTED" && (
+                                                    <span className="text-[11px] text-amber-600 font-semibold italic">
+                                                        Chờ duyệt hủy
+                                                    </span>
                                                 )}
                                             </td>
                                         </tr>
@@ -712,6 +764,30 @@ export default function LeaveManagementView() {
                 <LeaveApprovalModal
                     request={selectedApprovalRequest}
                     onClose={() => setSelectedApprovalRequest(null)}
+                    onSuccess={(msg) => {
+                        showToast(msg);
+                        loadLeaveData();
+                    }}
+                />
+            )}
+
+            {/* Modal Xem xét duyệt hủy đơn nghỉ phép đã duyệt (NCL-05-CN-007 cho Quản lý) */}
+            {selectedCancelReviewRequest && (
+                <LeaveCancellationReviewModal
+                    request={selectedCancelReviewRequest}
+                    onClose={() => setSelectedCancelReviewRequest(null)}
+                    onSuccess={(msg) => {
+                        showToast(msg);
+                        loadLeaveData();
+                    }}
+                />
+            )}
+
+            {/* Modal Gửi yêu cầu hủy đơn nghỉ phép đã duyệt (NCL-05-CN-007 cho Nhân viên) */}
+            {selectedCancelRequest && (
+                <RequestLeaveCancellationModal
+                    request={selectedCancelRequest}
+                    onClose={() => setSelectedCancelRequest(null)}
                     onSuccess={(msg) => {
                         showToast(msg);
                         loadLeaveData();

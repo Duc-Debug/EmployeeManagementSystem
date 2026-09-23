@@ -104,7 +104,9 @@ class ResourceAllocationControllerTest {
                 .andExpect(jsonPath("$.data.weeks[0].weekNumber").value(37))
                 .andExpect(jsonPath("$.data.rows[0].employeeCode").value("EMP001"))
                 .andExpect(jsonPath("$.data.rows[0].cells[0].utilizationPercentage").value(80.0))
-                .andExpect(jsonPath("$.data.rows[0].cells[0].status").value("OPTIMAL"));
+                .andExpect(jsonPath("$.data.rows[0].cells[0].status").value("OPTIMAL"))
+                .andExpect(jsonPath("$.data.overloadThreshold").value(100.0))
+                .andExpect(jsonPath("$.data.idleThreshold").value(50.0));
     }
 
     @Test
@@ -212,6 +214,7 @@ class ResourceAllocationControllerTest {
         when(allocateResourceUseCase.allocateResource(argThat(cmd ->
                 cmd.employeeId().equals(100L) &&
                 cmd.projectId().equals(10L) &&
+                Long.valueOf(5L).equals(cmd.projectRoleId()) &&
                 cmd.allocationPercentage() != null &&
                 cmd.allocationPercentage().compareTo(BigDecimal.valueOf(50)) == 0
         ))).thenReturn(capacityResult);
@@ -220,6 +223,7 @@ class ResourceAllocationControllerTest {
                 {
                     "employeeId": 100,
                     "projectId": 10,
+                    "projectRoleId": 5,
                     "year": 2026,
                     "weekNumber": 36,
                     "allocationPercentage": 50
@@ -245,6 +249,7 @@ class ResourceAllocationControllerTest {
                 {
                     "employeeId": 100,
                     "projectId": 10,
+                    "projectRoleId": 5,
                     "year": 2026,
                     "weekNumber": 36,
                     "allocationPercentage": 50
@@ -274,6 +279,7 @@ class ResourceAllocationControllerTest {
                 {
                     "employeeId": 1,
                     "projectId": 2,
+                    "projectRoleId": 5,
                     "year": 2026,
                     "weekNumber": 38,
                     "allocatedHours": 45
@@ -297,6 +303,7 @@ class ResourceAllocationControllerTest {
                 {
                     "employeeId": 100,
                     "projectId": 10,
+                    "projectRoleId": 5,
                     "year": 2026,
                     "weekNumber": 36,
                     "allocatedHours": 20,
@@ -312,12 +319,33 @@ class ResourceAllocationControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/allocations - Trả về 400 khi thiếu projectRoleId (validation bắt buộc)")
+    void allocateResource_MissingProjectRoleId_ReturnsBadRequest() throws Exception {
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "year": 2026,
+                    "weekNumber": 36,
+                    "allocatedHours": 20
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/allocations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     @DisplayName("NCL-06-CN-007 BLOCKING: POST /api/v1/allocations/bulk - Trả về 400 khi truyền đồng thời cả allocatedHoursPerWeek và allocationPercentagePerWeek")
     void bulkAllocateResource_BothHoursAndPercentage_ReturnsBadRequest() throws Exception {
         String jsonBody = """
                 {
                     "employeeId": 100,
                     "projectId": 10,
+                    "projectRoleId": 5,
                     "fromYear": 2026,
                     "fromWeek": 1,
                     "toYear": 2026,
@@ -332,5 +360,64 @@ class ResourceAllocationControllerTest {
                         .content(jsonBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/allocations/bulk - Trả về 400 khi thiếu projectRoleId (validation bắt buộc)")
+    void bulkAllocateResource_MissingProjectRoleId_ReturnsBadRequest() throws Exception {
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "fromYear": 2026,
+                    "fromWeek": 1,
+                    "toYear": 2026,
+                    "toWeek": 4,
+                    "allocatedHoursPerWeek": 20
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/allocations/bulk")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/allocations/bulk - Phân bổ hàng loạt truyền projectRoleId thành công (200 OK)")
+    void bulkAllocateResource_WithProjectRoleId_Success() throws Exception {
+        com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult bulkResult =
+                new com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult(
+                        100L, 10L, 4, 4, 0, List.of(), List.of()
+                );
+
+        when(bulkAllocateResourceUseCase.bulkAllocateResource(argThat(cmd ->
+                cmd.employeeId().equals(100L) &&
+                cmd.projectId().equals(10L) &&
+                Long.valueOf(5L).equals(cmd.projectRoleId()) &&
+                cmd.fromWeek().equals(1) &&
+                cmd.toWeek().equals(4)
+        ))).thenReturn(bulkResult);
+
+        String jsonBody = """
+                {
+                    "employeeId": 100,
+                    "projectId": 10,
+                    "projectRoleId": 5,
+                    "fromYear": 2026,
+                    "fromWeek": 1,
+                    "toYear": 2026,
+                    "toWeek": 4,
+                    "allocatedHoursPerWeek": 20
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/allocations/bulk")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Phân bổ hàng loạt cho nhiều tuần thành công"));
     }
 }

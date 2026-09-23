@@ -15,12 +15,15 @@ import {
     Target,
     BarChart2,
     ShieldAlert,
+    Copy,
+    Sparkles,
 } from 'lucide-react';
 import type { ProjectResult } from '@/lib/api/projects';
 import type {
     ProjectResourceDemandSummaryResult,
     RoleResourceDemand,
 } from '@/lib/api/resource-demands';
+import { RoleAllocationTemplateManagementModal } from '@/components/allocation/RoleAllocationTemplateManagementModal';
 
 interface ProjectDemandViewProps {
     project: ProjectResult | null;
@@ -47,6 +50,8 @@ export function ProjectDemandView({
 }: ProjectDemandViewProps) {
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [expandedRoleIds, setExpandedRoleIds] = useState<Set<number>>(new Set());
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState<boolean>(false);
+    const [templateSourceProjectId, setTemplateSourceProjectId] = useState<number | undefined>(undefined);
 
     // Toggle expand xem chi tiết từng tuần của vai trò
     const toggleExpandRole = (roleId: number) => {
@@ -62,7 +67,7 @@ export function ProjectDemandView({
     };
 
     const hasDates = Boolean(project?.startDate && project?.endDate);
-    const isProjectActive = project?.status === 'ACTIVE';
+    const isProjectActive = project?.status === 'ACTIVE' || project?.status === 'PLANNED';
 
     // Lọc danh sách vai trò theo từ khóa tìm kiếm
     const filteredRoles = useMemo(() => {
@@ -273,6 +278,38 @@ export function ProjectDemandView({
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 self-end sm:self-auto">
+                    {canManage && isProjectActive && (
+                        <>
+                            {demandSummary?.demandsByRole && demandSummary.demandsByRole.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setTemplateSourceProjectId(project?.id);
+                                        setIsTemplateModalOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100 transition shadow-2xs cursor-pointer"
+                                    title="Lưu cơ cấu vai trò của dự án này thành mẫu phân bổ"
+                                >
+                                    <Copy className="h-3.5 w-3.5 text-violet-600" />
+                                    <span>Lưu thành mẫu</span>
+                                </button>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setTemplateSourceProjectId(undefined);
+                                    setIsTemplateModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
+                                title="Áp mẫu phân bổ vai trò vào dự án"
+                            >
+                                <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                                <span>Áp mẫu vai trò</span>
+                            </button>
+                        </>
+                    )}
+
                     {canManage && isProjectActive && hasDates && (
                         <button
                             type="button"
@@ -506,6 +543,14 @@ export function ProjectDemandView({
                     </div>
                 </div>
             )}
+
+            {/* Template Management & Apply Modal */}
+            <RoleAllocationTemplateManagementModal
+                open={isTemplateModalOpen}
+                initialSourceProjectId={templateSourceProjectId}
+                onClose={() => setIsTemplateModalOpen(false)}
+                onAppliedSuccess={onReload}
+            />
         </div>
     );
 }
