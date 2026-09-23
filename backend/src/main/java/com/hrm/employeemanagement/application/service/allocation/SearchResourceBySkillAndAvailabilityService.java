@@ -158,8 +158,14 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
             List<WeeklyAvailableHoursResult> weeklyResults = new ArrayList<>();
 
             for (YearWeek yw : targetWeeks) {
-                // Kiểm tra hợp đồng hết hạn trước tuần mục tiêu
+                // Kiểm tra hợp đồng hết hạn trước tuần mục tiêu hoặc chưa bắt đầu (QTN-21)
                 if (candidate.contractEndDate() != null && candidate.contractEndDate().isBefore(yw.getStartDate())) {
+                    weeklyResults.add(new WeeklyAvailableHoursResult(
+                            yw.year(), yw.weekNumber(), 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
+                    ));
+                    continue;
+                }
+                if (Boolean.TRUE.equals(candidate.isOutsourced()) && candidate.startDate() != null && candidate.startDate().isAfter(yw.getEndDate())) {
                     weeklyResults.add(new WeeklyAvailableHoursResult(
                             yw.year(), yw.weekNumber(), 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
                     ));
@@ -223,7 +229,11 @@ public class SearchResourceBySkillAndAvailabilityService implements SearchResour
                     candidate.proficiencyLevel(),
                     candidate.yearsOfExperience(),
                     weeklyResults,
-                    totalRemainingAccumulated
+                    totalRemainingAccumulated,
+                    candidate.isOutsourced(),
+                    candidate.providerName(),
+                    candidate.startDate(),
+                    candidate.contractEndDate()
             ));
         }
 

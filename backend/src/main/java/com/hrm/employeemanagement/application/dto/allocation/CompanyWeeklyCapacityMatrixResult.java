@@ -145,8 +145,44 @@ public record CompanyWeeklyCapacityMatrixResult(
             BigDecimal totalAllocatedHours,
             BigDecimal totalAvailableHours,
             BigDecimal averageUtilization,
-            int overloadedWeeksCount
-    ) {}
+            int overloadedWeeksCount,
+            Boolean isOutsourced,
+            String providerName,
+            LocalDate contractStartDate,
+            LocalDate contractEndDate
+    ) {
+        public EmployeeCapacityRowResult(
+                Long employeeId,
+                String employeeCode,
+                String fullName,
+                Long orgUnitId,
+                String orgUnitName,
+                String professionalRole,
+                List<CapacityMatrixCellResult> cells,
+                BigDecimal totalAllocatedHours,
+                BigDecimal totalAvailableHours,
+                BigDecimal averageUtilization,
+                int overloadedWeeksCount
+        ) {
+            this(
+                    employeeId,
+                    employeeCode,
+                    fullName,
+                    orgUnitId,
+                    orgUnitName,
+                    professionalRole,
+                    cells,
+                    totalAllocatedHours,
+                    totalAvailableHours,
+                    averageUtilization,
+                    overloadedWeeksCount,
+                    false,
+                    null,
+                    null,
+                    null
+            );
+        }
+    }
 
     /**
      * Chỉ số thống kê KPI được tính toán trên phạm vi lát cắt của trang hiện tại (Page-scoped Summary)

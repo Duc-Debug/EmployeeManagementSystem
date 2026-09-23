@@ -54,12 +54,12 @@ export function AllocationAdjustmentModal({
   const [currentAllocationId, setCurrentAllocationId] = useState<number>(allocation?.id || 1);
 
   // Edit hours state
-  const [newHours, setNewHours] = useState<number>(20);
+  const [newHours, setNewHours] = useState<number | ''>(20);
   const [overloadReason, setOverloadReason] = useState<string>("");
 
   // Move week state
-  const [targetYear, setTargetYear] = useState<number>(new Date().getFullYear());
-  const [targetWeek, setTargetWeek] = useState<number>(1);
+  const [targetYear, setTargetYear] = useState<number | ''>(new Date().getFullYear());
+  const [targetWeek, setTargetWeek] = useState<number | ''>(1);
 
   // Variance note state
   const [varianceReason, setVarianceReason] = useState<string>("");
@@ -112,10 +112,11 @@ export function AllocationAdjustmentModal({
 
   if (!open || !allocation) return null;
 
-  // Handle Edit Hours
+  // Handle Edit Hours (TC-01, TC-03)
   const handleEditHours = async () => {
-    if (newHours <= 0) {
-      setErrorMessage("Số giờ phân bổ mới phải lớn hơn 0");
+    const hours = Number(newHours);
+    if (!hours || hours <= 0 || hours > 168) {
+      setErrorMessage("Số giờ phân bổ phải lớn hơn 0 và không vượt quá 168 giờ/tuần");
       return;
     }
     setIsSubmitting(true);
@@ -123,10 +124,10 @@ export function AllocationAdjustmentModal({
     try {
       await adjustAllocation(currentAllocationId, {
         action: "EDIT_HOURS",
-        newHours,
+        newHours: hours,
         overloadReason: overloadReason.trim() || undefined,
       });
-      onSuccess(`Đã điều chỉnh số giờ phân bổ thành ${newHours}h`);
+      onSuccess(`Đã cập nhật số giờ phân bổ thành ${hours}h/tuần`);
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Điều chỉnh số giờ thất bại";
@@ -138,7 +139,13 @@ export function AllocationAdjustmentModal({
 
   // Handle Move Week
   const handleMoveWeek = async () => {
-    if (targetYear === allocation.year && targetWeek === allocation.weekNumber) {
+    const tYear = Number(targetYear);
+    const tWeek = Number(targetWeek);
+    if (!tYear || !tWeek) {
+      setErrorMessage("Vui lòng nhập năm đích và tuần đích hợp lệ");
+      return;
+    }
+    if (tYear === allocation.year && tWeek === allocation.weekNumber) {
       setErrorMessage("Tuần đích phải khác tuần hiện tại đang phân bổ");
       return;
     }
@@ -147,10 +154,10 @@ export function AllocationAdjustmentModal({
     try {
       await adjustAllocation(currentAllocationId, {
         action: "MOVE_WEEK",
-        targetYear,
-        targetWeek,
+        targetYear: tYear,
+        targetWeek: tWeek,
       });
-      onSuccess(`Đã chuyển phân bổ sang Tuần ${targetWeek}/${targetYear}`);
+      onSuccess(`Đã chuyển phân bổ sang Tuần ${tWeek}/${tYear}`);
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Chuyển tuần phân bổ thất bại";
@@ -369,7 +376,10 @@ export function AllocationAdjustmentModal({
                   max="168"
                   step="0.5"
                   value={newHours}
-                  onChange={(e) => setNewHours(Number(e.target.value))}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setNewHours(v === '' ? '' : parseFloat(v));
+                  }}
                   className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
@@ -430,7 +440,14 @@ export function AllocationAdjustmentModal({
                     min="2020"
                     max="2035"
                     value={targetYear}
-                    onChange={(e) => setTargetYear(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setTargetYear(v === '' ? '' : parseInt(v, 10));
+                    }}
+                    onBlur={() => {
+                      if (targetYear === '' || targetYear < 2020) setTargetYear(2020);
+                      else if (targetYear > 2035) setTargetYear(2035);
+                    }}
                     className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
@@ -443,7 +460,14 @@ export function AllocationAdjustmentModal({
                     min="1"
                     max="53"
                     value={targetWeek}
-                    onChange={(e) => setTargetWeek(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setTargetWeek(v === '' ? '' : parseInt(v, 10));
+                    }}
+                    onBlur={() => {
+                      if (targetWeek === '' || targetWeek < 1) setTargetWeek(1);
+                      else if (targetWeek > 53) setTargetWeek(53);
+                    }}
                     className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>

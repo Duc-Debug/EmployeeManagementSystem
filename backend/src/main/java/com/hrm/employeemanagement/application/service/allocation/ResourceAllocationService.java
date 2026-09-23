@@ -31,6 +31,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
+import com.hrm.employeemanagement.domain.exception.allocation.OutsourcedContractPeriodException;
 import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
@@ -165,9 +166,46 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             throw new EmployeeInactiveException("Không thể phân bổ cho nhân sự không còn ở trạng thái hoạt động");
         }
 
-        LocalDate weekStartDate = yearWeek.getStartDate();
-        if (employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(weekStartDate)) {
-            throw new EmployeeInactiveException("Nhân sự đã kết thúc hợp đồng lao động trước tuần được chọn (" + yearWeek.weekNumber() + "/" + yearWeek.year() + ")");
+        // [QTN-21 / NCL-14-CN-002] Ràng buộc hiệu lực hợp đồng cho nhân sự thuê ngoài
+        if (employee.isOutsourced()) {
+            if (!employee.isWithinContractPeriod(yearWeek)) {
+                String providerInfo = (employee.getProviderName() != null && !employee.getProviderName().isBlank())
+                        ? " (đơn vị cung cấp: " + employee.getProviderName() + ")"
+                        : "";
+                String periodInfo = (employee.getStartDate() != null && employee.getContractEndDate() != null)
+                        ? " từ " + employee.getStartDate() + " đến " + employee.getContractEndDate()
+                        : "";
+                if (employee.getStartDate() != null && yearWeek.getEndDate().isBefore(employee.getStartDate())) {
+                    throw new OutsourcedContractPeriodException(
+                            "Không thể phân bổ: Hợp đồng của nhân sự thuê ngoài " + employee.getFullName() + providerInfo
+                                    + " chưa có hiệu lực tại tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
+                                    + " (thời hạn hợp đồng" + periodInfo + ")",
+                            employee.getIdValue(),
+                            employee.getEmployeeCode(),
+                            employee.getProviderName(),
+                            employee.getStartDate(),
+                            employee.getContractEndDate(),
+                            yearWeek
+                    );
+                } else {
+                    throw new OutsourcedContractPeriodException(
+                            "Không thể phân bổ: Hợp đồng của nhân sự thuê ngoài " + employee.getFullName() + providerInfo
+                                    + " đã hết hạn trước tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
+                                    + " (thời hạn hợp đồng" + periodInfo + ")",
+                            employee.getIdValue(),
+                            employee.getEmployeeCode(),
+                            employee.getProviderName(),
+                            employee.getStartDate(),
+                            employee.getContractEndDate(),
+                            yearWeek
+                    );
+                }
+            }
+        } else {
+            LocalDate weekStartDate = yearWeek.getStartDate();
+            if (employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(weekStartDate)) {
+                throw new EmployeeInactiveException("Nhân sự đã kết thúc hợp đồng lao động trước tuần được chọn (" + yearWeek.weekNumber() + "/" + yearWeek.year() + ")");
+            }
         }
 
         // Load Dự án
@@ -343,10 +381,11 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             ));
         }
 
-        // [TC-04, TC-05] Ghi nhật ký kiểm toán (Audit Log)
+        // [TC-04, TC-05, BR-07] Ghi nhật ký kiểm toán (Audit Log)
+        String auditAction = employee.isOutsourced() ? "ALLOCATE_OUTSOURCED_RESOURCE" : "RESOURCE_ALLOCATED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "RESOURCE_ALLOCATED",
+                auditAction,
                 "weekly_project_allocations",
                 saved.getId(),
                 "Phân bổ cũ: " + oldValue,

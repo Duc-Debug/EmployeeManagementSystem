@@ -242,19 +242,29 @@ export function ResourceSkillSearchModal({
                                                     className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                                 />
                                                 <div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <span className="text-xs font-bold text-slate-800">
                                                             {candidate.fullName}
                                                         </span>
                                                         <span className="text-[10px] font-semibold text-slate-500">
                                                             ({candidate.employeeCode})
                                                         </span>
+                                                        {candidate.isOutsourced && (
+                                                            <span
+                                                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200"
+                                                                title={`Thuê ngoài: ${candidate.providerName || 'N/A'}${candidate.startDate ? ` (${candidate.startDate} → ${candidate.contractEndDate || '...'})` : ''}`}
+                                                            >
+                                                                Thuê ngoài
+                                                            </span>
+                                                        )}
                                                         <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
                                                             <Award className="h-3 w-3" /> Level {candidate.proficiencyLevel}
                                                         </span>
                                                     </div>
                                                     <div className="text-[11px] text-slate-500 mt-0.5">
-                                                        {candidate.jobTitle || 'Chuyên viên'} • {candidate.orgUnitName || 'Phòng ban'}
+                                                        {candidate.isOutsourced
+                                                            ? `Đơn vị: ${candidate.providerName || 'N/A'} • ${candidate.orgUnitName || 'Phòng ban'}`
+                                                            : `${candidate.jobTitle || 'Chuyên viên'} • ${candidate.orgUnitName || 'Phòng ban'}`}
                                                     </div>
                                                 </div>
                                             </div>

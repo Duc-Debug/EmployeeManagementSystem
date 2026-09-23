@@ -79,6 +79,7 @@ export default function CompanyWeeklyCapacityView() {
   );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED">("ALL");
+  const [employeeTypeFilter, setEmployeeTypeFilter] = useState<"ALL" | "INTERNAL" | "OUTSOURCED">("ALL");
 
   // Data states
   const [matrixData, setMatrixData] = useState<CompanyWeeklyCapacityMatrixData | null>(null);
@@ -177,6 +178,10 @@ export default function CompanyWeeklyCapacityView() {
       id: r.employeeId,
       code: r.employeeCode,
       name: r.fullName,
+      isOutsourced: r.isOutsourced,
+      providerName: r.providerName,
+      contractStartDate: r.contractStartDate,
+      contractEndDate: r.contractEndDate,
     }));
   }, [matrixData?.rows]);
 
@@ -316,7 +321,17 @@ export default function CompanyWeeklyCapacityView() {
     setSelectedWeek(iso.weekNumber);
   };
 
-  const rows = matrixData?.rows || [];
+  const allRows = matrixData?.rows || [];
+  const rows = useMemo(() => {
+    if (employeeTypeFilter === "INTERNAL") {
+      return allRows.filter((r) => !r.isOutsourced);
+    }
+    if (employeeTypeFilter === "OUTSOURCED") {
+      return allRows.filter((r) => r.isOutsourced);
+    }
+    return allRows;
+  }, [allRows, employeeTypeFilter]);
+
   const totalEmployees = matrixData?.totalEmployees ?? 0;
   const totalPages = matrixData?.totalPages ?? 1;
   const effectiveOverloadThreshold = matrixData?.overloadThreshold ?? 100;
@@ -329,6 +344,14 @@ export default function CompanyWeeklyCapacityView() {
     const lockSuffix = lockedPeriod
       ? ` • [QTN-18: Tuần đã bị khóa theo "${lockedPeriod.name}" - Không thể chỉnh sửa phân bổ]`
       : "";
+
+    const weekInfo = matrixData?.weeks.find(
+      (w) => w.year === cell.year && w.weekNumber === cell.weekNumber
+    );
+    const isOutsourcedOutOfContract =
+      row.isOutsourced &&
+      ((row.contractStartDate && weekInfo?.endDate && weekInfo.endDate < row.contractStartDate) ||
+       (row.contractEndDate && weekInfo?.startDate && weekInfo.startDate > row.contractEndDate));
 
     const reservationBadge = cell.reservedHours != null && cell.reservedHours > 0 ? (
       canManageReservations ? (
@@ -379,13 +402,29 @@ export default function CompanyWeeklyCapacityView() {
       </button>
     ) : null;
 
+    if (isOutsourcedOutOfContract && cell.allocatedHours === 0) {
+      return (
+        <div
+          className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-100/70 border border-dashed border-slate-300 text-slate-400 text-xs min-h-[58px]"
+          title={`QTN-21: Ngoài thời hạn hợp đồng thuê ngoài (${row.contractStartDate || '...'} đến ${row.contractEndDate || '...'}). Không thể phân bổ.`}
+        >
+          <span className="font-semibold text-slate-400">Ngoài HĐ</span>
+          <span className="text-[10px] text-slate-400">0h / 0h</span>
+        </div>
+      );
+    }
+
     if (isZeroAvailability && cell.allocatedHours === 0) {
+      const zeroLabel = row.isOutsourced ? "Hết giờ" : "Nghỉ phép";
+      const zeroTitle = row.isOutsourced
+        ? `Nhân sự thuê ngoài không có giờ khả dụng trong tuần${lockSuffix}`
+        : `Nhân viên không có giờ khả dụng trong tuần (Nghỉ phép cả tuần)${lockSuffix}`;
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-xs min-h-[58px]"
-          title={`Nhân viên không có giờ khả dụng trong tuần (Nghỉ phép cả tuần)${lockSuffix}`}
+          title={zeroTitle}
         >
-          <span className="font-semibold text-slate-500">Nghỉ phép</span>
+          <span className="font-semibold text-slate-500">{zeroLabel}</span>
           <span className="text-[10px] text-slate-400">0h / 0h</span>
           {leaveBadge}
           {reservationBadge}
@@ -728,23 +767,43 @@ export default function CompanyWeeklyCapacityView() {
           </div>
         </div>
 
-        {/* Lọc trạng thái */}
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              handleStatusFilterChange(
-                e.target.value as "ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED"
-              )
-            }
-            className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="OVERLOADED">Chỉ người quá tải (⚠ &ge; {effectiveOverloadThreshold}%)</option>
-            <option value="OPTIMAL">Tối ưu ({effectiveIdleThreshold}% - {effectiveOverloadThreshold}%)</option>
-            <option value="UNDERUTILIZED">Nhàn rỗi (&lt; {effectiveIdleThreshold}%)</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Lọc loại nhân sự (NCL-14) */}
+          <div className="flex items-center gap-2">
+            <select
+              value={employeeTypeFilter}
+              onChange={(e) =>
+                setEmployeeTypeFilter(
+                  e.target.value as "ALL" | "INTERNAL" | "OUTSOURCED"
+                )
+              }
+              className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
+              title="Lọc theo loại nhân sự (NCL-14: Nhân sự nội bộ / Nhân sự thuê ngoài)"
+            >
+              <option value="ALL">Tất cả nhân sự</option>
+              <option value="INTERNAL">Chỉ nhân sự nội bộ</option>
+              <option value="OUTSOURCED">Chỉ nhân sự thuê ngoài</option>
+            </select>
+          </div>
+
+          {/* Lọc trạng thái */}
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                handleStatusFilterChange(
+                  e.target.value as "ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED"
+                )
+              }
+              className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="OVERLOADED">Chỉ người quá tải (⚠ &ge; {effectiveOverloadThreshold}%)</option>
+              <option value="OPTIMAL">Tối ưu ({effectiveIdleThreshold}% - {effectiveOverloadThreshold}%)</option>
+              <option value="UNDERUTILIZED">Nhàn rỗi (&lt; {effectiveIdleThreshold}%)</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -824,12 +883,27 @@ export default function CompanyWeeklyCapacityView() {
                   <tr key={row.employeeId} className="hover:bg-slate-50/50 transition">
                     {/* Cột Nhân sự cố định bên trái */}
                     <td className="sticky left-0 z-10 border-r border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs">
-                      <div className="font-bold text-slate-900">{row.fullName}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="font-bold text-slate-900">{row.fullName}</div>
+                        {row.isOutsourced && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                            title={`Nhân sự thuê ngoài từ ${row.providerName || "đơn vị cung cấp"}${row.contractStartDate ? ` (HĐ: ${row.contractStartDate} → ${row.contractEndDate || '...'})` : ''}`}
+                          >
+                            Thuê ngoài
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
                         <span className="font-mono text-slate-500">{row.employeeCode}</span>
                         <span>•</span>
                         <span>{row.professionalRole}</span>
                       </div>
+                      {row.isOutsourced && row.providerName && (
+                        <div className="text-[10px] text-amber-700 font-medium mt-0.5">
+                          ĐV: {row.providerName}
+                        </div>
+                      )}
                       <div className="text-[10px] text-indigo-600 mt-0.5 font-medium">
                         {row.orgUnitName}
                       </div>
