@@ -115,7 +115,7 @@ export const MyWeeklySchedulePage: React.FC = () => {
       handleCloseFeedback();
       setFeedbackMessage({
         type: "success",
-        text: `Đã gửi phản hồi cho tuần ${feedbackModalWeek}. Quản lý dự án (PM/RM) sẽ rà soát và điều chỉnh nếu cần thiết.`,
+        text: `Đã gửi phản hồi cho tuần ${feedbackModalWeek}. Quản lý dự án sẽ rà soát và điều chỉnh nếu cần thiết.`,
       });
       await loadSchedule(currentWeekStart, weeksCount);
     } catch (err: unknown) {
@@ -277,7 +277,7 @@ export const MyWeeklySchedulePage: React.FC = () => {
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2 text-[11px] text-amber-900">
                 <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Lưu ý (QTN-24):</strong> Ý kiến phản hồi được gửi đến PM/RM để xem xét. Giờ phân bổ hiện tại trên hệ thống sẽ không tự động thay đổi.
+                  <strong>Lưu ý:</strong> Ý kiến phản hồi được gửi đến PM/RM để xem xét. Giờ phân bổ hiện tại trên hệ thống sẽ không tự động thay đổi.
                 </span>
               </div>
 

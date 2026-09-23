@@ -529,7 +529,7 @@ export function ProjectWbsView({
                                                                     });
                                                                 }}
                                                                 className="rounded-lg p-1 text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition cursor-pointer"
-                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt (Cascade Delay Warning)"
+                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt"
                                                             >
                                                                 <AlertTriangle className="h-3.5 w-3.5" />
                                                             </button>

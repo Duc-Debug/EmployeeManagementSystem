@@ -229,9 +229,9 @@ export default function TimesheetVarianceReportView() {
         <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-4 ring-8 ring-red-50/50">
           <ShieldAlert className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Truy cập bị từ chối (403)</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Truy cập bị từ chối</h2>
         <p className="text-gray-600 max-w-md mb-6 text-sm leading-relaxed">
-          Bạn không có quyền xem báo cáo đối chiếu giờ phân bổ với thực tế (yêu cầu quyền <code className="bg-gray-100 px-1.5 py-0.5 rounded text-red-600 font-mono text-xs">TIMESHEET_VARIANCE_READ</code>).
+          Bạn không có quyền xem báo cáo đối chiếu giờ phân bổ với thực tế.
         </p>
       </div>
     );
@@ -384,7 +384,7 @@ export default function TimesheetVarianceReportView() {
               {reportData.summary.totalActualApprovedHours.toLocaleString()}h
             </div>
             <div className="mt-1 text-xs text-gray-400">
-              Chỉ tính giờ công Approved
+              Chỉ tính giờ công đã phê duyệt.
             </div>
           </div>
 
@@ -451,7 +451,7 @@ export default function TimesheetVarianceReportView() {
               Chưa đủ dữ liệu thực tế để đối chiếu
             </h3>
             <p className="text-sm text-gray-500 max-w-md mx-auto">
-              Khoảng thời gian này đã có kế hoạch phân bổ nhưng chưa có bảng chấm công nào được Quản lý dự án phê duyệt (APPROVED).
+              Khoảng thời gian này đã có kế hoạch phân bổ nhưng chưa có bảng chấm công nào được Quản lý dự án phê duyệt.
             </p>
           </div>
         ) : (

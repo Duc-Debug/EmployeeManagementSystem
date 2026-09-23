@@ -163,9 +163,8 @@ export function ProjectWbsView({
                                 >
                                     <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                                         <span
-                                            className={`text-slate-400 transition-transform duration-200 shrink-0 ${
-                                                isOpen ? '' : '-rotate-90'
-                                            }`}
+                                            className={`text-slate-400 transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'
+                                                }`}
                                         >
                                             <ChevronDown className="h-4 w-4" />
                                         </span>
@@ -251,9 +250,8 @@ export function ProjectWbsView({
                                                                         {t.code}
                                                                     </span>
                                                                     <span
-                                                                        className={`truncate font-medium text-slate-800 ${
-                                                                            isDone ? 'text-slate-400 line-through' : ''
-                                                                        }`}
+                                                                        className={`truncate font-medium text-slate-800 ${isDone ? 'text-slate-400 line-through' : ''
+                                                                            }`}
                                                                     >
                                                                         {t.name}
                                                                     </span>
@@ -284,7 +282,7 @@ export function ProjectWbsView({
                                                                     })
                                                                 }
                                                                 className="rounded p-1 text-amber-600 hover:bg-amber-50 transition cursor-pointer"
-                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt (Cascade Delay Warning)"
+                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt"
                                                             >
                                                                 <AlertTriangle className="h-3.5 w-3.5" />
                                                             </button>

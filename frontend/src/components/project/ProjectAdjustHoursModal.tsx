@@ -75,7 +75,7 @@ export function ProjectAdjustHoursModal({
                         setOverloadThreshold(Number(cfg.overloadThreshold));
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
 
             getWeeklyCapacities([empId], year, weekNumber)
                 .then((capacities) => {
@@ -197,9 +197,9 @@ export function ProjectAdjustHoursModal({
                 }
 
                 if (!isResourceManager) {
-                    setReasonError('Nhân sự bị phân bổ vượt quá giờ khả dụng. Chỉ Quản lý nguồn lực (RM) mới có quyền xác nhận vượt tải.');
+                    setReasonError('Nhân sự bị phân bổ vượt quá giờ khả dụng. Chỉ Quản lý nguồn lực mới có quyền xác nhận vượt tải.');
                 } else {
-                    setReasonError('Phân bổ vượt quá năng lực khả dụng thực tế. Vui lòng nhập lý do để xác nhận (QTN-11).');
+                    setReasonError('Phân bổ vượt quá năng lực khả dụng thực tế. Vui lòng nhập lý do để xác nhận.');
                 }
                 return;
             }
@@ -246,7 +246,7 @@ export function ProjectAdjustHoursModal({
                             </div>
                             {hasValidCapacity && standardHours !== null && netCapacity !== null && netCapacity < standardHours && (
                                 <p className="text-[10px] text-amber-600 font-medium">
-                                    (Chuẩn: {standardHours}h, đã trừ {standardHours - netCapacity}h nghỉ phép/lễ theo QTN-10)
+                                    (Chuẩn: {standardHours}h, đã trừ {standardHours - netCapacity}h nghỉ phép/lễ)
                                 </p>
                             )}
                             {hasValidCapacity && otherProjectsHours > 0 && (
@@ -259,7 +259,7 @@ export function ProjectAdjustHoursModal({
                                 <div className="rounded-lg bg-rose-50 p-2.5 text-[10px] text-rose-800 border border-rose-200 flex items-center justify-between gap-2 mt-1">
                                     <div className="flex items-center gap-1.5">
                                         <AlertTriangle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
-                                        <span>Không thể xác thực năng lực tuần từ máy chủ.</span>
+                                        <span>Không thể xác thực năng lực tuần.</span>
                                     </div>
                                     <button
                                         type="button"
@@ -279,11 +279,10 @@ export function ProjectAdjustHoursModal({
                         <button
                             type="button"
                             onClick={() => setMode('PERCENTAGE')}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${
-                                mode === 'PERCENTAGE'
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${mode === 'PERCENTAGE'
                                     ? 'bg-white text-indigo-600 shadow-2xs'
                                     : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             <Percent className="h-3.5 w-3.5" />
                             <span>Theo Phần Trăm (%)</span>
@@ -291,11 +290,10 @@ export function ProjectAdjustHoursModal({
                         <button
                             type="button"
                             onClick={() => setMode('HOURS')}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${
-                                mode === 'HOURS'
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${mode === 'HOURS'
                                     ? 'bg-white text-indigo-600 shadow-2xs'
                                     : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             <Clock className="h-3.5 w-3.5" />
                             <span>Theo Số Giờ (h)</span>
@@ -312,11 +310,10 @@ export function ProjectAdjustHoursModal({
                                         key={preset}
                                         type="button"
                                         onClick={() => handlePercentageChange(preset)}
-                                        className={`rounded-lg py-1 text-xs font-bold border transition cursor-pointer ${
-                                            percentage === preset
+                                        className={`rounded-lg py-1 text-xs font-bold border transition cursor-pointer ${percentage === preset
                                                 ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
                                                 : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                        }`}
+                                            }`}
                                     >
                                         {preset}%
                                     </button>
@@ -366,13 +363,12 @@ export function ProjectAdjustHoursModal({
                             <div className="mb-1 flex items-center justify-between">
                                 <label className="font-semibold text-slate-700">Giờ phân bổ dự án này:</label>
                                 <span
-                                    className={`rounded px-2 py-0.5 text-[11px] font-bold ${
-                                        isOverloaded
+                                    className={`rounded px-2 py-0.5 text-[11px] font-bold ${isOverloaded
                                             ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-300'
                                             : totalWeeklyHours >= capacity * 0.75
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : 'bg-slate-100 text-slate-700'
-                                    }`}
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-slate-100 text-slate-700'
+                                        }`}
                                 >
                                     {otherProjectsHours > 0 ? `${hours}h (Tổng tuần: ${totalWeeklyHours}h - ${pct}%)` : `${hours}h (${percentage}%)`}
                                 </span>
@@ -414,7 +410,7 @@ export function ProjectAdjustHoursModal({
                             {isResourceManager ? (
                                 <div className="space-y-1.5 pt-1 border-t border-rose-200/80">
                                     <label htmlFor="overloadReason" className="font-bold text-rose-900 block">
-                                        Lý do chấp nhận vượt tải <span className="text-rose-600">*</span> (QTN-11):
+                                        Lý do chấp nhận vượt tải <span className="text-rose-600">*</span>
                                     </label>
                                     <textarea
                                         id="overloadReason"
@@ -460,13 +456,12 @@ export function ProjectAdjustHoursModal({
                             type="button"
                             onClick={handleApply}
                             disabled={isAdjustHoursSubmitDisabled(isSubmitting, isLoadingCapacity, isOverloaded, isResourceManager, !hasValidCapacity)}
-                            className={`rounded-lg px-4 py-1.5 font-medium text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer ${
-                                !hasValidCapacity || (isOverloaded && !isResourceManager)
+                            className={`rounded-lg px-4 py-1.5 font-medium text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer ${!hasValidCapacity || (isOverloaded && !isResourceManager)
                                     ? 'bg-slate-300 cursor-not-allowed text-slate-500'
                                     : isOverloaded
-                                    ? 'bg-amber-600 hover:bg-amber-700'
-                                    : 'bg-indigo-600 hover:bg-indigo-700'
-                            } disabled:opacity-50`}
+                                        ? 'bg-amber-600 hover:bg-amber-700'
+                                        : 'bg-indigo-600 hover:bg-indigo-700'
+                                } disabled:opacity-50`}
                         >
                             {isLoadingCapacity ? (
                                 <span>Đang kiểm tra năng lực...</span>

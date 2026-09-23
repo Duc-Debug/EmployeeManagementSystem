@@ -117,12 +117,12 @@ export default function NotificationSettingsModal({
         (formData.emailEnabled && (channel === "ALL" || channel === "EMAIL_ONLY"))
       );
     if (!hasActiveChannel(formData.scheduleConflictChannel) ||
-        !hasActiveChannel(formData.allocationChangedChannel)) {
-      setErrorMessage("Cảnh báo trọng yếu phải còn ít nhất một kênh In-App hoặc Email đang bật.");
+      !hasActiveChannel(formData.allocationChangedChannel)) {
+      setErrorMessage("Cảnh báo trọng yếu phải còn ít nhất một kênh hoặc Email đang bật.");
       return;
     }
     if (formData.quietHoursEnabled &&
-        formData.quietHoursStart === formData.quietHoursEnd) {
+      formData.quietHoursStart === formData.quietHoursEnd) {
       setErrorMessage("Giờ bắt đầu và kết thúc khung giờ yên tĩnh phải khác nhau.");
       return;
     }
@@ -186,8 +186,8 @@ export default function NotificationSettingsModal({
   };
 
   const channelOptions: { value: NotificationDeliveryChannel; label: string }[] = [
-    { value: "ALL", label: "Cả In-App & Email" },
-    { value: "IN_APP_ONLY", label: "Chỉ In-App" },
+    { value: "ALL", label: "Tất cả" },
+    { value: "IN_APP_ONLY", label: "Chỉ hệ thống" },
     { value: "EMAIL_ONLY", label: "Chỉ Email" },
     { value: "NONE", label: "Tắt thông báo" },
   ];
@@ -320,8 +320,8 @@ export default function NotificationSettingsModal({
                       }
                       className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500"
                     >
-                      <option value="ALL">Cả In-App & Email</option>
-                      <option value="IN_APP_ONLY">Chỉ In-App</option>
+                      <option value="ALL">Cả Hệ Thống & Email</option>
+                      <option value="IN_APP_ONLY">Chỉ Hệ Thống</option>
                       <option value="EMAIL_ONLY">Chỉ Email</option>
                     </select>
                   </div>
@@ -352,8 +352,8 @@ export default function NotificationSettingsModal({
                       }
                       className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500"
                     >
-                      <option value="ALL">Cả In-App & Email</option>
-                      <option value="IN_APP_ONLY">Chỉ In-App</option>
+                      <option value="ALL">Cả Hệ Thống & Email</option>
+                      <option value="IN_APP_ONLY">Chỉ Hệ Thống</option>
                       <option value="EMAIL_ONLY">Chỉ Email</option>
                     </select>
                   </div>
@@ -421,7 +421,7 @@ export default function NotificationSettingsModal({
                     <div className="flex items-start gap-2.5">
                       <Calendar className="h-4 w-4 text-purple-600 mt-0.5 shrink-0" />
                       <div>
-                        <span className="font-semibold text-slate-800">Chấm công tuần (Timesheet)</span>
+                        <span className="font-semibold text-slate-800">Chấm công tuần</span>
                         <p className="text-[11px] text-slate-500">
                           Nhắc nộp giờ làm cuối tuần hoặc thông báo duyệt/từ chối chấm công
                         </p>

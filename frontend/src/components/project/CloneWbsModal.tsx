@@ -236,7 +236,7 @@ export function CloneWbsModal({
                 {/* Ô tìm kiếm dự án mẫu */}
                 <div className="space-y-1.5 mb-3">
                     <label className="block text-xs font-bold text-slate-700">
-                        Chọn dự án nguồn làm mẫu (Source Project) <span className="text-rose-500">*</span>
+                        Chọn dự án nguồn làm mẫu <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -330,7 +330,7 @@ export function CloneWbsModal({
                         <div className="bg-white rounded-lg border border-slate-200 p-2.5 font-mono text-[11px] text-slate-600 space-y-1 max-h-28 overflow-y-auto">
                             {previewWbs.length === 0 && !loadingPreview ? (
                                 <div className="text-amber-600 italic">
-                                    Dự án nguồn này chưa có cây công việc WBS nào trong Database.
+                                    Dự án nguồn này chưa có cây công việc WBS nào.
                                 </div>
                             ) : (
                                 previewWbs.map((node) => renderPreviewNode(node, 0))

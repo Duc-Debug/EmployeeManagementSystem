@@ -157,9 +157,9 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
     if (!data || data.scenarios.length === 0) return;
 
     const rows: string[][] = [
-      ["BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC (NCL-08-CN-004)"],
+      ["BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC"],
       [`Thời gian đối chiếu: ${formatDateTime(data.comparedAt)}`],
-      ["Nguyên tắc QTN-14 Sandbox: Dữ liệu mô phỏng độc lập, không làm thay đổi phân bổ thật."],
+      ["Dữ liệu mô phỏng độc lập, không làm thay đổi phân bổ thật."],
       [],
       [
         "Mã kịch bản",
@@ -311,7 +311,7 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
             onClick={handleExportCsv}
             disabled={loading || !data}
             className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
-            title="Xuất bảng đối chiếu ra file CSV"
+            title="Xuất bảng đối chiếu ra file"
           >
             <Download className="h-3.5 w-3.5 text-indigo-600" />
             <span>Xuất CSV</span>
@@ -577,8 +577,8 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
                                 scn.averageUtilizationPercentage > 110
                                   ? "bg-rose-500"
                                   : scn.averageUtilizationPercentage > 100
-                                  ? "bg-amber-500"
-                                  : "bg-emerald-500"
+                                    ? "bg-amber-500"
+                                    : "bg-emerald-500"
                               )}
                               style={{
                                 width: `${Math.max(0, Math.min(Number(scn.averageUtilizationPercentage || 0), 100))}%`,
@@ -615,7 +615,7 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
               <div className="flex items-center space-x-2">
                 <CalendarRange className="h-4 w-4 text-indigo-600" />
                 <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition">
-                  So Sánh Tiến Độ & Tải Từng Tuần (Weekly Breakdown)
+                  So Sánh Tiến Độ & Tải Từng Tuần
                 </h3>
               </div>
               <div className="flex items-center space-x-1 text-xs text-slate-400">

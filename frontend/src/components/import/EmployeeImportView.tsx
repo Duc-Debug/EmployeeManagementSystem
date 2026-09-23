@@ -61,7 +61,7 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
           Không có quyền truy cập
         </h3>
         <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-          Chức năng nhập dữ liệu từ tệp (NCL-12-CN-004) chỉ dành cho Quản trị viên hệ thống (VT-06) hoặc tài khoản có quyền DATA_IMPORT.
+          Chức năng nhập dữ liệu từ tệp chỉ dành cho Quản trị viên hệ thống.
         </p>
       </div>
     );
@@ -360,7 +360,7 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
               </span>
               <div>
                 <p className="font-semibold text-slate-800">Xác nhận nhập dữ liệu</p>
-                <p className="text-slate-500 mt-0.5">Hỗ trợ nhập từng phần (Partial Import) và tải tệp chứa các dòng bị lỗi.</p>
+                <p className="text-slate-500 mt-0.5">Hỗ trợ nhập từng phần và tải tệp chứa các dòng bị lỗi.</p>
               </div>
             </div>
           </div>
@@ -467,7 +467,7 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition shadow-2xs"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Xuất tệp dòng lỗi (.csv)
+                  Xuất tệp dòng lỗi
                 </button>
               )}
 
@@ -494,7 +494,7 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
                 {isConfirming ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Đang lưu vào CSDL...
+                    Đang lưu...
                   </>
                 ) : (
                   <>

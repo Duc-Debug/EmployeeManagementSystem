@@ -92,10 +92,6 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               <p className="text-purple-800 italic bg-white/80 p-2 rounded border border-purple-100">
                 "{feedback_note}"
               </p>
-              <div className="flex items-center gap-1 text-[11px] text-purple-700">
-                <Info className="w-3 h-3 text-purple-500 shrink-0" />
-                <span>Quy tắc QTN-24: Ý kiến phản hồi không tự động thay đổi số giờ phân bổ dự án. PM/Resource Manager sẽ xem xét điều chỉnh.</span>
-              </div>
             </div>
           </div>
         </div>

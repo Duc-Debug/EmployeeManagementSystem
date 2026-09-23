@@ -43,7 +43,7 @@ export const MilestoneDeleteModal: React.FC<MilestoneDeleteModalProps> = ({
           <p className="mt-2 text-xs text-slate-500 leading-relaxed">
             Bạn có chắc chắn muốn xóa mốc tiến độ{" "}
             <strong className="text-slate-800 font-semibold">"{milestone.name}"</strong>?
-            Hành động này sẽ hủy liên kết giữa mốc này và các công việc WBS liên quan. Dữ liệu mốc sẽ không thể khôi phục.
+            Hành động này sẽ hủy liên kết giữa mốc này và các công việc WBS liên quan. Dữ liệu sẽ không thể khôi phục.
           </p>
         </div>
 

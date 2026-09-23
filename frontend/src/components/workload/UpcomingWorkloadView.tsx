@@ -124,10 +124,10 @@ export default function UpcomingWorkloadView({
           <ShieldAlert className="h-8 w-8" />
         </div>
         <h3 className="text-base font-bold text-slate-900 mb-1">
-          Chức năng dành riêng cho Nhân viên chuyên môn (VT-04)
+          Chức năng dành riêng cho Nhân viên chuyên môn
         </h3>
         <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-          Chức năng "Xem khối lượng công việc sắp tới" chỉ áp dụng cho vai trò Nhân viên chuyên môn (VT-04) để theo dõi mức bận và chủ động phân bổ công việc.
+          Chức năng "Xem khối lượng công việc sắp tới" chỉ áp dụng cho vai trò Nhân viên chuyên môn để theo dõi mức bận và chủ động phân bổ công việc.
         </p>
       </div>
     );

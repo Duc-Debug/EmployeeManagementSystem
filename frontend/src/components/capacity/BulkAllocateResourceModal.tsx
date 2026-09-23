@@ -279,7 +279,7 @@ export function BulkAllocateResourceModal({
                   <span className="font-bold">Nhân sự thuê ngoài ({selectedCandidate.providerName || 'N/A'}): </span>
                   <span>
                     Thời hạn hợp đồng từ <strong>{selectedCandidate.contractStartDate || '...'}</strong> đến <strong>{selectedCandidate.contractEndDate || '...'}</strong>.
-                    Theo quy tắc QTN-21, các tuần ngoài thời hạn hợp đồng sẽ tự động bị từ chối phân bổ.
+                    Các tuần ngoài thời hạn hợp đồng sẽ tự động bị từ chối phân bổ.
                   </span>
                 </div>
               </div>

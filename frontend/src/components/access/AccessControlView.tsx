@@ -93,7 +93,7 @@ export const AccessControlView: React.FC = () => {
                         Quản lý Vai trò & Phân quyền Hệ thống (RBAC)
                     </h1>
                     <p className="text-xs text-slate-500 mt-0.5">
-                        Kiểm soát phân hệ truy cập và phạm vi dữ liệu (Data Scope) theo 6 vai trò nghiệp vụ chuẩn hóa của doanh nghiệp.
+                        Kiểm soát phân hệ truy cập và phạm vi dữ liệu.
                     </p>
                 </div>
 

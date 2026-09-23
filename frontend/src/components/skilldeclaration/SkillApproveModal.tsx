@@ -85,7 +85,7 @@ export default function SkillApproveModal({
                             Xác nhận mức thành thạo kỹ năng
                         </h3>
                         <p className="text-xs text-slate-500 mt-0.5">
-                            Phê duyệt hoặc điều chỉnh mức độ chuyên môn của nhân sự (NCL-02-CN-006)
+                            Phê duyệt hoặc điều chỉnh mức độ chuyên môn của nhân sự
                         </p>
                     </div>
                 </div>
@@ -187,7 +187,7 @@ export default function SkillApproveModal({
                     <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                             <label className="text-xs font-bold text-slate-700">
-                                Ghi chú đánh giá / Nhận xét (Review Notes)
+                                Ghi chú đánh giá / Nhận xét
                             </label>
                             <span className={cn("text-[10px] font-mono", reviewNotes.length > 500 ? "text-rose-600 font-bold" : "text-slate-400")}>
                                 {reviewNotes.length}/500

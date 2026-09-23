@@ -129,9 +129,6 @@ export default function ReplacementSuggestionModal({
                 <div className="flex items-start justify-between border-b border-slate-100 pb-4">
                     <div>
                         <h2 className="text-xl font-extrabold text-slate-900">Gợi ý Người Thay thế cho Xung đột</h2>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            Tự động tìm kiếm nhân sự có cùng chuyên môn ở trình độ tương đương và còn đủ giờ rảnh trong tuần.
-                        </p>
                     </div>
                     <button
                         onClick={onClose}

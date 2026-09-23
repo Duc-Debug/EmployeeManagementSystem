@@ -291,11 +291,10 @@ export function ResourceReservationModal({
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className={`flex items-center gap-1.5 py-3 text-xs font-semibold border-b-2 transition ${
-              activeTab === "CREATE"
+            className={`flex items-center gap-1.5 py-3 text-xs font-semibold border-b-2 transition ${activeTab === "CREATE"
                 ? "border-amber-600 text-amber-700"
                 : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
+              }`}
           >
             <PlusCircle className="h-4 w-4" />
             Tạo giữ chỗ mới
@@ -307,11 +306,10 @@ export function ResourceReservationModal({
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className={`flex items-center gap-1.5 py-3 text-xs font-semibold border-b-2 transition ${
-              activeTab === "LIST"
+            className={`flex items-center gap-1.5 py-3 text-xs font-semibold border-b-2 transition ${activeTab === "LIST"
                 ? "border-amber-600 text-amber-700"
                 : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
+              }`}
           >
             <ListFilter className="h-4 w-4" />
             Danh sách giữ chỗ
@@ -466,9 +464,8 @@ export function ResourceReservationModal({
                               setEmployeeSearchTerm(`[${emp.employeeCode}] ${emp.fullName}`);
                               setIsEmployeeDropdownOpen(false);
                             }}
-                            className={`flex items-center justify-between px-3 py-2 cursor-pointer transition hover:bg-amber-50/70 ${
-                              isSelected ? "bg-amber-50/90 font-semibold text-amber-900" : "text-slate-700"
-                            }`}
+                            className={`flex items-center justify-between px-3 py-2 cursor-pointer transition hover:bg-amber-50/70 ${isSelected ? "bg-amber-50/90 font-semibold text-amber-900" : "text-slate-700"
+                              }`}
                           >
                             <div className="flex items-center gap-2.5">
                               <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
@@ -537,7 +534,7 @@ export function ResourceReservationModal({
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5 text-slate-500" />
-                  Số giờ giữ chỗ (Hours) <span className="text-rose-500">*</span>
+                  Số giờ giữ chỗ <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -634,19 +631,18 @@ export function ResourceReservationModal({
                               [{res.projectCode}] {res.projectName}
                             </span>
                             <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                res.status === "ACTIVE"
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${res.status === "ACTIVE"
                                   ? "bg-amber-100 text-amber-800"
                                   : res.status === "CONVERTED"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-slate-100 text-slate-600"
+                                }`}
                             >
                               {res.status === "ACTIVE"
                                 ? "Đang giữ"
                                 : res.status === "CONVERTED"
-                                ? "Đã chuyển đổi"
-                                : "Đã hủy"}
+                                  ? "Đã chuyển đổi"
+                                  : "Đã hủy"}
                             </span>
                           </div>
                           <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1">

@@ -401,7 +401,7 @@ export function ProjectWeeklyMatrix({
                     <div className="flex items-start gap-2.5 border-t border-emerald-200/80 bg-emerald-50/70 p-3 text-xs text-emerald-900">
                         <Lightbulb className="mt-0.5 h-4 w-4 text-emerald-600 shrink-0" />
                         <div>
-                            <strong className="font-semibold">Đánh giá tải trọng nhân lực:</strong> Phân bổ công suất toàn bộ đội ngũ trong tháng này đang ở mức an toàn, không có nhân sự nào vượt quá định mức 40h/tuần. Nhấp vào từng ô giờ để điều chỉnh phân bổ chi tiết.
+                            <strong className="font-semibold">Đánh giá tải trọng nhân lực:</strong> Phân bổ công suất toàn bộ đội ngũ trong tháng này đang ở mức an toàn, không có nhân sự nào vượt quá định mức 40h/tuần.
                         </div>
                     </div>
                 );

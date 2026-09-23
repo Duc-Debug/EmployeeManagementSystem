@@ -97,11 +97,10 @@ export function ProjectAdjustHoursModal({
                         <button
                             type="button"
                             onClick={() => setMode('PERCENTAGE')}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${
-                                mode === 'PERCENTAGE'
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${mode === 'PERCENTAGE'
                                     ? 'bg-white text-indigo-600 shadow-2xs'
                                     : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             <Percent className="h-3.5 w-3.5" />
                             <span>Theo Phần Trăm (%)</span>
@@ -109,11 +108,10 @@ export function ProjectAdjustHoursModal({
                         <button
                             type="button"
                             onClick={() => setMode('HOURS')}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${
-                                mode === 'HOURS'
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${mode === 'HOURS'
                                     ? 'bg-white text-indigo-600 shadow-2xs'
                                     : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             <Clock className="h-3.5 w-3.5" />
                             <span>Theo Số Giờ (h)</span>
@@ -130,11 +128,10 @@ export function ProjectAdjustHoursModal({
                                         key={preset}
                                         type="button"
                                         onClick={() => handlePercentageChange(preset)}
-                                        className={`rounded-lg py-1 text-xs font-bold border transition ${
-                                            percentage === preset
+                                        className={`rounded-lg py-1 text-xs font-bold border transition ${percentage === preset
                                                 ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
                                                 : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                        }`}
+                                            }`}
                                     >
                                         {preset}%
                                     </button>
@@ -179,13 +176,12 @@ export function ProjectAdjustHoursModal({
                             <div className="mb-1 flex items-center justify-between">
                                 <label className="font-semibold text-slate-700">Tổng số giờ được giao:</label>
                                 <span
-                                    className={`rounded px-2 py-0.5 text-[11px] font-bold ${
-                                        isOverloaded
+                                    className={`rounded px-2 py-0.5 text-[11px] font-bold ${isOverloaded
                                             ? 'bg-rose-100 text-rose-700'
                                             : hours >= availableHours * 0.75
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : 'bg-slate-100 text-slate-700'
-                                    }`}
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-slate-100 text-slate-700'
+                                        }`}
                                 >
                                     {hours}h ({percentage}%)
                                 </span>
@@ -211,7 +207,7 @@ export function ProjectAdjustHoursModal({
                     {isOverloaded && (
                         <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-[11px] text-rose-700">
                             <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-                            <span>Số giờ vượt quá {availableHours}h/tuần. Có nguy cơ quá tải và vi phạm quy tắc QTN-11.</span>
+                            <span>Số giờ vượt quá {availableHours}h/tuần.</span>
                         </div>
                     )}
 

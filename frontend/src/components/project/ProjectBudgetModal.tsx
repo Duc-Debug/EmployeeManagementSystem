@@ -107,7 +107,7 @@ export function ProjectBudgetModal({
                     <div>
                         <div className="flex items-center justify-between mb-1.5">
                             <label className="font-semibold text-slate-700">
-                                Ngân sách giờ công định mức (Budget Hours) *
+                                Ngân sách giờ công định mức *
                             </label>
                             <div className="flex items-center gap-1">
                                 {[5, 10, 20].map((step) => (
@@ -148,7 +148,7 @@ export function ProjectBudgetModal({
                         <div className="flex items-center justify-between">
                             <span className="font-semibold text-slate-700 text-[11px] uppercase tracking-wide flex items-center gap-1.5">
                                 <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-                                Đối soát Ngân sách vs Thực tế (Burn Rate)
+                                Đối soát Ngân sách vs Thực tế
                             </span>
                             <span className="font-mono text-xs font-bold text-slate-800">
                                 {burnedPct}% đã dùng
@@ -158,13 +158,12 @@ export function ProjectBudgetModal({
                         {/* Progress Bar */}
                         <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
                             <div
-                                className={`h-2 rounded-full transition-all duration-300 ${
-                                    isOverBudget
+                                className={`h-2 rounded-full transition-all duration-300 ${isOverBudget
                                         ? 'bg-rose-500'
                                         : isWarning
-                                        ? 'bg-amber-500'
-                                        : 'bg-emerald-500'
-                                }`}
+                                            ? 'bg-amber-500'
+                                            : 'bg-emerald-500'
+                                    }`}
                                 style={{ width: `${Math.min(burnedPct, 100)}%` }}
                             />
                         </div>

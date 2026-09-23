@@ -125,7 +125,7 @@ export function UnlockAllocationPeriodModal({
             </div>
             <p className="text-[11px] text-amber-800 leading-relaxed">
               Bạn đang yêu cầu mở lại kỳ <strong>{period.name}</strong> (Tuần {period.startWeek} - {period.endWeek} / {period.year}).
-              Sau khi mở lại, các Quản lý dự án sẽ có thể tiếp tục thêm/sửa phân bổ trong dải tuần này. Toàn bộ thông tin mở lại kèm lý do sẽ được lưu vết vào Nhật ký kiểm toán (Audit Log).
+              Sau khi mở lại, các Quản lý dự án sẽ có thể tiếp tục thêm/sửa phân bổ trong dải tuần này. Toàn bộ thông tin mở lại kèm lý do sẽ được lưu vết vào Nhật ký kiểm toán 
             </p>
           </div>
 

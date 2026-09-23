@@ -109,9 +109,6 @@ export const UpcomingDueTasksWidget: React.FC<UpcomingDueTasksWidgetProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-slate-500">
-              Rà soát tự động hằng ngày và thông báo trước 3 ngày theo quy tắc chống gửi trùng QTN-19
-            </p>
           </div>
         </div>
 

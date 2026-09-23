@@ -123,7 +123,7 @@ export default function Dashboard() {
             minute: "2-digit",
         });
         const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
-        const currentName = user?.fullName || user?.username || "Tôi (Nhân viên)";
+        const currentName = user?.fullName || user?.username || "Tôi ";
         const currentDept = user?.orgUnitName || "Phòng chuyên môn";
 
         setAttendanceRecords((prev) => {
@@ -162,7 +162,7 @@ export default function Dashboard() {
             minute: "2-digit",
         });
         const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
-        const currentName = user?.fullName || user?.username || "Tôi (Nhân viên)";
+        const currentName = user?.fullName || user?.username || "Tôi ";
 
         setAttendanceRecords((prev) =>
             prev.map((rec) =>

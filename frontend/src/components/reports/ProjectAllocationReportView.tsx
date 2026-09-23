@@ -411,10 +411,10 @@ export default function ProjectAllocationReportView() {
             <ShieldAlert className="h-7 w-7" />
           </div>
           <h3 className="text-base font-bold text-slate-900 mb-1">
-            Không có quyền truy cập báo cáo dự án này (403 Forbidden)
+            Không có quyền truy cập báo cáo dự án này
           </h3>
           <p className="text-xs text-slate-600 max-w-md leading-relaxed">
-            Theo chính sách phân quyền dữ liệu (TC-02), bạn chỉ được phép xem báo cáo phân bổ của các dự án thuộc phạm vi phụ trách của mình. Vui lòng chọn dự án khác từ danh sách cho phép.
+            Bạn chỉ được phép xem báo cáo phân bổ của các dự án thuộc phạm vi phụ trách của mình. Vui lòng chọn dự án khác từ danh sách cho phép.
           </p>
         </div>
       )}
@@ -574,9 +574,6 @@ export default function ProjectAllocationReportView() {
                   <h3 className="text-xs font-bold uppercase tracking-wider text-rose-800">
                     Cảnh báo thiếu hụt nhân sự theo tuần & vai trò ({reportData.shortageAlerts.length} cảnh báo)
                   </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Nhìn ra tuần nào dự án bị hụt người trước khi tuần đó tới để kịp thời điều chỉnh hoặc phân bổ thêm nhân sự.
-                  </p>
                 </div>
               </div>
 

@@ -96,7 +96,7 @@ export function ProjectApproveModal({
                     <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-emerald-950 space-y-1.5">
                         <div className="flex items-center gap-1.5 font-bold text-emerald-900">
                             <Users className="h-4 w-4 text-emerald-600 shrink-0" />
-                            <span>Tự động chuyển đổi giữ chỗ (Resource Reservation)</span>
+                            <span>Tự động chuyển đổi giữ chỗ</span>
                         </div>
                         <p className="text-[11px] leading-relaxed text-emerald-800">
                             Khi dự án được phê duyệt, hệ thống sẽ tự động chuyển đổi tất cả các vị trí <strong>Giữ chỗ nguồn lực</strong> đang chờ thành <strong>Phân bổ nguồn lực chính thức</strong> cho nhân sự trong dự án.
@@ -104,7 +104,7 @@ export function ProjectApproveModal({
                     </div>
 
                     <p className="text-[11px] text-slate-500 italic">
-                        Sau khi khởi động, nhân sự trong dự án sẽ có thể bắt đầu ghi nhận tiến độ công việc và log giờ làm (Timesheet).
+                        Sau khi khởi động, nhân sự trong dự án sẽ có thể bắt đầu ghi nhận tiến độ công việc và log giờ làm.
                     </p>
 
                     {/* Footer Actions */}

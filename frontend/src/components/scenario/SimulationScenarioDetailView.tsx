@@ -146,7 +146,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
       await saveScenario(scenarioId);
       setActionFeedback({
         type: "success",
-        message: "Đã lưu kịch bản và đóng băng snapshot thành công! Trạng thái kịch bản chuyển sang ĐÃ LƯU (SAVED).",
+        message: "Đã lưu kịch bản và đóng băng snapshot thành công! Trạng thái kịch bản chuyển sang ĐÃ LƯU.",
       });
       await loadData();
     } catch (err: unknown) {
@@ -164,7 +164,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
     const { scenario } = detail;
     if (scenario.status !== "saved") {
       const confirmSave = window.confirm(
-        "Theo quy tắc BR-05: Chỉ có thể chia sẻ kịch bản đã lưu (SAVED) để đảm bảo tính đóng băng của dữ liệu. Bạn có muốn Lưu kịch bản ngay để tiến hành chia sẻ?"
+        "Theo quy tắc BR-05: Chỉ có thể chia sẻ kịch bản đã lưu để đảm bảo tính đóng băng của dữ liệu. Bạn có muốn Lưu kịch bản ngay để tiến hành chia sẻ?"
       );
       if (confirmSave) {
         try {
@@ -195,7 +195,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
       setIsEditInfoModalOpen(false);
       setActionFeedback({
         type: "success",
-        message: "Cập nhật thông tin thành công! Theo quy tắc BR-07, kịch bản tự động chuyển về Bản nháp (DRAFT).",
+        message: "Cập nhật thông tin thành công! Kịch bản tự động chuyển về Bản nháp.",
       });
       await loadData();
     } catch (err: unknown) {
@@ -333,7 +333,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               {isViewOnly ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
                   <Eye className="h-3 w-3 mr-1 text-sky-600" />
-                  Chỉ xem (VIEW_ONLY)
+                  Chỉ xem
                 </span>
               ) : scenario.status === "applied" ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -343,12 +343,12 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               ) : isSaved ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
-                  Đã lưu (SAVED)
+                  Đã lưu
                 </span>
               ) : (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                   <Clock className="h-3 w-3 mr-1 text-amber-600" />
-                  Bản nháp (DRAFT)
+                  Bản nháp
                 </span>
               )}
             </div>
@@ -493,7 +493,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               </span>
             </div>
             <p className="text-amber-800/90 leading-relaxed text-[11px]">
-              Bạn đang xem kịch bản ở chế độ chỉ đọc. Toàn bộ dữ liệu được trích xuất trực tiếp từ ảnh chụp đã lưu (snapshot) bất biến. Các thao tác chỉnh sửa nhu cầu, phân bổ và chia sẻ bị vô hiệu hóa.
+              Bạn đang xem kịch bản ở chế độ chỉ đọc.
             </p>
           </div>
         </div>
@@ -506,14 +506,13 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
         </div>
         <div className="flex-1 space-y-1 text-xs">
           <div className="font-bold flex items-center">
-            <span>Dữ liệu mô phỏng Sandbox độc lập (QTN-14)</span>
+            <span>Dữ liệu mô phỏng</span>
             <span className="ml-2 px-2 py-0.2 rounded-md bg-sky-200/80 text-sky-800 text-[10px] font-mono">
               Snapshot: {formatSnapshotDate(scenario.baseSnapshotAt)}
             </span>
           </div>
           <p className="text-sky-800/90 leading-relaxed text-[11px]">
             Dữ liệu mô phỏng được tính toán dựa trên ảnh chụp phân bổ &amp; khả dụng thật tại thời điểm khởi tạo kịch bản.
-            Mọi sự thay đổi về phân bổ thật sau thời điểm này tuyệt đối <strong>không làm thay đổi kịch bản</strong>, và các thao tác thêm/sửa/xóa nhu cầu giả định tại đây <strong>không ghi đè dữ liệu thật</strong>.
           </p>
         </div>
       </div>
@@ -591,8 +590,8 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                 avgUtilization > (simulation?.overloadThreshold || 100)
                   ? "text-rose-600"
                   : avgUtilization < (simulation?.idleThreshold || 70)
-                  ? "text-amber-600"
-                  : "text-emerald-600"
+                    ? "text-amber-600"
+                    : "text-emerald-600"
               )}
             >
               {Number.isFinite(avgUtilization) ? `${avgUtilization.toFixed(1)}%` : "0.0%"}
@@ -610,7 +609,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
           <div className="flex items-center space-x-2">
             <AlertTriangle className="h-4 w-4 text-rose-600" />
             <h3 className="text-sm font-bold text-slate-900">
-              Danh Sách Nhân Sự Vượt Năng Lực / Vỡ Kế Hoạch (NCL-08-CN-002)
+              Danh Sách Nhân Sự Vượt Năng Lực / Vỡ Kế Hoạch
             </h3>
             <span
               className={cn(
@@ -688,7 +687,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
           <div className="flex items-center space-x-2">
             <Users className="h-4 w-4 text-indigo-600" />
             <h3 className="text-sm font-bold text-slate-900">
-              Nhu Cầu Nhân Sự Giả Định (Hypothetical Demands)
+              Nhu Cầu Nhân Sự Giả Định;
             </h3>
             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-600 border border-indigo-100">
               {demands.length}
@@ -798,7 +797,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
           <div className="flex items-center space-x-2">
             <TrendingUp className="h-4 w-4 text-indigo-600" />
             <h3 className="text-sm font-bold text-slate-900">
-              Kết Quả Mô Phỏng Năng Lực Theo Tuần (Simulation Matrix)
+              Kết Quả Mô Phỏng Năng Lực Theo Tuần
             </h3>
           </div>
           <div className="text-[11px] text-slate-500">
@@ -814,7 +813,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                 <th className="px-4 py-3 text-right">Giờ Snapshot</th>
                 <th className="px-4 py-3 text-right">Giờ Nhu cầu</th>
                 <th className="px-4 py-3 text-right font-bold text-slate-900">Khối lượng (Workload)</th>
-                <th className="px-4 py-3 text-right">Khả dụng (Capacity)</th>
+                <th className="px-4 py-3 text-right">Khả dụng</th>
                 <th className="px-4 py-3 text-right">Tỷ lệ Sử dụng</th>
                 <th className="px-4 py-3 text-center">Trạng thái Cảnh báo</th>
               </tr>
@@ -840,8 +839,8 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                         metric.utilizationPercentage > (simulation?.overloadThreshold ?? 100)
                           ? "bg-rose-100 text-rose-800 font-bold"
                           : metric.utilizationPercentage < (simulation?.idleThreshold ?? 70)
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-emerald-50 text-emerald-700"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-emerald-50 text-emerald-700"
                       )}
                     >
                       {metric.utilizationPercentage != null ? `${metric.utilizationPercentage.toFixed(1)}%` : "N/A"}
@@ -1012,7 +1011,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-start space-x-2">
                 <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Quy tắc BR-07:</strong> Chỉnh sửa kịch bản sẽ tự động chuyển trạng thái về <strong>Bản nháp (DRAFT)</strong>. Sau khi hoàn tất chỉnh sửa, hãy bấm &quot;Lưu kịch bản&quot; nếu muốn chia sẻ lại cho người khác.
+                  Chỉnh sửa kịch bản sẽ tự động chuyển trạng thái về <strong>Bản nháp</strong>. Sau khi hoàn tất chỉnh sửa, hãy bấm &quot;Lưu kịch bản&quot; nếu muốn chia sẻ lại cho người khác.
                 </span>
               </div>
 

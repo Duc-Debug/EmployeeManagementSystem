@@ -297,7 +297,7 @@ export default function SkilldeclarationView({
         setSaving(true);
         try {
             if (!payload.skillId || isNaN(Number(payload.skillId))) {
-                pushToast('Lỗi khai báo', 'Vui lòng chọn một kỹ năng hợp lệ từ danh mục CSDL.');
+                pushToast('Lỗi khai báo', 'Vui lòng chọn một kỹ năng hợp lệ từ danh mục.');
                 setSaving(false);
                 return;
             }

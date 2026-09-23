@@ -219,9 +219,6 @@ export const MyTaskProgressView: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
               Công việc của tôi & Cập nhật tiến độ
             </h1>
-            <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-semibold border border-indigo-200">
-              NCL-04-CN-002
-            </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Theo dõi danh sách các hạng mục công việc được phân công và cập nhật tiến độ thực hiện

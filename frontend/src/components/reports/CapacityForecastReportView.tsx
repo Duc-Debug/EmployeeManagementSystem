@@ -534,9 +534,6 @@ export default function CapacityForecastReportView() {
             {/* Note legend */}
             <div className="p-4 bg-gray-50 dark:bg-gray-900/40 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 flex items-start gap-2">
               <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-              <span>
-                <strong>Ghi chú nghiệp vụ:</strong> Giữ chỗ (Resource Reservations) đại diện cho dự kiến nguồn lực của các cơ hội dự án, không phải cam kết phân bổ chính thức. Giá trị âm ở phần Giờ còn trống thể hiện số giờ vượt năng lực cần lưu ý lấp đầy hoặc tuyển bổ sung.
-              </span>
             </div>
           </div>
         </>

@@ -782,7 +782,7 @@ export default function WorkingCalendarConfigView() {
                         Chưa đồng bộ được với Backend ({configError})
                       </p>
                       <p className="text-amber-700 mt-0.5">
-                        Hệ thống đang hiển thị định mức mặc định (40h/tuần). Vui lòng khởi động lại (Restart) Backend Spring Boot trong IDE để nạp migration V112 và kích hoạt API.
+                        Hệ thống đang hiển thị định mức mặc định (40h/tuần). Vui lòng khởi động lại (Restart) Server.
                       </p>
                     </div>
                   </div>

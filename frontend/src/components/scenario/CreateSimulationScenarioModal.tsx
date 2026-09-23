@@ -266,7 +266,7 @@ export const CreateSimulationScenarioModal: React.FC<CreateSimulationScenarioMod
           <div className="rounded-xl bg-amber-50/60 p-3 border border-amber-200/60 text-xs text-amber-800 space-y-1">
             <p className="font-semibold flex items-center">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600 mr-1.5" />
-              Cơ chế Sandbox an toàn (QTN-14):
+              Cơ chế Sandbox an toàn:
             </p>
             <p className="text-[11px] text-amber-700 leading-relaxed">
               Hệ thống sẽ chụp ảnh snapshot phân bổ thực tế tại thời điểm bấm &quot;Khởi tạo kịch bản&quot;. Dữ liệu phân bổ thật sẽ không bị sửa đổi hay xóa.

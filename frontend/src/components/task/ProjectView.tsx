@@ -159,14 +159,14 @@ export default function ProjectView() {
                 prev.map((m) =>
                     m.id === id
                         ? {
-                              ...m,
-                              name: payload.name !== undefined ? payload.name : m.name,
-                              description: payload.description !== undefined ? payload.description : m.description,
-                              plannedDate: payload.plannedDate !== undefined ? payload.plannedDate : m.plannedDate,
-                              actualDate: payload.actualDate !== undefined ? payload.actualDate : m.actualDate,
-                              status: payload.actualDate ? 'COMPLETED' : m.status,
-                              linkedTaskIds: payload.linkedTaskIds !== undefined ? payload.linkedTaskIds : m.linkedTaskIds,
-                          }
+                            ...m,
+                            name: payload.name !== undefined ? payload.name : m.name,
+                            description: payload.description !== undefined ? payload.description : m.description,
+                            plannedDate: payload.plannedDate !== undefined ? payload.plannedDate : m.plannedDate,
+                            actualDate: payload.actualDate !== undefined ? payload.actualDate : m.actualDate,
+                            status: payload.actualDate ? 'COMPLETED' : m.status,
+                            linkedTaskIds: payload.linkedTaskIds !== undefined ? payload.linkedTaskIds : m.linkedTaskIds,
+                        }
                         : m
                 )
             );
@@ -186,11 +186,11 @@ export default function ProjectView() {
                 prev.map((m) =>
                     m.id === id
                         ? {
-                              ...m,
-                              status: 'COMPLETED',
-                              actualDate: today,
-                              delayDays: 0,
-                          }
+                            ...m,
+                            status: 'COMPLETED',
+                            actualDate: today,
+                            delayDays: 0,
+                        }
                         : m
                 )
             );
@@ -316,12 +316,12 @@ export default function ProjectView() {
             prev.map((m) =>
                 m.id === memberId
                     ? {
-                          ...m,
-                          weeklyHours: {
-                              ...m.weeklyHours,
-                              [weekKey]: newHours,
-                          },
-                      }
+                        ...m,
+                        weeklyHours: {
+                            ...m.weeklyHours,
+                            [weekKey]: newHours,
+                        },
+                    }
                     : m
             )
         );
@@ -478,23 +478,21 @@ export default function ProjectView() {
                     <button
                         type="button"
                         onClick={() => setViewMode('split')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
-                            viewMode === 'split'
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${viewMode === 'split'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
+                            }`}
                     >
                         <Columns className="h-4 w-4" />
-                        <span>Xem kết hợp (Split View)</span>
+                        <span>Xem kết hợp</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setViewMode('wbs')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
-                            viewMode === 'wbs'
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${viewMode === 'wbs'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
+                            }`}
                     >
                         <Layers className="h-4 w-4" />
                         <span>Hạng mục & Task</span>
@@ -502,11 +500,10 @@ export default function ProjectView() {
                     <button
                         type="button"
                         onClick={() => setViewMode('workload')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
-                            viewMode === 'workload'
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${viewMode === 'workload'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
+                            }`}
                     >
                         <CalendarDays className="h-4 w-4" />
                         <span>Phân bổ theo tuần</span>
@@ -514,11 +511,10 @@ export default function ProjectView() {
                     <button
                         type="button"
                         onClick={() => setViewMode('search')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
-                            viewMode === 'search'
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${viewMode === 'search'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
+                            }`}
                     >
                         <UserCheck className="h-4 w-4" />
                         <span>Tra cứu nguồn lực</span>
@@ -526,11 +522,10 @@ export default function ProjectView() {
                     <button
                         type="button"
                         onClick={() => setViewMode('milestones')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${
-                            viewMode === 'milestones'
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:flex-none ${viewMode === 'milestones'
                                 ? 'bg-white text-indigo-700 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 font-medium'
-                        }`}
+                            }`}
                     >
                         <Flag className="h-4 w-4" />
                         <span>Mốc tiến độ</span>

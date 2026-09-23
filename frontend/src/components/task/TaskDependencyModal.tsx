@@ -173,10 +173,10 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Khai Báo Phụ Thuộc Công Việc (Task Dependencies)
+                Khai Báo Phụ Thuộc Công Việc
               </h3>
               <p className="text-[11px] text-slate-500">
-                Phân nhóm theo Hạng mục & Cây công việc WBS (Finish-to-Start)
+                Phân nhóm theo Hạng mục & Cây công việc WBS
               </p>
             </div>
           </div>
@@ -211,7 +211,7 @@ export const TaskDependencyModal: React.FC<TaskDependencyModalProps> = ({
               <div className="flex items-center gap-2 mb-3">
                 <Folder className="h-4 w-4 text-indigo-600" />
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Thêm quan hệ phụ thuộc mới (WBS Tree View)
+                  Thêm quan hệ phụ thuộc mới
                 </h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">

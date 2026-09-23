@@ -201,7 +201,7 @@ export default function DeclareAvailabilityModal({
               className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 font-bold text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
             />
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              * Hệ thống sẽ tự động trừ các ngày nghỉ lễ và đơn nghỉ phép đã phê duyệt của tuần này theo quy tắc QTN-10 để tính giờ khả dụng thực tế.
+              * Tự động trừ các ngày nghỉ lễ và đơn nghỉ phép đã phê duyệt của tuần này để tính giờ khả dụng thực tế.
             </p>
           </div>
         </form>

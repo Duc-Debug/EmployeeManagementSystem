@@ -314,8 +314,8 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
               <div>
                 <strong>Quy tắc người nhận (BR-03 &amp; BR-04):</strong> Người nhận được xem ở chế độ{" "}
                 <span className="font-semibold text-indigo-700">VIEW_ONLY</span>. Chỉ hiển thị các
-                ứng viên thỏa mãn phạm vi truy cập: Giám đốc (VT-01), Quản lý dự án (VT-02) quản lý
-                ít nhất 1 dự án trong kịch bản, hoặc Quản lý nguồn lực (VT-03) cùng bộ phận.
+                ứng viên thỏa mãn phạm vi truy cập: Giám đốc, Quản lý dự án quản lý
+                ít nhất 1 dự án trong kịch bản, hoặc Quản lý nguồn lực cùng bộ phận.
               </div>
             </div>
 
@@ -376,7 +376,7 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => {}}
+                        onChange={() => { }}
                         className="mt-1 h-4 w-4 rounded-sm border-slate-300 text-indigo-600 focus:ring-indigo-500"
                       />
                       <div className="flex-1 space-y-1">

@@ -331,7 +331,7 @@ export function AllocationAdjustmentModal({
                 {conflictPromptVariance && (
                   <div className="mt-2 pt-2 border-t border-rose-200">
                     <p className="font-medium text-rose-900">
-                      Quy tắc QTN-15 / TC-02: Không thể gỡ dòng phân bổ khi tuần đã kết thúc và nhân sự đã có giờ làm thực tế.
+                      Không thể gỡ dòng phân bổ khi tuần đã kết thúc và nhân sự đã có giờ làm thực tế.
                     </p>
                     <button
                       type="button"
@@ -386,7 +386,7 @@ export function AllocationAdjustmentModal({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Lý do quá tải (nếu phân bổ vượt mức khả dụng - QTN-12)
+                  Lý do quá tải
                 </label>
                 <textarea
                   rows={2}
@@ -507,7 +507,7 @@ export function AllocationAdjustmentModal({
                   <strong>{allocation.employeeName}</strong> trong Tuần {allocation.weekNumber}/{allocation.year} không?
                 </p>
                 <p className="text-[11px] text-rose-700 font-medium">
-                  Hệ thống sẽ kiểm tra và chặn thao tác (409 Conflict) nếu tuần này đã trôi qua và nhân sự đã có giờ làm thực tế theo quy tắc QTN-15.
+                  Hệ thống sẽ kiểm tra và chặn thao tác nếu tuần này đã trôi qua và nhân sự đã có giờ làm thực tế.
                 </p>
               </div>
 
@@ -536,7 +536,7 @@ export function AllocationAdjustmentModal({
           {activeTab === "NOTE_VARIANCE" && (
             <div className="space-y-4">
               <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-xs text-amber-900 space-y-1">
-                <p className="font-bold text-amber-800">Ghi chú lý do chênh lệch (QTN-15 / TC-02)</p>
+                <p className="font-bold text-amber-800">Ghi chú lý do chênh lệch</p>
                 <p className="text-[11px] text-amber-700">
                   Sử dụng khi kế hoạch phân bổ khác với thực tế hoặc khi không thể gỡ phân bổ của tuần đã kết thúc.
                 </p>

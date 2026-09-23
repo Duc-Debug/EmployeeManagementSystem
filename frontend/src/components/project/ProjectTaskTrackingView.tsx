@@ -421,10 +421,10 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                         <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                         <div>
                             <h4 className="text-sm font-bold text-amber-900">
-                                Dự án đang ở trạng thái ĐÃ ĐÓNG (CLOSED)
+                                Dự án đang ở trạng thái ĐÃ ĐÓNG
                             </h4>
                             <p className="text-xs text-amber-700 mt-0.5">
-                                Theo quy tắc QTN-04, bảng theo dõi công việc của dự án này đang ở chế độ xem lưu trữ lịch sử. Mọi chỉnh sửa công việc đã bị vô hiệu hóa.
+                                Bảng theo dõi công việc của dự án này đang ở chế độ xem lưu trữ lịch sử. Mọi chỉnh sửa công việc đã bị vô hiệu hóa.
                             </p>
                         </div>
                     </div>
@@ -471,42 +471,37 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
 
                 {/* Quá hạn - Highlight Đỏ (TC-02) */}
                 <div
-                    className={`rounded-2xl border p-4 shadow-xs transition-hover ${
-                        (data?.overdueTasks ?? 0) > 0
+                    className={`rounded-2xl border p-4 shadow-xs transition-hover ${(data?.overdueTasks ?? 0) > 0
                             ? 'border-rose-300 bg-rose-50/40 hover:border-rose-400 ring-2 ring-rose-500/10'
                             : 'border-slate-200/80 bg-white hover:border-slate-300'
-                    }`}
+                        }`}
                 >
                     <div className="flex items-center justify-between">
                         <span
-                            className={`text-xs font-semibold ${
-                                (data?.overdueTasks ?? 0) > 0 ? 'text-rose-700 font-bold' : 'text-slate-500'
-                            }`}
+                            className={`text-xs font-semibold ${(data?.overdueTasks ?? 0) > 0 ? 'text-rose-700 font-bold' : 'text-slate-500'
+                                }`}
                         >
                             Trễ hạn / Quá hạn
                         </span>
                         <div
-                            className={`rounded-xl p-2 ${
-                                (data?.overdueTasks ?? 0) > 0
+                            className={`rounded-xl p-2 ${(data?.overdueTasks ?? 0) > 0
                                     ? 'bg-rose-100 text-rose-700 animate-pulse'
                                     : 'bg-slate-100 text-slate-500'
-                            }`}
+                                }`}
                         >
                             <AlertTriangle className="h-4 w-4" />
                         </div>
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span
-                            className={`text-2xl font-black tracking-tight ${
-                                (data?.overdueTasks ?? 0) > 0 ? 'text-rose-600' : 'text-slate-800'
-                            }`}
+                            className={`text-2xl font-black tracking-tight ${(data?.overdueTasks ?? 0) > 0 ? 'text-rose-600' : 'text-slate-800'
+                                }`}
                         >
                             {data?.overdueTasks ?? 0}
                         </span>
                         <span
-                            className={`text-[11px] font-medium ${
-                                (data?.overdueTasks ?? 0) > 0 ? 'text-rose-500 font-bold' : 'text-slate-400'
-                            }`}
+                            className={`text-[11px] font-medium ${(data?.overdueTasks ?? 0) > 0 ? 'text-rose-500 font-bold' : 'text-slate-400'
+                                }`}
                         >
                             cần xử lý gấp
                         </span>
@@ -565,22 +560,20 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                     </div>
                     <div className="mt-1.5 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                         <div
-                            className={`h-full rounded-full transition-all duration-300 ${
-                                (data?.totalActualHours || 0) > (data?.totalBudgetHours || 0)
+                            className={`h-full rounded-full transition-all duration-300 ${(data?.totalActualHours || 0) > (data?.totalBudgetHours || 0)
                                     ? 'bg-rose-500'
                                     : 'bg-indigo-600'
-                            }`}
+                                }`}
                             style={{
-                                width: `${
-                                    data?.totalBudgetHours && data.totalBudgetHours > 0
+                                width: `${data?.totalBudgetHours && data.totalBudgetHours > 0
                                         ? Math.min(
-                                              Math.round(
-                                                  ((data.totalActualHours || 0) / data.totalBudgetHours) * 100
-                                              ),
-                                              100
-                                          )
+                                            Math.round(
+                                                ((data.totalActualHours || 0) / data.totalBudgetHours) * 100
+                                            ),
+                                            100
+                                        )
                                         : 0
-                                }%`,
+                                    }%`,
                             }}
                         />
                     </div>
@@ -633,10 +626,10 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                         className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
                     >
                         <option value="ALL">Tất cả trạng thái</option>
-                        <option value="TODO">Chờ thực hiện (TODO)</option>
-                        <option value="IN_PROGRESS">Đang thực hiện (IN_PROGRESS)</option>
-                        <option value="DONE">Hoàn thành (DONE)</option>
-                        <option value="CANCELLED">Đã hủy (CANCELLED)</option>
+                        <option value="TODO">Chờ thực hiện</option>
+                        <option value="IN_PROGRESS">Đang thực hiện</option>
+                        <option value="DONE">Hoàn thành</option>
+                        <option value="CANCELLED">Đã hủy</option>
                     </select>
 
                     {/* Secondary Sort Selector */}
@@ -658,11 +651,10 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                     <button
                         type="button"
                         onClick={() => setOverdueOnly(!overdueOnly)}
-                        className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer border ${
-                            overdueOnly
+                        className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer border ${overdueOnly
                                 ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-xs'
                                 : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
+                            }`}
                     >
                         <AlertTriangle className={`h-3.5 w-3.5 ${overdueOnly ? 'text-rose-600' : 'text-slate-400'}`} />
                         <span>Chỉ việc trễ hạn</span>
@@ -691,11 +683,10 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                     <button
                         type="button"
                         onClick={() => setGroupByCategory(!groupByCategory)}
-                        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all ${
-                            groupByCategory
+                        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all ${groupByCategory
                                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
+                            }`}
                         title="Gom nhóm các công việc theo hạng mục WBS"
                     >
                         <Layers className="h-3.5 w-3.5" />
@@ -818,11 +809,10 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                                             return (
                                                 <tr
                                                     key={task.taskId}
-                                                    className={`transition-colors ${
-                                                        isTaskOverdue
+                                                    className={`transition-colors ${isTaskOverdue
                                                             ? 'bg-rose-50/30 hover:bg-rose-50/60'
                                                             : 'hover:bg-slate-50/70'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {/* Công việc & Mã & Cảnh báo quá hạn (TC-02) */}
                                                     <td className="py-3 px-4">

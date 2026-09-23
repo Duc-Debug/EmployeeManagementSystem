@@ -397,7 +397,7 @@ export default function WorkLogView() {
         {/* Billable Hours */}
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-800">Giờ tính phí (Billable)</span>
+            <span className="text-xs font-bold text-emerald-800">Giờ tính phí</span>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
               <DollarSign className="h-4 w-4" />
             </div>
@@ -414,7 +414,7 @@ export default function WorkLogView() {
         {/* Non-Billable Hours */}
         <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-sky-800">Giờ nội bộ (Non-billable)</span>
+            <span className="text-xs font-bold text-sky-800">Giờ nội bộ</span>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
               <Briefcase className="h-4 w-4" />
             </div>
@@ -466,7 +466,7 @@ export default function WorkLogView() {
             <h2 className="text-base font-bold text-slate-900">Chi tiết giờ công các ngày trong tuần</h2>
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <Info className="h-3.5 w-3.5 text-slate-400" />
-              <span>Quy tắc QTN-09: Tối đa 12.0h / ngày</span>
+              <span>Tối đa 12.0h / ngày</span>
             </div>
           </div>
 
@@ -698,7 +698,7 @@ export default function WorkLogView() {
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Sau khi nộp, bảng chấm công sẽ chuyển sang trạng thái <strong>Chờ duyệt (SUBMITTED)</strong>. Bạn sẽ không thể chỉnh sửa hoặc xóa các dòng ghi giờ trừ khi bị Quản lý từ chối duyệt.
+              Sau khi nộp, bảng chấm công sẽ chuyển sang trạng thái <strong>Chờ duyệt</strong>. Bạn sẽ không thể chỉnh sửa hoặc xóa các dòng ghi giờ trừ khi bị Quản lý từ chối duyệt.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -765,7 +765,7 @@ export default function WorkLogView() {
 
             <form onSubmit={handleSaveAdjust} className="space-y-4">
               <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
-                <span className="font-bold">Lưu ý nghiệp vụ:</span> Dòng ghi giờ này đã được duyệt ({Number(adjustingEntry.hours || 0).toFixed(1)}h). Việc điều chỉnh sẽ cập nhật lại tổng giờ tuần và được ghi vết kiểm toán (Audit Trail) cùng lý do giải trình bắt buộc.
+                <span className="font-bold">Lưu ý nghiệp vụ:</span> Dòng ghi giờ này đã được duyệt ({Number(adjustingEntry.hours || 0).toFixed(1)}h). Việc điều chỉnh sẽ cập nhật lại tổng giờ tuần và được ghi vết kiểm toán cùng lý do giải trình bắt buộc.
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -794,7 +794,7 @@ export default function WorkLogView() {
                       onChange={(e) => setAdjustBillable(e.target.checked)}
                       className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4"
                     />
-                    <span>Tính phí khách hàng (Billable)</span>
+                    <span>Tính phí khách hàng</span>
                   </label>
                 </div>
               </div>

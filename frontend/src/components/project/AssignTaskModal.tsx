@@ -338,7 +338,7 @@ export function AssignTaskModal({
                                 )}
                             </div>
                             <p className="mt-1 text-[11px] text-slate-400 italic">
-                                * Người được chọn đầu tiên sẽ là người chịu trách nhiệm chính (Primary Assignee). Chỉ chọn thành viên đã được thêm vào dự án.
+                                * Người được chọn đầu tiên sẽ là người chịu trách nhiệm chính. Chỉ chọn thành viên đã được thêm vào dự án.
                             </p>
                         </div>
                     </div>

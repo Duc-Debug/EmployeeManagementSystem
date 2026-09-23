@@ -274,7 +274,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
                 <div className="flex items-center justify-between mb-2">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Lối tắt Nghiệp vụ Nhân sự (HR Quick Actions)
+                        Lối tắt Nghiệp vụ Nhân sự
                     </h2>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
@@ -479,7 +479,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         </div>
                         <ul className="space-y-1.5 text-[11px] text-teal-800/90 list-disc list-inside mt-2">
                             <li><strong>Quản lý hồ sơ:</strong> Khởi tạo, cập nhật hợp đồng và thông tin nhân sự kịp thời.</li>
-                            <li><strong>Duyệt phép & Ngày lễ:</strong> Phê duyệt đơn xin nghỉ và cập nhật lịch nghỉ lễ công ty theo QTN-10.</li>
+                            <li><strong>Duyệt phép & Ngày lễ:</strong> Phê duyệt đơn xin nghỉ và cập nhật lịch nghỉ lễ công ty theo.</li>
                             <li><strong>Đồng bộ giờ chuẩn:</strong> Đảm bảo cấu hình giờ khả dụng chuẩn 40h/tuần để RM phân bổ dự án chính xác.</li>
                         </ul>
                     </div>

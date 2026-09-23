@@ -438,7 +438,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                     <div className="flex items-center gap-2 mb-3">
                         <CheckCircle2 className="h-4 w-4 text-indigo-600" />
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                            Quy trình Vận hành Nguồn lực & Dự án (PM Workflow)
+                            Quy trình Vận hành Nguồn lực & Dự án
                         </h3>
                     </div>
 

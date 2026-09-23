@@ -349,7 +349,7 @@ export function ProjectCreateModal({
                             }`}
                         >
                             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                            <span>Từ Mẫu Có Sẵn (Template)</span>
+                            <span>Từ Mẫu Có Sẵn</span>
                         </button>
                     </div>
                 </div>

@@ -172,14 +172,14 @@ export const RecruitmentScenarioSection: React.FC<RecruitmentScenarioSectionProp
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-lg font-bold text-slate-900">
-                Kịch Bản Tuyển Thêm Nhân Sự (NCL-08-CN-005)
+                Kịch Bản Tuyển Thêm Nhân Sự
               </h2>
               <span className="px-2.5 py-0.5 text-[11px] font-semibold bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">
                 Mô phỏng Sandbox
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Mô phỏng bổ sung nhân sự để bù đắp các khoảng thiếu hụt năng lực mà không ảnh hưởng cơ sở dữ liệu thật (QTN-14).
+              Mô phỏng bổ sung nhân sự để bù đắp các khoảng thiếu hụt năng lực.
             </p>
           </div>
         </div>
@@ -210,7 +210,7 @@ export const RecruitmentScenarioSection: React.FC<RecruitmentScenarioSectionProp
         <div className="flex items-center space-x-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-600 text-xs">
           <Info className="h-4 w-4 text-slate-400 shrink-0" />
           <span>
-            <strong>Chế độ chỉ xem:</strong> Bạn đang xem dữ liệu kịch bản tuyển dụng mô phỏng. Quyền thêm, chỉnh sửa hoặc xóa nhân sự giả định chỉ dành cho Quản lý nguồn lực (VT-03) khi kịch bản ở trạng thái Bản nháp.
+            <strong>Chế độ chỉ xem:</strong> Bạn đang xem dữ liệu kịch bản tuyển dụng mô phỏng. Quyền thêm, chỉnh sửa hoặc xóa nhân sự giả định chỉ dành cho Quản lý nguồn lực khi kịch bản ở trạng thái Bản nháp.
           </span>
         </div>
       )}
@@ -235,7 +235,7 @@ export const RecruitmentScenarioSection: React.FC<RecruitmentScenarioSectionProp
               {formatHoursDisplay(evaluation?.totalOriginalShortfallHours)}
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Từ nhu cầu kịch bản CN-001</p>
+          <p className="text-[11px] text-slate-400 mt-1">Từ nhu cầu kịch bản</p>
         </div>
 
         {/* Card 2: Giờ bù từ tuyển giả định */}
