@@ -71,10 +71,11 @@ public class NotificationController {
             @RequestParam(defaultValue = "ALL") String status,
             @RequestParam(defaultValue = "ALL") String level,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "ALL") String eventType
     ) {
         Long currentUserId = requireCurrentUserId();
-        GetNotificationCenterQuery query = new GetNotificationCenterQuery(status, level, page, size);
+        GetNotificationCenterQuery query = new GetNotificationCenterQuery(status, level, page, size, eventType);
         NotificationCenterPageResult result = getNotificationCenterUseCase.getNotifications(currentUserId, query);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thông báo thành công", result));
     }

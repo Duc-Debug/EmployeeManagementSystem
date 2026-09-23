@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.service.timesheet;
 
 import java.util.List;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -50,6 +51,9 @@ public class GetPendingApprovalsService implements GetPendingApprovalsUseCase {
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy thông tin nhân viên (PM)"));
 
         List<TimesheetEntry> entries = loadTimesheetEntryPort.findPendingApprovals(currentEmployee.getId());
+        Map<Long, BigDecimal> pendingHours = entries.stream().collect(Collectors.groupingBy(
+                TimesheetEntry::getTaskIdValue,
+                Collectors.reducing(BigDecimal.ZERO, TimesheetEntry::getHours, BigDecimal::add)));
 
         List<EmployeeId> employeeIds = entries.stream().map(TimesheetEntry::getEmployeeId).distinct().toList();
         Map<Long, Employee> employeeMap = employeeIds.isEmpty() ? Map.of() : loadEmployeePort.findAllByIdIn(employeeIds).stream()
@@ -94,7 +98,11 @@ public class GetPendingApprovalsService implements GetPendingApprovalsUseCase {
                     e.getRejectionReason(),
                     e.getCreatedAt(),
                     e.getUpdatedAt(),
-                    e.getVersion()
+                    e.getVersion(),
+                    task == null ? null : task.getBudgetHours() != null && task.getBudgetHours().signum() > 0
+                            ? task.getBudgetHours() : task.getEstimatedHours(),
+                    task == null ? null : task.getActualHours(),
+                    pendingHours.get(e.getTaskIdValue())
             );
         }).collect(Collectors.toList());
     }

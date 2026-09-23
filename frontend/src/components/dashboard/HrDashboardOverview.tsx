@@ -323,14 +323,6 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         <span className="text-xs font-semibold text-slate-700">Khung Kỹ năng</span>
                     </button>
 
-                    <button
-                        type="button"
-                        onClick={() => onNavigate("attendance")}
-                        className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-center transition hover:border-purple-200 hover:bg-purple-50/50 cursor-pointer"
-                    >
-                        <Clock className="h-4 w-4 text-purple-600" />
-                        <span className="text-xs font-semibold text-slate-700">Chấm công</span>
-                    </button>
                 </div>
             </div>
 

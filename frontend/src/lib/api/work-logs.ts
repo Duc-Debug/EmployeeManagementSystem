@@ -22,6 +22,9 @@ export interface WorkLogResult {
   createdAt?: string;
   updatedAt?: string;
   version: number;
+  taskBudgetHours?: number | null;
+  taskActualHours?: number | null;
+  taskPendingHours?: number | null;
 }
 
 export interface DailyWorkLogGroupDto {

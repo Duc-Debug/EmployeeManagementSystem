@@ -359,7 +359,7 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-center transition hover:border-emerald-200 hover:bg-emerald-50/50 cursor-pointer"
                     >
                         <Clock className="h-4 w-4 text-emerald-600" />
-                        <span className="text-xs font-semibold text-slate-700">Chấm công</span>
+                        <span className="text-xs font-semibold text-slate-700">Ghi giờ công</span>
                     </button>
 
                     <button

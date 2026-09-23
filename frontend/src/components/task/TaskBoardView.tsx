@@ -443,7 +443,7 @@ export const TaskBoardView: React.FC<TaskBoardViewProps> = ({ defaultProjectId }
                     </div>
                 </div>
             ) : (
-                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 items-start">
+                <div className="flex gap-2 overflow-x-auto pb-4 pt-1 items-start">
                     {STATUS_COLUMNS.map((status) => (
                         <TaskBoardColumn
                             key={status}

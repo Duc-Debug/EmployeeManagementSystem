@@ -91,12 +91,16 @@ class CreateTaskServiceTest {
     private AuthorizationService authorizationService;
 
     private CreateTaskService service;
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort saveProjectMemberPort;
 
     @BeforeEach
     void setUp() {
         service = new CreateTaskService(
                 loadTaskPort,
                 saveTaskPort,
+                null,
+                saveProjectMemberPort,
                 loadProjectPort,
                 saveProjectPort,
                 loadEmployeePort,
@@ -293,6 +297,7 @@ class CreateTaskServiceTest {
 
         assertThatThrownBy(() -> service.createTask(command))
                 .isInstanceOf(AssigneeNotInProjectException.class);
+        org.mockito.Mockito.verifyNoInteractions(saveProjectMemberPort, saveTaskPort, saveProjectPort);
     }
 
     @Test

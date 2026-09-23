@@ -203,11 +203,8 @@ export function AllocationPeriodManagementModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-800">
-                  Quản Lý Khóa Kế Hoạch Phân Bổ Kỳ (NCL-06-CN-009)
+                  Quản Lý Khóa Kế Hoạch Phân Bổ Kỳ
                 </h3>
-                <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-                  Quy tắc QTN-18
-                </span>
               </div>
               <p className="text-[11px] text-slate-500">
                 Chốt và khóa kỳ kế hoạch phân bổ nguồn lực theo Quý/Tháng/Năm, lưu bản chụp Baseline
@@ -512,7 +509,7 @@ export function AllocationPeriodManagementModal({
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-3 shrink-0">
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-            <span>Quy tắc QTN-18: Kỳ đã khóa sẽ từ chối mọi thao tác phân bổ mới hoặc cập nhật giờ phân bổ.</span>
+            <span>Kỳ đã khóa sẽ từ chối mọi thao tác phân bổ mới hoặc cập nhật giờ phân bổ.</span>
           </div>
           <button
             type="button"
@@ -563,7 +560,7 @@ export function AllocationPeriodManagementModal({
                   <Lock className="h-5 w-5" />
                 </span>
                 <h3 className="text-sm font-bold text-rose-900">
-                  Xác Nhận Khóa Kế Hoạch Kỳ (QTN-18)
+                  Xác Nhận Khóa Kế Hoạch Kỳ
                 </h3>
               </div>
               <button

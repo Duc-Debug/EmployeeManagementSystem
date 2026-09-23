@@ -77,6 +77,11 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
 
     @Override
     public List<NotificationRecipientItem> findRecipients(UserId recipientUserId, String status, String level, int page, int size) {
+        return findRecipientsByEventType(recipientUserId, status, level, null, page, size);
+    }
+
+    @Override
+    public List<NotificationRecipientItem> findRecipientsByEventType(UserId recipientUserId, String status, String level, String eventType, int page, int size) {
         if (recipientUserId == null || recipientUserId.value() == null) {
             return List.of();
         }
@@ -84,7 +89,7 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
         Boolean readFilter = parseReadFilter(status);
         String levelFilter = parseLevelFilter(level);
 
-        return repository.findByFilters(recipientUserId.value(), readFilter, levelFilter, pageable)
+        return repository.findByFilters(recipientUserId.value(), readFilter, levelFilter, eventType, pageable)
                 .getContent()
                 .stream()
                 .map(this::toDomain)
@@ -93,12 +98,17 @@ public class NotificationRecipientPersistenceAdapter implements NotificationReci
 
     @Override
     public long countRecipients(UserId recipientUserId, String status, String level) {
+        return countRecipientsByEventType(recipientUserId, status, level, null);
+    }
+
+    @Override
+    public long countRecipientsByEventType(UserId recipientUserId, String status, String level, String eventType) {
         if (recipientUserId == null || recipientUserId.value() == null) {
             return 0L;
         }
         Boolean readFilter = parseReadFilter(status);
         String levelFilter = parseLevelFilter(level);
-        return repository.countByFilters(recipientUserId.value(), readFilter, levelFilter);
+        return repository.countByFilters(recipientUserId.value(), readFilter, levelFilter, eventType);
     }
 
     @Override

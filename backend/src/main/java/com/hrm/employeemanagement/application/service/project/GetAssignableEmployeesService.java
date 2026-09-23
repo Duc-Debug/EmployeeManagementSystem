@@ -117,7 +117,8 @@ public class GetAssignableEmployeesService implements GetAssignableEmployeesUseC
                                     : (emp.getOrgUnitId() != null ? orgNames.get(emp.getOrgUnitId()) : null),
                             ProjectMemberRole.MEMBER,
                             emp.getStatus() != null ? emp.getStatus().name() : "ACTIVE",
-                            emp.getContractEndDate()
+                            emp.getContractEndDate(),
+                            u != null && u.getRole() != null ? u.getRole().getCode().name().replace('_', '-') : null
                     );
                 })
                 .toList();

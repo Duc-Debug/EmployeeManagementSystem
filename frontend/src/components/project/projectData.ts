@@ -33,6 +33,7 @@ export interface TaskCategoryGroup {
 }
 
 export interface ProjectMember {
+    roleCode?: string | null;
     id: string;
     employeeId?: number;
     name: string;

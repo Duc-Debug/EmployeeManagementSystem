@@ -155,11 +155,7 @@ public class CreateTaskService implements CreateTaskUseCase {
                     && Objects.equals(project.getManagerId().value(), assignee.getIdValue()))
                     || loadProjectPort.existsMember(project.getIdValue(), assignee.getIdValue());
             if (!isMember) {
-                if (saveProjectMemberPort != null) {
-                    saveProjectMemberPort.addMember(project.getIdValue(), assignee.getIdValue());
-                } else {
-                    throw new AssigneeNotInProjectException(assignee.getIdValue(), project.getIdValue());
-                }
+                throw new AssigneeNotInProjectException(assignee.getIdValue(), project.getIdValue());
             }
             assigneeEmployeeId = assignee.getId();
         }

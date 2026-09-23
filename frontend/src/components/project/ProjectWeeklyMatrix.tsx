@@ -26,6 +26,7 @@ interface ProjectWeeklyMatrixProps {
     selectedRole: string;
     searchTerm: string;
     isClosed?: boolean;
+    canManageAllocations?: boolean;
     onNavigateMonth: (direction: number) => void;
     onOpenAdjustModal: (memberId: string, weekKey: string, weekLabel: string) => void;
     onOpenSkillSearchModal?: () => void;
@@ -37,6 +38,7 @@ export function ProjectWeeklyMatrix({
     selectedRole,
     searchTerm,
     isClosed = false,
+    canManageAllocations = false,
     onNavigateMonth,
     onOpenAdjustModal,
     onOpenSkillSearchModal,
@@ -276,16 +278,16 @@ export function ProjectWeeklyMatrix({
                                                     className={`px-2 py-2 text-center ${w.isCurrent ? 'bg-indigo-50/30' : ''}`}
                                                 >
                                                     <div
-                                                        onClick={() => !isClosed && onOpenAdjustModal(member.id, w.key, w.label)}
+                                                        onClick={() => canManageAllocations && !isClosed && onOpenAdjustModal(member.id, w.key, w.label)}
                                                         title={
                                                             isClosed
                                                                 ? 'Dự án đã đóng, không thể điều chỉnh phân bổ nguồn lực'
                                                                 : hasExpiredAllocationWarning
                                                                 ? `Cảnh báo: Nhân sự đã nghỉ việc / hết hạn HĐ (${member.contractEndDate || 'Đã nghỉ'}), phân bổ ${hours}h này vắt qua ngày nghỉ việc!`
-                                                                : 'Bấm để điều chỉnh giờ phân bổ'
+                                                                : canManageAllocations ? 'Bấm để điều chỉnh giờ phân bổ' : 'Giờ phân bổ chính thức'
                                                         }
                                                         className={`select-none rounded-lg p-1.5 transition border ${
-                                                            isClosed
+                                                            isClosed || !canManageAllocations
                                                                 ? 'cursor-not-allowed opacity-70'
                                                                 : 'cursor-pointer transform hover:scale-105 active:scale-95'
                                                         } ${

@@ -24,6 +24,7 @@ import type {
     RoleResourceDemand,
 } from '@/lib/api/resource-demands';
 import { RoleAllocationTemplateManagementModal } from '@/components/allocation/RoleAllocationTemplateManagementModal';
+import { useAuthUser } from '@/lib/auth-session';
 
 interface ProjectDemandViewProps {
     project: ProjectResult | null;
@@ -50,6 +51,8 @@ export function ProjectDemandView({
 }: ProjectDemandViewProps) {
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [expandedRoleIds, setExpandedRoleIds] = useState<Set<number>>(new Set());
+    const currentUser = useAuthUser();
+    const canManageTemplates = currentUser?.roleCode?.replace(/_/g, '-') === 'VT-03';
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState<boolean>(false);
     const [templateSourceProjectId, setTemplateSourceProjectId] = useState<number | undefined>(undefined);
 
@@ -278,7 +281,7 @@ export function ProjectDemandView({
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 self-end sm:self-auto">
-                    {canManage && isProjectActive && (
+                    {canManageTemplates && isProjectActive && (
                         <>
                             {demandSummary?.demandsByRole && demandSummary.demandsByRole.length > 0 && (
                                 <button
@@ -546,7 +549,7 @@ export function ProjectDemandView({
 
             {/* Template Management & Apply Modal */}
             <RoleAllocationTemplateManagementModal
-                open={isTemplateModalOpen}
+                open={canManageTemplates && isTemplateModalOpen}
                 initialSourceProjectId={templateSourceProjectId}
                 onClose={() => setIsTemplateModalOpen(false)}
                 onAppliedSuccess={onReload}

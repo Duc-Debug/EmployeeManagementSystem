@@ -261,6 +261,10 @@ public class CloneProjectWbsService implements CloneProjectWbsUseCase {
     }
 
     private boolean canManageWbs(User currentUser, Long currentUserId, Project project) {
+        if (currentUser.getRole().getCode() == com.hrm.employeemanagement.domain.role.RoleCode.VT_02) {
+            return loadEmployeePort.findByUserId(new UserId(currentUserId))
+                    .map(employee -> project.isManagedBy(employee.getId())).orElse(false);
+        }
         return switch (currentUser.getDataScope()) {
             case COMPANY ->
                 true;

@@ -89,9 +89,7 @@ export default function LeaveManagementView() {
     const isApprover = isRM || isHR || isDirector;
     const isEmployee = !isApprover; // VT-04, VT-02 (PM)
 
-    // Quyền xem Lịch nghỉ bộ phận: Dành riêng cho VT-03 (RM), VT-05 (HR), VT-01 (BGĐ), VT-06 (Admin).
-    // PM (VT-02) và Nhân viên (VT-04) KHÔNG có quyền và tab "Lịch nghỉ bộ phận" sẽ bị ẩn.
-    const canViewDeptCalendar = isRM || isHR || isDirector || roleCode === "VT-06";
+    const canViewDeptCalendar = isRM || isHR || isDirector || roleCode === "VT-06" || roleCode === "VT-02";
     const [viewMode, setViewMode] = useState<"list" | "dept-calendar">(
         canViewDeptCalendar && (isRM || isHR) ? "dept-calendar" : "list"
     );

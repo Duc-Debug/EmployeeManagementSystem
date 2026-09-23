@@ -112,7 +112,7 @@ export const TaskBoardColumn: React.FC<TaskBoardColumnProps> = ({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`flex flex-col min-w-[280px] w-full max-w-[340px] shrink-0 rounded-2xl border border-slate-200/80 bg-slate-100/70 p-3 transition-all duration-200 border-t-4 ${
+            className={`flex flex-col min-w-[210px] flex-1 rounded-2xl border border-slate-200/80 bg-slate-100/70 p-2 transition-all duration-200 border-t-4 ${
                 config.accentColor
             } ${
                 isDragOver
@@ -139,7 +139,7 @@ export const TaskBoardColumn: React.FC<TaskBoardColumnProps> = ({
             </div>
 
             {/* Column Cards Container */}
-            <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto max-h-[calc(100vh-280px)] pr-0.5">
+            <div className="flex flex-1 flex-col gap-2 overflow-y-auto max-h-[calc(100vh-280px)] pr-0.5">
                 {cards.length === 0 ? (
                     <div
                         className={`flex h-32 flex-col items-center justify-center rounded-xl border border-dashed text-center p-3 transition-colors ${

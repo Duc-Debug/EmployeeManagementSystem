@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
     Activity,
     AlertTriangle,
@@ -11,7 +11,6 @@ import {
     FolderKanban,
     RefreshCw,
     TrendingUp,
-    Zap,
     CheckCircle2,
     SlidersHorizontal,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import {
 import { getOrgTree } from "@/lib/api/org-units";
 import { flattenActiveOrgTree } from "@/lib/organization";
 import { getCurrentIsoWeek } from "../availability/availability.types";
+import { useAuthUser } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
 
 interface CapacityDashboardViewProps {
@@ -38,16 +38,14 @@ const DURATION_OPTIONS = [
 export default function CapacityDashboardView({ onNavigate }: CapacityDashboardViewProps) {
     const currentIso = useMemo(() => getCurrentIsoWeek(), []);
 
-    // Filters state (Draft vs Applied)
-    const [draftFromYear, setDraftFromYear] = useState<number>(currentIso.year);
-    const [draftFromWeek, setDraftFromWeek] = useState<number>(currentIso.weekNumber);
-    const [draftDurationWeeks, setDraftDurationWeeks] = useState<number>(8);
-    const [draftOrgUnitId, setDraftOrgUnitId] = useState<number | undefined>(undefined);
-
-    const [fromYear, setFromYear] = useState<number>(currentIso.year);
-    const [fromWeek, setFromWeek] = useState<number>(currentIso.weekNumber);
-    const [durationWeeks, setDurationWeeks] = useState<number>(8);
-    const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(undefined);
+    const user = useAuthUser();
+    const [fromYear, setFromYear] = useState(currentIso.year);
+    const [fromWeek, setFromWeek] = useState(currentIso.weekNumber);
+    const [durationWeeks, setDurationWeeks] = useState(8);
+    const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(
+        user?.dataScope === "COMPANY" ? undefined : user?.scopeOrgUnitId ?? user?.orgUnitId ?? undefined,
+    );
+    const requestSequence = useRef(0);
 
     // Data state
     const [data, setData] = useState<CapacityDashboardResult | null>(null);
@@ -71,6 +69,7 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
 
     // Main fetch dashboard data
     const loadDashboardData = useCallback(async () => {
+        const sequence = ++requestSequence.current;
         setLoading(true);
         setError(null);
         try {
@@ -80,12 +79,14 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                 fromWeek,
                 durationWeeks,
             });
+            if (sequence !== requestSequence.current) return;
             setData(res);
         } catch (err: any) {
+            if (sequence !== requestSequence.current) return;
             console.error("Failed to load capacity dashboard:", err);
             setError(err?.message || "Không thể tải dữ liệu bảng điều khiển năng lực");
         } finally {
-            setLoading(false);
+            if (sequence === requestSequence.current) setLoading(false);
         }
     }, [selectedOrgUnitId, fromYear, fromWeek, durationWeeks]);
 
@@ -116,6 +117,11 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
     };
 
     const utilStyle = getUtilizationColor(avgUtil);
+    const defaultScopeLabel = user?.dataScope === "COMPANY"
+        ? "Toàn công ty" : user?.orgUnitName || "Phạm vi được phân quyền";
+    const selectedScopeLabel = selectedOrgUnitId
+        ? orgUnits.find(unit => unit.id === selectedOrgUnitId)?.name || user?.orgUnitName || `Đơn vị #${selectedOrgUnitId}`
+        : defaultScopeLabel;
 
     return (
         <div className="space-y-5 pb-10">
@@ -129,15 +135,9 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                         <div>
                             <div className="flex items-center gap-2">
                                 <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                                    Bảng Điều Khiển Năng Lực (Capacity Dashboard)
+                                    Bảng điều khiển năng lực
                                 </h1>
-                                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
-                                    <Zap className="h-3 w-3" /> NCL-10-CN-001
-                                </span>
                             </div>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                Nắm bắt bức tranh tổng quan nguồn lực, công suất, cảnh báo quá tải và xung đột lịch theo thời gian thực.
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -173,8 +173,8 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                                 type="number"
                                 min={1}
                                 max={53}
-                                value={draftFromWeek}
-                                onChange={(e) => setDraftFromWeek(Math.max(1, Math.min(53, Number(e.target.value) || 1)))}
+                                value={fromWeek}
+                                onChange={(e) => setFromWeek(Math.max(1, Math.min(53, Number(e.target.value) || 1)))}
                                 className="w-16 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-hidden"
                             />
                             <span className="text-xs text-slate-400">/</span>
@@ -182,8 +182,8 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                                 type="number"
                                 min={2020}
                                 max={2030}
-                                value={draftFromYear}
-                                onChange={(e) => setDraftFromYear(Number(e.target.value) || currentIso.year)}
+                                value={fromYear}
+                                onChange={(e) => setFromYear(Number(e.target.value) || currentIso.year)}
                                 className="w-20 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-hidden"
                             />
                         </div>
@@ -191,34 +191,25 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                         {/* Duration Options */}
                         <div className="flex items-center gap-1.5">
                             <label className="text-[11px] font-medium text-slate-500">Khoảng thời gian:</label>
-                            <div className="flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5">
-                                {DURATION_OPTIONS.map((opt) => (
-                                    <button
-                                        key={opt.value}
-                                        type="button"
-                                        onClick={() => setDraftDurationWeeks(opt.value)}
-                                        className={cn(
-                                            "rounded-md px-2.5 py-1 text-xs font-semibold transition cursor-pointer",
-                                            draftDurationWeeks === opt.value
-                                                ? "bg-white text-indigo-700 shadow-2xs"
-                                                : "text-slate-600 hover:text-slate-900"
-                                        )}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
+                            <select aria-label="Khoảng thời gian" value={durationWeeks}
+                                onChange={e => setDurationWeeks(Number(e.target.value))}
+                                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold">
+                                {DURATION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                            </select>
                         </div>
 
                         {/* OrgUnit Filter */}
                         <div className="flex items-center gap-1.5">
                             <label className="text-[11px] font-medium text-slate-500">Phòng ban:</label>
                             <select
-                                value={draftOrgUnitId ?? ""}
-                                onChange={(e) => setDraftOrgUnitId(e.target.value ? Number(e.target.value) : undefined)}
+                                value={selectedOrgUnitId ?? ""}
+                                onChange={(e) => setSelectedOrgUnitId(e.target.value ? Number(e.target.value) : undefined)}
                                 className="rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-hidden cursor-pointer"
                             >
-                                <option value="">Toàn công ty</option>
+                                <option value="">{defaultScopeLabel}</option>
+                                {selectedOrgUnitId && !orgUnits.some(unit => unit.id === selectedOrgUnitId) && (
+                                    <option value={selectedOrgUnitId}>{selectedScopeLabel}</option>
+                                )}
                                 {orgUnits.map((u) => (
                                     <option key={u.id} value={u.id}>
                                         {u.name}
@@ -227,25 +218,12 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                             </select>
                         </div>
 
-                        {/* Apply Filters Button */}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setFromYear(draftFromYear);
-                                setFromWeek(draftFromWeek);
-                                setDurationWeeks(draftDurationWeeks);
-                                setSelectedOrgUnitId(draftOrgUnitId);
-                            }}
-                            disabled={loading}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer shadow-2xs"
-                        >
-                            Áp dụng bộ lọc
-                        </button>
+
                     </div>
 
                     {/* Scope info tag */}
                     <div className="text-[11px] font-medium text-slate-400">
-                        Phạm vi: <span className="font-bold text-slate-700">{data?.orgUnitName || "Toàn công ty"}</span> · Kỳ {durationWeeks} tuần từ T{fromWeek}/{fromYear}
+                        Phạm vi: <span className="font-bold text-slate-700">{loading ? selectedScopeLabel : data?.orgUnitName || selectedScopeLabel}</span> · Kỳ {durationWeeks} tuần từ T{fromWeek}/{fromYear}
                     </div>
                 </div>
             </div>
@@ -262,25 +240,25 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                 {/* KPI 1: Tỷ lệ sử dụng năng lực trung bình */}
                 <div
                     onClick={() => handleNavigate("capacity")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs transition hover:border-indigo-300 hover:shadow-xs"
+                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-indigo-300 hover:shadow-xs"
                 >
                     <div className="flex items-center justify-between">
-                        <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl border", utilStyle.bg, utilStyle.border, utilStyle.text)}>
+                        <div className={cn("flex h-6 w-6 items-center justify-center rounded-xl border", utilStyle.bg, utilStyle.border, utilStyle.text)}>
                             <TrendingUp className="h-4 w-4" />
                         </div>
                         <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-bold", utilStyle.badge)}>
                             {utilStyle.label}
                         </span>
                     </div>
-                    <div className="mt-2.5">
+                    <div className="mt-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             Hiệu suất sử dụng
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-2xl font-bold text-slate-900">{avgUtil}%</span>
+                            <span className="text-xl font-bold text-slate-900">{avgUtil}%</span>
                             <span className="text-[10px] text-slate-400">công suất</span>
                         </div>
-                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                             <div
                                 className={cn("h-full transition-all duration-500", avgUtil > 100 ? "bg-rose-500" : avgUtil >= 75 ? "bg-emerald-500" : "bg-amber-500")}
                                 style={{ width: `${Math.min(100, avgUtil)}%` }}
@@ -296,11 +274,11 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                 {/* KPI 2: Số người quá tải */}
                 <div
                     onClick={() => handleNavigate("capacity")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs transition hover:border-rose-300 hover:shadow-xs"
+                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-rose-300 hover:shadow-xs"
                 >
                     <div className="flex items-center justify-between">
                         <div className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-xl border",
+                            "flex h-6 w-6 items-center justify-center rounded-xl border",
                             overloadedCount > 0 ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-emerald-50 border-emerald-200 text-emerald-600"
                         )}>
                             <AlertTriangle className="h-4 w-4" />
@@ -309,17 +287,17 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                             Chi tiết <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
-                    <div className="mt-2.5">
+                    <div className="mt-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             Nhân sự quá tải
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className={cn("text-2xl font-bold", overloadedCount > 0 ? "text-rose-600" : "text-slate-900")}>
+                            <span className={cn("text-xl font-bold", overloadedCount > 0 ? "text-rose-600" : "text-slate-900")}>
                                 {overloadedCount}
                             </span>
                             <span className="text-[10px] text-slate-400">nhân viên</span>
                         </div>
-                        <div className="mt-2 text-[10px] font-medium">
+                        <div className="mt-1 text-[10px] font-medium">
                             {overloadedCount > 0 ? (
                                 <span className="text-rose-600 font-bold">Cần điều phối & san tải ngay</span>
                             ) : (
@@ -332,27 +310,27 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                 {/* KPI 3: Số giờ còn rảnh */}
                 <div
                     onClick={() => handleNavigate("capacity")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs transition hover:border-blue-300 hover:shadow-xs"
+                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-blue-300 hover:shadow-xs"
                 >
                     <div className="flex items-center justify-between">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600">
                             <Clock className="h-4 w-4" />
                         </div>
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 group-hover:translate-x-0.5 transition">
                             Dự phòng <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
-                    <div className="mt-2.5">
+                    <div className="mt-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             Số giờ còn rảnh
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-2xl font-bold text-slate-900">
+                            <span className="text-xl font-bold text-slate-900">
                                 {freeHours.toLocaleString("vi-VN")}
                             </span>
                             <span className="text-[10px] text-slate-400">giờ</span>
                         </div>
-                        <div className="mt-2 text-[10px] font-medium text-blue-700 truncate">
+                        <div className="mt-1 text-[10px] font-medium text-blue-700 truncate">
                             Năng lực sẵn sàng nhận dự án
                         </div>
                     </div>
@@ -361,11 +339,11 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                 {/* KPI 4: Xung đột lịch chưa xử lý */}
                 <div
                     onClick={() => handleNavigate("schedule-conflict")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs transition hover:border-amber-300 hover:shadow-xs"
+                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-amber-300 hover:shadow-xs"
                 >
                     <div className="flex items-center justify-between">
                         <div className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-xl border",
+                            "flex h-6 w-6 items-center justify-center rounded-xl border",
                             conflictCount > 0 ? "bg-amber-50 border-amber-200 text-amber-600" : "bg-emerald-50 border-emerald-200 text-emerald-600"
                         )}>
                             <AlertTriangle className="h-4 w-4" />
@@ -374,17 +352,17 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                             Xử lý <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
-                    <div className="mt-2.5">
+                    <div className="mt-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             Xung đột lịch chưa xử lý
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className={cn("text-2xl font-bold", conflictCount > 0 ? "text-amber-600" : "text-slate-900")}>
+                            <span className={cn("text-xl font-bold", conflictCount > 0 ? "text-amber-600" : "text-slate-900")}>
                                 {conflictCount}
                             </span>
                             <span className="text-[10px] text-slate-400">vụ việc</span>
                         </div>
-                        <div className="mt-2 text-[10px] font-medium">
+                        <div className="mt-1 text-[10px] font-medium">
                             {conflictCount > 0 ? (
                                 <span className="text-amber-700 font-bold">Chồng lấn lịch & nghỉ phép</span>
                             ) : (
@@ -397,27 +375,27 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                 {/* KPI 5: Số dự án đang chạy */}
                 <div
                     onClick={() => handleNavigate("project")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs transition hover:border-emerald-300 hover:shadow-xs"
+                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-emerald-300 hover:shadow-xs"
                 >
                     <div className="flex items-center justify-between">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600">
                             <FolderKanban className="h-4 w-4" />
                         </div>
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 group-hover:translate-x-0.5 transition">
                             Dự án <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
-                    <div className="mt-2.5">
+                    <div className="mt-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             Dự án đang chạy
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-2xl font-bold text-slate-900">
+                            <span className="text-xl font-bold text-slate-900">
                                 {activePrjCount}
                             </span>
                             <span className="text-[10px] text-slate-400">dự án ACTIVE</span>
                         </div>
-                        <div className="mt-2 text-[10px] font-medium text-emerald-700">
+                        <div className="mt-1 text-[10px] font-medium text-emerald-700">
                             Đang trong giai đoạn triển khai
                         </div>
                     </div>

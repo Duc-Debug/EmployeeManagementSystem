@@ -221,7 +221,7 @@ export function ResourceReservationModal({
         reservedHours: hoursNum,
         note: note.trim() || undefined,
       });
-      setSuccessMsg("Giữ chỗ nguồn lực thành công (QTN-13: Chưa tính vào giờ phân bổ chính thức)!");
+      setSuccessMsg("Giữ chỗ nguồn lực thành công!");
       setNote("");
       onSuccess();
       setTimeout(() => {
@@ -268,11 +268,10 @@ export function ResourceReservationModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-800">
-                Giữ Chỗ Nguồn Lực (NCL-06-CN-005)
+                Giữ Chỗ Nguồn Lực
               </h2>
               <p className="text-xs text-slate-500">
-                Kế hoạch giữ chỗ cho dự án dự kiến theo quy tắc QTN-13
-              </p>
+                Kế hoạch giữ chỗ cho dự án dự kiến               </p>
             </div>
           </div>
           <button
@@ -341,7 +340,7 @@ export function ResourceReservationModal({
               <div className="flex items-start gap-2.5 rounded-xl bg-amber-50/60 p-3.5 border border-dashed border-amber-300 text-xs text-amber-800">
                 <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
                 <div className="leading-relaxed">
-                  <span className="font-bold">Quy tắc QTN-13:</span> Giờ giữ chỗ cho dự án dự kiến không được cộng vào giờ phân bổ chính thức và không làm giảm giờ khả dụng còn lại của nhân sự.
+                  Giờ giữ chỗ cho dự án dự kiến không được cộng vào giờ phân bổ chính thức và không làm giảm giờ khả dụng còn lại của nhân sự.
                 </div>
               </div>
 

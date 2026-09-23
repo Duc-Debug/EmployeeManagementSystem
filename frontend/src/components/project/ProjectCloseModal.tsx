@@ -134,7 +134,7 @@ export function ProjectCloseModal({
                                 <span>Còn {unfinishedTasks.length} công việc chưa hoàn thành</span>
                             </div>
                             <p className="text-[11px] text-rose-700">
-                                Backend yêu cầu tất cả các công việc trong dự án phải ở trạng thái <strong>Hoàn thành</strong> hoặc <strong>Đã hủy</strong> trước khi đóng:
+                                Cần bảo đảm tất cả các công việc trong dự án phải ở trạng thái <strong>Hoàn thành</strong> hoặc <strong>Đã hủy</strong> trước khi đóng:
                             </p>
                             <ul className="max-h-24 overflow-y-auto space-y-1 pl-4 list-disc text-[11px] text-rose-800">
                                 {unfinishedTasks.slice(0, 5).map((t, idx) => (

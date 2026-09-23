@@ -174,14 +174,7 @@ public class AssignTaskService implements AssignTaskUseCase {
                     || loadProjectPort.existsMember(command.projectId(), empId);
 
             if (!isMember) {
-                if (saveProjectMemberPort != null) {
-                    saveProjectMemberPort.addMember(command.projectId(), empId);
-                    if (saveAuditLogPort != null) {
-                        saveAuditLogPort.save(AuditLog.create(currentUserId, "ADD_PROJECT_MEMBER", "project_members", command.projectId()));
-                    }
-                } else {
-                    throw new AssigneeNotInProjectException(empId, command.projectId());
-                }
+                throw new AssigneeNotInProjectException(empId, command.projectId());
             }
 
             validEmployeeIds.add(new EmployeeId(empId));

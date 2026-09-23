@@ -8,6 +8,7 @@ interface AssignTaskModalProps {
     task: TaskItem | null;
     projectId: number | null;
     employees: ProjectMember[];
+    isClosed?: boolean;
     onClose: () => void;
     onSuccess: (result: TaskAssignmentResult) => void;
 }
@@ -17,6 +18,7 @@ export function AssignTaskModal({
     task,
     projectId,
     employees,
+    isClosed = false,
     onClose,
     onSuccess,
 }: AssignTaskModalProps) {
@@ -122,6 +124,11 @@ export function AssignTaskModal({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isClosed) return;
+        if (selectedEmployeeIds.some(id => !employees.some(emp => (emp.employeeId ?? Number(emp.id.replace(/\D/g, ''))) === id))) {
+            setErrorMessage('Chỉ được giao việc cho thành viên đã được thêm vào dự án.');
+            return;
+        }
         if (!projectId) {
             setErrorMessage('Không xác định được mã dự án.');
             return;
@@ -331,7 +338,7 @@ export function AssignTaskModal({
                                 )}
                             </div>
                             <p className="mt-1 text-[11px] text-slate-400 italic">
-                                * Người được chọn đầu tiên sẽ là người chịu trách nhiệm chính (Primary Assignee). Nếu nhân sự chưa thuộc dự án, hệ thống sẽ tự động thêm vào dự án.
+                                * Người được chọn đầu tiên sẽ là người chịu trách nhiệm chính (Primary Assignee). Chỉ chọn thành viên đã được thêm vào dự án.
                             </p>
                         </div>
                     </div>
@@ -340,14 +347,14 @@ export function AssignTaskModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isClosed}
                             className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
                         >
                             Hủy
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isClosed}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition disabled:opacity-50 cursor-pointer"
                         >
                             {isSubmitting ? (

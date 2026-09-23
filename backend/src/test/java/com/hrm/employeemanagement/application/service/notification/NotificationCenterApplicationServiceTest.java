@@ -56,6 +56,21 @@ class NotificationCenterApplicationServiceTest {
     }
 
     @Test
+    void allocationFilterKeepsRecipientScopeAndPagination() {
+        UserId user = new UserId(currentUserId);
+        when(recipientRepo.findRecipientsByEventType(user, "UNREAD", "ALL", "ALLOCATION_CHANGED", 1, 10))
+                .thenReturn(List.of());
+        when(recipientRepo.countRecipientsByEventType(user, "UNREAD", "ALL", "ALLOCATION_CHANGED"))
+                .thenReturn(15L);
+        var result = service.getNotifications(currentUserId,
+                new GetNotificationCenterQuery("UNREAD", "ALL", 1, 10, "ALLOCATION_CHANGED"));
+        assertEquals(15L, result.totalElements());
+        assertEquals(2, result.totalPages());
+        verify(recipientRepo).findRecipientsByEventType(user, "UNREAD", "ALL", "ALLOCATION_CHANGED", 1, 10);
+        verify(recipientRepo, never()).findRecipients(any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
     @DisplayName("TC-01: Lấy danh sách thông báo phân trang và đếm unread count thành công")
     void tc01_getNotificationsAndUnreadCount() {
         NotificationEvent event = new NotificationEvent(

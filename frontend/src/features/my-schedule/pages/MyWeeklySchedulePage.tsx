@@ -187,18 +187,6 @@ export const MyWeeklySchedulePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Thông tin quy tắc nghiệp vụ QTN-24 */}
-      <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-4 flex items-start gap-3 text-xs text-blue-900">
-        <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
-          <span className="font-semibold text-blue-950">Quy định xác nhận phân bổ (QTN-24):</span>
-          <p className="text-blue-800 leading-relaxed">
-            Nhân sự có thể xác nhận đã xem lịch hoặc gửi ý kiến phản hồi về phân bổ được giao (trùng lịch, quá tải,...).
-            Ý kiến phản hồi sẽ được lưu trữ để Quản lý dự án xem xét và điều chỉnh. Việc gửi phản hồi không tự động thay đổi giờ phân bổ trên hệ thống.
-          </p>
-        </div>
-      </div>
-
       {feedbackMessage && (
         <div
           className={`p-4 rounded-xl flex items-center gap-3 text-sm transition ${

@@ -512,7 +512,7 @@ export function ProjectWbsView({
                                                                             ? 'text-slate-300 cursor-not-allowed'
                                                                             : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'
                                                                     }`}
-                                                                    title={isClosed ? 'Dự án đã đóng, không thể phân công' : 'Giao việc cho nhân sự'}
+                                                                    title={isClosed ? 'Dự án đã đóng, không thể tạo hoặc giao thêm công việc' : 'Giao việc cho nhân sự'}
                                                                 >
                                                                     <UserPlus className="h-3.5 w-3.5" />
                                                                 </button>

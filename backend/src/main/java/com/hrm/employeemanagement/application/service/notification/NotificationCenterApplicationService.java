@@ -63,14 +63,18 @@ public class NotificationCenterApplicationService implements
         validateUserId(currentUserId);
         UserId userId = new UserId(currentUserId);
 
-        List<NotificationRecipientItem> recipients = recipientRepositoryPort.findRecipients(
+        List<NotificationRecipientItem> recipients = !"ALL".equals(query.eventType())
+                ? recipientRepositoryPort.findRecipientsByEventType(userId, query.status(), query.level(), query.eventType(), query.page(), query.size())
+                : recipientRepositoryPort.findRecipients(
                 userId,
                 query.status(),
                 query.level(),
                 query.page(),
                 query.size()
         );
-        long totalElements = recipientRepositoryPort.countRecipients(userId, query.status(), query.level());
+        long totalElements = "ALL".equals(query.eventType())
+                ? recipientRepositoryPort.countRecipients(userId, query.status(), query.level())
+                : recipientRepositoryPort.countRecipientsByEventType(userId, query.status(), query.level(), query.eventType());
         long unreadCount = recipientRepositoryPort.countUnread(userId);
         int totalPages = query.size() > 0 ? (int) Math.ceil((double) totalElements / query.size()) : 0;
 

@@ -124,6 +124,31 @@ class DepartmentMonthlyLeaveCalendarServiceTest {
     }
 
     @Test
+    void pmCanReadOnlyMembersOfManagedProjectsWithSelfScope() {
+        User pmUser = new User(new UserId(2L), "pm", "hash",
+                new Role(new RoleId(2L), RoleCode.VT_02, "PM"), UserStatus.ACTIVE,
+                new EmployeeId(90L), DataScope.SELF, null, 0L);
+        when(authorizationService.require(PermissionCode.DEPARTMENT_LEAVE_READ)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(pmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(department));
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.of(createEmployee(90L, "PM90", "PM")));
+        when(loadEmployeePort.findByProjectManager(90L, 500, 0))
+                .thenReturn(List.of(createEmployee(101L, "E101", "Team member")));
+        when(loadDepartmentMonthlyLeavePort.findLeavesForEmployees(eq(List.of(101L)), any(), any(), anyMap()))
+                .thenReturn(List.of());
+
+        var result = service.execute(new GetDepartmentMonthlyLeaveCalendarQuery(10L, 2026, 9, 0.5));
+
+        assertEquals(1, result.totalDepartmentEmployees());
+        assertEquals("Nhóm dự án do tôi quản lý", result.orgUnitName());
+        verify(loadEmployeePort, never()).findActiveByOrgUnitId(anyLong());
+        verify(loadEmployeePort, never()).findByOrgUnitBranch(anyLong(), anyInt(), anyInt());
+        verify(loadDepartmentMonthlyLeavePort).findLeavesForEmployees(eq(List.of(101L)),
+                eq(LocalDate.of(2026, 9, 1)), eq(LocalDate.of(2026, 9, 30)), anyMap());
+    }
+
+    @Test
     @DisplayName("TC-01: Luồng thành công - Bộ phận có sáu đơn nghỉ trong tháng -> Hệ thống hiện đủ sáu khoảng nghỉ trên lịch tháng")
     void tc01_successFlow_sixLeaveRequestsDisplayed() {
         GetDepartmentMonthlyLeaveCalendarQuery query = new GetDepartmentMonthlyLeaveCalendarQuery(10L, 2026, 9, 0.50);

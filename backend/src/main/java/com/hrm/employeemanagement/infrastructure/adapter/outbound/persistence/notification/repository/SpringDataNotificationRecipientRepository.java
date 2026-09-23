@@ -24,22 +24,26 @@ public interface SpringDataNotificationRecipientRepository extends JpaRepository
             "WHERE r.recipientUserId = :userId AND r.isDeleted = false AND r.availableAt <= CURRENT_TIMESTAMP " +
             "AND (:readFilter IS NULL OR r.isRead = :readFilter) " +
             "AND (:level IS NULL OR e.level = :level) " +
+            "AND (:eventType IS NULL OR e.eventType = :eventType) " +
             "ORDER BY r.createdAt DESC")
     Page<NotificationRecipientJpaEntity> findByFilters(
             @Param("userId") Long userId,
             @Param("readFilter") Boolean readFilter,
             @Param("level") String level,
+            @Param("eventType") String eventType,
             Pageable pageable
     );
 
     @Query("SELECT COUNT(r) FROM NotificationRecipientJpaEntity r JOIN NotificationEventJpaEntity e ON r.notificationEventId = e.id " +
             "WHERE r.recipientUserId = :userId AND r.isDeleted = false AND r.availableAt <= CURRENT_TIMESTAMP " +
             "AND (:readFilter IS NULL OR r.isRead = :readFilter) " +
-            "AND (:level IS NULL OR e.level = :level)")
+            "AND (:level IS NULL OR e.level = :level) " +
+            "AND (:eventType IS NULL OR e.eventType = :eventType)")
     long countByFilters(
             @Param("userId") Long userId,
             @Param("readFilter") Boolean readFilter,
-            @Param("level") String level
+            @Param("level") String level,
+            @Param("eventType") String eventType
     );
 
     @Modifying

@@ -589,9 +589,9 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
 
             {/* Filter & Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs">
-                <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+                <div className="grid w-full grid-cols-1 items-center gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     {/* Search Input */}
-                    <div className="relative flex-1 sm:w-60 max-w-sm">
+                    <div className="relative min-w-0 w-full">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                         <input
                             type="text"
@@ -616,7 +616,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                     <select
                         value={employeeId !== undefined ? String(employeeId) : ''}
                         onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : undefined)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                        className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
                     >
                         <option value="">Tất cả người phụ trách ({cachedAssignees.length})</option>
                         {cachedAssignees.map((a) => (
@@ -630,7 +630,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                        className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
                     >
                         <option value="ALL">Tất cả trạng thái</option>
                         <option value="TODO">Chờ thực hiện (TODO)</option>
@@ -645,7 +645,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as SortOption)}
-                            className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                            className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
                         >
                             <option value="default">Sắp xếp: Trễ hạn lên đầu (Mặc định)</option>
                             <option value="deadline">Hạn chót gần nhất</option>
@@ -686,7 +686,7 @@ export const ProjectTaskTrackingView: React.FC<ProjectTaskTrackingViewProps> = (
                     )}
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2">
                     {/* Toggle Group by Category */}
                     <button
                         type="button"

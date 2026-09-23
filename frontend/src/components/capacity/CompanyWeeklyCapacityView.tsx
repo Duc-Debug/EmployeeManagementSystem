@@ -55,7 +55,7 @@ export default function CompanyWeeklyCapacityView() {
   const canManageReservations = normalizedRole === "VT-02";
   const canManageAllocations = normalizedRole === "VT-03";
   const canAccessPeriods =
-    normalizedRole === "VT-01" || normalizedRole === "VT-02" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
+    normalizedRole === "VT-01" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
   const canAccessAllocationNotifications = normalizedRole === "VT-02" || normalizedRole === "VT-03";
   const canConfigureThresholds = normalizedRole === "VT-01";
   const canAccessScenarios = normalizedRole === "VT-01" || normalizedRole === "VT-03";
@@ -75,7 +75,7 @@ export default function CompanyWeeklyCapacityView() {
 
   // Filter states
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(
-    currentUser?.scopeOrgUnitId ?? undefined
+    currentUser?.dataScope === "COMPANY" ? undefined : currentUser?.scopeOrgUnitId ?? currentUser?.orgUnitId ?? undefined
   );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED">("ALL");
@@ -342,7 +342,7 @@ export default function CompanyWeeklyCapacityView() {
     const isZeroAvailability = cell.availableHours === 0;
     const lockedPeriod = getLockedPeriodForWeek(cell.year, cell.weekNumber);
     const lockSuffix = lockedPeriod
-      ? ` • [QTN-18: Tuần đã bị khóa theo "${lockedPeriod.name}" - Không thể chỉnh sửa phân bổ]`
+      ? ` • [Tuần đã bị khóa theo "${lockedPeriod.name}" - Không thể chỉnh sửa phân bổ]`
       : "";
 
     const weekInfo = matrixData?.weeks.find(
@@ -362,7 +362,7 @@ export default function CompanyWeeklyCapacityView() {
             handleOpenReservationModal(row.employeeId, row.fullName, cell.year, cell.weekNumber);
           }}
           className="mt-1 flex items-center justify-center gap-1 rounded-md border border-dashed border-amber-400 bg-amber-50/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition shadow-2xs w-full"
-          title={`QTN-13: Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức). Bấm để xem hoặc quản lý.`}
+          title={`Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức). Bấm để xem hoặc quản lý.`}
         >
           <BookmarkCheck className="h-3 w-3 text-amber-600 shrink-0" />
           <span>Giữ: {cell.reservedHours}h</span>
@@ -370,7 +370,7 @@ export default function CompanyWeeklyCapacityView() {
       ) : (
         <div
           className="mt-1 flex items-center justify-center gap-1 rounded-md border border-dashed border-amber-400 bg-amber-50/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 w-full"
-          title={`QTN-13: Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức).`}
+          title={`Đã giữ chỗ ${cell.reservedHours}h cho dự án dự kiến (không tính vào phân bổ chính thức).`}
         >
           <BookmarkCheck className="h-3 w-3 text-amber-600 shrink-0" />
           <span>Giữ: {cell.reservedHours}h</span>
@@ -395,7 +395,7 @@ export default function CompanyWeeklyCapacityView() {
           handleOpenAdjustmentModal(row.employeeId, row.fullName, cell.year, cell.weekNumber, cell.allocatedHours);
         }}
         className="mt-1 flex items-center justify-center gap-1 rounded-md border border-indigo-200 bg-indigo-50/80 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs w-full"
-        title="Điều chỉnh phân bổ nguồn lực (sửa giờ, chuyển tuần, gỡ phân bổ, ghi chú chênh lệch, xem lịch sử - NCL-06-CN-004)"
+        title="Điều chỉnh phân bổ nguồn lực (sửa giờ, chuyển tuần, gỡ phân bổ, ghi chú chênh lệch, xem lịch sử)"
       >
         <SlidersHorizontal className="h-3 w-3 text-indigo-600 shrink-0" />
         <span>Điều chỉnh</span>
@@ -406,7 +406,7 @@ export default function CompanyWeeklyCapacityView() {
       return (
         <div
           className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-100/70 border border-dashed border-slate-300 text-slate-400 text-xs min-h-[58px]"
-          title={`QTN-21: Ngoài thời hạn hợp đồng thuê ngoài (${row.contractStartDate || '...'} đến ${row.contractEndDate || '...'}). Không thể phân bổ.`}
+          title={`Ngoài thời hạn hợp đồng thuê ngoài (${row.contractStartDate || '...'} đến ${row.contractEndDate || '...'}). Không thể phân bổ.`}
         >
           <span className="font-semibold text-slate-400">Ngoài HĐ</span>
           <span className="text-[10px] text-slate-400">0h / 0h</span>
@@ -548,7 +548,7 @@ export default function CompanyWeeklyCapacityView() {
               type="button"
               onClick={() => handleOpenReservationModal()}
               className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
-              title="Giữ chỗ nguồn lực cho dự án dự kiến (NCL-06-CN-005, QTN-13)"
+              title="Giữ chỗ nguồn lực cho dự án dự kiến"
             >
               <BookmarkCheck className="h-3.5 w-3.5 text-amber-600" />
               <span>Giữ chỗ nguồn lực</span>
@@ -589,10 +589,10 @@ export default function CompanyWeeklyCapacityView() {
               type="button"
               onClick={() => setIsPeriodModalOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
-              title="Khóa & Quản lý kế hoạch phân bổ của kỳ (NCL-06-CN-009 / QTN-18)"
+              title="Khóa & Quản lý kế hoạch phân bổ của kỳ"
             >
               <Lock className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Kế hoạch kỳ (QTN-18)</span>
+              <span>Kế hoạch kỳ</span>
             </button>
           )}
 
@@ -602,7 +602,7 @@ export default function CompanyWeeklyCapacityView() {
               type="button"
               onClick={() => setIsNotificationModalOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-2xl border border-sky-200 bg-sky-50/70 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition shadow-2xs"
-              title="Xem lịch sử thông báo phân bổ thay đổi (NCL-07-CN-003)"
+              title="Xem lịch sử thông báo phân bổ thay đổi"
             >
               <Bell className="h-3.5 w-3.5 text-sky-600" />
               <span>Thông báo phân bổ</span>
@@ -615,10 +615,10 @@ export default function CompanyWeeklyCapacityView() {
               type="button"
               onClick={() => setIsThresholdModalOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
-              title="Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (NCL-07-CN-004 / QTN-23)"
+              title="Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi"
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
-              <span>Cấu hình ngưỡng (QTN-23)</span>
+              <span>Cấu hình ngưỡng</span>
             </button>
           )}
 
@@ -628,10 +628,10 @@ export default function CompanyWeeklyCapacityView() {
               type="button"
               onClick={() => setIsProlongedIdlenessModalOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50/80 px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition shadow-2xs"
-              title="Cảnh báo nhân sự nhàn rỗi kéo dài nhiều tuần liên tiếp (NCL-07-CN-006 / QTN-23)"
+              title="Cảnh báo nhân sự nhàn rỗi kéo dài nhiều tuần liên tiếp"
             >
               <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-              <span>Cảnh báo nhàn rỗi (QTN-23)</span>
+              <span>Cảnh báo nhàn rỗi</span>
             </button>
           )}
 
@@ -641,10 +641,10 @@ export default function CompanyWeeklyCapacityView() {
               type="button"
               onClick={() => navigate("/simulation-scenarios")}
               className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
-              title="Mô phỏng kịch bản nhận thêm dự án (NCL-08-CN-001 / QTN-14 Sandbox)"
+              title="Mô phỏng kịch bản nhận thêm dự án"
             >
               <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Mô phỏng kịch bản (QTN-14)</span>
+              <span>Mô phỏng kịch bản</span>
             </button>
           )}
         </div>
@@ -735,7 +735,7 @@ export default function CompanyWeeklyCapacityView() {
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           {/* Lọc phòng ban (TC-03) */}
-          <div className="flex items-center gap-2">
+          {currentUser?.dataScope !== "SELF" && <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-slate-400" />
             <select
               value={selectedOrgUnitId ?? ""}
@@ -752,7 +752,7 @@ export default function CompanyWeeklyCapacityView() {
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
 
           {/* Ô tìm kiếm */}
           <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -778,7 +778,7 @@ export default function CompanyWeeklyCapacityView() {
                 )
               }
               className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
-              title="Lọc theo loại nhân sự (NCL-14: Nhân sự nội bộ / Nhân sự thuê ngoài)"
+              title="Lọc theo loại nhân sự"
             >
               <option value="ALL">Tất cả nhân sự</option>
               <option value="INTERNAL">Chỉ nhân sự nội bộ</option>
@@ -855,7 +855,7 @@ export default function CompanyWeeklyCapacityView() {
                         }`}
                         title={
                           lockedPeriod
-                            ? `QTN-18: Tuần ${w.weekNumber}/${w.year} thuộc kỳ "${lockedPeriod.name}" đã bị khóa. Không thể sửa phân bổ.`
+                            ? `Tuần ${w.weekNumber}/${w.year} thuộc kỳ "${lockedPeriod.name}" đã bị khóa. Không thể sửa phân bổ.`
                             : undefined
                         }
                       >
@@ -1009,7 +1009,7 @@ export default function CompanyWeeklyCapacityView() {
           <span className="flex items-center justify-center rounded-md border border-dashed border-amber-400 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
             Giữ: Xh
           </span>
-          <span>Giữ chỗ dự kiến (QTN-13: Tách biệt, không tính vào giờ phân bổ chính thức)</span>
+          <span>Giữ chỗ dự kiến</span>
         </div>
       </div>
 
@@ -1028,7 +1028,7 @@ export default function CompanyWeeklyCapacityView() {
 
       {/* NCL-06-CN-006: Bulk Allocate Resource Modal */}
       <BulkAllocateResourceModal
-        open={isBulkModalOpen}
+        open={canManageAllocations && isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         onSuccess={(result) => {
           setBulkResult(result);
@@ -1053,7 +1053,7 @@ export default function CompanyWeeklyCapacityView() {
 
       {/* NCL-06-CN-004: Allocation Adjustment Modal */}
       <AllocationAdjustmentModal
-        open={isAdjustmentModalOpen}
+        open={canManageAllocations && isAdjustmentModalOpen}
         allocation={adjustmentAllocation}
         canManage={canManageAllocations}
         onClose={() => setIsAdjustmentModalOpen(false)}
@@ -1064,7 +1064,7 @@ export default function CompanyWeeklyCapacityView() {
 
       {/* NCL-06-CN-009: Allocation Period Management Modal (QTN-18) */}
       <AllocationPeriodManagementModal
-        open={isPeriodModalOpen}
+        open={canAccessPeriods && isPeriodModalOpen}
         currentYear={selectedYear}
         onClose={() => setIsPeriodModalOpen(false)}
         onPeriodChanged={() => {
@@ -1082,7 +1082,7 @@ export default function CompanyWeeklyCapacityView() {
 
       {/* Mẫu phân bổ theo vai trò của dự án */}
       <RoleAllocationTemplateManagementModal
-        open={isTemplateModalOpen}
+        open={canManageAllocations && isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}
         onAppliedSuccess={fetchMatrix}
       />

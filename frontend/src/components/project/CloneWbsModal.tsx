@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { getProjectWbs, type ProjectResult, type TaskNodeResult } from '@/lib/api/projects';
 import { cloneProjectWbs, type CloneProjectWbsResult } from '@/lib/api/tasks';
+import { useAuthUser } from '@/lib/auth-session';
+import { getEmployeeProfileByUserId } from '@/lib/api/employees';
 
 function countWbsNodes(nodes: TaskNodeResult[]): { categories: number; tasks: number } {
     let categories = 0;
@@ -79,6 +81,21 @@ export function CloneWbsModal({
     projectsList,
     onSuccess,
 }: CloneWbsModalProps) {
+    const user = useAuthUser();
+    const [employeeId, setEmployeeId] = useState<number | null>(null);
+    useEffect(() => {
+        let active = true;
+        setEmployeeId(null);
+        if (user?.id && isOpen) {
+            getEmployeeProfileByUserId(user.id).then(profile => {
+                if (active) setEmployeeId(profile.id);
+            }).catch(() => { if (active) setEmployeeId(null); });
+        }
+        return () => { active = false; };
+    }, [user?.id, isOpen]);
+    const isPm = user?.roleCode?.replace(/_/g, '-') === 'VT-02';
+    const canCloneIntoTarget = targetProject?.status !== 'CLOSED' && targetProject?.status !== 'CANCELLED'
+        && (!isPm || (employeeId !== null && targetProject?.managerId === employeeId));
     const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
@@ -133,6 +150,7 @@ export function CloneWbsModal({
 
     // Loại bỏ chính dự án hiện tại ra khỏi danh sách nguồn
     const availableSources = projectsList
+        .filter((p) => !isPm || (employeeId !== null && p.managerId === employeeId))
         .filter((p) => p.id !== targetProject.id)
         .filter((p) => {
             const q = searchTerm.trim().toLowerCase();
@@ -140,6 +158,10 @@ export function CloneWbsModal({
         });
 
     const handleConfirmClone = async () => {
+        if (!canCloneIntoTarget) {
+            setError('Chỉ được nhân bản WBS vào dự án chưa đóng do bạn quản lý.');
+            return;
+        }
         if (!selectedSourceId) {
             setError('Vui lòng chọn một dự án nguồn để nhân bản');
             return;
@@ -330,7 +352,7 @@ export function CloneWbsModal({
                     <button
                         type="button"
                         onClick={handleConfirmClone}
-                        disabled={loading || !selectedSourceId || (previewWbs.length === 0 && !loadingPreview)}
+                        disabled={!canCloneIntoTarget || loading || !selectedSourceId || (previewWbs.length === 0 && !loadingPreview)}
                         className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition disabled:opacity-50 cursor-pointer"
                     >
                         {loading ? (

@@ -192,8 +192,8 @@ class AssignTaskServiceTest {
     }
 
     @Test
-    @DisplayName("Tự động thêm nhân sự vào dự án khi chưa phải thành viên")
-    void shouldAutoEnrollEmployeeToProjectWhenNotMember() {
+    @DisplayName("Từ chối giao việc cho nhân sự chưa phải thành viên")
+    void shouldRejectEmployeeNotInProject() {
         when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
 
         Project project = createProject(ProjectStatus.ACTIVE);
@@ -215,10 +215,9 @@ class AssignTaskServiceTest {
                 LocalDate.of(2026, 9, 30)
         );
 
-        TaskAssignmentResult result = service.assignTask(command);
-
-        assertNotNull(result);
-        verify(saveProjectMemberPort).addMember(PROJECT_ID, EMPLOYEE_ID_1);
+        assertThrows(com.hrm.employeemanagement.domain.exception.task.AssigneeNotInProjectException.class,
+                () -> service.assignTask(command));
+        org.mockito.Mockito.verifyNoInteractions(saveProjectMemberPort, saveTaskPort, saveTaskAssignmentPort);
     }
 
     @Test
@@ -634,8 +633,8 @@ class AssignTaskServiceTest {
     }
 
     @Test
-    @DisplayName("Ghi audit log ADD_PROJECT_MEMBER khi tự động thêm nhân sự vào dự án")
-    void shouldSaveAuditLogWhenAutoAddingMemberToProject() {
+    @DisplayName("Giao việc bị từ chối không thêm thành viên hoặc ghi audit thành công")
+    void shouldNotEnrollOrWriteSuccessAuditForRejectedAssignment() {
         when(authorizationService.require(PermissionCode.PROJECT_WBS_MANAGE)).thenReturn(CURRENT_USER_ID);
 
         Project project = createProject(ProjectStatus.ACTIVE);
@@ -657,13 +656,8 @@ class AssignTaskServiceTest {
                 null
         );
 
-        service.assignTask(command);
-
-        verify(saveProjectMemberPort).addMember(PROJECT_ID, EMPLOYEE_ID_1);
-        verify(saveAuditLogPort).save(argThat(log ->
-                "ADD_PROJECT_MEMBER".equals(log.getAction()) &&
-                "project_members".equals(log.getTableName()) &&
-                Long.valueOf(PROJECT_ID).equals(log.getRecordId())
-        ));
+        assertThrows(com.hrm.employeemanagement.domain.exception.task.AssigneeNotInProjectException.class,
+                () -> service.assignTask(command));
+        org.mockito.Mockito.verifyNoInteractions(saveProjectMemberPort, saveAuditLogPort, saveTaskPort, saveTaskAssignmentPort);
     }
 }
