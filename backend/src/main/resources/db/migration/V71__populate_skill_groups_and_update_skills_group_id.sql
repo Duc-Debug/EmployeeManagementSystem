@@ -50,4 +50,4 @@ WHERE category IS NOT NULL
     SELECT 1
     FROM skill_groups g
     WHERE g.name = skills.category
-);
+  );
