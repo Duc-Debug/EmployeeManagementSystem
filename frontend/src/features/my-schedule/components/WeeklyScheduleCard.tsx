@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, Briefcase, Clock, AlertCircle, MessageSquareQuote, Info } from "lucide-react";
+import { Calendar, Briefcase, Clock, AlertCircle, MessageSquareQuote } from "lucide-react";
 import type { WeeklySchedule } from "../types";
 import { ConfirmationStatusBadge } from "./ConfirmationStatusBadge";
 

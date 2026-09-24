@@ -177,10 +177,13 @@ class SubmitUnavailabilityDeclarationServiceTest {
             );
         });
 
+        LocalDate start = LocalDate.now().plusWeeks(1).with(java.time.DayOfWeek.MONDAY);
+        LocalDate end = start.plusDays(1);
+
         SubmitUnavailabilityCommand command = new SubmitUnavailabilityCommand(
                 employeeId,
-                LocalDate.of(2026, 9, 22),
-                LocalDate.of(2026, 9, 23),
+                start,
+                end,
                 UnavailabilityReasonType.TRAINING,
                 "Đi học khóa AWS Solutions Architect"
         );
@@ -199,7 +202,7 @@ class SubmitUnavailabilityDeclarationServiceTest {
         assertEquals("SUBMIT_UNAVAILABILITY", audit.getAction());
         assertEquals(currentUserId, audit.getUserId());
         assertEquals(100L, audit.getRecordId());
-        assertTrue(audit.getNewValue().contains("2026-09-22"));
+        assertTrue(audit.getNewValue().contains(start.toString()));
         assertTrue(audit.getNewValue().contains("TRAINING"));
     }
 
@@ -252,8 +255,8 @@ class SubmitUnavailabilityDeclarationServiceTest {
         );
         when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
 
-        LocalDate start = LocalDate.of(2026, 9, 22);
-        LocalDate end = LocalDate.of(2026, 9, 25);
+        LocalDate start = LocalDate.now().plusWeeks(1).with(java.time.DayOfWeek.MONDAY);
+        LocalDate end = start.plusDays(3);
 
         UnavailabilityDeclaration existing = UnavailabilityDeclaration.create(
                 employeeId, start, end, UnavailabilityReasonType.TRAINING, "Trùng lặp", BigDecimal.valueOf(32)
@@ -286,9 +289,8 @@ class SubmitUnavailabilityDeclarationServiceTest {
         );
         when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
 
-        // 2026-09-26 is Saturday, 2026-09-27 is Sunday
-        LocalDate start = LocalDate.of(2026, 9, 26);
-        LocalDate end = LocalDate.of(2026, 9, 27);
+        LocalDate start = LocalDate.now().plusWeeks(1).with(java.time.DayOfWeek.SATURDAY);
+        LocalDate end = start.plusDays(1);
 
         SubmitUnavailabilityCommand command = new SubmitUnavailabilityCommand(
                 employeeId, start, end, UnavailabilityReasonType.TRAINING, "Cuối tuần"
