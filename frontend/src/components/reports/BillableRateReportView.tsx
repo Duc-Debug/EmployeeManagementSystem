@@ -220,7 +220,7 @@ export default function BillableRateReportView() {
         </div>
         <h3 className="text-base font-bold text-slate-900 mb-1">Không có quyền truy cập</h3>
         <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-          Chức năng báo cáo tỷ lệ giờ tính phí chỉ dành riêng cho Ban Giám Đốc (VT-01), Quản lý Nguồn lực (VT-03) và Quản trị viên (VT-06).
+          Chức năng báo cáo tỷ lệ giờ tính phí chỉ dành riêng cho Ban Giám Đốc, Quản lý Nguồn lực và Quản trị viên.
         </p>
       </div>
     );
@@ -425,7 +425,7 @@ export default function BillableRateReportView() {
             Quy tắc tính toán tỷ lệ giờ tính phí:
           </p>
           <p className="text-indigo-700">
-            Tỷ lệ (%) = (Tổng giờ tính phí đã duyệt ÷ Tổng giờ khả dụng ròng) × 100%. 
+            Tỷ lệ (%) = (Tổng giờ tính phí đã duyệt ÷ Tổng giờ khả dụng ròng) × 100%.
             <span className="font-medium"> Đặc biệt:</span> Giờ nghỉ phép đã duyệt được tự động khấu trừ khỏi mẫu số (giờ khả dụng) thay vì coi là thời gian không hiệu quả.
           </p>
         </div>
@@ -470,8 +470,8 @@ export default function BillableRateReportView() {
                     (reportData.summary.overallBillableRate ?? 0) >= 80
                       ? 'bg-emerald-500'
                       : (reportData.summary.overallBillableRate ?? 0) >= 65
-                      ? 'bg-indigo-600'
-                      : 'bg-amber-500'
+                        ? 'bg-indigo-600'
+                        : 'bg-amber-500'
                   )}
                   style={{
                     width: `${Math.min(100, Math.max(0, reportData.summary.overallBillableRate ?? 0))}%`,

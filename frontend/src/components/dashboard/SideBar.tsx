@@ -184,8 +184,8 @@ export function canAccessTab(
 
         case "attendance":
         case "timesheets":
-            // Bảng chấm công & Giờ làm việc: VT-01 -> VT-06 (VT-04 ghi giờ, VT-02 duyệt, VT-03/05/06 xem)
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // Chỉ hiện khi có quyền ghi hoặc duyệt giờ công dự án.
+            return permissions ? permissions.includes("WORK_LOG_READ") || permissions.includes("WORK_LOG_APPROVE") : ["VT-02", "VT-04", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "leave":
         case "leave-requests":
@@ -356,7 +356,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                                         : "text-slate-400 hover:text-slate-700 hover:bg-slate-100/60"
                                 )}
                             >
-                                <span className="truncate">{group.title}</span>
+                                <span className="whitespace-normal text-left leading-snug">{group.title}</span>
                                 <div className="flex items-center gap-1">
                                     <span className="text-[10px] font-semibold text-slate-400 group-hover:text-slate-600">
                                         ({group.items.length})
@@ -387,9 +387,9 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                                                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
                                                 )}
                                             >
-                                                <div className="flex items-center gap-2.5 truncate">
+                                                <div className="flex min-w-0 items-center gap-2.5">
                                                     <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-indigo-600" : "text-slate-400")} />
-                                                    <span className="truncate text-[13px]">{item.name}</span>
+                                                    <span className="whitespace-normal break-words text-left text-[13px] leading-snug">{item.name}</span>
                                                 </div>
                                                 {isActive && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-indigo-600" />}
                                             </button>

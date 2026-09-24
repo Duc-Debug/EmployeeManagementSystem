@@ -320,6 +320,7 @@ export async function reopenProject(
 }
 
 export interface ProjectMemberResult {
+  roleCode?: string | null;
   employeeId: number;
   employeeCode: string;
   fullName: string;

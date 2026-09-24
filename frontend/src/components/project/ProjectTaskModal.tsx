@@ -6,6 +6,7 @@ interface ProjectTaskModalProps {
     open: boolean;
     categories: TaskCategoryGroup[];
     members: ProjectMember[];
+    isClosed?: boolean;
     defaultCategoryId?: string;
     onClose: () => void;
     onSubmit: (newTask: {
@@ -24,6 +25,7 @@ export function ProjectTaskModal({
     open,
     categories,
     members,
+    isClosed = false,
     defaultCategoryId,
     onClose,
     onSubmit,
@@ -47,6 +49,8 @@ export function ProjectTaskModal({
         }
         if (members.length > 0) {
             setAssigneeId(members[0].id);
+        } else {
+            setAssigneeId('');
         }
     }, [open, defaultCategoryId, categories, members]);
 
@@ -54,7 +58,8 @@ export function ProjectTaskModal({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name.trim()) return;
+        if (isClosed || !name.trim()) return;
+        if (assigneeId && !members.some(member => member.id === assigneeId)) return;
         if (isCreatingNewCat && !newCatName.trim()) return;
 
         onSubmit({
@@ -227,6 +232,8 @@ export function ProjectTaskModal({
                         </button>
                         <button
                             type="submit"
+                            disabled={isClosed}
+                            title={isClosed ? "Dự án đã đóng, không thể tạo hoặc giao thêm công việc" : undefined}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
                         >
                             <Check className="h-3.5 w-3.5" /> Lưu & Phân bổ

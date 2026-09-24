@@ -265,7 +265,6 @@ export default function UnavailabilityView() {
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
             Đăng ký thời gian bận do đào tạo, công tác hoặc việc riêng để trừ vào năng lực khả dụng theo tuần.
-            Tuân thủ quy tắc <strong>QTN-24</strong>: không làm giảm giờ kế hoạch phân bổ dự án đã lập.
           </p>
         </div>
 

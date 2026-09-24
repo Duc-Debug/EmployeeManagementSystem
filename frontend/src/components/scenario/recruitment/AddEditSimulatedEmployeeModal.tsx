@@ -222,7 +222,7 @@ export const AddEditSimulatedEmployeeModal: React.FC<AddEditSimulatedEmployeeMod
                 {isEdit ? "Chỉnh sửa nhân sự giả định" : "Thêm nhân sự tuyển giả định"}
               </h2>
               <p className="text-[11px] text-slate-500">
-                Mô phỏng nguồn lực tuyển thêm trong sandbox (QTN-14)
+                Mô phỏng nguồn lực tuyển thêm trong sandbox
               </p>
             </div>
           </div>
@@ -248,7 +248,7 @@ export const AddEditSimulatedEmployeeModal: React.FC<AddEditSimulatedEmployeeMod
           {/* Project Role Selection First */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Vai trò dự án (Project Role) <span className="text-rose-500">*</span>
+              Vai trò dự án<span className="text-rose-500">*</span>
             </label>
             <select
               required

@@ -155,7 +155,7 @@ export const ApplyScenarioModal: React.FC<ApplyScenarioModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Chuyển đổi số giờ mô phỏng sang dữ liệu phân bổ thật trên dự án mục tiêu (QTN-14).
+                Chuyển đổi số giờ mô phỏng sang dữ liệu phân bổ thật trên dự án mục tiêu.
               </p>
             </div>
           </div>
@@ -210,7 +210,7 @@ export const ApplyScenarioModal: React.FC<ApplyScenarioModalProps> = ({
                   <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="text-xs font-bold text-amber-900">
-                      Cảnh báo dữ liệu gốc đã thay đổi (TC-02)
+                      Cảnh báo dữ liệu gốc đã thay đổi
                     </h4>
                     <p className="text-[11px] text-amber-800 mt-0.5">
                       Dữ liệu phân bổ thật của các nhân sự trong bộ phận đã bị chỉnh sửa sau thời điểm khởi tạo kịch bản.
@@ -248,7 +248,7 @@ export const ApplyScenarioModal: React.FC<ApplyScenarioModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-800 flex items-center">
                 <Users className="h-4 w-4 mr-1.5 text-indigo-600" />
-                2. Bảng Đối Chiếu Thay Đổi Phân Bổ (Comparison Table)
+                2. Bảng Đối Chiếu Thay Đổi Phân Bổ
               </label>
               {preview && (
                 <div className="text-[11px] text-slate-500 font-medium">
@@ -360,7 +360,7 @@ export const ApplyScenarioModal: React.FC<ApplyScenarioModalProps> = ({
           {/* Ghi chú áp dụng */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-800">
-              Ghi chú áp dụng (Audit Trail)
+              Ghi chú áp dụng
             </label>
             <input
               type="text"

@@ -23,6 +23,7 @@ export default defineConfig([
       'no-empty': 'warn',
       'preserve-caught-error': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
     },
   },
 ])

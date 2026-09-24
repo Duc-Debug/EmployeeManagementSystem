@@ -16,6 +16,8 @@ public interface NotificationRecipientRepositoryPort {
     Optional<NotificationRecipientItem> findByEventIdAndRecipientUserId(NotificationEventId eventId, UserId recipientUserId);
     List<NotificationRecipientItem> findRecipients(UserId recipientUserId, String status, String level, int page, int size);
     long countRecipients(UserId recipientUserId, String status, String level);
+    List<NotificationRecipientItem> findRecipientsByEventType(UserId recipientUserId, String status, String level, String eventType, int page, int size);
+    long countRecipientsByEventType(UserId recipientUserId, String status, String level, String eventType);
     long countUnread(UserId recipientUserId);
     int markAllAsRead(UserId recipientUserId, LocalDateTime now);
     long purgeRecipientsOlderThan(LocalDateTime cutoff);

@@ -165,7 +165,7 @@ export default function OutsourcedContractWarningView() {
                                 Theo Dõi Thời Hạn Hợp Đồng Thuê Ngoài
                             </h1>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                Quản lý rủi ro hết hạn hợp đồng thuê ngoài và giám sát các phân bổ dự án vi phạm quy tắc QTN-21
+                                Quản lý rủi ro hết hạn hợp đồng thuê ngoài và giám sát các phân bổ dự án vi phạm
                             </p>
                         </div>
                     </div>
@@ -236,11 +236,10 @@ export default function OutsourcedContractWarningView() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div
                     onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
-                        statusFilter === "ALL"
+                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${statusFilter === "ALL"
                             ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/20 dark:bg-indigo-950/20"
                             : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
-                    }`}
+                        }`}
                 >
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Tổng Cảnh Báo</span>
@@ -256,11 +255,10 @@ export default function OutsourcedContractWarningView() {
 
                 <div
                     onClick={() => { setStatusFilter("EXPIRING_SOON"); setCurrentPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
-                        statusFilter === "EXPIRING_SOON"
+                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${statusFilter === "EXPIRING_SOON"
                             ? "border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/40 dark:bg-amber-950/40"
                             : "border-amber-200 bg-amber-50/20 dark:border-amber-900/40 dark:bg-amber-950/20"
-                    }`}
+                        }`}
                 >
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-amber-800 dark:text-amber-300">Sắp Hết Hạn (&le; {thresholdDays} ngày)</span>
@@ -276,11 +274,10 @@ export default function OutsourcedContractWarningView() {
 
                 <div
                     onClick={() => { setStatusFilter("EXPIRED"); setCurrentPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
-                        statusFilter === "EXPIRED"
+                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${statusFilter === "EXPIRED"
                             ? "border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/40 dark:bg-rose-950/40"
                             : "border-rose-200 bg-rose-50/20 dark:border-rose-900/40 dark:bg-rose-950/20"
-                    }`}
+                        }`}
                 >
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-rose-800 dark:text-rose-300">Đã Quá Hạn Hợp Đồng</span>
@@ -296,14 +293,13 @@ export default function OutsourcedContractWarningView() {
 
                 <div
                     onClick={() => { setStatusFilter("AFFECTED_ONLY"); setCurrentPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${
-                        statusFilter === "AFFECTED_ONLY"
+                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${statusFilter === "AFFECTED_ONLY"
                             ? "border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/40 dark:bg-purple-950/40"
                             : "border-purple-200 bg-purple-50/20 dark:border-purple-900/40 dark:bg-purple-950/20"
-                    }`}
+                        }`}
                 >
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-purple-800 dark:text-purple-300">Vi Phạm Phân Bổ (QTN-21)</span>
+                        <span className="text-xs font-medium text-purple-800 dark:text-purple-300">Vi Phạm Phân Bổ</span>
                         <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
                             <FolderKanban className="h-4 w-4" />
                         </div>
@@ -334,43 +330,39 @@ export default function OutsourcedContractWarningView() {
                         <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 text-xs">
                             <button
                                 onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${
-                                    statusFilter === "ALL"
+                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "ALL"
                                         ? "bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white"
                                         : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                }`}
+                                    }`}
                             >
                                 Tất cả
                             </button>
                             <button
                                 onClick={() => { setStatusFilter("EXPIRING_SOON"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${
-                                    statusFilter === "EXPIRING_SOON"
+                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "EXPIRING_SOON"
                                         ? "bg-white text-amber-700 shadow-xs dark:bg-slate-700 dark:text-amber-300"
                                         : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                }`}
+                                    }`}
                             >
                                 Sắp hết hạn
                             </button>
                             <button
                                 onClick={() => { setStatusFilter("EXPIRED"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${
-                                    statusFilter === "EXPIRED"
+                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "EXPIRED"
                                         ? "bg-white text-rose-700 shadow-xs dark:bg-slate-700 dark:text-rose-300"
                                         : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                }`}
+                                    }`}
                             >
                                 Đã quá hạn
                             </button>
                             <button
                                 onClick={() => { setStatusFilter("AFFECTED_ONLY"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${
-                                    statusFilter === "AFFECTED_ONLY"
+                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "AFFECTED_ONLY"
                                         ? "bg-white text-purple-700 shadow-xs dark:bg-slate-700 dark:text-purple-300"
                                         : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                }`}
+                                    }`}
                             >
-                                Vi phạm QTN-21
+                                Vi phạm 
                             </button>
                         </div>
                     </div>

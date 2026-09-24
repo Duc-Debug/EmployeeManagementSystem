@@ -109,7 +109,7 @@ export default function HrProfileForm({
                 }
             })
             .catch((err) => {
-                console.warn("Không thể tải danh sách vai trò chuyên môn từ Backend:", err);
+                console.warn("Không thể tải danh sách vai trò chuyên môn:", err);
             });
         return () => {
             isMounted = false;

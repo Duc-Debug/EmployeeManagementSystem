@@ -46,10 +46,6 @@ public class ApplyResourceScenarioUseCaseConfig {
             DeleteScenarioSnapshotPort deleteSnapshotPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             SaveWeeklyProjectAllocationPort saveAllocationPort,
-            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
-            LoadHolidaysPort loadHolidaysPort,
-            LoadApprovedLeavesPort loadApprovedLeavesPort,
-            @Autowired(required = false) LoadWorkingCalendarPort loadWorkingCalendarPort,
             SaveAuditLogPort saveAuditLogPort,
             ScenarioBaselineValidator scenarioBaselineValidator
     ) {
@@ -67,10 +63,6 @@ public class ApplyResourceScenarioUseCaseConfig {
                 deleteSnapshotPort,
                 loadAllocationPort,
                 saveAllocationPort,
-                loadWeeklyAvailabilityPort,
-                loadHolidaysPort,
-                loadApprovedLeavesPort,
-                loadWorkingCalendarPort,
                 saveAuditLogPort,
                 scenarioBaselineValidator
         );

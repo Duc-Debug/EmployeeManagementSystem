@@ -274,7 +274,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
                 <div className="flex items-center justify-between mb-2">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Lối tắt Nghiệp vụ Nhân sự (HR Quick Actions)
+                        Lối tắt Nghiệp vụ Nhân sự
                     </h2>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
@@ -323,14 +323,6 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         <span className="text-xs font-semibold text-slate-700">Khung Kỹ năng</span>
                     </button>
 
-                    <button
-                        type="button"
-                        onClick={() => onNavigate("attendance")}
-                        className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-center transition hover:border-purple-200 hover:bg-purple-50/50 cursor-pointer"
-                    >
-                        <Clock className="h-4 w-4 text-purple-600" />
-                        <span className="text-xs font-semibold text-slate-700">Chấm công</span>
-                    </button>
                 </div>
             </div>
 
@@ -487,7 +479,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         </div>
                         <ul className="space-y-1.5 text-[11px] text-teal-800/90 list-disc list-inside mt-2">
                             <li><strong>Quản lý hồ sơ:</strong> Khởi tạo, cập nhật hợp đồng và thông tin nhân sự kịp thời.</li>
-                            <li><strong>Duyệt phép & Ngày lễ:</strong> Phê duyệt đơn xin nghỉ và cập nhật lịch nghỉ lễ công ty theo QTN-10.</li>
+                            <li><strong>Duyệt phép & Ngày lễ:</strong> Phê duyệt đơn xin nghỉ và cập nhật lịch nghỉ lễ công ty theo.</li>
                             <li><strong>Đồng bộ giờ chuẩn:</strong> Đảm bảo cấu hình giờ khả dụng chuẩn 40h/tuần để RM phân bổ dự án chính xác.</li>
                         </ul>
                     </div>

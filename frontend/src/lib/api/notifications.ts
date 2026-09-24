@@ -35,6 +35,7 @@ export interface UnreadCountResponse {
 }
 
 export interface NotificationQueryParams {
+  eventType?: "ALL" | "ALLOCATION_CHANGED";
   status?: "ALL" | "UNREAD" | "READ" | string;
   level?: "ALL" | "CAO" | "TRUNG_BINH" | "THAP" | string;
   page?: number;
@@ -47,6 +48,7 @@ export interface NotificationQueryParams {
 export async function getNotificationCenter(params?: NotificationQueryParams): Promise<NotificationCenterPage> {
   const query = new URLSearchParams();
   if (params?.status) query.append("status", params.status);
+  if (params?.eventType) query.append("eventType", params.eventType);
   if (params?.level) query.append("level", params.level);
   if (params?.page !== undefined) query.append("page", params.page.toString());
   if (params?.size !== undefined) query.append("size", params.size.toString());

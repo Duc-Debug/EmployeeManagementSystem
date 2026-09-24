@@ -8,7 +8,6 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
-import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
@@ -32,7 +31,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -41,7 +39,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -121,6 +118,31 @@ class DepartmentMonthlyLeaveCalendarServiceTest {
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
+    }
+
+    @Test
+    void pmCanReadOnlyMembersOfManagedProjectsWithSelfScope() {
+        User pmUser = new User(new UserId(2L), "pm", "hash",
+                new Role(new RoleId(2L), RoleCode.VT_02, "PM"), UserStatus.ACTIVE,
+                new EmployeeId(90L), DataScope.SELF, null, 0L);
+        when(authorizationService.require(PermissionCode.DEPARTMENT_LEAVE_READ)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(pmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(department));
+        when(loadEmployeePort.findByUserId(new UserId(2L)))
+                .thenReturn(Optional.of(createEmployee(90L, "PM90", "PM")));
+        when(loadEmployeePort.findByProjectManager(90L, 500, 0))
+                .thenReturn(List.of(createEmployee(101L, "E101", "Team member")));
+        when(loadDepartmentMonthlyLeavePort.findLeavesForEmployees(eq(List.of(101L)), any(), any(), anyMap()))
+                .thenReturn(List.of());
+
+        var result = service.execute(new GetDepartmentMonthlyLeaveCalendarQuery(10L, 2026, 9, 0.5));
+
+        assertEquals(1, result.totalDepartmentEmployees());
+        assertEquals("Nhóm dự án do tôi quản lý", result.orgUnitName());
+        verify(loadEmployeePort, never()).findActiveByOrgUnitId(anyLong());
+        verify(loadEmployeePort, never()).findByOrgUnitBranch(anyLong(), anyInt(), anyInt());
+        verify(loadDepartmentMonthlyLeavePort).findLeavesForEmployees(eq(List.of(101L)),
+                eq(LocalDate.of(2026, 9, 1)), eq(LocalDate.of(2026, 9, 30)), anyMap());
     }
 
     @Test

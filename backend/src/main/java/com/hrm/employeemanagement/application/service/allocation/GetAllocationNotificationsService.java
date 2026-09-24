@@ -22,11 +22,8 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.notification.Notification;
-import com.hrm.employeemanagement.domain.project.Project;
-import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -125,9 +122,6 @@ public class GetAllocationNotificationsService implements GetAllocationNotificat
         } else {
             // VT-03: RM - DataScope theo đơn vị / nhánh
             if (projectId != null) {
-                Project targetProject = loadProjectPort.findById(new ProjectId(projectId))
-                        .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + projectId));
-
                 boolean inScope = switch (currentUser.getDataScope()) {
                     case COMPANY -> true;
                     case ORGANIZATION_BRANCH -> currentUser.getScopeOrgUnitId() != null

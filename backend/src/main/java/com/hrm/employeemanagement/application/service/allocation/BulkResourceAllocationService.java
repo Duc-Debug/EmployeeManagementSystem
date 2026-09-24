@@ -12,7 +12,9 @@ import java.util.stream.Collectors;
 import com.hrm.employeemanagement.application.dto.allocation.BulkAllocateResourceCommand;
 import com.hrm.employeemanagement.application.dto.allocation.BulkAllocationResult;
 import com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
@@ -21,6 +23,9 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.AdjustmentAction;
+import com.hrm.employeemanagement.domain.allocation.AllocationChangeLog;
+import com.hrm.employeemanagement.domain.allocation.AllocationNotificationPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -40,19 +45,6 @@ import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
-
-/**
- * NCL-06-CN-006: Nghiệp vụ phân bổ hàng loạt cho nhiều tuần.
- * Xử lý kiểm tra giờ khả dụng (QTN-11), hạn hợp đồng (QTN-05), trạng thái dự án
- * (QTN-08),
- * phân quyền (TC-03), phân bổ từng phần (TC-02) và ghi nhật ký kiểm toán
- * (TC-04).
- */
-import com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort;
-import com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort;
-import com.hrm.employeemanagement.domain.allocation.AdjustmentAction;
-import com.hrm.employeemanagement.domain.allocation.AllocationChangeLog;
-import com.hrm.employeemanagement.domain.allocation.AllocationNotificationPolicy;
 
 public class BulkResourceAllocationService implements BulkAllocateResourceUseCase {
 

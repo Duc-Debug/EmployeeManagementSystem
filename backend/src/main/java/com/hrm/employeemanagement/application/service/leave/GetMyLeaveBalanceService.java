@@ -6,7 +6,6 @@ import com.hrm.employeemanagement.application.port.outbound.availability.LoadHol
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveBalancePort;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
-import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveBalancePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
@@ -31,7 +30,6 @@ public class GetMyLeaveBalanceService implements GetMyLeaveBalanceUseCase {
 
     private final LoadEmployeePort loadEmployeePort;
     private final LoadLeaveBalancePort loadLeaveBalancePort;
-    private final SaveLeaveBalancePort saveLeaveBalancePort;
     private final LoadLeaveRequestPort loadLeaveRequestPort;
     private final AuthorizationService authorizationService;
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
@@ -40,7 +38,6 @@ public class GetMyLeaveBalanceService implements GetMyLeaveBalanceUseCase {
     public GetMyLeaveBalanceService(
             LoadEmployeePort loadEmployeePort,
             LoadLeaveBalancePort loadLeaveBalancePort,
-            SaveLeaveBalancePort saveLeaveBalancePort,
             LoadLeaveRequestPort loadLeaveRequestPort,
             AuthorizationService authorizationService,
             LoadWorkingCalendarPort loadWorkingCalendarPort,
@@ -48,7 +45,6 @@ public class GetMyLeaveBalanceService implements GetMyLeaveBalanceUseCase {
     ) {
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
         this.loadLeaveBalancePort = Objects.requireNonNull(loadLeaveBalancePort, "loadLeaveBalancePort must not be null");
-        this.saveLeaveBalancePort = Objects.requireNonNull(saveLeaveBalancePort, "saveLeaveBalancePort must not be null");
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;

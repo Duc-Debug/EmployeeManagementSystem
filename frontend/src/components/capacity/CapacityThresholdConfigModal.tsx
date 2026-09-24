@@ -271,7 +271,7 @@ export function CapacityThresholdConfigModal({
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                Cấu hình ngưỡng cảnh báo năng lực (QTN-23)
+                Cấu hình ngưỡng cảnh báo năng lực
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Thiết lập ngưỡng % tải phục vụ cảnh báo quá tải &amp; nhàn rỗi
@@ -522,7 +522,7 @@ export function CapacityThresholdConfigModal({
               {/* Live Preview Bar */}
               <div className="space-y-2 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/40">
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Trực quan hóa dải phân loại năng lực (Preview):
+                  Trực quan hóa dải phân loại năng lực:
                 </span>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs font-medium">
                   <div className="flex flex-col items-center justify-center rounded-lg border border-amber-200 bg-amber-50 py-2 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">

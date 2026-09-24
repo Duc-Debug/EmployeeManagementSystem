@@ -1,7 +1,6 @@
 package com.hrm.employeemanagement.application.service.scenario.recruitment;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,7 +37,6 @@ import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;
 import com.hrm.employeemanagement.domain.scenario.recruitment.RoleShortfallDemand;
 import com.hrm.employeemanagement.domain.scenario.recruitment.ScenarioSimulatedEmployee;
 import com.hrm.employeemanagement.domain.scenario.recruitment.SimulatedEmployeeId;
-import com.hrm.employeemanagement.domain.skill.Skill;
 import com.hrm.employeemanagement.domain.skill.SkillId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

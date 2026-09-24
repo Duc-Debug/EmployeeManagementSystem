@@ -1,7 +1,6 @@
 package com.hrm.employeemanagement.application.service.scenario;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,7 +35,6 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectP
 import com.hrm.employeemanagement.application.port.outbound.scenario.LoadScenarioSharePort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
-import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;

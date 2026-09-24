@@ -264,7 +264,7 @@ export default function WeeklyAvailabilityView() {
           <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
             {isSelfOnly
               ? "Xem chi tiết giờ chuẩn tuần, giờ lễ và nghỉ phép đã duyệt để xác định giờ làm việc khả dụng thực tế của bạn."
-              : "Quản lý giờ chuẩn tuần và tự động tính toán năng lực khả dụng: Giờ chuẩn − Giờ lễ − Nghỉ phép đã duyệt."}
+              : "Quản lý giờ chuẩn tuần: Giờ chuẩn − Giờ lễ − Nghỉ phép đã duyệt."}
           </p>
         </div>
 
@@ -382,7 +382,7 @@ export default function WeeklyAvailabilityView() {
             {isLoadingCapacities && (
               <div className="flex items-center gap-1.5 text-xs text-indigo-600 font-semibold">
                 <Loader2 className="size-3.5 animate-spin" />
-                <span>Đang tính toán QTN-10...</span>
+                <span>Đang tính toán...</span>
               </div>
             )}
           </div>

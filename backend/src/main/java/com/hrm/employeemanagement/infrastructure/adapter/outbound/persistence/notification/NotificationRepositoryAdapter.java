@@ -9,6 +9,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.NotificationEventRepositoryPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.NotificationRecipientRepositoryPort;
+import com.hrm.employeemanagement.domain.notification.NotificationEvent;
+import com.hrm.employeemanagement.domain.notification.NotificationLevel;
+import com.hrm.employeemanagement.domain.notification.NotificationRecipientItem;
+import org.springframework.transaction.annotation.Transactional;
 import com.hrm.employeemanagement.domain.notification.Notification;
 import com.hrm.employeemanagement.domain.notification.NotificationId;
 import com.hrm.employeemanagement.domain.notification.NotificationFrequency;
@@ -23,14 +29,20 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
     private final SpringDataNotificationRepository notificationRepository;
     private final NotificationPersistenceMapper mapper;
     private final TransactionalLegacyDigestHelper digestHelper;
+    private final NotificationEventRepositoryPort eventRepository;
+    private final NotificationRecipientRepositoryPort recipientRepository;
 
     public NotificationRepositoryAdapter(
             SpringDataNotificationRepository notificationRepository,
             NotificationPersistenceMapper mapper,
-            TransactionalLegacyDigestHelper digestHelper) {
+            TransactionalLegacyDigestHelper digestHelper,
+            NotificationEventRepositoryPort eventRepository,
+            NotificationRecipientRepositoryPort recipientRepository) {
         this.notificationRepository = Objects.requireNonNull(notificationRepository, "notificationRepository không được null");
         this.mapper = Objects.requireNonNull(mapper, "NotificationPersistenceMapper không được null");
         this.digestHelper = Objects.requireNonNull(digestHelper, "digestHelper must not be null");
+        this.eventRepository = Objects.requireNonNull(eventRepository);
+        this.recipientRepository = Objects.requireNonNull(recipientRepository);
     }
 
     @Override
@@ -52,9 +64,22 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
     }
 
     @Override
+    @Transactional
     public Notification save(Notification notification) {
         NotificationJpaEntity entity = mapper.toJpaEntity(notification);
         NotificationJpaEntity saved = notificationRepository.save(entity);
+        // The bell reads the notification center; allocation history reads the legacy table.
+        // Publish both in the allocation transaction, after delivery preferences are applied.
+        if (notification.getId() == null && notification.getType() == NotificationType.ALLOCATION_CHANGED) {
+            NotificationEvent event = eventRepository.save(new NotificationEvent(
+                    null, NotificationType.ALLOCATION_CHANGED.name(), NotificationLevel.TRUNG_BINH,
+                    notification.getTitle(), notification.getContent(), "PROJECT_ALLOCATION",
+                    String.valueOf(notification.getTargetId()), "LEGACY:NOTIF:" + saved.getId(),
+                    notification.getCreatedAt()));
+            recipientRepository.save(new NotificationRecipientItem(
+                    null, event.getId(), notification.getRecipientId(), false, null, false, null,
+                    notification.getCreatedAt(), notification.getAvailableAt()));
+        }
         return mapper.toDomain(saved);
     }
 

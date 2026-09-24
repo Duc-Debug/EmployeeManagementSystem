@@ -143,7 +143,7 @@ export function ProlongedIdlenessWarningModal({
   if (!open) return null;
 
   const handleAcknowledgeSuccess = () => {
-    setSuccessToast("Đã ghi nhận phương án xử lý cảnh báo thành công (TC-04).");
+    setSuccessToast("Đã ghi nhận phương án xử lý cảnh báo thành công.");
     fetchData();
     setTimeout(() => {
       setSuccessToast(null);
@@ -229,12 +229,9 @@ export function ProlongedIdlenessWarningModal({
                 <h2 className="text-lg font-bold text-slate-900">
                   Cảnh Báo Nhân Sự Nhàn Rỗi Kéo Dài
                 </h2>
-                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
-                  QTN-23
-                </span>
               </div>
               <p className="text-xs text-slate-500">
-                Rà soát nhân sự có mức sử dụng dưới ngưỡng Ban Giám Đốc quy định trong nhiều tuần liên tiếp
+                Rà soát nhân sự có mức sử dụng dưới ngưỡng quy định trong nhiều tuần liên tiếp
               </p>
             </div>
           </div>
@@ -277,7 +274,7 @@ export function ProlongedIdlenessWarningModal({
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700">Ngưỡng nhàn rỗi (QTN-23)</span>
+                <span className="text-xs font-semibold text-slate-700">Ngưỡng nhàn rỗi</span>
                 <Sliders className="h-4 w-4 text-slate-500" />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
@@ -437,14 +434,14 @@ export function ProlongedIdlenessWarningModal({
                 onClick={handleExportCsv}
                 disabled={!report || report.totalIdleEmployees === 0 || isExporting}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Xuất toàn bộ danh sách nhân sự nhàn rỗi ra file CSV"
+                title="Xuất toàn bộ danh sách nhân sự nhàn rỗi ra file"
               >
                 {isExporting ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />
                 ) : (
                   <Download className="h-3.5 w-3.5 text-slate-500" />
                 )}
-                <span>{isExporting ? "Đang xuất..." : "Xuất CSV"}</span>
+                <span>{isExporting ? "Đang xuất..." : "Xuất"}</span>
               </button>
             </div>
           </div>
@@ -465,7 +462,7 @@ export function ProlongedIdlenessWarningModal({
               <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-2" />
               <h4 className="text-sm font-bold text-slate-800">Không phát hiện nhân sự nhàn rỗi kéo dài</h4>
               <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                Tất cả nhân sự trong phạm vi đã chọn đều có mức phân bổ trên ngưỡng quy định hoặc được miễn trừ nghỉ phép dài ngày (TC-02).
+                Tất cả nhân sự trong phạm vi đã chọn đều có mức phân bổ trên ngưỡng quy định hoặc được miễn trừ nghỉ phép dài ngày.
               </p>
             </div>
           ) : (

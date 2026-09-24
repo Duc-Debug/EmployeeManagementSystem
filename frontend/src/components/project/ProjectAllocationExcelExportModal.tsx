@@ -142,9 +142,6 @@ export function ProjectAllocationExcelExportModal({
               <h2 id="modal-title" className="text-base font-bold text-slate-900">
                 Xuất báo cáo phân bổ ra file Excel
               </h2>
-              <p className="text-xs text-slate-500">
-                Mã nghiệp vụ: <span className="font-semibold text-slate-700">NCL-10-CN-003</span>
-              </p>
             </div>
           </div>
           <button
@@ -179,11 +176,10 @@ export function ProjectAllocationExcelExportModal({
               <button
                 type="button"
                 onClick={() => setMode("CUSTOM")}
-                className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-medium border transition ${
-                  mode === "CUSTOM"
+                className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-medium border transition ${mode === "CUSTOM"
                     ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold"
                     : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 <Calendar className="h-3.5 w-3.5" />
                 Khoảng thời gian cụ thể
@@ -191,11 +187,10 @@ export function ProjectAllocationExcelExportModal({
               <button
                 type="button"
                 onClick={() => setMode("ALL")}
-                className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-medium border transition ${
-                  mode === "ALL"
+                className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-medium border transition ${mode === "ALL"
                     ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold"
                     : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 <FileSpreadsheet className="h-3.5 w-3.5" />
                 Toàn bộ dữ liệu dự án
@@ -280,7 +275,7 @@ export function ProjectAllocationExcelExportModal({
           <div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-3 rounded-2xl border border-slate-200/50">
             <ShieldCheck className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
             <span>
-              Thao tác xuất tệp sẽ được ghi nhận vào nhật ký kiểm toán hệ thống (Audit Log) theo quy trình QTN-02.
+              Thao tác xuất tệp sẽ được ghi nhận vào nhật ký kiểm toán hệ thống.
             </span>
           </div>
 

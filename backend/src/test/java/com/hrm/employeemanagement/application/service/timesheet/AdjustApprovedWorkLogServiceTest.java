@@ -44,7 +44,6 @@ import com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExce
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotApprovedException;
 import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogAdjustmentReasonRequiredException;
-import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogInvalidHoursException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;

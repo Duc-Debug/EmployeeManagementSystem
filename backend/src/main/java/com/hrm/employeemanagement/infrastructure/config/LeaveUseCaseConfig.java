@@ -94,7 +94,6 @@ public class LeaveUseCaseConfig {
         GetMyLeaveBalanceService service = new GetMyLeaveBalanceService(
                 loadEmployeePort,
                 loadLeaveBalancePort,
-                saveLeaveBalancePort,
                 loadLeaveRequestPort,
                 authorizationService,
                 loadWorkingCalendarPort,
@@ -121,7 +120,6 @@ public class LeaveUseCaseConfig {
                 loadUserPort,
                 loadOrgUnitPort,
                 loadLeaveBalancePort,
-                saveLeaveBalancePort,
                 loadLeaveRequestPort,
                 authorizationService,
                 auditLogRepository,

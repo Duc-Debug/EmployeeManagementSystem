@@ -296,7 +296,7 @@ export default function ProjectRoleCatalogView() {
           Không có quyền truy cập
         </h3>
         <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-          Chức năng Danh mục vai trò chuyên môn yêu cầu quyền PROJECT_ROLE_READ. Vui lòng liên hệ Quản trị viên để được cấp quyền.
+          Vui lòng liên hệ Quản trị viên để được cấp quyền.
         </p>
       </div>
     );
@@ -313,11 +313,7 @@ export default function ProjectRoleCatalogView() {
           <div>
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               Danh mục vai trò chuyên môn
-              
             </h1>
-            <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              Quản lý chuẩn hóa danh mục vai trò kỹ thuật và dự án gắn với nhóm kỹ năng tương ứng, phục vụ việc ước lượng nhu cầu nhân lực và phân bổ chung cho toàn tổ chức.
-            </p>
           </div>
         </div>
 
@@ -336,13 +332,12 @@ export default function ProjectRoleCatalogView() {
       {/* Notification Toast */}
       {notification && (
         <div
-          className={`flex items-center gap-3 p-4 rounded-xl text-xs font-medium border transition-all ${
-            notification.type === "success"
+          className={`flex items-center gap-3 p-4 rounded-xl text-xs font-medium border transition-all ${notification.type === "success"
               ? "bg-emerald-50 text-emerald-800 border-emerald-200"
               : notification.type === "error"
-              ? "bg-rose-50 text-rose-800 border-rose-200"
-              : "bg-blue-50 text-blue-800 border-blue-200"
-          }`}
+                ? "bg-rose-50 text-rose-800 border-rose-200"
+                : "bg-blue-50 text-blue-800 border-blue-200"
+            }`}
         >
           {notification.type === "success" && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
           {notification.type === "error" && <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />}
@@ -455,9 +450,8 @@ export default function ProjectRoleCatalogView() {
                   return (
                     <tr
                       key={role.id}
-                      className={`hover:bg-slate-50/60 transition ${
-                        isInactive ? "bg-slate-50/30 text-slate-400" : "text-slate-700"
-                      }`}
+                      className={`hover:bg-slate-50/60 transition ${isInactive ? "bg-slate-50/30 text-slate-400" : "text-slate-700"
+                        }`}
                     >
                       <td className="py-4 pl-6 pr-3 text-center text-slate-400 font-mono">
                         {index + 1}
@@ -465,11 +459,10 @@ export default function ProjectRoleCatalogView() {
 
                       <td className="py-4 px-4 font-mono font-bold">
                         <span
-                          className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-semibold tracking-wide ${
-                            isInactive
+                          className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-semibold tracking-wide ${isInactive
                               ? "bg-slate-100 text-slate-500 border border-slate-200"
                               : "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                          }`}
+                            }`}
                         >
                           {role.code}
                         </span>
@@ -841,7 +834,7 @@ export default function ProjectRoleCatalogView() {
                     )}
                   </ul>
                   <div className="mt-2.5 pt-2 border-t border-amber-200/60 text-[11px] text-amber-700">
-                    <strong>Quy định hệ thống:</strong> Vai trò này sẽ được chuyển sang trạng thái <strong>NGỪNG SỬ DỤNG</strong> và ẩn khỏi danh sách chọn mới. Hệ thống tuyệt đối <em>không xóa vật lý</em> dữ liệu để đảm bảo toàn vẹn ước lượng nhu cầu các dự án hiện hành.
+                    Vai trò này sẽ được chuyển sang trạng thái <strong>NGỪNG SỬ DỤNG</strong> và ẩn khỏi danh sách chọn mới.
                   </div>
                 </div>
               </div>

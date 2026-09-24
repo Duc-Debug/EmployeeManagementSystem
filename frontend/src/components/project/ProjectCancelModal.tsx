@@ -68,7 +68,7 @@ export function ProjectCancelModal({
                         </div>
                         <div>
                             <h2 className="text-base font-bold text-slate-900">Hủy dự án dự kiến</h2>
-                            <p className="text-xs text-rose-700 font-medium">Chuyển trạng thái sang Đã hủy (CANCELLED)</p>
+                            <p className="text-xs text-rose-700 font-medium">Chuyển trạng thái sang Đã hủy</p>
                         </div>
                     </div>
                     <button

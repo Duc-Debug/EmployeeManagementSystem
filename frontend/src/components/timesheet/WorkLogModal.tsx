@@ -201,7 +201,7 @@ export default function WorkLogModal({
               </div>
             ) : tasks.length === 0 ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                Bạn chưa được phân công vào công việc nào đang hoạt động. Vui lòng liên hệ Quản lý dự án (PM).
+                Bạn chưa được phân công vào công việc nào đang hoạt động. Vui lòng liên hệ Quản lý dự án.
               </div>
             ) : (
               <select
@@ -242,7 +242,7 @@ export default function WorkLogModal({
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-slate-500" />
-                Số giờ làm (Hours) <span className="text-rose-500">*</span>
+                Số giờ làm<span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
@@ -288,7 +288,7 @@ export default function WorkLogModal({
               className="text-xs font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer"
             >
               <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
-              Tính phí khách hàng (Billable hours)
+              Tính phí khách hàng
             </label>
           </div>
 
@@ -307,7 +307,7 @@ export default function WorkLogModal({
               className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-normal text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
             <p className="mt-1 text-[11px] text-slate-400">
-              * Quy tắc QTN-09: Tổng giờ công trong một ngày của nhân viên không được vượt quá 12 giờ.
+              * Tổng giờ công trong một ngày của nhân viên không được vượt quá 12 giờ.
             </p>
           </div>
 

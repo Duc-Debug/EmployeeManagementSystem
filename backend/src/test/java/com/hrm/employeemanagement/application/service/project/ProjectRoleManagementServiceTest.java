@@ -36,7 +36,6 @@ import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCode
 import com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException;
 import com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleDataException;
 import com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException;
-import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRole;
 import com.hrm.employeemanagement.domain.project.demand.ProjectRoleId;

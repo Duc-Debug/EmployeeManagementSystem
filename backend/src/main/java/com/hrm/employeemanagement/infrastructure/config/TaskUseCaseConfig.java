@@ -90,11 +90,9 @@ public class TaskUseCaseConfig {
                 loadTaskAssignmentPort,
                 saveTaskAssignmentPort,
                 loadProjectPort,
-                saveProjectMemberPort,
                 loadEmployeePort,
                 loadOrgUnitPort,
                 loadUserPort,
-                saveAuditLogPort,
                 saveDeniedAuditLogPort,
                 authorizationService);
         return new TransactionalAssignTaskUseCase(pureService);

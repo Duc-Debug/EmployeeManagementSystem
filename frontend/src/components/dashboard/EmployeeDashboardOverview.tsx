@@ -142,7 +142,7 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
             case "PENDING":
                 return (
                     <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-700">
-                        <Clock className="h-2.5 w-2.5" /> Chờ RM duyệt
+                        <Clock className="h-2.5 w-2.5" /> Chờ duyệt
                     </span>
                 );
             default:
@@ -313,7 +313,7 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
                 <div className="flex items-center justify-between mb-2">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Lối tắt Thao tác Nhanh (Personal Actions)
+                        Lối tắt Thao tác Nhanh
                     </h2>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
@@ -359,7 +359,7 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-center transition hover:border-emerald-200 hover:bg-emerald-50/50 cursor-pointer"
                     >
                         <Clock className="h-4 w-4 text-emerald-600" />
-                        <span className="text-xs font-semibold text-slate-700">Chấm công</span>
+                        <span className="text-xs font-semibold text-slate-700">Ghi giờ công</span>
                     </button>
 
                     <button
@@ -608,7 +608,7 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         <ul className="space-y-1 text-[11px] text-sky-800/80 list-disc list-inside mt-2">
                             <li>Nộp đơn nghỉ phép trước ít nhất <strong>03 ngày</strong> làm việc đối với phép năm.</li>
                             <li>Khai báo kỹ năng chuyên môn định kỳ để được RM và Trưởng nhóm xem xét nâng cấp bậc.</li>
-                            <li>Tuân thủ giờ làm việc chuẩn 40h/tuần và theo dõi bảng phân bổ dự án.</li>
+                            <li>Tuân thủ giờ làm việc chuẩn và theo dõi bảng phân bổ dự án.</li>
                         </ul>
                     </div>
                 </div>

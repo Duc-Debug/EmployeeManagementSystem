@@ -6,12 +6,20 @@ public record GetNotificationCenterQuery(
         String status, // ALL, UNREAD, READ
         String level,  // ALL, CAO, TRUNG_BINH, THAP
         int page,
-        int size
+        int size,
+        String eventType
 ) {
+    public GetNotificationCenterQuery(String status, String level, int page, int size) {
+        this(status, level, page, size, "ALL");
+    }
     private static final Set<String> ALLOWED_STATUSES = Set.of("ALL", "UNREAD", "READ");
     private static final Set<String> ALLOWED_LEVELS = Set.of("ALL", "CAO", "TRUNG_BINH", "THAP");
 
     public GetNotificationCenterQuery {
+        eventType = eventType == null || eventType.isBlank() ? "ALL" : eventType.trim().toUpperCase();
+        if (!Set.of("ALL", "ALLOCATION_CHANGED").contains(eventType)) {
+            throw new IllegalArgumentException("Loại thông báo không hợp lệ");
+        }
         if (page < 0) {
             throw new IllegalArgumentException("Chỉ số trang (page) không được nhỏ hơn 0");
         }

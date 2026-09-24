@@ -104,10 +104,10 @@ export default function RecruitmentDemandReportView() {
         fromYear, fromWeek, toYear, toWeek,
         orgUnitId: selectedOrgUnitId ? Number(selectedOrgUnitId) : undefined,
       });
-    setShowConfirmModal(false);
-    const nowStr = new Date().toLocaleString("vi-VN");
-    setAuditNotice(`Đã ghi nhận nhật ký thao tác xuất báo cáo thành công lúc ${nowStr}.`);
-    setTimeout(() => setAuditNotice(null), 5000);
+      setShowConfirmModal(false);
+      const nowStr = new Date().toLocaleString("vi-VN");
+      setAuditNotice(`Đã ghi nhận nhật ký thao tác xuất báo cáo thành công lúc ${nowStr}.`);
+      setTimeout(() => setAuditNotice(null), 5000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể xuất báo cáo.");
     }
@@ -136,9 +136,6 @@ export default function RecruitmentDemandReportView() {
               <h1 className="text-xl font-bold text-slate-900">
                 Báo cáo nhu cầu tuyển dụng theo kỹ năng
               </h1>
-              <p className="text-xs text-slate-500">
-                Mã nghiệp vụ: <span className="font-semibold text-slate-700">NCL-10-CN-005</span> • Ban Giám Đốc & HR
-              </p>
             </div>
           </div>
           <p className="mt-2 text-xs text-slate-600 max-w-3xl leading-relaxed">
@@ -451,7 +448,7 @@ export default function RecruitmentDemandReportView() {
                 Xác nhận thao tác xuất báo cáo
               </h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Hệ thống sẽ ghi nhận lịch sử lượt thao tác này vào nhật ký báo cáo (Audit Log) bao gồm: Người thực hiện, Nội dung báo cáo và Thời điểm xác nhận.
+                Hệ thống sẽ ghi nhận lịch sử lượt thao tác này vào nhật ký báo cáo.
               </p>
             </div>
 

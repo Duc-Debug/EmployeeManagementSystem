@@ -100,7 +100,7 @@ export function AcknowledgeIdlenessDialog({
                 Xác nhận xử lý cảnh báo nhàn rỗi
               </h3>
               <p className="text-xs text-slate-500">
-                Lưu vết kiểm toán hành động can thiệp của Quản lý nguồn lực (TC-04)
+                Lưu vết kiểm toán hành động can thiệp của Quản lý nguồn lực
               </p>
             </div>
           </div>

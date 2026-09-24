@@ -16,10 +16,10 @@ export default function ProlongedIdlenessView() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900">
-              Cảnh Báo Nhân Sự Nhàn Rỗi Kéo Dài (QTN-23)
+              Cảnh Báo Nhân Sự Nhàn Rỗi Kéo Dài
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Phát hiện nhân sự có mức sử dụng dưới ngưỡng Ban Giám Đốc ban hành trong nhiều tuần liên tiếp (NCL-07-CN-006).
+              Phát hiện nhân sự có mức sử dụng dưới ngưỡng ban hành trong nhiều tuần liên tiếp .
             </p>
           </div>
         </div>

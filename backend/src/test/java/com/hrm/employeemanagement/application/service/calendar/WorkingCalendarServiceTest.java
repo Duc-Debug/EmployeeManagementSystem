@@ -15,7 +15,6 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar;
-import com.hrm.employeemanagement.domain.calendar.WorkingCalendarDay;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.calendar.DuplicateHolidayException;
 import com.hrm.employeemanagement.domain.exception.calendar.HolidayNotFoundException;
@@ -71,8 +70,7 @@ class WorkingCalendarServiceTest {
                 saveWorkingCalendarPort,
                 holidayQueryPort,
                 holidayCommandPort,
-                saveAuditLogPort
-        );
+                saveAuditLogPort);
     }
 
     @Test
@@ -104,8 +102,7 @@ class WorkingCalendarServiceTest {
                 new WorkingCalendarDayDto(DayOfWeek.THURSDAY, true),
                 new WorkingCalendarDayDto(DayOfWeek.FRIDAY, true),
                 new WorkingCalendarDayDto(DayOfWeek.SATURDAY, true), // Bật Thứ 7
-                new WorkingCalendarDayDto(DayOfWeek.SUNDAY, false)
-        );
+                new WorkingCalendarDayDto(DayOfWeek.SUNDAY, false));
 
         CompanyWorkingCalendarResult result = service.updateWorkingCalendar(updateDays);
 
@@ -134,8 +131,7 @@ class WorkingCalendarServiceTest {
                 new WorkingCalendarDayDto(DayOfWeek.THURSDAY, false),
                 new WorkingCalendarDayDto(DayOfWeek.FRIDAY, false),
                 new WorkingCalendarDayDto(DayOfWeek.SATURDAY, false),
-                new WorkingCalendarDayDto(DayOfWeek.SUNDAY, false)
-        );
+                new WorkingCalendarDayDto(DayOfWeek.SUNDAY, false));
 
         assertThrows(InvalidWorkingCalendarException.class, () -> service.updateWorkingCalendar(invalidDays));
         verify(saveWorkingCalendarPort, never()).saveCompanyCalendar(any());
@@ -148,8 +144,7 @@ class WorkingCalendarServiceTest {
         when(loadWorkingCalendarPort.loadCompanyCalendar()).thenReturn(CompanyWorkingCalendar.createDefault());
 
         List<WorkingCalendarDayDto> missingDays = List.of(
-                new WorkingCalendarDayDto(DayOfWeek.MONDAY, true)
-        );
+                new WorkingCalendarDayDto(DayOfWeek.MONDAY, true));
 
         assertThrows(InvalidWorkingCalendarException.class, () -> service.updateWorkingCalendar(missingDays));
         verify(saveWorkingCalendarPort, never()).saveCompanyCalendar(any());
@@ -168,8 +163,7 @@ class WorkingCalendarServiceTest {
                 new WorkingCalendarDayDto(DayOfWeek.WEDNESDAY, true),
                 new WorkingCalendarDayDto(DayOfWeek.THURSDAY, true),
                 new WorkingCalendarDayDto(DayOfWeek.FRIDAY, true),
-                new WorkingCalendarDayDto(DayOfWeek.SATURDAY, false)
-        );
+                new WorkingCalendarDayDto(DayOfWeek.SATURDAY, false));
 
         assertThrows(InvalidWorkingCalendarException.class, () -> service.updateWorkingCalendar(duplicateDays));
         verify(saveWorkingCalendarPort, never()).saveCompanyCalendar(any());
@@ -188,8 +182,7 @@ class WorkingCalendarServiceTest {
                 new WorkingCalendarDayDto(DayOfWeek.THURSDAY, true),
                 new WorkingCalendarDayDto(DayOfWeek.FRIDAY, true),
                 new WorkingCalendarDayDto(DayOfWeek.SATURDAY, false),
-                new WorkingCalendarDayDto(DayOfWeek.SUNDAY, false)
-        );
+                new WorkingCalendarDayDto(DayOfWeek.SUNDAY, false));
 
         assertThrows(InvalidWorkingCalendarException.class, () -> service.updateWorkingCalendar(nullDays));
         verify(saveWorkingCalendarPort, never()).saveCompanyCalendar(any());
@@ -232,7 +225,8 @@ class WorkingCalendarServiceTest {
 
         CreateHolidayCommand command = new CreateHolidayCommand(duplicateDate, "Quốc khánh trùng", 8);
 
-        DuplicateHolidayException ex = assertThrows(DuplicateHolidayException.class, () -> service.createHoliday(command));
+        DuplicateHolidayException ex = assertThrows(DuplicateHolidayException.class,
+                () -> service.createHoliday(command));
         assertTrue(ex.getMessage().contains("2026-09-02"));
         verify(holidayCommandPort, never()).create(any(), any(), anyInt());
         verify(saveAuditLogPort, never()).save(any());

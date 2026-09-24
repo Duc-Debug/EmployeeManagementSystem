@@ -15,7 +15,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hrm.employeemanagement.application.dto.scenario.CompareScenariosCommand;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioComparisonItemResult;
 import com.hrm.employeemanagement.application.dto.scenario.ScenarioComparisonResult;
 import com.hrm.employeemanagement.application.port.inbound.scenario.CompareSimulationScenariosUseCase;

@@ -99,7 +99,7 @@ export default function ApproveWithConflictModal({
   const handleApprove = async () => {
     setSubmitError(null);
     if (conflictResult?.hasConflict && !confirmConflictWarning) {
-      setSubmitError("Bạn cần xác nhận đồng ý với cảnh báo xung đột phân bổ theo quy tắc QTN-24.");
+      setSubmitError("Bạn cần xác nhận đồng ý với cảnh báo xung đột phân bổ.");
       return;
     }
 
@@ -212,7 +212,7 @@ export default function ApproveWithConflictModal({
 
                 {/* QTN-24 Policy reminder */}
                 <div className="p-2.5 bg-amber-100/60 rounded-xl text-[11px] text-amber-900 leading-relaxed">
-                  <strong>Quy định nghiệp vụ QTN-24:</strong> Khi duyệt, kế hoạch phân bổ dự án{" "}
+                  <strong>Quy định:</strong> Khi duyệt, kế hoạch phân bổ dự án{" "}
                   <strong>không bị hủy hay giảm giờ</strong>. Hệ thống sẽ tự động trừ giờ khả dụng tuần và gắn cờ{" "}
                   <span className="font-bold text-rose-700">quá tải</span> nếu tổng giờ phân bổ vượt quá năng lực.
                 </div>
@@ -226,7 +226,7 @@ export default function ApproveWithConflictModal({
                     className="w-4 h-4 mt-0.5 rounded text-amber-600 focus:ring-amber-500 border-slate-300"
                   />
                   <span className="text-xs font-semibold text-slate-800 leading-normal">
-                    Tôi đã đọc và đồng ý phê duyệt đơn này dù có xung đột phân bổ dự án theo quy định QTN-24.
+                    Tôi đã đọc và đồng ý phê duyệt đơn này dù có xung đột phân bổ dự án.
                   </span>
                 </label>
               </div>

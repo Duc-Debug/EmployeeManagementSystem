@@ -22,7 +22,6 @@ import com.hrm.employeemanagement.application.port.inbound.skill.GetSkillListUse
 import com.hrm.employeemanagement.application.port.inbound.skill.MergeSkillUseCase;
 import com.hrm.employeemanagement.application.port.inbound.skill.UpdateSkillGroupUseCase;
 import com.hrm.employeemanagement.application.port.inbound.skill.UpdateSkillUseCase;
-import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillGroupPort;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillPort;
 import com.hrm.employeemanagement.application.port.outbound.skill.SaveSkillGroupPort;
@@ -59,22 +58,19 @@ public class SkillService implements
     private final SaveSkillGroupPort saveSkillGroupPort;
     private final SaveAuditLogPort saveAuditLogPort;
     private final AuthorizationService authorizationService;
-    private final CurrentUserPort currentUserPort;
 
     public SkillService(LoadSkillPort loadSkillPort,
                         SaveSkillPort saveSkillPort,
                         LoadSkillGroupPort loadSkillGroupPort,
                         SaveSkillGroupPort saveSkillGroupPort,
                         SaveAuditLogPort saveAuditLogPort,
-                        AuthorizationService authorizationService,
-                        CurrentUserPort currentUserPort) {
+                        AuthorizationService authorizationService) {
         this.loadSkillPort = Objects.requireNonNull(loadSkillPort, "LoadSkillPort must not be null");
         this.saveSkillPort = Objects.requireNonNull(saveSkillPort, "SaveSkillPort must not be null");
         this.loadSkillGroupPort = Objects.requireNonNull(loadSkillGroupPort, "LoadSkillGroupPort must not be null");
         this.saveSkillGroupPort = Objects.requireNonNull(saveSkillGroupPort, "SaveSkillGroupPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
-        this.currentUserPort = Objects.requireNonNull(currentUserPort, "CurrentUserPort must not be null");
     }
 
     @Override

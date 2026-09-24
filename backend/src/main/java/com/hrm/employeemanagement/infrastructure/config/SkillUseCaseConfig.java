@@ -124,8 +124,7 @@ public class SkillUseCaseConfig {
                 loadSkillGroupPort,
                 saveSkillGroupPort,
                 saveAuditLogPort,
-                authorizationService,
-                currentUserPort
+                authorizationService
         );
     }
    

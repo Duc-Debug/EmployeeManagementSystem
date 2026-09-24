@@ -75,19 +75,6 @@ export function ProjectCreateModal({
     useEffect(() => {
         if (!open || !effectiveUser) return;
 
-        // 1. Kiểm tra nhanh từ danh sách members (nếu có member khớp tên)
-        if (effectiveUser.fullName) {
-            const memberByName = members.find(
-                (m) => m.name && m.name.trim().toLowerCase() === effectiveUser.fullName.trim().toLowerCase()
-            );
-            if (memberByName?.employeeId) {
-                setCurrentEmpId(memberByName.employeeId);
-                if (effectiveUser.roleCode === 'VT-02') {
-                    setManagerId((prev) => prev ?? memberByName.employeeId);
-                }
-            }
-        }
-
         // 2. Gọi API getEmployeeProfileByUserId để lấy Employee ID và OrgUnit ID chuẩn từ backend
         if (effectiveUser.id) {
             getEmployeeProfileByUserId(effectiveUser.id)
@@ -117,8 +104,8 @@ export function ProjectCreateModal({
 
     // Chuẩn bị danh sách PM options (chỉ thêm effectiveUser khi đã resolve được employeeId hợp lệ)
     const pmOptions = React.useMemo(() => {
-        const list = [...members];
-        if (effectiveUser && currentEmpId && !list.some((m) => m.employeeId === currentEmpId)) {
+        const list = members.filter(m => (m.roleCode || m.role).toUpperCase().replace(/_/g, '-') === 'VT-02');
+        if (effectiveUser?.roleCode === 'VT-02' && currentEmpId && !list.some((m) => m.employeeId === currentEmpId)) {
             list.unshift({
                 id: `u-${currentEmpId}`,
                 employeeId: currentEmpId,
@@ -362,7 +349,7 @@ export function ProjectCreateModal({
                             }`}
                         >
                             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                            <span>Từ Mẫu Có Sẵn (Template)</span>
+                            <span>Từ Mẫu Có Sẵn</span>
                         </button>
                     </div>
                 </div>

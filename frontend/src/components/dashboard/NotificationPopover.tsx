@@ -45,6 +45,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
 
   // Filters & Pagination
   const [statusFilter, setStatusFilter] = useState<"ALL" | "UNREAD">("ALL");
+  const [eventTypeFilter, setEventTypeFilter] = useState<"ALL" | "ALLOCATION_CHANGED">("ALL");
   const [levelFilter, setLevelFilter] = useState<"ALL" | NotificationLevel>("ALL");
   const [currentPage, setCurrentPage] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -57,6 +58,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   const popoverRef = useRef<HTMLDivElement>(null);
+  const listRequest = useRef(0);
 
   const fetchUnreadBadge = useCallback(async () => {
     try {
@@ -68,15 +70,18 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
   }, []);
 
   const fetchNotificationList = useCallback(async (pageToLoad = 0, append = false) => {
+    const request = ++listRequest.current;
     try {
       setIsLoading(true);
       const res = await getNotificationCenter({
         status: statusFilter,
+        eventType: eventTypeFilter,
         level: levelFilter,
         page: pageToLoad,
         size: 15,
       });
 
+      if (request !== listRequest.current) return;
       if (append) {
         setNotifications((prev) => [...prev, ...(res?.items || [])]);
       } else {
@@ -91,9 +96,9 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
     } catch (e) {
       console.error("Lỗi khi tải danh sách thông báo:", e);
     } finally {
-      setIsLoading(false);
+      if (request === listRequest.current) setIsLoading(false);
     }
-  }, [statusFilter, levelFilter]);
+  }, [statusFilter, levelFilter, eventTypeFilter]);
 
   // Initial fetch and 30s polling
   useEffect(() => {
@@ -363,6 +368,14 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
           </div>
 
           {/* List Content */}
+          <div className="border-b border-slate-100 px-4 py-2">
+            <select aria-label="Nhóm thông báo" value={eventTypeFilter}
+              onChange={e => setEventTypeFilter(e.target.value as "ALL" | "ALLOCATION_CHANGED")}
+              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+              <option value="ALL">Tất cả nhóm thông báo</option>
+              <option value="ALLOCATION_CHANGED">Điều chỉnh phân bổ nhân sự dự án</option>
+            </select>
+          </div>
           <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
             {isLoading && notifications.length === 0 ? (
               <div className="p-10 text-center text-xs text-slate-400">
@@ -399,6 +412,9 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                   />
 
                   <div className="flex-1 min-w-0">
+                    {n.eventType === "ALLOCATION_CHANGED" && (
+                      <span className="mb-1 inline-block rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">Phân bổ nhân sự</span>
+                    )}
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <div className="flex items-center gap-1.5 truncate">
                         {renderLevelBadge(n.level)}

@@ -21,7 +21,6 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.skill.EmployeeSkill;
-import com.hrm.employeemanagement.domain.skill.ProficiencyLevel;
 import com.hrm.employeemanagement.domain.skill.Skill;
 import com.hrm.employeemanagement.domain.user.UserId;
 

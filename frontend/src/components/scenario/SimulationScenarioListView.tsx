@@ -179,7 +179,7 @@ export const SimulationScenarioListView: React.FC = () => {
             <div>
               <h1 className="text-xl font-bold text-slate-900">Mô Phỏng Kịch Bản Nhận Dự Án</h1>
               <p className="text-xs text-slate-500">
-                Sandbox đánh giá năng lực nguồn lực tiếp nhận dự án mới (NCL-08 / QTN-14)
+                Sandbox đánh giá năng lực nguồn lực tiếp nhận dự án mới
               </p>
             </div>
           </div>
@@ -253,7 +253,7 @@ export const SimulationScenarioListView: React.FC = () => {
       <div className="flex items-center space-x-2.5 text-xs text-slate-500 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200">
         <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
         <span>
-          <strong>Nguyên tắc QTN-14 Sandbox:</strong> Các kịch bản tại đây hoàn toàn độc lập với dữ liệu phân bổ thật. Bạn có thể tự do giả lập các nhu cầu tuyển dụng hoặc dự án mới mà không ảnh hưởng tới tiến độ hiện hành.
+          Các kịch bản tại đây hoàn toàn độc lập với dữ liệu phân bổ thật. Bạn có thể tự do giả lập các nhu cầu tuyển dụng hoặc dự án mới mà không ảnh hưởng tới tiến độ hiện hành.
         </span>
       </div>
 

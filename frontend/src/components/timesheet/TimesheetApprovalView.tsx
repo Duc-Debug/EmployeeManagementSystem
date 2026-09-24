@@ -9,6 +9,7 @@ import {
   Clock,
 } from "lucide-react";
 import type { WorkLogResult } from "../../lib/api/work-logs";
+import { TimesheetBudgetWarning } from "./TimesheetBudgetWarning";
 import {
   getPendingApprovals,
   approveTimesheetEntry,
@@ -19,6 +20,7 @@ export const TimesheetApprovalView: React.FC = () => {
   const [entries, setEntries] = useState<WorkLogResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState<number | null>(null);
   
   const [rejectId, setRejectId] = useState<number | null>(null);
@@ -45,10 +47,8 @@ export const TimesheetApprovalView: React.FC = () => {
     try {
       setIsProcessing(id);
       const res = await approveTimesheetEntry(id, version);
-      if (res.warnings && res.warnings.length > 0) {
-        alert("Cảnh báo: " + res.warnings.join("\n"));
-      }
-      setEntries((prev) => prev.filter((e) => e.id !== id));
+      setWarnings(res.warnings || []);
+      await loadData();
     } catch (err: any) {
       setError(err.message || "Không thể duyệt giờ công");
     } finally {
@@ -67,11 +67,11 @@ export const TimesheetApprovalView: React.FC = () => {
     try {
       setIsProcessing(rejectId);
       await rejectTimesheetEntry(rejectId, entryToReject.version, rejectionReason);
-      setEntries((prev) => prev.filter((item) => item.id !== rejectId));
+      await loadData();
       setRejectId(null);
       setRejectionReason("");
     } catch (err: any) {
-      alert("Lỗi từ chối: " + (err.message || "Không xác định"));
+      setError("Lỗi từ chối: " + (err.message || "Không xác định"));
     } finally {
       setIsProcessing(null);
     }
@@ -90,6 +90,11 @@ export const TimesheetApprovalView: React.FC = () => {
         </div>
       </div>
 
+      {warnings.length > 0 && (
+        <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          {warnings.join(" ")}
+        </div>
+      )}
       {error && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
           <AlertCircle className="h-5 w-5 shrink-0 text-rose-600" />
@@ -160,6 +165,7 @@ export const TimesheetApprovalView: React.FC = () => {
                         <Briefcase className="h-3.5 w-3.5 shrink-0" />
                         <span className="line-clamp-1">{entry.taskName}</span>
                       </div>
+                      <TimesheetBudgetWarning entry={entry} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
@@ -182,7 +188,7 @@ export const TimesheetApprovalView: React.FC = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleApprove(entry.id, entry.version)}
-                          disabled={isProcessing === entry.id}
+                          disabled={isProcessing !== null}
                           className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-600/20 disabled:opacity-50"
                         >
                           {isProcessing === entry.id ? (
@@ -194,7 +200,7 @@ export const TimesheetApprovalView: React.FC = () => {
                         </button>
                         <button
                           onClick={() => setRejectId(entry.id)}
-                          disabled={isProcessing === entry.id}
+                          disabled={isProcessing !== null}
                           className="flex items-center justify-center gap-2 rounded-xl bg-white border border-rose-200 px-4 py-2 text-sm font-bold text-rose-700 shadow-sm transition-all hover:bg-rose-50 hover:border-rose-300 focus:ring-4 focus:ring-rose-600/20 disabled:opacity-50"
                         >
                           Từ chối

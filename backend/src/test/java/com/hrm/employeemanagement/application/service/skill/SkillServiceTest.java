@@ -47,9 +47,6 @@ class SkillServiceTest {
     @Mock
     private AuthorizationService authorizationService;
 
-    @Mock
-    private CurrentUserPort currentUserPort;
-
     private SkillService skillService;
 
     @BeforeEach
@@ -60,10 +57,8 @@ class SkillServiceTest {
                 loadSkillGroupPort,
                 saveSkillGroupPort,
                 saveAuditLogPort,
-                authorizationService,
-                currentUserPort
+                authorizationService
         );
-        lenient().when(currentUserPort.getCurrentUserId()).thenReturn(Optional.of(99L));
     }
 
     @Test
@@ -198,8 +193,8 @@ class SkillServiceTest {
     }
 
     @Test
-    @DisplayName("Ném NullPointerException khi CurrentUserPort bị null trong constructor")
-    void shouldThrowWhenCurrentUserPortIsNull() {
+    @DisplayName("Ném NullPointerException khi AuthorizationService bị null trong constructor")
+    void shouldThrowWhenAuthorizationServiceIsNull() {
         assertThrows(NullPointerException.class, () ->
                 new SkillService(
                         loadSkillPort,
@@ -207,7 +202,6 @@ class SkillServiceTest {
                         loadSkillGroupPort,
                         saveSkillGroupPort,
                         saveAuditLogPort,
-                        authorizationService,
                         null
                 )
         );

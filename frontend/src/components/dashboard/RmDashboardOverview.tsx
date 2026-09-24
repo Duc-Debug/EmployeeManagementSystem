@@ -471,7 +471,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                     <div className="flex items-center gap-2 mb-3">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                            Quy trình Cung ứng & Điều phối Nguồn lực (RM Workflow)
+                            Quy trình Cung ứng & Điều phối Nguồn lực
                         </h3>
                     </div>
 
@@ -509,7 +509,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
                             <div className="flex items-center gap-2 mb-1.5">
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">4</span>
-                                <h4 className="text-xs font-bold text-slate-900">San tải & Xử lý Quá tải (QTN-11)</h4>
+                                <h4 className="text-xs font-bold text-slate-900">San tải & Xử lý Quá tải</h4>
                             </div>
                             <p className="text-[11px] text-slate-500 leading-relaxed">
                                 Phát hiện kịp thời các tuần vượt công suất (&gt;100%) và xác nhận lý do quá tải hoặc điều phối san sẻ nhân sự.

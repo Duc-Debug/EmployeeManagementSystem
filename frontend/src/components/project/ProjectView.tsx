@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getUsers } from '@/lib/api/users';
-import { getEmployees } from '@/lib/api/employees';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getEmployees, getEmployeeProfileByUserId } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
 import { allocateProjectHours, getProjectWeeklyAllocations } from '@/lib/api/allocations';
 import {
     getProjects,
+    getProjectById,
     getProjectWbs,
     getProjectMembers,
     addProjectMember,
@@ -264,6 +266,20 @@ function mapBackendWbsToUiCategories(
 
 export default function ProjectView() {
     const currentUser = useAuthUser();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const projectRequest = useRef(0);
+    const wbsRequest = useRef(0);
+    const [assignableProjectMembers, setAssignableProjectMembers] = useState<ProjectMember[]>([]);
+    const [currentEmployeeId, setCurrentEmployeeId] = useState<number | null>(null);
+    useEffect(() => {
+        let active = true;
+        setCurrentEmployeeId(null);
+        if (currentUser?.id) getEmployeeProfileByUserId(currentUser.id).then(profile => {
+            if (active) setCurrentEmployeeId(profile.id);
+        }).catch(() => { if (active) setCurrentEmployeeId(null); });
+        return () => { active = false; };
+    }, [currentUser?.id]);
     const userRoleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
     const isExecutive = userRoleCode === 'VT-01' || userRoleCode === 'ROLE-EXECUTIVE' || userRoleCode === 'EXECUTIVE' || userRoleCode === 'DIRECTOR';
     const isPm = userRoleCode === 'VT-02' || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-PM' || userRoleCode === 'PM' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
@@ -303,7 +319,6 @@ export default function ProjectView() {
     const [isLoadingMilestones, setIsLoadingMilestones] = useState<boolean>(false);
 
     // Real projects backend state
-    const canManageWbs = isPm;
     const [projectsList, setProjectsList] = useState<ProjectResult[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(false);
@@ -343,6 +358,7 @@ export default function ProjectView() {
     // Selected project object & Closed/Planned status (QTN-08)
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
     const isProjectClosed = selectedProject?.status === 'CLOSED';
+    const canManageWbs = isPm && selectedProject !== null && (userRoleCode !== 'VT-02' || (currentEmployeeId !== null && selectedProject.managerId === currentEmployeeId));
     const isProjectPlanned = selectedProject?.status === 'PLANNED';
 
     // Quyền thao tác trạng thái dự án (NCL-03-CN-004)
@@ -388,6 +404,7 @@ export default function ProjectView() {
     };
 
     const handleOpenAssignModal = (task: TaskItem) => {
+        if (isProjectClosed || !canManageWbs) return;
         setSelectedAssignTask(task);
         setAssignModalOpen(true);
     };
@@ -420,6 +437,7 @@ export default function ProjectView() {
                     const fetchedMembers: ProjectMember[] = members.map((emp) => ({
                         id: `u-${emp.employeeId}`,
                         employeeId: emp.employeeId,
+                        roleCode: emp.roleCode,
                         name: emp.fullName || emp.employeeCode,
                         role: emp.orgUnitName || 'Nhân viên',
                         avatar: '',
@@ -484,13 +502,21 @@ export default function ProjectView() {
 
     // 2. Tải danh sách dự án thật từ Database
     const loadProjects = useCallback(async () => {
+        const request = ++projectRequest.current;
         setIsLoadingProjects(true);
         try {
             const res = await getProjects(0, 50);
+            const match = location.pathname.match(/\/projects?\/(\d+)/);
+            const linkedId = Number(match?.[1] || new URLSearchParams(location.search).get('projectId'));
+            if (Number.isSafeInteger(linkedId) && linkedId > 0 && !res.content.some(project => project.id === linkedId)) {
+                res.content.push(await getProjectById(linkedId));
+            }
+            if (request !== projectRequest.current) return;
             if (res?.content && res.content.length > 0) {
                 setProjectsList(res.content);
                 setProjectError(null);
                 setSelectedProjectId((prevId) => {
+                    if (linkedId > 0 && res.content.some(project => project.id === linkedId)) return linkedId;
                     const exists = res.content.some((p) => p.id === prevId);
                     return exists ? prevId : res.content[0].id;
                 });
@@ -501,6 +527,7 @@ export default function ProjectView() {
                 setMembers([]);
             }
         } catch (err) {
+            if (request !== projectRequest.current) return;
             console.warn('Failed to fetch projects from backend:', err);
             setProjectsList([]);
             setSelectedProjectId(null);
@@ -508,9 +535,9 @@ export default function ProjectView() {
             setMembers([]);
             setProjectError(err instanceof Error ? err.message : 'Không thể tải dữ liệu dự án.');
         } finally {
-            setIsLoadingProjects(false);
+            if (request === projectRequest.current) setIsLoadingProjects(false);
         }
-    }, []);
+    }, [location.pathname, location.search]);
 
     useEffect(() => {
         loadProjects();
@@ -604,6 +631,8 @@ export default function ProjectView() {
 
     // 3. Tải cây WBS và danh sách thành viên dự án thật khi chọn một dự án
     const loadWbsForProject = useCallback(async (projId: number) => {
+        const request = ++wbsRequest.current;
+        setAssignableProjectMembers([]);
         setIsLoadingWbs(true);
         try {
             const [wbsNodes, backendMembersRes] = await Promise.all([
@@ -611,6 +640,14 @@ export default function ProjectView() {
                 getProjectMembers(projId).catch(() => []),
             ]);
 
+            if (request !== wbsRequest.current) return;
+            setAssignableProjectMembers(backendMembersRes.filter(member => member.status === 'ACTIVE').map(member => ({
+                id: `u-${member.employeeId}`, employeeId: member.employeeId,
+                name: member.fullName || member.employeeCode,
+                role: member.roleInProject === 'PROJECT_MANAGER' ? 'Quản lý dự án' : member.orgUnitName || 'Thành viên',
+                roleCode: member.roleCode, status: member.status, contractEndDate: member.contractEndDate,
+                avatar: '', capacity: 40, weeklyHours: {},
+            })));
             const memberIdSet = new Set<number>();
             const projectRoleMap = new Map<number, string>();
             if (Array.isArray(backendMembersRes)) {
@@ -621,15 +658,6 @@ export default function ProjectView() {
                     }
                 });
             }
-
-            const collectAssignees = (nodes: TaskNodeResult[]) => nodes.forEach((node) => {
-                if (node.assigneeId) memberIdSet.add(node.assigneeId);
-                if (node.assigneeIds && Array.isArray(node.assigneeIds)) {
-                    node.assigneeIds.forEach((id) => memberIdSet.add(id));
-                }
-                collectAssignees(node.children || []);
-            });
-            collectAssignees(wbsNodes);
 
             const projectMembers = allEmployees
                 .filter((emp) => {
@@ -661,12 +689,13 @@ export default function ProjectView() {
                 void loadProjectAllocations(projectMembers);
             }
         } catch (err) {
+            if (request !== wbsRequest.current) return;
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
             setCategories([]);
             setMembers([]);
             setTaskDependenciesList([]);
         } finally {
-            setIsLoadingWbs(false);
+            if (request === wbsRequest.current) setIsLoadingWbs(false);
         }
     }, [allEmployees, canReadAllocations, loadProjectAllocations]);
 
@@ -796,7 +825,7 @@ export default function ProjectView() {
     };
 
     const handleQuickAddTask = (catId?: string) => {
-        if (!canManageProject) {
+        if (isProjectClosed || !canManageWbs) {
             showToast('Bạn chỉ có quyền xem dự án.', 'info');
             return;
         }
@@ -815,7 +844,7 @@ export default function ProjectView() {
         endWeekKey: string;
         newCategoryName?: string;
     }) => {
-        if (!canManageProject) return;
+        if (isProjectClosed || !canManageWbs) return;
         const { catId, name, assigneeId, hours, newCategoryName } = newTaskData;
 
         if (!selectedProjectId) {
@@ -824,6 +853,10 @@ export default function ProjectView() {
         }
 
         try {
+            // Kiểm tra thành viên trước khi tạo cả hạng mục và công việc.
+            const targetMember = assignableProjectMembers.find((m) => m.id === assigneeId);
+            if (assigneeId && !targetMember) throw new Error('Chỉ được giao việc cho thành viên dự án.');
+            const employeeIdToAssign = targetMember?.employeeId || null;
             let parentIdToUse: number | null = null;
 
             // Nếu người dùng nhập tên hạng mục mới
@@ -840,10 +873,6 @@ export default function ProjectView() {
                     parentIdToUse = numCat;
                 }
             }
-
-            // Tìm member tương ứng để lấy employeeId thật trong database
-            const targetMember = members.find((m) => m.id === assigneeId);
-            const employeeIdToAssign = targetMember?.employeeId || null;
 
             await createTask(selectedProjectId, {
                 parentId: parentIdToUse,
@@ -865,7 +894,7 @@ export default function ProjectView() {
 
     // Chuyển đổi trạng thái công việc
     const handleToggleTaskStatus = async (catId: string, taskId: string) => {
-        if (!canManageProject) {
+        if (isProjectClosed || !canManageWbs) {
             showToast('Bạn chỉ có quyền xem dự án.', 'info');
             return;
         }
@@ -953,7 +982,7 @@ export default function ProjectView() {
     };
 
     const handleOpenBudgetModal = (task: TaskItem) => {
-        if (!canManageProject) {
+        if (isProjectClosed || !canManageWbs) {
             showToast('Bạn chỉ có quyền xem dự án.', 'info');
             return;
         }
@@ -1005,7 +1034,7 @@ export default function ProjectView() {
 
     const handleProjectCreated = async (newProjectId: number) => {
         await loadProjects();
-        setSelectedProjectId(newProjectId);
+        navigate(`/projects?projectId=${newProjectId}`);
         showToast('Dự án đã được tạo thành công trong Database!', 'success');
     };
 
@@ -1130,7 +1159,7 @@ export default function ProjectView() {
         <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
             {/* Top Navigation / Header Bar */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-3.5 2xl:flex-row 2xl:items-center 2xl:justify-between">
                     {/* Logo & Identity */}
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md shadow-indigo-100 font-bold text-lg shrink-0">
@@ -1180,7 +1209,7 @@ export default function ProjectView() {
                                         <div className="relative inline-block">
                                             <select
                                                 value={selectedProjectId || ''}
-                                                onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                                                onChange={(e) => navigate(`/projects?projectId=${e.target.value}`)}
                                                 className="rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white"
                                             >
                                                 {projectsList.map((p) => (
@@ -1236,7 +1265,7 @@ export default function ProjectView() {
                     </div>
 
                     {/* Top Actions: Streamlined with More Actions Dropdown */}
-                    <div className="flex items-center gap-2 self-start lg:self-auto">
+                    <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
                         {canApproveProject && (
                             <button
                                 type="button"
@@ -1259,7 +1288,7 @@ export default function ProjectView() {
                                         ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
                                         : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700 active:scale-95 cursor-pointer'
                                 }`}
-                                title={isProjectClosed ? 'Dự án đã đóng, không thể tạo thêm công việc mới' : 'Thêm công việc vào dự án'}
+                                title={isProjectClosed ? 'Dự án đã đóng, không thể tạo hoặc giao thêm công việc' : 'Thêm công việc vào dự án'}
                             >
                                 <Plus className="h-4 w-4 stroke-[2.5]" />
                                 <span>Thêm công việc</span>
@@ -1607,7 +1636,7 @@ export default function ProjectView() {
             {/* View Switcher & Filter Controls */}
             <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
-                <div className="inline-flex w-full max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
+                <div className="flex flex-wrap w-full max-w-full gap-1 rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
                     {canReadAllocations && (
                         <button
                             type="button"
@@ -1749,7 +1778,7 @@ export default function ProjectView() {
                     <div className={(viewMode === 'split' && canReadAllocations) ? 'lg:col-span-5' : 'lg:col-span-12'}>
                         <ProjectWbsView
                             categories={categories}
-                            members={allEmployees.length > 0 ? allEmployees : members}
+                            members={assignableProjectMembers}
                             dependencies={taskDependenciesList}
                             searchTerm={search}
                             selectedRole={roleFilter}
@@ -1772,6 +1801,7 @@ export default function ProjectView() {
                         <ProjectWeeklyMatrix
                             month={selectedMonth}
                             members={members}
+                            canManageAllocations={canManageAllocations}
                             selectedRole={roleFilter}
                             searchTerm={search}
                             isClosed={isProjectClosed}
@@ -1853,7 +1883,7 @@ export default function ProjectView() {
                             <ProjectTaskTrackingView
                                 projectId={selectedProjectId}
                                 isProjectClosed={isProjectClosed}
-                                members={allEmployees.length > 0 ? allEmployees : members}
+                                members={assignableProjectMembers}
                                 onNavigateToWbs={() => setViewMode('wbs')}
                             />
                         ) : (
@@ -1869,7 +1899,7 @@ export default function ProjectView() {
 
             {/* Modals */}
             <CloneWbsModal
-                isOpen={cloneModalOpen}
+                isOpen={cloneModalOpen && canManageWbs && !isProjectClosed}
                 onClose={() => setCloneModalOpen(false)}
                 targetProject={selectedProject}
                 projectsList={projectsList}
@@ -1878,19 +1908,21 @@ export default function ProjectView() {
 
             {canManageWbs && (
                 <AssignTaskModal
-                    open={assignModalOpen}
+                    open={assignModalOpen && !isProjectClosed}
                     task={selectedAssignTask}
                     projectId={selectedProjectId}
-                    employees={allEmployees.length > 0 ? allEmployees : members}
+                    employees={assignableProjectMembers}
+                    isClosed={isProjectClosed}
                     onClose={() => setAssignModalOpen(false)}
                     onSuccess={handleAssignSuccess}
                 />
             )}
 
             {canManageProject && <ProjectTaskModal
-                open={taskModalOpen}
+                open={taskModalOpen && canManageWbs && !isProjectClosed}
+                isClosed={isProjectClosed}
                 categories={categories}
-                members={allEmployees.length > 0 ? allEmployees : members}
+                members={assignableProjectMembers}
                 defaultCategoryId={defaultCatId}
                 onClose={() => setTaskModalOpen(false)}
                 onSubmit={handleCreateTask}
@@ -1909,7 +1941,7 @@ export default function ProjectView() {
             />}
 
             {canManageProject && <ProjectBudgetModal
-                open={budgetModalOpen}
+                open={budgetModalOpen && !isProjectClosed}
                 task={selectedBudgetTask}
                 member={selectedBudgetTask ? members.find((m) => m.id === selectedBudgetTask.assigneeId) : null}
                 onClose={() => setBudgetModalOpen(false)}
@@ -1932,7 +1964,7 @@ export default function ProjectView() {
             />}
 
             {canManageProject && <TaskDependencyModal
-                open={dependencyModalOpen}
+                open={dependencyModalOpen && !isProjectClosed}
                 projectId={selectedProjectId || 1}
                 tasks={categories.flatMap((cat) =>
                     cat.tasks.map((t) => ({

@@ -201,7 +201,6 @@ class GetTaskBoardServiceTest {
         when(loadEmployeePort.findByUserId(currentUser.getId())).thenReturn(Optional.of(currentEmployee));
 
         TaskId task1Id = new TaskId(1L);
-        TaskId categoryId = new TaskId(2L);
 
         Task task = createTask(1L, "T1", TaskStatus.TODO, TaskType.TASK);
         Task category = createTask(2L, "CAT1", TaskStatus.TODO, TaskType.CATEGORY);

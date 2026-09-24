@@ -238,7 +238,7 @@ export default function HrProfilePage() {
 
                 showNotification("success", `Đã cập nhật hồ sơ ${data.fullName} thành công.`);
             } else {
-                showNotification("error", "Việc tạo tài khoản và hồ sơ nhân sự mới được thực hiện tại mục Quản lý tài khoản (dành cho Quản trị viên VT-06).");
+                showNotification("error", "Việc tạo tài khoản và hồ sơ nhân sự mới được thực hiện tại mục Quản lý tài khoản.");
                 return;
             }
             await loadProfiles();
@@ -276,11 +276,10 @@ export default function HrProfilePage() {
 
             {/* Notification */}
             {notification && (
-                <div className={`flex items-center justify-between rounded-2xl border p-4 text-xs font-semibold shadow-xs transition animate-fadeIn ${
-                    notification.type === "success"
+                <div className={`flex items-center justify-between rounded-2xl border p-4 text-xs font-semibold shadow-xs transition animate-fadeIn ${notification.type === "success"
                         ? "border-emerald-200 bg-emerald-50/90 text-emerald-800"
                         : "border-rose-200 bg-rose-50/90 text-rose-800"
-                }`}>
+                    }`}>
                     <div className="flex items-center gap-2.5">
                         {notification.type === "success"
                             ? <Check className="size-4 shrink-0 text-emerald-600" />

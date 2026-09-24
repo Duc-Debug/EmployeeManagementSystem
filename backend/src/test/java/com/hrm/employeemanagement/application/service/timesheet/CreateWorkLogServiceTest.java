@@ -45,7 +45,6 @@ import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.task.Task;
-import com.hrm.employeemanagement.domain.task.TaskAssignment;
 import com.hrm.employeemanagement.domain.task.TaskId;
 import com.hrm.employeemanagement.domain.task.TaskStatus;
 import com.hrm.employeemanagement.domain.task.TaskType;

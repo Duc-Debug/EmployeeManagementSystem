@@ -27,7 +27,6 @@ import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
 import com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
-import java.time.LocalDateTime;
 import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskAssignmentPort;
 import com.hrm.employeemanagement.domain.project.ProjectId;
@@ -155,11 +154,7 @@ public class CreateTaskService implements CreateTaskUseCase {
                     && Objects.equals(project.getManagerId().value(), assignee.getIdValue()))
                     || loadProjectPort.existsMember(project.getIdValue(), assignee.getIdValue());
             if (!isMember) {
-                if (saveProjectMemberPort != null) {
-                    saveProjectMemberPort.addMember(project.getIdValue(), assignee.getIdValue());
-                } else {
-                    throw new AssigneeNotInProjectException(assignee.getIdValue(), project.getIdValue());
-                }
+                throw new AssigneeNotInProjectException(assignee.getIdValue(), project.getIdValue());
             }
             assigneeEmployeeId = assignee.getId();
         }

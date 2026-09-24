@@ -231,12 +231,6 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             Kiểm soát Phân quyền
                         </p>
-                        <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-sm font-bold text-slate-900">RBAC + Scope</span>
-                        </div>
-                        <div className="mt-1 text-[10px] font-semibold text-indigo-700">
-                            6 Vai trò chuẩn (VT-01 → VT-06)
-                        </div>
                     </div>
                 </div>
             </div>

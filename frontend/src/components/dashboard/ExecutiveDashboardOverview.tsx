@@ -276,7 +276,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                 <div className="flex items-center gap-1.5 mb-2">
                     <Sparkles className="h-3.5 w-3.5 text-amber-600" />
                     <h3 className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">
-                        Lối tắt Tác vụ Ban Giám Đốc (Executive Shortcuts)
+                        Lối tắt Tác vụ Ban Giám Đốc
                     </h3>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

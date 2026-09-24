@@ -325,7 +325,7 @@ export default function EmployeeProfilePage() {
                 setEmployees(mapped);
             } else {
                 const reason = userRes.reason;
-                const errMsg = reason?.message || "Không thể kết nối đến máy chủ Backend để tải danh sách nhân sự.";
+                const errMsg = reason?.message || "Không thể kết nối đến máy chủ để tải danh sách nhân sự.";
                 setLoadError(errMsg);
                 setEmployees([]);
             }

@@ -196,7 +196,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                     </div>
                     <div className="mt-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Giữ chỗ Nguồn lực (QTN-13)
+                            Giữ chỗ Nguồn lực
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{activeReservationsCount}</span>
@@ -243,7 +243,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                 <div className="flex items-center gap-1.5 mb-2">
                     <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
                     <h3 className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">
-                        Lối tắt Tác vụ Quản lý Dự án (PM Shortcuts)
+                        Lối tắt Tác vụ Quản lý Dự án
                     </h3>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -271,7 +271,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Bảng Năng lực & Giữ chỗ</span>
-                            <p className="text-[9px] text-slate-400 truncate">QTN-13 Giữ chỗ tuần</p>
+                            <p className="text-[9px] text-slate-400 truncate">Giữ chỗ theo tuần</p>
                         </div>
                     </button>
 
@@ -438,7 +438,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                     <div className="flex items-center gap-2 mb-3">
                         <CheckCircle2 className="h-4 w-4 text-indigo-600" />
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                            Quy trình Vận hành Nguồn lực & Dự án (PM Workflow)
+                            Quy trình Vận hành Nguồn lực & Dự án
                         </h3>
                     </div>
 
@@ -466,7 +466,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
                             <div className="flex items-center gap-2 mb-1.5">
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">3</span>
-                                <h4 className="text-xs font-bold text-slate-900">Giữ chỗ Nguồn lực (QTN-13)</h4>
+                                <h4 className="text-xs font-bold text-slate-900">Giữ chỗ Nguồn lực</h4>
                             </div>
                             <p className="text-[11px] text-slate-500 leading-relaxed">
                                 Đăng ký giữ chỗ trước nhân sự theo tuần tại bảng năng lực để đảm bảo nguồn lực cho dự án.

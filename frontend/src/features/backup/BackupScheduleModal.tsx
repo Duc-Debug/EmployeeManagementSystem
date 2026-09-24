@@ -94,7 +94,7 @@ export function BackupScheduleModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Cấu Hình Lịch Sao Lưu Tự Động</h3>
-              <p className="text-xs text-slate-500">Thiết lập sao lưu định kỳ vào khung giờ thấp điểm (Cron Job)</p>
+              <p className="text-xs text-slate-500">Thiết lập sao lưu định kỳ vào khung giờ thấp điểm</p>
             </div>
           </div>
           <button
@@ -207,8 +207,8 @@ export function BackupScheduleModal({
                   onChange={(e) => setBackupType(e.target.value as BackupType)}
                   disabled={!isEnabled || isSubmitting}
                 >
-                  <option value="FULL">Toàn bộ hệ thống (FULL)</option>
-                  <option value="RESOURCE_PLAN">Kế hoạch nguồn lực (PLAN)</option>
+                  <option value="FULL">Toàn bộ hệ thống</option>
+                  <option value="RESOURCE_PLAN">Kế hoạch nguồn lực</option>
                 </select>
               </div>
 

@@ -1,6 +1,5 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.unavailability.repository;
 
-import com.hrm.employeemanagement.domain.unavailability.UnavailabilityStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.unavailability.entity.UnavailabilityDeclarationJpaEntity;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;

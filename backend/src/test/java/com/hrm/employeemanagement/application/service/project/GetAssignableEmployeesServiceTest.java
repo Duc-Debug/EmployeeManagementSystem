@@ -171,11 +171,6 @@ class GetAssignableEmployeesServiceTest {
                 new EmployeeId(10L), new UserId(10L), 10L, "EMP10", "Nguyen Van Trong Nhanh",
                 "Dev", LocalDate.of(2021, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
         );
-        Employee empOutsideBranch = new Employee(
-                new EmployeeId(20L), new UserId(20L), 99L, "EMP20", "Tran Van Ngoai Nhanh",
-                "Dev", LocalDate.of(2021, 1, 1), null, false, 40, EmployeeStatus.ACTIVE
-        );
-
         OrgUnit branch = new OrgUnit(
                 new OrgUnitId(branchOrgUnitId), "BRANCH", "Branch",
                 com.hrm.employeemanagement.domain.orgunit.OrgUnitType.DEPARTMENT,
@@ -186,7 +181,6 @@ class GetAssignableEmployeesServiceTest {
         when(loadEmployeePort.findActiveByOrgUnitIds(List.of(branchOrgUnitId))).thenReturn(List.of(empInsideBranch));
 
         User user10 = new User(new UserId(10L), "u10", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Dev"), UserStatus.ACTIVE, new EmployeeId(10L));
-        User user20 = new User(new UserId(20L), "u20", "hash", new Role(new RoleId(4L), RoleCode.VT_04, "Dev"), UserStatus.ACTIVE, new EmployeeId(20L));
         when(loadUserPort.findAllByIdIn(org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of(user10));
         when(loadOrgUnitPort.findAllByIdIn(org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of(branch));
 

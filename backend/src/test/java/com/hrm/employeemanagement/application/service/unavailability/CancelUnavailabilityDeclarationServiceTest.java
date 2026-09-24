@@ -22,7 +22,6 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
-import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.unavailability.InvalidUnavailabilityPeriodException;
 import com.hrm.employeemanagement.domain.unavailability.UnavailabilityDeclaration;
 import com.hrm.employeemanagement.domain.unavailability.UnavailabilityReasonType;
@@ -150,8 +149,8 @@ class CancelUnavailabilityDeclarationServiceTest {
         );
         when(loadEmployeePort.findById(new EmployeeId(employeeId))).thenReturn(Optional.of(employee));
 
-        LocalDate start = LocalDate.of(2026, 9, 22);
-        LocalDate end = LocalDate.of(2026, 9, 23);
+        LocalDate start = LocalDate.now().plusWeeks(1).with(java.time.DayOfWeek.MONDAY);
+        LocalDate end = start.plusDays(1);
         UnavailabilityDeclaration decl = new UnavailabilityDeclaration(
                 declarationId, employeeId, start, end, UnavailabilityReasonType.TRAINING, "Học tập",
                 BigDecimal.valueOf(16), UnavailabilityStatus.APPROVED, 99L, "Duyệt", LocalDateTime.now(), null, null, 0L

@@ -115,7 +115,7 @@ export const MyWeeklySchedulePage: React.FC = () => {
       handleCloseFeedback();
       setFeedbackMessage({
         type: "success",
-        text: `Đã gửi phản hồi cho tuần ${feedbackModalWeek}. Quản lý dự án (PM/RM) sẽ rà soát và điều chỉnh nếu cần thiết.`,
+        text: `Đã gửi phản hồi cho tuần ${feedbackModalWeek}. Quản lý dự án sẽ rà soát và điều chỉnh nếu cần thiết.`,
       });
       await loadSchedule(currentWeekStart, weeksCount);
     } catch (err: unknown) {
@@ -184,18 +184,6 @@ export const MyWeeklySchedulePage: React.FC = () => {
               <option value={8}>8 tuần</option>
             </select>
           </div>
-        </div>
-      </div>
-
-      {/* Thông tin quy tắc nghiệp vụ QTN-24 */}
-      <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-4 flex items-start gap-3 text-xs text-blue-900">
-        <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
-          <span className="font-semibold text-blue-950">Quy định xác nhận phân bổ (QTN-24):</span>
-          <p className="text-blue-800 leading-relaxed">
-            Nhân sự có thể xác nhận đã xem lịch hoặc gửi ý kiến phản hồi về phân bổ được giao (trùng lịch, quá tải,...).
-            Ý kiến phản hồi sẽ được lưu trữ để Quản lý dự án xem xét và điều chỉnh. Việc gửi phản hồi không tự động thay đổi giờ phân bổ trên hệ thống.
-          </p>
         </div>
       </div>
 
@@ -289,7 +277,7 @@ export const MyWeeklySchedulePage: React.FC = () => {
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2 text-[11px] text-amber-900">
                 <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Lưu ý (QTN-24):</strong> Ý kiến phản hồi được gửi đến PM/RM để xem xét. Giờ phân bổ hiện tại trên hệ thống sẽ không tự động thay đổi.
+                  <strong>Lưu ý:</strong> Ý kiến phản hồi được gửi đến PM/RM để xem xét. Giờ phân bổ hiện tại trên hệ thống sẽ không tự động thay đổi.
                 </span>
               </div>
 

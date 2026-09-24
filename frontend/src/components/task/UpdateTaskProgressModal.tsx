@@ -143,9 +143,6 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div>
             <h2 id="task-progress-modal-title" className="text-base font-semibold text-slate-800">Cập nhật tiến độ công việc</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              NCL-04-CN-002 • Dành cho chuyên viên được phân công
-            </p>
           </div>
           <button
             type="button"
@@ -191,7 +188,7 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-rose-800 text-xs leading-relaxed">
               <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold">Công việc đã bị hủy (CANCELLED)</p>
+                <p className="font-semibold">Công việc đã bị hủy</p>
                 <p className="mt-0.5 text-rose-700">
                   Công việc này đã bị hủy bỏ bởi Quản lý dự án. Chuyên viên không thể cập nhật tiến độ công việc đã hủy.
                 </p>
@@ -255,7 +252,7 @@ export const UpdateTaskProgressModal: React.FC<UpdateTaskProgressModalProps> = (
               <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50/60 border border-amber-200/60 text-amber-800 text-[11px] leading-relaxed">
                 <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Phạm vi quyền hạn:</strong> Chuyên viên chỉ cập nhật tiến độ các công việc được giao. Thao tác hủy công việc (CANCELLED) thuộc quyền hạn độc quyền của Quản lý dự án (PM).
+                  <strong>Phạm vi quyền hạn:</strong> Chuyên viên chỉ cập nhật tiến độ các công việc được giao. Thao tác hủy công việc thuộc quyền hạn độc quyền của Quản lý dự án.
                 </span>
               </div>
             </>

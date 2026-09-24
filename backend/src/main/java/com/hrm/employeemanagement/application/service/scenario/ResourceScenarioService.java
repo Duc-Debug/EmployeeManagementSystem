@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -29,7 +28,6 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
-import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.Holiday;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
@@ -697,10 +695,6 @@ public class ResourceScenarioService implements
                     "action=SCENARIO_ACCESS;reason=" + reason
             ));
         }
-    }
-
-    private ScenarioResult enrichScenarioResult(ResourceScenario scenario) {
-        return enrichScenarioResult(scenario, "EDIT");
     }
 
     private ScenarioResult enrichScenarioResult(ResourceScenario scenario, String viewMode) {

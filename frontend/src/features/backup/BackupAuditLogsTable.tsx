@@ -69,7 +69,7 @@ export function BackupAuditLogsTable() {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
             <ShieldAlert className="w-3 h-3 text-rose-600" />
-            <span>Chặn 403 (Không có quyền)</span>
+            <span>Không có quyền</span>
           </span>
         );
       case "FAILED":
@@ -128,7 +128,7 @@ export function BackupAuditLogsTable() {
             >
               <option value="ALL">Tất cả</option>
               <option value="SUCCESS">Thành công</option>
-              <option value="FORBIDDEN">Bị chặn (403)</option>
+              <option value="FORBIDDEN">Bị chặn</option>
               <option value="FAILED">Thất bại</option>
             </select>
           </div>

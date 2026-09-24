@@ -69,6 +69,7 @@ function flattenOrgTree(nodes: readonly OrgUnitTreeNode[], depth = 0): OrgUnitOp
 
 export default function DepartmentLeaveCalendarView() {
     const user = useAuthUser();
+    const isPm = user?.roleCode?.replace(/_/g, "-") === "VT-02";
 
     // 1. Quản lý trạng thái bộ lọc & ngày tháng
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -200,13 +201,13 @@ export default function DepartmentLeaveCalendarView() {
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                         Đơn vị / Bộ phận
                     </label>
-                    <OrgUnitCombobox
+                    {isPm ? <p className="text-sm font-semibold text-indigo-700">Nhóm dự án do tôi quản lý</p> : <OrgUnitCombobox
                         id="dept-leave-org-select"
                         options={orgOptions}
                         value={selectedOrgUnitId}
                         onChange={(val) => setSelectedOrgUnitId(val)}
                         placeholder="Chọn phòng ban cần xem..."
-                    />
+                    />}
                 </div>
 
                 {/* Bộ chọn Tháng / Năm & Nút Hôm nay */}
@@ -267,7 +268,7 @@ export default function DepartmentLeaveCalendarView() {
                     </div>
 
                     {/* Cờ includeSubUnits (P2) */}
-                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100/70 transition select-none">
+                    {!isPm && <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100/70 transition select-none">
                         <input
                             type="checkbox"
                             checked={includeSubUnits}
@@ -276,7 +277,7 @@ export default function DepartmentLeaveCalendarView() {
                         />
                         <GitBranch className="size-3.5 text-slate-500" />
                         <span>Bao gồm bộ phận con</span>
-                    </label>
+                    </label>}
                 </div>
             </div>
 
@@ -285,7 +286,7 @@ export default function DepartmentLeaveCalendarView() {
                 <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
-                            Nhân sự bộ phận
+                            {isPm ? "Nhân sự dự án" : "Nhân sự bộ phận"}
                         </span>
                         <Users className="size-4 text-blue-600" />
                     </div>
@@ -293,7 +294,7 @@ export default function DepartmentLeaveCalendarView() {
                         {isLoading ? "..." : (calendarData?.totalDepartmentEmployees ?? "--")} người
                     </p>
                     <p className="mt-1 text-[11px] font-semibold text-blue-600">
-                        {includeSubUnits ? "Đã gồm các nhóm/team con" : "Chỉ tính nhân sự trực tiếp"}
+                        {isPm ? "Thành viên các dự án do bạn quản lý" : includeSubUnits ? "Đã gồm các nhóm/team con" : "Chỉ tính nhân sự trực tiếp"}
                     </p>
                 </div>
 

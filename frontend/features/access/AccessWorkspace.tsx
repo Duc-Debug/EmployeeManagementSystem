@@ -147,7 +147,7 @@ export function AccessWorkspace() {
 
     // Security Rule 2: Cannot demote the last active Admin
     if (selectedUser.roleCode === "VT-06" && draft.roleCode !== "VT-06" && activeAdminCount <= 1) {
-      setErrors({ roleCode: "Hệ thống phải có ít nhất một Quản trị viên (VT-06) hoạt động. Vui lòng cấp quyền Quản trị viên cho tài khoản khác trước." });
+      setErrors({ roleCode: "Hệ thống phải có ít nhất một Quản trị viên hoạt động. Vui lòng cấp quyền Quản trị viên cho tài khoản khác trước." });
       return;
     }
 

@@ -1,14 +1,11 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict;
 
 import java.util.List;
-import java.util.Optional;
-
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
-import com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict.entity.ScheduleConflictJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.conflict.repository.SpringDataScheduleConflictRepository;
 

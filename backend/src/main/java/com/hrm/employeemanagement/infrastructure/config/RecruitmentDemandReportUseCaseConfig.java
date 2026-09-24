@@ -3,8 +3,6 @@ package com.hrm.employeemanagement.infrastructure.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.hrm.employeemanagement.application.port.inbound.report.GetRecruitmentDemandReportUseCase;
-import com.hrm.employeemanagement.application.port.inbound.report.ExportRecruitmentDemandReportUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.report.LoadRecruitmentDemandReportPort;

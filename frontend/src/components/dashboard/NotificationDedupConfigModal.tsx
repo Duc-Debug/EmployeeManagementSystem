@@ -55,7 +55,7 @@ export default function NotificationDedupConfigModal({
     } catch (err: unknown) {
       const error = err as { message?: string; status?: number };
       if (error?.status === 403) {
-        setErrorMessage("Từ chối truy cập: Bạn không có quyền quản trị cấu hình chống gửi trùng (Chỉ dành cho VT-06).");
+        setErrorMessage("Từ chối truy cập: Bạn không có quyền quản trị cấu hình chống gửi trùng.");
       } else {
         setErrorMessage(error?.message || "Không thể tải cấu hình chống gửi trùng.");
       }
@@ -143,7 +143,7 @@ export default function NotificationDedupConfigModal({
             </div>
             <div>
               <h3 className="font-bold text-slate-800 text-base">Cấu hình Chống gửi trùng thông báo</h3>
-              <p className="text-xs text-slate-500">Quản trị quy tắc deduplication & tác vụ nền (NCL-11-CN-003 / QTN-19)</p>
+              <p className="text-xs text-slate-500">Quản trị quy tắc</p>
             </div>
           </div>
           <button
@@ -192,9 +192,9 @@ export default function NotificationDedupConfigModal({
               {/* Toggle Enable */}
               <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">
                 <div className="space-y-0.5">
-                  <span className="text-sm font-semibold text-slate-800">Cơ chế chống gửi trùng (Dedup Engine)</span>
+                  <span className="text-sm font-semibold text-slate-800">Cơ chế chống gửi trùng</span>
                   <p className="text-xs text-slate-500">
-                    Bật để chặn gửi lại cảnh báo lặp lại cho cùng tuần và cùng đối tượng nhận (QTN-19).
+                    Bật để chặn gửi lại cảnh báo lặp lại cho cùng tuần và cùng đối tượng nhận.
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">

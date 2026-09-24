@@ -36,7 +36,6 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.AssigneeNotInProjectException;
 import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
 import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
@@ -91,12 +90,16 @@ class CreateTaskServiceTest {
     private AuthorizationService authorizationService;
 
     private CreateTaskService service;
+    @Mock
+    private com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort saveProjectMemberPort;
 
     @BeforeEach
     void setUp() {
         service = new CreateTaskService(
                 loadTaskPort,
                 saveTaskPort,
+                null,
+                saveProjectMemberPort,
                 loadProjectPort,
                 saveProjectPort,
                 loadEmployeePort,
@@ -293,6 +296,7 @@ class CreateTaskServiceTest {
 
         assertThatThrownBy(() -> service.createTask(command))
                 .isInstanceOf(AssigneeNotInProjectException.class);
+        org.mockito.Mockito.verifyNoInteractions(saveProjectMemberPort, saveTaskPort, saveProjectPort);
     }
 
     @Test
