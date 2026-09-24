@@ -77,7 +77,7 @@ export function UploadBackupModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Tải Lên Tệp Bản Sao Lưu</h3>
-              <p className="text-xs text-slate-500">Nạp bản sao lưu snapshot sẵn có vào hệ thống để quản trị hoặc phục hồi</p>
+              <p className="text-xs text-slate-500">Nạp bản sao lưu...</p>
             </div>
           </div>
           <button
@@ -190,7 +190,7 @@ export function UploadBackupModal({
             {isUploading ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Đang tải lên & tính SHA-256...</span>
+                <span>Đang tải lên...</span>
               </>
             ) : (
               <>

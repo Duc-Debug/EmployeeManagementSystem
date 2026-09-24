@@ -56,7 +56,6 @@ export function CreateBackupModal({ open, onClose, onSuccess }: CreateBackupModa
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Tạo Bản Sao Lưu Dữ Liệu Mới</h3>
-              <p className="text-xs text-slate-500">Tạo ảnh chụp trạng thái tức thời & tính toán mã băm SHA-256</p>
             </div>
           </div>
           <button
@@ -145,7 +144,7 @@ export function CreateBackupModal({ open, onClose, onSuccess }: CreateBackupModa
                 <div className="ml-2.5">
                   <span className="block text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     <Database className="w-3.5 h-3.5 text-purple-600" />
-                    Kế hoạch nguồn lực (PLAN)
+                    Kế hoạch nguồn lực
                   </span>
                   <span className="block text-[11px] text-slate-500 mt-0.5 leading-snug">
                     Chỉ phân hệ kế hoạch nguồn lực, chấm công, dự án, phân bổ và xác nhận lịch.

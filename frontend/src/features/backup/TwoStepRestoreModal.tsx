@@ -168,7 +168,6 @@ export function TwoStepRestoreModal({
                     </p>
                     <div className="pt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-800 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Hệ thống tự động tạo snapshot an toàn (SAFETY-PRE-RESTORE-...) trước khi ghi đè.</span>
                     </div>
                   </div>
                 </div>

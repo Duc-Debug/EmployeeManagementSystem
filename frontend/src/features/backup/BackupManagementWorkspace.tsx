@@ -123,10 +123,10 @@ export function BackupManagementWorkspace() {
           <ShieldAlert className="w-8 h-8" />
         </div>
         <h2 className="text-xl font-bold text-slate-900 mb-1.5">
-          Quyền truy cập bị từ chối (403 Forbidden)
+          Quyền truy cập bị từ chối
         </h2>
         <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-          Chức năng <strong>Sao lưu và Phục hồi Dữ liệu</strong> yêu cầu quyền <strong>DATA_BACKUP_MANAGE</strong> (Quản trị viên hệ thống VT-06). Mọi nỗ lực truy cập trái phép đều được ghi nhận vào nhật ký kiểm toán bảo mật.
+          Chức năng <strong>Sao lưu và Phục hồi Dữ liệu</strong> yêu cầu quyền Quản trị viên hệ thống. Mọi nỗ lực truy cập trái phép đều được ghi nhận vào nhật ký kiểm toán bảo mật.
         </p>
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 font-mono">
           Vai trò hiện tại: <span className="font-bold text-slate-900">{authUser.roleCode}</span> ({authUser.roleName || "Không xác định"})
@@ -304,7 +304,7 @@ export function BackupManagementWorkspace() {
           <Info className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <span className="font-bold text-indigo-900">
-              Quy chuẩn An toàn & Bảo toàn Dữ liệu (Safety Snapshot & Two-Step Verification):
+              Quy chuẩn An toàn & Bảo toàn Dữ liệu:
             </span>
             <p className="text-slate-600 leading-relaxed">
               Mỗi bản sao lưu được lưu trữ dưới dạng snapshot kèm mã băm <strong className="text-slate-800 font-mono">SHA-256</strong> đối chiếu toàn vẹn. Khi thực hiện phục hồi, hệ thống bắt buộc quy trình <strong className="text-indigo-800">xác nhận 2 bước</strong> (từ khóa <span className="font-mono text-rose-700 font-bold">RESTORE</span> + lý do giải trình) và sẽ <strong>tự động tạo một điểm an toàn dự phòng</strong> trước khi ghi đè dữ liệu.
@@ -654,7 +654,7 @@ export function BackupManagementWorkspace() {
                           <span className="text-slate-400 block text-[10px]">
                             {new Date(b.createdAt).toLocaleTimeString("vi-VN")} ·{" "}
                             {b.isAutomatic ? (
-                              <span className="text-purple-600 font-semibold">Tự động (Cron)</span>
+                              <span className="text-purple-600 font-semibold">Tự động</span>
                             ) : (
                               <span className="text-slate-500 font-medium">Thủ công</span>
                             )}
