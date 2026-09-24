@@ -10,14 +10,12 @@ import com.hrm.employeemanagement.application.port.inbound.task.AssignTaskUseCas
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
-import com.hrm.employeemanagement.application.port.outbound.project.SaveProjectMemberPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
-import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
@@ -50,11 +48,9 @@ public class AssignTaskService implements AssignTaskUseCase {
     private final LoadTaskAssignmentPort loadTaskAssignmentPort;
     private final SaveTaskAssignmentPort saveTaskAssignmentPort;
     private final LoadProjectPort loadProjectPort;
-    private final SaveProjectMemberPort saveProjectMemberPort;
     private final LoadEmployeePort loadEmployeePort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadUserPort loadUserPort;
-    private final SaveAuditLogPort saveAuditLogPort;
     private final SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
     private final AuthorizationService authorizationService;
 
@@ -64,25 +60,25 @@ public class AssignTaskService implements AssignTaskUseCase {
             LoadTaskAssignmentPort loadTaskAssignmentPort,
             SaveTaskAssignmentPort saveTaskAssignmentPort,
             LoadProjectPort loadProjectPort,
-            SaveProjectMemberPort saveProjectMemberPort,
             LoadEmployeePort loadEmployeePort,
             LoadOrgUnitPort loadOrgUnitPort,
             LoadUserPort loadUserPort,
-            SaveAuditLogPort saveAuditLogPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
         this.saveTaskPort = Objects.requireNonNull(saveTaskPort, "SaveTaskPort must not be null");
-        this.loadTaskAssignmentPort = Objects.requireNonNull(loadTaskAssignmentPort, "LoadTaskAssignmentPort must not be null");
-        this.saveTaskAssignmentPort = Objects.requireNonNull(saveTaskAssignmentPort, "SaveTaskAssignmentPort must not be null");
+        this.loadTaskAssignmentPort = Objects.requireNonNull(loadTaskAssignmentPort,
+                "LoadTaskAssignmentPort must not be null");
+        this.saveTaskAssignmentPort = Objects.requireNonNull(saveTaskAssignmentPort,
+                "SaveTaskAssignmentPort must not be null");
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
-        this.saveProjectMemberPort = saveProjectMemberPort;
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadOrgUnitPort = loadOrgUnitPort;
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
-        this.saveAuditLogPort = saveAuditLogPort;
-        this.saveDeniedAuditLogPort = Objects.requireNonNull(saveDeniedAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
-        this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
+        this.saveDeniedAuditLogPort = Objects.requireNonNull(saveDeniedAuditLogPort,
+                "SaveAuditLogInNewTransactionPort must not be null");
+        this.authorizationService = Objects.requireNonNull(authorizationService,
+                "AuthorizationService must not be null");
     }
 
     public AssignTaskService(
@@ -91,14 +87,12 @@ public class AssignTaskService implements AssignTaskUseCase {
             LoadTaskAssignmentPort loadTaskAssignmentPort,
             SaveTaskAssignmentPort saveTaskAssignmentPort,
             LoadProjectPort loadProjectPort,
-            SaveProjectMemberPort saveProjectMemberPort,
             LoadEmployeePort loadEmployeePort,
             LoadUserPort loadUserPort,
-            SaveAuditLogPort saveAuditLogPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
-        this(loadTaskPort, saveTaskPort, loadTaskAssignmentPort, saveTaskAssignmentPort, loadProjectPort, saveProjectMemberPort,
-                loadEmployeePort, null, loadUserPort, saveAuditLogPort, saveDeniedAuditLogPort, authorizationService);
+        this(loadTaskPort, saveTaskPort, loadTaskAssignmentPort, saveTaskAssignmentPort, loadProjectPort,
+                loadEmployeePort, null, loadUserPort, saveDeniedAuditLogPort, authorizationService);
     }
 
     @Override
@@ -143,7 +137,8 @@ public class AssignTaskService implements AssignTaskUseCase {
                 : (effectiveStart != null ? effectiveStart : java.time.LocalDate.now());
 
         List<Long> employeeIds = command.employeeIds() != null
-                ? new ArrayList<>(new java.util.LinkedHashSet<>(command.employeeIds().stream().filter(Objects::nonNull).toList()))
+                ? new ArrayList<>(
+                        new java.util.LinkedHashSet<>(command.employeeIds().stream().filter(Objects::nonNull).toList()))
                 : List.of();
         List<EmployeeId> validEmployeeIds = new ArrayList<>();
 
@@ -152,12 +147,14 @@ public class AssignTaskService implements AssignTaskUseCase {
                     .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + empId));
 
             if (employee.getStatus() != null && employee.getStatus() != EmployeeStatus.ACTIVE) {
-                throw new AssigneeInactiveException("Nhân sự [" + employee.getFullName() + "] không ở trạng thái hoạt động (ACTIVE).");
+                throw new AssigneeInactiveException(
+                        "Nhân sự [" + employee.getFullName() + "] không ở trạng thái hoạt động (ACTIVE).");
             }
 
             // Enforce data scope on employee
             if (currentUser.getDataScope() == DataScope.ORGANIZATION_BRANCH && loadOrgUnitPort != null) {
-                if (employee.getOrgUnitId() == null || !loadOrgUnitPort.existsInOrgUnitBranch(employee.getOrgUnitId(), currentUser.getScopeOrgUnitId())) {
+                if (employee.getOrgUnitId() == null || !loadOrgUnitPort.existsInOrgUnitBranch(employee.getOrgUnitId(),
+                        currentUser.getScopeOrgUnitId())) {
                     saveDeniedAudit(currentUserId, currentUser, project.getIdValue(), "ASSIGNEE_OUTSIDE_DATA_SCOPE");
                     throw new PermissionDeniedException(PermissionCode.PROJECT_WBS_MANAGE);
                 }
@@ -208,8 +205,7 @@ public class AssignTaskService implements AssignTaskUseCase {
                         task.getId(),
                         empId,
                         currentUserId != null ? new UserId(currentUserId) : null,
-                        isPrimary
-                );
+                        isPrimary);
                 saveTaskAssignmentPort.save(newAssignment);
             }
         }
@@ -220,11 +216,11 @@ public class AssignTaskService implements AssignTaskUseCase {
                 task.getName(),
                 employeeIds,
                 task.getPlannedStartDate(),
-                task.getPlannedEndDate()
-        );
+                task.getPlannedEndDate());
     }
 
-    private boolean canManageWbs(User currentUser, Long currentUserId, com.hrm.employeemanagement.domain.project.Project project) {
+    private boolean canManageWbs(User currentUser, Long currentUserId,
+            com.hrm.employeemanagement.domain.project.Project project) {
         return switch (currentUser.getDataScope()) {
             case COMPANY -> true;
             case ORGANIZATION_BRANCH ->

@@ -1,7 +1,5 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.serializer.notification;
 
-import java.util.Objects;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

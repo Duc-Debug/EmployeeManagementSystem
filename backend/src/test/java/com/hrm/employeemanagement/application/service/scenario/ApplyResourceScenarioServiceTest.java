@@ -105,6 +105,14 @@ class ApplyResourceScenarioServiceTest {
 
     @BeforeEach
     void setUp() {
+        ScenarioBaselineValidator scenarioBaselineValidator = new ScenarioBaselineValidator(
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort
+        );
+
         service = new ApplyResourceScenarioService(
                 authorizationService,
                 loadUserPort,
@@ -119,11 +127,8 @@ class ApplyResourceScenarioServiceTest {
                 deleteSnapshotPort,
                 loadAllocationPort,
                 saveAllocationPort,
-                loadWeeklyAvailabilityPort,
-                loadHolidaysPort,
-                loadApprovedLeavesPort,
-                loadWorkingCalendarPort,
-                saveAuditLogPort
+                saveAuditLogPort,
+                scenarioBaselineValidator
         );
 
         rmUser = new User(

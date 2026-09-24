@@ -34,7 +34,6 @@ import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
-import com.hrm.employeemanagement.domain.project.ProjectStatus;
 import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskAssignment;
 import com.hrm.employeemanagement.domain.task.TaskId;

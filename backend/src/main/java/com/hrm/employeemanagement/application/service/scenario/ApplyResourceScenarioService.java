@@ -8,9 +8,6 @@ import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hrm.employeemanagement.application.dto.scenario.ApplyScenarioCommand;
 import com.hrm.employeemanagement.application.dto.scenario.ApplyScenarioPreviewResult;
 import com.hrm.employeemanagement.application.dto.scenario.ApplyScenarioPreviewResult.EmployeeComparisonRowResult;
@@ -23,10 +20,6 @@ import com.hrm.employeemanagement.application.port.inbound.scenario.PreviewApply
 import com.hrm.employeemanagement.application.port.inbound.scenario.RefreshScenarioBaselineUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
-import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
-import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
-import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
-import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.scenario.DeleteScenarioSnapshotPort;
@@ -72,8 +65,6 @@ public class ApplyResourceScenarioService implements
         ApplyScenarioUseCase,
         RefreshScenarioBaselineUseCase {
 
-    private static final Logger log = LoggerFactory.getLogger(ApplyResourceScenarioService.class);
-
     private final AuthorizationService authorizationService;
     private final LoadUserPort loadUserPort;
     private final LoadEmployeePort loadEmployeePort;
@@ -87,10 +78,6 @@ public class ApplyResourceScenarioService implements
     private final DeleteScenarioSnapshotPort deleteSnapshotPort;
     private final LoadWeeklyProjectAllocationPort loadAllocationPort;
     private final SaveWeeklyProjectAllocationPort saveAllocationPort;
-    private final LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
-    private final LoadHolidaysPort loadHolidaysPort;
-    private final LoadApprovedLeavesPort loadApprovedLeavesPort;
-    private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final SaveAuditLogPort saveAuditLogPort;
     private final ScenarioBaselineValidator scenarioBaselineValidator;
 
@@ -108,10 +95,6 @@ public class ApplyResourceScenarioService implements
             DeleteScenarioSnapshotPort deleteSnapshotPort,
             LoadWeeklyProjectAllocationPort loadAllocationPort,
             SaveWeeklyProjectAllocationPort saveAllocationPort,
-            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
-            LoadHolidaysPort loadHolidaysPort,
-            LoadApprovedLeavesPort loadApprovedLeavesPort,
-            LoadWorkingCalendarPort loadWorkingCalendarPort,
             SaveAuditLogPort saveAuditLogPort,
             ScenarioBaselineValidator scenarioBaselineValidator
     ) {
@@ -128,40 +111,8 @@ public class ApplyResourceScenarioService implements
         this.deleteSnapshotPort = Objects.requireNonNull(deleteSnapshotPort, "DeleteScenarioSnapshotPort must not be null");
         this.loadAllocationPort = Objects.requireNonNull(loadAllocationPort, "LoadWeeklyProjectAllocationPort must not be null");
         this.saveAllocationPort = Objects.requireNonNull(saveAllocationPort, "SaveWeeklyProjectAllocationPort must not be null");
-        this.loadWeeklyAvailabilityPort = Objects.requireNonNull(loadWeeklyAvailabilityPort, "LoadWeeklyAvailabilityPort must not be null");
-        this.loadHolidaysPort = Objects.requireNonNull(loadHolidaysPort, "LoadHolidaysPort must not be null");
-        this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "LoadApprovedLeavesPort must not be null");
-        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
-        this.scenarioBaselineValidator = scenarioBaselineValidator != null
-                ? scenarioBaselineValidator
-                : new ScenarioBaselineValidator(loadAllocationPort, loadWeeklyAvailabilityPort, loadHolidaysPort, loadApprovedLeavesPort, loadWorkingCalendarPort);
-    }
-
-    public ApplyResourceScenarioService(
-            AuthorizationService authorizationService,
-            LoadUserPort loadUserPort,
-            LoadEmployeePort loadEmployeePort,
-            LoadOrgUnitPort loadOrgUnitPort,
-            LoadProjectPort loadProjectPort,
-            LoadResourceScenarioPort loadScenarioPort,
-            SaveResourceScenarioPort saveScenarioPort,
-            LoadScenarioDemandPort loadDemandPort,
-            LoadScenarioSnapshotPort loadSnapshotPort,
-            SaveScenarioSnapshotPort saveSnapshotPort,
-            DeleteScenarioSnapshotPort deleteSnapshotPort,
-            LoadWeeklyProjectAllocationPort loadAllocationPort,
-            SaveWeeklyProjectAllocationPort saveAllocationPort,
-            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
-            LoadHolidaysPort loadHolidaysPort,
-            LoadApprovedLeavesPort loadApprovedLeavesPort,
-            LoadWorkingCalendarPort loadWorkingCalendarPort,
-            SaveAuditLogPort saveAuditLogPort
-    ) {
-        this(authorizationService, loadUserPort, loadEmployeePort, loadOrgUnitPort, loadProjectPort,
-                loadScenarioPort, saveScenarioPort, loadDemandPort, loadSnapshotPort, saveSnapshotPort,
-                deleteSnapshotPort, loadAllocationPort, saveAllocationPort, loadWeeklyAvailabilityPort,
-                loadHolidaysPort, loadApprovedLeavesPort, loadWorkingCalendarPort, saveAuditLogPort, null);
+        this.scenarioBaselineValidator = Objects.requireNonNull(scenarioBaselineValidator, "ScenarioBaselineValidator must not be null");
     }
 
     @Override
@@ -657,10 +608,6 @@ public class ApplyResourceScenarioService implements
 
     private String makeKey(Long employeeId, int year, int weekNumber) {
         return employeeId + "_" + year + "_" + weekNumber;
-    }
-
-    private String makeKey(int year, int weekNumber) {
-        return year + "_" + weekNumber;
     }
 
     private void validateScenarioScope(User currentUser, Long targetOrgUnitId) {

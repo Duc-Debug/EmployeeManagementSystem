@@ -18,11 +18,9 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
 import com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException;
 import com.hrm.employeemanagement.domain.milestone.Milestone;
-import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskId;
@@ -71,9 +69,6 @@ public class CascadeDelayWarningService implements EvaluateCascadeDelayUseCase, 
         ProjectId projectId = new ProjectId(command.projectId());
         TaskId taskId = new TaskId(command.taskId());
 
-        Project project = loadProjectPort.findById(projectId)
-                .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
-
         Task rootTask = loadTaskPort.findById(taskId)
                 .orElseThrow(() -> new TaskNotFoundException(command.taskId()));
 
@@ -120,9 +115,6 @@ public class CascadeDelayWarningService implements EvaluateCascadeDelayUseCase, 
 
         ProjectId projectId = new ProjectId(command.projectId());
         TaskId taskId = new TaskId(command.taskId());
-
-        Project project = loadProjectPort.findById(projectId)
-                .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án với ID: " + command.projectId()));
 
         Task rootTask = loadTaskPort.findById(taskId)
                 .orElseThrow(() -> new TaskNotFoundException(command.taskId()));

@@ -5,7 +5,6 @@ import com.hrm.employeemanagement.application.port.inbound.leave.GetEmployeeLeav
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveBalancePort;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
-import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveBalancePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
@@ -34,7 +33,6 @@ import com.hrm.employeemanagement.domain.calendar.CompanyWorkingCalendar;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.user.User;
 
-import java.time.LocalDate;
 import java.util.Collections;
 import java.util.Set;
 
@@ -44,7 +42,6 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
     private final LoadUserPort loadUserPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadLeaveBalancePort loadLeaveBalancePort;
-    private final SaveLeaveBalancePort saveLeaveBalancePort;
     private final LoadLeaveRequestPort loadLeaveRequestPort;
     private final AuthorizationService authorizationService;
     private final SaveAuditLogInNewTransactionPort auditLogRepository;
@@ -56,7 +53,6 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort,
             LoadLeaveBalancePort loadLeaveBalancePort,
-            SaveLeaveBalancePort saveLeaveBalancePort,
             LoadLeaveRequestPort loadLeaveRequestPort,
             AuthorizationService authorizationService,
             SaveAuditLogInNewTransactionPort auditLogRepository,
@@ -67,7 +63,6 @@ public class GetEmployeeLeaveBalanceService implements GetEmployeeLeaveBalanceUs
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "loadOrgUnitPort must not be null");
         this.loadLeaveBalancePort = Objects.requireNonNull(loadLeaveBalancePort, "loadLeaveBalancePort must not be null");
-        this.saveLeaveBalancePort = Objects.requireNonNull(saveLeaveBalancePort, "saveLeaveBalancePort must not be null");
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
         this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");

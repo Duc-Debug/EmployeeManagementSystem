@@ -32,7 +32,6 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -411,19 +410,6 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 overloadThreshold,
                 idleThreshold
         );
-    }
-
-    /**
-     * Tính toán ma trận năng lực tuần cho danh sách nhân sự mục tiêu theo ngưỡng mặc định.
-     */
-    private ComputationResult computeMatrixForEmployees(
-            List<Employee> targetEmployees,
-            List<YearWeek> targetWeeks,
-            Set<DayOfWeek> workingDays,
-            Map<YearWeek, Integer> holidayHoursByWeek
-    ) {
-        return computeMatrixForEmployees(targetEmployees, targetWeeks, workingDays, holidayHoursByWeek,
-                WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD, WeeklyCapacityMatrixPolicy.UNDERUTILIZED_THRESHOLD);
     }
 
     /**

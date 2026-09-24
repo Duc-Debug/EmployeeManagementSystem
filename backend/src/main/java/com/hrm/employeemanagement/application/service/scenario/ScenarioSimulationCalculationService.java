@@ -41,7 +41,6 @@ import com.hrm.employeemanagement.domain.allocation.CapacityStatus;
 import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
 import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
-import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.scenario.CorruptedScenarioSnapshotException;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
@@ -69,7 +68,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
     private final LoadScenarioDemandPort loadDemandPort;
     private final LoadScenarioSnapshotPort loadSnapshotPort;
     private final LoadCapacityThresholdPort loadCapacityThresholdPort;
-    private final SaveAuditLogPort saveAuditLogPort;
     private final LoadScenarioSharePort loadScenarioSharePort;
     private final LoadProjectPort loadProjectPort;
     private final SaveAuditLogInNewTransactionPort deniedAuditLogPort;
@@ -124,7 +122,6 @@ public class ScenarioSimulationCalculationService implements GetScenarioSimulati
         this.loadDemandPort = Objects.requireNonNull(loadDemandPort, "LoadScenarioDemandPort must not be null");
         this.loadSnapshotPort = Objects.requireNonNull(loadSnapshotPort, "LoadScenarioSnapshotPort must not be null");
         this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
-        this.saveAuditLogPort = saveAuditLogPort;
         this.loadScenarioSharePort = loadScenarioSharePort;
         this.loadProjectPort = loadProjectPort;
         this.deniedAuditLogPort = deniedAuditLogPort;

@@ -108,8 +108,7 @@ public class RoleAllocationTemplateService implements
             SaveWeeklyProjectAllocationPort saveAllocationPort,
             LoadProjectResourceDemandPort loadDemandPort,
             SaveProjectResourceDemandPort saveDemandPort,
-            SaveAuditLogInNewTransactionPort saveAuditLogPort
-    ) {
+            SaveAuditLogInNewTransactionPort saveAuditLogPort) {
         this(authorizationService, loadUserPort, saveTemplatePort, loadTemplatePort, loadStructurePort,
                 loadProjectPort, loadOrgUnitPort, loadRolePort, loadEmployeePort, loadWeeklyAvailabilityPort,
                 loadAllocationPort, saveAllocationPort, null, loadDemandPort, saveDemandPort, saveAuditLogPort);
@@ -131,8 +130,7 @@ public class RoleAllocationTemplateService implements
             DeleteWeeklyProjectAllocationPort deleteAllocationPort,
             LoadProjectResourceDemandPort loadDemandPort,
             SaveProjectResourceDemandPort saveDemandPort,
-            SaveAuditLogInNewTransactionPort saveAuditLogPort
-    ) {
+            SaveAuditLogInNewTransactionPort saveAuditLogPort) {
         this.authorizationService = authorizationService;
         this.loadUserPort = loadUserPort;
         this.saveTemplatePort = saveTemplatePort;
@@ -160,8 +158,7 @@ public class RoleAllocationTemplateService implements
                     null,
                     "ACCESS_DENIED",
                     "ROLE_ALLOCATION_TEMPLATE",
-                    null
-            ));
+                    null));
             throw ex;
         }
     }
@@ -173,7 +170,8 @@ public class RoleAllocationTemplateService implements
 
         if (command.sourceProjectId() != null) {
             Project sourceProject = loadProjectPort.findById(new ProjectId(command.sourceProjectId()))
-                    .orElseThrow(() -> new ProjectNotFoundException("Không tìm thấy dự án nguồn: " + command.sourceProjectId()));
+                    .orElseThrow(() -> new ProjectNotFoundException(
+                            "Không tìm thấy dự án nguồn: " + command.sourceProjectId()));
             requireProjectInDataScope(currentUser, sourceProject);
         }
 
@@ -191,8 +189,7 @@ public class RoleAllocationTemplateService implements
                 command.description(),
                 command.sourceProjectId(),
                 currentUserId,
-                domainItems
-        );
+                domainItems);
 
         ProjectRoleAllocationTemplate saved = saveTemplatePort.save(template);
 
@@ -201,8 +198,7 @@ public class RoleAllocationTemplateService implements
                 currentUserId,
                 "CREATE_ROLE_ALLOCATION_TEMPLATE",
                 "ROLE_ALLOCATION_TEMPLATE",
-                saved.getId()
-        ));
+                saved.getId()));
 
         return toDetailResult(saved);
     }
@@ -219,8 +215,7 @@ public class RoleAllocationTemplateService implements
                         t.getSourceProjectId(),
                         t.getItems() != null ? t.getItems().size() : 0,
                         t.getCreatedBy(),
-                        t.getCreatedAt()
-                ))
+                        t.getCreatedAt()))
                 .collect(Collectors.toList());
     }
 
@@ -262,13 +257,17 @@ public class RoleAllocationTemplateService implements
         List<Long> employeeIds = activeEmployees.stream().map(Employee::getIdValue).collect(Collectors.toList());
 
         // Batch load availability và allocations trong các tuần dự án
-        List<WeeklyAvailability> availabilities = loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(employeeIds, targetWeeks);
+        List<WeeklyAvailability> availabilities = loadWeeklyAvailabilityPort
+                .loadAvailabilityForEmployeesAndWeeks(employeeIds, targetWeeks);
         Map<String, BigDecimal> employeeWeekAvailabilityMap = new HashMap<>();
         for (WeeklyAvailability a : availabilities) {
-            employeeWeekAvailabilityMap.put(a.getEmployeeId() + "_" + a.getYearWeek().year() + "_" + a.getYearWeek().weekNumber(), a.getNetAvailableHours());
+            employeeWeekAvailabilityMap.put(
+                    a.getEmployeeId() + "_" + a.getYearWeek().year() + "_" + a.getYearWeek().weekNumber(),
+                    a.getNetAvailableHours());
         }
 
-        List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployeesAndWeeks(employeeIds, targetWeeks);
+        List<WeeklyProjectAllocation> allocations = loadAllocationPort.loadAllocationsForEmployeesAndWeeks(employeeIds,
+                targetWeeks);
         Map<String, BigDecimal> employeeWeekAllocatedMap = new HashMap<>();
         for (WeeklyProjectAllocation alloc : allocations) {
             String key = alloc.getEmployeeId() + "_" + alloc.getYear() + "_" + alloc.getWeekNumber();
@@ -298,7 +297,7 @@ public class RoleAllocationTemplateService implements
             List<Employee> matchingEmployees = activeEmployees.stream()
                     .filter(e -> e.getProfessionalRole() != null &&
                             (e.getProfessionalRole().equalsIgnoreCase(roleCode) ||
-                             e.getProfessionalRole().equalsIgnoreCase(roleName)))
+                                    e.getProfessionalRole().equalsIgnoreCase(roleName)))
                     .collect(Collectors.toList());
 
             // Đánh giá độ rảnh trong tất cả các tuần của dự án
@@ -307,7 +306,8 @@ public class RoleAllocationTemplateService implements
                 BigDecimal minRemaining = null;
                 for (YearWeek yw : targetWeeks) {
                     String key = candidate.getIdValue() + "_" + yw.year() + "_" + yw.weekNumber();
-                    BigDecimal netAvail = employeeWeekAvailabilityMap.getOrDefault(key, resolveAvailableHours(candidate, yw));
+                    BigDecimal netAvail = employeeWeekAvailabilityMap.getOrDefault(key,
+                            resolveAvailableHours(candidate, yw));
                     BigDecimal allocated = employeeWeekAllocatedMap.getOrDefault(key, BigDecimal.ZERO);
                     BigDecimal suggested = employeeWeekSuggestedMap.getOrDefault(key, BigDecimal.ZERO);
                     BigDecimal remaining = netAvail.subtract(allocated).subtract(suggested);
@@ -320,8 +320,7 @@ public class RoleAllocationTemplateService implements
                         candidate.getIdValue(),
                         candidate.getFullName(),
                         candidate.getEmployeeCode(),
-                        minRemaining != null ? minRemaining : BigDecimal.ZERO
-                ));
+                        minRemaining != null ? minRemaining : BigDecimal.ZERO));
             }
 
             // Gợi ý theo Policy
@@ -330,8 +329,7 @@ public class RoleAllocationTemplateService implements
                     roleCode,
                     roleName,
                     requiredHours,
-                    candidateAvailabilities
-            );
+                    candidateAvailabilities);
 
             if (suggestion.isAssigned()) {
                 for (YearWeek yw : targetWeeks) {
@@ -354,8 +352,7 @@ public class RoleAllocationTemplateService implements
                     suggestion.getSuggestedEmployeeName(),
                     suggestion.getSuggestedEmployeeCode(),
                     suggestion.isAssigned(),
-                    suggestion.getWarningMessage()
-            ));
+                    suggestion.getWarningMessage()));
         }
 
         return new PreviewRoleAllocationResult(
@@ -367,8 +364,7 @@ public class RoleAllocationTemplateService implements
                 targetWeeks.size(),
                 suggestionResults,
                 hasUnassigned,
-                warnings
-        );
+                warnings);
     }
 
     @Override
@@ -388,8 +384,9 @@ public class RoleAllocationTemplateService implements
         Map<Long, ProjectRole> roleMap = loadRolePort.findAll().stream()
                 .collect(Collectors.toMap(r -> r.getId().value(), r -> r, (r1, r2) -> r1));
 
-        List<ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand> assignments =
-                command.assignments() != null ? command.assignments() : List.of();
+        List<ApplyRoleAllocationTemplateCommand.RoleAssignmentItemCommand> assignments = command.assignments() != null
+                ? command.assignments()
+                : List.of();
         Map<Long, ProjectRoleAllocationTemplateItem> templateItems = template.getItems().stream()
                 .collect(Collectors.toMap(ProjectRoleAllocationTemplateItem::getRoleId, item -> item));
         validateAssignments(assignments, templateItems, roleMap);
@@ -419,7 +416,8 @@ public class RoleAllocationTemplateService implements
             }
         }
 
-        validateCapacity(desiredHoursByEmployee, employees, targetProject, targetWeeks, existingAllocMap, template.getId());
+        validateCapacity(desiredHoursByEmployee, employees, targetProject, targetWeeks, existingAllocMap,
+                template.getId());
 
         int appliedRolesCount = assignments.size();
         int allocatedEmployeesCount = desiredHoursByEmployee.size();
@@ -456,14 +454,14 @@ public class RoleAllocationTemplateService implements
             Map<Long, BigDecimal> empRoleHours = roleHoursByEmployeeMap.get(employeeId);
 
             for (YearWeek yw : targetWeeks) {
-                WeeklyProjectAllocation existingAlloc = getExistingAllocation(employeeId, targetProject, yw, existingAllocMap);
+                WeeklyProjectAllocation existingAlloc = getExistingAllocation(employeeId, targetProject, yw,
+                        existingAllocMap);
 
                 if (desiredTemplateHours.compareTo(BigDecimal.ZERO) > 0) {
                     String newVarianceNote = buildVarianceNoteWithRoleTags(
                             existingAlloc != null ? existingAlloc.getVarianceNote() : null,
                             template.getId(),
-                            empRoleHours
-                    );
+                            empRoleHours);
 
                     if (existingAlloc != null) {
                         existingAlloc.updateAllocation(desiredTemplateHours, null, currentUserId);
@@ -474,8 +472,7 @@ public class RoleAllocationTemplateService implements
                                 employeeId,
                                 targetProject.getId().value(),
                                 yw,
-                                desiredTemplateHours
-                        );
+                                desiredTemplateHours);
                         newAlloc.updateVarianceNote(newVarianceNote, currentUserId);
                         saveAllocationPort.save(newAlloc);
                     }
@@ -485,7 +482,9 @@ public class RoleAllocationTemplateService implements
                             deleteAllocationPort.delete(existingAlloc);
                         } else {
                             existingAlloc.updateAllocation(BigDecimal.ZERO, null, currentUserId);
-                            existingAlloc.updateVarianceNote(removeTemplateTag(existingAlloc.getVarianceNote(), template.getId()), currentUserId);
+                            existingAlloc.updateVarianceNote(
+                                    removeTemplateTag(existingAlloc.getVarianceNote(), template.getId()),
+                                    currentUserId);
                             saveAllocationPort.save(existingAlloc);
                         }
                     }
@@ -500,8 +499,7 @@ public class RoleAllocationTemplateService implements
                 "ROLE_ALLOCATION_TEMPLATE",
                 template.getId(),
                 null,
-                "Applied to project " + targetProject.getId().value() + ": " + appliedRolesCount + " roles"
-        ));
+                "Applied to project " + targetProject.getId().value() + ": " + appliedRolesCount + " roles"));
 
         String message = unassignedRolesCount > 0
                 ? "Áp mẫu hoàn tất. Có " + unassignedRolesCount + " vai trò chưa được phân bổ nhân sự (cần bổ sung)."
@@ -514,8 +512,7 @@ public class RoleAllocationTemplateService implements
                 allocatedEmployeesCount,
                 unassignedRolesCount,
                 warnings,
-                message
-        );
+                message);
     }
 
     private void validateAssignments(
@@ -532,19 +529,22 @@ public class RoleAllocationTemplateService implements
                 throw new InvalidRoleAllocationTemplateException("Vai trò phân bổ không hợp lệ: " + item.roleId());
             }
             if (item.hoursPerWeek() == null || item.hoursPerWeek().compareTo(templateItem.getHoursPerWeek()) != 0) {
-                throw new InvalidRoleAllocationTemplateException("Số giờ của vai trò " + item.roleId() + " không khớp với mẫu");
+                throw new InvalidRoleAllocationTemplateException(
+                        "Số giờ của vai trò " + item.roleId() + " không khớp với mẫu");
             }
         }
     }
 
     private void validateEmployeeAssignment(User currentUser, Employee employee, ProjectRole role, Long employeeId) {
         if (employee == null || employee.getStatus() != EmployeeStatus.ACTIVE) {
-            throw new InvalidRoleAllocationTemplateException("Nhân viên không tồn tại hoặc không hoạt động: " + employeeId);
+            throw new InvalidRoleAllocationTemplateException(
+                    "Nhân viên không tồn tại hoặc không hoạt động: " + employeeId);
         }
         String professionalRole = employee.getProfessionalRole();
         if (professionalRole == null || (!professionalRole.equalsIgnoreCase(role.getCode())
                 && !professionalRole.equalsIgnoreCase(role.getName()))) {
-            throw new InvalidRoleAllocationTemplateException("Nhân viên " + employeeId + " không phù hợp với vai trò " + role.getName());
+            throw new InvalidRoleAllocationTemplateException(
+                    "Nhân viên " + employeeId + " không phù hợp với vai trò " + role.getName());
         }
         requireOrgUnitInDataScope(currentUser, employee.getOrgUnitId());
     }
@@ -563,7 +563,8 @@ public class RoleAllocationTemplateService implements
 
             for (YearWeek yw : targetWeeks) {
                 BigDecimal available = resolveAvailableHours(employee, yw);
-                BigDecimal allocatedToOtherProjects = loadAllocationPort.loadAllocationsForEmployee(employeeId, yw).stream()
+                BigDecimal allocatedToOtherProjects = loadAllocationPort.loadAllocationsForEmployee(employeeId, yw)
+                        .stream()
                         .filter(allocation -> !targetProject.getId().value().equals(allocation.getProjectId()))
                         .map(WeeklyProjectAllocation::getAllocatedHours)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -596,24 +597,11 @@ public class RoleAllocationTemplateService implements
         return null;
     }
 
-    private static final Pattern TEMPLATE_TAG_PATTERN = Pattern.compile("\\[ROLE_TEMPLATE:(\\d+)(?::ROLE:(\\d+))?:([0-9]+(?:\\.[0-9]+)?)\\]");
+    private static final Pattern TEMPLATE_TAG_PATTERN = Pattern
+            .compile("\\[ROLE_TEMPLATE:(\\d+)(?::ROLE:(\\d+))?:([0-9]+(?:\\.[0-9]+)?)\\]");
 
-    private BigDecimal extractTemplateHours(String varianceNote, Long templateId) {
-        if (varianceNote == null || varianceNote.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-        Matcher matcher = TEMPLATE_TAG_PATTERN.matcher(varianceNote);
-        BigDecimal sum = BigDecimal.ZERO;
-        while (matcher.find()) {
-            Long tid = Long.valueOf(matcher.group(1));
-            if (tid.equals(templateId)) {
-                sum = sum.add(new BigDecimal(matcher.group(3)));
-            }
-        }
-        return sum;
-    }
-
-    private String buildVarianceNoteWithRoleTags(String existingNote, Long templateId, Map<Long, BigDecimal> roleHoursForEmployee) {
+    private String buildVarianceNoteWithRoleTags(String existingNote, Long templateId,
+            Map<Long, BigDecimal> roleHoursForEmployee) {
         String cleanNote = removeTemplateTag(existingNote, templateId);
         if (roleHoursForEmployee == null || roleHoursForEmployee.isEmpty()) {
             return cleanNote.isEmpty() ? null : cleanNote;
@@ -730,8 +718,7 @@ public class RoleAllocationTemplateService implements
                             item.getRoleId(),
                             role != null ? role.getCode() : "ROLE_" + item.getRoleId(),
                             role != null ? role.getName() : "Vai trò " + item.getRoleId(),
-                            item.getHoursPerWeek()
-                    );
+                            item.getHoursPerWeek());
                 }).collect(Collectors.toList())
                 : List.of();
 
@@ -745,7 +732,6 @@ public class RoleAllocationTemplateService implements
                 template.getCreatedAt(),
                 template.getUpdatedAt(),
                 template.getVersion(),
-                itemResults
-        );
+                itemResults);
     }
 }
