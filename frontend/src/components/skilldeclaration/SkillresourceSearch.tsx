@@ -648,7 +648,7 @@ export default function SkillresourceSearch({
             {loading ? (
                 <div className="mt-4 rounded-2xl bg-white p-12 text-center border border-slate-200 shadow-xs">
                     <Loader2 className="mx-auto h-8 w-8 text-indigo-600 animate-spin" />
-                    <p className="mt-3 text-xs font-medium text-slate-500">Đang tra cứu dữ liệu nhân lực & độ rảnh từ hệ thống...</p>
+                    <p className="mt-3 text-xs font-medium text-slate-500">Đang tra cứu dữ liệu nhân lực & độ rảnh...</p>
                 </div>
             ) : filteredEmployees.length === 0 ? (
                 <div className="mt-4 rounded-2xl bg-white p-12 text-center border border-slate-200 shadow-xs text-slate-900">
