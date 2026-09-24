@@ -30,7 +30,6 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.scenario.InsufficientScenariosForComparisonException;
 import com.hrm.employeemanagement.domain.exception.scenario.ScenarioNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
-import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.role.RoleId;

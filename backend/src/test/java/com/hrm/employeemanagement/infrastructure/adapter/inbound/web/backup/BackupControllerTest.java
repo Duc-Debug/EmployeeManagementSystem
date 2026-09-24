@@ -9,7 +9,6 @@ import com.hrm.employeemanagement.domain.backup.Backup;
 import com.hrm.employeemanagement.domain.backup.BackupSchedule;
 import com.hrm.employeemanagement.domain.backup.BackupStatus;
 import com.hrm.employeemanagement.domain.backup.BackupType;
-import com.hrm.employeemanagement.domain.backup.exception.InvalidBackupStatusException;
 import com.hrm.employeemanagement.domain.backup.exception.InvalidRestoreConfirmationException;
 import com.hrm.employeemanagement.domain.role.Role;
 import com.hrm.employeemanagement.domain.role.RoleCode;
@@ -33,7 +32,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;

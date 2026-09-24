@@ -26,7 +26,6 @@ import com.hrm.employeemanagement.domain.availability.Holiday;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.conflict.ConflictType;
 import com.hrm.employeemanagement.domain.conflict.ScheduleConflict;
-import com.hrm.employeemanagement.domain.conflict.ScheduleConflictStatus;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;

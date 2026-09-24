@@ -60,8 +60,7 @@ class SkillServiceTest {
                 loadSkillGroupPort,
                 saveSkillGroupPort,
                 saveAuditLogPort,
-                authorizationService,
-                currentUserPort
+                authorizationService
         );
         lenient().when(currentUserPort.getCurrentUserId()).thenReturn(Optional.of(99L));
     }
@@ -207,8 +206,7 @@ class SkillServiceTest {
                         loadSkillGroupPort,
                         saveSkillGroupPort,
                         saveAuditLogPort,
-                        authorizationService,
-                        null
+                        authorizationService
                 )
         );
     }

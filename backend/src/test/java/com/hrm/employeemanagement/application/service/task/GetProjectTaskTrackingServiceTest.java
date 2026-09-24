@@ -41,7 +41,6 @@ import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException;
 import com.hrm.employeemanagement.domain.project.Project;
 import com.hrm.employeemanagement.domain.project.ProjectId;

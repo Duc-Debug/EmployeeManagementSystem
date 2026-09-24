@@ -12,7 +12,6 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.exception.leave.LeaveRequestNotFoundException;
 import com.hrm.employeemanagement.domain.leave.LeaveRequest;
 import com.hrm.employeemanagement.domain.leave.LeaveStatus;
 import com.hrm.employeemanagement.domain.leave.LeaveType;

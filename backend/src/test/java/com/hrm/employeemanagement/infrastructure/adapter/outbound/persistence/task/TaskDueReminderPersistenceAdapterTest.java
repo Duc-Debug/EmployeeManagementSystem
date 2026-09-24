@@ -112,7 +112,6 @@ class TaskDueReminderPersistenceAdapterTest {
     void hasReminderBeenSent_legacyNotificationExistsForDifferentDueDate_returnsFalse() {
         UserId recipientId = new UserId(42L);
         Long taskId = 100L;
-        LocalDate oldDueDate = LocalDate.of(2026, 9, 20);
         LocalDate newDueDate = LocalDate.of(2026, 9, 25);
 
         when(eventRepository.findBySourceEventKey(anyString())).thenReturn(Optional.empty());

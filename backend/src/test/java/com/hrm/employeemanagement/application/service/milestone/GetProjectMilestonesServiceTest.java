@@ -1,7 +1,6 @@
 package com.hrm.employeemanagement.application.service.milestone;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -29,7 +28,6 @@ import com.hrm.employeemanagement.application.service.authorization.Authorizatio
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
-import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.milestone.Milestone;
 import com.hrm.employeemanagement.domain.milestone.MilestoneId;
 import com.hrm.employeemanagement.domain.milestone.MilestoneStatus;

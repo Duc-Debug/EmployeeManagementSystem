@@ -22,7 +22,6 @@ import com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCod
 import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
 import com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.DuplicateEmailException;
-import com.hrm.employeemanagement.domain.exception.user.DuplicateUsernameException;
 import com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.role.Role;

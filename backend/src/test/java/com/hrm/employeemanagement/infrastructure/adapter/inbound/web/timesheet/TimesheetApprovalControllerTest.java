@@ -29,10 +29,8 @@ import com.hrm.employeemanagement.application.port.inbound.timesheet.ApproveTime
 import com.hrm.employeemanagement.application.port.inbound.timesheet.GetPendingApprovalsUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.exception.timesheet.DailyHoursLimitExceededException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetEntryVersionConflictException;
 import com.hrm.employeemanagement.domain.exception.timesheet.TimesheetNotApprovedException;
-import com.hrm.employeemanagement.domain.exception.timesheet.WorkLogAdjustmentReasonRequiredException;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
 
 @ExtendWith(MockitoExtension.class)

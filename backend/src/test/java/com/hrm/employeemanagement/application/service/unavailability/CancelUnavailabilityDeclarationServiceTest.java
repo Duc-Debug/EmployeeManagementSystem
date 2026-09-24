@@ -22,7 +22,6 @@ import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
-import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.unavailability.InvalidUnavailabilityPeriodException;
 import com.hrm.employeemanagement.domain.unavailability.UnavailabilityDeclaration;
 import com.hrm.employeemanagement.domain.unavailability.UnavailabilityReasonType;

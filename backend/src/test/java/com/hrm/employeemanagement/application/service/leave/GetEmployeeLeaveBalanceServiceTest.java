@@ -64,7 +64,6 @@ class GetEmployeeLeaveBalanceServiceTest {
                 loadUserPort,
                 loadOrgUnitPort,
                 loadLeaveBalancePort,
-                saveLeaveBalancePort,
                 loadLeaveRequestPort,
                 authorizationService,
                 auditLogRepository,

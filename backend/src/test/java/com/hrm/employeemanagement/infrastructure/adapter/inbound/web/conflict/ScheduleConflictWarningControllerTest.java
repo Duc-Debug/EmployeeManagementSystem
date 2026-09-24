@@ -17,9 +17,6 @@ import static org.mockito.Mockito.when;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-
-import com.hrm.employeemanagement.application.dto.conflict.AssignScheduleConflictHandlerCommand;
-import com.hrm.employeemanagement.application.dto.conflict.ResolveScheduleConflictWithNoteCommand;
 import com.hrm.employeemanagement.application.dto.conflict.ScheduleConflictResult;
 import com.hrm.employeemanagement.application.port.inbound.conflict.AssignScheduleConflictHandlerUseCase;
 import com.hrm.employeemanagement.application.port.inbound.conflict.GetScheduleConflictsUseCase;
