@@ -13,6 +13,7 @@ import {
     KeyRound,
     RefreshCw,
     Activity,
+    Database,
 } from "lucide-react";
 import { getUsers, getUserStats } from "@/lib/api/users";
 import { getOrgTree } from "@/lib/api/org-units";
@@ -242,7 +243,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         Lối tắt tác vụ Quản trị nhanh
                     </h3>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                     <button
                         type="button"
                         onClick={() => onNavigate("users")}
@@ -282,6 +283,20 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Cơ cấu Tổ chức</span>
                             <p className="text-[9px] text-slate-400 truncate">Cây phòng ban</p>
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onNavigate("backup")}
+                        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-left transition hover:border-blue-300 hover:bg-blue-50/40 cursor-pointer"
+                    >
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white shadow-2xs">
+                            <Database className="h-3 w-3" />
+                        </div>
+                        <div className="min-w-0">
+                            <span className="block text-[11px] font-semibold text-slate-900 truncate">Sao lưu & Phục hồi</span>
+                            <p className="text-[9px] text-slate-400 truncate">Snapshot dữ liệu</p>
                         </div>
                     </button>
 

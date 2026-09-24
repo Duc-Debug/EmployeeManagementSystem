@@ -34,6 +34,7 @@ export function resolveActiveTab(pathname: string): string {
     if (path.includes("schedule-conflict") || path.includes("xung-dot-lich") || path.includes("conflict")) return "schedule-conflict";
     if (path.includes("outsourced-contract") || path.includes("hop-dong-thue-ngoai")) return "outsourced-contracts";
     if (path.includes("data-import") || path.includes("nhap-du-lieu") || path.includes("employee-import") || path.includes("import")) return "data-import";
+    if (path.includes("backup") || path.includes("sao-luu") || path.includes("phuc-hoi")) return "backup";
     if (path.includes("report") || path.includes("bao-cao")) return "reports";
     return "overview";
 }
