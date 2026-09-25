@@ -41,6 +41,12 @@ function calculateWeeklyForecast(availableHours, committedHours, reservedHours) 
 
 function canAccessCapacityForecastTab(permissions) {
   return permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
+function canAccessCapacityForecastTab(permissions, roleCode) {
+  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
+  if (permissions && permissions.length > 0) {
+    return permissions.includes("CAPACITY_FORECAST_REPORT_READ");
+  }
+  return ["VT-01", "VT-03", "ROLE-VT-01", "ROLE-VT-03", "DIRECTOR", "RESOURCE-MANAGER"].includes(normalized);
 }
 
 function visibleOrgUnitIdsForRole(tree, roleCode, scopeOrgUnitId) {
@@ -95,6 +101,24 @@ describe("Capacity Forecast Report Logic Tests (NCL-10-CN-004)", () => {
     assert.equal(canAccessCapacityForecastTab(["PROJECT_READ"]), false);
     assert.equal(canAccessCapacityForecastTab([]), false);
     assert.equal(canAccessCapacityForecastTab(undefined), false);
+  });
+
+  test("BR-08: Phân quyền vai trò - Chỉ VT-01 và VT-03 được xem, chặn VT-02, VT-04, VT-05, VT-06", () => {
+    // Trường hợp kiểm tra theo role fallback (chưa nạp permissions)
+    assert.equal(canAccessCapacityForecastTab(null, "VT-01"), true);
+    assert.equal(canAccessCapacityForecastTab(null, "VT-03"), true);
+    assert.equal(canAccessCapacityForecastTab(null, "VT-02"), false);
+    assert.equal(canAccessCapacityForecastTab(null, "VT-04"), false);
+    assert.equal(canAccessCapacityForecastTab(null, "VT-05"), false);
+    assert.equal(canAccessCapacityForecastTab(null, "VT-06"), false);
+    assert.equal(canAccessCapacityForecastTab(null, "ADMIN"), false);
+
+    // Trường hợp có permissions cụ thể từ backend
+    assert.equal(canAccessCapacityForecastTab(["CAPACITY_FORECAST_REPORT_READ"], "VT-06"), true);
+    assert.equal(canAccessCapacityForecastTab(["USER_READ", "ORG_UNIT_MANAGE"], "VT-06"), false);
+    assert.equal(canAccessCapacityForecastTab(["PROJECT_READ", "PROJECT_CREATE"], "VT-02"), false);
+    assert.equal(canAccessCapacityForecastTab(["WORK_LOG_CREATE"], "VT-04"), false);
+    assert.equal(canAccessCapacityForecastTab(["EMPLOYEE_UPDATE"], "VT-05"), false);
   });
 
   test("VT-03 chỉ nhìn thấy đơn vị trong nhánh data scope", () => {

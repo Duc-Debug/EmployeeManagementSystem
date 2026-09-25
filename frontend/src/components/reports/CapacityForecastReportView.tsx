@@ -26,6 +26,11 @@ import type { OrgUnitTreeNode } from "@/types/hrm";
 
 export default function CapacityForecastReportView() {
   const user = useAuthUser();
+  const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const hasReportPermission = user?.permissions && user.permissions.length > 0
+    ? user.permissions.includes("CAPACITY_FORECAST_REPORT_READ")
+    : ["VT-01", "VT-03", "ROLE-VT-01", "ROLE-VT-03", "DIRECTOR", "RESOURCE-MANAGER"].includes(normalizedRole);
+
   const now = new Date();
   const currentIsoDetails = getIsoWeekDetails(now);
   const [fromYear, setFromYear] = useState<number>(currentIsoDetails.year);
@@ -42,6 +47,7 @@ export default function CapacityForecastReportView() {
 
   // Tải danh sách bộ phận cho dropdown filter
   useEffect(() => {
+    if (!hasReportPermission) return;
     async function loadOrgUnitsData() {
       try {
         const tree = await getOrgTree();
@@ -107,12 +113,17 @@ export default function CapacityForecastReportView() {
   };
 
   useEffect(() => {
+    if (!hasReportPermission) {
+      setIsLoading(false);
+      return;
+    }
     const controller = new AbortController();
     fetchReport(controller.signal);
     return () => {
       controller.abort();
     };
   }, [fromYear, fromWeek, durationWeeks, selectedOrgUnitId]);
+  }, [fromYear, fromWeek, durationWeeks, selectedOrgUnitId, hasReportPermission]);
 
   const maxWeeksInFromYear = getIsoWeeksInYear(fromYear);
 
@@ -242,6 +253,7 @@ export default function CapacityForecastReportView() {
   const hasReportPermission = user?.permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
 
   if (forbidden && !hasReportPermission) {
+  if (!hasReportPermission || forbidden) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/50 dark:bg-red-950/30 text-center">
@@ -249,6 +261,7 @@ export default function CapacityForecastReportView() {
           <h3 className="text-lg font-bold text-red-900 dark:text-red-200">Từ chối truy cập (403 Forbidden)</h3>
           <p className="mt-2 text-sm text-red-700 dark:text-red-300">
             Bạn không có quyền xem báo cáo dự báo năng lực. Vui lòng liên hệ quản trị viên để được cấp quyền phù hợp.
+            Bạn không có quyền xem báo cáo dự báo năng lực. Tính năng này chỉ dành cho Ban Giám Đốc (VT-01) và Quản lý nguồn lực (VT-03).
           </p>
         </div>
       </div>

@@ -128,6 +128,11 @@ export function canAccessTab(
             // NCL-10-CN-004: Báo cáo dự báo năng lực các tuần tới (Ban giám đốc VT-01, Quản lý nguồn lực VT-03, Admin VT-06)
             return permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true ||
                 ["VT-01", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // NCL-10-CN-004: Báo cáo dự báo năng lực các tuần tới chỉ dành cho Ban giám đốc (VT-01) và Quản lý nguồn lực (VT-03)
+            if (permissions && permissions.length > 0) {
+                return permissions.includes("CAPACITY_FORECAST_REPORT_READ");
+            }
+            return ["VT-01", "VT-03", "ROLE-VT-01", "ROLE-VT-03", "DIRECTOR", "RESOURCE-MANAGER"].includes(normalized);
 
         case "timesheet-variance":
         case "variance-report":
