@@ -81,6 +81,17 @@ const DEFAULT_STANDARD_DAYS: StandardWorkWeekDay[] = [
   { dayOfWeek: "SUNDAY", isWorkingDay: false, workingHours: 0 },
 ];
 
+type WorkDayState = {
+  dayOfWeek: DayOfWeek;
+  isWorkingDay: boolean;
+  workingHours: number | string;
+};
+
+const cleanNumberInput = (raw: string): string => {
+  if (raw === "") return "";
+  return raw.replace(/^0+(?=\d)/, "");
+};
+
 interface FlatOrgUnit {
   id: number;
   unitName: string;
@@ -131,10 +142,10 @@ export default function WorkingCalendarConfigView() {
 
   const [config, setConfig] = useState<StandardWorkWeekConfig | null>(null);
   const [initialConfig, setInitialConfig] = useState<StandardWorkWeekConfig | null>(null);
-  const [workDays, setWorkDays] = useState<StandardWorkWeekDay[]>(DEFAULT_STANDARD_DAYS);
+  const [workDays, setWorkDays] = useState<WorkDayState[]>(DEFAULT_STANDARD_DAYS);
   const [capacityUnit, setCapacityUnit] = useState<CapacityUnit>("HOURS");
   const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>("MONDAY");
-  const [standardHoursPerDay, setStandardHoursPerDay] = useState<number>(8);
+  const [standardHoursPerDay, setStandardHoursPerDay] = useState<number | string>(8);
 
   const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(true);
   const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
@@ -142,7 +153,7 @@ export default function WorkingCalendarConfigView() {
   const [versionConflict, setVersionConflict] = useState<string | null>(null);
 
   // Quick Converter Modal / State
-  const [converterValue, setConverterValue] = useState<number>(40);
+  const [converterValue, setConverterValue] = useState<number | string>(40);
   const [converterFrom, setConverterFrom] = useState<CapacityUnit>("HOURS");
   const [converterTo, setConverterTo] = useState<CapacityUnit>("FTE");
   const [conversionResult, setConversionResult] = useState<string | null>(null);
@@ -273,7 +284,7 @@ export default function WorkingCalendarConfigView() {
           return {
             ...d,
             isWorkingDay: nextWorking,
-            workingHours: nextWorking ? standardHoursPerDay || 8 : 0,
+            workingHours: nextWorking ? Number(standardHoursPerDay) || 8 : 0,
           };
         }
         return d;
@@ -282,7 +293,7 @@ export default function WorkingCalendarConfigView() {
   };
 
   // Day hours change
-  const handleDayHoursChange = (dayOfWeek: DayOfWeek, hours: number) => {
+  const handleDayHoursChange = (dayOfWeek: DayOfWeek, hours: number | string) => {
     if (!canManage) return;
     setWorkDays((prev) =>
       prev.map((d) => {
@@ -395,7 +406,7 @@ export default function WorkingCalendarConfigView() {
   // Handle Quick Capacity Conversion
   const handleQuickConvert = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!converterValue || converterValue <= 0) return;
+    if (!converterValue || Number(converterValue) <= 0) return;
     setIsConverting(true);
     try {
       const res = await convertCapacity({
@@ -923,14 +934,36 @@ export default function WorkingCalendarConfigView() {
                         max={12}
                         step={0.5}
                         value={standardHoursPerDay}
-                        onChange={(e) => canManage && setStandardHoursPerDay(Number(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          if (!canManage) return;
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setStandardHoursPerDay("");
+                            return;
+                          }
+                          const cleaned = cleanNumberInput(raw);
+                          if (cleaned !== raw) {
+                            e.target.value = cleaned;
+                          }
+                          setStandardHoursPerDay(cleaned);
+                        }}
+                        onBlur={() => {
+                          let val = typeof standardHoursPerDay === "string" ? parseFloat(standardHoursPerDay) : standardHoursPerDay;
+                          if (isNaN(val) || val < 0.5) {
+                            val = 0.5;
+                          } else if (val > 12) {
+                            val = 12;
+                          }
+                          setStandardHoursPerDay(val);
+                        }}
                         disabled={!canManage}
                         className="w-full px-3 py-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                       />
                       <span className="text-xs font-bold text-slate-600 shrink-0">giờ / ngày</span>
                     </div>
                     <span className="text-[11px] text-slate-500 block">
-                      * Dùng làm quy đổi chuẩn: 1 Ngày công = {standardHoursPerDay} giờ.
+                      * Dùng làm quy đổi chuẩn: 1 Ngày công = {standardHoursPerDay || 0} giờ.
                     </span>
                   </div>
                 </div>
@@ -1005,7 +1038,28 @@ export default function WorkingCalendarConfigView() {
                               step={0.5}
                               disabled={!canManage || !isWork}
                               value={isWork ? day.workingHours : 0}
-                              onChange={(e) => handleDayHoursChange(day.dayOfWeek, Number(e.target.value))}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                if (raw === "") {
+                                  handleDayHoursChange(day.dayOfWeek, "");
+                                  return;
+                                }
+                                const cleaned = cleanNumberInput(raw);
+                                if (cleaned !== raw) {
+                                  e.target.value = cleaned;
+                                }
+                                handleDayHoursChange(day.dayOfWeek, cleaned);
+                              }}
+                              onBlur={() => {
+                                let val = typeof day.workingHours === "string" ? parseFloat(day.workingHours) : day.workingHours;
+                                if (isNaN(val) || val < 0.5) {
+                                  val = 0.5;
+                                } else if (val > 12) {
+                                  val = 12;
+                                }
+                                handleDayHoursChange(day.dayOfWeek, val);
+                              }}
                               className={`w-16 px-1.5 py-1 text-xs font-bold text-center rounded-lg border focus:outline-hidden transition ${
                                 isWork
                                   ? "bg-white border-indigo-200 text-indigo-900 focus:ring-1 focus:ring-indigo-500"
@@ -1085,7 +1139,7 @@ export default function WorkingCalendarConfigView() {
                   <div>
                     <span className="text-xs font-medium text-slate-500 block">Tỷ lệ quy đổi chuẩn</span>
                     <span className="text-xs font-bold text-slate-800">
-                      1 Ngày = {standardHoursPerDay}h | 1 FTE = {computedHoursPerWeek}h
+                      1 Ngày = {standardHoursPerDay || 0}h | 1 FTE = {computedHoursPerWeek}h
                     </span>
                   </div>
                 </div>
@@ -1101,7 +1155,7 @@ export default function WorkingCalendarConfigView() {
                     </h4>
                   </div>
                   <span className="text-[11px] text-slate-500">
-                    Áp dụng theo định mức chuẩn: {standardHoursPerDay}h/ngày, {computedHoursPerWeek}h/tuần
+                    Áp dụng theo định mức chuẩn: {standardHoursPerDay || 0}h/ngày, {computedHoursPerWeek}h/tuần
                   </span>
                 </div>
 
@@ -1112,7 +1166,26 @@ export default function WorkingCalendarConfigView() {
                       min={0.1}
                       step={0.1}
                       value={converterValue}
-                      onChange={(e) => setConverterValue(Number(e.target.value))}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          setConverterValue("");
+                          return;
+                        }
+                        const cleaned = cleanNumberInput(raw);
+                        if (cleaned !== raw) {
+                          e.target.value = cleaned;
+                        }
+                        setConverterValue(cleaned);
+                      }}
+                      onBlur={() => {
+                        let val = typeof converterValue === "string" ? parseFloat(converterValue) : converterValue;
+                        if (isNaN(val) || val <= 0) {
+                          val = 1;
+                        }
+                        setConverterValue(val);
+                      }}
                       className="w-24 px-3 py-1.5 text-xs font-bold bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20"
                     />
                     <select
