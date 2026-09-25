@@ -126,11 +126,14 @@ public class Timesheet {
         }
 
         this.status = TimesheetStatus.SUBMITTED;
+        this.rejectionReason = null;
         this.submittedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.recalculateTotalHours();
         for (TimesheetEntry entry : this.entries) {
-            entry.markSubmitted();
+            if (entry.getStatus() == TimesheetStatus.DRAFT || entry.getStatus() == TimesheetStatus.REJECTED) {
+                entry.markSubmitted();
+            }
         }
     }
 

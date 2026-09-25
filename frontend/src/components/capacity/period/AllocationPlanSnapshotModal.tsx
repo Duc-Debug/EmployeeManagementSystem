@@ -237,7 +237,7 @@ export function AllocationPlanSnapshotModal({
                 Bản Chụp Kế Hoạch (Baselines) - {periodName}
               </h3>
               <p className="text-[11px] text-slate-500">
-                Theo dõi dữ liệu phân bổ được chốt sổ tại thời điểm khóa kỳ (QTN-18)
+                Theo dõi dữ liệu phân bổ được chốt sổ tại thời điểm khóa kỳ
               </p>
             </div>
           </div>

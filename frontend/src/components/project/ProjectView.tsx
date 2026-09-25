@@ -366,8 +366,8 @@ export default function ProjectView() {
     // Quyền thao tác trạng thái dự án (NCL-03-CN-004)
     const canCloseProject = (isExecutive || isPm) && selectedProject?.status === 'ACTIVE';
     const canReopenProject = (isExecutive || isPm) && isProjectClosed && selectedProject !== null;
-    const canApproveProject = (isExecutive || isPm) && isProjectPlanned && selectedProject !== null;
-    const canCancelProject = (isExecutive || isPm) && isProjectPlanned && selectedProject !== null;
+    const canApproveProject = (isRm || userRoleCode === 'VT-06') && isProjectPlanned && selectedProject !== null;
+    const canCancelProject = (isRm || isPm || userRoleCode === 'VT-06') && isProjectPlanned && selectedProject !== null;
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
