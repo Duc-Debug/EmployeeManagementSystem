@@ -30,7 +30,6 @@ import {
     Users,
     BarChart3,
     AlertTriangle,
-    Columns,
     Layers,
     CalendarDays,
     Search,
@@ -294,9 +293,17 @@ export default function ProjectView() {
     const canManageProject = isPm;
     const canManageProjectMembers = isPm || isRm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
     const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones' | 'board' | 'tracking'>(() => {
-        return canReadAllocations ? 'split' : 'wbs';
+    const [viewMode, setViewMode] = useState<'wbs' | 'workload' | 'demand' | 'milestones' | 'board' | 'tracking'>(() => {
+        return isRm ? 'workload' : 'wbs';
     });
+
+    useEffect(() => {
+        if (isRm) {
+            setViewMode('workload');
+        } else {
+            setViewMode('wbs');
+        }
+    }, [isRm]);
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -1637,20 +1644,6 @@ export default function ProjectView() {
             <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
                 <div className="flex flex-wrap w-full max-w-full gap-1 rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
-                    {canReadAllocations && (
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('split')}
-                            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                                viewMode === 'split'
-                                    ? 'bg-white text-indigo-700 shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900 font-medium'
-                            }`}
-                        >
-                            <Columns className="h-3.5 w-3.5" />
-                            <span>Xem kết hợp (Split View)</span>
-                        </button>
-                    )}
                     <button
                         type="button"
                         onClick={() => setViewMode('wbs')}
@@ -1774,8 +1767,8 @@ export default function ProjectView() {
             {/* Main Views Container Grid */}
             <div className="grid grid-cols-1 gap-6 items-start transition-all duration-300 lg:grid-cols-12">
                 {/* Section 1: WBS Hierarchy */}
-                {(viewMode === 'split' || viewMode === 'wbs') && (
-                    <div className={(viewMode === 'split' && canReadAllocations) ? 'lg:col-span-5' : 'lg:col-span-12'}>
+                {viewMode === 'wbs' && (
+                    <div className="lg:col-span-12">
                         <ProjectWbsView
                             categories={categories}
                             members={assignableProjectMembers}
@@ -1796,8 +1789,8 @@ export default function ProjectView() {
                 )}
 
                 {/* Section 2: Weekly Matrix */}
-                {canReadAllocations && (viewMode === 'split' || viewMode === 'workload') && (
-                    <div className={viewMode === 'split' ? 'lg:col-span-7' : 'lg:col-span-12'}>
+                {canReadAllocations && viewMode === 'workload' && (
+                    <div className="lg:col-span-12">
                         <ProjectWeeklyMatrix
                             month={selectedMonth}
                             members={members}

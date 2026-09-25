@@ -272,20 +272,22 @@ export function ProjectWbsView({
                                                         <div className="flex shrink-0 items-center gap-2">
                                                             {getPriorityBadge(t.priority)}
                                                             {getStatusBadge(t.status)}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setCascadeModalTask({
-                                                                        id: typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1,
-                                                                        name: t.name,
-                                                                        code: t.code,
-                                                                    })
-                                                                }
-                                                                className="rounded p-1 text-amber-600 hover:bg-amber-50 transition cursor-pointer"
-                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt"
-                                                            >
-                                                                <AlertTriangle className="h-3.5 w-3.5" />
-                                                            </button>
+                                                            {canEdit && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setCascadeModalTask({
+                                                                            id: typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1,
+                                                                            name: t.name,
+                                                                            code: t.code,
+                                                                        })
+                                                                    }
+                                                                    className="rounded p-1 text-amber-600 hover:bg-amber-50 transition cursor-pointer"
+                                                                    title="Cảnh báo trễ dây chuyền khi công việc trượt"
+                                                                >
+                                                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
                                                             <div
                                                                 className="flex items-center gap-1.5 pl-1"
                                                                 title={assignee ? `${assignee.name} (${assignee.role})` : 'Chưa giao'}
