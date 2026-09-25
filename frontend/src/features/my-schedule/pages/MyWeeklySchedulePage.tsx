@@ -26,6 +26,14 @@ export const MyWeeklySchedulePage: React.FC = () => {
     return monday.toISOString().split("T")[0];
   };
 
+  const getMondayFromDate = (date: Date): string => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d.toISOString().split("T")[0];
+  };
+
   const loadSchedule = useCallback(async (startDate?: string, weeks?: number) => {
     setLoading(true);
     setFeedbackMessage(null);
@@ -169,6 +177,25 @@ export const MyWeeklySchedulePage: React.FC = () => {
             >
               <ChevronRight className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Chọn ngày / tuần */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 bg-slate-50">
+            <span className="text-slate-500 font-medium">Chọn ngày/tuần:</span>
+            <input
+              type="date"
+              value={currentWeekStart}
+              onChange={(e) => {
+                if (e.target.value) {
+                  const [y, m, d] = e.target.value.split("-").map(Number);
+                  const mon = getMondayFromDate(new Date(y, m - 1, d));
+                  setCurrentWeekStart(mon);
+                  loadSchedule(mon, weeksCount);
+                }
+              }}
+              className="bg-transparent font-medium text-slate-800 outline-none cursor-pointer"
+              title="Chọn ngày để chuyển đến tuần đó"
+            />
           </div>
 
           <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50">

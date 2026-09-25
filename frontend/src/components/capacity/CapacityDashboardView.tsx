@@ -100,6 +100,24 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
         }
     };
 
+    const userRole = (user?.roleCode || "").toUpperCase();
+    const normalizedRole = userRole.replace(/^(ROLE_|ROLE-)/, "").replace(/_/g, "-");
+    const isVT06 = normalizedRole === "VT-06" || normalizedRole === "VT06";
+
+    const canAccessCapacity = Boolean(
+        user?.permissions?.includes("RESOURCE_ALLOCATION_READ") ||
+        ["VT-01", "VT-02", "VT-03", "VT01", "VT02", "VT03"].includes(normalizedRole)
+    ) && !isVT06;
+
+    const canAccessProject = Boolean(
+        ["VT-01", "VT-02", "VT-03", "VT-04", "VT01", "VT02", "VT03", "VT04"].includes(normalizedRole)
+    ) && !isVT06;
+
+    const canAccessConflict = Boolean(
+        user?.permissions?.includes("RESOURCE_SCHEDULE_CONFLICT_READ") ||
+        ["VT-02", "VT-03", "VT-06", "VT02", "VT03", "VT06", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole)
+    );
+
     // Calculate metrics
     const avgUtil = data?.averageCapacityUtilization ?? 0;
     const overloadedCount = data?.overloadedEmployeesCount ?? 0;
@@ -236,170 +254,180 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
             )}
 
             {/* 5 HERO KPI CARDS */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {/* KPI 1: Tỷ lệ sử dụng năng lực trung bình */}
-                <div
-                    onClick={() => handleNavigate("capacity")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-indigo-300 hover:shadow-xs"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className={cn("flex h-6 w-6 items-center justify-center rounded-xl border", utilStyle.bg, utilStyle.border, utilStyle.text)}>
-                            <TrendingUp className="h-4 w-4" />
+                {canAccessCapacity && (
+                    <div
+                        onClick={() => handleNavigate("capacity")}
+                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-indigo-300 hover:shadow-xs"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className={cn("flex h-6 w-6 items-center justify-center rounded-xl border", utilStyle.bg, utilStyle.border, utilStyle.text)}>
+                                <TrendingUp className="h-4 w-4" />
+                            </div>
+                            <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-bold", utilStyle.badge)}>
+                                {utilStyle.label}
+                            </span>
                         </div>
-                        <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-bold", utilStyle.badge)}>
-                            {utilStyle.label}
-                        </span>
+                        <div className="mt-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Hiệu suất sử dụng
+                            </p>
+                            <div className="mt-0.5 flex items-baseline gap-1">
+                                <span className="text-xl font-bold text-slate-900">{avgUtil}%</span>
+                                <span className="text-[10px] text-slate-400">công suất</span>
+                            </div>
+                            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                    className={cn("h-full transition-all duration-500", avgUtil > 100 ? "bg-rose-500" : avgUtil >= 75 ? "bg-emerald-500" : "bg-amber-500")}
+                                    style={{ width: `${Math.min(100, avgUtil)}%` }}
+                                />
+                            </div>
+                            <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
+                                <span>Phân bổ: {totalAlloc.toLocaleString("vi-VN")}h</span>
+                                <span>Khả dụng: {totalAvail.toLocaleString("vi-VN")}h</span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Hiệu suất sử dụng
-                        </p>
-                        <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-slate-900">{avgUtil}%</span>
-                            <span className="text-[10px] text-slate-400">công suất</span>
-                        </div>
-                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                            <div
-                                className={cn("h-full transition-all duration-500", avgUtil > 100 ? "bg-rose-500" : avgUtil >= 75 ? "bg-emerald-500" : "bg-amber-500")}
-                                style={{ width: `${Math.min(100, avgUtil)}%` }}
-                            />
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
-                            <span>Phân bổ: {totalAlloc.toLocaleString("vi-VN")}h</span>
-                            <span>Khả dụng: {totalAvail.toLocaleString("vi-VN")}h</span>
-                        </div>
-                    </div>
-                </div>
+                )}
 
                 {/* KPI 2: Số người quá tải */}
-                <div
-                    onClick={() => handleNavigate("capacity")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-rose-300 hover:shadow-xs"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className={cn(
-                            "flex h-6 w-6 items-center justify-center rounded-xl border",
-                            overloadedCount > 0 ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-emerald-50 border-emerald-200 text-emerald-600"
-                        )}>
-                            <AlertTriangle className="h-4 w-4" />
-                        </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-600 group-hover:translate-x-0.5 transition">
-                            Chi tiết <ArrowUpRight className="h-2.5 w-2.5" />
-                        </span>
-                    </div>
-                    <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Nhân sự quá tải
-                        </p>
-                        <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className={cn("text-xl font-bold", overloadedCount > 0 ? "text-rose-600" : "text-slate-900")}>
-                                {overloadedCount}
+                {canAccessCapacity && (
+                    <div
+                        onClick={() => handleNavigate("capacity")}
+                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-rose-300 hover:shadow-xs"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className={cn(
+                                "flex h-6 w-6 items-center justify-center rounded-xl border",
+                                overloadedCount > 0 ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-emerald-50 border-emerald-200 text-emerald-600"
+                            )}>
+                                <AlertTriangle className="h-4 w-4" />
+                            </div>
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-600 group-hover:translate-x-0.5 transition">
+                                Chi tiết <ArrowUpRight className="h-2.5 w-2.5" />
                             </span>
-                            <span className="text-[10px] text-slate-400">nhân viên</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium">
-                            {overloadedCount > 0 ? (
-                                <span className="text-rose-600 font-bold">Cần điều phối & san tải ngay</span>
-                            ) : (
-                                <span className="text-emerald-600 font-semibold">Tất cả nhân sự trong ngưỡng</span>
-                            )}
+                        <div className="mt-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Nhân sự quá tải
+                            </p>
+                            <div className="mt-0.5 flex items-baseline gap-1">
+                                <span className={cn("text-xl font-bold", overloadedCount > 0 ? "text-rose-600" : "text-slate-900")}>
+                                    {overloadedCount}
+                                </span>
+                                <span className="text-[10px] text-slate-400">nhân viên</span>
+                            </div>
+                            <div className="mt-1 text-[10px] font-medium">
+                                {overloadedCount > 0 ? (
+                                    <span className="text-rose-600 font-bold">Cần điều phối & san tải ngay</span>
+                                ) : (
+                                    <span className="text-emerald-600 font-semibold">Tất cả nhân sự trong ngưỡng</span>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* KPI 3: Số giờ còn rảnh */}
-                <div
-                    onClick={() => handleNavigate("capacity")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-blue-300 hover:shadow-xs"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600">
-                            <Clock className="h-4 w-4" />
-                        </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 group-hover:translate-x-0.5 transition">
-                            Dự phòng <ArrowUpRight className="h-2.5 w-2.5" />
-                        </span>
-                    </div>
-                    <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Số giờ còn rảnh
-                        </p>
-                        <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-slate-900">
-                                {freeHours.toLocaleString("vi-VN")}
+                {canAccessCapacity && (
+                    <div
+                        onClick={() => handleNavigate("capacity")}
+                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-blue-300 hover:shadow-xs"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600">
+                                <Clock className="h-4 w-4" />
+                            </div>
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 group-hover:translate-x-0.5 transition">
+                                Dự phòng <ArrowUpRight className="h-2.5 w-2.5" />
                             </span>
-                            <span className="text-[10px] text-slate-400">giờ</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium text-blue-700 truncate">
-                            Năng lực sẵn sàng nhận dự án
+                        <div className="mt-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Số giờ còn rảnh
+                            </p>
+                            <div className="mt-0.5 flex items-baseline gap-1">
+                                <span className="text-xl font-bold text-slate-900">
+                                    {freeHours.toLocaleString("vi-VN")}
+                                </span>
+                                <span className="text-[10px] text-slate-400">giờ</span>
+                            </div>
+                            <div className="mt-1 text-[10px] font-medium text-blue-700 truncate">
+                                Năng lực sẵn sàng nhận dự án
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* KPI 4: Xung đột lịch chưa xử lý */}
-                <div
-                    onClick={() => handleNavigate("schedule-conflict")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-amber-300 hover:shadow-xs"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className={cn(
-                            "flex h-6 w-6 items-center justify-center rounded-xl border",
-                            conflictCount > 0 ? "bg-amber-50 border-amber-200 text-amber-600" : "bg-emerald-50 border-emerald-200 text-emerald-600"
-                        )}>
-                            <AlertTriangle className="h-4 w-4" />
-                        </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 group-hover:translate-x-0.5 transition">
-                            Xử lý <ArrowUpRight className="h-2.5 w-2.5" />
-                        </span>
-                    </div>
-                    <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Xung đột lịch chưa xử lý
-                        </p>
-                        <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className={cn("text-xl font-bold", conflictCount > 0 ? "text-amber-600" : "text-slate-900")}>
-                                {conflictCount}
+                {canAccessConflict && (
+                    <div
+                        onClick={() => handleNavigate("schedule-conflict")}
+                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-amber-300 hover:shadow-xs"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className={cn(
+                                "flex h-6 w-6 items-center justify-center rounded-xl border",
+                                conflictCount > 0 ? "bg-amber-50 border-amber-200 text-amber-600" : "bg-emerald-50 border-emerald-200 text-emerald-600"
+                            )}>
+                                <AlertTriangle className="h-4 w-4" />
+                            </div>
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 group-hover:translate-x-0.5 transition">
+                                Xử lý <ArrowUpRight className="h-2.5 w-2.5" />
                             </span>
-                            <span className="text-[10px] text-slate-400">vụ việc</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium">
-                            {conflictCount > 0 ? (
-                                <span className="text-amber-700 font-bold">Chồng lấn lịch & nghỉ phép</span>
-                            ) : (
-                                <span className="text-emerald-600 font-semibold">Không có xung đột</span>
-                            )}
+                        <div className="mt-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Xung đột lịch chưa xử lý
+                            </p>
+                            <div className="mt-0.5 flex items-baseline gap-1">
+                                <span className={cn("text-xl font-bold", conflictCount > 0 ? "text-amber-600" : "text-slate-900")}>
+                                    {conflictCount}
+                                </span>
+                                <span className="text-[10px] text-slate-400">vụ việc</span>
+                            </div>
+                            <div className="mt-1 text-[10px] font-medium">
+                                {conflictCount > 0 ? (
+                                    <span className="text-amber-700 font-bold">Chồng lấn lịch & nghỉ phép</span>
+                                ) : (
+                                    <span className="text-emerald-600 font-semibold">Không có xung đột</span>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* KPI 5: Số dự án đang chạy */}
-                <div
-                    onClick={() => handleNavigate("project")}
-                    className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-emerald-300 hover:shadow-xs"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600">
-                            <FolderKanban className="h-4 w-4" />
-                        </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 group-hover:translate-x-0.5 transition">
-                            Dự án <ArrowUpRight className="h-2.5 w-2.5" />
-                        </span>
-                    </div>
-                    <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Dự án đang chạy
-                        </p>
-                        <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-slate-900">
-                                {activePrjCount}
+                {canAccessProject && (
+                    <div
+                        onClick={() => handleNavigate("project")}
+                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-emerald-300 hover:shadow-xs"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600">
+                                <FolderKanban className="h-4 w-4" />
+                            </div>
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 group-hover:translate-x-0.5 transition">
+                                Dự án <ArrowUpRight className="h-2.5 w-2.5" />
                             </span>
-                            <span className="text-[10px] text-slate-400">dự án ACTIVE</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium text-emerald-700">
-                            Đang trong giai đoạn triển khai
+                        <div className="mt-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Dự án đang chạy
+                            </p>
+                            <div className="mt-0.5 flex items-baseline gap-1">
+                                <span className="text-xl font-bold text-slate-900">
+                                    {activePrjCount}
+                                </span>
+                                <span className="text-[10px] text-slate-400">dự án ACTIVE</span>
+                            </div>
+                            <div className="mt-1 text-[10px] font-medium text-emerald-700">
+                                Đang trong giai đoạn triển khai
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* WEEKLY CAPACITY TREND BAR CHART */}
@@ -594,226 +622,234 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
             </div>
 
             {/* 2 COLUMNS: OVERLOADED RESOURCES & UNRESOLVED CONFLICTS */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Column 1: Top Overloaded Resources */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-rose-600" />
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                                Danh sách Nhân sự Quá tải ({data?.overloadedEmployees?.length || 0})
-                            </h3>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => handleNavigate("capacity")}
-                            className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition cursor-pointer"
-                        >
-                            Xem ma trận phân bổ →
-                        </button>
-                    </div>
-
-                    {!data?.overloadedEmployees || data.overloadedEmployees.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-center">
-                            <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
-                            <p className="text-xs font-bold text-slate-800">Không có nhân sự nào bị quá tải</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Tất cả nhân sự đều trong ngưỡng phân bổ an toàn trong kỳ đã chọn.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {data.overloadedEmployees.slice(0, 5).map((emp) => (
-                                <div
-                                    key={emp.employeeId}
-                                    className="flex items-center justify-between rounded-xl border border-rose-100 bg-rose-50/40 p-2.5 transition hover:bg-rose-50/80"
-                                >
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-xs text-slate-900 truncate">{emp.fullName}</span>
-                                            <span className="font-mono text-[10px] text-slate-400">({emp.employeeCode})</span>
-                                            <span className="rounded-md bg-rose-100 px-1.5 py-0.2 text-[9px] font-bold text-rose-800">
-                                                {emp.overloadedWeeksCount} tuần quá tải
-                                            </span>
-                                        </div>
-                                        <p className="text-[10px] text-slate-500 mt-0.5 truncate">
-                                            {emp.professionalRole} · {emp.orgUnitName}
-                                        </p>
-                                    </div>
-                                    <div className="text-right pl-3 shrink-0">
-                                        <div className="text-xs font-bold text-rose-600">
-                                            {emp.averageUtilizationRate}% tải
-                                        </div>
-                                        <div className="text-[10px] text-slate-400">
-                                            {emp.totalAllocatedHours}h / {emp.totalAvailableHours}h
-                                        </div>
-                                    </div>
+            {(canAccessCapacity || canAccessConflict) && (
+                <div className={cn("grid grid-cols-1 gap-4", canAccessCapacity && canAccessConflict ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
+                    {/* Column 1: Top Overloaded Resources */}
+                    {canAccessCapacity && (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4 text-rose-600" />
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                                        Danh sách Nhân sự Quá tải ({data?.overloadedEmployees?.length || 0})
+                                    </h3>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Column 2: Unresolved Schedule Conflicts */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-amber-600" />
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                                Cảnh báo Xung đột Lịch Chưa Xử lý ({data?.unresolvedConflicts?.length || 0})
-                            </h3>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => handleNavigate("schedule-conflict")}
-                            className="text-xs font-semibold text-amber-600 hover:text-amber-800 transition cursor-pointer"
-                        >
-                            Quản lý xung đột →
-                        </button>
-                    </div>
-
-                    {!data?.unresolvedConflicts || data.unresolvedConflicts.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-center">
-                            <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
-                            <p className="text-xs font-bold text-slate-800">Không có xung đột lịch</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Không phát hiện sự chồng chéo lịch dự án hay nghỉ phép trong kỳ này.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {data.unresolvedConflicts.slice(0, 5).map((conf) => (
-                                <div
-                                    key={conf.conflictId}
-                                    className="flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/40 p-2.5 transition hover:bg-amber-50/80"
+                                <button
+                                    type="button"
+                                    onClick={() => handleNavigate("capacity")}
+                                    className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition cursor-pointer"
                                 >
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-xs text-slate-900 truncate">{conf.employeeName}</span>
-                                            <span className="font-mono text-[10px] text-slate-400">({conf.employeeCode})</span>
-                                            <span className="rounded-md bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-800">
-                                                T{conf.weekNumber}/{conf.yearNumber}
-                                            </span>
-                                        </div>
-                                        <p className="text-[10px] text-slate-500 mt-0.5 truncate">
-                                            {conf.details || `Chồng lấn ${conf.conflictingProjectsCount} dự án, tổng ${conf.totalAllocatedHours}h`}
-                                        </p>
-                                    </div>
-                                    <div className="text-right pl-3 shrink-0">
-                                        <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                                            {conf.status}
-                                        </span>
-                                    </div>
+                                    Xem ma trận phân bổ →
+                                </button>
+                            </div>
+
+                            {!data?.overloadedEmployees || data.overloadedEmployees.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-10 text-center">
+                                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
+                                    <p className="text-xs font-bold text-slate-800">Không có nhân sự nào bị quá tải</p>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">Tất cả nhân sự đều trong ngưỡng phân bổ an toàn trong kỳ đã chọn.</p>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* ACTIVE PROJECTS PORTFOLIO SUMMARY */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        <FolderKanban className="h-4 w-4 text-indigo-600" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                            Danh mục Dự án Chiến lược Đang Hoạt động
-                        </h3>
-                        {data && (
-                            <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-                                {data.activeProjects.length < data.activeProjectsCount
-                                    ? `Hiển thị ${data.activeProjects.length} dự án gần nhất / Tổng ${data.activeProjectsCount} dự án`
-                                    : `${data.activeProjectsCount} dự án`}
-                            </span>
-                        )}
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => handleNavigate("project")}
-                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer flex items-center gap-1"
-                    >
-                        Quản lý tất cả dự án ({data?.activeProjectsCount || 0}) →
-                    </button>
-                </div>
-
-                <div className="overflow-x-auto rounded-xl border border-slate-100">
-                    <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-2.5">Mã & Tên Dự án</th>
-                                <th className="px-4 py-2.5">Phòng ban</th>
-                                <th className="px-4 py-2.5">PM Quản lý</th>
-                                <th className="px-4 py-2.5">Thời gian thực hiện</th>
-                                <th className="px-4 py-2.5 text-right">Giờ kế hoạch</th>
-                                <th className="px-4 py-2.5 text-center">Nhân sự tham gia</th>
-                                <th className="px-4 py-2.5 text-right">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {!data?.activeProjects || data.activeProjects.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="py-6 text-center text-slate-400 text-xs">
-                                        Không có dự án nào đang chạy trong phạm vi đã chọn.
-                                    </td>
-                                </tr>
                             ) : (
-                                data.activeProjects.map((prj) => (
-                                    <tr key={prj.projectId} className="hover:bg-slate-50/70 transition">
-                                        <td className="px-4 py-2.5">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600 font-mono text-[10px] font-bold">
-                                                    {prj.projectCode.slice(-3)}
+                                <div className="space-y-2">
+                                    {data.overloadedEmployees.slice(0, 5).map((emp) => (
+                                        <div
+                                            key={emp.employeeId}
+                                            className="flex items-center justify-between rounded-xl border border-rose-100 bg-rose-50/40 p-2.5 transition hover:bg-rose-50/80"
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-xs text-slate-900 truncate">{emp.fullName}</span>
+                                                    <span className="font-mono text-[10px] text-slate-400">({emp.employeeCode})</span>
+                                                    <span className="rounded-md bg-rose-100 px-1.5 py-0.2 text-[9px] font-bold text-rose-800">
+                                                        {emp.overloadedWeeksCount} tuần quá tải
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <p className="font-semibold text-slate-900 truncate max-w-[200px]">{prj.projectName}</p>
-                                                    <p className="font-mono text-[10px] text-slate-400">{prj.projectCode}</p>
+                                                <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                                                    {emp.professionalRole} · {emp.orgUnitName}
+                                                </p>
+                                            </div>
+                                            <div className="text-right pl-3 shrink-0">
+                                                <div className="text-xs font-bold text-rose-600">
+                                                    {emp.averageUtilizationRate}% tải
+                                                </div>
+                                                <div className="text-[10px] text-slate-400">
+                                                    {emp.totalAllocatedHours}h / {emp.totalAvailableHours}h
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td className="px-4 py-2.5 text-slate-600 text-[11px]">
-                                            {prj.orgUnitName}
-                                        </td>
-                                        <td className="px-4 py-2.5 font-medium text-slate-700">
-                                            {prj.pmName}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-slate-500 text-[11px]">
-                                            {prj.startDate || "--"} → {prj.endDate || "--"}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right font-semibold text-slate-800">
-                                            {prj.estimatedHours ? `${prj.estimatedHours.toLocaleString("vi-VN")}h` : "--"}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-center">
-                                            <span className="rounded-md bg-indigo-50 border border-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-                                                {prj.memberCount} thành viên
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleNavigate("project")}
-                                                className="inline-flex items-center gap-0.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
-                                            >
-                                                Xem WBS <ChevronRight className="h-3 w-3" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                        </div>
+                                    ))}
+                                </div>
                             )}
-                        </tbody>
-                    </table>
-                </div>
+                        </div>
+                    )}
 
-                {data && data.activeProjects && data.activeProjects.length < data.activeProjectsCount && (
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                        <span>
-                            Đang hiển thị <strong>{data.activeProjects.length}</strong> dự án gần nhất trên tổng số <strong>{data.activeProjectsCount}</strong> dự án đang chạy.
-                        </span>
+                    {/* Column 2: Unresolved Schedule Conflicts */}
+                    {canAccessConflict && (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                                        Cảnh báo Xung đột Lịch Chưa Xử lý ({data?.unresolvedConflicts?.length || 0})
+                                    </h3>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleNavigate("schedule-conflict")}
+                                    className="text-xs font-semibold text-amber-600 hover:text-amber-800 transition cursor-pointer"
+                                >
+                                    Quản lý xung đột →
+                                </button>
+                            </div>
+
+                            {!data?.unresolvedConflicts || data.unresolvedConflicts.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-10 text-center">
+                                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
+                                    <p className="text-xs font-bold text-slate-800">Không có xung đột lịch</p>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">Không phát hiện sự chồng chéo lịch dự án hay nghỉ phép trong kỳ này.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {data.unresolvedConflicts.slice(0, 5).map((conf) => (
+                                        <div
+                                            key={conf.conflictId}
+                                            className="flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/40 p-2.5 transition hover:bg-amber-50/80"
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-xs text-slate-900 truncate">{conf.employeeName}</span>
+                                                    <span className="font-mono text-[10px] text-slate-400">({conf.employeeCode})</span>
+                                                    <span className="rounded-md bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-800">
+                                                        T{conf.weekNumber}/{conf.yearNumber}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                                                    {conf.details || `Chồng lấn ${conf.conflictingProjectsCount} dự án, tổng ${conf.totalAllocatedHours}h`}
+                                                </p>
+                                            </div>
+                                            <div className="text-right pl-3 shrink-0">
+                                                <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                                    {conf.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ACTIVE PROJECTS PORTFOLIO SUMMARY */}
+            {canAccessProject && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <FolderKanban className="h-4 w-4 text-indigo-600" />
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                                Danh mục Dự án Chiến lược Đang Hoạt động
+                            </h3>
+                            {data && (
+                                <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                    {data.activeProjects.length < data.activeProjectsCount
+                                        ? `Hiển thị ${data.activeProjects.length} dự án gần nhất / Tổng ${data.activeProjectsCount} dự án`
+                                        : `${data.activeProjectsCount} dự án`}
+                                </span>
+                            )}
+                        </div>
                         <button
                             type="button"
                             onClick={() => handleNavigate("project")}
-                            className="font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer flex items-center gap-1"
                         >
-                            Xem tất cả dự án →
+                            Quản lý tất cả dự án ({data?.activeProjectsCount || 0}) →
                         </button>
                     </div>
-                )}
-            </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-slate-100">
+                        <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                    <th className="px-4 py-2.5">Mã & Tên Dự án</th>
+                                    <th className="px-4 py-2.5">Phòng ban</th>
+                                    <th className="px-4 py-2.5">PM Quản lý</th>
+                                    <th className="px-4 py-2.5">Thời gian thực hiện</th>
+                                    <th className="px-4 py-2.5 text-right">Giờ kế hoạch</th>
+                                    <th className="px-4 py-2.5 text-center">Nhân sự tham gia</th>
+                                    <th className="px-4 py-2.5 text-right">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {!data?.activeProjects || data.activeProjects.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-6 text-center text-slate-400 text-xs">
+                                            Không có dự án nào đang chạy trong phạm vi đã chọn.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    data.activeProjects.map((prj) => (
+                                        <tr key={prj.projectId} className="hover:bg-slate-50/70 transition">
+                                            <td className="px-4 py-2.5">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600 font-mono text-[10px] font-bold">
+                                                        {prj.projectCode.slice(-3)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold text-slate-900 truncate max-w-[200px]">{prj.projectName}</p>
+                                                        <p className="font-mono text-[10px] text-slate-400">{prj.projectCode}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-slate-600 text-[11px]">
+                                                {prj.orgUnitName}
+                                            </td>
+                                            <td className="px-4 py-2.5 font-medium text-slate-700">
+                                                {prj.pmName}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-slate-500 text-[11px]">
+                                                {prj.startDate || "--"} → {prj.endDate || "--"}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right font-semibold text-slate-800">
+                                                {prj.estimatedHours ? `${prj.estimatedHours.toLocaleString("vi-VN")}h` : "--"}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <span className="rounded-md bg-indigo-50 border border-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                                    {prj.memberCount} thành viên
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleNavigate("project")}
+                                                    className="inline-flex items-center gap-0.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                                                >
+                                                    Xem WBS <ChevronRight className="h-3 w-3" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {data && data.activeProjects && data.activeProjects.length < data.activeProjectsCount && (
+                        <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                            <span>
+                                Đang hiển thị <strong>{data.activeProjects.length}</strong> dự án gần nhất trên tổng số <strong>{data.activeProjectsCount}</strong> dự án đang chạy.
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => handleNavigate("project")}
+                                className="font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                            >
+                                Xem tất cả dự án →
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

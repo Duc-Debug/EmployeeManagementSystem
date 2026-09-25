@@ -29,6 +29,7 @@ import {
   getISOWeeksInYear,
   isSpecialistRole,
 } from "./workloadUtils";
+import { getIsoWeekDetails } from "@/lib/iso-week";
 
 interface UpcomingWorkloadViewProps {
   employeeId?: number;
@@ -184,6 +185,62 @@ export default function UpcomingWorkloadView({
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+          </div>
+
+          {/* Chọn ngày hoặc tuần/năm */}
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1 shadow-2xs">
+            <span className="text-[11px] font-medium text-slate-500">Chọn ngày:</span>
+            <input
+              type="date"
+              className="text-xs text-slate-700 bg-transparent outline-none cursor-pointer"
+              onChange={(e) => {
+                if (e.target.value) {
+                  const [y, m, d] = e.target.value.split("-").map(Number);
+                  const details = getIsoWeekDetails(new Date(y, m - 1, d));
+                  setStartYear(details.year);
+                  setStartWeek(details.week);
+                }
+              }}
+              title="Chọn ngày để chuyển đến tuần tương ứng"
+            />
+          </div>
+
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
+            <span className="text-[11px] font-medium text-slate-500">Tuần:</span>
+            <input
+              type="number"
+              min={1}
+              max={53}
+              value={startWeek ?? data?.fromWeek ?? ""}
+              placeholder="Tuần"
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : undefined;
+                if (val && val >= 1 && val <= 53) {
+                  setStartWeek(val);
+                  if (!startYear) {
+                    setStartYear(data?.fromYear ?? new Date().getFullYear());
+                  }
+                }
+              }}
+              className="w-12 text-xs text-slate-700 font-semibold bg-transparent outline-none text-center"
+              title="Nhập số thứ tự tuần (1-53)"
+            />
+            <span className="text-[11px] font-medium text-slate-500 ml-1">Năm:</span>
+            <input
+              type="number"
+              min={2020}
+              max={2035}
+              value={startYear ?? data?.fromYear ?? ""}
+              placeholder="Năm"
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : undefined;
+                if (val && val >= 2020 && val <= 2035) {
+                  setStartYear(val);
+                }
+              }}
+              className="w-16 text-xs text-slate-700 font-semibold bg-transparent outline-none text-center"
+              title="Nhập năm"
+            />
           </div>
 
           <button
@@ -439,6 +496,11 @@ export default function UpcomingWorkloadView({
                     {/* Bottom week label */}
                     <div className="mt-2.5 text-center">
                       <p className="text-xs font-bold text-slate-800">{week.weekLabel}</p>
+                      {week.startDate && week.endDate && (
+                        <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                          {week.startDate.split("-").slice(1).reverse().join("/")} - {week.endDate.split("-").slice(1).reverse().join("/")}
+                        </p>
+                      )}
                       <p className="text-[10px] text-slate-500 mt-0.5">
                         {week.totalAllocatedHours}h / {week.netAvailableHours}h
                       </p>
