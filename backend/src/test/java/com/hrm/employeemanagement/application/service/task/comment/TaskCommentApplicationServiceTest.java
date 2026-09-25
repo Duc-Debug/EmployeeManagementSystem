@@ -51,6 +51,8 @@ class TaskCommentApplicationServiceTest {
     private SaveNotificationPort saveNotificationPort;
     private TaskAttachmentStoragePort taskAttachmentStoragePort;
     private TaskDiscussionAccessService accessService;
+    private com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort loadTaskAssignmentPort;
+    private com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort loadProjectPort;
 
     private TaskCommentApplicationService service;
 
@@ -65,6 +67,8 @@ class TaskCommentApplicationServiceTest {
         saveNotificationPort = mock(SaveNotificationPort.class);
         taskAttachmentStoragePort = mock(TaskAttachmentStoragePort.class);
         accessService = mock(TaskDiscussionAccessService.class);
+        loadTaskAssignmentPort = mock(com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort.class);
+        loadProjectPort = mock(com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort.class);
 
         service = new TaskCommentApplicationService(
                 loadTaskCommentPort,
@@ -75,7 +79,9 @@ class TaskCommentApplicationServiceTest {
                 loadEmployeePort,
                 saveNotificationPort,
                 taskAttachmentStoragePort,
-                accessService);
+                accessService,
+                loadTaskAssignmentPort,
+                loadProjectPort);
     }
 
     @Test
@@ -171,6 +177,49 @@ class TaskCommentApplicationServiceTest {
 
         assertThrows(TaskAttachmentNotFoundException.class,
                 () -> service.downloadAttachment(999L));
+    }
+
+    @Test
+    void executeCreate_NotifiesTaskAssigneesWhenNewCommentPostedWithoutMention() {
+        Task task = mock(Task.class);
+        when(task.getName()).thenReturn("Design Task");
+        when(task.getId()).thenReturn(TaskId.of(100L));
+        when(accessService.requireCreateAccess(100L, 1L)).thenReturn(task);
+
+        User author = mock(User.class);
+        when(author.getId()).thenReturn(new UserId(1L));
+        when(author.getUsername()).thenReturn("author");
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(author));
+
+        // Assignee user 2
+        com.hrm.employeemanagement.domain.task.TaskAssignment assignment = mock(com.hrm.employeemanagement.domain.task.TaskAssignment.class);
+        when(assignment.getEmployeeId()).thenReturn(new com.hrm.employeemanagement.domain.employee.EmployeeId(20L));
+        when(loadTaskAssignmentPort.findByTaskId(TaskId.of(100L))).thenReturn(List.of(assignment));
+
+        com.hrm.employeemanagement.domain.employee.Employee emp = mock(com.hrm.employeemanagement.domain.employee.Employee.class);
+        when(emp.getUserId()).thenReturn(new UserId(2L));
+        when(loadEmployeePort.findById(new com.hrm.employeemanagement.domain.employee.EmployeeId(20L))).thenReturn(Optional.of(emp));
+
+        User assigneeUser = mock(User.class);
+        when(assigneeUser.getId()).thenReturn(new UserId(2L));
+        when(loadUserPort.findAllByIdIn(any())).thenReturn(List.of(assigneeUser));
+        when(accessService.canUserAccess(assigneeUser, task)).thenReturn(true);
+
+        when(saveTaskCommentPort.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateTaskCommentCommand command = new CreateTaskCommentCommand(
+                100L, 1L, "Xin chào, tiến độ thế nào rồi?", Set.of(), List.of());
+
+        TaskCommentResult result = service.execute(command);
+
+        assertNotNull(result);
+        org.mockito.ArgumentCaptor<Notification> captor = org.mockito.ArgumentCaptor.forClass(Notification.class);
+        verify(saveNotificationPort).save(captor.capture());
+        Notification notification = captor.getValue();
+        assertEquals(com.hrm.employeemanagement.domain.notification.NotificationType.TASK_COMMENT, notification.getType());
+        assertEquals(new UserId(2L), notification.getRecipientId());
+        assertEquals("TASK", notification.getTargetType());
+        assertEquals(100L, notification.getTargetId());
     }
 }
 

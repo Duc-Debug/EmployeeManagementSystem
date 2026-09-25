@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import com.hrm.employeemanagement.application.port.outbound.notification.LoadNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.DeleteTaskCommentPort;
 import com.hrm.employeemanagement.application.port.outbound.task.comment.LoadTaskAttachmentPort;
@@ -45,7 +46,9 @@ public class TaskDiscussionUseCaseConfig {
             LoadEmployeePort loadEmployeePort,
             SaveNotificationPort saveNotificationPort,
             TaskAttachmentStoragePort taskAttachmentStoragePort,
-            TaskDiscussionAccessService accessService) {
+            TaskDiscussionAccessService accessService,
+            LoadTaskAssignmentPort loadTaskAssignmentPort,
+            LoadProjectPort loadProjectPort) {
         TaskCommentApplicationService pureService = new TaskCommentApplicationService(
                 loadTaskCommentPort,
                 loadTaskAttachmentPort,
@@ -55,7 +58,9 @@ public class TaskDiscussionUseCaseConfig {
                 loadEmployeePort,
                 saveNotificationPort,
                 taskAttachmentStoragePort,
-                accessService);
+                accessService,
+                loadTaskAssignmentPort,
+                loadProjectPort);
         return new TransactionalTaskCommentServiceDecorator(pureService, loadTaskCommentPort, taskAttachmentStoragePort);
     }
 
