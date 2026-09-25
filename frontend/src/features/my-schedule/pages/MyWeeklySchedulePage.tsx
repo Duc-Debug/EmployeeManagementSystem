@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, CalendarDays, Loader2, AlertCircle, CheckCircle2, MessageSquare, Info, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Loader2, AlertCircle, CheckCircle2, MessageSquare, Info, X } from "lucide-react";
 import type { WeeklySchedule } from "../types";
 import { myScheduleApi } from "../api/myScheduleApi";
 import { WeeklyScheduleCard } from "../components/WeeklyScheduleCard";
@@ -126,6 +126,16 @@ export const MyWeeklySchedulePage: React.FC = () => {
     }
   };
 
+  const handleDateChange = (dateStr: string) => {
+    if (!dateStr) return;
+    const d = new Date(dateStr);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff)).toISOString().split("T")[0];
+    setCurrentWeekStart(monday);
+    loadSchedule(monday, weeksCount);
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
       {/* Header Panel */}
@@ -143,11 +153,12 @@ export const MyWeeklySchedulePage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center bg-slate-100 p-1 rounded-lg">
+          {/* Week Navigator */}
+          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
             <button
               type="button"
               onClick={() => handleNavigateWeeks(-1)}
-              className="p-1.5 hover:bg-white text-slate-700 rounded-md transition cursor-pointer"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần trước"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -155,23 +166,32 @@ export const MyWeeklySchedulePage: React.FC = () => {
             <button
               type="button"
               onClick={handleResetToCurrentWeek}
-              className="px-2.5 py-1 text-xs font-medium hover:bg-white text-slate-700 rounded-md transition flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1 text-xs font-bold text-slate-700 hover:text-indigo-600 transition cursor-pointer"
               title="Quay lại tuần hiện tại"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Hiện tại</span>
+              {currentWeekStart === getThisMonday() ? "Tuần này" : "Hiện tại"}
             </button>
             <button
               type="button"
               onClick={() => handleNavigateWeeks(1)}
-              className="p-1.5 hover:bg-white text-slate-700 rounded-md transition cursor-pointer"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần kế tiếp"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50">
+          {/* Date Picker */}
+          <div className="relative">
+            <input
+              type="date"
+              value={currentWeekStart}
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:border-indigo-500 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-3 py-2 bg-white shadow-xs">
             <span>Hiển thị:</span>
             <select
               value={weeksCount}
