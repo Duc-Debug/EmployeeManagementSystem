@@ -165,24 +165,42 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
     if (n.relatedEntityType && n.relatedEntityId) {
       const type = n.relatedEntityType.toUpperCase();
       const id = n.relatedEntityId;
+      const roleStr = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
+      const isEmployee = roleStr === "VT-04" || roleStr.includes("EMPLOYEE") || roleStr.includes("MEMBER");
 
       if (type === "TASK") {
         const taskIdNum = Number(id);
+        navigate(`/project?taskId=${encodeURIComponent(id)}`);
         if (onSelectTask && !isNaN(taskIdNum)) {
           onSelectTask(taskIdNum);
-        } else {
+        }
+        setTimeout(() => {
           window.dispatchEvent(
             new CustomEvent("openTaskDiscussion", {
               detail: { taskId: taskIdNum },
             })
           );
-        }
+        }, 150);
       } else if (type === "CAPACITY_WEEK") {
         navigate(`/capacity?week=${encodeURIComponent(id)}`);
       } else if (type === "PROJECT" || type === "PROJECT_ALLOCATION" || type === "ALLOCATION") {
-        navigate(`/projects/${encodeURIComponent(id)}`);
+        if (isEmployee) {
+          navigate(`/my-schedule`);
+        } else {
+          navigate(`/project?projectId=${encodeURIComponent(id)}`);
+        }
       } else if (type === "LEAVE_REQUEST") {
-        navigate(`/leave?requestId=${encodeURIComponent(id)}`);
+        if (isEmployee) {
+          navigate(`/leave?requestId=${encodeURIComponent(id)}&view=my`);
+        } else {
+          navigate(`/leave?requestId=${encodeURIComponent(id)}&view=pending`);
+        }
+      } else if (type === "SCHEDULE_CONFLICT") {
+        navigate(`/schedule-conflict`);
+      } else if (type === "OUTSOURCED_CONTRACT") {
+        navigate(`/outsourced-contracts`);
+      } else if (type === "TIMESHEET") {
+        navigate(`/attendance`);
       }
     }
   };

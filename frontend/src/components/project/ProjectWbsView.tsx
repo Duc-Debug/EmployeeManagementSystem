@@ -61,22 +61,6 @@ export function ProjectWbsView({
         code?: string;
     } | null>(null);
     const [discussionTask, setDiscussionTask] = useState<{ task: TaskItem; catName: string } | null>(null);
-
-    useEffect(() => {
-        const handleOpenDiscussion = (event: Event) => {
-            const taskId = Number((event as CustomEvent<{ taskId?: number }>).detail?.taskId);
-            if (!Number.isFinite(taskId)) return;
-            for (const category of categories) {
-                const task = category.tasks.find((candidate) => Number(candidate.id) === taskId);
-                if (task) {
-                    setDiscussionTask({ task, catName: category.name });
-                    return;
-                }
-            }
-        };
-        window.addEventListener('openTaskDiscussion', handleOpenDiscussion);
-        return () => window.removeEventListener('openTaskDiscussion', handleOpenDiscussion);
-    }, [categories]);
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
         'cat-1': true,
@@ -84,6 +68,39 @@ export function ProjectWbsView({
         'cat-3': true,
         'cat-4': true,
     });
+
+    useEffect(() => {
+        const findAndOpenTask = (targetTaskId: number) => {
+            if (!Number.isFinite(targetTaskId) || targetTaskId <= 0) return;
+            for (const category of categories) {
+                const task = category.tasks.find((candidate) => {
+                    const numId = Number(candidate.id) || parseInt(String(candidate.id).replace(/\D/g, ''), 10);
+                    return numId === targetTaskId;
+                });
+                if (task) {
+                    setDiscussionTask({ task, catName: category.name });
+                    setOpenCategories((prev) => ({ ...prev, [category.id]: true }));
+                    return;
+                }
+            }
+        };
+
+        const handleOpenDiscussion = (event: Event) => {
+            const taskId = Number((event as CustomEvent<{ taskId?: number }>).detail?.taskId);
+            findAndOpenTask(taskId);
+        };
+
+        window.addEventListener('openTaskDiscussion', handleOpenDiscussion);
+
+        // Tự động kiểm tra URL query param ?taskId=... khi categories sẵn sàng
+        const searchParams = new URLSearchParams(window.location.search);
+        const urlTaskId = searchParams.get('taskId');
+        if (urlTaskId) {
+            findAndOpenTask(Number(urlTaskId));
+        }
+
+        return () => window.removeEventListener('openTaskDiscussion', handleOpenDiscussion);
+    }, [categories]);
 
     const toggleCategory = (catId: string) => {
         setOpenCategories((prev) => ({

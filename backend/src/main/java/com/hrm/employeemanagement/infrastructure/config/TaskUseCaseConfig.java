@@ -83,7 +83,9 @@ public class TaskUseCaseConfig {
             LoadUserPort loadUserPort,
             SaveAuditLogPort saveAuditLogPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
-            AuthorizationService authorizationService) {
+            AuthorizationService authorizationService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort saveNotificationPort) {
         AssignTaskService pureService = new AssignTaskService(
                 loadTaskPort,
                 saveTaskPort,
@@ -94,7 +96,8 @@ public class TaskUseCaseConfig {
                 loadOrgUnitPort,
                 loadUserPort,
                 saveDeniedAuditLogPort,
-                authorizationService);
+                authorizationService,
+                saveNotificationPort);
         return new TransactionalAssignTaskUseCase(pureService);
     }
 
