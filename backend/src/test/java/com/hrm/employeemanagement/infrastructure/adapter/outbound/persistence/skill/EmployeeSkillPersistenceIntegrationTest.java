@@ -120,7 +120,8 @@ class EmployeeSkillPersistenceIntegrationTest {
         EmployeeJpaEntity emp = createEmployee("EMP-" + suffix, "Developer " + suffix, root.getId());
         SkillJpaEntity skill = createSkill("SKILL-" + suffix, "Java " + suffix);
 
-        // 1. Initial State: APPROVED skill (proficiency=2, years=1.5)
+        // 1. Initial State: APPROVED skill by Approver 100L (proficiency=2, years=1.5)
+        LocalDateTime originalApprovedAt = LocalDateTime.of(2026, 1, 10, 8, 30, 0);
         EmployeeSkill initialSkill = new EmployeeSkill(
                 null,
                 emp.getId(),
@@ -128,8 +129,8 @@ class EmployeeSkillPersistenceIntegrationTest {
                 ProficiencyLevel.fromValue(2),
                 new BigDecimal("1.5"),
                 SkillStatus.APPROVED,
-                1L,
-                LocalDateTime.now(),
+                100L,
+                originalApprovedAt,
                 null,
                 "Initial approval",
                 2,
@@ -150,12 +151,15 @@ class EmployeeSkillPersistenceIntegrationTest {
         EmployeeSkill reloaded = employeeSkillRepository.findByEmployeeIdAndSkillId(emp.getId(), skill.getId()).orElseThrow();
         assertEquals(Integer.valueOf(4), reloaded.getPendingProficiencyLevel());
         assertEquals(new BigDecimal("4.0"), reloaded.getPendingYearsOfExperience());
+        assertEquals(Long.valueOf(100L), reloaded.getApprovedBy());
 
-        // 4. Reviewer rejects the update
-        reloaded.reject(1L, "Experience proof insufficient for Level 4");
+        // 4. Reviewer 200L rejects the update
+        reloaded.reject(200L, "Experience proof insufficient for Level 4");
         assertEquals(SkillStatus.APPROVED, reloaded.getStatus(), "Status remains APPROVED with previous level");
         assertEquals(2, reloaded.getProficiencyLevelValue(), "Proficiency level remains at previous approved level 2");
         assertEquals(new BigDecimal("1.5"), reloaded.getYearsOfExperience(), "Years of experience remains at 1.5");
+        assertEquals(Long.valueOf(100L), reloaded.getApprovedBy(), "approvedBy must remain 100L, not overwritten by 200L");
+        assertEquals(originalApprovedAt, reloaded.getApprovedAt(), "approvedAt must remain original approval time");
         assertNull(reloaded.getPendingProficiencyLevel());
         assertNull(reloaded.getPendingYearsOfExperience());
         assertEquals("Experience proof insufficient for Level 4", reloaded.getRejectionReason());
@@ -166,6 +170,8 @@ class EmployeeSkillPersistenceIntegrationTest {
         assertEquals(SkillStatus.APPROVED, finalReloaded.getStatus());
         assertEquals(2, finalReloaded.getProficiencyLevelValue());
         assertEquals(new BigDecimal("1.5"), finalReloaded.getYearsOfExperience());
+        assertEquals(Long.valueOf(100L), finalReloaded.getApprovedBy(), "approvedBy in DB must still be 100L");
+        assertEquals(originalApprovedAt, finalReloaded.getApprovedAt(), "approvedAt in DB must still be original approval time");
         assertNull(finalReloaded.getPendingProficiencyLevel());
         assertNull(finalReloaded.getPendingYearsOfExperience());
     }

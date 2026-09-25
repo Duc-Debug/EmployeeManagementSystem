@@ -277,14 +277,16 @@ class ApproveEmployeeSkillServiceTest {
     }
 
     @Test
-    @DisplayName("Từ chối kỹ năng đã từng duyệt khi nhân viên sửa đổi: Khôi phục lại trạng thái APPROVED và level cũ")
+    @DisplayName("Từ chối kỹ năng đã từng duyệt khi nhân viên sửa đổi: Khôi phục lại trạng thái APPROVED và level cũ, giữ nguyên approvedBy/approvedAt ban đầu")
     void rejectEditedSkill_RestoresApprovedValues() {
         Long skillRecordId = 10L;
-        // Kỹ năng từng được duyệt ở Level 3, 2.0 năm
+        Long originalApproverId = 88L;
+        LocalDateTime originalApprovedAt = LocalDateTime.of(2026, 1, 15, 10, 0, 0);
+        // Kỹ năng từng được duyệt bởi reviewer 88L ở Level 3, 2.0 năm
         EmployeeSkill skill = new EmployeeSkill(
                 skillRecordId, 101L, 1L, ProficiencyLevel.ADVANCED, new BigDecimal("2.0"),
-                SkillStatus.APPROVED, 2L, LocalDateTime.now(), null, "Duyệt tốt", 3, new BigDecimal("2.0"),
-                LocalDateTime.now(), LocalDateTime.now(), 1L
+                SkillStatus.APPROVED, originalApproverId, originalApprovedAt, null, "Duyệt tốt", 3, new BigDecimal("2.0"),
+                LocalDateTime.now().minusDays(30), LocalDateTime.now().minusDays(10), 1L
         );
 
         // Nhân viên sửa sang Level 5, 4.0 năm -> lưu vào pending fields để bảo toàn kỹ năng đã duyệt
@@ -312,6 +314,8 @@ class ApproveEmployeeSkillServiceTest {
         assertEquals("APPROVED", result.status());
         assertEquals(3, result.proficiencyLevel());
         assertEquals(new BigDecimal("2.0"), result.yearsOfExperience());
+        assertEquals(originalApproverId, result.approvedBy(), "approvedBy phải giữ nguyên người approve ban đầu, không bị ghi đè bởi người reject");
+        assertEquals(originalApprovedAt, result.approvedAt(), "approvedAt phải giữ nguyên thời điểm approve ban đầu");
         assertEquals("Chưa đủ năng lực đạt Level 5", result.rejectionReason());
         verify(employeeSkillRepository).save(any(EmployeeSkill.class));
     }

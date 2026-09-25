@@ -325,7 +325,7 @@ public class EmployeeSkill {
         }
 
         if (this.pendingProficiencyLevel != null || this.pendingYearsOfExperience != null || (this.lastApprovedProficiencyLevel != null && this.status == SkillStatus.APPROVED)) {
-            // Hủy đề xuất cập nhật, bảo toàn kỹ năng đã duyệt
+            // Hủy đề xuất cập nhật, bảo toàn kỹ năng đã duyệt (giữ nguyên approvedBy, approvedAt ban đầu)
             this.pendingProficiencyLevel = null;
             this.pendingYearsOfExperience = null;
             this.status = SkillStatus.APPROVED;
@@ -337,10 +337,10 @@ public class EmployeeSkill {
             // Khai báo mới bị từ chối
             this.status = SkillStatus.REJECTED;
             this.rejectionReason = rejectionReason != null ? rejectionReason.trim() : null;
+            this.approvedBy = reviewerId;
+            this.approvedAt = LocalDateTime.now();
         }
 
-        this.approvedBy = reviewerId;
-        this.approvedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
