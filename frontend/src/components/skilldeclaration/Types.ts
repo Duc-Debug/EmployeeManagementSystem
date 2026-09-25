@@ -9,6 +9,7 @@ export interface CatalogSkill {
     category: string;
     groupId?: number;
     description?: string;
+    status?: 'ACTIVE' | 'INACTIVE';
     version?: number;
 }
 
@@ -21,6 +22,12 @@ export interface DeclaredSkill {
     level: number; // 1..5
     years: number;
     status: SkillStatus;
+    rejectionReason?: string;
+    reviewNotes?: string;
+    pendingLevel?: number;
+    pendingYears?: number;
+    lastApprovedLevel?: number;
+    lastApprovedYears?: number;
 }
 
 /** Payload khi khai báo / cập nhật kỹ năng */
@@ -72,6 +79,8 @@ export interface PendingApprovalSkill {
     category: string;
     level: number; // 1..5
     years: number;
+    pendingLevel?: number;
+    pendingYears?: number;
     status: 'pending' | 'approved' | 'rejected';
     adjustedLevel?: number;
     reviewNotes?: string;

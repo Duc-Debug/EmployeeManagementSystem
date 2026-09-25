@@ -20,6 +20,10 @@ public class EmployeeSkillResponse {
     private LocalDateTime approvedAt;
     private String rejectionReason;
     private String reviewNotes;
+    private Integer lastApprovedProficiencyLevel;
+    private BigDecimal lastApprovedYearsOfExperience;
+    private Integer pendingProficiencyLevel;
+    private BigDecimal pendingYearsOfExperience;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -41,6 +45,10 @@ public class EmployeeSkillResponse {
         response.approvedAt = result.approvedAt();
         response.rejectionReason = result.rejectionReason();
         response.reviewNotes = result.reviewNotes();
+        response.lastApprovedProficiencyLevel = result.lastApprovedProficiencyLevel();
+        response.lastApprovedYearsOfExperience = result.lastApprovedYearsOfExperience();
+        response.pendingProficiencyLevel = result.pendingProficiencyLevel();
+        response.pendingYearsOfExperience = result.pendingYearsOfExperience();
         response.createdAt = result.createdAt();
         response.updatedAt = result.updatedAt();
         return response;
@@ -97,6 +105,23 @@ public class EmployeeSkillResponse {
     public String getReviewNotes() {
         return reviewNotes;
     }
+
+    public Integer getLastApprovedProficiencyLevel() {
+        return lastApprovedProficiencyLevel;
+    }
+
+    public BigDecimal getLastApprovedYearsOfExperience() {
+        return lastApprovedYearsOfExperience;
+    }
+
+    public Integer getPendingProficiencyLevel() {
+        return pendingProficiencyLevel;
+    }
+
+    public BigDecimal getPendingYearsOfExperience() {
+        return pendingYearsOfExperience;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }

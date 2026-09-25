@@ -148,6 +148,7 @@ export default function SkilldeclarationView({
                 category: s.groupName || 'Khác',
                 groupId: s.groupId,
                 description: s.description,
+                status: s.status,
                 version: s.version,
             }));
             setCatalog(mapped);
@@ -159,7 +160,7 @@ export default function SkilldeclarationView({
 
     // 2. Tải danh sách kỹ năng cá nhân đã khai báo (cho VT-04)
     const loadPersonalSkills = async () => {
-        if (roleCode !== 'VT-04') return;
+        if (roleCode !== 'VT-04' && roleCode !== 'VT-06') return;
         try {
             const data = await getMySkills();
             const mapped: DeclaredSkill[] = data.map((es) => ({
@@ -170,6 +171,12 @@ export default function SkilldeclarationView({
                 level: es.proficiencyLevel,
                 years: es.yearsOfExperience,
                 status: (es.status?.toLowerCase() as SkillStatus) || 'pending',
+                rejectionReason: es.rejectionReason,
+                reviewNotes: es.reviewNotes,
+                pendingLevel: es.pendingProficiencyLevel,
+                pendingYears: es.pendingYearsOfExperience,
+                lastApprovedLevel: es.lastApprovedProficiencyLevel,
+                lastApprovedYears: es.lastApprovedYearsOfExperience,
             }));
             setSkills(mapped);
         } catch (err) {
@@ -185,10 +192,14 @@ export default function SkilldeclarationView({
             const mapped: PendingApprovalSkill[] = data.map((p) => ({
                 id: p.id,
                 employeeName: p.employeeName,
+                employeeCode: p.employeeCode,
+                orgUnitName: p.orgUnitName,
                 skillName: p.skillName,
                 category: p.skillCategory || 'Khác',
                 level: p.proficiencyLevel,
                 years: p.yearsOfExperience,
+                pendingLevel: p.pendingProficiencyLevel,
+                pendingYears: p.pendingYearsOfExperience,
                 status: (p.status?.toLowerCase() as any) || 'pending',
             }));
             setApprovalRequests(mapped);

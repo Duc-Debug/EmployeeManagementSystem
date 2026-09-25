@@ -12,6 +12,14 @@ public class SkillPersistenceMapper {
         if (entity == null) {
             return null;
         }
+        com.hrm.employeemanagement.domain.skill.SkillStatus status = com.hrm.employeemanagement.domain.skill.SkillStatus.ACTIVE;
+        if (entity.getStatus() != null && !entity.getStatus().isBlank()) {
+            try {
+                status = com.hrm.employeemanagement.domain.skill.SkillStatus.valueOf(entity.getStatus().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                status = com.hrm.employeemanagement.domain.skill.SkillStatus.ACTIVE;
+            }
+        }
         return new Skill(
                 entity.getId(),
                 entity.getCode(),
@@ -20,7 +28,7 @@ public class SkillPersistenceMapper {
                 entity.getDescription(),
                 entity.getGroupId(),
                 entity.getCreatedAt(),
-                entity.getStatus() == null ? null : com.hrm.employeemanagement.domain.skill.SkillStatus.valueOf(entity.getStatus())
+                status
         );
     }
 
@@ -56,6 +64,8 @@ public class SkillPersistenceMapper {
                 entity.getApprovedAt(),
                 entity.getRejectionReason(),
                 entity.getReviewNotes(),
+                entity.getLastApprovedProficiencyLevel(),
+                entity.getLastApprovedYearsOfExperience(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getVersion()
@@ -77,6 +87,8 @@ public class SkillPersistenceMapper {
                 domain.getApprovedAt(),
                 domain.getRejectionReason(),
                 domain.getReviewNotes(),
+                domain.getLastApprovedProficiencyLevel(),
+                domain.getLastApprovedYearsOfExperience(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt(),
                 domain.getVersion()

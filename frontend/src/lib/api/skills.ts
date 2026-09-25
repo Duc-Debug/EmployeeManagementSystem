@@ -34,7 +34,12 @@ export interface EmployeeSkillResponse {
   yearsOfExperience: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
   statusDisplayName?: string;
+  rejectionReason?: string;
   reviewNotes?: string;
+  lastApprovedProficiencyLevel?: number;
+  lastApprovedYearsOfExperience?: number;
+  pendingProficiencyLevel?: number;
+  pendingYearsOfExperience?: number;
   version?: number;
 }
 
@@ -51,6 +56,8 @@ export interface PendingEmployeeSkillItem {
   skillCategory?: string;
   proficiencyLevel: number;
   yearsOfExperience: number;
+  pendingProficiencyLevel?: number;
+  pendingYearsOfExperience?: number;
   status: string;
   createdAt?: string;
 }

@@ -16,7 +16,8 @@ public interface PendingEmployeeSkillProjection {
     String getSkillCategory();
     Integer getProficiencyLevel();
     BigDecimal getYearsOfExperience();
+    Integer getPendingProficiencyLevel();
+    BigDecimal getPendingYearsOfExperience();
     String getStatus();
     LocalDateTime getCreatedAt();
 }
-

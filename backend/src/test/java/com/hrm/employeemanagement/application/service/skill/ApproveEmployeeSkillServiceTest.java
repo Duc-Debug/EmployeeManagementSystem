@@ -252,12 +252,77 @@ class ApproveEmployeeSkillServiceTest {
     }
 
     @Test
+    @DisplayName("Từ chối khai báo kỹ năng mới: Chuyển sang trạng thái REJECTED kèm lý do")
+    void rejectNewSkill_Success() {
+        Long skillRecordId = 10L;
+        EmployeeSkill pendingSkill = EmployeeSkill.declare(101L, 1L, ProficiencyLevel.ADVANCED, new BigDecimal("2.5"));
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(employeeSkillRepository.findById(skillRecordId)).thenReturn(Optional.of(pendingSkill));
+        when(loadEmployeePort.findById(new EmployeeId(101L))).thenReturn(Optional.of(employee));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+        when(employeeSkillRepository.save(any(EmployeeSkill.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(skillCatalogRepository.findById(1L)).thenReturn(Optional.of(javaSkill));
+
+        com.hrm.employeemanagement.application.dto.skill.RejectEmployeeSkillCommand command =
+                new com.hrm.employeemanagement.application.dto.skill.RejectEmployeeSkillCommand(skillRecordId, "Chưa đủ chứng chỉ");
+
+        EmployeeSkillResult result = service.reject(command);
+
+        assertNotNull(result);
+        assertEquals("REJECTED", result.status());
+        assertEquals("Chưa đủ chứng chỉ", result.rejectionReason());
+        verify(employeeSkillRepository).save(any(EmployeeSkill.class));
+    }
+
+    @Test
+    @DisplayName("Từ chối kỹ năng đã từng duyệt khi nhân viên sửa đổi: Khôi phục lại trạng thái APPROVED và level cũ")
+    void rejectEditedSkill_RestoresApprovedValues() {
+        Long skillRecordId = 10L;
+        // Kỹ năng từng được duyệt ở Level 3, 2.0 năm
+        EmployeeSkill skill = new EmployeeSkill(
+                skillRecordId, 101L, 1L, ProficiencyLevel.ADVANCED, new BigDecimal("2.0"),
+                SkillStatus.APPROVED, 2L, LocalDateTime.now(), null, "Duyệt tốt", 3, new BigDecimal("2.0"),
+                LocalDateTime.now(), LocalDateTime.now(), 1L
+        );
+
+        // Nhân viên sửa sang Level 5, 4.0 năm -> lưu vào pending fields để bảo toàn kỹ năng đã duyệt
+        skill.updateProficiency(ProficiencyLevel.EXPERT, new BigDecimal("4.0"));
+        assertEquals(SkillStatus.APPROVED, skill.getStatus());
+        assertEquals(3, skill.getProficiencyLevelValue());
+        assertEquals(5, skill.getPendingProficiencyLevel());
+        assertTrue(skill.isPendingReview());
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(employeeSkillRepository.findById(skillRecordId)).thenReturn(Optional.of(skill));
+        when(loadEmployeePort.findById(new EmployeeId(101L))).thenReturn(Optional.of(employee));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+        when(employeeSkillRepository.save(any(EmployeeSkill.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(skillCatalogRepository.findById(1L)).thenReturn(Optional.of(javaSkill));
+
+        com.hrm.employeemanagement.application.dto.skill.RejectEmployeeSkillCommand command =
+                new com.hrm.employeemanagement.application.dto.skill.RejectEmployeeSkillCommand(skillRecordId, "Chưa đủ năng lực đạt Level 5");
+
+        EmployeeSkillResult result = service.reject(command);
+
+        assertNotNull(result);
+        // Bảo toàn trạng thái APPROVED và mức Level 3 đã được duyệt trước đó
+        assertEquals("APPROVED", result.status());
+        assertEquals(3, result.proficiencyLevel());
+        assertEquals(new BigDecimal("2.0"), result.yearsOfExperience());
+        assertEquals("Chưa đủ năng lực đạt Level 5", result.rejectionReason());
+        verify(employeeSkillRepository).save(any(EmployeeSkill.class));
+    }
+
+    @Test
     @DisplayName("Xem danh sách kỹ năng chờ xác nhận: Lọc đúng phạm vi và từ khóa qua persistence port")
     void getPendingSkills_FiltersByScopeAndKeyword_Success() {
         PendingEmployeeSkillItemResult item = new PendingEmployeeSkillItemResult(
                 10L, 101L, "EMP001", "Nguyễn Văn A", 10L, "Trung tâm Phát triển",
                 1L, "JAVA", "Java", "Backend", 3, new BigDecimal("2.5"),
-                "PENDING", LocalDateTime.now()
+                null, null, "PENDING", LocalDateTime.now()
         );
 
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE)).thenReturn(2L);
@@ -281,7 +346,7 @@ class ApproveEmployeeSkillServiceTest {
         PendingEmployeeSkillItemResult item = new PendingEmployeeSkillItemResult(
                 10L, 101L, "EMP001", "Nguyễn Văn A", 10L, "Trung tâm Phát triển",
                 1L, "JAVA", "Java", "Backend", 3, new BigDecimal("2.5"),
-                "PENDING", LocalDateTime.now()
+                null, null, "PENDING", LocalDateTime.now()
         );
 
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_APPROVE)).thenReturn(2L);
