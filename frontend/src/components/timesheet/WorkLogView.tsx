@@ -32,6 +32,9 @@ import { useAuthUser } from "@/lib/auth-session";
 
 export default function WorkLogView() {
   const user = useAuthUser();
+  const roleCode = user?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
+  const canAdjust = user?.permissions?.includes("WORK_LOG_ADJUST") || roleCode === "VT-02" || roleCode === "VT-06";
+
   const [currentDate, setCurrentDate] = useState<string>(
     () => new Date().toISOString().split("T")[0]
   );
@@ -230,8 +233,13 @@ export default function WorkLogView() {
     .filter((e) => !e.isBillable)
     .reduce((sum, e) => sum + Number(e.hours || 0), 0);
 
-  const isTimesheetEditable = weeklyData?.isEditable !== false && (!weeklyData?.status || weeklyData.status === "DRAFT" || weeklyData.status === "REJECTED");
-  const canSubmitTimesheet = isTimesheetEditable && allEntries.length > 0 && totalHours > 0;
+  const isTimesheetEditable =
+    weeklyData?.status === "DRAFT" ||
+    weeklyData?.status === "REJECTED" ||
+    !weeklyData?.status ||
+    weeklyData?.isEditable === true;
+  const hasSubmittableEntries = allEntries.some((e) => e.status === "DRAFT" || e.status === "REJECTED");
+  const canSubmitTimesheet = (isTimesheetEditable || hasSubmittableEntries) && allEntries.length > 0 && totalHours > 0;
 
   const dailyGroups: DailyWorkLogGroupDto[] = weeklyData?.dailyGroups ?? [];
 
@@ -375,72 +383,72 @@ export default function WorkLogView() {
         </div>
       )}
 
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* Summary KPI Cards (Compact ~75%) */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         {/* Total Weekly Hours */}
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 shadow-xs">
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-indigo-800">Tổng giờ tuần</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
-              <Clock className="h-4 w-4" />
+            <span className="text-[11px] font-bold text-indigo-800">Tổng giờ tuần</span>
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+              <Clock className="h-3.5 w-3.5" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-black text-indigo-950 font-mono">
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-xl font-black text-indigo-950 font-mono">
               {totalHours.toFixed(1)}
             </span>
-            <span className="text-xs font-bold text-indigo-700">giờ</span>
+            <span className="text-[11px] font-bold text-indigo-700">giờ</span>
           </div>
-          <p className="mt-1 text-[11px] text-indigo-600">Định mức chuẩn: 40.0h / tuần</p>
+          <p className="mt-0.5 text-[10px] text-indigo-600">Chuẩn: 40.0h / tuần</p>
         </div>
 
         {/* Billable Hours */}
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 shadow-xs">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-800">Giờ tính phí</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-              <DollarSign className="h-4 w-4" />
+            <span className="text-[11px] font-bold text-emerald-800">Giờ tính phí</span>
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+              <DollarSign className="h-3.5 w-3.5" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-black text-emerald-950 font-mono">
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-xl font-black text-emerald-950 font-mono">
               {totalBillableHours.toFixed(1)}
             </span>
-            <span className="text-xs font-bold text-emerald-700">giờ</span>
+            <span className="text-[11px] font-bold text-emerald-700">giờ</span>
           </div>
-          <p className="mt-1 text-[11px] text-emerald-600">Tính trực tiếp cho khách hàng</p>
+          <p className="mt-0.5 text-[10px] text-emerald-600">Tính phí khách hàng</p>
         </div>
 
         {/* Non-Billable Hours */}
-        <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4 shadow-xs">
+        <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-3 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-sky-800">Giờ nội bộ</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
-              <Briefcase className="h-4 w-4" />
+            <span className="text-[11px] font-bold text-sky-800">Giờ nội bộ</span>
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+              <Briefcase className="h-3.5 w-3.5" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-black text-sky-950 font-mono">
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-xl font-black text-sky-950 font-mono">
               {totalNonBillableHours.toFixed(1)}
             </span>
-            <span className="text-xs font-bold text-sky-700">giờ</span>
+            <span className="text-[11px] font-bold text-sky-700">giờ</span>
           </div>
-          <p className="mt-1 text-[11px] text-sky-600">Họp, đào tạo, việc nội bộ</p>
+          <p className="mt-0.5 text-[10px] text-sky-600">Họp, đào tạo, việc nội bộ</p>
         </div>
 
         {/* Employee Info */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-600">Nhân sự thực hiện</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-              <Layers className="h-4 w-4" />
+            <span className="text-[11px] font-bold text-slate-600">Nhân sự</span>
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+              <Layers className="h-3.5 w-3.5" />
             </div>
           </div>
-          <div className="mt-2 text-sm font-bold text-slate-900 truncate">
+          <div className="mt-1 text-xs font-bold text-slate-900 truncate">
             {weeklyData?.employeeName || user?.fullName || user?.username || "Nhân viên"}
           </div>
-          <p className="mt-1 text-[11px] text-slate-500 font-mono">
-            Mã NV: {user?.employeeCode || `ID #${user?.id || ""}`}
+          <p className="mt-0.5 text-[10px] text-slate-500 font-mono">
+            Mã: {user?.employeeCode || `#${user?.id || ""}`}
           </p>
         </div>
       </div>
@@ -490,10 +498,10 @@ export default function WorkLogView() {
                   }`}
                 >
                   {/* Day Header */}
-                  <div className="flex flex-wrap items-center justify-between border-b border-slate-100 px-5 py-3.5">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-between border-b border-slate-100 px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
                       <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold ${
+                        className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-extrabold ${
                           isToday
                             ? "bg-indigo-600 text-white"
                             : "bg-slate-100 text-slate-700"
@@ -503,11 +511,11 @@ export default function WorkLogView() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-900">
+                          <span className="text-xs font-bold text-slate-900">
                             {dayGroup.dayOfWeek}
                           </span>
                           {isToday && (
-                            <span className="rounded-md bg-indigo-100 px-1.5 py-0.5 text-[10px] font-extrabold text-indigo-700">
+                            <span className="rounded-md bg-indigo-100 px-1.5 py-0.2 text-[10px] font-extrabold text-indigo-700">
                               Hôm nay
                             </span>
                           )}
@@ -515,12 +523,12 @@ export default function WorkLogView() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5">
                       {/* Daily Total Hours Badge */}
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-semibold text-slate-500">Tổng:</span>
                         <span
-                          className={`rounded-lg px-2.5 py-1 text-xs font-bold font-mono ${
+                          className={`rounded-lg px-2 py-0.5 text-xs font-bold font-mono ${
                             isOverLimit
                               ? "bg-rose-100 text-rose-800"
                               : isOverStandard
@@ -539,31 +547,31 @@ export default function WorkLogView() {
                         <button
                           type="button"
                           onClick={() => handleOpenCreateModal(dayGroup.date)}
-                          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition cursor-pointer"
+                          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition cursor-pointer"
                         >
-                          <Plus className="h-3.5 w-3.5" />
-                          <span>Thêm việc</span>
+                          <Plus className="h-3 w-3" />
+                          <span>Thêm</span>
                         </button>
                       )}
                     </div>
                   </div>
 
                   {/* Day Content: List of entries */}
-                  <div className="p-4">
+                  <div className="p-3">
                     {!hasEntries ? (
-                      <div className="py-2 text-center text-xs font-medium text-slate-400 italic">
+                      <div className="py-1 text-center text-xs font-medium text-slate-400 italic">
                         Chưa có bản ghi giờ công nào trong ngày này.
                       </div>
                     ) : (
-                      <div className="space-y-2.5">
+                      <div className="space-y-2">
                         {entries.map((entry: WorkLogResult) => (
                           <div
                             key={entry.id}
-                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 hover:border-slate-200 transition"
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 hover:bg-slate-50 hover:border-slate-200 transition"
                           >
-                            <div className="space-y-1 flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-800">
+                            <div className="space-y-0.5 flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-800">
                                   <Briefcase className="h-3 w-3" />
                                   {entry.projectName}
                                 </span>
@@ -571,70 +579,75 @@ export default function WorkLogView() {
                                   {entry.taskName}
                                 </span>
                                 {entry.isBillable ? (
-                                  <span className="rounded-md bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                                  <span className="rounded-md bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 text-[10px] font-bold text-emerald-700">
                                     Tính phí
                                   </span>
                                 ) : (
-                                  <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                                  <span className="rounded-md bg-slate-200 px-1.5 py-0.2 text-[10px] font-semibold text-slate-600">
                                     Nội bộ
                                   </span>
                                 )}
                                 {entry.status === "APPROVED" && (
-                                  <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                                  <span className="rounded-md bg-emerald-100 px-1.5 py-0.2 text-[10px] font-bold text-emerald-700">
                                     Đã duyệt
                                   </span>
                                 )}
                                 {entry.status === "REJECTED" && (
-                                  <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
+                                  <span className="rounded-md bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold text-rose-700">
                                     Bị từ chối
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-slate-600 font-normal leading-relaxed pl-1">
+                              <p className="text-xs text-slate-600 font-normal leading-relaxed pl-0.5">
                                 {entry.description}
                               </p>
                               {entry.status === "REJECTED" && entry.rejectionReason && (
-                                <div className="mt-1.5 p-2 rounded bg-rose-50 border border-rose-100 text-xs font-medium text-rose-700">
+                                <div className="mt-1 p-1.5 rounded bg-rose-50 border border-rose-100 text-xs font-medium text-rose-700">
                                   Lý do từ chối: {entry.rejectionReason}
                                 </div>
                               )}
                             </div>
 
-                            <div className="flex items-center justify-between sm:justify-end gap-3 flex-none">
-                              <div className="text-right font-mono font-bold text-sm text-indigo-700 bg-white border border-indigo-100 px-3 py-1 rounded-xl shadow-2xs">
+                            <div className="flex items-center justify-between sm:justify-end gap-2.5 flex-none">
+                              <div className="text-right font-mono font-bold text-xs text-indigo-700 bg-white border border-indigo-100 px-2.5 py-0.5 rounded-lg shadow-2xs">
                                 {Number(entry.hours || 0).toFixed(1)} hrs
                               </div>
 
-                              {isTimesheetEditable && (entry.status === "DRAFT" || entry.status === "REJECTED") && (
+                              {(entry.status === "REJECTED" || (entry.status === "DRAFT" && isTimesheetEditable)) && (
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEditModal(entry)}
-                                    title="Chỉnh sửa"
-                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-indigo-600 hover:shadow-2xs transition cursor-pointer"
+                                    title={entry.status === "REJECTED" ? "Điều chỉnh để nộp lại" : "Chỉnh sửa"}
+                                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition shadow-2xs cursor-pointer ${
+                                      entry.status === "REJECTED"
+                                        ? "bg-rose-100 text-rose-800 border border-rose-200 hover:bg-rose-200"
+                                        : "bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50"
+                                    }`}
                                   >
-                                    <Edit2 className="h-4 w-4" />
+                                    <Edit2 className="h-3 w-3" />
+                                    <span>{entry.status === "REJECTED" ? "Điều chỉnh để nộp lại" : "Sửa"}</span>
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteEntry(entry)}
                                     title="Xóa"
-                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-rose-600 hover:shadow-2xs transition cursor-pointer"
+                                    className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-rose-600 hover:shadow-2xs transition cursor-pointer"
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
                               )}
 
-                              {entry.status === "APPROVED" && (
+                              {entry.status === "APPROVED" && canAdjust && (
                                 <div className="flex items-center">
                                   <button
                                     type="button"
                                     onClick={() => handleOpenAdjustModal(entry)}
                                     title="Điều chỉnh giờ đã duyệt"
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition cursor-pointer shadow-2xs"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition cursor-pointer shadow-2xs"
                                   >
-                                    <Sliders className="h-3.5 w-3.5" />
+                                    <Sliders className="h-3 w-3" />
                                     <span>Điều chỉnh</span>
                                   </button>
                                 </div>
@@ -807,6 +820,8 @@ export default function WorkLogView() {
                   value={adjustDescription}
                   onChange={(e) => setAdjustDescription(e.target.value)}
                   rows={2}
+                  autoComplete="off"
+                  spellCheck={false}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none"
                   placeholder="Mô tả công việc chi tiết..."
                 />
@@ -821,6 +836,8 @@ export default function WorkLogView() {
                   onChange={(e) => setAdjustReason(e.target.value)}
                   required
                   rows={3}
+                  autoComplete="off"
+                  spellCheck={false}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none"
                   placeholder="Bắt buộc nhập lý do giải trình thay đổi giờ đã duyệt (tối thiểu 10 ký tự)..."
                 />

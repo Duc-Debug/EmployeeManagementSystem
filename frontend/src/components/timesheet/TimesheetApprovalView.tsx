@@ -235,6 +235,8 @@ export const TimesheetApprovalView: React.FC = () => {
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
                 className="w-full rounded-2xl border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-900 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20"
                 rows={4}
                 placeholder="Ví dụ: Mô tả chưa rõ ràng, số giờ không hợp lý..."
