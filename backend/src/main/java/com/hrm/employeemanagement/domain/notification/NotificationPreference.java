@@ -205,8 +205,11 @@ public class NotificationPreference {
             case TIMESHEET_REMINDER -> timesheetReminderChannel;
             case SCHEDULE_CONFLICT -> scheduleConflictChannel;
             case ALLOCATION_CHANGED -> allocationChangedChannel;
+            case LEAVE_SUBMITTED, LEAVE_APPROVED, LEAVE_REJECTED, LEAVE_CANCEL_REQUESTED -> NotificationDeliveryChannel.ALL;
+            case OUTSOURCED_CONTRACT_EXPIRING -> NotificationDeliveryChannel.ALL;
             // Digest batches are internal containers. Their channels are decided per source item.
             case NOTIFICATION_DIGEST -> NotificationDeliveryChannel.NONE;
+            default -> NotificationDeliveryChannel.ALL;
         };
     }
 

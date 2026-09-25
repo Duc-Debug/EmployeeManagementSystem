@@ -68,19 +68,55 @@ public class NotificationRepositoryAdapter implements LoadNotificationPort, Save
     public Notification save(Notification notification) {
         NotificationJpaEntity entity = mapper.toJpaEntity(notification);
         NotificationJpaEntity saved = notificationRepository.save(entity);
-        // The bell reads the notification center; allocation history reads the legacy table.
-        // Publish both in the allocation transaction, after delivery preferences are applied.
-        if (notification.getId() == null && notification.getType() == NotificationType.ALLOCATION_CHANGED) {
+        // The bell reads the notification center; legacy callers write via SaveNotificationPort.
+        // Publish both in the transaction so all legacy notification types appear in the Notification Center.
+        if (notification.getId() == null) {
+            String eventType = notification.getType() != null ? notification.getType().name() : "GENERAL";
+            NotificationLevel level = resolveLevel(notification.getType());
+            String relatedEntityType = resolveRelatedEntityType(notification);
+            String relatedEntityId = notification.getTargetId() != null ? String.valueOf(notification.getTargetId()) : null;
+            String sourceKey = "LEGACY:NOTIF:" + saved.getId();
+
             NotificationEvent event = eventRepository.save(new NotificationEvent(
-                    null, NotificationType.ALLOCATION_CHANGED.name(), NotificationLevel.TRUNG_BINH,
-                    notification.getTitle(), notification.getContent(), "PROJECT_ALLOCATION",
-                    String.valueOf(notification.getTargetId()), "LEGACY:NOTIF:" + saved.getId(),
+                    null, eventType, level,
+                    notification.getTitle(), notification.getContent(), relatedEntityType,
+                    relatedEntityId, sourceKey,
                     notification.getCreatedAt()));
             recipientRepository.save(new NotificationRecipientItem(
                     null, event.getId(), notification.getRecipientId(), false, null, false, null,
                     notification.getCreatedAt(), notification.getAvailableAt()));
         }
         return mapper.toDomain(saved);
+    }
+
+    private NotificationLevel resolveLevel(NotificationType type) {
+        if (type == null) {
+            return NotificationLevel.THAP;
+        }
+        return switch (type) {
+            case SCHEDULE_CONFLICT, TASK_DUE_REMINDER, OUTSOURCED_CONTRACT_EXPIRING -> NotificationLevel.CAO;
+            case ALLOCATION_CHANGED, TASK_MENTION, TASK_COMMENT, TASK_ASSIGNED, TIMESHEET_REMINDER,
+                 LEAVE_SUBMITTED, LEAVE_REJECTED, LEAVE_CANCEL_REQUESTED -> NotificationLevel.TRUNG_BINH;
+            case NOTIFICATION_DIGEST, LEAVE_APPROVED -> NotificationLevel.THAP;
+        };
+    }
+
+    private String resolveRelatedEntityType(Notification notification) {
+        if (notification.getTargetType() != null && !notification.getTargetType().isBlank()) {
+            return notification.getTargetType();
+        }
+        if (notification.getType() == null) {
+            return "GENERAL";
+        }
+        return switch (notification.getType()) {
+            case ALLOCATION_CHANGED -> "PROJECT_ALLOCATION";
+            case TASK_MENTION, TASK_COMMENT, TASK_ASSIGNED, TASK_DUE_REMINDER -> "TASK";
+            case SCHEDULE_CONFLICT -> "SCHEDULE_CONFLICT";
+            case TIMESHEET_REMINDER -> "TIMESHEET";
+            case NOTIFICATION_DIGEST -> "NOTIFICATION_DIGEST";
+            case LEAVE_SUBMITTED, LEAVE_APPROVED, LEAVE_REJECTED, LEAVE_CANCEL_REQUESTED -> "LEAVE_REQUEST";
+            case OUTSOURCED_CONTRACT_EXPIRING -> "OUTSOURCED_CONTRACT";
+        };
     }
 
     public Notification appendToDigest(
