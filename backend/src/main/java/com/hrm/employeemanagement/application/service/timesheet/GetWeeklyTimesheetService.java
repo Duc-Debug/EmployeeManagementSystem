@@ -146,7 +146,7 @@ public class GetWeeklyTimesheetService implements GetWeeklyTimesheetUseCase {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         String status = timesheet != null ? timesheet.getStatus().name() : TimesheetStatus.DRAFT.name();
-        boolean isEditable = timesheet == null || timesheet.getStatus() == TimesheetStatus.DRAFT;
+        boolean isEditable = timesheet == null || timesheet.getStatus() == TimesheetStatus.DRAFT || timesheet.getStatus() == TimesheetStatus.REJECTED;
 
         return new WeeklyTimesheetResult(
                 timesheet != null ? timesheet.getIdValue() : null,
