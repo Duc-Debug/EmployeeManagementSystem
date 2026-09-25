@@ -1210,7 +1210,7 @@ export default function ProjectView() {
                                             <select
                                                 value={selectedProjectId || ''}
                                                 onChange={(e) => navigate(`/projects?projectId=${e.target.value}`)}
-                                                className="rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white"
+                                                className="appearance-none rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white"
                                             >
                                                 {projectsList.map((p) => (
                                                     <option key={p.id} value={p.id}>
