@@ -1,639 +1,433 @@
-import React, { Fragment, useState, useEffect, useCallback } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import {
-    AlertTriangle,
-    RefreshCw,
-    Search,
-    ShieldAlert,
-    CheckCircle2,
-    Calendar,
-    Building2,
+    X,
+    User,
+    Mail,
     Clock,
-    ChevronDown,
-    ChevronRight,
-    Users,
-    FolderKanban,
-    Sparkles,
-    FileCheck2,
-    Loader2,
-    Download,
-    ChevronLeft,
+    CalendarDays,
+    BadgeAlert,
+    Briefcase,
+    Building,
 } from "lucide-react";
-import {
-    getExpiringOutsourcedContracts,
-    scanOutsourcedContractsManually,
-    exportOutsourcedContractsToCsv,
-    type ExpiringOutsourcedContract,
-} from "@/lib/api/outsourced-contracts";
-import AcknowledgeContractModal from "./AcknowledgeContractModal";
+import { cn } from "../../lib/utils";
+import type { HrProfileData } from "./hrprofile.types";
+import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
+import { DEFAULT_ORG_UNIT_OPTIONS } from "../employee/form/employeeForm.constants";
+import TaskSelect from "../task/TaskSelect";
+import DatePickerInput from "../calendar/DatePickerInput";
+import { getProjectRoles } from "@/lib/api/project-roles";
 
-export default function OutsourcedContractWarningView() {
-    const [contracts, setContracts] = useState<ExpiringOutsourcedContract[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [scanning, setScanning] = useState<boolean>(false);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
-    const [successBanner, setSuccessBanner] = useState<string | null>(null);
+interface HrProfileFormProps {
+    open: boolean;
+    initialData?: HrProfileData;
+    nextEmployeeCode: string;
+    orgUnitOptions?: readonly OrgUnitOption[];
+    onClose: () => void;
+    onSave: (data: HrProfileData) => void;
+}
 
-    // Search and debounce
-    const [searchTerm, setSearchTerm] = useState<string>("");
-    const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+const DEFAULT_ROLE_LIST = [
+    "Product Owner / BA",
+    "Frontend Developer",
+    "Backend Developer",
+    "UI/UX Designer",
+    "DevOps Engineer",
+    "QA / QC Tester",
+    "Project Manager",
+    "HR Manager",
+    "Accountant",
+];
 
-    // Filter by status tab
-    const [statusFilter, setStatusFilter] = useState<string>("ALL");
-    const [thresholdDays, setThresholdDays] = useState<number>(30);
+const DEFAULT_ROLE_OPTIONS = DEFAULT_ROLE_LIST.map((r) => ({ id: r, label: r }));
 
-    // Pagination
-    const [currentPage, setCurrentPage] = useState<number>(1);
-    const pageSize = 10;
+const BASE_INPUT = "w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100";
+const DISABLED_INPUT = "w-full rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed";
 
-    // Expanded rows
-    const [expandedEmployeeIds, setExpandedEmployeeIds] = useState<Set<number>>(new Set());
+export default function HrProfileForm({
+    open,
+    initialData,
+    nextEmployeeCode,
+    orgUnitOptions = DEFAULT_ORG_UNIT_OPTIONS,
+    onClose,
+    onSave,
+}: HrProfileFormProps) {
+    const isEdit = Boolean(initialData);
 
-    // Selected contract for acknowledge modal
-    const [selectedContractForAck, setSelectedContractForAck] = useState<ExpiringOutsourcedContract | null>(null);
+    const emptyForm = (): Partial<HrProfileData> => ({
+        employeeCode: nextEmployeeCode,
+        fullName: "",
+        email: "",
+        username: "",
+        password: "",
+        department: "",
+        professionalRole: "",
+        startDate: "",
+        contractEndDate: "",
+        standardHoursPerWeek: 40,
+    });
 
-    // Debounce search input
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchTerm);
-            setCurrentPage(1); // Reset to page 1 on search
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    const loadData = useCallback(async (forceRefresh: boolean = false) => {
-        setLoading(true);
-        setErrorMsg(null);
-        try {
-            const res = await getExpiringOutsourcedContracts(thresholdDays, forceRefresh);
-            setContracts(res.items || []);
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : "Không thể tải danh sách hợp đồng thuê ngoài.";
-            setErrorMsg(msg);
-        } finally {
-            setLoading(false);
+    const resolveInitialFormData = (data?: HrProfileData): Partial<HrProfileData> => {
+        if (!data) return emptyForm();
+        let matchedOrgId = data.orgUnitId;
+        if (!matchedOrgId && data.department) {
+            const found = orgUnitOptions.find(
+                (o) => o.unitName.toLowerCase() === data.department.toLowerCase()
+            );
+            if (found) matchedOrgId = String(found.id);
         }
-    }, [thresholdDays]);
-
-    useEffect(() => {
-        loadData(false);
-    }, [loadData]);
-
-    const handleManualScan = async () => {
-        setScanning(true);
-        setErrorMsg(null);
-        setSuccessBanner(null);
-        try {
-            const res = await scanOutsourcedContractsManually();
-            setSuccessBanner(res.details);
-            await loadData(true);
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : "Quét rà soát hợp đồng thất bại.";
-            setErrorMsg(msg);
-        } finally {
-            setScanning(false);
-        }
+        return {
+            ...data,
+            orgUnitId: matchedOrgId,
+        };
     };
 
-    const handleExportCsv = () => {
-        if (!contracts.length) return;
-        const csv = exportOutsourcedContractsToCsv(filteredContracts);
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-        link.href = url;
-        link.setAttribute("download", `Bao_cao_hop_dong_thue_ngoai_${dateStr}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
+    const [formData, setFormData] = useState<Partial<HrProfileData>>(() =>
+        resolveInitialFormData(initialData)
+    );
+    const isOutsourced = Boolean(formData.isOutsourced ?? initialData?.isOutsourced);
 
-    const toggleExpandRow = (empId: number) => {
-        setExpandedEmployeeIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(empId)) next.delete(empId);
-            else next.add(empId);
-            return next;
+    const [prevOpen, setPrevOpen] = useState(open);
+    const [prevInitial, setPrevInitial] = useState(initialData);
+    const [errorMessage, setErrorMessage] = useState("");
+    const [roleOptions, setRoleOptions] = useState<{ id: string; label: string }[]>(DEFAULT_ROLE_OPTIONS);
+
+    useEffect(() => {
+        if (!open) return;
+        let isMounted = true;
+        getProjectRoles(true)
+            .then((roles) => {
+                if (!isMounted) return;
+                if (Array.isArray(roles) && roles.length > 0) {
+                    const activeRoles = roles.filter((r) => r.status === "ACTIVE");
+                    const mapped = activeRoles.map((r) => ({
+                        id: r.name,
+                        label: r.code ? `${r.name} (${r.code})` : r.name,
+                    }));
+                    const currentRole = formData.professionalRole;
+                    if (currentRole && !mapped.some((m) => m.id === currentRole)) {
+                        mapped.unshift({ id: currentRole, label: currentRole });
+                    }
+                    setRoleOptions(mapped);
+                }
+            })
+            .catch((err) => {
+                console.warn("Không thể tải danh sách vai trò chuyên môn:", err);
+            });
+        return () => {
+            isMounted = false;
+        };
+    }, [open, formData.professionalRole]);
+
+    if (open !== prevOpen || initialData !== prevInitial) {
+        setPrevOpen(open);
+        setPrevInitial(initialData);
+        setErrorMessage("");
+        setFormData(resolveInitialFormData(initialData));
+    }
+
+    if (!open) return null;
+
+    const set = <K extends keyof HrProfileData>(field: K, value: HrProfileData[K]) =>
+        setFormData((prev) => ({ ...prev, [field]: value }));
+
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        setErrorMessage("");
+
+        if (!formData.fullName?.trim()) {
+            setErrorMessage("Vui lòng nhập họ và tên nhân viên.");
+            return;
+        }
+        if (!isOutsourced) {
+            if (!formData.email?.trim()) {
+                setErrorMessage("Vui lòng nhập địa chỉ email.");
+                return;
+            }
+            const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+            if (!EMAIL_REGEX.test(formData.email.trim())) {
+                setErrorMessage("Email không đúng định dạng. Email phải có ký tự '@' và tên miền hợp lệ chứa dấu '.' (ví dụ: user@company.com).");
+                return;
+            }
+        }
+        if (!formData.employeeCode?.trim()) {
+            setErrorMessage("Vui lòng nhập mã nhân viên.");
+            return;
+        }
+        if (!formData.orgUnitId && !formData.department?.trim()) {
+            setErrorMessage("Vui lòng chọn đơn vị tổ chức trực thuộc.");
+            return;
+        }
+        if (!formData.standardHoursPerWeek || Number(formData.standardHoursPerWeek) < 1) {
+            setErrorMessage("Giờ làm việc chuẩn phải lớn hơn 0.");
+            return;
+        }
+        if (formData.startDate && formData.contractEndDate && formData.contractEndDate < formData.startDate) {
+            setErrorMessage("Ngày kết thúc hợp đồng không được trước ngày vào làm.");
+            return;
+        }
+
+        onSave({
+            ...(formData as HrProfileData),
+            fullName: formData.fullName!.trim(),
+            email: formData.email?.trim() || "",
+            employeeCode: formData.employeeCode!.trim().toUpperCase(),
+            standardHoursPerWeek: Number(formData.standardHoursPerWeek) || 40,
         });
     };
 
-    // Filtered data
-    const filteredContracts = contracts.filter((c) => {
-        const matchSearch =
-            !debouncedSearch.trim() ||
-            c.fullName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-            c.employeeCode.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-            (c.orgUnitName && c.orgUnitName.toLowerCase().includes(debouncedSearch.toLowerCase()));
-
-        if (!matchSearch) return false;
-
-        if (statusFilter === "EXPIRING_SOON") return c.status === "EXPIRING_SOON";
-        if (statusFilter === "EXPIRED") return c.status === "EXPIRED";
-        if (statusFilter === "AFFECTED_ONLY") return c.affectedAllocations && c.affectedAllocations.length > 0;
-
-        return true;
-    });
-
-    // Paginated items
-    const totalPages = Math.max(1, Math.ceil(filteredContracts.length / pageSize));
-    const start = (currentPage - 1) * pageSize;
-    const paginatedContracts = filteredContracts.slice(start, start + pageSize);
-
-    // Summary statistics
-    const stats = {
-        total: contracts.length,
-        expiringSoon: contracts.filter((c) => c.status === "EXPIRING_SOON").length,
-        expired: contracts.filter((c) => c.status === "EXPIRED").length,
-        totalAffectedAllocations: contracts.reduce(
-            (acc, c) => acc + (c.affectedAllocations ? c.affectedAllocations.length : 0),
-            0
-        ),
-    };
-
     return (
-        <div className="space-y-6">
-            {/* Page Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-2.5">
-                        <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
-                            <ShieldAlert className="h-6 w-6" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-slate-200/90 bg-white shadow-2xl overflow-hidden">
+
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex size-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-2xs">
+                            <User className="size-5" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                                Theo Dõi Thời Hạn Hợp Đồng Thuê Ngoài
-                            </h1>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                Quản lý rủi ro hết hạn hợp đồng thuê ngoài và giám sát các phân bổ dự án vi phạm
+                            <h2 className="text-base font-bold text-slate-900">
+                                {isEdit ? "Chỉnh sửa hồ sơ nhân sự" : "Tạo hồ sơ nhân sự mới"}
+                            </h2>
+                            <p className="text-xs text-slate-500">
+                                {isEdit
+                                    ? `Cập nhật thông tin hành chính cho ${formData.fullName}`
+                                    : "Khai báo thông tin cá nhân, đơn vị và hợp đồng lao động"}
                             </p>
                         </div>
                     </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2.5">
                     <button
-                        onClick={handleExportCsv}
-                        disabled={loading || filteredContracts.length === 0}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition"
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                        title="Đóng"
                     >
-                        <Download className="h-4 w-4 text-slate-500" />
-                        <span>Xuất CSV</span>
-                    </button>
-
-                    <button
-                        onClick={() => loadData(true)}
-                        disabled={loading || scanning}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition"
-                    >
-                        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-indigo-600" : ""}`} />
-                        <span>Làm mới</span>
-                    </button>
-
-                    <button
-                        onClick={handleManualScan}
-                        disabled={loading || scanning}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition"
-                    >
-                        {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                        <span>Rà soát & Gửi cảnh báo ngay</span>
+                        <X className="size-4" />
                     </button>
                 </div>
-            </div>
 
-            {/* Banners */}
-            {successBanner && (
-                <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        <span>{successBanner}</span>
-                    </div>
-                    <button
-                        onClick={() => setSuccessBanner(null)}
-                        className="text-emerald-600 hover:text-emerald-800 font-bold ml-2"
-                    >
-                        ✕
-                    </button>
-                </div>
-            )}
-
-            {errorMsg && (
-                <div className="flex items-center justify-between rounded-lg bg-rose-50 px-4 py-3 text-xs text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                    <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 shrink-0" />
-                        <span>{errorMsg}</span>
-                    </div>
-                    <button
-                        onClick={() => setErrorMsg(null)}
-                        className="text-rose-600 hover:text-rose-800 font-bold ml-2"
-                    >
-                        ✕
-                    </button>
-                </div>
-            )}
-
-            {/* 4 Stat Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div
-                    onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${statusFilter === "ALL"
-                            ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/20 dark:bg-indigo-950/20"
-                            : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
-                        }`}
+                {/* Form Content - Scrollable */}
+                <form
+                    id="hr-profile-form"
+                    onSubmit={handleSubmit}
+                    className="flex-1 overflow-y-auto px-6 py-4 space-y-6 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full"
                 >
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Tổng Cảnh Báo</span>
-                        <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            <Users className="h-4 w-4" />
+                    {errorMessage && (
+                        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700">
+                            <BadgeAlert className="size-4 shrink-0 text-rose-600" />
+                            <span>{errorMessage}</span>
                         </div>
-                    </div>
-                    <div className="mt-3">
-                        <span className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</span>
-                        <span className="ml-1.5 text-xs text-slate-500">nhân sự</span>
-                    </div>
-                </div>
+                    )}
 
-                <div
-                    onClick={() => { setStatusFilter("EXPIRING_SOON"); setCurrentPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${statusFilter === "EXPIRING_SOON"
-                            ? "border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/40 dark:bg-amber-950/40"
-                            : "border-amber-200 bg-amber-50/20 dark:border-amber-900/40 dark:bg-amber-950/20"
-                        }`}
-                >
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-amber-800 dark:text-amber-300">Sắp Hết Hạn (&le; {thresholdDays} ngày)</span>
-                        <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300">
-                            <Clock className="h-4 w-4" />
+                    {/* KHỐI 1: THÔNG TIN CÁ NHÂN & TÀI KHOẢN */}
+                    <div className="space-y-3.5">
+                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                            <User className="size-4 text-indigo-600" />
+                            <span>1. THÔNG TIN CÁ NHÂN &amp; TÀI KHOẢN</span>
                         </div>
-                    </div>
-                    <div className="mt-3">
-                        <span className="text-2xl font-bold text-amber-900 dark:text-amber-100">{stats.expiringSoon}</span>
-                        <span className="ml-1.5 text-xs text-amber-700 dark:text-amber-400">hợp đồng</span>
-                    </div>
-                </div>
 
-                <div
-                    onClick={() => { setStatusFilter("EXPIRED"); setCurrentPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${statusFilter === "EXPIRED"
-                            ? "border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/40 dark:bg-rose-950/40"
-                            : "border-rose-200 bg-rose-50/20 dark:border-rose-900/40 dark:bg-rose-950/20"
-                        }`}
-                >
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-rose-800 dark:text-rose-300">Đã Quá Hạn Hợp Đồng</span>
-                        <div className="rounded-lg bg-rose-100 p-2 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
-                            <AlertTriangle className="h-4 w-4" />
-                        </div>
-                    </div>
-                    <div className="mt-3">
-                        <span className="text-2xl font-bold text-rose-900 dark:text-rose-100">{stats.expired}</span>
-                        <span className="ml-1.5 text-xs text-rose-700 dark:text-rose-400">hợp đồng</span>
-                    </div>
-                </div>
+                        {/* Hàng 1: Họ và tên & Email */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Họ và tên */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">Họ và tên *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="VD: Nguyễn Văn A"
+                                    value={formData.fullName || ""}
+                                    onChange={(e) => {
+                                        const name = e.target.value;
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            fullName: name,
+                                            username: !isEdit && !prev.username
+                                                ? name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").slice(0, 15)
+                                                : prev.username,
+                                        }));
+                                    }}
+                                    className={BASE_INPUT}
+                                />
+                            </div>
 
-                <div
-                    onClick={() => { setStatusFilter("AFFECTED_ONLY"); setCurrentPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-4 shadow-sm transition hover:shadow-md ${statusFilter === "AFFECTED_ONLY"
-                            ? "border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/40 dark:bg-purple-950/40"
-                            : "border-purple-200 bg-purple-50/20 dark:border-purple-900/40 dark:bg-purple-950/20"
-                        }`}
-                >
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-purple-800 dark:text-purple-300">Vi Phạm Phân Bổ</span>
-                        <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
-                            <FolderKanban className="h-4 w-4" />
-                        </div>
-                    </div>
-                    <div className="mt-3">
-                        <span className="text-2xl font-bold text-purple-900 dark:text-purple-100">{stats.totalAffectedAllocations}</span>
-                        <span className="ml-1.5 text-xs text-purple-700 dark:text-purple-400">tuần phân bổ</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Filter Toolbar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex flex-1 items-center gap-3">
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Tìm theo họ tên, mã NV, phòng ban..."
-                            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">Bộ lọc:</span>
-                        <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 text-xs">
-                            <button
-                                onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "ALL"
-                                        ? "bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white"
-                                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                    }`}
-                            >
-                                Tất cả
-                            </button>
-                            <button
-                                onClick={() => { setStatusFilter("EXPIRING_SOON"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "EXPIRING_SOON"
-                                        ? "bg-white text-amber-700 shadow-xs dark:bg-slate-700 dark:text-amber-300"
-                                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                    }`}
-                            >
-                                Sắp hết hạn
-                            </button>
-                            <button
-                                onClick={() => { setStatusFilter("EXPIRED"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "EXPIRED"
-                                        ? "bg-white text-rose-700 shadow-xs dark:bg-slate-700 dark:text-rose-300"
-                                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                    }`}
-                            >
-                                Đã quá hạn
-                            </button>
-                            <button
-                                onClick={() => { setStatusFilter("AFFECTED_ONLY"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "AFFECTED_ONLY"
-                                        ? "bg-white text-purple-700 shadow-xs dark:bg-slate-700 dark:text-purple-300"
-                                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                                    }`}
-                            >
-                                Vi phạm 
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Ngưỡng cảnh báo:</span>
-                    <select
-                        value={thresholdDays}
-                        onChange={(e) => {
-                            setThresholdDays(Number(e.target.value));
-                            setCurrentPage(1);
-                        }}
-                        className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    >
-                        <option value={15}>15 ngày</option>
-                        <option value={30}>30 ngày (chuẩn)</option>
-                        <option value={60}>60 ngày</option>
-                        <option value={90}>90 ngày</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* Master-Detail Contracts Table */}
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr className="border-b border-slate-200 bg-slate-50/75 dark:border-slate-800 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
-                                <th className="py-3 px-3 w-10"></th>
-                                <th className="py-3 px-4">Nhân Sự Thuê Ngoài</th>
-                                <th className="py-3 px-4">Đơn Vị / Chi Nhánh</th>
-                                <th className="py-3 px-4">Ngày Hết Hạn</th>
-                                <th className="py-3 px-4">Thời Gian Còn Lại</th>
-                                <th className="py-3 px-4">Trạng Thái & Rủi Ro QTN-21</th>
-                                <th className="py-3 px-4 text-right">Thao Tác</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={7} className="py-12 text-center text-slate-500">
-                                        <div className="flex flex-col items-center justify-center gap-2">
-                                            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                                            <span>Đang tải danh sách hợp đồng thuê ngoài...</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : paginatedContracts.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="py-12 text-center text-slate-500 dark:text-slate-400">
-                                        <div className="flex flex-col items-center justify-center gap-2">
-                                            <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                                            <p className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                                                Không có hợp đồng thuê ngoài nào cần cảnh báo
-                                            </p>
-                                            <p className="text-xs text-slate-400">
-                                                Tất cả nhân sự thuê ngoài đều có hợp đồng an toàn hoặc không khớp với bộ lọc hiện tại.
-                                            </p>
-                                        </div>
-                                    </td>
-                                </tr>
+                            {/* Email hoặc Đơn vị cung cấp nếu là nhân sự thuê ngoài */}
+                            {isOutsourced ? (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-slate-700">Đơn vị cung cấp</label>
+                                        <span className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md font-semibold border border-purple-200">
+                                            Thuê ngoài (Không cấp email)
+                                        </span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            disabled={isEdit}
+                                            value={formData.providerName || "Đối tác ngoài"}
+                                            className={cn(BASE_INPUT, isEdit && DISABLED_INPUT)}
+                                        />
+                                        <Building className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                    </div>
+                                </div>
                             ) : (
-                                paginatedContracts.map((c) => {
-                                    const isExpanded = expandedEmployeeIds.has(c.employeeId);
-                                    const hasAllocations = c.affectedAllocations && c.affectedAllocations.length > 0;
-
-                                    return (
-                                        <Fragment key={c.employeeId}>
-                                            <tr className="hover:bg-slate-50/75 dark:hover:bg-slate-800/40 transition-colors">
-                                                <td className="py-3 px-3 text-center">
-                                                    {hasAllocations && (
-                                                        <button
-                                                            onClick={() => toggleExpandRow(c.employeeId)}
-                                                            className="rounded p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
-                                                        >
-                                                            {isExpanded ? (
-                                                                <ChevronDown className="h-4 w-4" />
-                                                            ) : (
-                                                                <ChevronRight className="h-4 w-4" />
-                                                            )}
-                                                        </button>
-                                                    )}
-                                                </td>
-
-                                                <td className="py-3 px-4">
-                                                    <div className="font-semibold text-slate-900 dark:text-white">
-                                                        {c.fullName}
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 text-slate-500 text-[11px] mt-0.5">
-                                                        <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded whitespace-nowrap">
-                                                            {c.employeeCode}
-                                                        </span>
-                                                        <span>•</span>
-                                                        <span>{c.professionalRole || "Chưa phân vai trò"}</span>
-                                                    </div>
-                                                </td>
-
-                                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                        <span>{c.orgUnitName || "N/A"}</span>
-                                                    </div>
-                                                </td>
-
-                                                <td className="py-3 px-4 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                        <span>{c.contractEndDate}</span>
-                                                    </div>
-                                                </td>
-
-                                                <td className="py-3 px-4 whitespace-nowrap">
-                                                    {c.daysRemaining < 0 ? (
-                                                        <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
-                                                            Đã quá hạn {Math.abs(c.daysRemaining)} ngày
-                                                        </span>
-                                                    ) : c.daysRemaining <= 15 ? (
-                                                        <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
-                                                            Còn {c.daysRemaining} ngày (Khẩn cấp)
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                                                            Còn {c.daysRemaining} ngày
-                                                        </span>
-                                                    )}
-                                                </td>
-
-                                                <td className="py-3 px-4 whitespace-nowrap">
-                                                    {hasAllocations ? (
-                                                        <button
-                                                            onClick={() => toggleExpandRow(c.employeeId)}
-                                                            className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-semibold text-purple-700 hover:bg-purple-200 dark:bg-purple-950/60 dark:text-purple-300 transition"
-                                                        >
-                                                            <AlertTriangle className="h-3 w-3 shrink-0" />
-                                                            <span>{c.affectedAllocations.length} phân bổ vi phạm QTN-21</span>
-                                                        </button>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                                                            <span>Chưa có phân bổ vi phạm</span>
-                                                        </span>
-                                                    )}
-                                                </td>
-
-                                                <td className="py-3 px-4 text-right whitespace-nowrap">
-                                                    <button
-                                                        onClick={() => setSelectedContractForAck(c)}
-                                                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition"
-                                                    >
-                                                        <FileCheck2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                                                        <span>Xác nhận xử lý</span>
-                                                    </button>
-                                                </td>
-                                            </tr>
-
-                                            {/* Accordion Row: Affected Allocations per QTN-21 */}
-                                            {isExpanded && hasAllocations && (
-                                                <tr className="bg-slate-50/60 dark:bg-slate-850/40">
-                                                    <td colSpan={7} className="px-6 py-3 border-t border-b border-slate-100 dark:border-slate-800">
-                                                        <div className="rounded-lg border border-slate-200 bg-white p-3.5 dark:border-slate-700/60 dark:bg-slate-900/80 shadow-inner">
-                                                            <div className="flex items-center justify-between mb-2.5">
-                                                                <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                                                                    <FolderKanban className="h-3.5 w-3.5 text-indigo-500" />
-                                                                    Chi tiết các tuần phân bổ bị ảnh hưởng theo quy tắc QTN-21:
-                                                                </span>
-                                                                <span className="text-[11px] text-slate-400">
-                                                                    Hạn hợp đồng: {c.contractEndDate}
-                                                                </span>
-                                                            </div>
-
-                                                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                                {c.affectedAllocations.map((alloc) => {
-                                                                    const isSpans = alloc.affectedType === "SPANS_OVER_EXPIRY";
-                                                                    return (
-                                                                        <div
-                                                                            key={alloc.allocationId}
-                                                                            className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                                                                        >
-                                                                            <div className="flex items-center gap-2">
-                                                                                {isSpans ? (
-                                                                                    <span className="inline-flex items-center rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 shrink-0">
-                                                                                        VẮT QUA NGÀY HẾT HẠN
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span className="inline-flex items-center rounded bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 shrink-0">
-                                                                                        SAU NGÀY HẾT HẠN
-                                                                                    </span>
-                                                                                )}
-                                                                                <span className="font-medium text-slate-800 dark:text-slate-200">
-                                                                                    {alloc.projectName}
-                                                                                </span>
-                                                                                <span className="text-slate-400">•</span>
-                                                                                <span className="text-slate-500 dark:text-slate-400">
-                                                                                    Tuần {alloc.yearWeek.weekNumber}/{alloc.yearWeek.year} ({alloc.weekStartDate} đến {alloc.weekEndDate})
-                                                                                </span>
-                                                                            </div>
-
-                                                                            <div className="flex items-center gap-3">
-                                                                                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                                                                    {alloc.allocatedHours} giờ
-                                                                                </span>
-                                                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
-                                                                                    {alloc.reason}
-                                                                                </p>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </Fragment>
-                                    );
-                                })
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-slate-700">Email *</label>
+                                        {isEdit && <span className="text-[10px] text-slate-400 font-medium">(Cố định)</span>}
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="email"
+                                            required
+                                            disabled={isEdit}
+                                            placeholder="hung@company.com"
+                                            value={formData.email || ""}
+                                            onChange={(e) => set("email", e.target.value)}
+                                            className={cn(BASE_INPUT, isEdit && DISABLED_INPUT)}
+                                        />
+                                        <Mail className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                    </div>
+                                </div>
                             )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination Footer */}
-                {filteredContracts.length > pageSize && (
-                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/30 text-xs text-slate-600 dark:text-slate-400">
-                        <div>
-                            Hiển thị <span className="font-semibold">{(currentPage - 1) * pageSize + 1}</span> đến{" "}
-                            <span className="font-semibold">
-                                {Math.min(currentPage * pageSize, filteredContracts.length)}
-                            </span>{" "}
-                            trong tổng số <span className="font-semibold">{filteredContracts.length}</span> hợp đồng
                         </div>
 
-                        <div className="flex items-center gap-1.5">
-                            <button
-                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                            >
-                                <ChevronLeft className="h-3.5 w-3.5" />
-                                <span>Trước</span>
-                            </button>
+                        {/* Hàng 2: Mã nhân viên & Vai trò chuyên môn */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Mã nhân viên */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">Mã nhân viên *</label>
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                        {isEdit ? "(Cố định)" : "(Tự sinh hoặc tự nhập)"}
+                                    </span>
+                                </div>
+                                <input
+                                    type="text"
+                                    required
+                                    disabled={isEdit}
+                                    placeholder="VD: EMP-001"
+                                    value={formData.employeeCode || ""}
+                                    onChange={(e) => { if (!isEdit) set("employeeCode", e.target.value); }}
+                                    className={cn("font-bold uppercase", isEdit ? DISABLED_INPUT : BASE_INPUT)}
+                                />
+                            </div>
 
-                            <span className="px-2 font-medium text-slate-700 dark:text-slate-300">
-                                {currentPage} / {totalPages}
-                            </span>
+                            {/* Vai trò chuyên môn */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-700">Vai trò chuyên môn</label>
+                                <TaskSelect
+                                    value={formData.professionalRole || ""}
+                                    options={roleOptions}
+                                    onChange={(id) => set("professionalRole", id)}
+                                    placeholder="-- Chọn vai trò chuyên môn --"
+                                    hideSearch={false}
+                                    icon={<Briefcase className="size-4 shrink-0 text-slate-400" />}
+                                    buttonClassName="bg-slate-50/70 border-slate-200 py-2 rounded-xl"
+                                />
+                            </div>
+                        </div>
 
-                            <button
-                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                            >
-                                <span>Sau</span>
-                                <ChevronRight className="h-3.5 w-3.5" />
-                            </button>
+                        {/* Đơn vị tổ chức trực thuộc */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-700">Đơn vị tổ chức trực thuộc *</label>
+                            <OrgUnitCombobox
+                                id="hr-profile-org-unit"
+                                value={formData.orgUnitId ? String(formData.orgUnitId) : ""}
+                                options={orgUnitOptions}
+                                disallowRoot={true}
+                                placeholder="-- Chọn phòng ban / đơn vị trực thuộc --"
+                                onChange={(unitId) => {
+                                    const selected = orgUnitOptions.find((o) => String(o.id) === String(unitId));
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        orgUnitId: unitId,
+                                        department: selected ? selected.unitName : prev.department,
+                                    }));
+                                }}
+                            />
                         </div>
                     </div>
-                )}
-            </div>
 
-            {/* Acknowledge Modal */}
-            {selectedContractForAck && (
-                <AcknowledgeContractModal
-                    contract={selectedContractForAck}
-                    isOpen={!!selectedContractForAck}
-                    onClose={() => setSelectedContractForAck(null)}
-                    onSuccess={(_empId, message) => {
-                        setSuccessBanner(message);
-                        loadData(true);
-                    }}
-                />
-            )}
+                    {/* KHỐI 2: HỢP ĐỒNG & THỜI GIAN LÀM VIỆC */}
+                    <div className="space-y-3.5 pt-2">
+                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                            <CalendarDays className="size-4 text-indigo-600" />
+                            <span>2. Hợp đồng &amp; Thời gian làm việc</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Ngày vào làm */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">Ngày vào làm</label>
+                                    <span className="text-[10px] text-slate-400 font-medium">(Bắt đầu HĐLĐ)</span>
+                                </div>
+                                <DatePickerInput
+                                    value={formData.startDate || ""}
+                                    onChange={(val) => set("startDate", val)}
+                                    placeholder="mm/dd/yyyy"
+                                />
+                            </div>
+
+                            {/* Ngày kết thúc HĐLĐ */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">Ngày kết thúc HĐLĐ</label>
+                                    <span className="text-[10px] text-slate-400 font-medium">(Để trống nếu vô thời hạn)</span>
+                                </div>
+                                <DatePickerInput
+                                    value={formData.contractEndDate || ""}
+                                    min={formData.startDate || undefined}
+                                    onChange={(val) => set("contractEndDate", val)}
+                                    placeholder="mm/dd/yyyy"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {/* Giờ làm việc chuẩn / tuần */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">Giờ làm việc chuẩn / tuần *</label>
+                                    <span className="text-[10px] text-slate-400 font-medium">(Mặc định: 40h)</span>
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={168}
+                                        step={1}
+                                        required
+                                        placeholder="40"
+                                        value={formData.standardHoursPerWeek ?? 40}
+                                        onChange={(e) => set("standardHoursPerWeek", Number(e.target.value) || 0)}
+                                        className={BASE_INPUT}
+                                    />
+                                    <Clock className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                {/* Footer Actions */}
+                <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-3.5">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-xs transition hover:bg-slate-50 hover:text-slate-800"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        type="submit"
+                        form="hr-profile-form"
+                        className="rounded-xl border border-indigo-600 bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                    >
+                        {isEdit ? "Lưu thay đổi" : "Tạo hồ sơ"}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
