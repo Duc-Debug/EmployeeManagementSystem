@@ -81,6 +81,17 @@ const DEFAULT_STANDARD_DAYS: StandardWorkWeekDay[] = [
   { dayOfWeek: "SUNDAY", isWorkingDay: false, workingHours: 0 },
 ];
 
+type WorkDayState = {
+  dayOfWeek: DayOfWeek;
+  isWorkingDay: boolean;
+  workingHours: number | string;
+};
+
+const cleanNumberInput = (raw: string): string => {
+  if (raw === "") return "";
+  return raw.replace(/^0+(?=\d)/, "");
+};
+
 interface FlatOrgUnit {
   id: number;
   unitName: string;
@@ -131,10 +142,10 @@ export default function WorkingCalendarConfigView() {
 
   const [config, setConfig] = useState<StandardWorkWeekConfig | null>(null);
   const [initialConfig, setInitialConfig] = useState<StandardWorkWeekConfig | null>(null);
-  const [workDays, setWorkDays] = useState<StandardWorkWeekDay[]>(DEFAULT_STANDARD_DAYS);
+  const [workDays, setWorkDays] = useState<WorkDayState[]>(DEFAULT_STANDARD_DAYS);
   const [capacityUnit, setCapacityUnit] = useState<CapacityUnit>("HOURS");
   const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>("MONDAY");
-  const [standardHoursPerDay, setStandardHoursPerDay] = useState<number>(8);
+  const [standardHoursPerDay, setStandardHoursPerDay] = useState<number | string>(8);
 
   const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(true);
   const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
@@ -142,7 +153,7 @@ export default function WorkingCalendarConfigView() {
   const [versionConflict, setVersionConflict] = useState<string | null>(null);
 
   // Quick Converter Modal / State
-  const [converterValue, setConverterValue] = useState<number>(40);
+  const [converterValue, setConverterValue] = useState<number | string>(40);
   const [converterFrom, setConverterFrom] = useState<CapacityUnit>("HOURS");
   const [converterTo, setConverterTo] = useState<CapacityUnit>("FTE");
   const [conversionResult, setConversionResult] = useState<string | null>(null);
@@ -273,7 +284,7 @@ export default function WorkingCalendarConfigView() {
           return {
             ...d,
             isWorkingDay: nextWorking,
-            workingHours: nextWorking ? standardHoursPerDay || 8 : 0,
+            workingHours: nextWorking ? Number(standardHoursPerDay) || 8 : 0,
           };
         }
         return d;
@@ -282,7 +293,7 @@ export default function WorkingCalendarConfigView() {
   };
 
   // Day hours change
-  const handleDayHoursChange = (dayOfWeek: DayOfWeek, hours: number) => {
+  const handleDayHoursChange = (dayOfWeek: DayOfWeek, hours: number | string) => {
     if (!canManage) return;
     setWorkDays((prev) =>
       prev.map((d) => {
@@ -395,7 +406,7 @@ export default function WorkingCalendarConfigView() {
   // Handle Quick Capacity Conversion
   const handleQuickConvert = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!converterValue || converterValue <= 0) return;
+    if (!converterValue || Number(converterValue) <= 0) return;
     setIsConverting(true);
     try {
       const res = await convertCapacity({
@@ -585,10 +596,10 @@ export default function WorkingCalendarConfigView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Cấu hình Đơn vị & Tuần làm việc chuẩn
+            Lịch làm việc & Ngày nghỉ lễ
           </h1>
           <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
-            Thiết lập đơn vị đo lường năng lực, tuần làm việc chuẩn và quản lý danh mục ngày nghỉ lễ toàn đơn vị.
+            Thiết lập thời gian làm việc tiêu chuẩn và quản lý danh mục ngày nghỉ lễ toàn công ty.
           </p>
         </div>
 
@@ -604,7 +615,7 @@ export default function WorkingCalendarConfigView() {
             }`}
           >
             <CalendarDays className="h-4 w-4" />
-            Tuần làm việc & Đơn vị
+            Tuần làm việc tiêu chuẩn
           </button>
           <button
             type="button"
@@ -616,7 +627,7 @@ export default function WorkingCalendarConfigView() {
             }`}
           >
             <CalendarCheck2 className="h-4 w-4" />
-            Ngày nghỉ lễ
+            Danh mục ngày nghỉ lễ
           </button>
         </div>
       </div>
@@ -779,10 +790,10 @@ export default function WorkingCalendarConfigView() {
                     <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-bold text-amber-900">
-                        Chưa đồng bộ được với Backend ({configError})
+                        Không thể tải cấu hình từ máy chủ ({configError})
                       </p>
                       <p className="text-amber-700 mt-0.5">
-                        Hệ thống đang hiển thị định mức mặc định (40h/tuần). Vui lòng khởi động lại (Restart) Server.
+                        Hệ thống đang áp dụng định mức tạm thời (40 giờ/tuần). Vui lòng kiểm tra lại kết nối mạng hoặc thử tải lại trang.
                       </p>
                     </div>
                   </div>
@@ -806,10 +817,10 @@ export default function WorkingCalendarConfigView() {
                     </div>
                     <div>
                       <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                        Định mức giờ chuẩn & Đơn vị đo lường
+                        Định mức làm việc & Đơn vị tính
                       </h3>
                       <p className="text-xs text-slate-500">
-                        Định nghĩa đơn vị tính toán phân bổ và quy đổi năng lực nguồn lực cho đơn vị.
+                        Cấu hình đơn vị tính toán và quy chuẩn thời gian làm việc của nhân sự.
                       </p>
                     </div>
                   </div>
@@ -836,9 +847,9 @@ export default function WorkingCalendarConfigView() {
                       {(["HOURS", "DAYS", "FTE"] as CapacityUnit[]).map((unit) => {
                         const isSelected = capacityUnit === unit;
                         const labelMap = {
-                          HOURS: "Giờ (Hours)",
-                          DAYS: "Ngày (Days)",
-                          FTE: "FTE (%)",
+                          HOURS: "Giờ làm việc",
+                          DAYS: "Ngày công",
+                          FTE: "Tỷ lệ FTE (%)",
                         };
                         return (
                           <button
@@ -923,14 +934,36 @@ export default function WorkingCalendarConfigView() {
                         max={12}
                         step={0.5}
                         value={standardHoursPerDay}
-                        onChange={(e) => canManage && setStandardHoursPerDay(Number(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          if (!canManage) return;
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setStandardHoursPerDay("");
+                            return;
+                          }
+                          const cleaned = cleanNumberInput(raw);
+                          if (cleaned !== raw) {
+                            e.target.value = cleaned;
+                          }
+                          setStandardHoursPerDay(cleaned);
+                        }}
+                        onBlur={() => {
+                          let val = typeof standardHoursPerDay === "string" ? parseFloat(standardHoursPerDay) : standardHoursPerDay;
+                          if (isNaN(val) || val < 0.5) {
+                            val = 0.5;
+                          } else if (val > 12) {
+                            val = 12;
+                          }
+                          setStandardHoursPerDay(val);
+                        }}
                         disabled={!canManage}
                         className="w-full px-3 py-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                       />
                       <span className="text-xs font-bold text-slate-600 shrink-0">giờ / ngày</span>
                     </div>
                     <span className="text-[11px] text-slate-500 block">
-                      * Dùng làm quy đổi chuẩn: 1 Ngày công = {standardHoursPerDay} giờ.
+                      * Dùng làm quy đổi chuẩn: 1 Ngày công = {standardHoursPerDay || 0} giờ.
                     </span>
                   </div>
                 </div>
@@ -1005,7 +1038,28 @@ export default function WorkingCalendarConfigView() {
                               step={0.5}
                               disabled={!canManage || !isWork}
                               value={isWork ? day.workingHours : 0}
-                              onChange={(e) => handleDayHoursChange(day.dayOfWeek, Number(e.target.value))}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                if (raw === "") {
+                                  handleDayHoursChange(day.dayOfWeek, "");
+                                  return;
+                                }
+                                const cleaned = cleanNumberInput(raw);
+                                if (cleaned !== raw) {
+                                  e.target.value = cleaned;
+                                }
+                                handleDayHoursChange(day.dayOfWeek, cleaned);
+                              }}
+                              onBlur={() => {
+                                let val = typeof day.workingHours === "string" ? parseFloat(day.workingHours) : day.workingHours;
+                                if (isNaN(val) || val < 0.5) {
+                                  val = 0.5;
+                                } else if (val > 12) {
+                                  val = 12;
+                                }
+                                handleDayHoursChange(day.dayOfWeek, val);
+                              }}
                               className={`w-16 px-1.5 py-1 text-xs font-bold text-center rounded-lg border focus:outline-hidden transition ${
                                 isWork
                                   ? "bg-white border-indigo-200 text-indigo-900 focus:ring-1 focus:ring-indigo-500"
@@ -1085,7 +1139,7 @@ export default function WorkingCalendarConfigView() {
                   <div>
                     <span className="text-xs font-medium text-slate-500 block">Tỷ lệ quy đổi chuẩn</span>
                     <span className="text-xs font-bold text-slate-800">
-                      1 Ngày = {standardHoursPerDay}h | 1 FTE = {computedHoursPerWeek}h
+                      1 Ngày = {standardHoursPerDay || 0}h | 1 FTE = {computedHoursPerWeek}h
                     </span>
                   </div>
                 </div>
@@ -1101,7 +1155,7 @@ export default function WorkingCalendarConfigView() {
                     </h4>
                   </div>
                   <span className="text-[11px] text-slate-500">
-                    Áp dụng theo định mức chuẩn: {standardHoursPerDay}h/ngày, {computedHoursPerWeek}h/tuần
+                    Áp dụng theo định mức chuẩn: {standardHoursPerDay || 0}h/ngày, {computedHoursPerWeek}h/tuần
                   </span>
                 </div>
 
@@ -1112,7 +1166,26 @@ export default function WorkingCalendarConfigView() {
                       min={0.1}
                       step={0.1}
                       value={converterValue}
-                      onChange={(e) => setConverterValue(Number(e.target.value))}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          setConverterValue("");
+                          return;
+                        }
+                        const cleaned = cleanNumberInput(raw);
+                        if (cleaned !== raw) {
+                          e.target.value = cleaned;
+                        }
+                        setConverterValue(cleaned);
+                      }}
+                      onBlur={() => {
+                        let val = typeof converterValue === "string" ? parseFloat(converterValue) : converterValue;
+                        if (isNaN(val) || val <= 0) {
+                          val = 1;
+                        }
+                        setConverterValue(val);
+                      }}
                       className="w-24 px-3 py-1.5 text-xs font-bold bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20"
                     />
                     <select
@@ -1120,8 +1193,8 @@ export default function WorkingCalendarConfigView() {
                       onChange={(e) => setConverterFrom(e.target.value as CapacityUnit)}
                       className="px-2.5 py-1.5 text-xs font-bold bg-white border border-slate-200 rounded-xl focus:outline-hidden cursor-pointer"
                     >
-                      <option value="HOURS">Giờ (Hours)</option>
-                      <option value="DAYS">Ngày (Days)</option>
+                      <option value="HOURS">Giờ</option>
+                      <option value="DAYS">Ngày</option>
                       <option value="FTE">FTE</option>
                     </select>
                   </div>
@@ -1133,8 +1206,8 @@ export default function WorkingCalendarConfigView() {
                     onChange={(e) => setConverterTo(e.target.value as CapacityUnit)}
                     className="px-2.5 py-1.5 text-xs font-bold bg-white border border-slate-200 rounded-xl focus:outline-hidden cursor-pointer"
                   >
-                    <option value="HOURS">Giờ (Hours)</option>
-                    <option value="DAYS">Ngày (Days)</option>
+                    <option value="HOURS">Giờ</option>
+                    <option value="DAYS">Ngày</option>
                     <option value="FTE">FTE</option>
                   </select>
 
@@ -1372,6 +1445,8 @@ export default function WorkingCalendarConfigView() {
                   placeholder="Ví dụ: Tết Nguyên Đán, Giỗ Tổ Hùng Vương..."
                   value={holidayName}
                   onChange={(e) => setHolidayName(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
                   required
                   maxLength={255}
                   className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"

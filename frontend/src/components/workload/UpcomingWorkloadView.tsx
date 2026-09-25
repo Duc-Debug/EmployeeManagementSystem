@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   CalendarRange,
   RefreshCw,
@@ -23,12 +23,22 @@ import {
   type UpcomingWorkloadResult,
   type WeeklyWorkloadItemResult,
 } from "@/lib/api/workload";
+import { getCurrentIsoWeek, getIsoWeekDateRange } from "@/components/availability/availability.types";
 import { useAuthUser } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
 import {
   getISOWeeksInYear,
   isSpecialistRole,
 } from "./workloadUtils";
+
+function formatDateShort(dateStr?: string): string {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}`;
+  }
+  return dateStr;
+}
 
 interface UpcomingWorkloadViewProps {
   employeeId?: number;
@@ -111,6 +121,26 @@ export default function UpcomingWorkloadView({
     setStartWeek(nextW);
   };
 
+  const handleDateChange = (dateStr: string) => {
+    if (!dateStr) return;
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const iso = getCurrentIsoWeek(new Date(y, m - 1, d));
+    setStartYear(iso.year);
+    setStartWeek(iso.weekNumber);
+  };
+
+  const datePickerValue = useMemo(() => {
+    if (data?.weeklyWorkloads && data.weeklyWorkloads.length > 0) {
+      return data.weeklyWorkloads[0].startDate;
+    }
+    const iso = getCurrentIsoWeek();
+    const { startDate } = getIsoWeekDateRange(startYear ?? iso.year, startWeek ?? iso.weekNumber);
+    const y = startDate.getUTCFullYear();
+    const m = String(startDate.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(startDate.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, [data, startYear, startWeek]);
+
   const selectedWeek: WeeklyWorkloadItemResult | undefined =
     data?.weeklyWorkloads[selectedWeekIndex];
 
@@ -155,42 +185,54 @@ export default function UpcomingWorkloadView({
         </div>
 
         {/* Action Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Week navigation buttons */}
-          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-2xs">
+          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
             <button
               type="button"
               onClick={handlePrevWeek}
               disabled={loading}
-              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition disabled:opacity-40"
-              title="Lùi 1 tuần"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition disabled:opacity-40 cursor-pointer"
+              title="Tuần trước"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={handleResetToCurrent}
-              disabled={loading || (startYear === undefined && startWeek === undefined)}
-              className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition disabled:opacity-50"
+              disabled={loading}
+              className="px-3 py-1 text-xs font-bold text-slate-700 hover:text-sky-600 transition disabled:opacity-50 cursor-pointer"
             >
-              Tuần hiện tại
+              {startYear === undefined && startWeek === undefined ? "Tuần này" : "Tuần hiện tại"}
             </button>
             <button
               type="button"
               onClick={handleNextWeek}
               disabled={loading}
-              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition disabled:opacity-40"
-              title="Tiến 1 tuần"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition disabled:opacity-40 cursor-pointer"
+              title="Tuần sau"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+          </div>
+
+          {/* Date Picker */}
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+            <span className="text-[11px] font-medium text-slate-500">Chọn ngày:</span>
+            <input
+              type="date"
+              value={datePickerValue}
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="text-xs text-slate-700 bg-transparent outline-none cursor-pointer font-medium"
+              title="Chọn ngày để chuyển đến tuần tương ứng"
+            />
           </div>
 
           <button
             type="button"
             onClick={fetchWorkload}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-sky-600")} />
             <span>Làm mới</span>
@@ -436,9 +478,14 @@ export default function UpcomingWorkloadView({
                       />
                     </div>
 
-                    {/* Bottom week label */}
-                    <div className="mt-2.5 text-center">
+                    {/* Bottom week label with date range */}
+                    <div className="mt-2.5 text-center w-full">
                       <p className="text-xs font-bold text-slate-800">{week.weekLabel}</p>
+                      {week.startDate && week.endDate && (
+                        <p className="text-[10px] font-medium text-slate-400 mt-0.5 whitespace-nowrap">
+                          {formatDateShort(week.startDate)} - {formatDateShort(week.endDate)}
+                        </p>
+                      )}
                       <p className="text-[10px] text-slate-500 mt-0.5">
                         {week.totalAllocatedHours}h / {week.netAvailableHours}h
                       </p>
@@ -466,7 +513,7 @@ export default function UpcomingWorkloadView({
                   Chi tiết phân bổ: {selectedWeek.weekLabel}
                 </h3>
                 <span className="text-xs text-slate-500">
-                  ({selectedWeek.startDate} $\rightarrow$ {selectedWeek.endDate})
+                  ({selectedWeek.startDate} → {selectedWeek.endDate})
                 </span>
                 <span className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold border",

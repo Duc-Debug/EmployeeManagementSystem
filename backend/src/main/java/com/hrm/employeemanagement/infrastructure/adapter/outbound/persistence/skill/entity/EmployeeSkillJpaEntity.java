@@ -54,6 +54,18 @@ public class EmployeeSkillJpaEntity {
     @Column(name = "review_notes", length = 500)
     private String reviewNotes;
 
+    @Column(name = "last_approved_proficiency_level")
+    private Integer lastApprovedProficiencyLevel;
+
+    @Column(name = "last_approved_years_of_experience", precision = 4, scale = 1)
+    private BigDecimal lastApprovedYearsOfExperience;
+
+    @Column(name = "pending_proficiency_level")
+    private Integer pendingProficiencyLevel;
+
+    @Column(name = "pending_years_of_experience", precision = 4, scale = 1)
+    private BigDecimal pendingYearsOfExperience;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -72,7 +84,7 @@ public class EmployeeSkillJpaEntity {
             SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
             LocalDateTime createdAt, LocalDateTime updatedAt
     ) {
-        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, null, createdAt, updatedAt, null);
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, null, null, null, null, null, createdAt, updatedAt, null);
     }
 
     public EmployeeSkillJpaEntity(
@@ -80,13 +92,32 @@ public class EmployeeSkillJpaEntity {
             SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
             String reviewNotes, LocalDateTime createdAt, LocalDateTime updatedAt
     ) {
-        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, null);
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, null, null, null, null, createdAt, updatedAt, null);
     }
 
     public EmployeeSkillJpaEntity(
             Long id, Long employeeId, Long skillId, Integer proficiencyLevel, BigDecimal yearsOfExperience,
             SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
             String reviewNotes, LocalDateTime createdAt, LocalDateTime updatedAt, Long version
+    ) {
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, null, null, null, null, createdAt, updatedAt, version);
+    }
+
+    public EmployeeSkillJpaEntity(
+            Long id, Long employeeId, Long skillId, Integer proficiencyLevel, BigDecimal yearsOfExperience,
+            SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
+            String reviewNotes, Integer lastApprovedProficiencyLevel, BigDecimal lastApprovedYearsOfExperience,
+            LocalDateTime createdAt, LocalDateTime updatedAt, Long version
+    ) {
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, lastApprovedProficiencyLevel, lastApprovedYearsOfExperience, null, null, createdAt, updatedAt, version);
+    }
+
+    public EmployeeSkillJpaEntity(
+            Long id, Long employeeId, Long skillId, Integer proficiencyLevel, BigDecimal yearsOfExperience,
+            SkillStatus status, Long approvedBy, LocalDateTime approvedAt, String rejectionReason,
+            String reviewNotes, Integer lastApprovedProficiencyLevel, BigDecimal lastApprovedYearsOfExperience,
+            Integer pendingProficiencyLevel, BigDecimal pendingYearsOfExperience,
+            LocalDateTime createdAt, LocalDateTime updatedAt, Long version
     ) {
         this.id = id;
         this.employeeId = employeeId;
@@ -98,6 +129,10 @@ public class EmployeeSkillJpaEntity {
         this.approvedAt = approvedAt;
         this.rejectionReason = rejectionReason;
         this.reviewNotes = reviewNotes;
+        this.lastApprovedProficiencyLevel = lastApprovedProficiencyLevel;
+        this.lastApprovedYearsOfExperience = lastApprovedYearsOfExperience;
+        this.pendingProficiencyLevel = pendingProficiencyLevel;
+        this.pendingYearsOfExperience = pendingYearsOfExperience;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.version = version;
@@ -181,6 +216,38 @@ public class EmployeeSkillJpaEntity {
 
     public void setReviewNotes(String reviewNotes) {
         this.reviewNotes = reviewNotes;
+    }
+
+    public Integer getLastApprovedProficiencyLevel() {
+        return lastApprovedProficiencyLevel;
+    }
+
+    public void setLastApprovedProficiencyLevel(Integer lastApprovedProficiencyLevel) {
+        this.lastApprovedProficiencyLevel = lastApprovedProficiencyLevel;
+    }
+
+    public BigDecimal getLastApprovedYearsOfExperience() {
+        return lastApprovedYearsOfExperience;
+    }
+
+    public void setLastApprovedYearsOfExperience(BigDecimal lastApprovedYearsOfExperience) {
+        this.lastApprovedYearsOfExperience = lastApprovedYearsOfExperience;
+    }
+
+    public Integer getPendingProficiencyLevel() {
+        return pendingProficiencyLevel;
+    }
+
+    public void setPendingProficiencyLevel(Integer pendingProficiencyLevel) {
+        this.pendingProficiencyLevel = pendingProficiencyLevel;
+    }
+
+    public BigDecimal getPendingYearsOfExperience() {
+        return pendingYearsOfExperience;
+    }
+
+    public void setPendingYearsOfExperience(BigDecimal pendingYearsOfExperience) {
+        this.pendingYearsOfExperience = pendingYearsOfExperience;
     }
 
     public LocalDateTime getCreatedAt() {

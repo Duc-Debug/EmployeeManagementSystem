@@ -10,7 +10,6 @@ import {
     FolderOpen,
     AlertTriangle,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import type { TaskCategoryGroup, ProjectMember } from './projectData';
 import { CascadeDelayWarningModal } from './CascadeDelayWarningModal';
 
@@ -228,22 +227,22 @@ export function ProjectWbsView({
                                                         className="group flex items-center justify-between gap-3 p-3 text-xs transition hover:bg-slate-50/80"
                                                     >
                                                         <div className="flex min-w-0 flex-1 items-center gap-3">
-                                                            <button
-                                                                type="button"
-                                                                disabled={!canEdit}
-                                                                onClick={() => canEdit && onToggleTaskStatus(cat.id, t.id)}
-                                                                className={cn(
-                                                                    "transition",
-                                                                    canEdit ? "text-slate-300 group-hover:text-slate-400 cursor-pointer" : "text-slate-300 cursor-default"
-                                                                )}
-                                                                title={canEdit ? "Đánh dấu hoàn tất" : "Trạng thái công việc"}
-                                                            >
-                                                                {isDone ? (
-                                                                    <CircleCheck className="h-4 w-4 text-emerald-500" />
-                                                                ) : (
-                                                                    <Circle className="h-4 w-4" />
-                                                                )}
-                                                            </button>
+                                                            {canEdit ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => onToggleTaskStatus(cat.id, t.id)}
+                                                                    className="transition text-slate-300 group-hover:text-slate-400 cursor-pointer"
+                                                                    title="Đánh dấu hoàn tất"
+                                                                >
+                                                                    {isDone ? (
+                                                                        <CircleCheck className="h-4 w-4 text-emerald-500" />
+                                                                    ) : (
+                                                                        <Circle className="h-4 w-4" />
+                                                                    )}
+                                                                </button>
+                                                            ) : isDone ? (
+                                                                <span title="Đã hoàn thành"><CircleCheck className="h-4 w-4 text-emerald-500 shrink-0" /></span>
+                                                            ) : null}
                                                             <div className="min-w-0">
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="font-mono text-[10px] font-medium text-slate-400 shrink-0">
@@ -272,20 +271,22 @@ export function ProjectWbsView({
                                                         <div className="flex shrink-0 items-center gap-2">
                                                             {getPriorityBadge(t.priority)}
                                                             {getStatusBadge(t.status)}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setCascadeModalTask({
-                                                                        id: typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1,
-                                                                        name: t.name,
-                                                                        code: t.code,
-                                                                    })
-                                                                }
-                                                                className="rounded p-1 text-amber-600 hover:bg-amber-50 transition cursor-pointer"
-                                                                title="Cảnh báo trễ dây chuyền khi công việc trượt"
-                                                            >
-                                                                <AlertTriangle className="h-3.5 w-3.5" />
-                                                            </button>
+                                                            {canEdit && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setCascadeModalTask({
+                                                                            id: typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || 1,
+                                                                            name: t.name,
+                                                                            code: t.code,
+                                                                        })
+                                                                    }
+                                                                    className="rounded p-1 text-amber-600 hover:bg-amber-50 transition cursor-pointer"
+                                                                    title="Cảnh báo trễ dây chuyền khi công việc trượt"
+                                                                >
+                                                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
                                                             <div
                                                                 className="flex items-center gap-1.5 pl-1"
                                                                 title={assignee ? `${assignee.name} (${assignee.role})` : 'Chưa giao'}

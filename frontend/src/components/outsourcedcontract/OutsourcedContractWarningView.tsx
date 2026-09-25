@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
 import {
     AlertTriangle,
     RefreshCw,
@@ -391,7 +391,7 @@ export default function OutsourcedContractWarningView() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                            <tr className="border-b border-slate-200 bg-slate-50/75 dark:border-slate-800 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-semibold">
+                            <tr className="border-b border-slate-200 bg-slate-50/75 dark:border-slate-800 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">
                                 <th className="py-3 px-3 w-10"></th>
                                 <th className="py-3 px-4">Nhân Sự Thuê Ngoài</th>
                                 <th className="py-3 px-4">Đơn Vị / Chi Nhánh</th>
@@ -431,7 +431,7 @@ export default function OutsourcedContractWarningView() {
                                     const hasAllocations = c.affectedAllocations && c.affectedAllocations.length > 0;
 
                                     return (
-                                        <tbody key={c.employeeId} className="group">
+                                        <Fragment key={c.employeeId}>
                                             <tr className="hover:bg-slate-50/75 dark:hover:bg-slate-800/40 transition-colors">
                                                 <td className="py-3 px-3 text-center">
                                                     {hasAllocations && (
@@ -453,7 +453,7 @@ export default function OutsourcedContractWarningView() {
                                                         {c.fullName}
                                                     </div>
                                                     <div className="flex items-center gap-1.5 text-slate-500 text-[11px] mt-0.5">
-                                                        <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                                        <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded whitespace-nowrap">
                                                             {c.employeeCode}
                                                         </span>
                                                         <span>•</span>
@@ -461,21 +461,21 @@ export default function OutsourcedContractWarningView() {
                                                     </div>
                                                 </td>
 
-                                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
+                                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
                                                         <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                                         <span>{c.orgUnitName || "N/A"}</span>
                                                     </div>
                                                 </td>
 
-                                                <td className="py-3 px-4 font-mono text-slate-700 dark:text-slate-300">
+                                                <td className="py-3 px-4 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
                                                         <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                                         <span>{c.contractEndDate}</span>
                                                     </div>
                                                 </td>
 
-                                                <td className="py-3 px-4">
+                                                <td className="py-3 px-4 whitespace-nowrap">
                                                     {c.daysRemaining < 0 ? (
                                                         <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
                                                             Đã quá hạn {Math.abs(c.daysRemaining)} ngày
@@ -491,7 +491,7 @@ export default function OutsourcedContractWarningView() {
                                                     )}
                                                 </td>
 
-                                                <td className="py-3 px-4">
+                                                <td className="py-3 px-4 whitespace-nowrap">
                                                     {hasAllocations ? (
                                                         <button
                                                             onClick={() => toggleExpandRow(c.employeeId)}
@@ -507,7 +507,7 @@ export default function OutsourcedContractWarningView() {
                                                     )}
                                                 </td>
 
-                                                <td className="py-3 px-4 text-right">
+                                                <td className="py-3 px-4 text-right whitespace-nowrap">
                                                     <button
                                                         onClick={() => setSelectedContractForAck(c)}
                                                         className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition"
@@ -576,7 +576,7 @@ export default function OutsourcedContractWarningView() {
                                                     </td>
                                                 </tr>
                                             )}
-                                        </tbody>
+                                        </Fragment>
                                     );
                                 })
                             )}

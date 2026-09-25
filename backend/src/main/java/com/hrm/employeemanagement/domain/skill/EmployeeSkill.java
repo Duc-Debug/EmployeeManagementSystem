@@ -15,6 +15,10 @@ public class EmployeeSkill {
     private LocalDateTime approvedAt;
     private String rejectionReason;
     private String reviewNotes;
+    private Integer lastApprovedProficiencyLevel;
+    private BigDecimal lastApprovedYearsOfExperience;
+    private Integer pendingProficiencyLevel;
+    private BigDecimal pendingYearsOfExperience;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private final Long version;
@@ -33,7 +37,7 @@ public class EmployeeSkill {
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
-        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, createdAt, updatedAt, null);
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, null, null, null, null, createdAt, updatedAt, null);
     }
 
     public EmployeeSkill(
@@ -51,6 +55,48 @@ public class EmployeeSkill {
             LocalDateTime updatedAt,
             Long version
     ) {
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, null, null, null, null, createdAt, updatedAt, version);
+    }
+
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            ProficiencyLevel proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            String reviewNotes,
+            Integer lastApprovedProficiencyLevel,
+            BigDecimal lastApprovedYearsOfExperience,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
+        this(id, employeeId, skillId, proficiencyLevel, yearsOfExperience, status, approvedBy, approvedAt, rejectionReason, reviewNotes, lastApprovedProficiencyLevel, lastApprovedYearsOfExperience, null, null, createdAt, updatedAt, version);
+    }
+
+    public EmployeeSkill(
+            Long id,
+            Long employeeId,
+            Long skillId,
+            ProficiencyLevel proficiencyLevel,
+            BigDecimal yearsOfExperience,
+            SkillStatus status,
+            Long approvedBy,
+            LocalDateTime approvedAt,
+            String rejectionReason,
+            String reviewNotes,
+            Integer lastApprovedProficiencyLevel,
+            BigDecimal lastApprovedYearsOfExperience,
+            Integer pendingProficiencyLevel,
+            BigDecimal pendingYearsOfExperience,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version
+    ) {
         validateInputs(employeeId, skillId, proficiencyLevel, yearsOfExperience);
         this.id = id;
         this.employeeId = employeeId;
@@ -62,6 +108,10 @@ public class EmployeeSkill {
         this.approvedAt = approvedAt;
         this.rejectionReason = rejectionReason;
         this.reviewNotes = reviewNotes;
+        this.lastApprovedProficiencyLevel = lastApprovedProficiencyLevel;
+        this.lastApprovedYearsOfExperience = lastApprovedYearsOfExperience;
+        this.pendingProficiencyLevel = pendingProficiencyLevel;
+        this.pendingYearsOfExperience = pendingYearsOfExperience;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
         this.updatedAt = updatedAt != null ? updatedAt : LocalDateTime.now();
         this.version = version;
@@ -163,14 +213,34 @@ public class EmployeeSkill {
      */
     public void updateProficiency(ProficiencyLevel newProficiencyLevel, BigDecimal newYearsOfExperience) {
         validateProficiencyAndExperience(newProficiencyLevel, newYearsOfExperience);
-        this.proficiencyLevel = newProficiencyLevel;
-        this.yearsOfExperience = newYearsOfExperience;
-        this.status = SkillStatus.PENDING; // Yêu cầu duyệt lại khi có thay đổi
+        if (this.status == SkillStatus.APPROVED) {
+            // Giữ nguyên kỹ năng đã duyệt (status = APPROVED, level/years giữ nguyên)
+            // Lưu thông tin đề xuất cập nhật vào pending fields để chờ duyệt
+            this.lastApprovedProficiencyLevel = this.getProficiencyLevelValue();
+            this.lastApprovedYearsOfExperience = this.yearsOfExperience;
+            this.pendingProficiencyLevel = newProficiencyLevel.getValue();
+            this.pendingYearsOfExperience = newYearsOfExperience;
+            this.rejectionReason = null;
+        } else {
+            // Kỹ năng mới hoặc đang bị từ chối, cập nhật trực tiếp
+            this.proficiencyLevel = newProficiencyLevel;
+            this.yearsOfExperience = newYearsOfExperience;
+            this.status = SkillStatus.PENDING;
+            this.pendingProficiencyLevel = null;
+            this.pendingYearsOfExperience = null;
+            this.rejectionReason = null;
+        }
         this.updatedAt = LocalDateTime.now();
     }
 
     public void updateProficiency(int newProficiencyLevel, BigDecimal newYearsOfExperience) {
         updateProficiency(ProficiencyLevel.fromValue(newProficiencyLevel), newYearsOfExperience);
+    }
+
+    public boolean isPendingReview() {
+        return this.status == SkillStatus.PENDING
+                || this.pendingProficiencyLevel != null
+                || this.pendingYearsOfExperience != null;
     }
 
     /**
@@ -180,10 +250,20 @@ public class EmployeeSkill {
         if (reviewerId == null) {
             throw new IllegalArgumentException("Người duyệt không được để trống");
         }
-        if (this.status != SkillStatus.PENDING) {
+        if (!isPendingReview()) {
             throw new IllegalStateException("Chỉ có thể xác nhận kỹ năng đang ở trạng thái chờ duyệt (PENDING)");
         }
+        if (this.pendingProficiencyLevel != null) {
+            this.proficiencyLevel = ProficiencyLevel.fromValue(this.pendingProficiencyLevel);
+        }
+        if (this.pendingYearsOfExperience != null) {
+            this.yearsOfExperience = this.pendingYearsOfExperience;
+        }
         this.status = SkillStatus.APPROVED;
+        this.lastApprovedProficiencyLevel = this.getProficiencyLevelValue();
+        this.lastApprovedYearsOfExperience = this.yearsOfExperience;
+        this.pendingProficiencyLevel = null;
+        this.pendingYearsOfExperience = null;
         this.approvedBy = reviewerId;
         this.approvedAt = LocalDateTime.now();
         this.rejectionReason = null;
@@ -205,14 +285,21 @@ public class EmployeeSkill {
         if (newProficiencyLevel == null) {
             throw new IllegalArgumentException("Mức thành thạo mới không được để trống");
         }
-        if (this.status != SkillStatus.PENDING) {
+        if (!isPendingReview()) {
             throw new IllegalStateException("Chỉ có thể xác nhận kỹ năng đang ở trạng thái chờ duyệt (PENDING)");
         }
         if (reviewNotes == null || reviewNotes.trim().isEmpty()) {
             throw new IllegalArgumentException("Bắt buộc nhập ghi chú khi điều chỉnh mức thành thạo");
         }
         this.proficiencyLevel = newProficiencyLevel;
+        if (this.pendingYearsOfExperience != null) {
+            this.yearsOfExperience = this.pendingYearsOfExperience;
+        }
         this.status = SkillStatus.APPROVED;
+        this.lastApprovedProficiencyLevel = newProficiencyLevel.getValue();
+        this.lastApprovedYearsOfExperience = this.yearsOfExperience;
+        this.pendingProficiencyLevel = null;
+        this.pendingYearsOfExperience = null;
         this.approvedBy = reviewerId;
         this.approvedAt = LocalDateTime.now();
         this.rejectionReason = null;
@@ -225,19 +312,35 @@ public class EmployeeSkill {
     }
 
     /**
-     * Từ chối kỹ năng tự khai (Dành cho RM / VT-03 hoặc Admin / VT-06)
+     * Từ chối kỹ năng tự khai (Dành cho RM / VT-03 hoặc Admin / VT-06).
+     * Nếu kỹ năng này đã từng được duyệt trước đó (nhân viên sửa đổi nhưng bị từ chối),
+     * hủy yêu cầu sửa đổi và giữ nguyên mức thành thạo và số năm kinh nghiệm đã duyệt.
      */
     public void reject(Long reviewerId, String rejectionReason) {
         if (reviewerId == null) {
             throw new IllegalArgumentException("Người duyệt không được để trống");
         }
-        if (this.status != SkillStatus.PENDING) {
+        if (!isPendingReview()) {
             throw new IllegalStateException("Chỉ có thể từ chối kỹ năng đang ở trạng thái chờ duyệt (PENDING)");
         }
-        this.status = SkillStatus.REJECTED;
-        this.approvedBy = reviewerId;
-        this.approvedAt = LocalDateTime.now();
-        this.rejectionReason = rejectionReason != null ? rejectionReason.trim() : null;
+
+        if (this.pendingProficiencyLevel != null || this.pendingYearsOfExperience != null || (this.lastApprovedProficiencyLevel != null && this.status == SkillStatus.APPROVED)) {
+            // Hủy đề xuất cập nhật, bảo toàn kỹ năng đã duyệt (giữ nguyên approvedBy, approvedAt ban đầu)
+            this.pendingProficiencyLevel = null;
+            this.pendingYearsOfExperience = null;
+            this.status = SkillStatus.APPROVED;
+            this.rejectionReason = rejectionReason != null ? rejectionReason.trim() : null;
+            if (rejectionReason != null && !rejectionReason.trim().isEmpty()) {
+                this.reviewNotes = rejectionReason.trim();
+            }
+        } else {
+            // Khai báo mới bị từ chối
+            this.status = SkillStatus.REJECTED;
+            this.rejectionReason = rejectionReason != null ? rejectionReason.trim() : null;
+            this.approvedBy = reviewerId;
+            this.approvedAt = LocalDateTime.now();
+        }
+
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -303,6 +406,22 @@ public class EmployeeSkill {
 
     public String getReviewNotes() {
         return reviewNotes;
+    }
+
+    public Integer getLastApprovedProficiencyLevel() {
+        return lastApprovedProficiencyLevel;
+    }
+
+    public BigDecimal getLastApprovedYearsOfExperience() {
+        return lastApprovedYearsOfExperience;
+    }
+
+    public Integer getPendingProficiencyLevel() {
+        return pendingProficiencyLevel;
+    }
+
+    public BigDecimal getPendingYearsOfExperience() {
+        return pendingYearsOfExperience;
     }
 
     public LocalDateTime getCreatedAt() {

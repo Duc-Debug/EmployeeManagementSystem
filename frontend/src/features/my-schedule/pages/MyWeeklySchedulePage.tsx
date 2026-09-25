@@ -1,16 +1,31 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, CalendarDays, Loader2, AlertCircle, CheckCircle2, MessageSquare, Info, X } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarX, Loader2, AlertCircle, CheckCircle2, MessageSquare, Info, X } from "lucide-react";
 import type { WeeklySchedule } from "../types";
 import { myScheduleApi } from "../api/myScheduleApi";
 import { WeeklyScheduleCard } from "../components/WeeklyScheduleCard";
+import { useAuthUser } from "@/lib/auth-session";
+import { getEmployeeProfileByUserId, type EmployeeProfile } from "@/lib/api/employees";
+import DeclareUnavailabilityModal from "@/components/unavailability/DeclareUnavailabilityModal";
 
 export const MyWeeklySchedulePage: React.FC = () => {
+  const user = useAuthUser();
   const [weeksData, setWeeksData] = useState<WeeklySchedule[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<string>("");
   const [weeksCount, setWeeksCount] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(true);
   const [confirmingWeek, setConfirmingWeek] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Unavailability Modal State
+  const [isUnavailabilityModalOpen, setIsUnavailabilityModalOpen] = useState<boolean>(false);
+  const [currentEmployee, setCurrentEmployee] = useState<EmployeeProfile | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getEmployeeProfileByUserId(user.id)
+      .then((emp) => setCurrentEmployee(emp))
+      .catch(() => setCurrentEmployee(null));
+  }, [user?.id]);
 
   // Feedback Modal State (NCL-13-CN-002, QTN-24)
   const [feedbackModalWeek, setFeedbackModalWeek] = useState<string | null>(null);
@@ -24,6 +39,14 @@ export const MyWeeklySchedulePage: React.FC = () => {
     const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(d.setDate(diff));
     return monday.toISOString().split("T")[0];
+  };
+
+  const getMondayFromDate = (date: Date): string => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d.toISOString().split("T")[0];
   };
 
   const loadSchedule = useCallback(async (startDate?: string, weeks?: number) => {
@@ -126,6 +149,28 @@ export const MyWeeklySchedulePage: React.FC = () => {
     }
   };
 
+  const handleDateChange = (dateStr: string) => {
+    if (!dateStr) return;
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const mon = getMondayFromDate(new Date(y, m - 1, d));
+    setCurrentWeekStart(mon);
+    loadSchedule(mon, weeksCount);
+  };
+
+  const sortedWeeks = useMemo(() => {
+    return [...weeksData].sort((a, b) => {
+      const aNeeds = a.confirmation_status === "NOT_CONFIRMED" || a.confirmation_status === "STALE";
+      const bNeeds = b.confirmation_status === "NOT_CONFIRMED" || b.confirmation_status === "STALE";
+      if (aNeeds && !bNeeds) return -1;
+      if (!aNeeds && bNeeds) return 1;
+      return a.week_start_date.localeCompare(b.week_start_date);
+    });
+  }, [weeksData]);
+
+  const unconfirmedCount = useMemo(() => {
+    return weeksData.filter((w) => w.confirmation_status === "NOT_CONFIRMED" || w.confirmation_status === "STALE").length;
+  }, [weeksData]);
+
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
       {/* Header Panel */}
@@ -143,11 +188,21 @@ export const MyWeeklySchedulePage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center bg-slate-100 p-1 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setIsUnavailabilityModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-300 rounded-lg hover:bg-amber-100 hover:border-amber-400 transition cursor-pointer shadow-2xs"
+          >
+            <CalendarX className="w-3.5 h-3.5 text-amber-700" />
+            <span>Khai báo không sẵn sàng</span>
+          </button>
+
+          {/* Week Navigator */}
+          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
             <button
               type="button"
               onClick={() => handleNavigateWeeks(-1)}
-              className="p-1.5 hover:bg-white text-slate-700 rounded-md transition cursor-pointer"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần trước"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -155,23 +210,34 @@ export const MyWeeklySchedulePage: React.FC = () => {
             <button
               type="button"
               onClick={handleResetToCurrentWeek}
-              className="px-2.5 py-1 text-xs font-medium hover:bg-white text-slate-700 rounded-md transition flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1 text-xs font-bold text-slate-700 hover:text-indigo-600 transition cursor-pointer"
               title="Quay lại tuần hiện tại"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Hiện tại</span>
+              {currentWeekStart === getThisMonday() ? "Tuần này" : "Hiện tại"}
             </button>
             <button
               type="button"
               onClick={() => handleNavigateWeeks(1)}
-              className="p-1.5 hover:bg-white text-slate-700 rounded-md transition cursor-pointer"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần kế tiếp"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50">
+          {/* Date Picker */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-2.5 py-1 bg-white shadow-xs">
+            <span className="text-slate-500 font-medium">Chọn ngày:</span>
+            <input
+              type="date"
+              value={currentWeekStart}
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="bg-transparent font-medium text-slate-800 outline-hidden cursor-pointer"
+              title="Chọn ngày để chuyển đến tuần đó"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 bg-white shadow-xs">
             <span>Hiển thị:</span>
             <select
               value={weeksCount}
@@ -186,6 +252,18 @@ export const MyWeeklySchedulePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Priority Banner for Unconfirmed Weeks */}
+      {unconfirmedCount > 0 && (
+        <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <div>
+              <span className="font-bold">Ưu tiên xử lý:</span> Bạn có <strong>{unconfirmedCount} tuần</strong> phân bổ chưa xác nhận hoặc vừa có thay đổi (đã được ưu tiên đưa lên đầu).
+            </div>
+          </div>
+        </div>
+      )}
 
       {feedbackMessage && (
         <div
@@ -209,14 +287,14 @@ export const MyWeeklySchedulePage: React.FC = () => {
           <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
           <p className="text-sm font-medium text-slate-500">Đang tải lịch phân bổ tuần...</p>
         </div>
-      ) : weeksData.length === 0 ? (
+      ) : sortedWeeks.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
           <CalendarDays className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-600 font-medium text-base">Không tìm thấy dữ liệu phân bổ.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {weeksData.map((week) => (
+          {sortedWeeks.map((week) => (
             <WeeklyScheduleCard
               key={week.week_start_date}
               schedule={week}
@@ -269,6 +347,8 @@ export const MyWeeklySchedulePage: React.FC = () => {
                   value={feedbackReason}
                   onChange={(e) => setFeedbackReason(e.target.value)}
                   placeholder="Ví dụ: Trùng lịch với dự án khác, tổng giờ quá tải so với thỏa thuận, cần bổ sung quyền truy cập..."
+                  autoComplete="off"
+                  spellCheck={false}
                   className="w-full text-xs p-3 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none leading-relaxed text-slate-800"
                   required
                 />
@@ -308,6 +388,24 @@ export const MyWeeklySchedulePage: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal Khai báo thời gian không sẵn sàng */}
+      {isUnavailabilityModalOpen && currentEmployee && (
+        <DeclareUnavailabilityModal
+          isOpen={isUnavailabilityModalOpen}
+          onClose={() => setIsUnavailabilityModalOpen(false)}
+          onSuccess={(_res) => {
+            setIsUnavailabilityModalOpen(false);
+            setFeedbackMessage({
+              type: "success",
+              text: "Đã gửi khai báo thời gian không sẵn sàng thành công!",
+            });
+            loadSchedule(currentWeekStart, weeksCount);
+          }}
+          employeeId={currentEmployee.id}
+          employeeName={currentEmployee.fullName}
+        />
       )}
     </div>
   );
