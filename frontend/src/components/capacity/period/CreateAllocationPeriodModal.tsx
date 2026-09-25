@@ -163,7 +163,7 @@ export function CreateAllocationPeriodModal({
                 Tạo Kỳ Kế Hoạch Phân Bổ Mới
               </h3>
               <p className="text-[11px] text-slate-500">
-                Thiết lập dải tuần áp dụng chốt kế hoạch (NCL-06-CN-009 / QTN-18)
+                Thiết lập dải tuần áp dụng chốt kế hoạch phân bổ
               </p>
             </div>
           </div>

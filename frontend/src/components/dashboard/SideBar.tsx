@@ -179,12 +179,12 @@ export function canAccessTab(
 
         case "my-schedule":
         case "my-allocations":
-            // NCL-13-CN-001: Tất cả nhân sự đều có quyền xem và xác nhận lịch phân bổ tuần của chính mình
-            return true;
+            // NCL-13-CN-001: Lịch phân bổ tuần của tôi dành riêng cho Nhân viên chuyên môn (VT-04)
+            return ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalized);
 
         case "attendance":
         case "timesheets":
-            // Chỉ hiện khi có quyền ghi hoặc duyệt giờ công dự án.
+            // Chỉ hiện khi có quyền ghi hoặc duyệt giờ công dự án (VT-02 PM, VT-04 NV, VT-06 Admin).
             return permissions ? permissions.includes("WORK_LOG_READ") || permissions.includes("WORK_LOG_APPROVE") : ["VT-02", "VT-04", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "leave":
@@ -199,16 +199,14 @@ export function canAccessTab(
 
         case "availability":
         case "weekly-availability":
-            // Giờ khả dụng: VT-01 -> VT-06 (phân quyền theo DataScope)
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
+            // Giờ khả dụng: Ban Giám Đốc (VT-01), PM (VT-02), RM (VT-03), HR (VT-05), Admin (VT-06). Đối với VT-04 đã được gom vào Tổng quan & Khối lượng sắp tới.
+            return ["VT-01", "VT-02", "VT-03", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "unavailability":
         case "unavailability-declarations":
-            // NCL-13-CN-003: Khai báo và quản lý thời gian không sẵn sàng (VT-01 -> VT-06)
-            return permissions?.includes("UNAVAILABILITY_DECLARE") === true ||
-                permissions?.includes("UNAVAILABILITY_READ") === true ||
-                permissions?.includes("UNAVAILABILITY_APPROVE") === true ||
-                ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // Phê duyệt và quản lý thời gian không sẵn sàng: Dành cho RM (VT-03) và Admin (VT-06).
+            // VT-04 khai báo trực tiếp trong "Lịch phân bổ tuần của tôi".
+            return ["VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
 
         case "working-calendar":
         case "calendar-config":
