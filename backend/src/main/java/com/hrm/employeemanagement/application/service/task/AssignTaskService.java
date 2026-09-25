@@ -8,6 +8,7 @@ import com.hrm.employeemanagement.application.dto.task.AssignTaskCommand;
 import com.hrm.employeemanagement.application.dto.task.TaskAssignmentResult;
 import com.hrm.employeemanagement.application.port.inbound.task.AssignTaskUseCase;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
@@ -23,6 +24,8 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.notification.Notification;
+import com.hrm.employeemanagement.domain.notification.NotificationType;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
@@ -53,6 +56,7 @@ public class AssignTaskService implements AssignTaskUseCase {
     private final LoadUserPort loadUserPort;
     private final SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort;
     private final AuthorizationService authorizationService;
+    private final SaveNotificationPort saveNotificationPort;
 
     public AssignTaskService(
             LoadTaskPort loadTaskPort,
@@ -64,7 +68,8 @@ public class AssignTaskService implements AssignTaskUseCase {
             LoadOrgUnitPort loadOrgUnitPort,
             LoadUserPort loadUserPort,
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
-            AuthorizationService authorizationService) {
+            AuthorizationService authorizationService,
+            SaveNotificationPort saveNotificationPort) {
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "LoadTaskPort must not be null");
         this.saveTaskPort = Objects.requireNonNull(saveTaskPort, "SaveTaskPort must not be null");
         this.loadTaskAssignmentPort = Objects.requireNonNull(loadTaskAssignmentPort,
@@ -79,6 +84,22 @@ public class AssignTaskService implements AssignTaskUseCase {
                 "SaveAuditLogInNewTransactionPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService,
                 "AuthorizationService must not be null");
+        this.saveNotificationPort = saveNotificationPort;
+    }
+
+    public AssignTaskService(
+            LoadTaskPort loadTaskPort,
+            SaveTaskPort saveTaskPort,
+            LoadTaskAssignmentPort loadTaskAssignmentPort,
+            SaveTaskAssignmentPort saveTaskAssignmentPort,
+            LoadProjectPort loadProjectPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadUserPort loadUserPort,
+            SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+            AuthorizationService authorizationService) {
+        this(loadTaskPort, saveTaskPort, loadTaskAssignmentPort, saveTaskAssignmentPort, loadProjectPort,
+                loadEmployeePort, loadOrgUnitPort, loadUserPort, saveDeniedAuditLogPort, authorizationService, null);
     }
 
     public AssignTaskService(
@@ -92,7 +113,7 @@ public class AssignTaskService implements AssignTaskUseCase {
             SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
             AuthorizationService authorizationService) {
         this(loadTaskPort, saveTaskPort, loadTaskAssignmentPort, saveTaskAssignmentPort, loadProjectPort,
-                loadEmployeePort, null, loadUserPort, saveDeniedAuditLogPort, authorizationService);
+                loadEmployeePort, null, loadUserPort, saveDeniedAuditLogPort, authorizationService, null);
     }
 
     @Override
@@ -207,6 +228,26 @@ public class AssignTaskService implements AssignTaskUseCase {
                         currentUserId != null ? new UserId(currentUserId) : null,
                         isPrimary);
                 saveTaskAssignmentPort.save(newAssignment);
+
+                if (saveNotificationPort != null) {
+                    Employee assignedEmp = loadEmployeePort.findById(empId).orElse(null);
+                    if (assignedEmp != null && assignedEmp.getUserIdValue() != null
+                            && !Objects.equals(assignedEmp.getUserIdValue(), currentUserId)) {
+                        String title = "Bạn được phân công công việc: " + task.getName();
+                        String content = String.format("Dự án: %s. Hạn chót: %s",
+                                project.getProjectName(),
+                                task.getPlannedEndDate() != null ? task.getPlannedEndDate() : "Chưa xác định");
+                        saveNotificationPort.save(Notification.create(
+                                new UserId(assignedEmp.getUserIdValue()),
+                                currentUserId != null ? new UserId(currentUserId) : null,
+                                NotificationType.TASK_ASSIGNED,
+                                "TASK",
+                                task.getIdValue(),
+                                title,
+                                content
+                        ));
+                    }
+                }
             }
         }
 
