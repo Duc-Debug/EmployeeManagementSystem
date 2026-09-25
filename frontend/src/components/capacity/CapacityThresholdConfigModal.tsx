@@ -105,6 +105,9 @@ export function CapacityThresholdConfigModal({
 
   // Load config data
   const loadConfig = useCallback(async (scope: CapacityThresholdScope, unitId?: number) => {
+    if (scope === "ORG_UNIT" && !unitId) {
+      return;
+    }
     setIsLoading(true);
     setErrorMessage(null);
     try {
@@ -123,6 +126,10 @@ export function CapacityThresholdConfigModal({
 
   // Load history data
   const loadHistory = useCallback(async (scope: CapacityThresholdScope, unitId?: number) => {
+    if (scope === "ORG_UNIT" && !unitId) {
+      setHistoryList([]);
+      return;
+    }
     setIsLoadingHistory(true);
     try {
       const history = await getCapacityThresholdHistory(scope, scope === "ORG_UNIT" ? unitId : undefined);
@@ -201,7 +208,7 @@ export function CapacityThresholdConfigModal({
         orgUnitId: selectedScope === "ORG_UNIT" ? (selectedOrgUnitId ?? null) : null,
         overloadThreshold,
         idleThreshold,
-        version: currentConfig?.version ?? null,
+        version: currentConfig?.isInherited ? null : currentConfig?.version ?? null,
       });
 
       setCurrentConfig(updated);
@@ -316,6 +323,71 @@ export function CapacityThresholdConfigModal({
           </button>
         </div>
 
+        {/* Scope Selector (QTN-23 / NCL-07-CN-004: Hỗ trợ cấu hình và xem lịch sử theo đơn vị) */}
+        <div className="px-6 pt-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3 dark:border-slate-800 dark:bg-slate-800/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                Phạm vi áp dụng ngưỡng:
+              </span>
+              <div className="flex items-center gap-1.5 bg-slate-200/70 p-0.5 rounded-lg dark:bg-slate-700/60">
+                <button
+                  type="button"
+                  onClick={() => setSelectedScope("COMPANY")}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
+                    selectedScope === "COMPANY"
+                      ? "bg-white text-indigo-600 shadow-xs dark:bg-slate-900 dark:text-indigo-400"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-300"
+                  }`}
+                >
+                  Toàn công ty
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedScope("ORG_UNIT");
+                    if (!selectedOrgUnitId && orgUnits.length > 0) {
+                      setSelectedOrgUnitId(orgUnits[0].id);
+                    }
+                  }}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
+                    selectedScope === "ORG_UNIT"
+                      ? "bg-white text-indigo-600 shadow-xs dark:bg-slate-900 dark:text-indigo-400"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-300"
+                  }`}
+                >
+                  Theo Đơn vị / Phòng ban
+                </button>
+              </div>
+            </div>
+
+            {selectedScope === "ORG_UNIT" && (
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-200/80 dark:border-slate-700">
+                <Building2 className="h-4 w-4 text-indigo-600 shrink-0 dark:text-indigo-400" />
+                <label htmlFor="org-unit-select" className="text-xs text-slate-600 dark:text-slate-300 font-medium shrink-0">
+                  Chọn đơn vị:
+                </label>
+                <select
+                  id="org-unit-select"
+                  value={selectedOrgUnitId ?? ""}
+                  onChange={(e) => setSelectedOrgUnitId(Number(e.target.value))}
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                >
+                  {orgUnits.length === 0 ? (
+                    <option value="">Đang tải danh sách đơn vị...</option>
+                  ) : (
+                    orgUnits.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Modal Body */}
         <div className="overflow-y-auto p-6">
           {isLoading ? (
@@ -341,64 +413,6 @@ export function CapacityThresholdConfigModal({
                   <span>{successMessage}</span>
                 </div>
               )}
-
-              {/* Scope Selector (QTN-23 / NCL-07-CN-004: Hỗ trợ cấu hình theo đơn vị) */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-3 dark:border-slate-800 dark:bg-slate-800/50">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                    Phạm vi áp dụng ngưỡng:
-                  </span>
-                  <div className="flex items-center gap-1.5 bg-slate-200/70 p-0.5 rounded-lg dark:bg-slate-700/60">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedScope("COMPANY")}
-                      className={`px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
-                        selectedScope === "COMPANY"
-                          ? "bg-white text-indigo-600 shadow-xs dark:bg-slate-900 dark:text-indigo-400"
-                          : "text-slate-600 hover:text-slate-900 dark:text-slate-300"
-                      }`}
-                    >
-                      Toàn công ty
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedScope("ORG_UNIT")}
-                      className={`px-3 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
-                        selectedScope === "ORG_UNIT"
-                          ? "bg-white text-indigo-600 shadow-xs dark:bg-slate-900 dark:text-indigo-400"
-                          : "text-slate-600 hover:text-slate-900 dark:text-slate-300"
-                      }`}
-                    >
-                      Theo Đơn vị / Phòng ban
-                    </button>
-                  </div>
-                </div>
-
-                {selectedScope === "ORG_UNIT" && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-200/80 dark:border-slate-700">
-                    <Building2 className="h-4 w-4 text-indigo-600 shrink-0 dark:text-indigo-400" />
-                    <label htmlFor="org-unit-select" className="text-xs text-slate-600 dark:text-slate-300 font-medium shrink-0">
-                      Chọn đơn vị:
-                    </label>
-                    <select
-                      id="org-unit-select"
-                      value={selectedOrgUnitId ?? ""}
-                      onChange={(e) => setSelectedOrgUnitId(Number(e.target.value))}
-                      className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    >
-                      {orgUnits.length === 0 ? (
-                        <option value="">Đang tải danh sách đơn vị...</option>
-                      ) : (
-                        orgUnits.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                )}
-              </div>
 
               {/* Status banner */}
               <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3.5 dark:bg-slate-800/60">

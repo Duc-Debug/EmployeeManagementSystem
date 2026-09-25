@@ -218,13 +218,15 @@ export function ProjectWbsView({
                                     <span>Nhân bản WBS</span>
                                 </button>
                             )}
-                            <button
-                                type="button"
-                                onClick={() => onQuickAddTask(categories[0]?.id || '')}
-                                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                            >
-                                <Plus className="h-3.5 w-3.5" /> Thêm việc
-                            </button>
+                            {canManageWbs && (
+                                <button
+                                    type="button"
+                                    onClick={() => onQuickAddTask(categories[0]?.id || '')}
+                                    className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                                >
+                                    <Plus className="h-3.5 w-3.5" /> Thêm việc
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -347,19 +349,23 @@ export function ProjectWbsView({
                                                         className="group flex items-center justify-between gap-3 p-3 text-xs transition hover:bg-slate-50/80"
                                                     >
                                                         <div className="flex min-w-0 flex-1 items-center gap-3">
-                                                            <button
-                                                                type="button"
-                                                                disabled={isClosed}
-                                                                onClick={() => !isClosed && onToggleTaskStatus(cat.id, t.id)}
-                                                                className={`text-slate-300 transition ${isClosed ? 'cursor-not-allowed opacity-50' : 'group-hover:text-slate-400 cursor-pointer'}`}
-                                                                title={isClosed ? 'Dự án đã đóng, không thể thay đổi trạng thái công việc' : 'Đánh dấu hoàn tất'}
-                                                            >
-                                                                {isDone ? (
-                                                                    <CircleCheck className="h-4 w-4 text-emerald-500" />
-                                                                ) : (
-                                                                    <Circle className="h-4 w-4" />
-                                                                )}
-                                                            </button>
+                                                            {canManageWbs ? (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isClosed}
+                                                                    onClick={() => !isClosed && onToggleTaskStatus(cat.id, t.id)}
+                                                                    className={`text-slate-300 transition ${isClosed ? 'cursor-not-allowed opacity-50' : 'group-hover:text-slate-400 cursor-pointer'}`}
+                                                                    title={isClosed ? 'Dự án đã đóng, không thể thay đổi trạng thái công việc' : 'Đánh dấu hoàn tất'}
+                                                                >
+                                                                    {isDone ? (
+                                                                        <CircleCheck className="h-4 w-4 text-emerald-500" />
+                                                                    ) : (
+                                                                        <Circle className="h-4 w-4" />
+                                                                    )}
+                                                                </button>
+                                                            ) : isDone ? (
+                                                                <span title="Đã hoàn thành"><CircleCheck className="h-4 w-4 text-emerald-500 shrink-0" /></span>
+                                                            ) : null}
                                                             <div className="min-w-0">
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="font-mono text-[10px] font-medium text-slate-400 shrink-0">

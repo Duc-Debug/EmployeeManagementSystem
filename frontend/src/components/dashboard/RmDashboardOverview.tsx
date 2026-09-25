@@ -31,6 +31,12 @@ interface RmDashboardOverviewProps {
 
 export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewProps) {
     const user = useAuthUser();
+    const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "") : "";
+    const canViewHrProfile = Boolean(
+        user?.permissions?.includes("EMPLOYEE_READ") ||
+        ["VT-01", "VT-05", "VT-06", "ADMIN"].includes(normalizedRole)
+    ) && normalizedRole !== "VT-03";
+
     const currentIso = useMemo(() => getCurrentIsoWeek(), []);
     const [loading, setLoading] = useState(true);
     const [summary, setSummary] = useState<CapacityMatrixSummary | null>(null);
@@ -143,31 +149,33 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
             {/* KPI Cards (Gọn gàng, chuẩn UX Supply-Side) */}
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 {/* 1. Tổng nhân sự phụ trách */}
-                <div
-                    onClick={() => onNavigate("hrprofile")}
-                    className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-2xs transition hover:border-emerald-300 hover:shadow-xs"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600">
-                            <Users className="h-3.5 w-3.5" />
+                {canViewHrProfile && (
+                    <div
+                        onClick={() => onNavigate("hrprofile")}
+                        className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-2xs transition hover:border-emerald-300 hover:shadow-xs"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600">
+                                <Users className="h-3.5 w-3.5" />
+                            </div>
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 group-hover:translate-x-0.5 transition">
+                                Nguồn lực <ArrowUpRight className="h-2.5 w-2.5" />
+                            </span>
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 group-hover:translate-x-0.5 transition">
-                            Nguồn lực <ArrowUpRight className="h-2.5 w-2.5" />
-                        </span>
+                        <div className="mt-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Nhân sự Quản lý
+                            </p>
+                            <div className="mt-0.5 flex items-baseline gap-1">
+                                <span className="text-lg font-bold text-slate-900">{totalStaffCount}</span>
+                                <span className="text-[10px] text-slate-400">thành viên</span>
+                            </div>
+                            <div className="mt-1 text-[10px] font-medium text-emerald-600">
+                                Phạm vi nguồn lực bộ phận
+                            </div>
+                        </div>
                     </div>
-                    <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Nhân sự Quản lý
-                        </p>
-                        <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-lg font-bold text-slate-900">{totalStaffCount}</span>
-                            <span className="text-[10px] text-slate-400">thành viên</span>
-                        </div>
-                        <div className="mt-1 text-[10px] font-medium text-emerald-600">
-                            Phạm vi nguồn lực bộ phận
-                        </div>
-                    </div>
-                </div>
+                )}
 
                 {/* 2. Hiệu suất bình quân tuần */}
                 <div
