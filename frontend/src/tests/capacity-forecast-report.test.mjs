@@ -39,8 +39,6 @@ function calculateWeeklyForecast(availableHours, committedHours, reservedHours) 
   };
 }
 
-function canAccessCapacityForecastTab(permissions) {
-  return permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
 function canAccessCapacityForecastTab(permissions, roleCode) {
   const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
   if (permissions && permissions.length > 0) {

@@ -122,7 +122,6 @@ export default function CapacityForecastReportView() {
     return () => {
       controller.abort();
     };
-  }, [fromYear, fromWeek, durationWeeks, selectedOrgUnitId]);
   }, [fromYear, fromWeek, durationWeeks, selectedOrgUnitId, hasReportPermission]);
 
   const maxWeeksInFromYear = getIsoWeeksInYear(fromYear);
@@ -250,9 +249,6 @@ export default function CapacityForecastReportView() {
     );
   };
 
-  const hasReportPermission = user?.permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true;
-
-  if (forbidden && !hasReportPermission) {
   if (!hasReportPermission || forbidden) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
@@ -260,7 +256,6 @@ export default function CapacityForecastReportView() {
           <ShieldAlert className="w-12 h-12 text-red-600 dark:text-red-400 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-red-900 dark:text-red-200">Từ chối truy cập (403 Forbidden)</h3>
           <p className="mt-2 text-sm text-red-700 dark:text-red-300">
-            Bạn không có quyền xem báo cáo dự báo năng lực. Vui lòng liên hệ quản trị viên để được cấp quyền phù hợp.
             Bạn không có quyền xem báo cáo dự báo năng lực. Tính năng này chỉ dành cho Ban Giám Đốc (VT-01) và Quản lý nguồn lực (VT-03).
           </p>
         </div>
