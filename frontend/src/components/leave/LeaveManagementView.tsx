@@ -87,13 +87,14 @@ export default function LeaveManagementView() {
     const isHR = roleCode === "VT-05";
     const isDirector = roleCode === "VT-01";
     const isApprover = isRM || isHR || isDirector;
-    const isEmployee = !isApprover; // VT-04, VT-02 (PM)
+    const isEmployee = !isApprover && roleCode !== "VT-02" && roleCode !== "VT-06"; // VT-04
+    const canCreateLeave = (Boolean(user?.permissions?.includes("LEAVE_REQUEST_CREATE")) || roleCode === "VT-04") && roleCode !== "VT-02";
 
     const canViewDeptCalendar = isRM || isHR || isDirector || roleCode === "VT-06" || roleCode === "VT-02";
     const [viewMode, setViewMode] = useState<"list" | "dept-calendar">(() => {
         const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
         if (searchParams?.get("requestId")) return "list";
-        return canViewDeptCalendar && (isRM || isHR) ? "dept-calendar" : "list";
+        return canViewDeptCalendar && (isRM || isHR || roleCode === "VT-02") ? "dept-calendar" : "list";
     });
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [balance, setBalance] = useState<LeaveBalanceDto | null>(null);
@@ -362,8 +363,8 @@ export default function LeaveManagementView() {
                         </div>
                     )}
 
-                    {/* Nút nộp đơn nghỉ phép: Chỉ hiển thị cho vai trò Nhân viên chuyên môn VT-04 */}
-                    {isEmployee && (
+                    {/* Nút nộp đơn nghỉ phép: Chỉ hiển thị khi có quyền tạo đơn */}
+                    {canCreateLeave && (
                         <button
                             type="button"
                             onClick={() => setIsCreateModalOpen(true)}

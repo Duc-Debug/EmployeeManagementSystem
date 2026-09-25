@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     AlertTriangle,
     RefreshCw,
@@ -312,53 +312,57 @@ export default function OutsourcedContractWarningView() {
             </div>
 
             {/* Filter Toolbar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex flex-1 items-center gap-3">
-                    <div className="relative flex-1 max-w-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-1 flex-wrap items-center gap-3">
+                    <div className="relative min-w-[240px] flex-1 max-w-md">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder="Tìm theo họ tên, mã NV, phòng ban..."
-                            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                            className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs font-medium focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition"
                         />
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">Bộ lọc:</span>
-                        <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Bộ lọc:</span>
+                        <div className="inline-flex flex-wrap rounded-xl border border-slate-200 p-1 bg-slate-100/70 dark:border-slate-700 dark:bg-slate-800 text-xs gap-0.5">
                             <button
+                                type="button"
                                 onClick={() => { setStatusFilter("ALL"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "ALL"
-                                        ? "bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white"
+                                className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${statusFilter === "ALL"
+                                        ? "bg-white text-slate-900 shadow-2xs font-semibold dark:bg-slate-700 dark:text-white"
                                         : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                                     }`}
                             >
                                 Tất cả
                             </button>
                             <button
+                                type="button"
                                 onClick={() => { setStatusFilter("EXPIRING_SOON"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "EXPIRING_SOON"
-                                        ? "bg-white text-amber-700 shadow-xs dark:bg-slate-700 dark:text-amber-300"
+                                className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${statusFilter === "EXPIRING_SOON"
+                                        ? "bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs font-semibold dark:bg-slate-700 dark:text-amber-300"
                                         : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                                     }`}
                             >
                                 Sắp hết hạn
                             </button>
                             <button
+                                type="button"
                                 onClick={() => { setStatusFilter("EXPIRED"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "EXPIRED"
-                                        ? "bg-white text-rose-700 shadow-xs dark:bg-slate-700 dark:text-rose-300"
+                                className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${statusFilter === "EXPIRED"
+                                        ? "bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs font-semibold dark:bg-slate-700 dark:text-rose-300"
                                         : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                                     }`}
                             >
                                 Đã quá hạn
                             </button>
                             <button
+                                type="button"
                                 onClick={() => { setStatusFilter("AFFECTED_ONLY"); setCurrentPage(1); }}
-                                className={`px-2.5 py-1 rounded-md font-medium transition ${statusFilter === "AFFECTED_ONLY"
-                                        ? "bg-white text-purple-700 shadow-xs dark:bg-slate-700 dark:text-purple-300"
+                                className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${statusFilter === "AFFECTED_ONLY"
+                                        ? "bg-purple-50 text-purple-800 border border-purple-200 shadow-2xs font-semibold dark:bg-slate-700 dark:text-purple-300"
                                         : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                                     }`}
                             >
@@ -369,14 +373,14 @@ export default function OutsourcedContractWarningView() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Ngưỡng cảnh báo:</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Ngưỡng cảnh báo:</span>
                     <select
                         value={thresholdDays}
                         onChange={(e) => {
                             setThresholdDays(Number(e.target.value));
                             setCurrentPage(1);
                         }}
-                        className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition shadow-2xs cursor-pointer"
                     >
                         <option value={15}>15 ngày</option>
                         <option value={30}>30 ngày (chuẩn)</option>
@@ -431,7 +435,7 @@ export default function OutsourcedContractWarningView() {
                                     const hasAllocations = c.affectedAllocations && c.affectedAllocations.length > 0;
 
                                     return (
-                                        <tbody key={c.employeeId} className="group">
+                                        <React.Fragment key={c.employeeId}>
                                             <tr className="hover:bg-slate-50/75 dark:hover:bg-slate-800/40 transition-colors">
                                                 <td className="py-3 px-3 text-center">
                                                     {hasAllocations && (
@@ -576,7 +580,7 @@ export default function OutsourcedContractWarningView() {
                                                     </td>
                                                 </tr>
                                             )}
-                                        </tbody>
+                                        </React.Fragment>
                                     );
                                 })
                             )}

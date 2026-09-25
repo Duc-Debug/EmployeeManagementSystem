@@ -53,6 +53,10 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   const user = useAuthUser();
   const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
   const isVT03 = normalizedRole === "VT-03" || normalizedRole === "ROLE-RM" || normalizedRole === "RM";
+  const canReadRecruitment = Boolean(
+    user?.permissions?.includes("RESOURCE_RECRUITMENT_SCENARIO_READ") ||
+    ["VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole)
+  ) && normalizedRole !== "VT-01";
 
   const [detail, setDetail] = useState<ScenarioDetailResult | null>(null);
   const [simulation, setSimulation] = useState<ScenarioSimulationResult | null>(null);
@@ -912,11 +916,13 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
       </div>
 
       {/* Section 4: Kịch bản tuyển thêm nhân sự (NCL-08-CN-005) */}
-      <RecruitmentScenarioSection
-        scenarioId={scenarioId}
-        isVT03={canEdit}
-        durationWeeks={scenario.durationWeeks}
-      />
+      {canReadRecruitment && (
+        <RecruitmentScenarioSection
+          scenarioId={scenarioId}
+          isVT03={canEdit}
+          durationWeeks={scenario.durationWeeks}
+        />
+      )}
 
       {/* Demand Add/Edit Modal */}
       {isDemandModalOpen && (
