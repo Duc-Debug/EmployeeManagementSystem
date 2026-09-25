@@ -88,9 +88,13 @@ class LeaveRequestControllerIntegrationTest {
     @AfterEach
     void tearDown() {
         if (staffUser != null) {
+            jdbcTemplate.update("DELETE FROM notification_recipients WHERE recipient_user_id = ?", staffUser.getId());
+            jdbcTemplate.update("DELETE FROM notifications WHERE recipient_id = ?", staffUser.getId());
             jdbcTemplate.update("DELETE FROM audit_logs WHERE user_id = ?", staffUser.getId());
         }
         if (managerUser != null) {
+            jdbcTemplate.update("DELETE FROM notification_recipients WHERE recipient_user_id = ?", managerUser.getId());
+            jdbcTemplate.update("DELETE FROM notifications WHERE recipient_id = ?", managerUser.getId());
             jdbcTemplate.update("DELETE FROM audit_logs WHERE user_id = ?", managerUser.getId());
         }
         if (staffEmployee != null) {

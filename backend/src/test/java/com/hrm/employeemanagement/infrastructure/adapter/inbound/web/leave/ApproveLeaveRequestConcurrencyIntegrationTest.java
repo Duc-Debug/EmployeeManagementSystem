@@ -81,6 +81,9 @@ class ApproveLeaveRequestConcurrencyIntegrationTest {
     @Autowired
     private SpringDataAuditLogRepository auditLogRepository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     private UserJpaEntity rmUser;
     private EmployeeJpaEntity rmEmployee;
     private UserJpaEntity staffUser;
@@ -149,11 +152,15 @@ class ApproveLeaveRequestConcurrencyIntegrationTest {
         if (staffEmployee != null) employeeRepository.deleteById(staffEmployee.getId());
         if (rmEmployee != null) employeeRepository.deleteById(rmEmployee.getId());
         if (staffUser != null) {
+            jdbcTemplate.update("DELETE FROM notification_recipients WHERE recipient_user_id = ?", staffUser.getId());
+            jdbcTemplate.update("DELETE FROM notifications WHERE recipient_id = ?", staffUser.getId());
             auditLogRepository.deleteAll(auditLogRepository.findAll().stream()
                     .filter(a -> staffUser.getId().equals(a.getUserId())).toList());
             userRepository.deleteById(staffUser.getId());
         }
         if (rmUser != null) {
+            jdbcTemplate.update("DELETE FROM notification_recipients WHERE recipient_user_id = ?", rmUser.getId());
+            jdbcTemplate.update("DELETE FROM notifications WHERE recipient_id = ?", rmUser.getId());
             auditLogRepository.deleteAll(auditLogRepository.findAll().stream()
                     .filter(a -> rmUser.getId().equals(a.getUserId())).toList());
             userRepository.deleteById(rmUser.getId());

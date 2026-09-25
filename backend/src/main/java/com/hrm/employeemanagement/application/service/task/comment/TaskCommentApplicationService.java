@@ -43,6 +43,9 @@ import com.hrm.employeemanagement.domain.task.comment.TaskAttachment;
 import com.hrm.employeemanagement.domain.task.comment.TaskAttachmentId;
 import com.hrm.employeemanagement.domain.task.comment.TaskComment;
 import com.hrm.employeemanagement.domain.task.comment.TaskCommentId;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskAssignmentPort;
+import com.hrm.employeemanagement.domain.task.TaskAssignment;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -59,6 +62,34 @@ public class TaskCommentApplicationService
     private final TaskAttachmentStoragePort taskAttachmentStoragePort;
     private final MentionParserService mentionParserService;
     private final TaskDiscussionAccessService accessService;
+    private final LoadTaskAssignmentPort loadTaskAssignmentPort;
+    private final LoadProjectPort loadProjectPort;
+
+    public TaskCommentApplicationService(
+            LoadTaskCommentPort loadTaskCommentPort,
+            LoadTaskAttachmentPort loadTaskAttachmentPort,
+            SaveTaskCommentPort saveTaskCommentPort,
+            DeleteTaskCommentPort deleteTaskCommentPort,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            SaveNotificationPort saveNotificationPort,
+            TaskAttachmentStoragePort taskAttachmentStoragePort,
+            TaskDiscussionAccessService accessService,
+            LoadTaskAssignmentPort loadTaskAssignmentPort,
+            LoadProjectPort loadProjectPort) {
+        this.loadTaskCommentPort = Objects.requireNonNull(loadTaskCommentPort, "LoadTaskCommentPort must not be null");
+        this.loadTaskAttachmentPort = Objects.requireNonNull(loadTaskAttachmentPort, "LoadTaskAttachmentPort must not be null");
+        this.saveTaskCommentPort = Objects.requireNonNull(saveTaskCommentPort, "SaveTaskCommentPort must not be null");
+        this.deleteTaskCommentPort = Objects.requireNonNull(deleteTaskCommentPort, "DeleteTaskCommentPort must not be null");
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
+        this.saveNotificationPort = Objects.requireNonNull(saveNotificationPort, "SaveNotificationPort must not be null");
+        this.taskAttachmentStoragePort = Objects.requireNonNull(taskAttachmentStoragePort, "TaskAttachmentStoragePort must not be null");
+        this.accessService = Objects.requireNonNull(accessService, "TaskDiscussionAccessService must not be null");
+        this.loadTaskAssignmentPort = loadTaskAssignmentPort;
+        this.loadProjectPort = loadProjectPort;
+        this.mentionParserService = new MentionParserService();
+    }
 
     public TaskCommentApplicationService(
             LoadTaskCommentPort loadTaskCommentPort,
@@ -70,16 +101,8 @@ public class TaskCommentApplicationService
             SaveNotificationPort saveNotificationPort,
             TaskAttachmentStoragePort taskAttachmentStoragePort,
             TaskDiscussionAccessService accessService) {
-        this.loadTaskCommentPort = Objects.requireNonNull(loadTaskCommentPort, "LoadTaskCommentPort must not be null");
-        this.loadTaskAttachmentPort = Objects.requireNonNull(loadTaskAttachmentPort, "LoadTaskAttachmentPort must not be null");
-        this.saveTaskCommentPort = Objects.requireNonNull(saveTaskCommentPort, "SaveTaskCommentPort must not be null");
-        this.deleteTaskCommentPort = Objects.requireNonNull(deleteTaskCommentPort, "DeleteTaskCommentPort must not be null");
-        this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
-        this.saveNotificationPort = Objects.requireNonNull(saveNotificationPort, "SaveNotificationPort must not be null");
-        this.taskAttachmentStoragePort = Objects.requireNonNull(taskAttachmentStoragePort, "TaskAttachmentStoragePort must not be null");
-        this.accessService = Objects.requireNonNull(accessService, "TaskDiscussionAccessService must not be null");
-        this.mentionParserService = new MentionParserService();
+        this(loadTaskCommentPort, loadTaskAttachmentPort, saveTaskCommentPort, deleteTaskCommentPort,
+                loadUserPort, loadEmployeePort, saveNotificationPort, taskAttachmentStoragePort, accessService, null, null);
     }
 
     @Override
@@ -150,6 +173,64 @@ public class TaskCommentApplicationService
 
         TaskComment saved = saveTaskCommentPort.save(comment);
 
+        // Tìm danh sách những người liên quan đến task để gửi thông báo trao đổi (TASK_COMMENT)
+        Set<UserId> taskParticipantIds = new HashSet<>();
+
+        // Nhân sự được phân công thực hiện task
+        if (loadTaskAssignmentPort != null) {
+            List<TaskAssignment> assignments = loadTaskAssignmentPort.findByTaskId(task.getId());
+            if (assignments != null) {
+                for (TaskAssignment a : assignments) {
+                    if (a.getEmployeeId() != null) {
+                        loadEmployeePort.findById(a.getEmployeeId())
+                                .map(Employee::getUserId)
+                                .ifPresent(taskParticipantIds::add);
+                    }
+                }
+            }
+        }
+        if (task.getAssigneeId() != null) {
+            loadEmployeePort.findById(task.getAssigneeId())
+                    .map(Employee::getUserId)
+                    .ifPresent(taskParticipantIds::add);
+        }
+
+        // Quản lý dự án (PM)
+        if (loadProjectPort != null && task.getProjectId() != null) {
+            loadProjectPort.findById(task.getProjectId()).ifPresent(project -> {
+                if (project.getManagerId() != null) {
+                    loadEmployeePort.findById(project.getManagerId())
+                            .map(Employee::getUserId)
+                            .ifPresent(taskParticipantIds::add);
+                }
+            });
+        }
+
+        // Những người từng tham gia trao đổi trong task này trước đó
+        List<TaskComment> pastComments = loadTaskCommentPort.findAllByTaskId(taskId);
+        if (pastComments != null) {
+            for (TaskComment pc : pastComments) {
+                if (pc.getAuthorId() != null) {
+                    taskParticipantIds.add(pc.getAuthorId());
+                }
+            }
+        }
+
+        // Loại trừ tác giả của comment hiện tại và những người đã nhận mention
+        taskParticipantIds.remove(authorId);
+        taskParticipantIds.removeAll(targetMentions);
+
+        // Xác thực quyền truy cập task cho những người liên quan
+        Set<UserId> verifiedParticipants = new HashSet<>();
+        if (!taskParticipantIds.isEmpty()) {
+            List<User> candidateParticipants = loadUserPort.findAllByIdIn(List.copyOf(taskParticipantIds));
+            for (User p : candidateParticipants) {
+                if (accessService.canUserAccess(p, task)) {
+                    verifiedParticipants.add(p.getId());
+                }
+            }
+        }
+
         // Gửi thông báo cho từng người được nhắc tên
         String authorDisplayName = resolveDisplayName(author);
         String taskName = task.getName();
@@ -166,6 +247,19 @@ public class TaskCommentApplicationService
                     "TASK",
                     task.getId().value(),
                     authorDisplayName + " đã nhắc tên bạn trong công việc: " + taskName,
+                    previewText);
+            saveNotificationPort.save(notification);
+        }
+
+        // Gửi thông báo trao đổi mới cho những người liên quan trong công việc
+        for (UserId participantId : verifiedParticipants) {
+            Notification notification = Notification.create(
+                    participantId,
+                    authorId,
+                    NotificationType.TASK_COMMENT,
+                    "TASK",
+                    task.getId().value(),
+                    authorDisplayName + " đã gửi trao đổi mới trong công việc: " + taskName,
                     previewText);
             saveNotificationPort.save(notification);
         }
