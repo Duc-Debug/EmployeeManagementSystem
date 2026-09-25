@@ -32,65 +32,13 @@ public class FlywayConfig {
                 .outOfOrder(outOfOrder)
                 .load();
 
-        // Applied migrations are immutable in production. In local development,
-        // repair reconciles checksums and clears failed entries.
-        try {
-            flyway.repair();
-        } catch (Exception e) {
-            System.out.println("⚠️ Flyway repair warning: " + e.getMessage());
-        }
-
         flyway.migrate();
-
-        ensureEmployeeSkillsColumns(dataSource);
 
         System.out.println("==================================================");
         System.out.println("✅ FLYWAY MIGRATION SUCCESSFUL!");
         System.out.println("==================================================");
 
         return flyway;
-    }
-
-    private void ensureEmployeeSkillsColumns(DataSource dataSource) {
-        try (var conn = dataSource.getConnection(); var stmt = conn.createStatement()) {
-            var meta = conn.getMetaData();
-            
-            var rs = meta.getColumns(null, null, "employee_skills", null);
-            var existingColumns = new java.util.HashSet<String>();
-            while (rs.next()) {
-                existingColumns.add(rs.getString("COLUMN_NAME").toLowerCase());
-            }
-            rs.close();
-
-            // Try uppercase table name if empty (for some DB engines like H2)
-            if (existingColumns.isEmpty()) {
-                rs = meta.getColumns(null, null, "EMPLOYEE_SKILLS", null);
-                while (rs.next()) {
-                    existingColumns.add(rs.getString("COLUMN_NAME").toLowerCase());
-                }
-                rs.close();
-            }
-
-            if (!existingColumns.contains("last_approved_proficiency_level")) {
-                stmt.executeUpdate("ALTER TABLE employee_skills ADD COLUMN last_approved_proficiency_level INT NULL");
-            }
-            if (!existingColumns.contains("last_approved_years_of_experience")) {
-                stmt.executeUpdate("ALTER TABLE employee_skills ADD COLUMN last_approved_years_of_experience DECIMAL(4,1) NULL");
-            }
-            if (!existingColumns.contains("pending_proficiency_level")) {
-                stmt.executeUpdate("ALTER TABLE employee_skills ADD COLUMN pending_proficiency_level INT NULL");
-            }
-            if (!existingColumns.contains("pending_years_of_experience")) {
-                stmt.executeUpdate("ALTER TABLE employee_skills ADD COLUMN pending_years_of_experience DECIMAL(4,1) NULL");
-            }
-
-            try {
-                stmt.executeUpdate("UPDATE employee_skills SET last_approved_proficiency_level = proficiency_level, last_approved_years_of_experience = years_of_experience WHERE status = 'APPROVED' AND last_approved_proficiency_level IS NULL");
-            } catch (Exception ignored) {
-            }
-        } catch (Exception e) {
-            System.out.println("⚠️ Employee skills column sync warning: " + e.getMessage());
-        }
     }
 
     /**

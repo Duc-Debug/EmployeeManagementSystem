@@ -303,6 +303,8 @@ export default function WorkLogModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ghi rõ các đầu việc, tính năng hoặc sửa lỗi đã hoàn thành trong ngày..."
+              autoComplete="off"
+              spellCheck={false}
               required
               className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-normal text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />

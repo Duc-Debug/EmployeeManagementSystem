@@ -113,6 +113,8 @@ export default function RejectUnavailabilityModal({
               maxLength={500}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="VD: Dự án đang trong giai đoạn nước rút cần tập trung toàn bộ nguồn lực..."
+              autoComplete="off"
+              spellCheck={false}
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition resize-none placeholder:text-slate-400"
             />
           </div>

@@ -5,6 +5,7 @@ import com.hrm.employeemanagement.application.port.inbound.leave.RejectLeaveRequ
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveAuditLogPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveRequestPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -16,6 +17,8 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.leave.LeaveRequestNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.leave.LeaveRequest;
+import com.hrm.employeemanagement.domain.notification.Notification;
+import com.hrm.employeemanagement.domain.notification.NotificationType;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -34,6 +37,7 @@ public class RejectLeaveRequestService implements RejectLeaveRequestUseCase {
     private final LoadUserPort loadUserPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
     private final LoadEmployeePort loadEmployeePort;
+    private final SaveNotificationPort saveNotificationPort;
 
     public RejectLeaveRequestService(
             LoadLeaveRequestPort loadLeaveRequestPort,
@@ -41,7 +45,7 @@ public class RejectLeaveRequestService implements RejectLeaveRequestUseCase {
             SaveLeaveAuditLogPort saveLeaveAuditLogPort,
             AuthorizationService authorizationService
     ) {
-        this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService, null, null, null);
+        this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService, null, null, null, null);
     }
 
     public RejectLeaveRequestService(
@@ -53,6 +57,20 @@ public class RejectLeaveRequestService implements RejectLeaveRequestUseCase {
             LoadOrgUnitPort loadOrgUnitPort,
             LoadEmployeePort loadEmployeePort
     ) {
+        this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
+                loadUserPort, loadOrgUnitPort, loadEmployeePort, null);
+    }
+
+    public RejectLeaveRequestService(
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            SaveLeaveAuditLogPort saveLeaveAuditLogPort,
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            SaveNotificationPort saveNotificationPort
+    ) {
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
         this.saveLeaveAuditLogPort = Objects.requireNonNull(saveLeaveAuditLogPort, "saveLeaveAuditLogPort must not be null");
@@ -60,6 +78,7 @@ public class RejectLeaveRequestService implements RejectLeaveRequestUseCase {
         this.loadUserPort = loadUserPort;
         this.loadOrgUnitPort = loadOrgUnitPort;
         this.loadEmployeePort = loadEmployeePort;
+        this.saveNotificationPort = saveNotificationPort;
     }
 
     @Override
@@ -98,6 +117,26 @@ public class RejectLeaveRequestService implements RejectLeaveRequestUseCase {
                 savedRequest.getEndDate(),
                 rejectionReason);
         saveLeaveAuditLogPort.recordAudit(currentUserId, "REJECT_LEAVE_REQUEST", auditDesc);
+
+        // 7. Gửi thông báo đến nhân viên nộp đơn
+        if (saveNotificationPort != null && loadEmployeePort != null) {
+            Employee employee = loadEmployeePort.findById(new EmployeeId(savedRequest.getEmployeeId())).orElse(null);
+            if (employee != null && employee.getUserIdValue() != null) {
+                String title = "Đơn nghỉ phép bị từ chối";
+                String content = String.format("Đơn nghỉ phép từ %s đến %s của bạn đã bị từ chối. Lý do: %s",
+                        savedRequest.getStartDate(), savedRequest.getEndDate(),
+                        rejectionReason != null ? rejectionReason : "Không có");
+                saveNotificationPort.save(Notification.create(
+                        new UserId(employee.getUserIdValue()),
+                        currentUserId != null ? new UserId(currentUserId) : null,
+                        NotificationType.LEAVE_REJECTED,
+                        "LEAVE_REQUEST",
+                        savedRequest.getId(),
+                        title,
+                        content
+                ));
+            }
+        }
 
         return LeaveRequestResult.fromDomain(savedRequest);
     }

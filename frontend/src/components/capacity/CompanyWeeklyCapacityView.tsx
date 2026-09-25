@@ -55,7 +55,9 @@ export default function CompanyWeeklyCapacityView() {
   const canManageAllocations = normalizedRole === "VT-03";
   const canAccessPeriods =
     normalizedRole === "VT-01" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
-  const canAccessAllocationNotifications = normalizedRole === "VT-02" || normalizedRole === "VT-03";
+  const canAccessAllocationNotifications =
+    normalizedRole === "VT-03" ||
+    (Boolean(currentUser?.permissions?.includes("RESOURCE_ALLOCATION_READ")) && normalizedRole !== "VT-02");
   const canConfigureThresholds = normalizedRole === "VT-01";
   const canAccessScenarios = normalizedRole === "VT-01" || normalizedRole === "VT-03";
   const canViewProlongedIdleness =

@@ -61,22 +61,6 @@ export function ProjectWbsView({
         code?: string;
     } | null>(null);
     const [discussionTask, setDiscussionTask] = useState<{ task: TaskItem; catName: string } | null>(null);
-
-    useEffect(() => {
-        const handleOpenDiscussion = (event: Event) => {
-            const taskId = Number((event as CustomEvent<{ taskId?: number }>).detail?.taskId);
-            if (!Number.isFinite(taskId)) return;
-            for (const category of categories) {
-                const task = category.tasks.find((candidate) => Number(candidate.id) === taskId);
-                if (task) {
-                    setDiscussionTask({ task, catName: category.name });
-                    return;
-                }
-            }
-        };
-        window.addEventListener('openTaskDiscussion', handleOpenDiscussion);
-        return () => window.removeEventListener('openTaskDiscussion', handleOpenDiscussion);
-    }, [categories]);
     // Accordion state: map of category id -> isOpen boolean
     const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
         'cat-1': true,
@@ -84,6 +68,39 @@ export function ProjectWbsView({
         'cat-3': true,
         'cat-4': true,
     });
+
+    useEffect(() => {
+        const findAndOpenTask = (targetTaskId: number) => {
+            if (!Number.isFinite(targetTaskId) || targetTaskId <= 0) return;
+            for (const category of categories) {
+                const task = category.tasks.find((candidate) => {
+                    const numId = Number(candidate.id) || parseInt(String(candidate.id).replace(/\D/g, ''), 10);
+                    return numId === targetTaskId;
+                });
+                if (task) {
+                    setDiscussionTask({ task, catName: category.name });
+                    setOpenCategories((prev) => ({ ...prev, [category.id]: true }));
+                    return;
+                }
+            }
+        };
+
+        const handleOpenDiscussion = (event: Event) => {
+            const taskId = Number((event as CustomEvent<{ taskId?: number }>).detail?.taskId);
+            findAndOpenTask(taskId);
+        };
+
+        window.addEventListener('openTaskDiscussion', handleOpenDiscussion);
+
+        // Tự động kiểm tra URL query param ?taskId=... khi categories sẵn sàng
+        const searchParams = new URLSearchParams(window.location.search);
+        const urlTaskId = searchParams.get('taskId');
+        if (urlTaskId) {
+            findAndOpenTask(Number(urlTaskId));
+        }
+
+        return () => window.removeEventListener('openTaskDiscussion', handleOpenDiscussion);
+    }, [categories]);
 
     const toggleCategory = (catId: string) => {
         setOpenCategories((prev) => ({
@@ -201,13 +218,15 @@ export function ProjectWbsView({
                                     <span>Nhân bản WBS</span>
                                 </button>
                             )}
-                            <button
-                                type="button"
-                                onClick={() => onQuickAddTask(categories[0]?.id || '')}
-                                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                            >
-                                <Plus className="h-3.5 w-3.5" /> Thêm việc
-                            </button>
+                            {canManageWbs && (
+                                <button
+                                    type="button"
+                                    onClick={() => onQuickAddTask(categories[0]?.id || '')}
+                                    className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                                >
+                                    <Plus className="h-3.5 w-3.5" /> Thêm việc
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -330,19 +349,23 @@ export function ProjectWbsView({
                                                         className="group flex items-center justify-between gap-3 p-3 text-xs transition hover:bg-slate-50/80"
                                                     >
                                                         <div className="flex min-w-0 flex-1 items-center gap-3">
-                                                            <button
-                                                                type="button"
-                                                                disabled={isClosed}
-                                                                onClick={() => !isClosed && onToggleTaskStatus(cat.id, t.id)}
-                                                                className={`text-slate-300 transition ${isClosed ? 'cursor-not-allowed opacity-50' : 'group-hover:text-slate-400 cursor-pointer'}`}
-                                                                title={isClosed ? 'Dự án đã đóng, không thể thay đổi trạng thái công việc' : 'Đánh dấu hoàn tất'}
-                                                            >
-                                                                {isDone ? (
-                                                                    <CircleCheck className="h-4 w-4 text-emerald-500" />
-                                                                ) : (
-                                                                    <Circle className="h-4 w-4" />
-                                                                )}
-                                                            </button>
+                                                            {canManageWbs ? (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isClosed}
+                                                                    onClick={() => !isClosed && onToggleTaskStatus(cat.id, t.id)}
+                                                                    className={`text-slate-300 transition ${isClosed ? 'cursor-not-allowed opacity-50' : 'group-hover:text-slate-400 cursor-pointer'}`}
+                                                                    title={isClosed ? 'Dự án đã đóng, không thể thay đổi trạng thái công việc' : 'Đánh dấu hoàn tất'}
+                                                                >
+                                                                    {isDone ? (
+                                                                        <CircleCheck className="h-4 w-4 text-emerald-500" />
+                                                                    ) : (
+                                                                        <Circle className="h-4 w-4" />
+                                                                    )}
+                                                                </button>
+                                                            ) : isDone ? (
+                                                                <span title="Đã hoàn thành"><CircleCheck className="h-4 w-4 text-emerald-500 shrink-0" /></span>
+                                                            ) : null}
                                                             <div className="min-w-0">
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="font-mono text-[10px] font-medium text-slate-400 shrink-0">

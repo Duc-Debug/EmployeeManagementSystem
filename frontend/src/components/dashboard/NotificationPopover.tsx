@@ -161,29 +161,52 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
 
     setIsOpen(false);
 
-    // 2. Deep link navigation based on relatedEntityType and relatedEntityId
-    if (n.relatedEntityType && n.relatedEntityId) {
-      const type = n.relatedEntityType.toUpperCase();
-      const id = n.relatedEntityId;
+    // 2. Deep link navigation based on relatedEntityType and eventType
+    const entityType = (n.relatedEntityType || "").toUpperCase();
+    const eventType = (n.eventType || "").toUpperCase();
+    const id = n.relatedEntityId;
+    const roleStr = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
+    const isEmployee = roleStr === "VT-04" || roleStr.includes("EMPLOYEE") || roleStr.includes("MEMBER");
 
-      if (type === "TASK") {
-        const taskIdNum = Number(id);
-        if (onSelectTask && !isNaN(taskIdNum)) {
-          onSelectTask(taskIdNum);
-        } else {
-          window.dispatchEvent(
-            new CustomEvent("openTaskDiscussion", {
-              detail: { taskId: taskIdNum },
-            })
-          );
-        }
-      } else if (type === "CAPACITY_WEEK") {
-        navigate(`/capacity?week=${encodeURIComponent(id)}`);
-      } else if (type === "PROJECT" || type === "PROJECT_ALLOCATION" || type === "ALLOCATION") {
-        navigate(`/projects/${encodeURIComponent(id)}`);
-      } else if (type === "LEAVE_REQUEST") {
-        navigate(`/leave?requestId=${encodeURIComponent(id)}`);
+    if (entityType === "TASK" || eventType.includes("TASK")) {
+      const taskIdNum = Number(id);
+      if (id) {
+        navigate(`/project?taskId=${encodeURIComponent(id)}`);
       }
+      if (onSelectTask && !isNaN(taskIdNum)) {
+        onSelectTask(taskIdNum);
+      }
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("openTaskDiscussion", {
+            detail: { taskId: taskIdNum },
+          })
+        );
+      }, 150);
+    } else if (entityType === "CAPACITY_WEEK" || entityType === "CAPACITY" || eventType.includes("CAPACITY")) {
+      navigate(`/capacity${id ? `?week=${encodeURIComponent(id)}` : ""}`);
+    } else if (entityType === "PROJECT" || entityType === "PROJECT_ALLOCATION" || entityType === "ALLOCATION" || eventType.includes("ALLOCATION")) {
+      if (isEmployee) {
+        navigate(`/my-schedule`);
+      } else {
+        navigate(id ? `/project?projectId=${encodeURIComponent(id)}` : "/project");
+      }
+    } else if (entityType === "LEAVE_REQUEST" || entityType === "LEAVE" || eventType.includes("LEAVE")) {
+      if (isEmployee) {
+        navigate(id ? `/leave?requestId=${encodeURIComponent(id)}&view=my` : `/leave?view=my`);
+      } else {
+        navigate(id ? `/leave?requestId=${encodeURIComponent(id)}&view=pending` : `/leave?view=pending`);
+      }
+    } else if (entityType === "SCHEDULE_CONFLICT" || eventType.includes("SCHEDULE_CONFLICT")) {
+      navigate(`/schedule-conflict`);
+    } else if (entityType === "OUTSOURCED_CONTRACT" || eventType.includes("OUTSOURCED_CONTRACT")) {
+      navigate(`/outsourced-contracts`);
+    } else if (entityType === "SKILL" || entityType === "SKILL_DECLARATION" || eventType.includes("SKILL")) {
+      navigate("/skills");
+    } else if (entityType === "TIMESHEET" || entityType === "WORK_LOG" || eventType.includes("TIMESHEET") || eventType.includes("WORK_LOG")) {
+      navigate("/attendance");
+    } else if (entityType === "UNAVAILABILITY" || entityType === "UNAVAILABILITY_DECLARATION" || eventType.includes("UNAVAILABILITY")) {
+      navigate(isEmployee ? "/my-schedule" : "/unavailability");
     }
   };
 
@@ -251,6 +274,27 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
           </span>
         );
     }
+  };
+
+  const formatFriendlyNotificationMessage = (text: string): string => {
+    if (!text) return "";
+    return text
+      .replace(/\bVT[-_]?01\b/gi, "Ban Giám Đốc")
+      .replace(/\bVT[-_]?02\b/gi, "PM")
+      .replace(/\bVT[-_]?03\b/gi, "RM")
+      .replace(/\bVT[-_]?04\b/gi, "Nhân viên chuyên môn")
+      .replace(/\bVT[-_]?05\b/gi, "HR")
+      .replace(/\bVT[-_]?06\b/gi, "Admin");
+  };
+
+  const getCategoryBadge = (eventType?: string | null, relatedEntityType?: string | null) => {
+    const type = (relatedEntityType || eventType || "").toUpperCase();
+    if (type.includes("SKILL")) return { label: "Kỹ năng cần duyệt", color: "bg-purple-100 text-purple-700" };
+    if (type.includes("TIMESHEET") || type.includes("WORK_LOG")) return { label: "Giờ công cần duyệt", color: "bg-emerald-100 text-emerald-700" };
+    if (type.includes("UNAVAILABILITY")) return { label: "Thời gian không sẵn sàng", color: "bg-amber-100 text-amber-700" };
+    if (type.includes("LEAVE")) return { label: "Nghỉ phép", color: "bg-blue-100 text-blue-700" };
+    if (type.includes("ALLOCATION")) return { label: "Phân bổ nhân sự", color: "bg-indigo-100 text-indigo-700" };
+    return null;
   };
 
   return (
@@ -412,9 +456,15 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                   />
 
                   <div className="flex-1 min-w-0">
-                    {n.eventType === "ALLOCATION_CHANGED" && (
-                      <span className="mb-1 inline-block rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">Phân bổ nhân sự</span>
-                    )}
+                    {(() => {
+                      const cat = getCategoryBadge(n.eventType, n.relatedEntityType);
+                      if (!cat) return null;
+                      return (
+                        <span className={`mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${cat.color}`}>
+                          {cat.label}
+                        </span>
+                      );
+                    })()}
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <div className="flex items-center gap-1.5 truncate">
                         {renderLevelBadge(n.level)}
@@ -433,7 +483,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
 
                     {n.message && (
                       <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
-                        {n.message}
+                        {formatFriendlyNotificationMessage(n.message)}
                       </p>
                     )}
 

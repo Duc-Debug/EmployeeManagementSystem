@@ -92,6 +92,7 @@ import {
 } from '@/lib/api/resource-demands';
 import { ProjectCloseModal } from './ProjectCloseModal';
 import { ProjectReopenModal } from './ProjectReopenModal';
+import { ProjectAllocationExcelExportModal } from './ProjectAllocationExcelExportModal';
 import { ProjectApproveModal } from './ProjectApproveModal';
 import { ProjectCancelModal } from './ProjectCancelModal';
 import { MilestoneListView } from './milestone/MilestoneListView';
@@ -339,6 +340,7 @@ export default function ProjectView() {
     const [reopenModalOpen, setReopenModalOpen] = useState<boolean>(false);
     const [approveModalOpen, setApproveModalOpen] = useState<boolean>(false);
     const [cancelModalOpen, setCancelModalOpen] = useState<boolean>(false);
+    const [excelExportModalOpen, setExcelExportModalOpen] = useState<boolean>(false);
     const [moreActionsOpen, setMoreActionsOpen] = useState<boolean>(false);
     const moreActionsRef = useRef<HTMLDivElement>(null);
     const [skillSearchModalOpen, setSkillSearchModalOpen] = useState<boolean>(false);
@@ -371,8 +373,8 @@ export default function ProjectView() {
     // Quyền thao tác trạng thái dự án (NCL-03-CN-004)
     const canCloseProject = (isExecutive || isPm) && selectedProject?.status === 'ACTIVE';
     const canReopenProject = (isExecutive || isPm) && isProjectClosed && selectedProject !== null;
-    const canApproveProject = (isExecutive || isPm) && isProjectPlanned && selectedProject !== null;
-    const canCancelProject = (isExecutive || isPm) && isProjectPlanned && selectedProject !== null;
+    const canApproveProject = (isRm || userRoleCode === 'VT-06') && isProjectPlanned && selectedProject !== null;
+    const canCancelProject = (isRm || isPm || userRoleCode === 'VT-06') && isProjectPlanned && selectedProject !== null;
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -549,6 +551,13 @@ export default function ProjectView() {
     useEffect(() => {
         loadProjects();
     }, [loadProjects]);
+
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.get('taskId')) {
+            setViewMode('wbs');
+        }
+    }, [location.search]);
 
     const [months] = useState(buildMonths);
     const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
@@ -1134,13 +1143,6 @@ export default function ProjectView() {
         }
     };
 
-    const handleExportReport = () => {
-        showToast('Đang tạo báo cáo ma trận nhân lực & WBS dạng Excel...', 'info');
-        setTimeout(() => {
-            showToast('Đã trích xuất dữ liệu thành công!', 'success');
-        }, 1200);
-    };
-
     const totalTasksCount = categories.reduce((sum, c) => sum + c.tasks.length, 0);
     const overBudgetTasks = categories
         .flatMap((c) => c.tasks)
@@ -1217,7 +1219,7 @@ export default function ProjectView() {
                                             <select
                                                 value={selectedProjectId || ''}
                                                 onChange={(e) => navigate(`/projects?projectId=${e.target.value}`)}
-                                                className="rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white"
+                                                className="appearance-none rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white"
                                             >
                                                 {projectsList.map((p) => (
                                                     <option key={p.id} value={p.id}>
@@ -1396,7 +1398,11 @@ export default function ProjectView() {
                                         type="button"
                                         onClick={() => {
                                             setMoreActionsOpen(false);
-                                            handleExportReport();
+                                            if (selectedProject) {
+                                                setExcelExportModalOpen(true);
+                                            } else {
+                                                showToast('Vui lòng chọn một dự án để xuất báo cáo.', 'info');
+                                            }
                                         }}
                                         className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition cursor-pointer"
                                     >
@@ -2048,6 +2054,20 @@ export default function ProjectView() {
                 existingMemberIds={members.map((m) => m.id)}
                 onAddMembers={handleAddMembersFromSkillSearch}
             />
+
+            {/* Modal Xuất Báo Cáo Excel Phân Bổ Dự Án (NCL-10-CN-003) */}
+            {selectedProject && (
+                <ProjectAllocationExcelExportModal
+                    open={excelExportModalOpen}
+                    projectId={selectedProject.id}
+                    projectCode={selectedProject.projectCode}
+                    projectName={selectedProject.projectName}
+                    onClose={() => setExcelExportModalOpen(false)}
+                    onSuccess={(filename) => {
+                        showToast(`Đã xuất báo cáo Excel: ${filename}`, 'success');
+                    }}
+                />
+            )}
 
             {/* Toast Notification */}
             {toast && (

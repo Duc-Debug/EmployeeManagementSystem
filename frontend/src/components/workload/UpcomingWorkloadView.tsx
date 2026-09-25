@@ -217,12 +217,14 @@ export default function UpcomingWorkloadView({
           </div>
 
           {/* Date Picker */}
-          <div className="relative">
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+            <span className="text-[11px] font-medium text-slate-500">Chọn ngày:</span>
             <input
               type="date"
               value={datePickerValue}
               onChange={(e) => handleDateChange(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:border-sky-500 focus:outline-hidden cursor-pointer"
+              className="text-xs text-slate-700 bg-transparent outline-none cursor-pointer font-medium"
+              title="Chọn ngày để chuyển đến tuần tương ứng"
             />
           </div>
 

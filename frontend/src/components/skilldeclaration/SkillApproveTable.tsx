@@ -365,6 +365,8 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
                                 value={rejectionReason}
                                 onChange={(e) => setRejectionReason(e.target.value)}
                                 placeholder="VD: Chưa có đủ chứng chỉ hoặc dự án thực tế chứng minh..."
+                                autoComplete="off"
+                                spellCheck={false}
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-medium text-slate-800 outline-none focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-100"
                             />
                         </div>

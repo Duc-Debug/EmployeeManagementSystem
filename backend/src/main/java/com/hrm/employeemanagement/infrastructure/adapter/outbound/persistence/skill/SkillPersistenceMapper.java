@@ -66,6 +66,8 @@ public class SkillPersistenceMapper {
                 entity.getReviewNotes(),
                 entity.getLastApprovedProficiencyLevel(),
                 entity.getLastApprovedYearsOfExperience(),
+                entity.getPendingProficiencyLevel(),
+                entity.getPendingYearsOfExperience(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getVersion()
@@ -89,6 +91,8 @@ public class SkillPersistenceMapper {
                 domain.getReviewNotes(),
                 domain.getLastApprovedProficiencyLevel(),
                 domain.getLastApprovedYearsOfExperience(),
+                domain.getPendingProficiencyLevel(),
+                domain.getPendingYearsOfExperience(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt(),
                 domain.getVersion()
