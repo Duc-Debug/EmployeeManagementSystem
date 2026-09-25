@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  RotateCcw,
   Search,
   Building2,
   AlertTriangle,
@@ -37,7 +36,7 @@ import {
 } from "@/lib/api/allocation-periods";
 import { getOrgTree } from "@/lib/api/org-units";
 import type { OrgUnitTreeNode } from "@/types/hrm";
-import { getCurrentIsoWeek } from "@/components/availability/availability.types";
+import { getCurrentIsoWeek, getIsoWeekDateRange } from "@/components/availability/availability.types";
 import { BulkAllocateResourceModal } from "@/components/capacity/BulkAllocateResourceModal";
 import { BulkAllocationResultModal } from "@/components/capacity/BulkAllocationResultModal";
 import { AllocationAdjustmentModal, type AllocationItem } from "@/components/capacity/AllocationAdjustmentModal";
@@ -74,6 +73,14 @@ export default function CompanyWeeklyCapacityView() {
   const [selectedYear, setSelectedYear] = useState<number>(currentIso.year);
   const [selectedWeek, setSelectedWeek] = useState<number>(currentIso.weekNumber);
   const [durationWeeks] = useState<number>(8); // Mặc định 8 tuần theo TC-01
+
+  const selectedDateStr = useMemo(() => {
+    const { startDate } = getIsoWeekDateRange(selectedYear, selectedWeek);
+    const y = startDate.getUTCFullYear();
+    const m = String(startDate.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(startDate.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, [selectedYear, selectedWeek]);
 
   // Filter states
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(
@@ -512,44 +519,58 @@ export default function CompanyWeeklyCapacityView() {
           </div>
         </div>
 
-        {/* Bộ điều hướng tuần */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-2xs">
+        {/* Bộ điều hướng tuần & Chọn ngày */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
             <button
               type="button"
               onClick={() => handleNavigateWeek(-1)}
-              className="rounded-xl p-1.5 text-slate-600 hover:bg-slate-100 transition"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần trước"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="px-3 text-xs font-bold text-slate-800">
-              Tuần {selectedWeek} / {selectedYear}
-            </span>
+            <button
+              type="button"
+              onClick={handleResetCurrentWeek}
+              className="px-3 py-1 text-xs font-bold text-slate-700 hover:text-indigo-600 transition cursor-pointer"
+            >
+              {selectedYear === currentIso.year && selectedWeek === currentIso.weekNumber
+                ? "Tuần này"
+                : `Tuần ${selectedWeek}/${selectedYear}`}
+            </button>
             <button
               type="button"
               onClick={() => handleNavigateWeek(1)}
-              className="rounded-xl p-1.5 text-slate-600 hover:bg-slate-100 transition"
-              title="Tuần tiếp theo"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
+              title="Tuần sau"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleResetCurrentWeek}
-            className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
-            <span>Tuần hiện tại</span>
-          </button>
+          {/* Date Picker Input */}
+          <div className="relative">
+            <input
+              type="date"
+              value={selectedDateStr}
+              onChange={(e) => {
+                if (e.target.value) {
+                  const [y, m, d] = e.target.value.split("-").map(Number);
+                  const iso = getCurrentIsoWeek(new Date(y, m - 1, d));
+                  setSelectedYear(iso.year);
+                  setSelectedWeek(iso.weekNumber);
+                }
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:border-indigo-500 focus:outline-hidden cursor-pointer"
+            />
+          </div>
 
           {canManageReservations && (
             <button
               type="button"
               onClick={() => handleOpenReservationModal()}
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-xs cursor-pointer"
               title="Giữ chỗ nguồn lực cho dự án dự kiến"
             >
               <BookmarkCheck className="h-3.5 w-3.5 text-amber-600" />

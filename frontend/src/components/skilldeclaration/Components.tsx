@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Award, Check, Plus, Trash2, Edit3, X, Loader2 } from 'lucide-react';
+import { Award, Check, Plus, Trash2, Edit3, X, Loader2, AlertCircle } from 'lucide-react';
 import { PROFICIENCY_LEVELS } from './Types.ts';
 import type { CatalogSkill, DeclaredSkill, FormMode, Role, SkillPayload } from './Types.ts';
 import { SkillSelect } from './SkillSelect.tsx';
@@ -19,19 +19,68 @@ function Stars({ level }: { level: number }) {
     );
 }
 
-function StatusBadge({ status }: { status: DeclaredSkill['status'] }) {
+function StatusBadge({
+    status,
+    rejectionReason,
+    reviewNotes,
+    pendingLevel,
+    pendingYears,
+}: {
+    status: DeclaredSkill['status'];
+    rejectionReason?: string;
+    reviewNotes?: string;
+    pendingLevel?: number;
+    pendingYears?: number;
+}) {
     if (status === 'approved') {
         return (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Đã xác nhận
-            </span>
+            <div className="space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Đã xác nhận
+                </span>
+                {pendingLevel != null ? (
+                    <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 max-w-xs flex items-start gap-1.5 shadow-2xs">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5 animate-pulse"></span>
+                        <div>
+                            <span className="font-semibold">Đang chờ duyệt cập nhật: </span>
+                            <span>Level {pendingLevel}{pendingYears ? ` (${pendingYears} năm)` : ''}</span>
+                        </div>
+                    </div>
+                ) : null}
+                {rejectionReason ? (
+                    <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 max-w-xs flex items-start gap-1.5 shadow-2xs">
+                        <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                            <span className="font-semibold">Sửa đổi bị từ chối: </span>
+                            <span className="break-words">{rejectionReason}</span>
+                        </div>
+                    </div>
+                ) : reviewNotes ? (
+                    <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 max-w-xs flex items-start gap-1">
+                        <span className="font-semibold shrink-0">💬 Nhận xét:</span>
+                        <span className="break-words">{reviewNotes}</span>
+                    </div>
+                ) : null}
+            </div>
         );
     }
     if (status === 'rejected') {
+        const feedback = rejectionReason || reviewNotes;
         return (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span> Bị từ chối
-            </span>
+            <div className="space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span> Bị từ chối
+                </span>
+                {feedback && (
+                    <div className="text-[11px] text-rose-700 bg-rose-50/90 border border-rose-200 rounded-lg px-2.5 py-1.5 max-w-xs flex items-start gap-1.5 shadow-2xs">
+                        <AlertCircle className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
+                        <div>
+                            <span className="font-bold">Lý do từ chối: </span>
+                            <span className="break-words">{feedback}</span>
+                        </div>
+                    </div>
+                )}
+            </div>
         );
     }
     return (
@@ -120,12 +169,28 @@ export function SkillsTable({
                                     </td>
                                     <td className="px-5 py-4">
                                         <Stars level={s.level} />
+                                        {s.pendingLevel != null && (
+                                            <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                                <span>⏳ Đề xuất: Lvl {s.pendingLevel}</span>
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-5 py-4 font-medium text-slate-700">
-                                        {s.years} năm
+                                        <div>{s.years} năm</div>
+                                        {s.pendingYears != null && s.pendingYears !== s.years && (
+                                            <div className="text-[10px] text-amber-600 font-normal">
+                                                (Đề xuất: {s.pendingYears} năm)
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-5 py-4">
-                                        <StatusBadge status={s.status} />
+                                        <StatusBadge
+                                            status={s.status}
+                                            rejectionReason={s.rejectionReason}
+                                            reviewNotes={s.reviewNotes}
+                                            pendingLevel={s.pendingLevel}
+                                            pendingYears={s.pendingYears}
+                                        />
                                     </td>
                                     <td className="px-5 py-4 text-right">
                                         <div className="flex items-center justify-end gap-1.5">
@@ -276,18 +341,18 @@ function SkillFormModalContent({
 
     const [skillId, setSkillId] = useState(initialSkillId);
     const [level, setLevel] = useState<number | null>(
-        editingSkill ? editingSkill.level : null
+        editingSkill ? (editingSkill.pendingLevel ?? editingSkill.level) : null
     );
     const [years, setYears] = useState(
-        editingSkill ? String(editingSkill.years) : '1'
+        editingSkill ? String(editingSkill.pendingYears ?? editingSkill.years) : '1'
     );
     const [errors, setErrors] = useState<{ skillId?: boolean; level?: boolean; years?: boolean }>({});
 
     useEffect(() => {
         if (editingSkill) {
             setSkillId(String(editingSkill.skillId));
-            setLevel((prev) => (prev !== null ? prev : editingSkill.level));
-            setYears((prev) => (prev !== '' ? prev : String(editingSkill.years)));
+            setLevel((prev) => (prev !== null ? prev : (editingSkill.pendingLevel ?? editingSkill.level)));
+            setYears((prev) => (prev !== '' ? prev : String(editingSkill.pendingYears ?? editingSkill.years)));
         } else if (targetSkillId != null) {
             setSkillId(String(targetSkillId));
         }
@@ -345,6 +410,21 @@ function SkillFormModalContent({
 
                 {/* Form Body */}
                 <div className="p-6 space-y-4">
+                    {(editingSkill?.rejectionReason || (editingSkill?.status === 'rejected' && editingSkill?.reviewNotes)) && (
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-800 space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold text-rose-700">
+                                <AlertCircle className="h-4 w-4 shrink-0" />
+                                <span>Phản hồi / Lý do từ chối từ Quản lý:</span>
+                            </div>
+                            <p className="pl-5.5 text-rose-900 font-medium">
+                                {editingSkill.rejectionReason || editingSkill.reviewNotes}
+                            </p>
+                            <p className="pl-5.5 text-[11px] text-rose-600 mt-1 italic">
+                                💡 Bạn có thể điều chỉnh lại mức thành thạo hoặc số năm kinh nghiệm rồi lưu để gửi lại yêu cầu duyệt.
+                            </p>
+                        </div>
+                    )}
+
                     {duplicateSkillName && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-800 space-y-2">
                             <p className="font-medium">

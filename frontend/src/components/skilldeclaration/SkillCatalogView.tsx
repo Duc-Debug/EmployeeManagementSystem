@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Pencil, Trash2, BookOpen, Check, X, ShieldAlert, ChevronDown, FolderPlus, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Lock, Unlock, BookOpen, Check, X, ChevronDown, FolderPlus, AlertCircle } from 'lucide-react';
 import type { CatalogSkill } from './Types.ts';
 import { SKILL_CATALOG } from './Types.ts';
 import { useAuthUser } from '@/lib/auth-session';
@@ -108,7 +108,7 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
     const [editingSkill, setEditingSkill] = useState<CatalogSkill | null>(null);
     const [skillName, setSkillName] = useState('');
     const [skillCategory, setSkillCategory] = useState('Backend');
-    const [deleteTarget, setDeleteTarget] = useState<CatalogSkill | null>(null);
+    const [lockTarget, setLockTarget] = useState<CatalogSkill | null>(null);
 
     // Skill Group creation state
     const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -183,6 +183,7 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                     category: s.groupName || 'Khác',
                     groupId: s.groupId,
                     description: s.description,
+                    status: s.status,
                     version: s.version,
                 }));
                 updateCatalog(mapped);
@@ -276,17 +277,21 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
         }
     };
 
-    const handleConfirmDelete = async () => {
-        if (!deleteTarget) return;
+    const handleConfirmToggleLock = async () => {
+        if (!lockTarget) return;
         try {
-            await deactivateSkill(deleteTarget.id);
+            await deactivateSkill(lockTarget.id);
             await loadBackendCatalog();
         } catch (err) {
-            console.error('Failed to deactivate skill:', err);
-            const updated = catalog.filter((item) => item.id !== deleteTarget.id);
+            console.error('Failed to toggle skill lock status:', err);
+            const updated = catalog.map((item) =>
+                item.id === lockTarget.id
+                    ? { ...item, status: item.status === 'INACTIVE' ? ('ACTIVE' as const) : ('INACTIVE' as const) }
+                    : item
+            );
             updateCatalog(updated);
         }
-        setDeleteTarget(null);
+        setLockTarget(null);
     };
 
     return (
@@ -405,6 +410,7 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                             ) : (
                                 filteredCatalog.map((item) => {
                                     const badgeClass = CATEGORY_BADGES[item.category] || CATEGORY_BADGES['Khác'];
+                                    const isLocked = item.status === 'INACTIVE';
                                     return (
                                         <tr key={item.id} className="transition-colors hover:bg-slate-50/60">
                                             <td className="px-4 py-3 font-mono text-xs text-slate-400 font-medium">
@@ -422,9 +428,17 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                                                 <span className="text-xs text-slate-400">Xem tại Ma trận kỹ năng</span>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                                    <Check className="h-3 w-3" /> Hoạt động
-                                                </span>
+                                                {isLocked ? (
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 shadow-2xs">
+                                                        <Lock className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                                                        <span>Đã khóa</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 shadow-2xs">
+                                                        <Unlock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                                        <span>Đang mở</span>
+                                                    </span>
+                                                )}
                                             </td>
                                             {canManageCatalog && (
                                                 <td className="px-4 py-3 text-right">
@@ -432,19 +446,33 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                                                         <button
                                                             type="button"
                                                             onClick={() => handleOpenEdit(item)}
-                                                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer"
-                                                            title="Chỉnh sửa"
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 cursor-pointer shadow-2xs"
+                                                            title="Chỉnh sửa kỹ năng"
                                                         >
-                                                            <Pencil className="h-3.5 w-3.5" />
+                                                            <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                                                            <span>Sửa</span>
                                                         </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setDeleteTarget(item)}
-                                                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
-                                                            title="Vô hiệu hóa"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </button>
+                                                        {isLocked ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setLockTarget(item)}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 cursor-pointer shadow-2xs"
+                                                                title="Mở khóa kỹ năng (Cho phép nhân viên khai báo)"
+                                                            >
+                                                                <Unlock className="h-3.5 w-3.5 text-emerald-600" />
+                                                                <span>Mở khóa</span>
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setLockTarget(item)}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 hover:border-amber-300 cursor-pointer shadow-2xs"
+                                                                title="Khóa kỹ năng (Ngăn nhân viên khai báo)"
+                                                            >
+                                                                <Lock className="h-3.5 w-3.5 text-amber-600" />
+                                                                <span>Khóa</span>
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             )}
@@ -614,31 +642,43 @@ export default function SkillCatalogView({ catalog: externalCatalog, onUpdateCat
                 </div>
             )}
 
-            {/* ── Modal Xác nhận Xóa / Vô hiệu hóa ── */}
-            {deleteTarget && canManageCatalog && (
+            {/* ── Modal Xác nhận Khóa / Mở khóa kỹ năng ── */}
+            {lockTarget && canManageCatalog && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
                     <div className="w-full max-w-sm rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl text-center">
-                        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600 mb-3">
-                            <ShieldAlert className="h-5 w-5" />
+                        <div className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full mb-3 ${
+                            lockTarget.status === 'INACTIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                        }`}>
+                            {lockTarget.status === 'INACTIVE' ? <Unlock className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
                         </div>
-                        <h4 className="text-sm font-bold text-slate-900">Xác nhận xóa kỹ năng</h4>
+                        <h4 className="text-sm font-bold text-slate-900">
+                            {lockTarget.status === 'INACTIVE' ? 'Xác nhận mở khóa kỹ năng' : 'Xác nhận khóa kỹ năng'}
+                        </h4>
                         <p className="mt-1 text-xs text-slate-500">
-                            Bạn có chắc chắn muốn xóa / vô hiệu hóa "<strong>{deleteTarget.name}</strong>" khỏi danh mục hệ thống?
+                            {lockTarget.status === 'INACTIVE' ? (
+                                <>Bạn có chắc chắn muốn mở khóa kỹ năng "<strong>{lockTarget.name}</strong>"? Sau khi mở khóa, nhân viên có thể tiếp tục khai báo kỹ năng này.</>
+                            ) : (
+                                <>Bạn có chắc chắn muốn khóa kỹ năng "<strong>{lockTarget.name}</strong>"? Khi bị khóa, nhân viên sẽ không thể khai báo kỹ năng này nữa.</>
+                            )}
                         </p>
                         <div className="mt-4 flex gap-2">
                             <button
                                 type="button"
-                                onClick={() => setDeleteTarget(null)}
+                                onClick={() => setLockTarget(null)}
                                 className="flex-1 rounded-xl border border-slate-200 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
                             >
                                 Hủy
                             </button>
                             <button
                                 type="button"
-                                onClick={handleConfirmDelete}
-                                className="flex-1 rounded-xl bg-rose-600 py-2 text-xs font-semibold text-white hover:bg-rose-700 shadow-xs cursor-pointer"
+                                onClick={handleConfirmToggleLock}
+                                className={`flex-1 rounded-xl py-2 text-xs font-semibold text-white shadow-xs cursor-pointer ${
+                                    lockTarget.status === 'INACTIVE'
+                                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                                        : 'bg-amber-600 hover:bg-amber-700'
+                                }`}
                             >
-                                Xóa ngay
+                                {lockTarget.status === 'INACTIVE' ? 'Mở khóa' : 'Khóa kỹ năng'}
                             </button>
                         </div>
                     </div>

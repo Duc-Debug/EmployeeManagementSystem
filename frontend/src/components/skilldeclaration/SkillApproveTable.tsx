@@ -92,7 +92,7 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
 
     const handleOpenAdjustModal = (req: PendingApprovalSkill) => {
         setAdjustModalTarget(req);
-        setAdjustedLevel(req.level);
+        setAdjustedLevel(req.pendingLevel ?? req.level);
         setReviewNotes('');
     };
 
@@ -152,70 +152,98 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
                             {requests.length === 0 ? (
                                 <EmptyState />
                             ) : (
-                                requests.map((req) => (
-                                    <tr key={req.id} className="transition-colors hover:bg-slate-50/60">
-                                        {/* Nhân viên */}
-                                        <td className="px-4 py-3">
-                                            <span className="font-semibold text-slate-800">{req.employeeName}</span>
-                                        </td>
+                                requests.map((req) => {
+                                    const effectiveTargetLevel = req.pendingLevel ?? req.level;
+                                    const effectiveTargetYears = req.pendingYears ?? req.years;
+                                    const isUpdateProposal = req.pendingLevel != null;
 
-                                        {/* Kỹ năng */}
-                                        <td className="px-4 py-3">
-                                            <span className="font-medium text-indigo-600">{req.skillName}</span>
-                                        </td>
+                                    return (
+                                        <tr key={req.id} className="transition-colors hover:bg-slate-50/60">
+                                            {/* Nhân viên */}
+                                            <td className="px-4 py-3">
+                                                <span className="font-semibold text-slate-800">{req.employeeName}</span>
+                                                {req.employeeCode && (
+                                                    <span className="block text-[11px] text-slate-400 font-mono">{req.employeeCode}</span>
+                                                )}
+                                            </td>
 
-                                        {/* Phân loại */}
-                                        <td className="px-4 py-3">
-                                            <CategoryBadge cat={req.category} />
-                                        </td>
+                                            {/* Kỹ năng */}
+                                            <td className="px-4 py-3">
+                                                <span className="font-medium text-indigo-600">{req.skillName}</span>
+                                                {isUpdateProposal && (
+                                                    <span className="block text-[10px] text-amber-600 font-semibold mt-0.5">
+                                                        (Đề xuất nâng cấp kỹ năng)
+                                                    </span>
+                                                )}
+                                            </td>
 
-                                        {/* Mức đề xuất */}
-                                        <td className="px-4 py-3">
-                                            <LevelBadge level={req.level} />
-                                        </td>
+                                            {/* Phân loại */}
+                                            <td className="px-4 py-3">
+                                                <CategoryBadge cat={req.category} />
+                                            </td>
 
-                                        {/* Kinh nghiệm */}
-                                        <td className="px-4 py-3">
-                                            <span className="text-slate-600 text-xs">{req.years} năm</span>
-                                        </td>
-
-                                        {/* Xử lý */}
-                                        <td className="px-4 py-3">
-                                            {req.status === 'pending' ? (
-                                                <div className="flex items-center gap-1.5">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onApprove(req.id)}
-                                                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 cursor-pointer"
-                                                        title="Duyệt nhanh giữ nguyên mức tự khai"
-                                                    >
-                                                        <Check className="h-3.5 w-3.5" />
-                                                        Duyệt
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenAdjustModal(req)}
-                                                        className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 cursor-pointer"
-                                                        title="Điều chỉnh mức thành thạo & thêm ghi chú"
-                                                    >
-                                                        <SlidersHorizontal className="h-3 w-3" />
-                                                        Điều chỉnh
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenRejectModal(req)}
-                                                        className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 hover:border-rose-300 active:scale-95 cursor-pointer"
-                                                    >
-                                                        <X className="h-3.5 w-3.5" />
-                                                        Từ chối
-                                                    </button>
+                                            {/* Mức đề xuất */}
+                                            <td className="px-4 py-3">
+                                                <div className="space-y-1">
+                                                    <LevelBadge level={effectiveTargetLevel} />
+                                                    {isUpdateProposal && (
+                                                        <div className="text-[10px] text-slate-500 font-medium">
+                                                            Hiện tại: Level {req.level}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                <StatusBadge status={req.status} />
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+
+                                            {/* Kinh nghiệm */}
+                                            <td className="px-4 py-3">
+                                                <div className="text-slate-700 text-xs font-medium">
+                                                    {effectiveTargetYears} năm
+                                                </div>
+                                                {isUpdateProposal && effectiveTargetYears !== req.years && (
+                                                    <div className="text-[10px] text-slate-500">
+                                                        Trước: {req.years} năm
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            {/* Xử lý */}
+                                            <td className="px-4 py-3">
+                                                {req.status === 'pending' ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onApprove(req.id, effectiveTargetLevel)}
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 cursor-pointer"
+                                                            title="Duyệt mức đề xuất"
+                                                        >
+                                                            <Check className="h-3.5 w-3.5" />
+                                                            Duyệt
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenAdjustModal(req)}
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 cursor-pointer"
+                                                            title="Điều chỉnh mức thành thạo & thêm ghi chú"
+                                                        >
+                                                            <SlidersHorizontal className="h-3 w-3" />
+                                                            Điều chỉnh
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenRejectModal(req)}
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 hover:border-rose-300 active:scale-95 cursor-pointer"
+                                                        >
+                                                            <X className="h-3.5 w-3.5" />
+                                                            Từ chối
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <StatusBadge status={req.status} />
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -247,7 +275,10 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
                         <div className="space-y-3">
                             <div>
                                 <label className="mb-1 block text-xs font-semibold text-slate-600">
-                                    Mức thành thạo (Tự khai: Level {adjustModalTarget.level})
+                                    Mức thành thạo (Đề xuất: Level {adjustModalTarget.pendingLevel ?? adjustModalTarget.level})
+                                    {adjustModalTarget.pendingLevel != null && (
+                                        <span className="text-slate-400 font-normal"> - Mức hiện tại: Level {adjustModalTarget.level}</span>
+                                    )}
                                 </label>
                                 <div className="flex gap-2">
                                     {[1, 2, 3, 4, 5].map((lvl) => (
@@ -269,7 +300,7 @@ export default function SkillApproveTable({ requests, onApprove, onReject }: Ski
 
                             <div>
                                 <label className="mb-1 block text-xs font-semibold text-slate-600">
-                                    Ghi chú đánh giá / Lý do điều chỉnh {adjustedLevel !== adjustModalTarget.level && <span className="text-rose-500">*</span>}
+                                    Ghi chú đánh giá / Lý do điều chỉnh {adjustedLevel !== (adjustModalTarget.pendingLevel ?? adjustModalTarget.level) && <span className="text-rose-500">*</span>}
                                 </label>
                                 <textarea
                                     rows={3}

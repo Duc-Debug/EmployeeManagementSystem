@@ -20,7 +20,7 @@ import {
 } from "@/lib/api/capacity-dashboard";
 import { getOrgTree } from "@/lib/api/org-units";
 import { flattenActiveOrgTree } from "@/lib/organization";
-import { getCurrentIsoWeek } from "../availability/availability.types";
+import { getCurrentIsoWeek, getIsoWeekDateRange } from "../availability/availability.types";
 import { useAuthUser } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
 
@@ -39,8 +39,8 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
     const currentIso = useMemo(() => getCurrentIsoWeek(), []);
 
     const user = useAuthUser();
-    const [fromYear, setFromYear] = useState(currentIso.year);
-    const [fromWeek, setFromWeek] = useState(currentIso.weekNumber);
+    const [fromYear, setFromYear] = useState<number | "">(currentIso.year);
+    const [fromWeek, setFromWeek] = useState<number | "">(currentIso.weekNumber);
     const [durationWeeks, setDurationWeeks] = useState(8);
     const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(
         user?.dataScope === "COMPANY" ? undefined : user?.scopeOrgUnitId ?? user?.orgUnitId ?? undefined,
@@ -69,14 +69,19 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
 
     // Main fetch dashboard data
     const loadDashboardData = useCallback(async () => {
+        if (fromYear === "" || fromWeek === "") return;
+        const validYear = Number(fromYear);
+        const validWeek = Number(fromWeek);
+        if (validWeek < 1 || validWeek > 53 || validYear < 1900 || validYear > 2100) return;
+
         const sequence = ++requestSequence.current;
         setLoading(true);
         setError(null);
         try {
             const res = await getCapacityDashboard({
                 orgUnitId: selectedOrgUnitId,
-                fromYear,
-                fromWeek,
+                fromYear: validYear,
+                fromWeek: validWeek,
                 durationWeeks,
             });
             if (sequence !== requestSequence.current) return;
@@ -134,6 +139,20 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
         return { text: "text-slate-500", bg: "bg-slate-50", border: "border-slate-200", badge: "bg-slate-100 text-slate-700", label: "Chưa có phân bổ" };
     };
 
+    const datePickerValue = useMemo(() => {
+        try {
+            const w = typeof fromWeek === "number" && fromWeek >= 1 && fromWeek <= 53 ? fromWeek : currentIso.weekNumber;
+            const y = typeof fromYear === "number" && fromYear >= 2000 ? fromYear : currentIso.year;
+            const { startDate } = getIsoWeekDateRange(y, w);
+            const yr = startDate.getUTCFullYear();
+            const m = String(startDate.getUTCMonth() + 1).padStart(2, "0");
+            const d = String(startDate.getUTCDate()).padStart(2, "0");
+            return `${yr}-${m}-${d}`;
+        } catch {
+            return "";
+        }
+    }, [fromWeek, fromYear, currentIso]);
+
     const utilStyle = getUtilizationColor(avgUtil);
     const defaultScopeLabel = user?.dataScope === "COMPANY"
         ? "Toàn công ty" : user?.orgUnitName || "Phạm vi được phân quyền";
@@ -184,7 +203,7 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                             <span>Bộ lọc kỳ:</span>
                         </div>
 
-                        {/* Start Week Picker */}
+                        {/* Start Week Picker with Calendar Date Picker */}
                         <div className="flex items-center gap-1.5">
                             <label className="text-[11px] font-medium text-slate-500">Từ tuần:</label>
                             <input
@@ -192,17 +211,66 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
                                 min={1}
                                 max={53}
                                 value={fromWeek}
-                                onChange={(e) => setFromWeek(Math.max(1, Math.min(53, Number(e.target.value) || 1)))}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    if (v === "") {
+                                        setFromWeek("");
+                                        return;
+                                    }
+                                    const num = parseInt(v, 10);
+                                    if (!isNaN(num)) {
+                                        setFromWeek(num);
+                                    }
+                                }}
+                                onBlur={() => {
+                                    if (fromWeek === "" || fromWeek < 1) {
+                                        setFromWeek(1);
+                                    } else if (fromWeek > 53) {
+                                        setFromWeek(53);
+                                    }
+                                }}
                                 className="w-16 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-hidden"
                             />
                             <span className="text-xs text-slate-400">/</span>
                             <input
                                 type="number"
-                                min={2020}
-                                max={2030}
+                                min={2000}
+                                max={2099}
                                 value={fromYear}
-                                onChange={(e) => setFromYear(Number(e.target.value) || currentIso.year)}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    if (v === "") {
+                                        setFromYear("");
+                                        return;
+                                    }
+                                    const num = parseInt(v, 10);
+                                    if (!isNaN(num)) {
+                                        setFromYear(num);
+                                    }
+                                }}
+                                onBlur={() => {
+                                    if (fromYear === "" || fromYear < 2000) {
+                                        setFromYear(currentIso.year);
+                                    } else if (fromYear > 2099) {
+                                        setFromYear(2099);
+                                    }
+                                }}
                                 className="w-20 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-hidden"
+                            />
+                            {/* Calendar Picker Helper */}
+                            <input
+                                type="date"
+                                value={datePickerValue}
+                                onChange={(e) => {
+                                    if (e.target.value) {
+                                        const [y, m, d] = e.target.value.split("-").map(Number);
+                                        const iso = getCurrentIsoWeek(new Date(y, m - 1, d));
+                                        setFromYear(iso.year);
+                                        setFromWeek(iso.weekNumber);
+                                    }
+                                }}
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-2xs focus:border-indigo-500 focus:outline-hidden cursor-pointer"
+                                title="Chọn tuần từ lịch ngày"
                             />
                         </div>
 

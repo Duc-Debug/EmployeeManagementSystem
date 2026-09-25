@@ -194,6 +194,8 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
                 p.getSkillCategory(),
                 p.getProficiencyLevel(),
                 p.getYearsOfExperience(),
+                p.getPendingProficiencyLevel(),
+                p.getPendingYearsOfExperience(),
                 p.getStatus(),
                 p.getCreatedAt()
         );

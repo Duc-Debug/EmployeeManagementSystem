@@ -20,6 +20,10 @@ public record EmployeeSkillResult(
         LocalDateTime approvedAt,
         String rejectionReason,
         String reviewNotes,
+        Integer lastApprovedProficiencyLevel,
+        BigDecimal lastApprovedYearsOfExperience,
+        Integer pendingProficiencyLevel,
+        BigDecimal pendingYearsOfExperience,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
         ) {
@@ -39,6 +43,10 @@ public record EmployeeSkillResult(
                 employeeSkill.getApprovedAt(),
                 employeeSkill.getRejectionReason(),
                 employeeSkill.getReviewNotes(),
+                employeeSkill.getLastApprovedProficiencyLevel(),
+                employeeSkill.getLastApprovedYearsOfExperience(),
+                employeeSkill.getPendingProficiencyLevel(),
+                employeeSkill.getPendingYearsOfExperience(),
                 employeeSkill.getCreatedAt(),
                 employeeSkill.getUpdatedAt()
         );

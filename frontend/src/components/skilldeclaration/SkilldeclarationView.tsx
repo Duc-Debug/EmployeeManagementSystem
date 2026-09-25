@@ -30,11 +30,11 @@ let toastSeq = 0;
 export type ModuleTab = 'declare' | 'matrix' | 'catalog' | 'approve' | 'search';
 
 const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon; allowedRoles: string[] }[] = [
-    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-04', 'VT-05'] },
+    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-04'] },
     { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'] },
     { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05', 'VT-06'] },
     { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03'] },
-    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'] },
+    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-03', 'VT-06'] },
 ];
 
 interface SkillCampaign {
@@ -148,6 +148,7 @@ export default function SkilldeclarationView({
                 category: s.groupName || 'Khác',
                 groupId: s.groupId,
                 description: s.description,
+                status: s.status,
                 version: s.version,
             }));
             setCatalog(mapped);
@@ -159,7 +160,7 @@ export default function SkilldeclarationView({
 
     // 2. Tải danh sách kỹ năng cá nhân đã khai báo (cho VT-04)
     const loadPersonalSkills = async () => {
-        if (roleCode !== 'VT-04') return;
+        if (roleCode !== 'VT-04' && roleCode !== 'VT-06') return;
         try {
             const data = await getMySkills();
             const mapped: DeclaredSkill[] = data.map((es) => ({
@@ -170,6 +171,12 @@ export default function SkilldeclarationView({
                 level: es.proficiencyLevel,
                 years: es.yearsOfExperience,
                 status: (es.status?.toLowerCase() as SkillStatus) || 'pending',
+                rejectionReason: es.rejectionReason,
+                reviewNotes: es.reviewNotes,
+                pendingLevel: es.pendingProficiencyLevel,
+                pendingYears: es.pendingYearsOfExperience,
+                lastApprovedLevel: es.lastApprovedProficiencyLevel,
+                lastApprovedYears: es.lastApprovedYearsOfExperience,
             }));
             setSkills(mapped);
         } catch (err) {
@@ -185,10 +192,14 @@ export default function SkilldeclarationView({
             const mapped: PendingApprovalSkill[] = data.map((p) => ({
                 id: p.id,
                 employeeName: p.employeeName,
+                employeeCode: p.employeeCode,
+                orgUnitName: p.orgUnitName,
                 skillName: p.skillName,
                 category: p.skillCategory || 'Khác',
                 level: p.proficiencyLevel,
                 years: p.yearsOfExperience,
+                pendingLevel: p.pendingProficiencyLevel,
+                pendingYears: p.pendingYearsOfExperience,
                 status: (p.status?.toLowerCase() as any) || 'pending',
             }));
             setApprovalRequests(mapped);
@@ -404,8 +415,8 @@ export default function SkilldeclarationView({
 
             {/* ── Tab Content ── */}
             <div className="flex-1 min-h-0 overflow-y-auto">
-                {/* Tab Khai báo cá nhân (Dành cho VT-04 và VT-06) */}
-                {activeTab === 'declare' && (roleCode === 'VT-04' || roleCode === 'VT-06') && (
+                {/* Tab Khai báo cá nhân (Dành riêng cho Nhân viên chuyên môn VT-04) */}
+                {activeTab === 'declare' && roleCode === 'VT-04' && (
                     <div className="space-y-4">
                         {/* Banner thông báo đợt cập nhật kỹ năng định kỳ (User Story 9) */}
                         <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 via-sky-50/50 to-white p-4 text-slate-800 shadow-2xs">

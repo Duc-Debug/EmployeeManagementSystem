@@ -185,6 +185,14 @@ const LEVEL_OPTIONS: SelectOption<number>[] = [
     { value: 5, label: '≥ Mức 5 (Chuyên gia)' },
 ];
 
+const MIN_HOURS_OPTIONS: SelectOption<number>[] = [
+    { value: 0, label: 'Mọi mức giờ rảnh' },
+    { value: 10, label: '≥ 10h rảnh / tuần' },
+    { value: 20, label: '≥ 20h rảnh / tuần' },
+    { value: 30, label: '≥ 30h rảnh / tuần' },
+    { value: 40, label: '≥ 40h rảnh (Rảnh 100%)' },
+];
+
 const AVAILABILITY_LABEL: Record<AvailabilityStatus, string> = {
     full: 'Rảnh 100%',
     partial: 'Rảnh 1 phần',
@@ -198,10 +206,20 @@ const AVAILABILITY_FILTER_OPTIONS: { id: FilterState['availability']; label: str
     { id: 'busy', label: 'Đang bận' },
 ];
 
+export interface FilterState {
+    keyword: string;
+    skillId: string;
+    minLevel: number;
+    minHours: number;
+    availability: AvailabilityStatus | 'all';
+    department: string;
+}
+
 const DEFAULT_FILTERS: FilterState = {
     keyword: '',
     skillId: 'all',
     minLevel: 1,
+    minHours: 0,
     availability: 'all',
     department: 'all',
 };
@@ -526,9 +544,14 @@ export default function SkillresourceSearch({
             const matchesAvailability =
                 filters.availability === 'all' || emp.availability === filters.availability;
 
-            return matchesKeyword && matchesAvailability;
+            // Tính số giờ rảnh bình quân mỗi tuần
+            const weekCount = emp.weeklyAvailabilities?.length || 12;
+            const avgWeeklyRemaining = (emp.totalRemainingHours ?? 0) / Math.max(1, weekCount);
+            const matchesMinHours = filters.minHours === 0 || avgWeeklyRemaining >= filters.minHours;
+
+            return matchesKeyword && matchesAvailability && matchesMinHours;
         });
-    }, [filters.keyword, filters.availability, dataSource]);
+    }, [filters.keyword, filters.availability, filters.minHours, dataSource]);
 
     return (
         <div
@@ -558,12 +581,25 @@ export default function SkillresourceSearch({
                 </div>
             </div>
 
+            {/* Banner Giải thích Công thức QTN-10 & Phân quyền */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-indigo-50/70 border border-indigo-100 p-3.5 text-xs text-indigo-950">
+                <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span>
+                        <strong>Quy tắc QTN-10:</strong> Giờ trống thực tế = Giờ chuẩn − Giờ nghỉ lễ − Giờ nghỉ phép đã duyệt − Tổng giờ đã phân bổ vào các dự án.
+                    </span>
+                </div>
+                <span className="text-[11px] font-semibold text-indigo-700 bg-white border border-indigo-200 rounded-full px-2.5 py-0.5 shadow-2xs">
+                    Thẩm quyền: VT-03 (RM) & VT-06 (Admin)
+                </span>
+            </div>
+
             {/* Khung Bộ Lọc Tìm Kiếm */}
             <div className="mt-3 rounded-2xl bg-white p-4 text-slate-900 shadow-sm border border-slate-200">
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-3">
                     <div className="flex items-center gap-2">
                         <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
-                        <span>Bộ lọc tìm kiếm năng lực & độ rảnh</span>
+                        <span>Bộ lọc tìm kiếm năng lực & độ rảnh (NCL-02-CN-004)</span>
                     </div>
                     <button
                         type="button"
@@ -575,7 +611,7 @@ export default function SkillresourceSearch({
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 items-center">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5 items-center">
                     {/* Ô tìm từ khóa */}
                     <div className="relative flex items-center">
                         <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
@@ -611,9 +647,17 @@ export default function SkillresourceSearch({
                             value={filters.minLevel}
                             onChange={(val) => updateFilter('minLevel', Number(val))}
                             options={LEVEL_OPTIONS}
-                            className="w-32 shrink-0"
+                            className="w-28 shrink-0"
                         />
                     </div>
+
+                    {/* Lọc Giờ rảnh tối thiểu */}
+                    <CustomSelect
+                        value={filters.minHours}
+                        onChange={(val) => updateFilter('minHours', Number(val))}
+                        options={MIN_HOURS_OPTIONS}
+                        icon={<Clock className="h-4 w-4" />}
+                    />
 
                     {/* Phòng ban / Bộ phận */}
                     <CustomSelect

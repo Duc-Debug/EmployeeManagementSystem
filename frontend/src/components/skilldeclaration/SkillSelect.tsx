@@ -24,13 +24,19 @@ export function SkillSelect({
 
     const selectedSkill = catalog.find((s) => String(s.id) === value);
 
-    const filteredCatalog = catalog.filter((s) =>
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.category.toLowerCase().includes(search.toLowerCase())
-    );
+    const filteredCatalog = catalog.filter((s) => {
+        // If skill is INACTIVE and not currently selected, hide it from options
+        if (s.status === 'INACTIVE' && String(s.id) !== value) {
+            return false;
+        }
+        return (
+            s.name.toLowerCase().includes(search.toLowerCase()) ||
+            s.category.toLowerCase().includes(search.toLowerCase())
+        );
+    });
 
     const isExactMatch = catalog.some(
-        (s) => s.name.toLowerCase() === search.trim().toLowerCase()
+        (s) => (s.status !== 'INACTIVE' || String(s.id) === value) && s.name.toLowerCase() === search.trim().toLowerCase()
     );
 
     useEffect(() => {
