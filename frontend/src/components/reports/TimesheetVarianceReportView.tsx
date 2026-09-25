@@ -351,7 +351,8 @@ export default function TimesheetVarianceReportView() {
         <div>
           <button
             onClick={() => fetchReport()}
-            className="w-full py-2.5 px-4 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
+            disabled={isLoading}
+            className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl shadow-sm shadow-indigo-200 transition active:scale-95 cursor-pointer"
           >
             Áp dụng bộ lọc
           </button>
