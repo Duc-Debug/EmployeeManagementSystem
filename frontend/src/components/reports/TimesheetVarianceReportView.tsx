@@ -242,12 +242,6 @@ export default function TimesheetVarianceReportView() {
       {/* Header */}
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 text-xs font-bold bg-indigo-50 text-indigo-700 rounded-md uppercase tracking-wider border border-indigo-100">
-              NCL-09-CN-004
-            </span>
-            <span className="text-xs text-gray-500">• Giờ làm thực tế và đối chiếu kế hoạch</span>
-          </div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2.5">
             <Clock className="w-7 h-7 text-indigo-600" />
             Đối chiếu giờ phân bổ với thực tế
