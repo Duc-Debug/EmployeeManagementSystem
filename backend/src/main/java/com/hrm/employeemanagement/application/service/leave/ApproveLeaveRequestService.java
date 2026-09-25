@@ -12,6 +12,7 @@ import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorking
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveAuditLogPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveRequestPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
@@ -29,6 +30,8 @@ import com.hrm.employeemanagement.domain.exception.authorization.PermissionDenie
 import com.hrm.employeemanagement.domain.exception.leave.LeaveRequestNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.leave.LeaveRequest;
+import com.hrm.employeemanagement.domain.notification.Notification;
+import com.hrm.employeemanagement.domain.notification.NotificationType;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
@@ -61,6 +64,7 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort;
     private final SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort;
+    private final SaveNotificationPort saveNotificationPort;
 
     public ApproveLeaveRequestService(
             LoadLeaveRequestPort loadLeaveRequestPort,
@@ -69,7 +73,7 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
             AuthorizationService authorizationService
     ) {
         this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
-                null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public ApproveLeaveRequestService(
@@ -88,7 +92,7 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
     ) {
         this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
                 loadUserPort, loadOrgUnitPort, loadEmployeePort, loadWeeklyAvailabilityPort, saveWeeklyAvailabilityPort,
-                loadHolidaysPort, loadApprovedLeavesPort, loadWorkingCalendarPort, null, null);
+                loadHolidaysPort, loadApprovedLeavesPort, loadWorkingCalendarPort, null, null, null);
     }
 
     public ApproveLeaveRequestService(
@@ -107,6 +111,29 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
             LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort,
             SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort
     ) {
+        this(loadLeaveRequestPort, saveLeaveRequestPort, saveLeaveAuditLogPort, authorizationService,
+                loadUserPort, loadOrgUnitPort, loadEmployeePort, loadWeeklyAvailabilityPort, saveWeeklyAvailabilityPort,
+                loadHolidaysPort, loadApprovedLeavesPort, loadWorkingCalendarPort,
+                loadWeeklyProjectAllocationPort, saveWeeklyProjectAllocationPort, null);
+    }
+
+    public ApproveLeaveRequestService(
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            SaveLeaveAuditLogPort saveLeaveAuditLogPort,
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyAvailabilityPort saveWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadWeeklyProjectAllocationPort loadWeeklyProjectAllocationPort,
+            SaveWeeklyProjectAllocationPort saveWeeklyProjectAllocationPort,
+            SaveNotificationPort saveNotificationPort
+    ) {
         this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
         this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
         this.saveLeaveAuditLogPort = Objects.requireNonNull(saveLeaveAuditLogPort, "saveLeaveAuditLogPort must not be null");
@@ -121,6 +148,7 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
         this.loadWeeklyProjectAllocationPort = loadWeeklyProjectAllocationPort;
         this.saveWeeklyProjectAllocationPort = saveWeeklyProjectAllocationPort;
+        this.saveNotificationPort = saveNotificationPort;
     }
 
     @Override
@@ -174,6 +202,22 @@ public class ApproveLeaveRequestService implements ApproveLeaveRequestUseCase {
         // đồng thời cập nhật trạng thái quá tải (isOverloaded) cho các phân bổ dự án trong tuần
         if (employee != null) {
             recalculateWeeklyAvailability(savedRequest, employee, currentUserId);
+        }
+
+        // 8. Gửi thông báo đến nhân viên nộp đơn
+        if (saveNotificationPort != null && employee != null && employee.getUserIdValue() != null) {
+            String title = "Đơn nghỉ phép đã được phê duyệt";
+            String content = String.format("Đơn nghỉ phép từ %s đến %s của bạn đã được phê duyệt.",
+                    savedRequest.getStartDate(), savedRequest.getEndDate());
+            saveNotificationPort.save(Notification.create(
+                    new UserId(employee.getUserIdValue()),
+                    currentUserId != null ? new UserId(currentUserId) : null,
+                    NotificationType.LEAVE_APPROVED,
+                    "LEAVE_REQUEST",
+                    savedRequest.getId(),
+                    title,
+                    content
+            ));
         }
 
         return LeaveRequestResult.fromDomain(savedRequest);

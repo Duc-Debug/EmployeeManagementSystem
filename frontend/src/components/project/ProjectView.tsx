@@ -543,6 +543,13 @@ export default function ProjectView() {
         loadProjects();
     }, [loadProjects]);
 
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.get('taskId')) {
+            setViewMode((prev) => (prev === 'wbs' || prev === 'split' ? prev : (canReadAllocations ? 'split' : 'wbs')));
+        }
+    }, [location.search, canReadAllocations]);
+
     const [months] = useState(buildMonths);
     const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
 
