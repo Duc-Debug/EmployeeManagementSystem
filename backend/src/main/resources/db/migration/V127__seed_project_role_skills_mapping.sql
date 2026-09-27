@@ -17,7 +17,19 @@ INSERT INTO skills (code, name, category, description)
 SELECT 'UI_UX_DESIGN', 'Thiết kế UI/UX', 'Design', 'Thiết kế trải nghiệm người dùng, giao diện Figma và xây dựng prototype'
 WHERE NOT EXISTS (SELECT 1 FROM skills WHERE code IN ('UI_UX_DESIGN', 'UIUX'));
 
--- 2. Ánh xạ Vai trò DEV (Lập trình) -> Các kỹ năng lập trình (JAVA, SPRING_BOOT, REACT, TYPESCRIPT)
+-- 2. Cấp quyền xem báo cáo tuyển dụng cho toàn bộ các vai trò quản lý & điều phối (VT-01, VT-02, VT-03, VT-05, VT-06)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code IN ('VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06')
+  AND p.code = 'RECRUITMENT_DEMAND_REPORT_READ'
+  AND NOT EXISTS (
+      SELECT 1 FROM role_permissions rp 
+      WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
+
+-- 3. Ánh xạ Vai trò DEV (Lập trình) -> Các kỹ năng lập trình (JAVA, SPRING_BOOT, REACT, TYPESCRIPT)
 INSERT INTO project_role_skills (role_id, skill_id, required_level, status)
 SELECT pr.id, s.id, 1, 'ACTIVE'
 FROM project_roles pr
@@ -29,7 +41,7 @@ WHERE pr.code = 'DEV'
       WHERE prs.role_id = pr.id AND prs.skill_id = s.id
   );
 
--- 3. Ánh xạ Vai trò TEST (Kiểm thử) -> Kỹ năng TESTING
+-- 4. Ánh xạ Vai trò TEST (Kiểm thử) -> Kỹ năng TESTING
 INSERT INTO project_role_skills (role_id, skill_id, required_level, status)
 SELECT pr.id, s.id, 1, 'ACTIVE'
 FROM project_roles pr
@@ -41,7 +53,7 @@ WHERE pr.code = 'TEST'
       WHERE prs.role_id = pr.id AND prs.skill_id = s.id
   );
 
--- 4. Ánh xạ Vai trò BA (Phân tích nghiệp vụ) -> Kỹ năng BUSINESS_ANALYSIS
+-- 5. Ánh xạ Vai trò BA (Phân tích nghiệp vụ) -> Kỹ năng BUSINESS_ANALYSIS
 INSERT INTO project_role_skills (role_id, skill_id, required_level, status)
 SELECT pr.id, s.id, 1, 'ACTIVE'
 FROM project_roles pr
@@ -53,7 +65,7 @@ WHERE pr.code = 'BA'
       WHERE prs.role_id = pr.id AND prs.skill_id = s.id
   );
 
--- 5. Ánh xạ Vai trò UIUX (Thiết kế UI/UX) -> Kỹ năng UI_UX_DESIGN
+-- 6. Ánh xạ Vai trò UIUX (Thiết kế UI/UX) -> Kỹ năng UI_UX_DESIGN
 INSERT INTO project_role_skills (role_id, skill_id, required_level, status)
 SELECT pr.id, s.id, 1, 'ACTIVE'
 FROM project_roles pr
@@ -65,7 +77,7 @@ WHERE pr.code = 'UIUX'
       WHERE prs.role_id = pr.id AND prs.skill_id = s.id
   );
 
--- 6. Ánh xạ Vai trò DEVOPS -> Kỹ năng DOCKER
+-- 7. Ánh xạ Vai trò DEVOPS -> Kỹ năng DOCKER
 INSERT INTO project_role_skills (role_id, skill_id, required_level, status)
 SELECT pr.id, s.id, 1, 'ACTIVE'
 FROM project_roles pr
