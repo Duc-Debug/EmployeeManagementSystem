@@ -32,6 +32,8 @@ export default function DeclareAvailabilityModal({
   const [year, setYear] = useState<number>(initialYear);
   const [weekNumber, setWeekNumber] = useState<number>(initialWeekNumber);
   const [standardHours, setStandardHours] = useState<number>(initialStandardHours);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   // Synchronize state with incoming initial props whenever modal opens or props change
   useEffect(() => {
@@ -47,9 +49,6 @@ export default function DeclareAvailabilityModal({
       setErrorMessage("");
     }
   }, [open, initialEmployeeId, initialYear, initialWeekNumber, initialStandardHours, employees]);
-
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>("");
 
   // Compute date range for the selected week
   const dateRangeText = useMemo(() => {
