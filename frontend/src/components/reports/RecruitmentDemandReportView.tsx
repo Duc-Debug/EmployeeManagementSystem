@@ -10,7 +10,9 @@ import {
   FileSpreadsheet,
   Building2,
   Calendar,
-  Check
+  Check,
+  FolderKanban,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +42,13 @@ export default function RecruitmentDemandReportView() {
   const [filterKeyword, setFilterKeyword] = useState<string>("");
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
   const [auditNotice, setAuditNotice] = useState<string | null>(null);
+  const [viewingProjectsSkill, setViewingProjectsSkill] = useState<{
+    skillName: string;
+    skillCode: string;
+    projects: string[];
+    status: string;
+  } | null>(null);
+  const [projectSearchKeyword, setProjectSearchKeyword] = useState<string>("");
 
   useEffect(() => {
     async function loadOrgUnitsData() {
@@ -424,21 +433,43 @@ export default function RecruitmentDemandReportView() {
                       </td>
                       <td className="py-3.5 px-4 text-left">
                         {item.demandingProjects && item.demandingProjects.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 max-w-xs">
-                            {item.demandingProjects.map((p, idx) => (
-                              <span
-                                key={idx}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border shadow-2xs max-w-[130px] truncate",
+                                item.status === "DEFICIT"
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              )}
+                              title={item.demandingProjects[0]}
+                            >
+                              <FolderKanban className="h-3 w-3 shrink-0 opacity-70" />
+                              <span className="truncate">{item.demandingProjects[0]}</span>
+                            </span>
+
+                            {item.demandingProjects.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setViewingProjectsSkill({
+                                    skillName: item.skillName,
+                                    skillCode: item.skillCode,
+                                    projects: item.demandingProjects || [],
+                                    status: item.status
+                                  });
+                                  setProjectSearchKeyword("");
+                                }}
                                 className={cn(
-                                  "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border shadow-2xs",
+                                  "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold border transition hover:opacity-80 cursor-pointer shadow-2xs",
                                   item.status === "DEFICIT"
-                                    ? "bg-rose-50 text-rose-700 border-rose-200"
-                                    : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                    ? "bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200"
+                                    : "bg-indigo-100 text-indigo-800 border-indigo-300 hover:bg-indigo-200"
                                 )}
-                                title={p}
+                                title={`Xem toàn bộ ${item.demandingProjects.length} dự án`}
                               >
-                                {p}
-                              </span>
-                            ))}
+                                +{item.demandingProjects.length - 1} dự án
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-400 italic text-[11px]">—</span>
@@ -475,6 +506,92 @@ export default function RecruitmentDemandReportView() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xem danh sách toàn bộ dự án yêu cầu kỹ năng */}
+      {viewingProjectsSkill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                  <FolderKanban className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Dự án cần kỹ năng
+                    <span className="rounded-lg bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 border border-indigo-100 font-mono">
+                      {viewingProjectsSkill.skillCode}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5 truncate">
+                    {viewingProjectsSkill.skillName} • Tổng cộng <strong className="text-slate-800">{viewingProjectsSkill.projects.length}</strong> dự án
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setViewingProjectsSkill(null)}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer shrink-0"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {viewingProjectsSkill.projects.length > 4 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm dự án..."
+                  value={projectSearchKeyword}
+                  onChange={(e) => setProjectSearchKeyword(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-1.5 pl-9 pr-3 text-xs outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition"
+                />
+              </div>
+            )}
+
+            <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+              {viewingProjectsSkill.projects
+                .filter((p) =>
+                  p.toLowerCase().includes(projectSearchKeyword.trim().toLowerCase())
+                )
+                .map((p, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-xs text-slate-800 hover:bg-slate-100/80 transition"
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white border border-slate-200 text-[10px] font-mono font-bold text-slate-500">
+                      {idx + 1}
+                    </span>
+                    <FolderKanban className="h-3.5 w-3.5 shrink-0 text-indigo-500/70" />
+                    <p className="text-xs font-semibold text-slate-800 truncate flex-1" title={p}>
+                      {p}
+                    </p>
+                  </div>
+                ))}
+
+              {viewingProjectsSkill.projects.filter((p) =>
+                p.toLowerCase().includes(projectSearchKeyword.trim().toLowerCase())
+              ).length === 0 && (
+                <p className="py-6 text-center text-xs text-slate-400 italic">
+                  Không tìm thấy dự án phù hợp với từ khóa tìm kiếm.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setViewingProjectsSkill(null)}
+                className="rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

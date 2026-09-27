@@ -54,13 +54,13 @@ public interface SpringDataProjectResourceDemandRepository
 
     @Query("""
         SELECT d.roleId AS roleId, SUM(d.requiredHours) AS requiredHours,
-               p.code AS projectCode, p.name AS projectName
+               p.projectCode AS projectCode, p.projectName AS projectName
         FROM ProjectResourceDemandJpaEntity d JOIN ProjectJpaEntity p ON p.id = d.projectId
         WHERE (:orgUnitId IS NULL OR p.orgUnitId = :orgUnitId)
           AND p.status IN (com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED)
           AND (d.year > :fromYear OR (d.year = :fromYear AND d.weekNumber >= :fromWeek))
           AND (d.year < :toYear OR (d.year = :toYear AND d.weekNumber <= :toWeek))
-        GROUP BY d.roleId, p.code, p.name
+        GROUP BY d.roleId, p.projectCode, p.projectName
     """)
     List<ProjectDemandByRoleProjection> sumDemandsByRoleFiltered(
             @Param("orgUnitId") Long orgUnitId, @Param("fromYear") Integer fromYear,
@@ -68,13 +68,13 @@ public interface SpringDataProjectResourceDemandRepository
 
     @Query("""
         SELECT d.roleId AS roleId, SUM(d.requiredHours) AS requiredHours,
-               p.code AS projectCode, p.name AS projectName
+               p.projectCode AS projectCode, p.projectName AS projectName
         FROM ProjectResourceDemandJpaEntity d JOIN ProjectJpaEntity p ON p.id = d.projectId
         WHERE p.orgUnitId IN :orgUnitIds
           AND p.status IN (com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED)
           AND (d.year > :fromYear OR (d.year = :fromYear AND d.weekNumber >= :fromWeek))
           AND (d.year < :toYear OR (d.year = :toYear AND d.weekNumber <= :toWeek))
-        GROUP BY d.roleId, p.code, p.name
+        GROUP BY d.roleId, p.projectCode, p.projectName
     """)
     List<ProjectDemandByRoleProjection> sumDemandsByRoleFilteredByOrgUnitIds(
             @Param("orgUnitIds") List<Long> orgUnitIds, @Param("fromYear") Integer fromYear,
