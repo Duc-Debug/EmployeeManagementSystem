@@ -2,10 +2,9 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.p
 
 import java.math.BigDecimal;
 
-public interface ProjectDemandByRoleProjection {
+public interface ProjectDemandByRoleDetailProjection {
     Long getRoleId();
     BigDecimal getRequiredHours();
-    default String getProjectCode() { return null; }
-    default String getProjectName() { return null; }
+    String getProjectCode();
+    String getProjectName();
 }
-

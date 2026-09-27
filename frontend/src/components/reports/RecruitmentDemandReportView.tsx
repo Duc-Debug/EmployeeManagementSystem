@@ -22,7 +22,10 @@ import { getIsoWeeksInYear } from "@/lib/iso-week";
 import { getOrgTree } from "@/lib/api/org-units";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 
+import { useAuthUser } from "@/lib/auth-session";
+
 export default function RecruitmentDemandReportView() {
+  const currentUser = useAuthUser();
   const currentYear = new Date().getFullYear();
   const [fromYear, setFromYear] = useState<number>(currentYear);
   const [fromWeek, setFromWeek] = useState<number>(1);
@@ -42,6 +45,23 @@ export default function RecruitmentDemandReportView() {
     async function loadOrgUnitsData() {
       try {
         const tree = await getOrgTree();
+        
+        const findSubtree = (nodes: readonly OrgUnitTreeNode[], targetId: number): readonly OrgUnitTreeNode[] => {
+          for (const n of nodes) {
+            if (n.id === targetId) return [n];
+            if (n.children && n.children.length > 0) {
+              const found = findSubtree(n.children, targetId);
+              if (found.length > 0) return found;
+            }
+          }
+          return [];
+        };
+
+        let scopedTree: readonly OrgUnitTreeNode[] = tree || [];
+        if (currentUser?.dataScope === "ORGANIZATION_BRANCH" && currentUser?.scopeOrgUnitId) {
+          scopedTree = findSubtree(scopedTree, currentUser.scopeOrgUnitId);
+        }
+
         const flatten = (nodes: readonly OrgUnitTreeNode[]): OrgUnitTreeNode[] => {
           let list: OrgUnitTreeNode[] = [];
           for (const n of nodes) {
@@ -52,13 +72,13 @@ export default function RecruitmentDemandReportView() {
           }
           return list;
         };
-        setOrgUnits(flatten([...(tree || [])]));
+        setOrgUnits(flatten([...scopedTree]));
       } catch (err) {
         console.warn("Không thể tải danh sách phòng ban:", err);
       }
     }
     loadOrgUnitsData();
-  }, []);
+  }, [currentUser?.dataScope, currentUser?.scopeOrgUnitId]);
 
   const fetchReport = async () => {
     setIsLoading(true);
@@ -368,6 +388,7 @@ export default function RecruitmentDemandReportView() {
                   <th className="py-3.5 px-4">Mã kỹ năng</th>
                   <th className="py-3.5 px-4">Tên kỹ năng</th>
                   <th className="py-3.5 px-4">Nhóm kỹ năng</th>
+                  <th className="py-3.5 px-4">Dự án cần / thiếu</th>
                   <th className="py-3.5 px-4 text-right">Nhu cầu dự án (giờ)</th>
                   <th className="py-3.5 px-4 text-right">Năng lực hiện có (giờ)</th>
                   <th className="py-3.5 px-4 text-right">Số giờ thiếu (giờ)</th>
@@ -377,7 +398,7 @@ export default function RecruitmentDemandReportView() {
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {filteredSkills.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400 italic">
+                    <td colSpan={8} className="py-8 text-center text-slate-400 italic">
                       Không tìm thấy bản ghi kỹ năng thỏa mãn điều kiện lọc.
                     </td>
                   </tr>
@@ -400,6 +421,28 @@ export default function RecruitmentDemandReportView() {
                         <span className="inline-flex items-center rounded-lg bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
                           {item.category}
                         </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-left">
+                        {item.demandingProjects && item.demandingProjects.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-xs">
+                            {item.demandingProjects.map((p, idx) => (
+                              <span
+                                key={idx}
+                                className={cn(
+                                  "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border shadow-2xs",
+                                  item.status === "DEFICIT"
+                                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                                    : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                )}
+                                title={p}
+                              >
+                                {p}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-[11px]">—</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-800">
                         {item.requiredDemandHours.toLocaleString("vi-VN")} h
