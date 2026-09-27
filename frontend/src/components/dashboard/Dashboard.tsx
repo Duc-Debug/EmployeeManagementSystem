@@ -63,6 +63,18 @@ export default function Dashboard() {
         navigate(targetPath);
     };
 
+    // Điều hướng trang Không sẵn sàng độc lập: Nhúng vào lịch tuần của VT-04, các vai trò khác về trang chủ
+    useEffect(() => {
+        if (activeTab === "unavailability") {
+            const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
+            if (role === "VT-04" || role === "ROLE-EMPLOYEE" || role === "EMPLOYEE") {
+                navigate("/my-schedule", { replace: true });
+            } else {
+                navigate("/", { replace: true });
+            }
+        }
+    }, [activeTab, user, navigate]);
+
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(
         INITIAL_ATTENDANCE_RECORDS

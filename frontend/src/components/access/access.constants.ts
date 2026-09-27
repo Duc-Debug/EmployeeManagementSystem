@@ -216,7 +216,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, Record<string, ModulePermi
         hrprofile: { moduleId: "hrprofile", moduleName: "Hồ sơ nhân sự", scope: { type: "all" }, actions: { view: true, create: false, edit: false, delete: false, approve: false, export: true } },
         projects: { moduleId: "projects", moduleName: "Quản lý dự án & WBS", scope: { type: "all" }, actions: { view: false, create: false, edit: false, delete: false, approve: false, export: false } },
         capacity: { moduleId: "capacity", moduleName: "Bảng năng lực & Phân bổ", scope: { type: "all" }, actions: { view: false, create: false, edit: false, delete: false, approve: false, export: false } },
-        availability: { moduleId: "availability", moduleName: "Giờ khả dụng", scope: { type: "all" }, actions: { view: true, create: true, edit: true, delete: true, approve: true, export: true } },
+        availability: { moduleId: "availability", moduleName: "Giờ khả dụng", scope: { type: "all" }, actions: { view: false, create: false, edit: false, delete: false, approve: false, export: false } },
         calendar: { moduleId: "calendar", moduleName: "Lịch & Ngày lễ", scope: { type: "all" }, actions: { view: true, create: true, edit: true, delete: true, approve: true, export: true } },
         skills: { moduleId: "skills", moduleName: "Quản lý & Khai báo Kỹ năng", scope: { type: "all" }, actions: { view: true, create: true, edit: true, delete: true, approve: false, export: true } },
         timesheets: { moduleId: "timesheets", moduleName: "Bảng chấm công", scope: { type: "all" }, actions: { view: false, create: false, edit: false, delete: false, approve: false, export: false } },

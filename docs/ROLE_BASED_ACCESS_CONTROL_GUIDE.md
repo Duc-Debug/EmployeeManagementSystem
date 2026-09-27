@@ -214,7 +214,10 @@ flowchart TD
 5. **Nhật ký Kiểm toán (Audit Logs)**: Kiểm soát và tra cứu lịch sử truy cập, thay đổi dữ liệu nhân sự và phân quyền (Rule `QTN-02`).
 
 #### Giới hạn & Ràng buộc nghiệp vụ (Constraints):
-* ⛔ **KHÔNG** can thiệp vào các hoạt động nghiệp vụ dự án hàng ngày (không tạo WBS, không phân bổ nguồn lực, không ghi hay duyệt giờ làm).
+* ⛔ **KHÔNG** can thiệp vào các hoạt động nghiệp vụ dự án hàng ngày (không tạo WBS, mốc tiến độ, phụ thuộc công việc hay trao đổi task).
+* ⛔ **KHÔNG** phân bổ, điều phối nguồn lực, không xử lý cảnh báo xung đột lịch hay kịch bản mô phỏng.
+* ⛔ **KHÔNG** ghi hay duyệt bảng chấm công (Timesheet).
+* ⛔ **KHÔNG** truy cập Bảng điều khiển năng lực và các báo cáo nghiệp vụ (tỷ lệ giờ tính phí, đối chiếu giờ phân bổ với thực tế, dự báo năng lực, nhu cầu tuyển dụng). Tuân thủ nghiêm ngặt đặc tả `De_tai_2_Ke_Hoach_Nguon_Luc.xlsx`.
 
 #### Danh sách User Stories phụ trách trực tiếp:
 * `NCL-01-CN-002`, `NCL-01-CN-003`, `NCL-01-CN-004`, `NCL-01-CN-006`: Quản lý tài khoản, khai báo cây tổ chức, gán vai trò & scope, khóa/mở tài khoản.
@@ -253,10 +256,10 @@ Mọi tài khoản (`VT-01` $\rightarrow$ `VT-06`) đều mặc nhiên có quy�
 | **NCL-04** | **Giao việc & Tiến độ** | 👁️ Xem tiến độ | ✅ **Giao việc, WBS, Mốc tiến độ** | 👁️ Xem tải công việc | ✅ **Cập nhật việc & Trao đổi** | ❌ Ẩn | ❌ Ẩn |
 | **NCL-05** | **Lịch làm việc & Nghỉ phép** | 👁️ Xem báo cáo | 👁️ Lịch nghỉ của team | ✅ **Duyệt phép & Trừ giờ** | 📝 Nộp đơn & Quỹ phép | ✅ **Khai báo Lịch & Ngày lễ** | ❌ Ẩn |
 | **NCL-06** | **Phân bổ nguồn lực tuần** | 👁️ Bảng năng lực Cty | 📝 Giữ chỗ dự án | ✅ **Toàn quyền Phân bổ bộ phận** | ❌ Ẩn | ❌ Ẩn | ❌ Ẩn |
-| **NCL-07** | **Cảnh báo xung đột & Thay thế** | ⚙️ Cấu hình ngưỡng | ⚠️ Nhận cảnh báo & Đổi lịch | ✅ **Xử lý & Chọn người thay thế**| ❌ Ẩn | ❌ Ẩn | 👁️ Xem kỹ thuật |
+| **NCL-07** | **Cảnh báo xung đột & Thay thế** | ⚙️ Cấu hình ngưỡng | ⚠️ Nhận cảnh báo & Đổi lịch | ✅ **Xử lý & Chọn người thay thế**| ❌ Ẩn | ❌ Ẩn | ❌ Ẩn |
 | **NCL-08** | **Mô phỏng kịch bản (Scenario)** | 👁️ So sánh kịch bản | ❌ Ẩn | ✅ **Tạo, Chạy & Áp dụng** | ❌ Ẩn | ❌ Ẩn | ❌ Ẩn |
 | **NCL-09** | **Giờ làm thực tế (Timesheet)** | 👁️ Đối chiếu giờ | ✅ **Duyệt giờ dự án** | 👁️ Đối chiếu giờ bộ phận | 📝 Ghi & Nộp giờ làm | 👁️ Tổng hợp | ❌ Ẩn |
-| **NCL-10** | **Báo cáo & Bảng điều khiển** | ✅ **Toàn quyền Báo cáo Cty** | 👁️ Báo cáo dự án | 👁️ Báo cáo bộ phận | ❌ Ẩn | ❌ Ẩn | 👁️ Xem kỹ thuật |
+| **NCL-10** | **Báo cáo & Bảng điều khiển** | ✅ **Toàn quyền Báo cáo Cty** | 👁️ Báo cáo dự án | 👁️ Báo cáo bộ phận | ❌ Ẩn | ❌ Ẩn | ❌ Ẩn |
 | **NCL-11** | **Thông báo & Nhắc việc** | 🔔 Nhận thông báo | 🔔 Nhận thông báo | 🔔 Nhận thông báo | 🔔 Nhắc hạn & Phân bổ | 🔔 Nhận thông báo | ⚙️ Quản trị tác vụ nền |
 | **NCL-12** | **Quản trị hệ thống & Danh mục** | ❌ Ẩn | ❌ Ẩn | ❌ Ẩn | ❌ Ẩn | 👁️ Xem danh mục | ✅ **Toàn quyền Cấu hình & Backup** |
 | **NCL-13** | **Cổng nhân viên & Lịch cá nhân**| ❌ Ẩn | ❌ Ẩn | 👁️ Xem phản hồi | ✅ **Xem lịch, Xác nhận, Báo bận**| ❌ Ẩn | ❌ Ẩn |
@@ -303,7 +306,7 @@ Toàn bộ 71 mã quyền trong CSDL được phân nhóm và gán cho các Role
 | `EMPLOYEE_SKILL_READ` | Xem kỹ năng nhân sự | Xem hồ sơ kỹ năng của nhân viên | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `EMPLOYEE_SKILL_DECLARE` | Khai báo kỹ năng | Tự khai báo kỹ năng bản thân | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
 | `EMPLOYEE_SKILL_APPROVE` | Phê duyệt kỹ năng | Đánh giá, duyệt mức thành thạo | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
-| `RESOURCE_SEARCH` | Tìm kiếm nhân sự | Tìm nhân sự theo kỹ năng & giờ trống | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| `RESOURCE_SEARCH` | Tìm kiếm nhân sự | Tìm nhân sự theo kỹ năng & giờ trống | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 ### 5.4. Nhóm Quản lý Dự án, WBS, Mốc tiến độ & Công việc
 | Mã Permission Code | Tên quyền | Mô tả chức năng | VT-01 | VT-02 | VT-03 | VT-04 | VT-05 | VT-06 |
@@ -319,15 +322,15 @@ Toàn bộ 71 mã quyền trong CSDL được phân nhóm và gán cho các Role
 | `PROJECT_RESOURCE_DEMAND_ESTIMATE` | Ước lượng nhu cầu | Khai báo nhu cầu nhân sự dự án | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `PROJECT_TEMPLATE_READ` | Xem mẫu dự án | Xem các mẫu dự án có sẵn | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `PROJECT_MILESTONE_READ` | Xem mốc tiến độ | Xem danh sách mốc tiến độ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| `PROJECT_MILESTONE_MANAGE` | Quản lý mốc tiến độ | Tạo, cập nhật mốc tiến độ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `PROJECT_TASK_DEPENDENCY_READ` | Xem phụ thuộc công việc | Xem quan hệ phụ thuộc WBS | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `PROJECT_TASK_DEPENDENCY_MANAGE` | Quản lý phụ thuộc WBS | Khai báo quan hệ FS/SS/FF/SF | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `PROJECT_CASCADE_DELAY_READ` | Xem trễ dây chuyền | Xem ảnh hưởng trễ tiến độ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `PROJECT_CASCADE_DELAY_MANAGE` | Xử lý trễ dây chuyền | Xác nhận điều chỉnh trễ tiến độ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `TASK_DISCUSSION_READ` | Xem trao đổi công việc | Xem bình luận trên task | ❌ | ✅ | ❌ | ✅ | ❌ | ✅ |
-| `TASK_DISCUSSION_CREATE` | Viết trao đổi công việc | Thêm ghi chú, đính kèm tệp vào task | ❌ | ✅ | ❌ | ✅ | ❌ | ✅ |
-| `TASK_DISCUSSION_DELETE` | Xóa trao đổi cá nhân | Xóa bình luận của chính mình | ❌ | ✅ | ❌ | ✅ | ❌ | ✅ |
-| `TASK_DISCUSSION_MANAGE` | Quản lý trao đổi | Xóa bất kỳ bình luận nào | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `PROJECT_MILESTONE_MANAGE` | Quản lý mốc tiến độ | Tạo, cập nhật mốc tiến độ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `PROJECT_TASK_DEPENDENCY_READ` | Xem phụ thuộc công việc | Xem quan hệ phụ thuộc WBS | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `PROJECT_TASK_DEPENDENCY_MANAGE` | Quản lý phụ thuộc WBS | Khai báo quan hệ FS/SS/FF/SF | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `PROJECT_CASCADE_DELAY_READ` | Xem trễ dây chuyền | Xem ảnh hưởng trễ tiến độ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `PROJECT_CASCADE_DELAY_MANAGE` | Xử lý trễ dây chuyền | Xác nhận điều chỉnh trễ tiến độ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `TASK_DISCUSSION_READ` | Xem trao đổi công việc | Xem bình luận trên task | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `TASK_DISCUSSION_CREATE` | Viết trao đổi công việc | Thêm ghi chú, đính kèm tệp vào task | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `TASK_DISCUSSION_DELETE` | Xóa trao đổi cá nhân | Xóa bình luận của chính mình | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `TASK_DISCUSSION_MANAGE` | Quản lý trao đổi | Xóa bất kỳ bình luận nào | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 ### 5.5. Nhóm Phân bổ Nguồn lực, Xung đột & Kịch bản Mô phỏng
 | Mã Permission Code | Tên quyền | Mô tả chức năng | VT-01 | VT-02 | VT-03 | VT-04 | VT-05 | VT-06 |
@@ -336,27 +339,28 @@ Toàn bộ 71 mã quyền trong CSDL được phân nhóm và gán cho các Role
 | `RESOURCE_ALLOCATION_MANAGE` | Quản lý phân bổ nguồn lực | Thêm, sửa, gỡ phân bổ theo tuần | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | `RESOURCE_RESERVATION_READ` | Xem giữ chỗ nguồn lực | Xem danh sách giờ giữ chỗ dự án | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | `RESOURCE_RESERVATION_MANAGE` | Quản lý giữ chỗ nguồn lực | Đặt giữ chỗ cho dự án dự kiến | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| `RESOURCE_SCHEDULE_CONFLICT_READ` | Xem cảnh báo xung đột | Xem trùng lịch & quá tải | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| `RESOURCE_SCHEDULE_CONFLICT_NOTIFY`| Gửi thông báo xung đột | Gửi tin thương lượng xung đột | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| `RESOURCE_REPLACEMENT_SUGGEST` | Gợi ý người thay thế | Xem đề xuất nhân sự thay thế | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `RESOURCE_CONFLICT_HANDLE` | Xử lý danh sách xung đột | Đánh dấu và ghi nhận xử lý | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| `RESOURCE_SCHEDULE_CONFLICT_READ` | Xem cảnh báo xung đột | Xem trùng lịch & quá tải | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `RESOURCE_SCHEDULE_CONFLICT_NOTIFY`| Gửi thông báo xung đột | Gửi tin thương lượng xung đột | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `RESOURCE_REPLACEMENT_SUGGEST` | Gợi ý người thay thế | Xem đề xuất nhân sự thay thế | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `RESOURCE_CONFLICT_HANDLE` | Xử lý danh sách xung đột | Đánh dấu và ghi nhận xử lý | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | `RESOURCE_SCENARIO_READ` | Xem kịch bản mô phỏng | Xem kịch bản nháp nhận thêm dự án | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | `RESOURCE_SCENARIO_MANAGE` | Quản lý kịch bản mô phỏng | Tạo, chạy, áp dụng kịch bản | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | `RESOURCE_SCENARIO_COMPARE` | So sánh kịch bản | So sánh các phương án mô phỏng | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `RESOURCE_RECRUITMENT_SCENARIO_READ` | Xem kịch bản tuyển dụng | Xem kịch bản tuyển thêm người | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `RESOURCE_RECRUITMENT_SCENARIO_MANAGE` | Quản lý kịch bản tuyển dụng| Tạo & chạy mô phỏng tuyển dụng | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| `RESOURCE_RECRUITMENT_SCENARIO_READ` | Xem kịch bản tuyển dụng | Xem kịch bản tuyển thêm người | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `RESOURCE_RECRUITMENT_SCENARIO_MANAGE` | Quản lý kịch bản tuyển dụng| Tạo & chạy mô phỏng tuyển dụng | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 ### 5.6. Nhóm Chấm công, Báo cáo & Tiện ích
 | Mã Permission Code | Tên quyền | Mô tả chức năng | VT-01 | VT-02 | VT-03 | VT-04 | VT-05 | VT-06 |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| `WORK_LOG_READ` | Xem giờ công cá nhân | Xem các dòng ghi giờ của mình | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `WORK_LOG_CREATE` | Ghi giờ công | Nhập giờ làm việc theo công việc | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `WORK_LOG_UPDATE` | Sửa giờ công | Sửa dòng giờ làm ở trạng thái nháp | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `WORK_LOG_DELETE` | Xóa giờ công | Xóa dòng giờ làm nháp | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `TIMESHEET_VARIANCE_READ` | Đối chiếu giờ kế hoạch/thực tế | Xem báo cáo chênh lệch giờ công | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `CAPACITY_DASHBOARD_READ` | Bảng điều khiển năng lực | Xem dashboard tổng quan năng lực | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| `WORK_LOG_READ` | Xem giờ công cá nhân | Xem các dòng ghi giờ của mình | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `WORK_LOG_CREATE` | Ghi giờ công | Nhập giờ làm việc theo công việc | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `WORK_LOG_UPDATE` | Sửa giờ công | Sửa dòng giờ làm ở trạng thái nháp | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `WORK_LOG_DELETE` | Xóa giờ công | Xóa dòng giờ làm nháp | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `TIMESHEET_VARIANCE_READ` | Đối chiếu giờ kế hoạch/thực tế | Xem báo cáo chênh lệch giờ công | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `CAPACITY_DASHBOARD_READ` | Bảng điều khiển năng lực | Xem dashboard tổng quan năng lực | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `BILLABLE_HOURS_REPORT_READ` | Báo cáo tỷ lệ giờ tính phí | Xem tỷ lệ giờ tính phí nhân sự | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `CAPACITY_FORECAST_REPORT_READ` | Báo cáo dự báo năng lực | Xem dự báo tải các tuần tới | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
-| `RECRUITMENT_DEMAND_REPORT_READ` | Báo cáo nhu cầu tuyển dụng | Xem tổng hợp nhu cầu theo kỹ năng | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| `RECRUITMENT_DEMAND_REPORT_READ` | Báo cáo nhu cầu tuyển dụng | Xem tổng hợp nhu cầu theo kỹ năng | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `DATA_IMPORT` | Nhập dữ liệu từ tệp | Nhập hàng loạt hồ sơ & dự án | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
@@ -426,7 +430,7 @@ export function canAccessTab(
     case "overview":
       return true; // Tất cả 6 roles
     case "capacity-dashboard":
-      return permissions?.includes("CAPACITY_DASHBOARD_READ") || ["VT-01", "VT-02", "VT-03", "VT-06"].includes(role);
+      return permissions?.includes("CAPACITY_DASHBOARD_READ") || role === "VT-01"; // Đặc tả Excel: chỉ Ban giám đốc VT-01 (Admin VT-06 bị ẩn)
     case "project":
       return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(role); // HR (VT-05) & Admin (VT-06) bị ẩn
     case "capacity":

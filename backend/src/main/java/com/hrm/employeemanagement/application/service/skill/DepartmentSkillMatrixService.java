@@ -76,8 +76,11 @@ public class DepartmentSkillMatrixService implements GetDepartmentSkillMatrixUse
         
         requireOrgUnitInScope(currentUser, orgUnitId);
 
-  
-        List<Employee> employees = loadEmployeePort.findActiveByOrgUnitId(orgUnitId);
+        List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
+        List<Long> branchIds = resolveScopeBranchOrgUnitIds(orgUnitId, allUnits);
+        List<Employee> employees = (branchIds != null && branchIds.size() > 1)
+                ? loadEmployeePort.findActiveByOrgUnitIds(branchIds)
+                : loadEmployeePort.findActiveByOrgUnitId(orgUnitId);
 
       
         List<Skill> skills = skillCatalogRepository.findAll();
@@ -182,5 +185,26 @@ public class DepartmentSkillMatrixService implements GetDepartmentSkillMatrixUse
         if (!inScope) {
             throw new PermissionDeniedException(PermissionCode.EMPLOYEE_SKILL_READ);
         }
+    }
+
+    private List<Long> resolveScopeBranchOrgUnitIds(Long orgUnitId, List<OrgUnit> allUnits) {
+        if (orgUnitId == null) {
+            return null;
+        }
+        List<OrgUnit> unitList = allUnits != null ? allUnits : loadOrgUnitPort.findAll();
+        Set<Long> result = new HashSet<>();
+        result.add(orgUnitId);
+        boolean added = true;
+        while (added) {
+            added = false;
+            for (OrgUnit u : unitList) {
+                if (u.getParentId() != null && result.contains(u.getParentId().getValue())) {
+                    if (result.add(u.getId().getValue())) {
+                        added = true;
+                    }
+                }
+            }
+        }
+        return new java.util.ArrayList<>(result);
     }
 }

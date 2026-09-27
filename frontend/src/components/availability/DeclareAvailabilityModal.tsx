@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from "react";
+import { useState, useMemo, useEffect, type FormEvent } from "react";
 import { X, CalendarClock, Clock, User, AlertCircle, Loader2 } from "lucide-react";
 import type { EmployeeProfile } from "@/lib/api/employees";
 import { declareWeeklyAvailability, type WeeklyAvailabilityResult } from "@/lib/api/availability";
@@ -32,6 +32,21 @@ export default function DeclareAvailabilityModal({
   const [year, setYear] = useState<number>(initialYear);
   const [weekNumber, setWeekNumber] = useState<number>(initialWeekNumber);
   const [standardHours, setStandardHours] = useState<number>(initialStandardHours);
+
+  // Synchronize state with incoming initial props whenever modal opens or props change
+  useEffect(() => {
+    if (open) {
+      if (initialEmployeeId) {
+        setEmployeeId(initialEmployeeId);
+      } else if (employees.length > 0) {
+        setEmployeeId(employees[0].id);
+      }
+      if (initialYear !== undefined) setYear(initialYear);
+      if (initialWeekNumber !== undefined) setWeekNumber(initialWeekNumber);
+      if (initialStandardHours !== undefined) setStandardHours(initialStandardHours);
+      setErrorMessage("");
+    }
+  }, [open, initialEmployeeId, initialYear, initialWeekNumber, initialStandardHours, employees]);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");

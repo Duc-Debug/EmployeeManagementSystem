@@ -44,14 +44,17 @@ import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdC
 import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdPolicy;
 import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.Holiday;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
 import com.hrm.employeemanagement.domain.availability.YearWeek;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.user.User;
 
 /**
  * Pure Java Application Service cho Use Case NCL-07-CN-006:
@@ -125,15 +128,36 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
 
     @Override
     public ProlongedIdlenessReportResult getProlongedIdleStaff(ProlongedIdlenessQuery query) {
-        // 1. Kiểm tra quyền truy cập (NCL-07-CN-006-TC-03):
-        // Chỉ Quản lý nguồn lực (VT-03) hoặc Quản trị viên (VT-06) mới được truy cập
-        authorizationService.requireAny(
-                PermissionCode.RESOURCE_ALLOCATION_READ,
-                PermissionCode.RESOURCE_ALLOCATION_MANAGE,
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ
-        );
+        // 1. Kiểm tra quyền truy cập (NCL-07-CN-006):
+        // Chỉ Quản lý nguồn lực (VT-03) có quyền RESOURCE_ALLOCATION_MANAGE
+        authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
 
-        // 2. Xác định khoảng tuần mục tiêu
+        // 2. Data Scope Validation (NCL-07-CN-006 / QTN-23)
+        User currentUser = authorizationService.getAuthenticatedUser();
+        Long effectiveOrgUnitId = query.orgUnitId();
+        if (currentUser != null && currentUser.getDataScope() != null) {
+            switch (currentUser.getDataScope()) {
+                case COMPANY -> effectiveOrgUnitId = query.orgUnitId();
+                case ORGANIZATION_BRANCH -> {
+                    if (currentUser.getScopeOrgUnitId() == null) {
+                        throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+                    }
+                    if (query.orgUnitId() != null) {
+                        boolean inScope = currentUser.getScopeOrgUnitId().equals(query.orgUnitId())
+                                || loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), currentUser.getScopeOrgUnitId());
+                        if (!inScope) {
+                            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+                        }
+                        effectiveOrgUnitId = query.orgUnitId();
+                    } else {
+                        effectiveOrgUnitId = currentUser.getScopeOrgUnitId();
+                    }
+                }
+                default -> throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+            }
+        }
+
+        // 3. Xác định khoảng tuần mục tiêu
         int fromYear;
         int fromWeek;
         if (query.fromYear() != null && query.fromWeek() != null) {
@@ -151,21 +175,21 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
 
         List<YearWeek> targetWeeks = buildTargetWeeks(fromYear, fromWeek, durationWeeks);
 
-        // 3. Tra cứu cấu hình ngưỡng nhàn rỗi theo QTN-23 (từ DB cấu hình của Ban giám đốc)
-        BigDecimal idleThreshold = resolveEffectiveIdleThreshold(query.orgUnitId());
+        // 4. Tra cứu cấu hình ngưỡng nhàn rỗi theo QTN-23 (từ DB cấu hình của Ban giám đốc)
+        BigDecimal idleThreshold = resolveEffectiveIdleThreshold(effectiveOrgUnitId);
 
-        // 4. Lấy danh sách cấu trúc phòng ban một lần duy nhất
+        // 5. Lấy danh sách cấu trúc phòng ban một lần duy nhất
         List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
         Map<Long, String> orgUnitNameMap = allUnits.stream()
                 .collect(Collectors.toMap(u -> u.getId().getValue(), OrgUnit::getUnitName, (u1, u2) -> u1));
 
         String orgUnitName = "Toàn công ty";
-        if (query.orgUnitId() != null) {
-            orgUnitName = orgUnitNameMap.getOrDefault(query.orgUnitId(), "Bộ phận " + query.orgUnitId());
+        if (effectiveOrgUnitId != null) {
+            orgUnitName = orgUnitNameMap.getOrDefault(effectiveOrgUnitId, "Bộ phận " + effectiveOrgUnitId);
         }
 
-        // 5. Tối ưu Server-side filtering: Đẩy tìm kiếm search & orgUnit trực tiếp xuống database
-        List<Employee> employees = loadEmployeesInScope(query.orgUnitId(), allUnits, query.search());
+        // 6. Tối ưu Server-side filtering: Đẩy tìm kiếm search & orgUnit trực tiếp xuống database
+        List<Employee> employees = loadEmployeesInScope(effectiveOrgUnitId, allUnits, query.search());
 
         int page = query.page() != null && query.page() >= 0 ? query.page() : 0;
         int size = query.size() != null && query.size() > 0 ? query.size() : 20;
@@ -397,15 +421,25 @@ public class ProlongedIdleStaffService implements GetProlongedIdleStaffUseCase, 
     @Override
     public AcknowledgeProlongedIdleStaffResult acknowledgeProlongedIdleStaff(AcknowledgeProlongedIdleStaffCommand command) {
         // 1. Kiểm tra quyền hạn (NCL-07-CN-006-TC-04):
-        // Quản lý nguồn lực (VT-03) hoặc Admin (VT-06)
-        Long currentUserId = authorizationService.requireAny(
-                PermissionCode.RESOURCE_ALLOCATION_MANAGE,
-                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY
-        );
+        // Chỉ Quản lý nguồn lực (VT-03) có quyền RESOURCE_ALLOCATION_MANAGE
+        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
 
         // 2. Kiểm tra sự tồn tại của nhân sự
         Employee employee = loadEmployeePort.findById(new EmployeeId(command.employeeId()))
                 .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân sự với ID: " + command.employeeId()));
+
+        // Data Scope Validation: Nếu là ORGANIZATION_BRANCH (VT-03), nhân sự phải thuộc nhánh quản lý
+        User currentUser = authorizationService.getAuthenticatedUser();
+        if (currentUser != null && currentUser.getDataScope() == DataScope.ORGANIZATION_BRANCH) {
+            if (currentUser.getScopeOrgUnitId() == null || employee.getOrgUnitId() == null) {
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+            }
+            boolean inScope = currentUser.getScopeOrgUnitId().equals(employee.getOrgUnitId())
+                    || loadOrgUnitPort.existsInOrgUnitBranch(employee.getOrgUnitId(), currentUser.getScopeOrgUnitId());
+            if (!inScope) {
+                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+            }
+        }
 
         LocalDateTime now = LocalDateTime.now();
 

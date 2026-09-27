@@ -18,7 +18,6 @@ import {
     Briefcase,
     AlertTriangle,
     Sparkles,
-    CalendarX,
     DollarSign,
     Database,
 } from "lucide-react";
@@ -66,7 +65,6 @@ export const SIDEBAR_GROUPS: SidebarGroupDef[] = [
             { name: "Chấm công & Giờ làm", icon: Clock, id: "attendance" },
             { name: "Khối lượng công việc", icon: TrendingUp, id: "workload" },
             { name: "Giờ khả dụng", icon: CalendarClock, id: "availability" },
-            { name: "Thời gian không sẵn sàng", icon: CalendarX, id: "unavailability" },
             { name: "Nghỉ phép", icon: CalendarIcon, id: "leave" },
             { name: "Lịch & Ngày lễ", icon: CalendarDays, id: "working-calendar" },
         ],
@@ -131,21 +129,21 @@ export function canAccessTab(
 
         case "timesheet-variance":
         case "variance-report":
-            // NCL-09-CN-004: Báo cáo đối chiếu giờ công (Ban giám đốc VT-01, Quản lý nguồn lực VT-03, Admin VT-06)
+            // NCL-09-CN-004: Báo cáo đối chiếu giờ công (Ban giám đốc VT-01, Quản lý nguồn lực VT-03)
             return permissions?.includes("TIMESHEET_VARIANCE_READ") === true ||
-                ["VT-01", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+                ["VT-01", "VT-03"].includes(normalized);
 
         case "recruitment-demand":
         case "recruitment":
-            // NCL-10-CN-005: Báo cáo nhu cầu tuyển dụng theo kỹ năng (Ban Giám Đốc VT-01, RM VT-03, Admin VT-06)
+            // NCL-10-CN-005: Báo cáo nhu cầu tuyển dụng theo kỹ năng (Ban Giám Đốc VT-01, RM VT-03)
             return permissions?.includes("RECRUITMENT_DEMAND_REPORT_READ") === true ||
-                ["VT-01", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+                ["VT-01", "VT-03"].includes(normalized);
 
         case "capacity-dashboard":
         case "dashboard-capacity":
-            // NCL-10-CN-001: Bảng điều khiển năng lực dành cho Ban Giám Đốc (VT-01), Quản lý dự án (VT-02), Quản lý nguồn lực (VT-03), Quản trị viên (VT-06)
+            // NCL-10-CN-001: Bảng điều khiển năng lực dành cho Ban Giám Đốc (VT-01), Quản lý dự án (VT-02), Quản lý nguồn lực (VT-03)
             return permissions?.includes("CAPACITY_DASHBOARD_READ") === true ||
-                ["VT-01", "VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+                ["VT-01", "VT-02", "VT-03"].includes(normalized);
 
         case "capacity":
         case "weekly-capacity":
@@ -156,16 +154,14 @@ export function canAccessTab(
         case "simulation-scenarios":
         case "simulation-scenario":
         case "scenarios":
-            // NCL-08-CN-001: Mô phỏng kịch bản nhận dự án chỉ dành cho VT-01 (Ban giám đốc) và VT-03 (Quản lý nguồn lực).
-            return permissions?.includes("RESOURCE_SCENARIO_READ") === true ||
-                permissions?.includes("RESOURCE_SCENARIO_MANAGE") === true ||
-                ["VT-01", "VT-03"].includes(normalized);
+            // NCL-08-CN-001: Mô phỏng kịch bản nhận dự án chỉ dành cho Quản lý nguồn lực (VT-03)
+            return normalized === "VT-03" || permissions?.includes("RESOURCE_SCENARIO_MANAGE") === true;
 
         case "schedule-conflict":
         case "conflict-warning":
-            // NCL-07-CN-001: Cảnh báo xung đột lịch dành cho VT-02 (PM), VT-03 (RM), VT-06 (Admin)
+            // NCL-07-CN-001: Cảnh báo xung đột lịch dành cho VT-02 (PM), VT-03 (RM)
             return permissions?.includes("RESOURCE_SCHEDULE_CONFLICT_READ") === true ||
-                ["VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+                ["VT-02", "VT-03"].includes(normalized);
 
         case "outsourced-contracts":
         case "outsourced-contract":
@@ -184,8 +180,8 @@ export function canAccessTab(
 
         case "attendance":
         case "timesheets":
-            // Chỉ hiện khi có quyền ghi hoặc duyệt giờ công dự án (VT-02 PM, VT-04 NV, VT-06 Admin).
-            return permissions ? permissions.includes("WORK_LOG_READ") || permissions.includes("WORK_LOG_APPROVE") : ["VT-02", "VT-04", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // Chỉ hiện khi có quyền ghi hoặc duyệt giờ công dự án (VT-02 PM, VT-04 NV).
+            return permissions ? permissions.includes("WORK_LOG_READ") || permissions.includes("WORK_LOG_APPROVE") : ["VT-02", "VT-04"].includes(normalized);
 
         case "leave":
         case "leave-requests":
@@ -199,14 +195,13 @@ export function canAccessTab(
 
         case "availability":
         case "weekly-availability":
-            // Giờ khả dụng: Ban Giám Đốc (VT-01), PM (VT-02), RM (VT-03), HR (VT-05), Admin (VT-06). Đối với VT-04 đã được gom vào Tổng quan & Khối lượng sắp tới.
-            return ["VT-01", "VT-02", "VT-03", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // Giờ khả dụng: Ban Giám Đốc (VT-01), RM (VT-03), HR (VT-05)
+            return ["VT-01", "VT-03", "VT-05"].includes(normalized);
 
         case "unavailability":
         case "unavailability-declarations":
-            // Phê duyệt và quản lý thời gian không sẵn sàng: Dành cho RM (VT-03) và Admin (VT-06).
-            // VT-04 khai báo trực tiếp trong "Lịch phân bổ tuần của tôi".
-            return ["VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            // Trang độc lập đã được gỡ bỏ; chức năng khai báo được tích hợp vào Lịch phân bổ của VT-04
+            return false;
 
         case "working-calendar":
         case "calendar-config":
@@ -253,9 +248,9 @@ export function canAccessTab(
 
         case "project-allocation-report":
         case "project-allocation":
-            // Báo cáo phân bổ theo dự án (NCL-10-CN-006): VT-01 (Ban Giám Đốc), VT-02 (PM), VT-03 (RM), VT-06 (Admin)
+            // Báo cáo phân bổ theo dự án (NCL-10-CN-006): VT-01 (Ban Giám Đốc), VT-02 (PM), VT-03 (RM)
             return permissions?.includes("PROJECT_ALLOCATION_REPORT_READ") === true ||
-                ["VT-01", "VT-02", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+                ["VT-01", "VT-02", "VT-03"].includes(normalized);
 
         default:
             return true;

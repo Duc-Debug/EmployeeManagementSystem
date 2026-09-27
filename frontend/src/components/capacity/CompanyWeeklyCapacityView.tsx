@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,6 +20,7 @@ import {
   Bell,
   Copy,
   Sparkles,
+  MoreHorizontal,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuthUser } from "@/lib/auth-session";
@@ -54,15 +55,25 @@ export default function CompanyWeeklyCapacityView() {
   const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "") : "";
   const canManageReservations = normalizedRole === "VT-02";
   const canManageAllocations = normalizedRole === "VT-03";
-  const canAccessPeriods =
-    normalizedRole === "VT-01" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
-  const canAccessAllocationNotifications =
-    normalizedRole === "VT-03" ||
-    (Boolean(currentUser?.permissions?.includes("RESOURCE_ALLOCATION_READ")) && normalizedRole !== "VT-02");
+  const canAccessPeriods = normalizedRole === "VT-01" || normalizedRole === "VT-03";
+  const canAccessAllocationNotifications = normalizedRole === "VT-03";
   const canConfigureThresholds = normalizedRole === "VT-01";
-  const canAccessScenarios = normalizedRole === "VT-01" || normalizedRole === "VT-03";
-  const canViewProlongedIdleness =
-    normalizedRole === "VT-01" || normalizedRole === "VT-03" || normalizedRole === "VT-06";
+  const canAccessScenarios = normalizedRole === "VT-03";
+  const canViewProlongedIdleness = normalizedRole === "VT-03";
+
+  // State cho Thao tác khác dropdown
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState<boolean>(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // NCL-07-CN-004: State cho Modal Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23)
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
@@ -572,25 +583,101 @@ export default function CompanyWeeklyCapacityView() {
             </button>
           )}
 
-          {/* Mẫu phân bổ theo vai trò của dự án */}
-          {canManageAllocations && (
-            <button
-              type="button"
-              onClick={() => setIsTemplateModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-violet-200 bg-violet-50/80 px-3.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition shadow-2xs cursor-pointer"
-              title="Mẫu phân bổ theo vai trò của dự án"
-            >
-              <Copy className="h-3.5 w-3.5 text-violet-600" />
-              <span>Mẫu phân bổ vai trò</span>
-            </button>
+          {/* Secondary Actions Dropdown (VT-03) */}
+          {(canManageAllocations || canAccessAllocationNotifications || canViewProlongedIdleness || canAccessScenarios) && (
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsMoreMenuOpen((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                title="Các thao tác nghiệp vụ khác"
+              >
+                <MoreHorizontal className="h-4 w-4 text-slate-500" />
+                <span>Thao tác khác</span>
+              </button>
+
+              {isMoreMenuOpen && (
+                <div className="absolute right-0 top-full z-30 mt-1.5 w-52 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-900/5 animate-in fade-in-50 zoom-in-95">
+                  {canManageAllocations && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        setIsTemplateModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <Copy className="h-3.5 w-3.5 text-violet-600" />
+                      <span>Mẫu phân bổ vai trò</span>
+                    </button>
+                  )}
+
+                  {canAccessPeriods && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        setIsPeriodModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <Lock className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Kế hoạch kỳ</span>
+                    </button>
+                  )}
+
+                  {canAccessAllocationNotifications && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        setIsNotificationModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <Bell className="h-3.5 w-3.5 text-sky-600" />
+                      <span>Thông báo phân bổ</span>
+                    </button>
+                  )}
+
+                  {canViewProlongedIdleness && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        setIsProlongedIdlenessModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                      <span>Cảnh báo nhàn rỗi</span>
+                    </button>
+                  )}
+
+                  {canAccessScenarios && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        navigate("/simulation-scenarios");
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Mô phỏng kịch bản</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
-          {/* NCL-06-CN-009: Nút Quản lý & Khóa kỳ kế hoạch phân bổ (QTN-18) */}
-          {canAccessPeriods && (
+          {/* Kế hoạch kỳ cho VT-01 */}
+          {canAccessPeriods && normalizedRole === "VT-01" && (
             <button
               type="button"
               onClick={() => setIsPeriodModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
               title="Khóa & Quản lý kế hoạch phân bổ của kỳ"
             >
               <Lock className="h-3.5 w-3.5 text-indigo-600" />
@@ -598,55 +685,16 @@ export default function CompanyWeeklyCapacityView() {
             </button>
           )}
 
-          {/* NCL-07-CN-003: Nút Thông báo phân bổ thay đổi (BR-05 / AC-03: Chỉ VT-02 và VT-03) */}
-          {canAccessAllocationNotifications && (
-            <button
-              type="button"
-              onClick={() => setIsNotificationModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-sky-200 bg-sky-50/70 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition shadow-2xs"
-              title="Xem lịch sử thông báo phân bổ thay đổi"
-            >
-              <Bell className="h-3.5 w-3.5 text-sky-600" />
-              <span>Thông báo phân bổ</span>
-            </button>
-          )}
-
-          {/* NCL-07-CN-004: Nút Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi (QTN-23) */}
+          {/* NCL-07-CN-004: Cấu hình ngưỡng cho Ban giám đốc VT-01 */}
           {canConfigureThresholds && (
             <button
               type="button"
               onClick={() => setIsThresholdModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs"
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-2xs cursor-pointer"
               title="Cấu hình ngưỡng cảnh báo quá tải & nhàn rỗi"
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-amber-700" />
               <span>Cấu hình ngưỡng</span>
-            </button>
-          )}
-
-          {/* NCL-07-CN-006: Nút Cảnh báo nhân sự nhàn rỗi kéo dài (QTN-23) */}
-          {canViewProlongedIdleness && (
-            <button
-              type="button"
-              onClick={() => setIsProlongedIdlenessModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50/80 px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition shadow-2xs"
-              title="Cảnh báo nhân sự nhàn rỗi kéo dài nhiều tuần liên tiếp"
-            >
-              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-              <span>Cảnh báo nhàn rỗi</span>
-            </button>
-          )}
-
-          {/* NCL-08-CN-001: Nút Mô phỏng kịch bản nhận thêm dự án (QTN-14 Sandbox) */}
-          {canAccessScenarios && (
-            <button
-              type="button"
-              onClick={() => navigate("/simulation-scenarios")}
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
-              title="Mô phỏng kịch bản nhận thêm dự án"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Mô phỏng kịch bản</span>
             </button>
           )}
         </div>
@@ -737,24 +785,26 @@ export default function CompanyWeeklyCapacityView() {
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           {/* Lọc phòng ban (TC-03) */}
-          {currentUser?.dataScope !== "SELF" && <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-slate-400" />
-            <select
-              value={selectedOrgUnitId ?? ""}
-              onChange={(e) => {
-                const val = e.target.value ? Number(e.target.value) : undefined;
-                setSelectedOrgUnitId(val);
-              }}
-              className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
-            >
-              {isCompanyScope && <option value="">Tất cả phòng ban (Toàn công ty)</option>}
-              {orgUnits.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          </div>}
+          {isCompanyScope && orgUnits.length > 1 && (
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-slate-400" />
+              <select
+                value={selectedOrgUnitId ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value ? Number(e.target.value) : undefined;
+                  setSelectedOrgUnitId(val);
+                }}
+                className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition"
+              >
+                <option value="">Tất cả phòng ban (Toàn công ty)</option>
+                {orgUnits.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Ô tìm kiếm */}
           <div className="relative flex-1 min-w-[200px] max-w-sm">

@@ -117,10 +117,7 @@ class ProlongedIdleStaffServiceTest {
         void getProlongedIdleStaff_TC01_SuccessFlow() {
                 // Given
                 Long userId = 200L;
-                when(authorizationService.requireAny(
-                                PermissionCode.RESOURCE_ALLOCATION_READ,
-                                PermissionCode.RESOURCE_ALLOCATION_MANAGE,
-                                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ)).thenReturn(userId);
+                when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(userId);
 
                 // QTN-23: Cấu hình ngưỡng nhàn rỗi là 30.0%
                 CapacityThresholdConfig thresholdConfig = CapacityThresholdConfig.createNew(
@@ -203,10 +200,7 @@ class ProlongedIdleStaffServiceTest {
         void getProlongedIdleStaff_TC02_ExcludeLongTermLeave() {
                 // Given
                 Long userId = 200L;
-                when(authorizationService.requireAny(
-                                PermissionCode.RESOURCE_ALLOCATION_READ,
-                                PermissionCode.RESOURCE_ALLOCATION_MANAGE,
-                                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ)).thenReturn(userId);
+                when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(userId);
 
                 when(loadCapacityThresholdPort.findByScope(eq(CapacityThresholdScope.COMPANY), any()))
                                 .thenReturn(Optional.empty()); // Fallback về default
@@ -258,11 +252,8 @@ class ProlongedIdleStaffServiceTest {
         void getProlongedIdleStaff_TC03_PermissionDenied() {
                 // Given: authorizationService ném PermissionDeniedException khi user thiếu
                 // quyền
-                when(authorizationService.requireAny(
-                                PermissionCode.RESOURCE_ALLOCATION_READ,
-                                PermissionCode.RESOURCE_ALLOCATION_MANAGE,
-                                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ))
-                                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ));
+                when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE))
+                                .thenThrow(new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_MANAGE));
 
                 ProlongedIdlenessQuery query = new ProlongedIdlenessQuery(null, 2026, 38, 4, 3, null);
 
@@ -279,9 +270,7 @@ class ProlongedIdleStaffServiceTest {
         void acknowledgeProlongedIdleStaff_TC04_SuccessAuditLog() {
                 // Given
                 Long currentUserId = 300L;
-                when(authorizationService.requireAny(
-                                PermissionCode.RESOURCE_ALLOCATION_MANAGE,
-                                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_NOTIFY)).thenReturn(currentUserId);
+                when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(currentUserId);
 
                 Long employeeId = 105L;
                 Employee emp = new Employee(
@@ -341,10 +330,7 @@ class ProlongedIdleStaffServiceTest {
         @DisplayName("Cải tiến — Phân trang danh sách cảnh báo nhàn rỗi và triệt tiêu query lặp lại OrgUnit")
         void getProlongedIdleStaff_PaginationAndNoDuplicateOrgUnitQuery() {
                 Long userId = 200L;
-                when(authorizationService.requireAny(
-                                PermissionCode.RESOURCE_ALLOCATION_READ,
-                                PermissionCode.RESOURCE_ALLOCATION_MANAGE,
-                                PermissionCode.RESOURCE_SCHEDULE_CONFLICT_READ)).thenReturn(userId);
+                when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(userId);
 
                 when(loadCapacityThresholdPort.findByScope(any(), any()))
                                 .thenReturn(Optional.empty());
