@@ -4,7 +4,6 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  RotateCcw,
   Loader2,
   Users,
   AlertCircle,
@@ -72,6 +71,18 @@ export default function WeeklyAvailabilityView() {
       const startStr = startDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
       const endStr = endDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
       return `Thứ 2, ${startStr} — Chủ Nhật, ${endStr}`;
+    } catch {
+      return "";
+    }
+  }, [selectedYear, selectedWeek]);
+
+  const selectedDateStr = useMemo(() => {
+    try {
+      const { startDate } = getIsoWeekDateRange(selectedYear, selectedWeek);
+      const y = startDate.getUTCFullYear();
+      const m = String(startDate.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(startDate.getUTCDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
     } catch {
       return "";
     }
@@ -306,38 +317,51 @@ export default function WeeklyAvailabilityView() {
       {/* Week Filter Bar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         {/* Week Navigator */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50/70 p-1">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
             <button
               type="button"
               onClick={() => handleNavigateWeek(-1)}
-              className="rounded-lg p-1.5 text-slate-500 transition hover:bg-white hover:text-slate-900 shadow-2xs"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần trước"
             >
               <ChevronLeft className="size-4" />
             </button>
-            <span className="px-3 text-xs font-bold text-indigo-700">
-              Tuần {selectedWeek} • Năm {selectedYear}
-            </span>
+            <button
+              type="button"
+              onClick={handleResetToCurrentWeek}
+              className="px-3 py-1 text-xs font-bold text-slate-700 hover:text-indigo-600 transition cursor-pointer"
+            >
+              {selectedYear === currentIso.year && selectedWeek === currentIso.weekNumber
+                ? "Tuần này"
+                : `Tuần ${selectedWeek}/${selectedYear}`}
+            </button>
             <button
               type="button"
               onClick={() => handleNavigateWeek(1)}
-              className="rounded-lg p-1.5 text-slate-500 transition hover:bg-white hover:text-slate-900 shadow-2xs"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần sau"
             >
               <ChevronRight className="size-4" />
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleResetToCurrentWeek}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 shadow-2xs"
-            title="Quay về tuần hiện tại"
-          >
-            <RotateCcw className="size-3.5 text-slate-400" />
-            <span>Hiện tại</span>
-          </button>
+          {/* Date Picker */}
+          <div className="relative">
+            <input
+              type="date"
+              value={selectedDateStr}
+              onChange={(e) => {
+                if (e.target.value) {
+                  const [y, m, d] = e.target.value.split("-").map(Number);
+                  const iso = getCurrentIsoWeek(new Date(y, m - 1, d));
+                  setSelectedYear(iso.year);
+                  setSelectedWeek(iso.weekNumber);
+                }
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:border-indigo-500 focus:outline-hidden cursor-pointer"
+            />
+          </div>
 
           <span className="hidden text-xs font-medium text-slate-500 lg:inline">
             {weekDateRange}

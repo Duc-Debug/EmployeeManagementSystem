@@ -7,6 +7,7 @@ import {
     CalendarDays,
     BadgeAlert,
     Briefcase,
+    Building,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { HrProfileData } from "./hrprofile.types";
@@ -83,6 +84,7 @@ export default function HrProfileForm({
     const [formData, setFormData] = useState<Partial<HrProfileData>>(() =>
         resolveInitialFormData(initialData)
     );
+    const isOutsourced = Boolean(formData.isOutsourced ?? initialData?.isOutsourced);
 
     const [prevOpen, setPrevOpen] = useState(open);
     const [prevInitial, setPrevInitial] = useState(initialData);
@@ -136,14 +138,16 @@ export default function HrProfileForm({
             setErrorMessage("Vui lòng nhập họ và tên nhân viên.");
             return;
         }
-        if (!formData.email?.trim()) {
-            setErrorMessage("Vui lòng nhập địa chỉ email.");
-            return;
-        }
-        const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-        if (!EMAIL_REGEX.test(formData.email.trim())) {
-            setErrorMessage("Email không đúng định dạng. Email phải có ký tự '@' và tên miền hợp lệ chứa dấu '.' (ví dụ: user@company.com).");
-            return;
+        if (!isOutsourced) {
+            if (!formData.email?.trim()) {
+                setErrorMessage("Vui lòng nhập địa chỉ email.");
+                return;
+            }
+            const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+            if (!EMAIL_REGEX.test(formData.email.trim())) {
+                setErrorMessage("Email không đúng định dạng. Email phải có ký tự '@' và tên miền hợp lệ chứa dấu '.' (ví dụ: user@company.com).");
+                return;
+            }
         }
         if (!formData.employeeCode?.trim()) {
             setErrorMessage("Vui lòng nhập mã nhân viên.");
@@ -246,25 +250,45 @@ export default function HrProfileForm({
                                 />
                             </div>
 
-                            {/* Email */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-slate-700">Email *</label>
-                                    {isEdit && <span className="text-[10px] text-slate-400 font-medium">(Cố định)</span>}
+                            {/* Email hoặc Đơn vị cung cấp nếu là nhân sự thuê ngoài */}
+                            {isOutsourced ? (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-slate-700">Đơn vị cung cấp</label>
+                                        <span className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md font-semibold border border-purple-200">
+                                            Thuê ngoài (Không cấp email)
+                                        </span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            disabled={isEdit}
+                                            value={formData.providerName || "Đối tác ngoài"}
+                                            className={cn(BASE_INPUT, isEdit && DISABLED_INPUT)}
+                                        />
+                                        <Building className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                    </div>
                                 </div>
-                                <div className="relative">
-                                    <input
-                                        type="email"
-                                        required
-                                        disabled={isEdit}
-                                        placeholder="hung@company.com"
-                                        value={formData.email || ""}
-                                        onChange={(e) => set("email", e.target.value)}
-                                        className={cn(BASE_INPUT, isEdit && DISABLED_INPUT)}
-                                    />
-                                    <Mail className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                            ) : (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-slate-700">Email *</label>
+                                        {isEdit && <span className="text-[10px] text-slate-400 font-medium">(Cố định)</span>}
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="email"
+                                            required
+                                            disabled={isEdit}
+                                            placeholder="hung@company.com"
+                                            value={formData.email || ""}
+                                            onChange={(e) => set("email", e.target.value)}
+                                            className={cn(BASE_INPUT, isEdit && DISABLED_INPUT)}
+                                        />
+                                        <Mail className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Hàng 2: Mã nhân viên & Vai trò chuyên môn */}

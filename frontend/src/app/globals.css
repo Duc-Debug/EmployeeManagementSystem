@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 html {
   font-size: 85%;
   -webkit-font-smoothing: antialiased;
@@ -88,4 +90,4 @@ input[type='number'] {
 
 .animate-pulse-slow {
   animation: pulseSlow 4s ease-in-out infinite;
-}
+}

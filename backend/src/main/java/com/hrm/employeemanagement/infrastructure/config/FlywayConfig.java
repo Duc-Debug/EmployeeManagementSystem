@@ -32,9 +32,6 @@ public class FlywayConfig {
                 .outOfOrder(outOfOrder)
                 .load();
 
-        // Applied migrations are immutable. Automatic repair can accept a changed
-        // checksum without executing its new SQL, leaving the schema incomplete.
-        // Let validation fail on drift; schema corrections belong in a new version.
         flyway.migrate();
 
         System.out.println("==================================================");

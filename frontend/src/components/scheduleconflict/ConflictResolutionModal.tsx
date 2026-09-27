@@ -4,6 +4,8 @@ import { resolveScheduleConflictWithNote } from "@/lib/api/schedule-conflict";
 import type { ScheduleConflict } from "@/lib/api/schedule-conflict";
 import { getEmployees } from "@/lib/api/employees";
 import type { EmployeeProfile } from "@/lib/api/employees";
+import { getOrgTree } from "@/lib/api/org-units";
+import { flattenActiveOrgTree } from "@/lib/organization";
 
 interface ConflictResolutionModalProps {
     conflict: ScheduleConflict;
@@ -23,6 +25,7 @@ export default function ConflictResolutionModal({
     );
     const [resolutionNote, setResolutionNote] = useState<string>(conflict.resolutionNote || "");
     const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+    const [orgUnitNamesMap, setOrgUnitNamesMap] = useState<Record<number, string>>({});
     const [loadingEmployees, setLoadingEmployees] = useState<boolean>(false);
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
@@ -30,9 +33,22 @@ export default function ConflictResolutionModal({
     const loadEmployeeList = useCallback(async () => {
         try {
             setLoadingEmployees(true);
-            const res = await getEmployees(1, 1000);
-            if (res && res.content) {
-                setEmployees(res.content);
+            const [empRes, treeRes] = await Promise.allSettled([
+                getEmployees(1, 1000),
+                getOrgTree(),
+            ]);
+
+            const map: Record<number, string> = {};
+            if (treeRes.status === "fulfilled" && treeRes.value) {
+                const nodes = flattenActiveOrgTree(treeRes.value);
+                nodes.forEach((n) => {
+                    map[n.id] = n.unitName;
+                });
+                setOrgUnitNamesMap(map);
+            }
+
+            if (empRes.status === "fulfilled" && empRes.value?.content) {
+                setEmployees(empRes.value.content);
             }
         } catch (err) {
             console.error("Lỗi khi tải danh sách nhân viên:", err);
@@ -149,11 +165,14 @@ export default function ConflictResolutionModal({
                             className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none transition disabled:opacity-50"
                         >
                             <option value="">-- Chưa gán người xử lý --</option>
-                            {employees.map((emp) => (
-                                <option key={emp.id} value={emp.id}>
-                                    {emp.fullName} ({emp.employeeCode}) - {emp.orgUnitName || "Chưa phân phòng"}
-                                </option>
-                            ))}
+                            {employees.map((emp) => {
+                                const deptName = emp.orgUnitName || (emp.orgUnitId ? orgUnitNamesMap[emp.orgUnitId] : "") || "Chưa phân phòng";
+                                return (
+                                    <option key={emp.id} value={emp.id}>
+                                        {emp.fullName} ({emp.employeeCode}) - {deptName}
+                                    </option>
+                                );
+                            })}
                         </select>
                         <p className="text-[11px] text-slate-400 mt-1">
                             Người chịu trách nhiệm theo dõi và giải quyết dứt điểm xung đột này.

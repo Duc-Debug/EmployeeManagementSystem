@@ -46,10 +46,19 @@ export default function ScheduleConflictWarningView() {
     const [startWeekFilter, setStartWeekFilter] = useState<number>(37);
     const [endWeekFilter, setEndWeekFilter] = useState<number>(42);
 
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (shouldScan: boolean = true) => {
         setLoading(true);
         setErrorMsg(null);
         try {
+            // Tự động rà soát dữ liệu mới nhất nếu được phép
+            if (shouldScan) {
+                try {
+                    await scanScheduleConflicts(yearFilter, startWeekFilter, endWeekFilter);
+                } catch (scanErr) {
+                    console.warn("Tự động rà soát xung đột khi tải trang không khả dụng hoặc tài khoản chỉ có quyền xem:", scanErr);
+                }
+            }
+
             const data = await getScheduleConflicts({
                 yearNumber: yearFilter,
                 startWeek: startWeekFilter,
@@ -67,15 +76,22 @@ export default function ScheduleConflictWarningView() {
     }, [yearFilter, startWeekFilter, endWeekFilter, conflictTypeFilter, statusFilter]);
 
     useEffect(() => {
-        loadData();
+        loadData(true);
     }, [loadData]);
 
     const handleScan = async () => {
         setScanning(true);
         setErrorMsg(null);
         try {
-            const scannedData = await scanScheduleConflicts(yearFilter, startWeekFilter, endWeekFilter);
-            setConflicts(scannedData);
+            await scanScheduleConflicts(yearFilter, startWeekFilter, endWeekFilter);
+            const data = await getScheduleConflicts({
+                yearNumber: yearFilter,
+                startWeek: startWeekFilter,
+                endWeek: endWeekFilter,
+                conflictType: conflictTypeFilter !== "ALL" ? (conflictTypeFilter as ConflictType) : undefined,
+                status: statusFilter !== "ALL" ? (statusFilter as ScheduleConflictStatus) : undefined,
+            });
+            setConflicts(data);
         } catch (err: any) {
             console.error("Lỗi khi rà soát xung đột lịch:", err);
             setErrorMsg(err.message || "Không thể thực thi rà soát xung đột lịch.");
@@ -309,7 +325,7 @@ export default function ScheduleConflictWarningView() {
                                     <th className="px-5 py-3.5">Người xử lý & Cách xử lý</th>
                                     <th className="px-5 py-3.5 text-center">Giờ vượt</th>
                                     <th className="px-5 py-3.5 text-center">Trạng thái</th>
-                                    <th className="px-5 py-3.5 text-right">Thao tác xử lý</th>
+                                    <th className="px-4 py-3.5 text-right sticky right-0 bg-slate-50/95 backdrop-blur-xs shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-slate-100">Thao tác xử lý</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -407,14 +423,14 @@ export default function ScheduleConflictWarningView() {
                                             )}
                                         </td>
 
-                                        {/* Action Buttons */}
-                                        <td className="px-5 py-4 text-right whitespace-nowrap">
-                                            <div className="flex items-center justify-end gap-2">
+                                        {/* Action Buttons - Sticky Right */}
+                                        <td className="px-4 py-4 text-right whitespace-nowrap sticky right-0 bg-white/95 backdrop-blur-xs shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-slate-100">
+                                            <div className="flex items-center justify-end gap-1.5">
                                                 {c.status !== "RESOLVED" && (
                                                     <button
                                                         onClick={() => setSelectedConflictForResolution(c)}
                                                         title="Gán người chịu trách nhiệm và ghi nhận cách xử lý"
-                                                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-xs"
+                                                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-xs cursor-pointer shrink-0"
                                                     >
                                                         <CheckCircle2 className="h-3.5 w-3.5" />
                                                         <span>Xử lý xung đột</span>
@@ -425,7 +441,7 @@ export default function ScheduleConflictWarningView() {
                                                     <button
                                                         onClick={() => setSelectedConflictForReplacement(c)}
                                                         title="Gợi ý nhân sự thay thế có cùng kỹ năng và còn giờ rảnh"
-                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition"
+                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer shrink-0"
                                                     >
                                                         <UserCheck className="h-3.5 w-3.5" />
                                                         <span>Thay thế</span>
@@ -437,9 +453,9 @@ export default function ScheduleConflictWarningView() {
                                                         onClick={() => handleNotify(c.id)}
                                                         disabled={actionLoadingId === c.id}
                                                         title="Gửi thông báo thương lượng"
-                                                        className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition disabled:opacity-50"
+                                                        className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition disabled:opacity-50 cursor-pointer shrink-0"
                                                     >
-                                                        <Send className="h-3.5 w-3.5" />
+                                                        <Send className="h-3.5 w-3.5 text-slate-600" />
                                                     </button>
                                                 )}
                                             </div>

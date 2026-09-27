@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, CalendarDays, CalendarX, Loader2, AlertCircle, CheckCircle2, MessageSquare, Info, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarX, Loader2, AlertCircle, CheckCircle2, MessageSquare, Info, X } from "lucide-react";
 import type { WeeklySchedule } from "../types";
 import { myScheduleApi } from "../api/myScheduleApi";
 import { WeeklyScheduleCard } from "../components/WeeklyScheduleCard";
@@ -149,6 +149,14 @@ export const MyWeeklySchedulePage: React.FC = () => {
     }
   };
 
+  const handleDateChange = (dateStr: string) => {
+    if (!dateStr) return;
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const mon = getMondayFromDate(new Date(y, m - 1, d));
+    setCurrentWeekStart(mon);
+    loadSchedule(mon, weeksCount);
+  };
+
   const sortedWeeks = useMemo(() => {
     return [...weeksData].sort((a, b) => {
       const aNeeds = a.confirmation_status === "NOT_CONFIRMED" || a.confirmation_status === "STALE";
@@ -189,11 +197,12 @@ export const MyWeeklySchedulePage: React.FC = () => {
             <span>Khai báo không sẵn sàng</span>
           </button>
 
-          <div className="flex items-center bg-slate-100 p-1 rounded-lg">
+          {/* Week Navigator */}
+          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
             <button
               type="button"
               onClick={() => handleNavigateWeeks(-1)}
-              className="p-1.5 hover:bg-white text-slate-700 rounded-md transition cursor-pointer"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần trước"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -201,42 +210,34 @@ export const MyWeeklySchedulePage: React.FC = () => {
             <button
               type="button"
               onClick={handleResetToCurrentWeek}
-              className="px-2.5 py-1 text-xs font-medium hover:bg-white text-slate-700 rounded-md transition flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1 text-xs font-bold text-slate-700 hover:text-indigo-600 transition cursor-pointer"
               title="Quay lại tuần hiện tại"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Hiện tại</span>
+              {currentWeekStart === getThisMonday() ? "Tuần này" : "Hiện tại"}
             </button>
             <button
               type="button"
               onClick={() => handleNavigateWeeks(1)}
-              className="p-1.5 hover:bg-white text-slate-700 rounded-md transition cursor-pointer"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần kế tiếp"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Chọn ngày / tuần */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 bg-slate-50">
-            <span className="text-slate-500 font-medium">Chọn ngày/tuần:</span>
+          {/* Date Picker */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-2.5 py-1 bg-white shadow-xs">
+            <span className="text-slate-500 font-medium">Chọn ngày:</span>
             <input
               type="date"
               value={currentWeekStart}
-              onChange={(e) => {
-                if (e.target.value) {
-                  const [y, m, d] = e.target.value.split("-").map(Number);
-                  const mon = getMondayFromDate(new Date(y, m - 1, d));
-                  setCurrentWeekStart(mon);
-                  loadSchedule(mon, weeksCount);
-                }
-              }}
-              className="bg-transparent font-medium text-slate-800 outline-none cursor-pointer"
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="bg-transparent font-medium text-slate-800 outline-hidden cursor-pointer"
               title="Chọn ngày để chuyển đến tuần đó"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50">
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 bg-white shadow-xs">
             <span>Hiển thị:</span>
             <select
               value={weeksCount}

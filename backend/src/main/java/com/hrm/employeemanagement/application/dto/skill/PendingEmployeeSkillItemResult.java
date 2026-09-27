@@ -16,6 +16,8 @@ public record PendingEmployeeSkillItemResult(
         String skillCategory,
         Integer proficiencyLevel,
         BigDecimal yearsOfExperience,
+        Integer pendingProficiencyLevel,
+        BigDecimal pendingYearsOfExperience,
         String status,
         LocalDateTime createdAt
 ) {}

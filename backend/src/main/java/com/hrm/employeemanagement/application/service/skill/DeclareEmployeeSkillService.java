@@ -64,6 +64,10 @@ public class DeclareEmployeeSkillService implements DeclareEmployeeSkillUseCase 
         Skill skill = skillCatalogRepository.findById(command.skillId())
                 .orElseThrow(() -> new SkillNotFoundException("Không tìm thấy kỹ năng trong danh mục với ID: " + command.skillId()));
 
+        if (skill.getStatus() == com.hrm.employeemanagement.domain.skill.SkillStatus.INACTIVE) {
+            throw new IllegalStateException("Kỹ năng '" + skill.getName() + "' hiện đang bị khóa, không thể khai báo.");
+        }
+
         // 4. Kiểm tra dữ liệu trùng lặp (TC-02)
         if (employeeSkillRepository.existsByEmployeeIdAndSkillId(targetEmployeeId, command.skillId())) {
             throw new DuplicateEmployeeSkillException("Kỹ năng '" + skill.getName() + "' đã có trong hồ sơ. Vui lòng chọn cập nhật mức thành thạo thay vì thêm mới.");

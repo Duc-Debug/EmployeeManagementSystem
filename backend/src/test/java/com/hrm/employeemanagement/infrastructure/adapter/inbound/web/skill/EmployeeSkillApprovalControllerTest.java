@@ -57,7 +57,7 @@ class EmployeeSkillApprovalControllerTest {
         PendingEmployeeSkillItemResult item = new PendingEmployeeSkillItemResult(
                 10L, 101L, "EMP001", "Nguyễn Văn A", 10L, "Phòng IT",
                 1L, "JAVA", "Java", "Backend", 3, new BigDecimal("2.0"),
-                "PENDING", LocalDateTime.now()
+                null, null, "PENDING", LocalDateTime.now()
         );
 
         when(getPendingEmployeeSkillsUseCase.execute(null)).thenReturn(List.of(item));
@@ -78,6 +78,7 @@ class EmployeeSkillApprovalControllerTest {
                 10L, 101L, 1L, "Java", "JAVA", "Backend",
                 4, new BigDecimal("2.0"), "APPROVED", 2L,
                 LocalDateTime.now(), null, "Đạt mức 4/5",
+                4, new BigDecimal("2.0"), null, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
 
@@ -123,7 +124,7 @@ class EmployeeSkillApprovalControllerTest {
         PendingEmployeeSkillItemResult item = new PendingEmployeeSkillItemResult(
                 10L, 101L, "EMP001", "Nguyễn Văn A", 10L, "Phòng IT",
                 1L, "JAVA", "Java", "Backend", 3, new BigDecimal("2.0"),
-                "PENDING", LocalDateTime.now()
+                null, null, "PENDING", LocalDateTime.now()
         );
         com.hrm.employeemanagement.application.dto.user.PageResult<PendingEmployeeSkillItemResult> pageResult =
                 new com.hrm.employeemanagement.application.dto.user.PageResult<>(List.of(item), 0, 10, 1);
